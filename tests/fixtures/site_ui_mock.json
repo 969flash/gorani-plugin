@@ -1,0 +1,1181 @@
+[
+ {
+  "type": "init_state",
+  "version": "0.1",
+  "blocked": false,
+  "paths": {
+   "root": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool",
+   "lot_db": "data/seoul_site.db",
+   "context_db": "data/seoul_context.db",
+   "env": ".env",
+   "install_doc": "docs/install.md"
+  },
+  "generator": {
+   "ok": true,
+   "python": "Rhino CPython",
+   "text": "Rhino 내장"
+  },
+  "sources": [
+   {
+    "id": "lot",
+    "label": "필지",
+    "name": "토지특성정보",
+    "date": "2026-05-13",
+    "age_months": 4.8,
+    "level": "ok",
+    "newer_date": null,
+    "text": "4.8개월"
+   },
+   {
+    "id": "building",
+    "label": "건물",
+    "name": "GIS건물통합정보",
+    "date": "2026-05-09",
+    "age_months": 4.9,
+    "level": "warn",
+    "newer_date": "2026-09-09",
+    "text": "4.9개월 · 새 판 있음"
+   },
+   {
+    "id": "terrain",
+    "label": "지형",
+    "name": "수치지형도 1:5000",
+    "date": "2024~2026",
+    "age_months": 10,
+    "level": "ok",
+    "newer_date": null,
+    "text": "도엽 3/4"
+   },
+   {
+    "id": "api",
+    "label": "키",
+    "name": "VWorld · 공공데이터포털",
+    "date": "",
+    "age_months": 0,
+    "level": "warn",
+    "newer_date": null,
+    "keys": {
+     "vworld": true,
+     "data_go_kr": false
+    },
+    "text": "브이월드만"
+   }
+  ],
+  "warnings": [],
+  "tile": {
+   "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+   "fallback_url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+   "attribution": "© OpenStreetMap contributors"
+  },
+  "map": {
+   "center": [
+    127.0558,
+    37.5446
+   ],
+   "zoom": 17
+  },
+  "options": {
+   "radius": 500,
+   "shape": "buffer",
+   "import_after": true,
+   "make_basemap": true,
+   "paper": "A1",
+   "paper_mm": [
+    841,
+    594
+   ],
+   "scales": [
+    3000
+   ],
+   "basemap_layers_on": [],
+   "make_sheets": true,
+   "sheet_ids": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ],
+   "floor_breaks": [
+    12,
+    20
+   ],
+   "elev_preset": "20m",
+   "make_tables": true,
+   "include_minor_buildings": false,
+   "demolished": "dashed",
+   "refresh_buildings": true,
+   "include_api_objects": false,
+   "include_zoning": false,
+   "terrain_vertex_color": false,
+   "zoom_after_import": true
+  },
+  "recent": [
+   {
+    "pnus": [
+     "1120010200102770017",
+     "1120010200102770018"
+    ],
+    "label": "성수동2가 277-17 외 1",
+    "total_area": 1234.5,
+    "date": "2026-10-06"
+   },
+   {
+    "pnus": [
+     "1120010200102810001"
+    ],
+    "label": "성수동2가 281-1",
+    "total_area": 845,
+    "date": "2026-10-02"
+   }
+  ],
+  "sheet_catalog": [
+   {
+    "id": 1,
+    "name": "위치·범위도"
+   },
+   {
+    "id": 2,
+    "name": "토지이용현황도"
+   },
+   {
+    "id": 3,
+    "name": "지목 현황도"
+   },
+   {
+    "id": 4,
+    "name": "용도지역도"
+   },
+   {
+    "id": 5,
+    "name": "용도지구·구역도"
+   },
+   {
+    "id": 6,
+    "name": "도시계획시설·지구단위계획구역도"
+   },
+   {
+    "id": 7,
+    "name": "건축물 용도 현황도"
+   },
+   {
+    "id": 8,
+    "name": "건축물 층수 현황도"
+   },
+   {
+    "id": 9,
+    "name": "건축물 노후도 현황도"
+   },
+   {
+    "id": 10,
+    "name": "도로현황도(폭원·위계)"
+   },
+   {
+    "id": 11,
+    "name": "공시지가 현황도"
+   },
+   {
+    "id": 12,
+    "name": "표고 분석도",
+    "needs": "terrain"
+   },
+   {
+    "id": 13,
+    "name": "경사 분석도",
+    "needs": "terrain"
+   }
+  ]
+ },
+ {
+  "type": "search_result",
+  "query": "성수동2가 277-17",
+  "seq": null,
+  "matches": [
+   {
+    "center": [
+     127.0556,
+     37.54455
+    ],
+    "pnu": "1120010200102770017",
+    "address": "서울특별시 성동구 성수동2가 277-17",
+    "jibun": "277-17",
+    "land_category": "대",
+    "area": 612.3
+   }
+  ],
+  "message": "후보 1건"
+ },
+ {
+  "type": "lot_state",
+  "lots": [
+   {
+    "warn": null,
+    "pnu": "1120010200102770017",
+    "address": "서울특별시 성동구 성수동2가 277-17",
+    "jibun": "277-17",
+    "land_category": "대",
+    "area": 612.3
+   },
+   {
+    "warn": "multipart",
+    "pnu": "1120010200102770018",
+    "address": "서울특별시 성동구 성수동2가 277-18",
+    "jibun": "277-18",
+    "land_category": "대",
+    "area": 622.2
+   }
+  ],
+  "total_area": 1234.5,
+  "lot_name": "성수동2가_277-17외1",
+  "center": [
+   127.0558,
+   37.54455
+  ],
+  "target_geojson": {
+   "type": "FeatureCollection",
+   "features": [
+    {
+     "type": "Feature",
+     "properties": {
+      "role": "lot",
+      "pnu": "1120010200102770017",
+      "address": "서울특별시 성동구 성수동2가 277-17",
+      "jibun": "277-17",
+      "land_category": "대",
+      "area": 612.3
+     },
+     "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+       [
+        [
+         127.0554,
+         37.5444
+        ],
+        [
+         127.0558,
+         37.5444
+        ],
+        [
+         127.0558,
+         37.5447
+        ],
+        [
+         127.0554,
+         37.5447
+        ],
+        [
+         127.0554,
+         37.5444
+        ]
+       ]
+      ]
+     }
+    },
+    {
+     "type": "Feature",
+     "properties": {
+      "role": "lot",
+      "pnu": "1120010200102770018",
+      "address": "서울특별시 성동구 성수동2가 277-18",
+      "jibun": "277-18",
+      "land_category": "대",
+      "area": 622.2
+     },
+     "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+       [
+        [
+         127.0558,
+         37.5444
+        ],
+        [
+         127.0562,
+         37.5444
+        ],
+        [
+         127.0562,
+         37.5447
+        ],
+        [
+         127.0558,
+         37.5447
+        ],
+        [
+         127.0558,
+         37.5444
+        ]
+       ]
+      ]
+     }
+    },
+    {
+     "type": "Feature",
+     "properties": {
+      "role": "target"
+     },
+     "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+       [
+        [
+         127.0554,
+         37.5444
+        ],
+        [
+         127.0562,
+         37.5444
+        ],
+        [
+         127.0562,
+         37.5447
+        ],
+        [
+         127.0554,
+         37.5447
+        ],
+        [
+         127.0554,
+         37.5444
+        ]
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  "warnings": [
+   {
+    "level": "info",
+    "code": "multipart",
+    "text": "277-18 다조각 — 가장 넓은 조각의 바깥 경계만 씁니다"
+   }
+  ]
+ },
+ {
+  "type": "preflight_result",
+  "seq": 1,
+  "sources": [
+   {
+    "id": "lot",
+    "label": "필지",
+    "name": "토지특성정보",
+    "date": "2026-05-13",
+    "age_months": 4.8,
+    "level": "ok",
+    "newer_date": null,
+    "text": "4.8개월"
+   },
+   {
+    "id": "building",
+    "label": "건물",
+    "name": "GIS건물통합정보",
+    "date": "2026-05-09",
+    "age_months": 4.9,
+    "level": "warn",
+    "newer_date": "2026-09-09",
+    "text": "4.9개월 · 새 판 있음"
+   },
+   {
+    "id": "terrain",
+    "label": "지형",
+    "name": "수치지형도 1:5000",
+    "date": "2024~2026",
+    "age_months": 10,
+    "level": "ok",
+    "newer_date": null,
+    "text": "도엽 3/4",
+    "coverage": {
+     "have": 3,
+     "total": 4,
+     "missing": [
+      {
+       "topo_sheet": "37705073",
+       "dir": "북동",
+       "center": [
+        127.0625,
+        37.56
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "id": "api",
+    "label": "키",
+    "name": "VWorld · 공공데이터포털",
+    "date": "",
+    "age_months": 0,
+    "level": "warn",
+    "newer_date": null,
+    "keys": {
+     "vworld": true,
+     "data_go_kr": false
+    },
+    "text": "브이월드만"
+   }
+  ],
+  "extent_geojson": {
+   "type": "FeatureCollection",
+   "features": [
+    {
+     "type": "Feature",
+     "properties": {
+      "role": "extent",
+      "radius": 500,
+      "shape": "buffer"
+     },
+     "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+       [
+        [
+         127.0618818,
+         37.5447
+        ],
+        [
+         127.0616882,
+         37.5458659
+        ],
+        [
+         127.0611206,
+         37.5469523
+        ],
+        [
+         127.0602177,
+         37.5478852
+        ],
+        [
+         127.0590409,
+         37.548601
+        ],
+        [
+         127.0576706,
+         37.549051
+        ],
+        [
+         127.0562,
+         37.5492045
+        ],
+        [
+         127.0539294,
+         37.549051
+        ],
+        [
+         127.0525591,
+         37.548601
+        ],
+        [
+         127.0513823,
+         37.5478852
+        ],
+        [
+         127.0504794,
+         37.5469523
+        ],
+        [
+         127.0499118,
+         37.5458659
+        ],
+        [
+         127.0497182,
+         37.5447
+        ],
+        [
+         127.0499118,
+         37.5432341
+        ],
+        [
+         127.0504794,
+         37.5421477
+        ],
+        [
+         127.0513823,
+         37.5412148
+        ],
+        [
+         127.0525591,
+         37.540499
+        ],
+        [
+         127.0539294,
+         37.540049
+        ],
+        [
+         127.0554,
+         37.5398955
+        ],
+        [
+         127.0576706,
+         37.540049
+        ],
+        [
+         127.0590409,
+         37.540499
+        ],
+        [
+         127.0602177,
+         37.5412148
+        ],
+        [
+         127.0611206,
+         37.5421477
+        ],
+        [
+         127.0616882,
+         37.5432341
+        ],
+        [
+         127.0618818,
+         37.5447
+        ]
+       ]
+      ]
+     }
+    },
+    {
+     "type": "Feature",
+     "properties": {
+      "role": "topo_sheet",
+      "topo_sheet": "37705071",
+      "year": 2025,
+      "have": true
+     },
+     "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+       [
+        [
+         127.025,
+         37.5225
+        ],
+        [
+         127.05,
+         37.5225
+        ],
+        [
+         127.05,
+         37.5475
+        ],
+        [
+         127.025,
+         37.5475
+        ],
+        [
+         127.025,
+         37.5225
+        ]
+       ]
+      ]
+     }
+    },
+    {
+     "type": "Feature",
+     "properties": {
+      "role": "topo_sheet",
+      "topo_sheet": "37705072",
+      "year": 2025,
+      "have": true
+     },
+     "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+       [
+        [
+         127.05,
+         37.5225
+        ],
+        [
+         127.075,
+         37.5225
+        ],
+        [
+         127.075,
+         37.5475
+        ],
+        [
+         127.05,
+         37.5475
+        ],
+        [
+         127.05,
+         37.5225
+        ]
+       ]
+      ]
+     }
+    },
+    {
+     "type": "Feature",
+     "properties": {
+      "role": "topo_sheet",
+      "topo_sheet": "37705081",
+      "year": 2025,
+      "have": true
+     },
+     "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+       [
+        [
+         127.025,
+         37.5475
+        ],
+        [
+         127.05,
+         37.5475
+        ],
+        [
+         127.05,
+         37.5725
+        ],
+        [
+         127.025,
+         37.5725
+        ],
+        [
+         127.025,
+         37.5475
+        ]
+       ]
+      ]
+     }
+    },
+    {
+     "type": "Feature",
+     "properties": {
+      "role": "topo_sheet",
+      "topo_sheet": "37705073",
+      "year": null,
+      "have": false
+     },
+     "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+       [
+        [
+         127.05,
+         37.5475
+        ],
+        [
+         127.075,
+         37.5475
+        ],
+        [
+         127.075,
+         37.5725
+        ],
+        [
+         127.05,
+         37.5725
+        ],
+        [
+         127.05,
+         37.5475
+        ]
+       ]
+      ]
+     }
+    },
+    {
+     "type": "Feature",
+     "properties": {
+      "role": "frame",
+      "scale": 3000,
+      "paper": "A1",
+      "over": false
+     },
+     "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+       [
+        [
+         127.0414648,
+         37.536523
+        ],
+        [
+         127.0701352,
+         37.536523
+        ],
+        [
+         127.0701352,
+         37.552577
+        ],
+        [
+         127.0414648,
+         37.552577
+        ],
+        [
+         127.0414648,
+         37.536523
+        ]
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  "estimate": {
+   "buildings": 1842,
+   "lots": 2310,
+   "topo_have": 3,
+   "topo_total": 4,
+   "seconds": 40,
+   "mb": 8
+  },
+  "empty_sheets": [
+   10
+  ],
+  "warnings": [
+   {
+    "level": "warn",
+    "code": "stale_building",
+    "text": "건물 자료 4.9개월 경과 · 새 판 있음",
+    "detail": "⚠ 건물 자료가 4.9개월 지났습니다(GIS건물통합정보 2026-05-09). 브이월드에서 새 전체본(기준일 2026-09-09)이 확인됨 → data_sources.md §0 절차로 교체하세요",
+    "action": {
+     "label": "절차 열기",
+     "path": "docs/data_sources.md"
+    }
+   },
+   {
+    "level": "warn",
+    "code": "coverage",
+    "text": "도엽 37705073(북동쪽) 지형 자료 없음",
+    "detail": "도엽 37705073(북동쪽) 지형 자료 없음 — 그 구역 지형·도로면·건물 층수 보완 빠짐",
+    "center": [
+     127.0625,
+     37.56
+    ]
+   }
+  ]
+ },
+ {
+  "type": "progress",
+  "state": "running",
+  "phase": "query",
+  "phase_status": {
+   "query": "running",
+   "refresh": "skipped",
+   "terrain": "pending",
+   "write_3dm": "pending",
+   "basemap": "pending",
+   "sheets": "pending",
+   "tables": "pending",
+   "import": "skipped"
+  },
+  "phase_detail": {
+   "import": "건너뜀 — 베이크로 대체",
+   "refresh": "건너뜀 — v1 미구현"
+  },
+  "percent": 4
+ },
+ {
+  "type": "log",
+  "text": "필지 2,310건 · 건물 1,842동 조회\n도엽 37705071·37705072·37705081 로드 (37705073 없음)",
+  "level": "info"
+ },
+ {
+  "type": "progress",
+  "state": "running",
+  "phase": "terrain",
+  "phase_status": {
+   "query": "done",
+   "refresh": "skipped",
+   "terrain": "running",
+   "write_3dm": "pending",
+   "basemap": "pending",
+   "sheets": "pending",
+   "tables": "pending",
+   "import": "skipped"
+  },
+  "phase_detail": {
+   "query": "1,842동 · 3도엽",
+   "refresh": "건너뜀 — v1 미구현",
+   "terrain": "12만 점…",
+   "import": "건너뜀 — 베이크로 대체"
+  },
+  "percent": 38
+ },
+ {
+  "type": "log",
+  "text": "⚠ 도엽 37705073 없음 — 북동 구역 지형 생략",
+  "level": "warn"
+ },
+ {
+  "type": "progress",
+  "state": "running",
+  "phase": "sheets",
+  "phase_status": {
+   "query": "done",
+   "refresh": "skipped",
+   "terrain": "done",
+   "write_3dm": "done",
+   "basemap": "done",
+   "sheets": "running",
+   "tables": "pending",
+   "import": "skipped"
+  },
+  "phase_detail": {
+   "query": "1,842동 · 3도엽",
+   "refresh": "건너뜀 — v1 미구현",
+   "terrain": "정합 중앙값 1.2 m",
+   "write_3dm": "18.4 MB",
+   "basemap": "BM 레이어 14",
+   "sheets": "7/13",
+   "import": "건너뜀 — 베이크로 대체"
+  },
+  "percent": 71
+ },
+ {
+  "type": "progress",
+  "state": "running",
+  "phase": "tables",
+  "phase_status": {
+   "query": "done",
+   "refresh": "skipped",
+   "terrain": "done",
+   "write_3dm": "done",
+   "basemap": "done",
+   "sheets": "done",
+   "tables": "running",
+   "import": "skipped"
+  },
+  "phase_detail": {
+   "query": "1,842동 · 3도엽",
+   "refresh": "건너뜀 — v1 미구현",
+   "terrain": "정합 중앙값 1.2 m",
+   "write_3dm": "18.4 MB",
+   "basemap": "BM 레이어 14",
+   "sheets": "13장(빈 1)",
+   "tables": "CSV 3/5",
+   "import": "건너뜀 — 베이크로 대체"
+  },
+  "percent": 96
+ },
+ {
+  "type": "done",
+  "dir": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1",
+  "lot_name": "성수동2가_277-17외1",
+  "elapsed_s": 41,
+  "options": {
+   "radius": 500,
+   "shape": "buffer",
+   "import_after": true,
+   "make_basemap": true,
+   "paper": "A1",
+   "paper_mm": [
+    841,
+    594
+   ],
+   "scales": [
+    3000
+   ],
+   "basemap_layers_on": [],
+   "make_sheets": true,
+   "sheet_ids": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ],
+   "floor_breaks": [
+    12,
+    20
+   ],
+   "elev_preset": "20m",
+   "make_tables": true,
+   "include_minor_buildings": false,
+   "demolished": "dashed",
+   "refresh_buildings": true,
+   "include_api_objects": false,
+   "include_zoning": false,
+   "terrain_vertex_color": false,
+   "zoom_after_import": true
+  },
+  "context": {
+   "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/context.3dm",
+   "layers": 12,
+   "buildings": 1842,
+   "lots": 2310,
+   "demolished": 9,
+   "tin_points": 5120,
+   "origin": [
+    198000,
+    551800
+   ],
+   "imported": true,
+   "import_text": ""
+  },
+  "basemap": {
+   "ready": true,
+   "paper": "A1",
+   "layers": 14,
+   "exported": []
+  },
+  "sheets": [
+   {
+    "id": 1,
+    "name": "위치·범위도",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/01_위치범위도.svg",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 2,
+    "name": "토지이용현황도",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/02_토지이용현황도.svg",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 3,
+    "name": "지목 현황도",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/03_지목 현황도.svg",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 4,
+    "name": "용도지역도",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/04_용도지역도.svg",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 5,
+    "name": "용도지구·구역도",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/05_용도지구구역도.svg",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 6,
+    "name": "도시계획시설·지구단위계획구역도",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/06_도시계획시설지구단위계획구역도.svg",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 7,
+    "name": "건축물 용도 현황도",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/07_건축물 용도 현황도.svg",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 8,
+    "name": "건축물 층수 현황도",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/08_건축물 층수 현황도.svg",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 9,
+    "name": "건축물 노후도 현황도",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/09_건축물 노후도 현황도.svg",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 10,
+    "name": "도로현황도(폭원·위계)",
+    "path": null,
+    "empty": true,
+    "reason": "데이터 없음"
+   },
+   {
+    "id": 11,
+    "name": "공시지가 현황도",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/11_공시지가 현황도.svg",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 12,
+    "name": "표고 분석도",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/12_표고 분석도.svg",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 13,
+    "name": "경사 분석도",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/13_경사 분석도.svg",
+    "empty": false,
+    "reason": ""
+   }
+  ],
+  "tables": [
+   {
+    "name": "parcels.csv",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/tables/parcels.csv"
+   },
+   {
+    "name": "buildings.csv",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/tables/buildings.csv"
+   },
+   {
+    "name": "land_use.csv",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/tables/land_use.csv"
+   },
+   {
+    "name": "zoning.csv",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/tables/zoning.csv"
+   },
+   {
+    "name": "roads.csv",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/tables/roads.csv"
+   }
+  ],
+  "files": [
+   {
+    "name": "context.3dm",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/context.3dm",
+    "bytes": 18400000
+   },
+   {
+    "name": "context.json",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/context.json",
+    "bytes": 2100
+   },
+   {
+    "name": "log.txt",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/log.txt",
+    "bytes": 48200
+   },
+   {
+    "name": "sheets/ (13)",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets",
+    "bytes": 6200000
+   },
+   {
+    "name": "tables/ (5)",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/tables",
+    "bytes": 410000
+   }
+  ],
+  "warnings": [
+   {
+    "level": "warn",
+    "code": "height_estimate",
+    "text": "건물 높이 추정 비중 큼 — A+B 등급 61 %",
+    "detail": "건물 높이 추정 비중 큼 — 대장 높이·층수(A+B) 61 %. 시트 8·9 여백 카드에 표기됨"
+   },
+   {
+    "level": "warn",
+    "code": "stale_building",
+    "text": "건물 자료 4.9개월 경과 · 새 판 있음",
+    "detail": "⚠ 건물 자료가 4.9개월 지났습니다(GIS건물통합정보 2026-05-09). 브이월드에서 새 전체본(기준일 2026-09-09)이 확인됨 → data_sources.md §0 절차로 교체하세요",
+    "action": {
+     "label": "절차 열기",
+     "path": "docs/data_sources.md"
+    }
+   },
+   {
+    "level": "info",
+    "code": "mismatch",
+    "text": "지적–지형 불일치 의심 7건",
+    "detail": "레이어 CTX::QA::cadastre_mismatch(잠금·숨김). 현장 확인 대상",
+    "center": [
+     127.0571,
+     37.5452
+    ]
+   }
+  ],
+  "quality": {
+   "height_src": {
+    "height": 0.34,
+    "grnd_flr": 0.27,
+    "topo_flr": 0.29,
+    "default": 0.1
+   },
+   "align": {
+    "median": 1.2,
+    "p90": 3.9,
+    "n": 17581,
+    "low_sample": false
+   },
+   "skipped": {
+    "buildings": 3,
+    "lots": 1
+   },
+   "mismatch_count": 7,
+   "dates": {
+    "lot": "2026-05-13",
+    "building": "2026-05-09",
+    "terrain": "2024~2026",
+    "upis": "2026-09"
+   }
+  },
+  "qa_geojson": {
+   "type": "FeatureCollection",
+   "features": [
+    {
+     "type": "Feature",
+     "properties": {
+      "role": "qa_mismatch"
+     },
+     "geometry": {
+      "type": "Point",
+      "coordinates": [
+       127.0571,
+       37.5452
+      ]
+     }
+    },
+    {
+     "type": "Feature",
+     "properties": {
+      "role": "qa_mismatch"
+     },
+     "geometry": {
+      "type": "Point",
+      "coordinates": [
+       127.0549,
+       37.5439
+      ]
+     }
+    },
+    {
+     "type": "Feature",
+     "properties": {
+      "role": "qa_mismatch"
+     },
+     "geometry": {
+      "type": "Point",
+      "coordinates": [
+       127.0566,
+       37.5431
+      ]
+     }
+    }
+   ]
+  }
+ },
+ {
+  "type": "exported",
+  "ok": true,
+  "dir": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1",
+  "scale": 3000,
+  "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/basemap_3000.ai",
+  "text": ""
+ }
+]

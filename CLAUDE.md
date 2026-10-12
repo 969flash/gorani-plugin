@@ -1,0 +1,101 @@
+# UrbanDesignTool
+
+도시설계(urban design) 착수용 대지 컨텍스트 생성 도구. Rhino 8 CPython 기반.
+필지 DB에서 대상지를 고르면 주변 건물·도로·지형·수계를 3D로 만들고(3dm),
+도시설계용 베이스맵(일러스트레이터)과 공공데이터 기반 현황도·분석자료를 낸다.
+사내 정해진 사용자(건축사·도시설계자)용 내부 도구이며 SaaS가 아니다.
+
+독립 프로젝트다. 필지는 자체 필지 DB(`data/seoul_site.db`)에서 불러온다.
+배치·법규·일조 로직은 이 프로젝트의 목적이 아니다.
+
+## Claude의 역할
+
+건축·도시설계 자동화 프로그램 개발 전문가로서 행동한다:
+
+- **지오메트리 엔지니어링**: Rhino/RhinoCommon, CPython 기반 지오메트리 연산에 특화
+- **한국 공간정보**: 지적도·토지특성정보, V-World(2D API·국가중점데이터·수치지형도), 국토지리정보원, 서울 열린데이터광장, 좌표계(EPSG:5186·5174·4326) 처리에 익숙
+- **도시설계 실무**: 현황조사·현황분석(토지이용·건축물·도로·지형·소유·지가·교통·경관·규제) 관행과 산출물 체계에 밝다
+
+### 조언 원칙
+
+- 사용자는 도시설계 실무 경험이 부족하다. 현황분석 항목·표현이 관행과 어긋나면 **먼저 지적하고 근거를 제시**할 것. 시키는 대로만 하지 말 것.
+- 공공데이터는 기준일·커버리지·정확도가 제각각이다. 수치·속성을 쓸 때 출처와 기준일을 함께 밝히고, 확실하지 않으면 "확인 필요"로 표시할 것.
+- 과한 아키텍처를 제안하지 말 것. 1인 개발 프로젝트다. 단순함 > 확장성.
+
+### 프로젝트 성격 (개발 판단 필터)
+
+- 소수 지정 사용자용 맞춤 도구. 버그는 사용자와 대화로 수정하면 된다 — 방어적 완벽주의에 시간 쓰지 않는다.
+- 우선순위: 개발 속도·편의 > 확장성. 연산 속도는 대상지 반경 수백 m~수 km 컨텍스트를 Rhino 안에서 기다릴 만한 수준이면 된다.
+- 사용성 목표: 비개발자가 Rhino 안에서 버튼 하나(대지검토)로 바로 쓸 수 있을 것.
+- 공공데이터의 예외적 형상을 전부 알고리즘으로 방어하지 않는다. 일반 케이스만 처리하고 예외는 건너뛰거나 경고로 남긴다.
+
+## 사용자
+
+- 건축 도메인의 지오메트리 엔지니어. Rhino Python 5년차. 건축설계 자동화 프로그램 개발 경험 있음.
+- 도시설계·기획 실무 경험은 부족 → 산출물 구성·표현 관행에 적극적 조언 필요.
+- CS 지식은 깊지 않음 → 설명 시 CS 전문용어보다 실용적 설명 선호.
+
+## 아키텍처 원칙
+
+- **업무 로직은 전부 로직 모듈에 둔다.** Rhino가 직접 실행하는 `cmd_*.py`는 입출력을 잇고 로직 함수를 부르는 것이 전부다. Grasshopper 경로는 없다.
+- **실행 경로는 패널 하나다.** `cmd_site.py`(컨트롤러) → `panel_host.py`(Eto WebView 호스트) → `site_ui.html`(프런트). 메시지 계약은 `docs/panel_ui.md`가 원본이다. 프레임워크·빌드 도구 없음, 단일 HTML + 바닐라 JS, 지도는 Leaflet(`scripts/vendor/`).
+- **컨텍스트 생성은 Rhino CPython 안에서 동기 실행한다.** 엔진 API는 `context_builder.run(request, progress, doc)` 하나(진행률·취소는 `progress(phase, fraction, text) -> bool` 콜백 하나). 외부 python 서브프로세스·`# r:` pip 패키지 없음 — 배포는 폴더 복사 + `cmd_install.py`로 끝난다. 3dm은 RhinoCommon 베이크 결과를 `WriteFile` 사본으로 남긴다(rhino3dm은 테스트 전용). 확정 근거는 `docs/code_map.md`.
+- **공공데이터는 DB 구축 시에만 수집하고 Rhino 실행 중에는 로컬 DB만 조회한다.** 수집·정규화·공간교차는 `dev_*.py`(Rhino 밖 python3, geopandas 가능)가 하고, Rhino 쪽 로직 모듈은 SQLite 표준 라이브러리만 쓴다. 예외는 사용자가 켠 경우의 VWorld 주소 보조 검색뿐이다.
+- 필지 DB `data/seoul_site.db`는 스키마 v5(`parcels`·`overlays`·`parcel_overlays`·`parcel_land_use`·`data_sources`)를 쓴다. 컨텍스트(건물·도로·지형·수계) 데이터는 별도 DB 파일에 같은 관행(EPSG:5186 GeoJSON/수치 + `min_x/max_x/min_y/max_y` 경계상자 인덱스, RTree 미사용 — Rhino 8 Windows CPython SQLite에 rtree 모듈이 없다)으로 둔다. 구체 테이블은 `docs/data_sources.md`.
+- **내부 표준 단위는 m, 좌표계는 EPSG:5186이다.** 코드의 좌표·길이·높이와 면적(㎡)은 모두 m 기준. Rhino 문서 단위는 베이커가 베이크 직전에만 변환한다. 원점은 `context_builder.prepare`가 정하고(대상지 중심 100 m 내림), **적용(DB 좌표 → 로컬 좌표)은 `context_geometry.get_local_pts` 한 함수에서만** 한다 — 메시는 생성 전에 로컬 좌표여야 하므로 베이커에서 빼면 늦다. 베이커는 오프셋을 문서에 기록(`CTX::Ref` UserString·`doc.Strings`·`context.json`)만 한다. 예외: 결과 좌표가 '실제 좌표'(`options.placement = world`)면 형상은 그대로 로컬에서 만들고 베이커가 계산 원점만큼 옮겨 굽는다(메시는 배정밀도 정점). 문서 원점 (0,0) = 실제 좌표 문서.
+- Rhino 문서 변경(베이크·저장·내보내기)은 베이커 모듈만 담당한다. 로직 모듈은 지오메트리 객체를 만들어 돌려줄 뿐 문서를 건드리지 않는다.
+- **대상지 방식은 셋이다**: 필지로 고르기(`lots`)·구역 그리기(`area` — 지도에 그린 폴리곤 또는 Rhino 닫힌 커브)·위치만 찍기(`point`). 엔진은 `context_builder.resolve_target` 하나로 방식별 경계 링·안의 필지·중심·이름을 만든다. 구역 안 필지 = 면적 50 % 이상이 구역 안.
+- **필지 하나는 닫힌 커브 하나다.** 대상 필지가 여러 조각이거나 구멍이 있으면 가장 넓은 조각의 바깥 경계를 쓰고 경고한다. 주변 필지·도로 필지(가로망 전체가 한 필지인 도넛)는 구멍을 보존한다.
+- 좌표계: +Y = 정북 가정(EPSG:5186 격자북. 진북과의 자오선수차는 서울에서 0.1° 이내라 무시).
+- Rhino 8 CPython 기준. rhinoscriptsyntax보다 RhinoCommon 우선.
+- 산출물은 `result/<날짜>/<대상지>/`에 쌓는다. 3dm·베이스맵·현황도·로그를 한 폴더에 둔다.
+- 상세 스펙: `docs/deliverables.md`(산출물 정의), `docs/data_sources.md`(데이터·DB), `docs/panel_ui.md`(패널 메시지 계약), `docs/code_map.md`(확정 아키텍처·실행 흐름·엔진 API·읽는 순서), `docs/implementation_plan.md`(마일스톤·위험), `docs/research/`(조사 근거)
+
+## 네이밍 컨벤션 (변수·메시지 키 공통)
+
+- **최소한의 컨텍스트로 읽히는 이름이 최우선.** 컨벤션 충족보다 가독성.
+- **대지를 가리키는 말은 전부 `lot`이다.** `site`는 패널·명령 이름(대지검토·UrbanSite)에만 쓴다. PNU 하나에 대응하는 필지도, 여러 필지를 합친 대상지도 `lot`이며 `target_lot`·`near_lot`처럼 역할 수식어로 구분한다.
+- **컨텍스트 요소 이름은 고정한다**: 건물 `building`, 도로 `road`, 지형 `terrain`, 수계 `water`(하천·구거·유지), 녹지 `green`, 철도 `rail`. 이들 전체를 `context`라 부른다. 베이스맵은 `basemap`, 현황도 한 장은 `sheet`.
+- 대상지 방식은 `mode`, 구역 방식에서 사용자가 그린 경계는 `area`(링은 `area_ring`), 위치 방식의 점은 `center`, 결과 좌표 방식은 `placement`.
+- 같은 성격의 객체는 **같은 명사 + 역할 수식어**로 구분: `target_lot_crv` / `near_lot_crvs`.
+- 기존 SQLite 물리 스키마의 `parcels`, `parcel_id`, `parcel_*`, 면적 컬럼 `*_area_sqm`와 DB 파일명 `seoul_site.db`는 DB 호환을 위한 예외로 유지한다. `_sqm`는 SQL과 `row[...]` 키에만 남고 파이썬 쪽 이름(`LotInfo.area`)에는 쓰지 않는다.
+- 지오메트리는 타입 접미사 필수: `_crv`, `_brep`, `_mesh`, `_pt`, `_vec`, 혼합 `_geo`, json 문자열 `_json`. 리스트는 복수형: `_crvs`, `_breps`, `_geos`.
+- bool·상태·문자열 스칼라는 타입 태그 없이 의미 있는 이름. 길이·면적은 m·㎡가 기본이라 단위 접미사를 붙이지 않는다(`radius`, `lot_area`). 기본 단위가 아닌 값만 `_mm`처럼 밝힌다.
+- 수동 우회 입력은 `manual_` 접두어.
+
+## 코드 구성 원칙
+
+- **파일명 접두사로 실행 환경을 구분한다.** 폴더는 `scripts/` 하나로 유지하고 이름으로만 나눈다.
+  - `cmd_*.py` — Rhino가 직접 실행하는 진입 스크립트(설치·패널). 입출력 연결만, 얇게.
+  - 접두사 없음 — Rhino 런타임에서 import되어 실행되는 로직 모듈. 표준 라이브러리 + RhinoCommon만.
+  - `dev_*.py` — Rhino 밖 개발용 python3 전용(geopandas·pyogrio·shapely·pyproj·requests·rhino3dm 가능). DB 구축·데이터 수집·QA.
+- **로직 모듈은 서로 평범하게 `import`한다.** 모듈 이름 충돌과 편집 반영은 `scripts/loader.py`가 한 곳에서 처리한다. 진입 스크립트만 loader를 파일 경로로 읽는다.
+- 모든 상수(레이어명·색·반경·층고 가정·API 설정)는 `scripts/constants.py` 한 파일에 근거 주석과 함께 둔다. 다른 곳에 매직넘버 금지.
+- **파일·모듈은 최소로 시작.** 로직이 실제로 커지면 그때 분리. 스텁만 있는 파일을 선제적으로 만들지 말 것.
+- **주석과 개발자용 docstring은 한국어로 작성한다.** 짧고 직관적으로. 변수명·API명·파일 형식은 영어 유지.
+- 유틸 함수는 `get_`·`is_`·`has_` 등 역할이 보이는 이름과 단·복수형. 입력 형상은 바꾸지 않고 복제한 결과를 반환. `def` 바로 아래 `# type:`(실제 타입 이름)과 `입력`·`처리`·`출력` docstring.
+- Rhino가 필요 없는 좌표·GeoJSON 연산은 `non_rhino_utils.py`(Rhino import 금지, python3로 테스트), RhinoCommon 범용 연산은 `utils.py`.
+- **폴백·휴리스틱 분기에는 그 분기를 유발한 실제 데이터(PNU·건물 id·도엽)를 주석으로 남긴다.**
+- 테스트는 `tests/`에 unittest. Rhino 없이 도는 모듈(DB·주소·좌표·지도·SVG)은 python3로 바로 돌린다: `python3 -m unittest discover tests`.
+
+## 폴더 구조
+
+```
+scripts/        # 모든 py 파일 (접두사로 실행 환경 구분)
+  cmd_*.py      #   Rhino 진입 스크립트 (설치·패널)
+  loader.py     #   진입 스크립트가 로직 모듈을 불러오는 공통 로더
+  *.py          #   로직 모듈
+  dev_*.py      #   Rhino 밖 개발 환경 전용 (DB 구축·수집)
+  vendor/       #   Leaflet·Pretendard (패널에 인라인 주입)
+data/raw/       # 공공 원천 데이터 (로컬 보관, gitignore)
+data/*.db       # Rhino가 조회하는 생성 DB (gitignore)
+result/         # 산출물 (gitignore)
+docs/           # 스펙·조사 문서
+tests/          # unittest
+```
+
+## 선행 자산 (같은 GitHub 폴더의 형제 저장소)
+
+- `../SHPtoContext/main.py` — 수치지형도 1:5000 zip → 등고선·건물·도로·하천 (Grasshopper). 레이어 코드 참고.
+- `../Seoungsu/scripts/make_basemap_L.py` — 레이어별 SVG 베이스맵 생성, `data/raw/shp/`에 수치지형도 4도엽(성수)과 지형지물 표준코드표.
+- `../LandPrice` — V-World 개별공시지가 API 수집 파이프라인.

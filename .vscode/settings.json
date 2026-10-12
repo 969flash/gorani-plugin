@@ -1,0 +1,15 @@
+{
+    "// scripts/": "로직 모듈은 `import constants`처럼 평평한 이름으로 서로를 부른다. 이 경로를 넣어야 F12(정의로 이동)가 동작한다",
+    "python.analysis.extraPaths": [
+        "scripts"
+    ],
+    "python.autoComplete.extraPaths": [
+        "scripts"
+    ],
+    "// Rhino": "RhinoCommon은 Rhino 안에서만 있다. 밖에서는 미해석이 정상이라 그 경고만 끈다",
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportMissingImports": "none",
+        "reportMissingModuleSource": "none"
+    },
+    "python.analysis.typeCheckingMode": "off"
+}

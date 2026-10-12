@@ -1,0 +1,1438 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>대지검토</title>
+<!--VENDOR_CSS-->
+<style>
+/* 번들 폰트 — 호스트가 base64 data URI로 치환 */
+@font-face {
+  font-family: "Pretendard Variable";
+  src: url("<!--FONT_WOFF2-->") format("woff2-variations");
+  font-weight: 45 920;
+  font-display: swap;
+}
+/* ── 토큰 (ui_spec §9) ── */
+:root {
+  --bg: #f5f6f7; --surface: #fff; --border: #e3e6ea;
+  --ink: #1c2128; --sub: #6b7480; --muted: #a0a7b1;
+  --accent: #2f6fed; --accent-dn: #1f55c4; --accent-bg: #e9f0fd;
+  --ok: #1f7a4d; --warn: #b4600a; --warn-bg: #fff4e5; --danger: #c43c3c; --danger-bg: #fdeaea;
+  --bar1: #3b4452; --bar2: #6b7480; --bar3: #a0a7b1; --bar4: #d5d9de;
+  --mono: "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  display: flex; flex-direction: column; background: var(--bg); color: var(--ink);
+  font: 400 13px/1.5 "Pretendard Variable", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  overflow: hidden;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: default; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h2:focus-visible { outline: none; }
+[hidden] { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--mono); font-size: 12px; }
+.hint { color: var(--sub); font-size: 12px; }
+.sub { color: var(--sub); font-weight: 400; font-size: 12px; }
+h2 { font-size: 16px; font-weight: 600; line-height: 1.3; margin: 0 0 8px; }
+h3 { font-size: 13px; font-weight: 600; line-height: 1.4; margin: 12px 0 8px; display: flex; align-items: center; gap: 8px; }
+
+/* ── 헤더 ── */
+header { flex: none; height: 56px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.titlebar { height: 28px; display: flex; align-items: center; justify-content: space-between; }
+.titlebar h1 { font-size: 16px; font-weight: 600; margin: 0; line-height: 28px; }
+#badges { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--sub); background: none; border: 0; padding: 0 4px; height: 24px; border-radius: 999px; }
+#badges:hover { background: var(--bg); }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; vertical-align: middle; }
+.dot.lv-ok { background: var(--ok); } .dot.lv-warn { background: var(--warn); } .dot.lv-danger { background: var(--danger); } .dot.lv-missing { background: var(--muted); }
+.stepper { height: 28px; margin: 0; padding: 0; list-style: none; display: flex; align-items: center; }
+.stepper li { display: flex; align-items: center; flex: 1; }
+.stepper li:last-child { flex: none; }
+.stepper li::after { content: ""; flex: 1; height: 1px; background: var(--border); margin: 0 8px; }
+.stepper li:last-child::after { display: none; }
+.stepper button { display: flex; align-items: center; gap: 6px; background: none; border: 0; padding: 0 2px; height: 24px; color: var(--sub); font-size: 12px; white-space: nowrap; }
+.stepper button .o { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--muted); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; line-height: 1; }
+.stepper button[aria-current] { color: var(--ink); font-weight: 600; }
+.stepper button[aria-current] .o { background: var(--accent); border-color: var(--accent); }
+.stepper button.done { color: var(--ink); }
+.stepper button.done .o { border-color: var(--accent); color: var(--accent); }
+.stepper button:disabled { color: var(--muted); }
+
+/* ── 띠·블로커·토스트 ── */
+#init_warnings:empty { display: none; }
+.band { padding: 6px 12px; margin: 8px 16px 0; border-left: 3px solid var(--muted); background: var(--surface); font-size: 12px; display: flex; gap: 8px; align-items: flex-start; }
+.band.lv-warn { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
+.band.lv-danger { border-color: var(--danger); background: var(--danger-bg); color: var(--danger); }
+.band.lv-info { color: var(--sub); }
+.band .btn { margin-left: auto; flex: none; }
+#blocker { position: absolute; inset: 0; background: var(--bg); padding: 24px 16px; z-index: 1000; overflow: auto; }
+#blocker h2 { margin-bottom: 16px; }
+.check-list { display: grid; grid-template-columns: 1.2em 7em 1fr; gap: 4px 8px; margin-bottom: 16px; }
+.check-list .ok { color: var(--ok); } .check-list .bad { color: var(--danger); } .check-list .opt { color: var(--muted); }
+#toast { position: absolute; left: 50%; bottom: 80px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 8px 14px; border-radius: 6px; font-size: 12px; z-index: 60; opacity: 0; transition: opacity .15s; pointer-events: none; }
+#toast.show { opacity: 1; }
+
+/* ── 본문·섹션 ── */
+main { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+section { display: none; height: 100%; }
+body[data-step="1"] section[data-step="1"], body[data-step="2"] section[data-step="2"] { display: flex; flex-direction: column; padding: 8px 16px 0; }
+body[data-step="3"] section[data-step="3"], body[data-step="4"] section[data-step="4"] { display: block; overflow: auto; padding: 8px 16px 12px; }
+fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: contents; }
+body[data-run="running"] section[data-step="1"], body[data-run="running"] section[data-step="2"], body[data-run="running"] section[data-step="3"] { pointer-events: none; }
+section[data-step="1"] fieldset, section[data-step="2"] fieldset { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.range-controls { flex: none; padding: 6px 0 8px; }
+.range-controls .row { min-height: 32px; }
+
+/* ── 버튼·입력 ── */
+.btn { height: 36px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn:hover:not(:disabled) { background: var(--bg); }
+.btn.primary { background: var(--accent-dn); border-color: var(--accent-dn); color: #fff; }
+.btn.primary:hover:not(:disabled) { background: var(--accent); }
+.btn.sm { height: 28px; padding: 0 10px; font-size: 12px; }
+.btn:disabled { color: var(--muted); background: var(--surface); }
+.btn.primary:disabled { background: var(--border); border-color: var(--border); }
+.btn small { font-size: 11px; color: var(--sub); font-weight: 400; }
+.btn.primary small { color: rgba(255,255,255,.8); }
+.link { background: none; border: 0; padding: 0; color: var(--accent); font-size: 12px; }
+.link:hover { text-decoration: underline; }
+.link:disabled { color: var(--muted); text-decoration: none; }
+.danger-text { color: var(--danger); }
+input[type="text"], input[type="search"], input[type="number"], select { height: 36px; padding: 0 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+input[type="number"].sm, select.sm { height: 28px; padding: 0 6px; font-size: 12px; }
+input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; margin: 0 6px 0 0; accent-color: var(--accent); vertical-align: -3px; }
+label.chk { display: flex; align-items: center; min-height: 32px; }
+
+/* ── ① 대상지 ── */
+.search { display: flex; gap: 8px; position: relative; }
+.search input { flex: 1; min-width: 0; }
+#search_msg { min-height: 18px; margin: 2px 0 4px; }
+#search_list { position: absolute; top: 40px; left: 0; right: 0; z-index: 20; margin: 0; padding: 4px 0; list-style: none; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; max-height: 264px; overflow: auto; }
+#search_list li { height: 32px; padding: 0 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+#search_list li .sub { margin-left: auto; white-space: nowrap; }
+#search_list li[aria-selected="true"], #search_list li:hover { background: var(--accent-bg); }
+.map-slot { position: relative; isolation: isolate; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: #e9ecef; }
+.map-slot-1 { flex: 1; min-height: 200px; }
+.map-slot-2 { flex: 1; min-height: 320px; }
+#map { width: 100%; height: 100%; }
+#map_park { display: none; }
+.map-chips { position: absolute; left: 8px; bottom: 8px; z-index: 800; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
+.chip { background: rgba(255,255,255,.92); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-size: 12px; color: var(--sub); }
+.chip.lv-danger { color: var(--danger); }
+.leaflet-container { font: inherit; }
+.map-label { background: none; border: 0; box-shadow: none; color: #5c5c58; font-size: 11px; padding: 0; }
+.map-label.extent { color: var(--ink); font-weight: 600; }
+.map-label.frame { color: var(--accent); }
+.map-label.topo-miss { color: #5c5c58; font-weight: 600; }
+.topo-missing { fill: url(#hatch) !important; fill-opacity: 1 !important; }
+/* 대상지 방식 */
+.mode-intro { margin: 8px 0 4px; }
+.chooser { overflow: auto; flex: 1; min-height: 0; padding-bottom: 12px; }
+.hero { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 14px 12px; margin: 4px 0 16px; }
+.hero .lead { font-size: 15px; font-weight: 600; line-height: 1.45; margin: 0 0 4px; }
+.hero .what { color: var(--sub); font-size: 12px; margin: 0 0 10px; }
+.hero ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.hero li { background: var(--bg); border-radius: 6px; padding: 6px 8px; font-size: 12px; line-height: 1.35; }
+.hero li b { display: block; font-size: 12px; font-weight: 600; }
+.hero .src { color: var(--muted); font-size: 11px; margin: 10px 0 0; }
+.mode-cards { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.mode-card { text-align: left; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); display: flex; flex-direction: column; gap: 3px; }
+.mode-card:hover { border-color: var(--accent); background: var(--accent-bg); }
+.mode-card b { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.mode-card .last { font-size: 11px; color: var(--accent); font-weight: 400; }
+.mode-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; }
+.mode-bar b { font-weight: 600; font-size: 13px; }
+.area-tools { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.draw-band { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 6px 10px; margin: 6px 0; background: var(--accent-bg); border-radius: 6px; font-size: 12px; }
+.draw-band .acts { margin-left: auto; display: flex; gap: 6px; }
+.target-line { display: flex; align-items: center; gap: 8px; min-height: 28px; font-size: 13px; }
+.target-line .link { margin-left: auto; }
+.leaflet-container.drawing { cursor: crosshair; }
+.lot-head { display: flex; align-items: center; height: 32px; margin-top: 8px; gap: 8px; }
+.lot-head .total { font-size: 20px; font-weight: 600; line-height: 1.2; }
+.lot-head .link { margin-left: auto; }
+#lot_rows { max-height: 132px; overflow: auto; }
+.chip-row { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 4px; border-radius: 6px; cursor: pointer; }
+.chip-row:hover, .chip-row:focus-visible { background: var(--accent-bg); }
+.chip-row .x { margin-left: auto; background: none; border: 0; color: var(--danger); width: 28px; height: 28px; border-radius: 999px; }
+.badge-warn { font-size: 11px; color: var(--warn); background: var(--warn-bg); border-radius: 999px; padding: 0 6px; }
+
+/* ── ② 범위·옵션 ── */
+.lot-summary { display: flex; align-items: center; height: 32px; margin-bottom: 8px; gap: 8px; }
+.lot-summary .link { margin-left: auto; }
+.row { display: flex; align-items: center; min-height: 36px; gap: 8px; }
+.row .lbl { width: 36px; flex: none; color: var(--sub); }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg label { display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--border); cursor: pointer; font-size: 12px; position: relative; }
+.seg input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; left: 0; top: 0; cursor: pointer; }
+.seg label:has(input:checked) { border-color: var(--accent); background: var(--accent-bg); }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.seg input[type="number"] { position: relative; z-index: 1; opacity: 1; width: 64px; height: 22px; margin: 0 4px 0 0; padding: 0 4px; font-size: 12px; }
+.drow { display: flex; align-items: center; min-height: 32px; gap: 8px; }
+.drow .sum { margin-left: auto; color: var(--sub); font-size: 12px; text-align: right; }
+.disc { background: none; border: 0; color: var(--accent); font-size: 12px; padding: 0 4px; height: 28px; white-space: nowrap; }
+.disc-body { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; margin: 2px 0 8px 22px; }
+.disc-body .row { min-height: 32px; }
+.disc-body .lbl { width: 48px; }
+.grid13 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px; }
+.grid13 label { min-height: 26px; font-size: 12px; }
+.ds-row { display: flex; align-items: center; min-height: 24px; gap: 8px; font-size: 12px; }
+.ds-row .lbl { width: 28px; flex: none; }
+.ds-row .extra { margin-left: auto; white-space: nowrap; }
+.ds-row.lv-warn .extra { color: var(--warn); } .ds-row.lv-danger .extra { color: var(--danger); } .ds-row.lv-missing .extra { color: var(--sub); }
+.ds-ok summary { min-height: 24px; font-size: 12px; color: var(--sub); cursor: pointer; }
+details.adv > summary { line-height: 32px; cursor: pointer; font-weight: 600; }
+details.adv > summary .sum { margin-left: 8px; }
+details.adv > summary .sum { color: var(--sub); font-weight: 400; font-size: 12px; }
+details.adv .grp { color: var(--sub); font-size: 12px; margin-top: 6px; }
+
+/* ── 경고 (공통 렌더) ── */
+.warn-item { border-left: 3px solid var(--muted); background: var(--surface); margin: 4px 0; font-size: 12px; }
+.warn-item.lv-warn { border-color: var(--warn); background: var(--warn-bg); }
+.warn-item.lv-danger { border-color: var(--danger); background: var(--danger-bg); }
+.warn-item summary, .warn-item .line { display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 2px 8px; cursor: pointer; list-style: none; }
+.warn-item summary::-webkit-details-marker { display: none; }
+.warn-item .line { cursor: default; }
+.warn-item .caret { margin-left: auto; color: var(--sub); }
+.warn-item .body { padding: 2px 8px 8px 24px; color: var(--ink); display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+.warn-item.lv-warn .ic { color: var(--warn); } .warn-item.lv-danger .ic { color: var(--danger); } .warn-item.lv-info .ic { color: var(--sub); }
+
+/* ── ③ 결과 ── */
+.progress { height: 8px; background: var(--border); border-radius: 999px; overflow: hidden; margin: 8px 0 4px; }
+.progress > div { height: 100%; background: var(--accent); width: 0; transition: width .15s; }
+.prog-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--sub); }
+.prog-meta b { font-size: 20px; font-weight: 600; color: var(--ink); line-height: 1.2; }
+.phase-list { margin: 12px 0; padding: 0; list-style: none; }
+.phase-list li { display: flex; align-items: center; gap: 8px; min-height: 28px; }
+.phase-list li .ic { width: 16px; text-align: center; }
+.phase-list li .det { margin-left: auto; color: var(--sub); font-size: 12px; text-align: right; }
+.phase-list li.st-pending, .phase-list li.st-skipped { color: var(--sub); }
+.phase-list li.st-done .ic { color: var(--ok); } .phase-list li.st-running .ic { color: var(--accent); } .phase-list li.st-failed .ic { color: var(--danger); }
+.log details summary { font-size: 12px; color: var(--sub); cursor: pointer; line-height: 28px; }
+.log pre { margin: 0; padding: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; font-family: var(--mono); font-size: 12px; max-height: 240px; overflow: auto; white-space: pre-wrap; }
+.log .lw { color: var(--warn); } .log .le { color: var(--danger); }
+.err-card { border: 1px solid var(--danger); border-left-width: 3px; background: var(--danger-bg); border-radius: 6px; padding: 12px; margin: 12px 0; }
+.err-card h4 { margin: 0 0 4px; font-size: 13px; color: var(--danger); }
+.err-card pre { font-family: var(--mono); font-size: 12px; white-space: pre-wrap; max-height: 200px; overflow: auto; margin: 4px 0; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+.card h4 { margin: 0 0 6px; font-size: 13px; }
+.card .acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.card .red { color: var(--danger); font-size: 12px; margin-top: 4px; }
+.card .ok-line { color: var(--ok); font-size: 12px; }
+.done-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 8px; font-size: 16px; font-weight: 600; }
+.done-line .ok { color: var(--ok); }
+.done-line .link { font-size: 12px; font-weight: 400; font-family: var(--mono); }
+.dirty { padding: 6px 12px; margin-bottom: 12px; border-left: 3px solid var(--muted); background: var(--surface); color: var(--sub); font-size: 12px; }
+.sheet-list { margin: 8px 0 0; padding: 0; list-style: none; }
+.sheet-list li { display: flex; align-items: center; gap: 8px; min-height: 28px; font-size: 12px; cursor: pointer; padding: 0 4px; border-radius: 4px; }
+.sheet-list li:hover { background: var(--bg); }
+.sheet-list li.empty { color: var(--muted); cursor: default; }
+.sheet-list li .reason { margin-left: auto; }
+.q-row { display: grid; grid-template-columns: 60px 1fr; gap: 4px 12px; align-items: center; min-height: 28px; font-size: 12px; }
+.q-row .k { color: var(--sub); }
+.hbar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; margin-bottom: 2px; }
+.hbar span:nth-child(1) { background: var(--bar1); } .hbar span:nth-child(2) { background: var(--bar2); } .hbar span:nth-child(3) { background: var(--bar3); } .hbar span:nth-child(4) { background: var(--bar4); }
+details.files summary { line-height: 32px; cursor: pointer; font-weight: 600; }
+.file-list { margin: 0; padding: 0; list-style: none; }
+.file-list li { display: flex; gap: 8px; min-height: 28px; align-items: center; cursor: pointer; font-family: var(--mono); font-size: 12px; padding: 0 4px; border-radius: 4px; }
+.file-list li:hover { background: var(--surface); }
+.file-list li .sub { margin-left: auto; font-family: var(--mono); }
+
+/* ── 푸터 ── */
+footer { flex: none; height: 64px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--surface); border-top: 1px solid var(--border); }
+footer.busy .btn { pointer-events: none; color: var(--muted); }
+footer .busy-label { color: var(--sub); font-size: 12px; }
+
+@media (max-width: 419px) {
+  .badge-date { display: none; }
+  .stepper button .t { display: none; }
+}
+</style>
+</head>
+<body data-step="1" data-run="idle">
+<header>
+  <div class="titlebar">
+    <h1>대지검토</h1>
+    <button id="badges" type="button" data-act="init" title="자료 상태 다시 확인">확인 중…</button>
+  </div>
+  <ol class="stepper" id="stepper">
+    <li><button type="button" data-go="1"><span class="o"></span><span class="t">대상지</span></button></li>
+    <li><button type="button" data-go="2"><span class="o"></span><span class="t">범위</span></button></li>
+    <li><button type="button" data-go="3"><span class="o"></span><span class="t">옵션</span></button></li>
+    <li><button type="button" data-go="4"><span class="o"></span><span class="t">결과</span></button></li>
+  </ol>
+</header>
+<div id="init_warnings"></div>
+<main>
+  <section data-step="1" aria-label="대상지"></section>
+  <section data-step="2" aria-label="범위"></section>
+  <section data-step="3" aria-label="옵션"></section>
+  <section data-step="4" aria-label="결과"></section>
+  <div id="blocker" hidden></div>
+</main>
+<footer id="footer"></footer>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="phase_live" class="sr-only" aria-live="polite"></div>
+<!-- 지도 컨테이너 — ①↔② 슬롯으로 옮겨 다닌다. 재렌더 중에는 여기 둔다 -->
+<div id="map_park"><div id="map" tabindex="-1"></div></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <pattern id="hatch" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+    <line x1="0" y1="0" x2="0" y2="8" stroke="#5c5c58" stroke-opacity=".35" stroke-width="2"/>
+  </pattern>
+</defs></svg>
+<!--VENDOR_JS-->
+<script>
+"use strict";
+// ── 브리지 (docs/panel_ui.md) ──
+window.__outbox = []; window.__seq = 0;
+function send(msg) {
+  window.__outbox.push(msg);
+  document.title = "bridge" + (++window.__seq);  // Windows WebView2 — title 이벤트
+  location.href = "bridge:flush";                // mac WKWebView — DocumentLoading에서 가로챈다
+}
+window.__flush = function () { var m = JSON.stringify(window.__outbox); window.__outbox = []; return m; };
+
+// ── 상수 (constants.py와 같은 값) ──
+var PHASES = ["query", "refresh", "terrain", "write_3dm", "basemap", "sheets", "tables", "import"];
+var PHASE_LABELS = { query: "필지·건물·지형 조회", refresh: "건물 최신화(VWorld·건축HUB)", terrain: "지형 TIN·면 분류·정합 측정",
+  write_3dm: "3dm 쓰기(베이크)", basemap: "베이스맵 레이어", sheets: "현황도 시트", tables: "조서 CSV", import: "문서에 넣기(Import)" };
+var PHASE_ICON = { done: "✓", running: "●", pending: "○", skipped: "—", failed: "✗" };
+var SHAPE_LABEL = { buffer: "경계 버퍼", circle: "중심 원", rect: "사각형", frame: "용지 프레임", site: "그린 경계 그대로" };
+var SHAPE_SHORT = { buffer: "버퍼", circle: "원", rect: "사각형", frame: "용지", site: "경계" };
+var MODE_LABEL = { lots: "필지로 고르기", area: "구역 그리기", point: "위치만 찍기" };
+var MODE_DESC = { lots: "건축 대지검토 · 고른 필지 + 주변", area: "지구단위계획·정비구역 · 지도에 그리거나 Rhino 커브", point: "광역 현황·베이스맵 · 점 하나 주변" };
+var PLACEMENT_HINT = { origin: "대상지 중심(100 m 단위)을 Rhino (0,0)으로 옮깁니다 — 작업이 편합니다",
+  world: "EPSG:5186 좌표 그대로 — GIS·다른 도면과 겹칠 때. Rhino 문서 단위를 m로 쓰세요(mm면 좌표가 수억)" };
+var PAPERS = { A1: [841, 594], A0: [1189, 841] };
+var SCALES = [1000, 3000, 5000];
+var LAYER_OPTS = [["02b_landuse", "토지이용(02b)"], ["05_road_center", "도로 중심선(05)"], ["11_zoning", "용도지역(11)"]];
+var DEFAULTS = { mode: "lots", placement: "origin", flatten_site: false, flatten_level: "mean", site_output: "curve", radius: 500, shape: "circle", import_after: true, make_basemap: true, paper: "A1", paper_mm: [841, 594], scales: [3000],
+  basemap_layers_on: [], make_sheets: true, sheet_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], floor_breaks: [12, 20], elev_preset: "20m",
+  make_tables: true, include_minor_buildings: false, demolished: "dashed", refresh_buildings: true, include_api_objects: false,
+  include_zoning: false, terrain_vertex_color: false, zoom_after_import: true };
+var MAP_STYLE = {
+  lot: { color: "#6b7480", weight: 1, opacity: .4, fillOpacity: .01 },
+  target: { color: "#d8322d", weight: 2, fillColor: "#d8322d", fillOpacity: .3 },
+  extent: { color: "#1c2128", weight: 1.5, dashArray: "6 4", fillColor: "#1c2128", fillOpacity: .05 },
+  topo: { color: "#5c5c58", weight: 1, dashArray: "3 3", fill: false },
+  frame: { color: "#2f6fed", weight: 1, fill: false },
+  qa: { radius: 4, color: "#d400d4", fillColor: "#d400d4", fillOpacity: 1, weight: 1 },
+  area: { color: "#d8322d", weight: 2.5, fillColor: "#d8322d", fillOpacity: .08 },
+  area_lot: { color: "#d8322d", weight: .8, opacity: .5, fillColor: "#d8322d", fillOpacity: .18 },
+  stamp: { color: "#2f6fed", weight: 2.5, dashArray: "6 4", fillColor: "#2f6fed", fillOpacity: .12, interactive: false },
+  draw: { color: "#2f6fed", weight: 2, interactive: false },
+  point: { radius: 7, color: "#fff", weight: 2, fillColor: "#d8322d", fillOpacity: 1 }
+};
+
+// ── 상태 ──
+var state = { step: 1, run: "idle", blocked: false, dirty: false, maxReached: 1,
+  mode: null, lots: [], lotState: null, area: null, point: null, flyOnArea: false, options: {}, preflight: null, progress: null, result: null,
+  init: null, busy: false, logLines: [], startedAt: 0, flyOnLot: false, seq: { map: 0, preflight: 0 } };
+var map = null, tiles = null, lotsLayer = null, targetLayer = null, extentLayer = null, topoLayer = null, frameLayer = null, qaLayer = null, svgRenderer = null;
+var tileErrors = 0, tileFallback = false, tileDead = false;
+var pointLayer = null, draw = { on: false, pts: [], layer: null, rubber: null }, stamp = { on: false, offsets: null, layer: null };
+var timers = { pf: 0, prefs: 0, move: 0, elapsed: 0, toast: 0, est: 0 };
+var listItems = [], listIndex = -1;
+
+// ── 유틸 ──
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+function fmtNum(n, d) { return (n == null || isNaN(n)) ? "–" : Number(n).toLocaleString("ko-KR", { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 }); }
+function fmtArea(n) { return fmtNum(n, 1) + " ㎡"; }
+function mmdd(d) { return d && d.length >= 10 ? d.slice(5, 10) : (d || "–"); }
+function fmtTime(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2); }
+function fmtBytes(b) { if (b == null) return ""; return b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : b >= 1024 ? Math.round(b / 1024) + " KB" : b + " B"; }
+function shortDir(d) { var i = (d || "").indexOf("/result/"); return i >= 0 ? d.slice(i + 1) : d; }
+function dongJibun(lot) { var t = (lot.address || "").split(" "); return (t.length >= 2 ? t[t.length - 2] + " " : "") + (lot.jibun || t[t.length - 1] || ""); }
+function lotLabel() { var ls = state.lotState ? state.lotState.lots : []; if (!ls.length) return ""; return dongJibun(ls[0]) + (ls.length > 1 ? " 외 " + (ls.length - 1) : ""); }
+function ll(c) { return [c[1], c[0]]; }   // [lng,lat] → Leaflet
+function sameOpts(a, b) {   // scales 제외 얕은 비교
+  var keys = Object.keys(DEFAULTS).filter(function (k) { return k !== "scales"; });
+  return keys.every(function (k) { return JSON.stringify(a[k]) === JSON.stringify(b[k]); });
+}
+function debounce(key, ms, fn) { clearTimeout(timers[key]); timers[key] = setTimeout(fn, ms); }
+function toast(text) { var t = $("toast"); t.textContent = text; t.classList.add("show"); debounce("toast", 3000, function () { t.classList.remove("show"); }); }
+function announce(text) { $("phase_live").textContent = text; }
+function openPath(path) { send({ cmd: "open_path", path: path }); }
+// 대상지 — 방식마다 하나
+function hasTarget() {
+  if (state.mode === "lots") return state.lots.length > 0;
+  if (state.mode === "area") return !!(state.area && state.area.ring_tm && state.area.ring_tm.length);
+  if (state.mode === "point") return !!(state.point && state.point.center_tm);
+  return false;
+}
+function targetMsg() {
+  if (state.mode === "area") return { mode: "area", ring: state.area.ring_tm };
+  if (state.mode === "point") return { mode: "point", center: state.point.center_tm };
+  return { mode: "lots", pnus: state.lots.slice() };
+}
+function targetCenter() {   // [lng, lat]
+  if (state.mode === "area") return state.area && state.area.center;
+  if (state.mode === "point") return state.point && state.point.center;
+  return state.lotState && state.lotState.center;
+}
+function targetLabel() {
+  if (state.mode === "area") return state.area ? "구역 " + fmtNum(state.area.area, 0) + " ㎡ · 안의 필지 " + state.area.lots : "";
+  if (state.mode === "point") return state.point ? (state.point.lot_name || "").replace(/_/g, " ") : "";
+  return lotLabel() + (state.lotState ? " · " + fmtArea(state.lotState.total_area) : "");
+}
+function busyTarget() { return draw.on || stamp.on; }
+function canGo(s) { return s <= state.maxReached && state.run !== "running" && !(s === 4 && state.run === "idle"); }
+
+// ── 경고 렌더 하나 (스키마 {level, code, text, detail, action, center}) ──
+// mode: "map" = center → 지도 flyTo, "rhino" = center → zoom_view
+function warningsHtml(list, mode) {
+  if (!list || !list.length) return "";
+  return list.map(function (w) {
+    var lv = w.level || "info", ic = lv === "info" ? "○" : "●";
+    var centerBtn = "";
+    if (w.center) {
+      centerBtn = mode === "rhino"
+        ? '<button type="button" class="btn sm" data-act="rhino" data-center="' + esc(JSON.stringify(w.center)) + '"' + (state.result && state.result.context && state.result.context.imported ? "" : ' disabled title="먼저 문서에 넣기"') + ">Rhino</button>"
+        : '<button type="button" class="link" data-act="fly" data-center="' + esc(JSON.stringify(w.center)) + '">▸지도</button>';
+    }
+    var act = w.action && w.action.path ? '<button type="button" class="btn sm" data-act="open" data-path="' + esc(w.action.path) + '">' + esc(w.action.label || "열기") + "</button>" : "";
+    var body = (w.detail ? '<span>' + esc(w.detail) + "</span>" : "") + act;
+    if (!body) return '<div class="warn-item lv-' + lv + '"><div class="line"><span class="ic">' + ic + "</span><span>" + esc(w.text) + "</span>" + (centerBtn ? '<span class="caret">' + centerBtn + "</span>" : "") + "</div></div>";
+    return '<details class="warn-item lv-' + lv + '"' + (mode === "open" ? " open" : "") + '><summary><span class="ic">' + ic + "</span><span>" + esc(w.text) + '</span><span class="caret">' + centerBtn + " ▸</span></summary><div class=\"body\">" + body + "</div></details>";
+  }).join("");
+}
+function renderWarnings(list, slot, mode) { if (slot) slot.innerHTML = warningsHtml(list, mode); }
+
+// ── 렌더 (섹션 innerHTML 재렌더는 go/render 때만) ──
+function go(step) {
+  if (step !== 1) { cancelDraw(); stopStamp(); }
+  state.step = step; if (step > state.maxReached) state.maxReached = step;
+  render();
+}
+function render() {
+  document.body.dataset.step = state.step; document.body.dataset.run = state.run;
+  $("map_park").appendChild($("map"));   // 섹션 재렌더 전 지도 대피
+  renderHeader(); renderFooter();
+  ({ 1: renderLots, 2: renderRange, 3: renderOptions, 4: renderResult })[state.step]();
+  placeMap();
+  var h = document.querySelector('section[data-step="' + state.step + '"] h2'); if (h) h.focus({ preventScroll: true });
+}
+function setRun(run) { state.run = run; document.body.dataset.run = run; renderHeader(); renderFooter(); lockSteps(); }
+function lockSteps() {
+  var dis = state.run === "running";
+  var f1 = document.querySelector('section[data-step="1"] fieldset'), f2 = document.querySelector('section[data-step="2"] fieldset'), f3 = document.querySelector('section[data-step="3"] fieldset');
+  if (f1) f1.disabled = dis; if (f2) f2.disabled = dis; if (f3) f3.disabled = dis;
+}
+
+// 헤더: 배지 + 스텝퍼
+function renderHeader() {
+  var init = state.init, src = {}; if (init) init.sources.forEach(function (s) { src[s.id] = s; });
+  var b = $("badges");
+  if (init) {
+    var parts = ["lot", "building"].map(function (id) {
+      var s = src[id]; if (!s) return "";
+      return '<span title="' + esc(s.name + " " + s.date) + '">' + esc(s.label) + ' <span class="badge-date num">' + esc(mmdd(s.date)) + "</span>" + (s.level !== "ok" ? ' <span class="dot lv-' + s.level + '"></span>' : "") + "</span>";
+    });
+    b.innerHTML = parts.filter(Boolean).join('<span class="sub">·</span>');
+  }
+  document.querySelectorAll("#stepper button").forEach(function (btn) {
+    var s = +btn.dataset.go, cur = s === state.step;
+    btn.disabled = !cur && !canGo(s);
+    if (cur) btn.setAttribute("aria-current", "step"); else btn.removeAttribute("aria-current");
+    var done = !cur && s < state.step || (s === 4 && !cur && state.run !== "idle");
+    btn.classList.toggle("done", done);
+    btn.querySelector(".o").textContent = done ? "✓" : "";
+  });
+}
+// 키 행 문구. short = 배지용
+function keyText(api, short) {
+  var k = api && api.keys ? api.keys : { vworld: false, data_go_kr: false };
+  if (k.vworld && k.data_go_kr) return "키 2/2";
+  if (k.vworld) return short ? "브이월드만" : "브이월드만 → 철거·말소 반영 생략";
+  if (k.data_go_kr) return short ? "포털만" : "포털만 → 건물 최신화 생략";
+  return short ? "키 없음" : "키 없음 → 건물 최신화·철거 반영 생략";
+}
+function pfHasWarn() { var pf = state.preflight; return !!(pf && pf.warnings && pf.warnings.some(function (w) { return w.level === "warn" || w.level === "danger"; })); }
+function quickSummary() {
+  var o = state.options, n = ["import_after", "make_basemap", "make_sheets", "make_tables"].filter(function (k) { return o[k]; }).length;
+  return (o.shape === "frame" || o.shape === "site" ? "" : o.radius + " m · ") + (SHAPE_SHORT[o.shape] || o.shape) + " · " + (n === 4 ? "전부" : n + "개");
+}
+function renderFooter() {
+  var s = state.step, r = state.run, html = "";
+  if (s === 1) {
+    var can = hasTarget() && !busyTarget(), quick = can && state.preflight && !pfHasWarn();
+    if (!state.mode) { $("footer").innerHTML = ""; return; }
+    html = '<button type="button" class="btn" data-act="quick"' + (quick ? "" : " hidden") + '>바로 생성 <small>' + esc(quickSummary()) + "</small></button><span></span>" +
+      '<button type="button" class="btn primary" data-act="next"' + (can ? "" : " disabled") + ">다음: 범위 →</button>";
+  } else if (s === 2) {
+    html = '<button type="button" class="btn" data-act="back">← 뒤로</button><button type="button" class="btn primary" data-act="next">다음: 옵션 →</button>';
+  } else if (s === 3) {
+    var noTopo = state.preflight && state.preflight.sources.some(function (x) { return x.id === "terrain" && x.coverage && x.coverage.have === 0; });
+    html = '<button type="button" class="btn" data-act="back">← 뒤로</button><button type="button" class="btn primary" data-act="generate">⚡ 생성 시작' + (noTopo ? " <small>지형 없이 생성</small>" : "") + "</button>";
+  } else if (r === "running") {
+    html = '<span class="busy-label" id="busy_label"></span><button type="button" class="btn" data-act="cancel" id="cancel_btn">취소</button>';
+  } else if (r === "done") {
+    html = '<button type="button" class="btn" data-act="rerun">옵션 바꿔 다시</button><button type="button" class="btn primary" data-act="newlot">새 대상지 →</button>';
+  } else {
+    html = '<button type="button" class="btn" data-act="back">← 뒤로</button><button type="button" class="btn primary" data-act="retry">다시 시도</button>';
+  }
+  $("footer").innerHTML = html; updateCancelBtn();
+}
+function updateCancelBtn() {
+  var b = $("cancel_btn"); if (!b) return;
+  var blocked = state.busy || (state.progress && state.progress.phase === "import");
+  b.disabled = !!blocked; b.title = blocked ? "문서에 넣는 중에는 취소할 수 없습니다" : "";
+  $("footer").classList.toggle("busy", state.busy);
+  var l = $("busy_label"); if (l) l.textContent = state.busy ? (state.busyLabel || "작업 중…") : "";
+}
+
+// ── ① 대상지 ──
+function renderLots() {
+  var sec = document.querySelector('section[data-step="1"]');
+  if (!state.mode) { sec.innerHTML = modeChooserHtml(); placeMap(); renderFooter(); lockSteps(); return; }
+  var m = state.mode;
+  var ph = { lots: "주소·지번·PNU (↓ 최근 대상지)", area: "주소·지번으로 지도 이동", point: "주소·지번으로 위치 찍기" }[m];
+  sec.innerHTML = '<h2 class="sr-only" tabindex="-1">대상지</h2><fieldset>' +
+    '<div class="mode-bar"><b>' + esc(MODE_LABEL[m]) + '</b><span class="sub">' + esc(MODE_DESC[m]) + '</span><button type="button" class="link" data-act="mode_change" style="margin-left:auto">방식 바꾸기</button></div>' +
+    '<div class="search"><input type="text" id="search_input" role="combobox" aria-expanded="false" aria-controls="search_list" aria-autocomplete="list" placeholder="' + ph + '" autocomplete="off">' +
+    '<button type="button" class="btn" data-act="search">검색</button>' +
+    '<ul id="search_list" role="listbox" hidden></ul></div>' +
+    '<div id="search_msg" class="hint" aria-live="polite"></div>' +
+    (m === "area" ? '<div id="area_info"></div>' : "") +
+    '<div id="map_slot_1" class="map-slot map-slot-1"></div>' +
+    (m === "lots" ? '<div id="lot_chips"></div><div id="lot_err"></div>' : m === "point" ? '<div id="point_info"></div>' : "") + "</fieldset>";
+  renderLotChips(); renderAreaInfo(); renderPointInfo(); lockSteps();
+  setTimeout(function () { var i = state.blocked ? $("blocker").querySelector("h2") : $("search_input"); if (i && state.step === 1) i.focus(); }, 0);
+}
+function modeChooserHtml() {
+  var d = (state.init && state.init.modes && state.init.modes.defaults) || {}, last = state.options.mode;
+  var desc = function (k) {
+    var x = d[k] || {}, sc = (x.scales || []).map(function (v) { return "1:" + fmtNum(v); }).join("·");
+    return (x.shape === "frame" ? "범위 = 용지 한 장" : x.shape === "site" ? "범위 = 그린 경계" : "주변 " + x.radius + " m") + " · " + sc;
+  };
+  var src = {}; ((state.init && state.init.sources) || []).forEach(function (x) { src[x.id] = x; });
+  var dates = [["lot", "필지"], ["building", "건물"], ["terrain", "지형"]].filter(function (x) { return src[x[0]] && src[x[0]].date; })
+    .map(function (x) { return x[1] + " " + src[x[0]].date; }).join(" · ");
+  return '<div class="chooser"><div class="hero"><p class="lead">대상지를 정하면 주변 도시 현황을<br>3D 모델·베이스맵·현황도로 한 번에 만듭니다.</p>' +
+    '<p class="what">서울 공공데이터(수치지형도·GIS건물통합정보·토지특성정보·도시계획)로 도시설계 착수용 기초 자료를 만드는 Rhino 도구입니다.</p>' +
+    "<ul><li><b>3D 컨텍스트 .3dm</b>지형·건물·도로·수계·필지</li><li><b>베이스맵 .ai</b>Illustrator 레이어 그대로</li>" +
+    "<li><b>현황도 13장 .svg</b>토지이용·용도지역·층수·노후도·표고·경사 등</li><li><b>조서 .csv</b>필지·건물·정합 통계</li></ul>" +
+    (dates ? '<p class="src">자료 기준 · ' + esc(dates) + "</p>" : "") + "</div>" +
+    '<h2 tabindex="-1">어떤 방식으로 시작할까요?</h2><div class="hint mode-intro">방식마다 범위·축척 기본값이 다릅니다. 다음 단계에서 바꿀 수 있습니다.</div><div class="mode-cards">' +
+    ["lots", "area", "point"].map(function (k) {
+      return '<button type="button" class="mode-card" data-act="mode" data-mode="' + k + '"><b>' + esc(MODE_LABEL[k]) + (k === last ? ' <span class="last">최근</span>' : "") +
+        '</b><span class="sub">' + esc(MODE_DESC[k]) + '</span><span class="sub">' + esc(desc(k)) + "</span></button>";
+    }).join("") + "</div></div>";
+}
+function chooseMode(m) {
+  state.mode = m; state.options.mode = m;
+  var d = state.init && state.init.modes && state.init.modes.defaults && state.init.modes.defaults[m];
+  if (d) Object.keys(d).forEach(function (k) { state.options[k] = JSON.parse(JSON.stringify(d[k])); });
+  send({ cmd: "save_prefs", options: state.options });
+  render();
+}
+function renderAreaInfo() {
+  var slot = $("area_info"); if (!slot) return;
+  var a = state.area, html = "";
+  if (draw.on) {
+    html = '<div class="draw-band"><span>지도를 눌러 꼭짓점을 찍으세요 · 더블클릭·Enter 완료 · Backspace 되돌리기 · Esc 취소 <b class="num">' + draw.pts.length + '점</b></span>' +
+      '<span class="acts"><button type="button" class="btn sm primary" data-act="draw_done"' + (draw.pts.length >= 3 ? "" : " disabled") + '>완료</button><button type="button" class="btn sm" data-act="draw_cancel">취소</button></span></div>';
+  } else if (stamp.on) {
+    html = '<div class="draw-band"><span>지도를 끌어 파란 구역을 원하는 자리에 맞추세요(구역은 화면 가운데 고정)</span>' +
+      '<span class="acts"><button type="button" class="btn sm primary" data-act="stamp_place">여기에 놓기</button><button type="button" class="btn sm" data-act="stamp_cancel">취소</button></span></div>';
+  } else {
+    html = '<div class="area-tools"><button type="button" class="btn sm" data-act="draw_start">지도에 그리기</button>' +
+      '<button type="button" class="btn sm" data-act="pick_curve" title="Rhino에서 닫힌 평면 커브 하나를 먼저 선택해 두면 바로 가져옵니다">Rhino 커브 가져오기</button>' +
+      (a ? '<button type="button" class="btn sm" data-act="snap" title="구역 안 필지(면적 50 % 이상)의 바깥 경계로 구역을 바꿉니다">필지 경계에 맞추기</button>' +
+        '<button type="button" class="btn sm" data-act="area_move">옮기기</button><button type="button" class="link danger-text" data-act="area_clear">지우기</button>' : "") + "</div>";
+  }
+  html += a && !draw.on && !stamp.on ? '<div class="target-line"><span>구역 <b class="num">' + esc(fmtNum(a.area, 0)) + ' ㎡</b></span><span class="sub">· 안의 필지 ' + a.lots + " · " + esc(fmtArea(a.lots_area)) + "</span>" +
+      (a.snapped ? '<span class="sub">· 필지 경계에 맞춤 ✓</span>' : "") + "</div>"
+    : (draw.on || stamp.on ? "" : '<div class="hint">지도에 구역을 그리거나 Rhino 커브를 가져오세요. 안의 필지는 면적 50 % 이상이 구역 안에 있는 필지입니다.</div>');
+  html += '<div id="area_err"></div>';
+  slot.innerHTML = html;
+}
+function renderPointInfo() {
+  var slot = $("point_info"); if (!slot) return;
+  var p = state.point;
+  slot.innerHTML = p ? '<div class="target-line"><span>위치 <b>' + esc((p.lot_name || "").replace(/_/g, " ")) + '</b></span><button type="button" class="link danger-text" data-act="point_clear">지우기</button></div>'
+    : '<div class="target-line hint">지도를 눌러 위치를 찍거나 주소를 검색하세요</div>';
+}
+// 검색 후보 하나 — 방식마다 다르게 쓴다
+function useMatch(it) {
+  if (state.mode === "lots") { addLot(it.pnu); if (it.center && map) map.flyTo(ll(it.center), 17.5); }
+  else if (state.mode === "point") { if (it.center) { send({ cmd: "set_point", center: it.center }); if (map) map.flyTo(ll(it.center), 16); } }
+  else if (it.center && map) map.flyTo(ll(it.center), 16.5);
+}
+// ── 구역 그리기 ──
+function startDraw() {
+  stopStamp(); draw.on = true; draw.pts = [];
+  if (map) { map.doubleClickZoom.disable(); map.getContainer().classList.add("drawing"); }
+  renderAreaInfo(); renderFooter();
+}
+function redrawDraw(cursor) {
+  if (!map) return;
+  var pts = draw.pts.slice();
+  if (!draw.layer) draw.layer = L.polyline([], MAP_STYLE.draw).addTo(map);
+  draw.layer.setLatLngs(pts);
+  if (!draw.rubber) draw.rubber = L.polyline([], Object.assign({ dashArray: "4 4" }, MAP_STYLE.draw)).addTo(map);
+  draw.rubber.setLatLngs(cursor && pts.length ? [pts[pts.length - 1], cursor, pts[0]] : []);
+}
+function endDraw() {
+  draw.on = false; draw.pts = [];
+  if (map) { map.doubleClickZoom.enable(); map.getContainer().classList.remove("drawing"); [draw.layer, draw.rubber].forEach(function (l) { if (l) map.removeLayer(l); }); }
+  draw.layer = draw.rubber = null;
+}
+function finishDraw() {
+  if (!draw.on) return;
+  if (draw.pts.length < 3) { slotError("area_err", "꼭짓점이 3개 이상이어야 합니다"); return; }
+  var ring = draw.pts.map(function (p) { return [p.lng, p.lat]; });
+  endDraw(); state.flyOnArea = false;
+  send({ cmd: "set_area", ring_lnglat: ring });
+  renderAreaInfo(); renderFooter();
+}
+function cancelDraw() { if (draw.on) { endDraw(); renderAreaInfo(); renderFooter(); } }
+// ── 커브 얹기(지도를 움직여 놓기) — 모양은 m 오프셋 그대로, 화면 가운데 고정 ──
+function mPerDeg(lat) {
+  var r = lat * Math.PI / 180;
+  return [111412.84 * Math.cos(r) - 93.5 * Math.cos(3 * r), 111132.954 - 559.822 * Math.cos(2 * r) + 1.175 * Math.cos(4 * r)];
+}
+function stampLatLngs(c) { var k = mPerDeg(c.lat); return stamp.offsets.map(function (o) { return [c.lat + o[1] / k[1], c.lng + o[0] / k[0]]; }); }
+function drawStamp() {
+  if (!map || !stamp.on) return;
+  var pts = stampLatLngs(map.getCenter());
+  if (stamp.layer) stamp.layer.setLatLngs(pts); else stamp.layer = L.polygon(pts, MAP_STYLE.stamp).addTo(map);
+}
+function startStamp(offsets, fit) {
+  cancelDraw(); stamp.on = true; stamp.offsets = offsets;
+  if (targetLayer && state.mode === "area") map.removeLayer(targetLayer);
+  drawStamp();
+  if (fit && stamp.layer) map.fitBounds(stamp.layer.getBounds().pad(0.4), { animate: false });
+  map.on("move", drawStamp);
+  renderAreaInfo(); renderFooter();
+}
+function stopStamp() {
+  if (!stamp.on) return;
+  stamp.on = false; if (map) { map.off("move", drawStamp); if (stamp.layer) map.removeLayer(stamp.layer); }
+  stamp.layer = null;
+  if (targetLayer && state.mode === "area" && map) targetLayer.addTo(map);
+}
+function placeStamp() {
+  if (!stamp.on || !map) return;
+  var c = map.getCenter(), offsets = stamp.offsets;
+  stopStamp(); state.flyOnArea = false;
+  send({ cmd: "set_area", center: [c.lng, c.lat], offsets: offsets });
+  renderAreaInfo(); renderFooter();
+}
+function setPointLayer() {
+  if (!map) return;
+  if (pointLayer) { map.removeLayer(pointLayer); pointLayer = null; }
+  var p = state.mode === "point" && state.point;
+  if (!p) return;
+  pointLayer = L.circleMarker(ll(p.center), Object.assign({ interactive: false }, MAP_STYLE.point)).addTo(map);
+  pointLayer.bindTooltip(esc((p.lot_name || "").replace(/_/g, " ")), { permanent: true, direction: "top", className: "map-label extent" });
+}
+function renderLotChips() {
+  var slot = $("lot_chips"); if (!slot) return;
+  var ls = state.lotState;
+  if (!ls || !ls.lots.length) { slot.innerHTML = '<div class="lot-head"><span class="hint">지도에서 필지를 누르거나 주소를 검색하세요</span></div>'; return; }
+  var warnMap = {}; (ls.warnings || []).forEach(function (w) { if (w.code === "multipart" || w.code === "hole") warnMap[w.code] = w.text; });
+  slot.innerHTML = '<div class="lot-head"><span>대상 필지 <b class="num">' + ls.lots.length + '</b></span><span class="sub">·</span><span class="sub">합계</span><span class="total num">' + esc(fmtArea(ls.total_area)) + "</span>" +
+    '<button type="button" class="link danger-text" data-act="clear">모두 지움</button></div><div id="lot_rows">' +
+    ls.lots.map(function (l) {
+      return '<div class="chip-row" tabindex="0" data-pnu="' + esc(l.pnu) + '" title="' + esc(l.address) + '"><span>' + esc(dongJibun(l)) + '</span><span class="sub">' + esc(l.land_category || "") + " · " + esc(fmtArea(l.area)) + "</span>" +
+        (l.warn ? '<span class="badge-warn" title="가장 넓은 조각의 바깥 경계만 씁니다">⚠' + (l.warn === "hole" ? "구멍" : "다조각") + "</span>" : "") +
+        '<button type="button" class="x" data-act="remove" data-pnu="' + esc(l.pnu) + '" aria-label="' + esc(l.jibun) + ' 제외">✕</button></div>';
+    }).join("") + "</div>";
+}
+function showList(items, kind) {   // kind: "match" | "recent"
+  var ul = $("search_list"), inp = $("search_input"); if (!ul) return;
+  listItems = items; listIndex = -1;
+  if (!items.length) { ul.hidden = true; inp.setAttribute("aria-expanded", "false"); return; }
+  ul.innerHTML = items.map(function (it, i) {
+    return kind === "recent"
+      ? '<li role="option" id="opt' + i + '" data-i="' + i + '"><span>' + esc(it.label) + '</span><span class="sub">' + esc(fmtNum(it.total_area)) + " ㎡ · " + esc(mmdd(it.date)) + "</span></li>"
+      : '<li role="option" id="opt' + i + '" data-i="' + i + '"><span>' + esc(it.address) + '</span><span class="sub">' + esc(it.land_category || "") + " · " + esc(fmtArea(it.area)) + "</span></li>";
+  }).join("");
+  ul.dataset.kind = kind; ul.hidden = false; inp.setAttribute("aria-expanded", "true");
+}
+function hideList() { var ul = $("search_list"); if (ul) { ul.hidden = true; listItems = []; listIndex = -1; $("search_input").setAttribute("aria-expanded", "false"); $("search_input").removeAttribute("aria-activedescendant"); } }
+function moveList(d) {
+  if (!listItems.length) return;
+  listIndex = (listIndex + d + listItems.length) % listItems.length;
+  document.querySelectorAll("#search_list li").forEach(function (li, i) { li.setAttribute("aria-selected", i === listIndex ? "true" : "false"); });
+  $("search_input").setAttribute("aria-activedescendant", "opt" + listIndex);
+}
+function chooseList(i) {
+  var kind = $("search_list").dataset.kind, it = listItems[i]; if (!it) return;
+  hideList();
+  if (kind === "recent") { state.flyOnLot = true; send({ cmd: "select_lots", pnus: it.pnus.slice() }); }
+  else useMatch(it);
+}
+function addLot(pnu) { if (state.lots.indexOf(pnu) < 0) { send({ cmd: "select_lots", pnus: state.lots.concat([pnu]) }); } }
+function toggleLot(pnu) {
+  var i = state.lots.indexOf(pnu), next = state.lots.slice();
+  if (i >= 0) next.splice(i, 1); else next.push(pnu);
+  send({ cmd: "select_lots", pnus: next });
+}
+function doSearch() {
+  var q = ($("search_input").value || "").trim(); if (!q) return;
+  hideList(); $("search_msg").textContent = ""; send({ cmd: "search", query: q });
+}
+
+// ── 지도 ──
+function initMap(init) {
+  var el = $("map");
+  // 지도 위 칩 — 컨테이너 자식이라 슬롯을 옮겨도 따라간다
+  var chips = document.createElement("div"); chips.className = "map-chips";
+  chips.innerHTML = '<span class="chip" id="chip_zoom" hidden>확대하면 필지가 보입니다</span><span class="chip" id="chip_trunc" hidden>일부만 표시 — 더 확대하세요</span><span class="chip lv-danger" id="chip_offline" hidden>지도 타일을 못 받음(오프라인) — 필지선만 표시</span>';
+  el.appendChild(chips);
+  map = L.map(el, { preferCanvas: true, zoomControl: false, attributionControl: true }).setView(ll(init.map.center), init.map.zoom);
+  el.tabIndex = -1;
+  L.control.zoom({ position: "bottomright" }).addTo(map);
+  svgRenderer = L.svg();
+  tiles = L.tileLayer(init.tile.url, { attribution: init.tile.attribution, maxZoom: 19 }).addTo(map);
+  tiles.on("tileerror", function () {
+    if (tileDead) return;
+    tileErrors += 1;
+    if (tileErrors < 3) return;
+    if (!tileFallback && init.tile.fallback_url && init.tile.fallback_url !== init.tile.url) {
+      tileFallback = true; tileErrors = 0; tiles.setUrl(init.tile.fallback_url);
+      tiles.options.attribution = "© OpenStreetMap contributors"; map.attributionControl.setPrefix("");
+    } else { tileDead = true; $("chip_offline").hidden = false; }
+  });
+  tiles.on("load", function () { tileErrors = 0; });
+  map.on("moveend zoomend", function () { if (state.step === 1) debounce("move", 250, requestLots); });
+  map.on("click", function (e) {
+    if (state.step !== 1 || state.run === "running") return;
+    if (draw.on) { draw.pts.push(e.latlng); redrawDraw(e.latlng); renderAreaInfo(); return; }
+    if (state.mode === "point") send({ cmd: "set_point", center: [e.latlng.lng, e.latlng.lat] });
+  });
+  map.on("dblclick", function () { if (draw.on) finishDraw(); });
+  map.on("mousemove", function (e) { if (draw.on) redrawDraw(e.latlng); });
+}
+function requestLots() {
+  if (!map || state.step !== 1) return;
+  var z = map.getZoom(); $("chip_zoom").hidden = z >= 17;
+  if (z < 17) { if (lotsLayer) { map.removeLayer(lotsLayer); lotsLayer = null; } $("chip_trunc").hidden = true; return; }
+  var b = map.getBounds();
+  send({ cmd: "map_lots", bbox: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], seq: ++state.seq.map });
+}
+function setLotsLayer(fc) {
+  if (lotsLayer) map.removeLayer(lotsLayer);
+  lotsLayer = L.geoJSON(fc, {
+    style: function () { return MAP_STYLE.lot; },
+    onEachFeature: function (f, layer) {
+      var p = f.properties || {};
+      layer.bindTooltip(esc(p.address || "") + "<br>" + esc(p.land_category || "") + " · " + esc(fmtArea(p.area)), { sticky: true, direction: "top" });
+      layer.on("click", function () { if (state.mode === "lots") toggleLot(p.pnu); });   // 다른 방식은 지도 click이 받는다
+    }
+  });
+  if (state.step === 1) lotsLayer.addTo(map);
+}
+function setTargetLayer(fc) {
+  if (targetLayer) map.removeLayer(targetLayer);
+  var style = function (f) {
+    var role = f.properties.role;
+    if (role === "area") return MAP_STYLE.area;
+    if (state.mode === "area") return MAP_STYLE.area_lot;
+    return role === "target" ? MAP_STYLE.target : { color: "#d8322d", weight: 1, opacity: .6, fill: false };
+  };
+  targetLayer = fc ? L.geoJSON(fc, { interactive: false, style: style }).addTo(map) : null;
+}
+function highlightLot(pnu, on) {
+  if (!targetLayer) return;
+  targetLayer.eachLayer(function (l) { if (l.feature.properties.pnu === pnu) l.setStyle({ weight: on ? 3 : 1, opacity: on ? 1 : .6 }); });
+}
+function flyToLot(pnu) {
+  if (!targetLayer) return;
+  targetLayer.eachLayer(function (l) { if (l.feature.properties.pnu === pnu) map.flyToBounds(l.getBounds(), { maxZoom: 18 }); });
+}
+// preflight 응답 전 — 원·사각형은 즉시, 버퍼는 응답을 기다린다
+function drawLocalExtent() {
+  var c = targetCenter();
+  if (!map || !c) return;
+  var o = state.options;
+  if (extentLayer) { map.removeLayer(extentLayer); extentLayer = null; }
+  if (state.step !== 2 || o.shape === "frame" || o.shape === "site") return;   // 용지 프레임·경계 그대로는 preflight 응답을 기다린다
+  if (o.shape === "circle") extentLayer = L.circle(ll(c), Object.assign({ radius: o.radius, interactive: false }, MAP_STYLE.extent)).addTo(map);
+  else if (o.shape === "rect") {
+    var dl = o.radius / 88000, dp = o.radius / 111000;   // 서울 위도 근사
+    extentLayer = L.rectangle([[c[1] - dp, c[0] - dl], [c[1] + dp, c[0] + dl]], Object.assign({ interactive: false }, MAP_STYLE.extent)).addTo(map);
+  }
+  if (extentLayer) extentLayer.bindTooltip(o.radius + " m", { permanent: true, direction: "top", className: "map-label extent" });
+}
+function drawPreflightLayers(pf) {
+  if (!map) return;
+  [extentLayer, topoLayer, frameLayer].forEach(function (l) { if (l) map.removeLayer(l); });
+  extentLayer = topoLayer = frameLayer = null;
+  var feats = (pf.extent_geojson && pf.extent_geojson.features) || [];
+  var byRole = function (r) { return { type: "FeatureCollection", features: feats.filter(function (f) { return f.properties && f.properties.role === r; }) }; };
+  var ext = byRole("extent");
+  if (ext.features.length) {
+    extentLayer = L.geoJSON(ext, { interactive: false, style: function () { return MAP_STYLE.extent; } });
+    extentLayer.eachLayer(function (l) { if (l.feature.properties.shape !== "frame" && l.feature.properties.shape !== "site") l.bindTooltip((l.feature.properties.radius || state.options.radius) + " m", { permanent: true, direction: "top", className: "map-label extent" }); });
+  }
+  var topo = byRole("topo_sheet");
+  if (topo.features.length) {
+    topoLayer = L.geoJSON(topo, { interactive: false, renderer: svgRenderer,
+      style: function (f) { return f.properties.have ? MAP_STYLE.topo : Object.assign({}, MAP_STYLE.topo, { fill: true, className: "topo-missing" }); },
+      onEachFeature: function (f, l) {
+        var p = f.properties; l.bindTooltip(p.have ? esc(p.topo_sheet) : esc(p.topo_sheet) + "<br>지형 없음", { permanent: true, direction: "center", className: "map-label" + (p.have ? "" : " topo-miss") });
+      } });
+  }
+  var fr = byRole("frame");
+  if (fr.features.length) {
+    frameLayer = L.geoJSON(fr, { interactive: false, style: function () { return MAP_STYLE.frame; },
+      onEachFeature: function (f, l) { l.bindTooltip(esc(f.properties.paper || "") + " 1:" + esc(f.properties.scale), { permanent: true, direction: "bottom", className: "map-label frame" }); } });
+  }
+  if (state.step === 2) { [extentLayer, topoLayer, frameLayer].forEach(function (l) { if (l) l.addTo(map); }); fitStep2(); }
+}
+function fitStep2() {
+  if (!map) return;
+  var b = null;
+  // 용지 프레임은 맞춤에서 뺀다 — 작은 범위가 점처럼 보인다(2026-10-10)
+  [extentLayer, targetLayer].forEach(function (l) { if (l && l.getBounds) { var lb = l.getBounds(); if (lb.isValid()) b = b ? b.extend(lb) : L.latLngBounds(lb.getSouthWest(), lb.getNorthEast()); } });
+  if (b) map.fitBounds(b, { padding: [12, 12] });
+}
+function setQaLayer(fc) {
+  if (!map) return;
+  if (qaLayer) map.removeLayer(qaLayer);
+  qaLayer = fc && fc.features && fc.features.length ? L.geoJSON(fc, { interactive: false, pointToLayer: function (f, latlng) { return L.circleMarker(latlng, MAP_STYLE.qa); }, style: function () { return { color: "#d400d4", weight: 1.5 }; } }) : null;
+  if (qaLayer && state.step === 2) qaLayer.addTo(map);
+}
+// 지도 컨테이너를 현재 단계 슬롯으로
+function placeMap() {
+  var el = $("map"), slot = $("map_slot_" + state.step);
+  if (!slot) { $("map_park").appendChild(el); return; }
+  slot.appendChild(el);
+  if (!map) return;
+  map.invalidateSize();
+  var step2Layers = function (on) { [extentLayer, topoLayer, frameLayer, qaLayer].forEach(function (l) { if (l) { if (on) l.addTo(map); else map.removeLayer(l); } }); };
+  if (state.step === 1) {
+    step2Layers(false);
+    if (lotsLayer) lotsLayer.addTo(map);
+    requestLots();
+  } else {
+    if (lotsLayer) map.removeLayer(lotsLayer);
+    ["chip_zoom", "chip_trunc"].forEach(function (id) { $(id).hidden = true; });
+    if (!extentLayer) drawLocalExtent();
+    step2Layers(true);
+    fitStep2();
+  }
+}
+
+// ── ② 범위·옵션 ──
+var SEG = function (name, val, label, extra) { return '<label><input type="radio" name="' + name + '" value="' + val + '"' + (extra || "") + ">" + label + "</label>"; };
+// ── ② 범위 — 지도 크게, 영역에 관한 것만(형태·반경·용지·축척) ──
+function renderRange() {
+  var o = state.options, sec = document.querySelector('section[data-step="2"]'), seg = SEG;
+  var shapes = (state.init && state.init.modes && state.init.modes.shapes[state.mode || "lots"]) || ["circle", "rect"];
+  if (shapes.indexOf(o.shape) < 0) o.shape = shapes[0];
+  var customR = [200, 500, 1000].indexOf(o.radius) < 0, customP = !PAPERS[o.paper];
+  sec.innerHTML = '<h2 class="sr-only" tabindex="-1">범위</h2><fieldset>' +
+    '<div class="lot-summary"><span id="lot_summary"><span class="sub">' + esc(MODE_LABEL[state.mode] || "") + " ·</span> " + esc(targetLabel()) + '</span><button type="button" class="link" data-act="goto1">변경</button></div>' +
+    '<div id="map_slot_2" class="map-slot map-slot-2"></div>' +
+    '<div class="range-controls">' +
+    '<div class="row"><span class="lbl">형태</span><div class="seg" role="radiogroup" aria-label="형태">' +
+      shapes.map(function (s) { return seg("shape", s, SHAPE_LABEL[s], o.shape === s ? " checked" : ""); }).join("") + "</div></div>" +
+    '<div class="row" id="radius_row"><span class="lbl">반경</span><div class="seg" role="radiogroup" aria-label="반경">' +
+      seg("radius", 200, "200", o.radius === 200 ? " checked" : "") + seg("radius", 500, "500", o.radius === 500 ? " checked" : "") + seg("radius", 1000, "1000", o.radius === 1000 ? " checked" : "") +
+      '<label><input type="radio" name="radius" value="custom" id="radius_c"' + (customR ? " checked" : "") + '>직접 <input type="number" name="radius_custom" id="radius_custom" min="100" max="2000" step="50" value="' + (customR ? o.radius : "") + '" aria-label="반경 직접 입력 (m)"> m</label></div></div>' +
+    '<div id="radius_hint" class="hint"' + (o.radius > 1000 ? "" : " hidden") + '>1 km 초과는 파일이 수십 MB — 분할 권장</div>' +
+    '<div class="row"><span class="lbl">용지</span><div class="seg" role="radiogroup" aria-label="용지">' + seg("paper", "A1", "A1", o.paper === "A1" ? " checked" : "") + seg("paper", "A0", "A0", o.paper === "A0" ? " checked" : "") +
+      '<label><input type="radio" name="paper" value="custom" id="paper_c"' + (customP ? " checked" : "") + '>직접 <input type="number" name="paper_mm" id="paper_w" min="100" max="3000" value="' + (o.paper_mm ? o.paper_mm[0] : 841) + '" aria-label="가로 mm">×<input type="number" name="paper_mm" id="paper_h" min="100" max="3000" value="' + (o.paper_mm ? o.paper_mm[1] : 594) + '" aria-label="세로 mm"> mm</label></div></div>' +
+    '<div class="row"><span class="lbl">축척</span>' + SCALES.map(function (s) { return '<label class="chk"><input type="checkbox" name="scales" value="' + s + '"' + ((o.scales || []).indexOf(s) >= 0 ? " checked" : "") + ">1:" + fmtNum(s) + "</label>"; }).join("") + "</div>" +
+    '<div class="row"><span class="lbl">예상</span><span id="estimate" class="hint"></span></div>' +
+    '<div id="frame_hint" class="hint"></div></div></fieldset>';
+  updateSummaries(); renderEstimate(); lockSteps();
+  sendPreflight(0);
+}
+// ── ③ 옵션 — 지도와 무관한 것(좌표·평탄화·산출물·자료 상태·고급) ──
+function renderOptions() {
+  var o = state.options, sec = document.querySelector('section[data-step="3"]'), seg = SEG;
+  var catalog = (state.init && state.init.sheet_catalog) || [];
+  var noCtx = state.init && state.init.sources.some(function (s) { return s.id === "terrain" && s.level === "missing"; });
+  var canFlatten = state.mode === "lots" || state.mode === "area";
+  sec.innerHTML = '<h2 class="sr-only" tabindex="-1">옵션</h2><fieldset>' +
+    '<div class="lot-summary"><span><span class="sub">' + esc(MODE_LABEL[state.mode] || "") + " ·</span> " + esc(targetLabel()) + ' <span class="sub">· ' + esc(rangeLabel()) + '</span></span><button type="button" class="link" data-act="goto2">범위 변경</button></div>' +
+    '<h3>좌표</h3>' +
+    '<div class="seg" role="radiogroup" aria-label="결과 좌표">' + seg("placement", "origin", "원점으로 옮김", o.placement !== "world" ? " checked" : "") + seg("placement", "world", "실제 좌표", o.placement === "world" ? " checked" : "") + "</div>" +
+    '<div id="placement_hint" class="hint" style="margin-top:4px"></div>' +
+    (canFlatten ? '<h3>대상지</h3>' +
+      '<div class="seg" role="radiogroup" aria-label="대상지 표시">' + seg("site_output", "curve", "경계 커브만", o.site_output !== "mesh" ? " checked" : "") +
+        seg("site_output", "mesh", "바닥 메시도", o.site_output === "mesh" ? " checked" : "") + "</div>" +
+      '<div class="hint" style="margin:4px 0 6px">바닥 메시 = 대상지 경계로 정확히 자른 지형을 다른 색(CTX::Site::ground)으로 따로 냅니다. 경계 커브(CTX::Site)는 항상 나옵니다.</div>' +
+      '<div class="row"><label class="chk"><input type="checkbox" name="flatten_site"' + (o.flatten_site ? " checked" : "") + '>대상지 안 지형을 평평하게</label>' +
+      '<select class="sm" name="flatten_level" id="flatten_level" aria-label="평탄 높이"' + (o.flatten_site ? "" : " disabled") + '>' +
+        [["mean", "경계 평균 높이"], ["min", "경계 최저 높이"], ["max", "경계 최고 높이"]].map(function (x) { return '<option value="' + x[0] + '"' + (o.flatten_level === x[0] ? " selected" : "") + ">" + x[1] + "</option>"; }).join("") + "</select></div>" +
+      '<div class="hint">대상지 경계에서 지형을 정확히 잘라 평탄면 + 경계 벽(옹벽 자리)으로 만듭니다. 평탄면은 바닥 메시를 고르면 CTX::Site::ground, 아니면 CTX::Terrain::site_flat. 평탄화 전 지형은 꺼진 레이어 CTX::Terrain::site_original로 남습니다.</div>' : "") +
+    '<h3>산출물 <span class="sub">context.3dm은 항상</span></h3>' +
+    '<label class="chk"><input type="checkbox" name="import_after"' + (o.import_after ? " checked" : "") + ">생성 뒤 현재 문서에 넣기</label>" +
+    '<div class="drow"><label class="chk"><input type="checkbox" name="make_basemap"' + (o.make_basemap ? " checked" : "") + '>베이스맵 .ai</label><span class="sum" id="basemap_summary"></span><button type="button" class="disc" data-act="disc" aria-expanded="false" aria-controls="basemap_disc">레이어 ▸</button></div>' +
+    '<div id="basemap_disc" class="disc-body" hidden>' +
+      '<div class="row"><span class="lbl">켜기</span><div>' + LAYER_OPTS.map(function (l) { return '<label class="chk"><input type="checkbox" name="basemap_layers_on" value="' + l[0] + '"' + ((o.basemap_layers_on || []).indexOf(l[0]) >= 0 ? " checked" : "") + ">" + l[1] + ' <span class="sub">기본 off</span></label>'; }).join("") + "</div></div></div>" +
+    '<div class="drow"><label class="chk"><input type="checkbox" name="make_sheets"' + (o.make_sheets ? " checked" : "") + '>현황도 시트</label><span class="sum" id="sheets_summary"></span><button type="button" class="disc" data-act="disc" aria-expanded="false" aria-controls="sheets_disc">고르기 ▸</button></div>' +
+    '<div id="sheets_disc" class="disc-body" hidden>' +
+      '<div class="row"><button type="button" class="btn sm" data-act="sheets_all">전체</button><button type="button" class="btn sm" data-act="sheets_none">없음</button></div>' +
+      '<div class="grid13" id="sheet_grid">' + catalog.map(function (s) {
+        var dis = noCtx && s.needs === "terrain";
+        return '<label class="chk"><input type="checkbox" name="sheet_ids" value="' + s.id + '"' + ((o.sheet_ids || []).indexOf(s.id) >= 0 ? " checked" : "") + (dis ? " disabled" : "") + ">" + s.id + " " + esc(s.name) + ' <span class="sub" data-empty="' + s.id + '">' + (dis ? "지형 DB 없음" : "") + "</span></label>";
+      }).join("") + "</div>" +
+      '<div class="row"><span class="lbl">층수 구분</span><input type="number" class="sm" name="floor_breaks" id="fb0" min="2" max="50" value="' + (o.floor_breaks ? o.floor_breaks[0] : 12) + '" aria-label="층수 경계 1"> / <input type="number" class="sm" name="floor_breaks" id="fb1" min="2" max="80" value="' + (o.floor_breaks ? o.floor_breaks[1] : 20) + '" aria-label="층수 경계 2"> <span class="sub">층 (시트 8)</span></div>' +
+      '<div class="row"><span class="lbl">표고 단계</span><select class="sm" name="elev_preset" aria-label="표고 단계"><option value="20m"' + (o.elev_preset === "20m" ? " selected" : "") + '>20 m (서울 2013 10단계)</option><option value="50m"' + (o.elev_preset === "50m" ? " selected" : "") + '>50 m</option></select></div></div>' +
+    '<label class="chk"><input type="checkbox" name="make_tables"' + (o.make_tables ? " checked" : "") + ">조서 CSV</label>" +
+    '<h3>자료 상태 <button type="button" class="link" data-act="init">다시 확인</button></h3>' +
+    '<div id="data_status_err"></div><div id="data_status"></div>' +
+    '<details class="adv"><summary>고급 <span class="sum" id="adv_summary"></span></summary>' +
+      '<div class="grp">건물</div>' +
+      '<label class="chk"><input type="checkbox" name="include_minor_buildings"' + (o.include_minor_buildings ? " checked" : "") + ">무벽건물·가건물 포함</label>" +
+      '<div class="row"><label class="chk" for="demolished">철거 건물</label><select class="sm" id="demolished" name="demolished"><option value="dashed"' + (o.demolished === "dashed" ? " selected" : "") + '>점선·회색으로 표시</option><option value="exclude"' + (o.demolished === "exclude" ? " selected" : "") + ">제외</option></select></div>" +
+      '<div class="grp">3dm</div>' +
+      '<label class="chk"><input type="checkbox" name="include_zoning"' + (o.include_zoning ? " checked" : "") + '>용도지역 경계선 넣기 <span class="sub">CTX::Zoning</span></label>' +
+      '<div class="grp">문서</div>' +
+      '<label class="chk"><input type="checkbox" name="zoom_after_import"' + (o.zoom_after_import ? " checked" : "") + ">넣은 뒤 대상지로 줌</label>" +
+    "</details></fieldset>";
+  updateSummaries(); renderDataStatus(); lockSteps();
+  if (!state.preflight) sendPreflight(0);
+}
+function rangeLabel() {
+  var o = state.options, sc = (o.scales || []).map(function (v) { return "1:" + fmtNum(v); }).join("·");
+  return (o.shape === "frame" || o.shape === "site" ? SHAPE_LABEL[o.shape] : SHAPE_SHORT[o.shape] + " " + o.radius + " m") + " · " + (PAPERS[o.paper] ? o.paper : "직접") + " " + sc;
+}
+function hasVworldKey() { var a = state.init && state.init.sources.filter(function (s) { return s.id === "api"; })[0]; return !!(a && a.keys && a.keys.vworld); }
+function updateSummaries() {
+  var o = state.options, bs = $("basemap_summary"), ss = $("sheets_summary"), as = $("adv_summary");
+  if (bs) {
+    var p = [o.paper === "custom" || !PAPERS[o.paper] ? "직접 " + (o.paper_mm || []).join("×") : o.paper];
+    if (JSON.stringify(o.scales) !== JSON.stringify(DEFAULTS.scales)) p.push((o.scales || []).map(function (s) { return "1:" + s; }).join("·"));
+    if ((o.basemap_layers_on || []).length) p.push("+레이어 " + o.basemap_layers_on.length);
+    bs.textContent = p.join(" · ");
+  }
+  if (ss) {
+    var n = (o.sheet_ids || []).length, s = [n === 13 ? "13장 전체" : n + "장"];
+    if (o.elev_preset === "50m") s.push("표고 50 m");
+    if (JSON.stringify(o.floor_breaks) !== JSON.stringify(DEFAULTS.floor_breaks)) s.push("층수 " + (o.floor_breaks || []).join("/"));
+    ss.textContent = s.join(" · ");
+  }
+  if (as) {
+    var a = [];
+    if (o.include_minor_buildings) a.push("무벽건물 포함"); if (o.demolished === "exclude") a.push("철거 제외");
+    if (o.include_zoning) a.push("용도지역 경계선"); if (!o.zoom_after_import) a.push("줌 안 함");
+    as.textContent = a.join(" · ");
+  }
+  var rh = $("radius_hint"); if (rh) rh.hidden = !(o.radius > 1000);
+  var sh = $("shape_hint"); if (sh) sh.hidden = o.shape !== "rect";
+  var rr = $("radius_row"); if (rr) rr.hidden = o.shape === "frame" || o.shape === "site";
+  var fl = $("flatten_level"); if (fl) fl.disabled = !o.flatten_site;
+  var ph = $("placement_hint"); if (ph) ph.textContent = PLACEMENT_HINT[o.placement === "world" ? "world" : "origin"];
+}
+function renderEstimate() {
+  var el = $("estimate"); if (!el) return;
+  var pf = state.preflight;
+  if (!pf || !pf.estimate) { el.textContent = ""; debounce("est", 200, function () { if (!state.preflight && $("estimate")) $("estimate").textContent = "계산 중…"; }); return; }
+  var e = pf.estimate;
+  el.textContent = "건물 약 " + fmtNum(e.buildings) + "동 · 도엽 " + e.topo_have + "/" + e.topo_total + "장 · ~" + e.seconds + "초 · " + e.mb + " MB";
+  el.className = "num";
+  var fh = $("frame_hint"), fo = (pf.warnings || []).filter(function (w) { return w.code === "frame_over"; })[0];
+  if (fh) fh.textContent = fo ? fo.detail || fo.text : "";
+  document.querySelectorAll("[data-empty]").forEach(function (s) { if (!s.textContent || s.textContent === "데이터 없음") s.textContent = (pf.empty_sheets || []).indexOf(+s.dataset.empty) >= 0 ? "데이터 없음" : ""; });
+}
+// 경고 code → 자료 상태 행
+var WARN_SOURCE = { stale_lot: "lot", stale_building: "building", stale_terrain: "terrain", coverage: "terrain", no_context_db: "building", no_api_key: "api", invalid_key: "api" };
+function renderDataStatus() {
+  var slot = $("data_status"); if (!slot) return;
+  var pf = state.preflight;
+  if (!pf) { slot.innerHTML = '<div class="hint">확인 중…</div>'; return; }
+  var warns = pf.warnings || [], used = {};
+  var byId = function (id) { return warns.filter(function (w, i) { if (WARN_SOURCE[w.code] === id) { used[i] = 1; return true; } return false; }); };
+  var row = function (s) {
+    var extra = s.text || "", acts = "";
+    if (s.id === "terrain" && s.coverage) {
+      extra = "도엽 " + s.coverage.have + "/" + s.coverage.total;
+      if (s.coverage.missing && s.coverage.missing.length && s.coverage.missing[0].center) acts = '<button type="button" class="link" data-act="fly" data-center="' + esc(JSON.stringify(s.coverage.missing[0].center)) + '">▸지도</button>';
+    }
+    return '<div class="ds-row lv-' + esc(s.level) + '"><span class="dot lv-' + esc(s.level) + '" aria-hidden="true"></span><span class="lbl">' + esc(s.label) + '</span><span class="sub">' + esc(s.name) + (s.date ? " " + esc(s.date) : "") + '</span><span class="extra">' + esc(extra) + "</span>" + acts + "</div>";
+  };
+  var isBad = function (s) { return s.level !== "ok" || warns.some(function (w) { return WARN_SOURCE[w.code] === s.id && w.level !== "info"; }); };
+  var shown = pf.sources.filter(function (s) { return s.id !== "api"; });   // 키는 내장 — 패널에 안 보인다
+  var ok = shown.filter(function (s) { return !isBad(s); }), bad = shown.filter(isBad);
+  var html = "";
+  if (ok.length) html += '<details class="ds-ok"><summary>' + (ok.length === shown.length ? "자료 상태 ✓ " + ok.length + "건" : ok.map(function (s) { return esc(s.label) + " ✓"; }).join(" · ")) + "</summary>" + ok.map(function (s) { return row(s) + warningsHtml(byId(s.id), "map"); }).join("") + "</details>";
+  bad.forEach(function (s) { html += row(s) + warningsHtml(byId(s.id), "open"); });
+  html += warningsHtml(warns.filter(function (w, i) { return !used[i] && w.code !== "frame_over"; }), "map");
+  slot.innerHTML = html;
+}
+function sendPreflight(delay) {
+  if (!hasTarget()) return;
+  debounce("pf", delay, function () {
+    var o = state.options;
+    if (!hasTarget()) return;
+    send({ cmd: "preflight", target: targetMsg(), radius: o.radius, shape: o.shape, paper: o.paper, paper_mm: o.paper_mm, scales: o.scales, seq: ++state.seq.preflight });
+  });
+}
+function clampR(v) { v = Math.round((+v || 500) / 50) * 50; return Math.min(2000, Math.max(100, v)); }
+function checkedValues(name, num) { return Array.prototype.map.call(document.querySelectorAll('input[name="' + name + '"]:checked'), function (i) { return num ? +i.value : i.value; }); }
+// 옵션 입력 → state.options
+function readOption(el) {
+  var n = el.name, o = state.options; if (!n) return false;
+  switch (n) {
+    case "radius": o.radius = el.value === "custom" ? clampR($("radius_custom").value) : +el.value; break;
+    case "radius_custom": $("radius_c").checked = true; o.radius = clampR(el.value); break;
+    case "shape": o.shape = el.value; break;
+    case "paper": o.paper = el.value; o.paper_mm = PAPERS[el.value] ? PAPERS[el.value].slice() : [+$("paper_w").value || 841, +$("paper_h").value || 594]; break;
+    case "paper_mm": $("paper_c").checked = true; o.paper = "custom"; o.paper_mm = [+$("paper_w").value || 841, +$("paper_h").value || 594]; break;
+    case "scales": o.scales = checkedValues("scales", true); if (!o.scales.length) { el.checked = true; o.scales = [+el.value]; } break;
+    case "sheet_ids": o.sheet_ids = checkedValues("sheet_ids", true); break;
+    case "basemap_layers_on": o.basemap_layers_on = checkedValues("basemap_layers_on"); break;
+    case "floor_breaks": o.floor_breaks = [+$("fb0").value || 12, +$("fb1").value || 20]; break;
+    default: o[n] = el.type === "checkbox" ? el.checked : el.value;
+  }
+  return n;
+}
+var PF_KEYS = { radius: 1, radius_custom: 1, shape: 1, paper: 1, paper_mm: 1, scales: 1 };
+function afterOptionChange(name) {
+  updateSummaries();
+  debounce("prefs", 500, function () { send({ cmd: "save_prefs", options: state.options }); });
+  if (PF_KEYS[name]) { drawLocalExtent(); if (state.options.shape !== "buffer") fitStep2(); sendPreflight(300); }
+  if (state.run === "done" && state.result) state.dirty = !sameOpts(state.result.options || {}, state.options);
+}
+
+// ── ③ 결과 ──
+function renderResult() {
+  var sec = document.querySelector('section[data-step="4"]');
+  if (state.run === "done" && state.result) { sec.innerHTML = doneHtml(); renderExportedList(); return; }
+  var o = state.options, p = state.progress;
+  sec.innerHTML = '<h2 tabindex="-1" id="run_title">' + runTitle() + "</h2>" +
+    '<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + (p ? p.percent : 0) + '" id="progress_bar"><div style="width:' + (p ? p.percent : 0) + '%"></div></div>' +
+    '<div class="prog-meta"><span><b class="num" id="percent">' + (p ? p.percent : 0) + '</b> %</span><span class="num"><span id="elapsed">' + fmtTime((Date.now() - state.startedAt) / 1000) + "</span> 경과</span></div>" +
+    '<div id="slow_hint" class="hint" hidden>반경 ' + o.radius + " m는 보통 10~40초</div>" +
+    '<ul class="phase-list" id="phase_list"></ul>' +
+    '<div id="error_card"></div>' +
+    '<div class="log"><details><summary>로그 (<span id="log_count">' + state.logLines.length + '</span>줄)</summary><pre id="log_pre">' + state.logLines.map(logLineHtml).join("\n") + "</pre></details></div>" +
+    (state.run === "running" ? '<p class="hint" style="margin-top:16px">생성은 Rhino 안에서 돌아 화면이 잠깐씩 멈출 수 있습니다.<br>베이크가 곧 문서에 넣기라 Import 단계는 없습니다.</p>' : "");
+  renderPhaseList(); renderErrorCard();
+}
+function runTitle() {
+  var o = state.options, where = esc(targetLabel()) + " · " + esc(rangeLabel());
+  if (state.run === "running") return "생성 중 — " + where;
+  if (state.run === "cancelled") return "취소됨 — " + where;
+  return "생성 실패 — " + where;
+}
+function renderPhaseList() {
+  var ul = $("phase_list"); if (!ul) return;
+  var p = state.progress, st = (p && p.phase_status) || {}, det = (p && p.phase_detail) || {};
+  var cancelledAt = state.run === "cancelled" ? p && p.phase : null;
+  ul.innerHTML = PHASES.map(function (ph) {
+    var s = st[ph] || "pending", d = det[ph] || (ph === "import" ? "건너뜀 — 베이크로 대체" : "");
+    if (cancelledAt && s === "running") { s = "failed"; d = "취소됨"; }
+    return '<li class="st-' + s + '"><span class="ic" aria-hidden="true">' + PHASE_ICON[s] + '</span><span class="sr-only">' + s + " </span><span>" + esc(PHASE_LABELS[ph]) + '</span><span class="det">' + esc(d) + "</span></li>";
+  }).join("");
+  if (p && state.run === "running") announce(PHASE_LABELS[p.phase] + " " + p.percent + "%");
+}
+function renderErrorCard() {
+  var slot = $("error_card"); if (!slot) return;
+  var p = state.progress, e = p && p.error;
+  if (state.run === "running" || (!e && state.run !== "cancelled")) { slot.innerHTML = ""; return; }
+  var doneCount = p ? PHASES.filter(function (ph) { return (p.phase_status || {})[ph] === "done"; }).length : 0;
+  var title = state.run === "cancelled" ? "취소됨 — " + doneCount + "/8까지 완료. 부분 산출물은 폴더에 남아 있습니다(log.txt 끝에 기록)" : (e && e.title) || "생성 실패";
+  var dir = state.result && state.result.dir;
+  slot.innerHTML = '<div class="err-card" role="alert"><h4>' + esc(title) + "</h4>" +
+    (e && e.detail ? '<details><summary class="hint">상세</summary><pre id="err_detail">' + esc(e.detail) + "</pre></details>" : "") +
+    '<div class="acts"><button type="button" class="btn sm" data-act="copylog">로그 복사</button>' + (dir ? '<button type="button" class="btn sm" data-act="open" data-path="' + esc(dir) + '">폴더 열기</button>' : "") + "</div></div>";
+}
+function logLineHtml(l) { return '<span class="' + (l.level === "error" ? "le" : l.level === "warn" ? "lw" : "") + '">' + esc(l.text) + "</span>"; }
+function appendLog(text, level) {
+  String(text || "").split("\n").forEach(function (t) { state.logLines.push({ text: t, level: level || "info" }); });
+  if (state.logLines.length > 400) state.logLines.splice(0, state.logLines.length - 400);
+  var pre = $("log_pre"); if (!pre) return;
+  var stick = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 4;
+  pre.innerHTML = state.logLines.map(logLineHtml).join("\n");
+  $("log_count").textContent = state.logLines.length;
+  if (stick) pre.scrollTop = pre.scrollHeight;
+}
+function startTimer() {
+  state.startedAt = Date.now(); clearInterval(timers.elapsed);
+  timers.elapsed = setInterval(function () {
+    var s = (Date.now() - state.startedAt) / 1000, el = $("elapsed");
+    if (el) el.textContent = fmtTime(s);
+    var h = $("slow_hint"); if (h && s > 10) h.hidden = false;
+  }, 1000);
+}
+function doneHtml() {
+  var r = state.result, o = r.options || {}, c = r.context || {}, bm = r.basemap || {}, q = r.quality || {};
+  var emptyN = (r.sheets || []).filter(function (s) { return s.empty; }).length;
+  var imported = !!c.imported;
+  var html = '<h2 class="done-line" tabindex="-1"><span class="ok">✓ 생성 완료</span><span class="num">· ' + fmtTime(r.elapsed_s) + '</span><button type="button" class="link" data-act="open" data-path="' + esc(r.dir) + '" title="' + esc(r.dir) + '">' + esc(shortDir(r.dir)) + " ↗</button></h2>";
+  if (state.dirty) html += '<div class="dirty">이전 결과 — 설정이 바뀜(옵션 그대로 다시 생성하려면 ② [생성 시작])</div>';
+  // 문서 카드
+  html += '<div class="card" id="doc_card"><h4>문서</h4><div class="num">CTX 레이어 ' + fmtNum(c.layers) + " · 건물 " + fmtNum(c.buildings) + " · 필지 " + fmtNum(c.lots) + (c.demolished ? " · 철거 " + fmtNum(c.demolished) : "") + "</div>" +
+    '<div id="doc_status">' + docStatusHtml(imported, c.import_text, c.path) + "</div>" +
+    '<div class="acts">' + (imported ? '<span class="ok-line">문서에 넣음 ✓</span>' : "") +
+    '<button type="button" class="btn sm" data-act="zoom" id="zoom_btn"' + (imported ? "" : " disabled") + ">대상지로 줌</button>" +
+    '<button type="button" class="btn sm' + (imported ? "" : " primary") + '" data-act="import" title="기존 CTX 레이어를 지우고 다시 넣습니다">' + (imported ? "다시 넣기" : "문서에 넣기") + "</button></div></div>";
+  // 베이스맵 카드
+  if (o.make_basemap !== false) {
+    var defScale = (state.options.scales && state.options.scales[0]) || 3000;
+    html += '<div class="card" id="bm_card"><h4>베이스맵</h4><div>' + esc(bm.paper || o.paper || "") + " · 레이어 " + fmtNum(bm.layers) + "</div>" +
+      (bm.ready ? "" : '<div class="red">생성 실패 — <button type="button" class="link" data-act="open" data-path="' + esc(r.dir + "/log.txt") + '">log.txt</button></div>') +
+      '<div class="acts"><button type="button" class="btn sm primary" data-act="export" id="export_btn"' + (bm.ready ? "" : ' disabled title="베이스맵 생성 실패"') + ">.ai 내보내기</button>" +
+      '<label class="sub">축척 <select class="sm" id="export_scale" aria-label="축척">' + SCALES.map(function (s) { return '<option value="' + s + '"' + (s === defScale ? " selected" : "") + ">1:" + fmtNum(s) + "</option>"; }).join("") + '</select></label><span class="hint">(다른 축척 · 1초 안팎)</span></div>' +
+      '<div id="bm_err"></div><div id="exported_list" class="ok-line"></div></div>';
+  }
+  // 시트·조서 카드
+  if (o.make_sheets !== false || o.make_tables !== false) {
+    html += '<div class="card"><h4>시트·조서</h4><div>' + (o.make_sheets !== false ? "시트 " + (r.sheets || []).length + "장" + (emptyN ? "(빈 시트 " + emptyN + ")" : "") : "시트 없음") + " · CSV " + (r.tables || []).length + "</div>" +
+      '<div class="acts"><button type="button" class="btn sm" data-act="open" data-path="' + esc(r.dir) + '">폴더 열기</button>' +
+      (r.sheets && r.sheets.length ? '<details style="flex:1 1 100%"><summary class="link" style="cursor:pointer">시트 목록</summary><ul class="sheet-list">' + r.sheets.map(function (s) {
+        return '<li class="' + (s.empty ? "empty" : "") + '"' + (s.path ? ' data-act="open" data-path="' + esc(s.path) + '" tabindex="0"' : "") + '><span class="num">' + s.id + "</span><span>" + esc(s.name) + "</span>" + (s.empty ? '<span class="reason">' + esc(s.reason || "빈 시트") + "</span>" : "") + "</li>";
+      }).join("") + "</ul></details>" : "") + "</div></div>";
+  }
+  // 경고
+  var ws = r.warnings || [];
+  html += "<h3>" + (ws.length ? "⚠ 경고 " + ws.length + "건" : "경고") + '</h3><div id="done_warnings">' + (ws.length ? warningsHtml(ws, "rhino") : '<div class="hint">경고 없음</div>') + "</div>";
+  // 신뢰도
+  if (q.height_src || q.align) {
+    var hs = q.height_src || {}, al = q.align || {}, sk = q.skipped || {}, d = q.dates || {};
+    var pct = function (v) { return Math.round((v || 0) * 100); };
+    html += "<h3>신뢰도</h3>" +
+      '<div class="q-row"><span class="k">높이 출처</span><div><div class="hbar" aria-hidden="true"><span style="width:' + pct(hs.height) + '%"></span><span style="width:' + pct(hs.grnd_flr) + '%"></span><span style="width:' + pct(hs.topo_flr) + '%"></span><span style="width:' + pct(hs.default) + '%"></span></div><span class="num hint">대장 ' + pct(hs.height) + " · 층수 " + pct(hs.grnd_flr) + " · 지형도 " + pct(hs.topo_flr) + " · 기본 " + pct(hs.default) + " %</span></div></div>" +
+      '<div class="q-row"><span class="k">정합 오차</span><span class="num">중앙값 ' + fmtNum(al.median, 1) + " m · p90 " + fmtNum(al.p90, 1) + " m (n=" + fmtNum(al.n) + ")" + (al.low_sample ? ' <span class="danger-text">표본 부족</span>' : "") + "</span></div>" +
+      '<div class="q-row"><span class="k">건너뜀</span><span>건물 ' + fmtNum(sk.buildings) + "동 · 필지 " + fmtNum(sk.lots) + ' <button type="button" class="link" data-act="open" data-path="' + esc(r.dir + "/log.txt") + '">log.txt</button></span></div>' +
+      '<div class="q-row"><span class="k">자료기준</span><span class="num">필지 ' + esc(mmdd(d.lot)) + " · 건물 " + esc(mmdd(d.building)) + " · 지형 " + esc((d.terrain || "").replace(/20(\d\d)/g, "$1")) + "</span></div>";
+  }
+  // 산출물 목록
+  if (r.files && r.files.length) {
+    html += '<details class="files"><summary>산출물 목록 <span class="sub">(파일 ' + r.files.length + '개)</span></summary><ul class="file-list">' + r.files.map(function (f) {
+      return '<li data-act="open" data-path="' + esc(f.path) + '" tabindex="0"><span>' + esc(f.name) + '</span><span class="sub">' + esc(fmtBytes(f.bytes)) + "</span></li>";
+    }).join("") + "</ul></details>";
+  }
+  return html;
+}
+function docStatusHtml(ok, text, path) {
+  return ok ? "" : '<div class="red">' + esc(text || "문서에 넣지 못했습니다") + '<br><span class="mono">' + esc(path || "") + "</span> — Rhino에서 직접 Import할 수 있습니다</div>";
+}
+function renderExportedList() {
+  var el = $("exported_list"); if (!el || !state.result) return;
+  el.innerHTML = (state.result.basemap.exported || []).map(function (p) { return '<div><button type="button" class="link" data-act="open" data-path="' + esc(p) + '">' + esc(p.split("/").pop()) + "</button> ✓</div>"; }).join("");
+}
+// 문서 카드 — imported 뒤 슬롯 교체
+function applyImported(ok, text, layers, objects) {
+  var r = state.result; if (!r) return;
+  r.context.imported = ok; r.context.import_text = ok ? "" : text;
+  var ds = $("doc_status"); if (ds) ds.innerHTML = docStatusHtml(ok, text, r.context.path);
+  var zb = $("zoom_btn"); if (zb) zb.disabled = !ok;
+  var card = $("doc_card"); if (card && ok) {
+    var acts = card.querySelector(".acts"); if (acts) acts.innerHTML = '<span class="ok-line">문서에 넣음 ✓</span><button type="button" class="btn sm" data-act="zoom" id="zoom_btn">대상지로 줌</button><button type="button" class="btn sm" data-act="import" title="기존 CTX 레이어를 지우고 다시 넣습니다">다시 넣기</button>';
+  }
+  renderWarnings(r.warnings, $("done_warnings"), "rhino");
+  if (ok) toast("문서에 넣었습니다 — 레이어 " + fmtNum(layers) + " · 객체 " + fmtNum(objects));
+}
+
+// ── 블로커·헤더 띠 ──
+function renderBlocker() {
+  var init = state.init, el = $("blocker");
+  if (!init || !init.blocked) { el.hidden = true; return; }
+  var src = {}; init.sources.forEach(function (s) { src[s.id] = s; });
+  var g = init.generator || {}, p = init.paths || {};
+  var row = function (ok, label, text, cls) { return '<span class="' + (cls || (ok ? "ok" : "bad")) + '">' + (cls === "opt" ? "○" : ok ? "✓" : "✗") + "</span><span>" + esc(label) + "</span><span>" + esc(text) + "</span>"; };
+  var lotOk = src.lot && src.lot.level !== "missing", ctxOk = src.terrain && src.terrain.level !== "missing";
+  el.innerHTML = "<h2 tabindex=\"-1\">대지검토를 쓰려면 데이터가 필요합니다</h2><div class=\"check-list\">" +
+    row(lotOk, "필지 DB", (p.lot_db || "data/seoul_site.db") + (lotOk ? " (" + mmdd(src.lot.date) + ")" : " 없음")) +
+    row(ctxOk, "컨텍스트 DB", (p.context_db || "data/seoul_context.db") + (ctxOk ? " (" + mmdd(src.building ? src.building.date : "") + ")" : " 없음"), ctxOk ? "ok" : "opt") +
+    row(true, "생성기", g.text || "Rhino 내장") + "</div>" +
+    (lotOk ? "" : "<p>필지 DB <span class=\"mono\">data/seoul_site.db</span> 를 data 폴더에 넣으세요.<br>절차: <span class=\"mono\">docs/data_sources.md §0</span></p>") +
+    '<div class="acts" style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" data-act="open" data-path="data">data 폴더 열기</button><button type="button" class="btn" data-act="open" data-path="' + esc(p.install_doc || "docs/install.md") + '">문서 열기</button><button type="button" class="btn primary" data-act="init">다시 확인</button></div>';
+  el.hidden = false;
+}
+function renderInitWarnings() {
+  var init = state.init; if (!init) return;
+  $("init_warnings").innerHTML = (init.warnings || []).map(function (w) {
+    return '<div class="band lv-' + esc(w.level || "info") + '"><span>' + esc(w.detail || w.text) + "</span>" + (w.action && w.action.path ? '<button type="button" class="btn sm" data-act="open" data-path="' + esc(w.action.path) + '">' + esc(w.action.label) + "</button>" : "") + "</div>";
+  }).join("");
+}
+function showErrorBand(text) {
+  var d = document.createElement("div"); d.className = "band lv-danger"; d.setAttribute("role", "alert");
+  d.innerHTML = "<span>" + esc(text) + '</span><button type="button" class="btn sm" data-act="dismiss">닫기</button>';
+  $("init_warnings").appendChild(d);
+}
+function slotError(id, text) { var el = $(id); if (el) el.innerHTML = '<div class="red danger-text" role="alert" style="font-size:12px">' + esc(text) + "</div>"; else showErrorBand(text); }
+
+// ── 동작 ──
+function startGenerate() {
+  if (!hasTarget() || busyTarget() || state.run === "running") return;
+  send({ cmd: "generate", target: targetMsg(), options: Object.assign({}, state.options) });   // scales 포함 — 가장 큰 프레임이 DB 질의 범위
+  state.dirty = false; state.progress = null; state.result = null; state.logLines = []; state.busy = false;
+  state.run = "running"; startTimer(); go(4);
+}
+function resetLots() {
+  cancelDraw(); stopStamp();
+  state.mode = null; state.area = null; state.point = null; setPointLayer();
+  state.lots = []; state.lotState = null; state.preflight = null; state.result = null; state.progress = null; state.dirty = false;
+  state.run = "idle"; state.maxReached = 1; clearInterval(timers.elapsed);
+  if (map) { setTargetLayer(null); [extentLayer, topoLayer, frameLayer, qaLayer].forEach(function (l) { if (l) map.removeLayer(l); }); extentLayer = topoLayer = frameLayer = qaLayer = null; }
+  send({ cmd: "select_lots", pnus: [] });
+  go(1);
+}
+function primaryAction() {
+  if (state.blocked) return;
+  if (state.step === 1) { if (busyTarget()) { if (draw.on) finishDraw(); else placeStamp(); } else if (hasTarget() && state.preflight && !pfHasWarn()) startGenerate(); else if (hasTarget()) go(2); }
+  else if (state.step === 2) go(3);
+  else if (state.step === 3) startGenerate();
+  else if (state.run === "done") resetLots();
+}
+function requestCancel() { var b = $("cancel_btn"); if (state.run === "running" && b && !b.disabled) send({ cmd: "cancel" }); }
+var ACTIONS = {
+  init: function () { send({ cmd: "init" }); },
+  search: doSearch,
+  clear: function () { send({ cmd: "select_lots", pnus: [] }); },
+  remove: function (b) { toggleLot(b.dataset.pnu); },
+  next: function () { if (hasTarget() && !busyTarget()) go(state.step === 2 ? 3 : 2); },
+  mode: function (b) { chooseMode(b.dataset.mode); },
+  mode_change: function () { resetLots(); },
+  draw_start: startDraw,
+  draw_done: finishDraw,
+  draw_cancel: cancelDraw,
+  pick_curve: function () { $("area_err").innerHTML = ""; toast("Rhino에서 닫힌 커브를 고르세요"); send({ cmd: "pick_curve" }); },
+  snap: function () { if (state.area) send({ cmd: "snap_area", ring_tm: state.area.ring_tm }); },
+  area_move: function () { if (state.area && map) { map.setView(ll(state.area.center), map.getZoom(), { animate: false }); startStamp(state.area.offsets, false); } },
+  area_clear: function () { send({ cmd: "set_area" }); },
+  stamp_place: placeStamp,
+  stamp_cancel: function () { stopStamp(); renderAreaInfo(); renderFooter(); },
+  point_clear: function () { send({ cmd: "set_point" }); },
+  quick: startGenerate,
+  back: function () { go(Math.max(1, state.step - 1)); },
+  goto1: function () { go(1); },
+  goto2: function () { go(2); },
+  generate: startGenerate,
+  retry: startGenerate,
+  cancel: requestCancel,
+  rerun: function () { go(3); },
+  newlot: resetLots,
+  disc: function (b) { var body = $(b.getAttribute("aria-controls")); var open = body.hidden; body.hidden = !open; b.setAttribute("aria-expanded", String(open)); b.textContent = b.textContent.replace(/[▸▾]/, open ? "▾" : "▸"); },
+  sheets_all: function () { document.querySelectorAll('input[name="sheet_ids"]:not(:disabled)').forEach(function (i) { i.checked = true; }); state.options.sheet_ids = checkedValues("sheet_ids", true); afterOptionChange("sheet_ids"); },
+  sheets_none: function () { document.querySelectorAll('input[name="sheet_ids"]').forEach(function (i) { i.checked = false; }); state.options.sheet_ids = []; afterOptionChange("sheet_ids"); },
+  open: function (b) { openPath(b.dataset.path); },
+  fly: function (b) { var c = JSON.parse(b.dataset.center); if (map) map.flyTo(ll(c), Math.max(map.getZoom(), 15)); },
+  rhino: function (b) { if (state.result) send({ cmd: "zoom_view", dir: state.result.dir, center: JSON.parse(b.dataset.center) }); },
+  zoom: function () { if (state.result) send({ cmd: "zoom_view", dir: state.result.dir }); },
+  import: function () { if (state.result) { send({ cmd: "import_context", dir: state.result.dir }); } },
+  export: function () { if (state.result) { $("bm_err").innerHTML = ""; send({ cmd: "export_basemap", dir: state.result.dir, scale: +$("export_scale").value }); } },
+  copylog: function (b) {
+    var text = state.logLines.map(function (l) { return l.text; }).join("\n") + (state.progress && state.progress.error ? "\n\n" + state.progress.error.title + "\n" + state.progress.error.detail : "");
+    var ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); b.textContent = "복사됨"; } catch (e) { b.textContent = "복사 실패"; }
+    document.body.removeChild(ta);
+  },
+  dismiss: function (b) { b.parentNode.parentNode.removeChild(b.parentNode); }
+};
+document.addEventListener("click", function (e) {
+  var t = e.target.closest("[data-act]");
+  if (t) { if (t.disabled) return; var fn = ACTIONS[t.dataset.act]; if (fn) { fn(t); } return; }
+  var g = e.target.closest("[data-go]"); if (g && !g.disabled && canGo(+g.dataset.go)) { if (state.step === 4 && +g.dataset.go === 1) resetLots(); else go(+g.dataset.go); return; }
+  var li = e.target.closest("#search_list li"); if (li) { chooseList(+li.dataset.i); return; }
+  var row = e.target.closest(".chip-row"); if (row) { flyToLot(row.dataset.pnu); return; }
+  if (!e.target.closest(".search")) hideList();
+});
+document.addEventListener("mouseover", function (e) { var r = e.target.closest(".chip-row"); if (r) highlightLot(r.dataset.pnu, true); });
+document.addEventListener("mouseout", function (e) { var r = e.target.closest(".chip-row"); if (r) highlightLot(r.dataset.pnu, false); });
+document.addEventListener("change", function (e) {
+  if (!e.target.closest('section[data-step="2"], section[data-step="3"]')) return;
+  var n = readOption(e.target); if (n) afterOptionChange(n);
+});
+document.addEventListener("input", function (e) {
+  if (e.target.type !== "number" || !e.target.closest('section[data-step="2"], section[data-step="3"]')) return;
+  var n = readOption(e.target); if (n) afterOptionChange(n);
+});
+document.addEventListener("keydown", function (e) {
+  var tag = (e.target.tagName || "").toLowerCase(), typing = tag === "input" || tag === "select" || tag === "textarea";
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); primaryAction(); return; }
+  if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+    var s = state.step + (e.key === "ArrowRight" ? 1 : -1);
+    if (s >= 1 && s <= 4 && (s < state.step ? canGo(s) : ((s === 2 || s === 3) && hasTarget() && !busyTarget()) || canGo(s))) { e.preventDefault(); go(s); }
+    return;
+  }
+  if (e.target.id === "search_input") {
+    if (e.key === "ArrowDown") { e.preventDefault(); if ($("search_list").hidden && !e.target.value.trim() && state.mode === "lots") showList((state.init && state.init.recent) || [], "recent"); moveList(1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); moveList(-1); }
+    else if (e.key === "Enter") { e.preventDefault(); if (!$("search_list").hidden && listIndex >= 0) chooseList(listIndex); else if (!$("search_list").hidden && listItems.length === 1) chooseList(0); else doSearch(); }
+    else if (e.key === "Escape") hideList();
+    return;
+  }
+  if (draw.on && !typing) {   // 그리기 중 키 — Enter 완료 · Backspace 되돌리기 · Esc 취소
+    if (e.key === "Escape") { e.preventDefault(); cancelDraw(); return; }
+    if (e.key === "Enter") { e.preventDefault(); finishDraw(); return; }
+    if (e.key === "Backspace") { e.preventDefault(); draw.pts.pop(); redrawDraw(null); renderAreaInfo(); return; }
+  }
+  if (stamp.on && e.key === "Escape") { stopStamp(); renderAreaInfo(); renderFooter(); return; }
+  if (e.key === "Escape") {
+    if (state.step === 4 && state.run === "running") requestCancel();
+    else { var openDisc = document.querySelector('.disc[aria-expanded="true"]'); if (openDisc) ACTIONS.disc(openDisc); }
+    return;
+  }
+  if (e.key === "Backspace" && e.target.classList.contains("chip-row")) { e.preventDefault(); toggleLot(e.target.dataset.pnu); return; }
+  if (e.key === "Enter" && e.target.matches("[data-act][tabindex]") && tag !== "button") { ACTIONS[e.target.dataset.act](e.target); return; }
+  if (e.key === "/" && !typing) { e.preventDefault(); var i = $("search_input"); if (i) { i.focus(); i.select(); } }
+});
+window.addEventListener("resize", function () { if (map) map.invalidateSize(); });
+
+// ── 수신 핸들러 (슬롯만 교체) ──
+var handlers = {
+  init_state: function (m) {
+    var first = !state.init;
+    state.init = m; state.blocked = !!m.blocked;
+    if (first) {
+      Object.keys(DEFAULTS).forEach(function (k) { state.options[k] = (m.options && k in m.options) ? m.options[k] : JSON.parse(JSON.stringify(DEFAULTS[k])); });
+      initMap(m);
+      render();
+    } else {
+      if (tiles && m.tile && m.tile.url !== tiles._url && !tileFallback) tiles.setUrl(m.tile.url);
+      renderHeader();
+      if (state.step === 2 || state.step === 3) { state.preflight = null; renderDataStatus(); sendPreflight(0); }
+    }
+    renderInitWarnings(); renderBlocker();
+  },
+  search_result: function (m) {
+    var msg = $("search_msg"); if (!msg) return;
+    if (!m.matches || !m.matches.length) { msg.textContent = m.message || "찾지 못했습니다 — 동 이름까지 적어 보세요(예: 성수동2가 277-17 또는 19자리 PNU)"; return; }
+    if (m.matches.length === 1) { msg.textContent = ""; useMatch(m.matches[0]); return; }
+    msg.textContent = m.message || "후보 " + m.matches.length + "건"; showList(m.matches.slice(0, 8), "match"); moveList(1);
+  },
+  map_lots: function (m) {
+    if (m.seq < state.seq.map || !map) return;
+    setLotsLayer(m.geojson); $("chip_trunc").hidden = !m.truncated;
+  },
+  lot_state: function (m) {
+    state.lotState = m; state.lots = (m.lots || []).map(function (l) { return l.pnu; });
+    state.preflight = null;
+    renderLotChips(); var le = $("lot_err"); if (le) le.innerHTML = "";
+    if (map) { setTargetLayer(m.target_geojson); if (state.flyOnLot && targetLayer && targetLayer.getBounds().isValid()) map.flyToBounds(targetLayer.getBounds(), { maxZoom: 17.5 }); }
+    state.flyOnLot = false;
+    var ls = $("lot_summary"); if (ls && state.mode === "lots") ls.textContent = targetLabel();
+    if (state.mode === "lots" && state.lots.length) sendPreflight(0); else renderDataStatus();
+    if (state.run === "done" && state.result) state.dirty = true;
+    renderFooter();
+  },
+  area_state: function (m) {
+    if (!m.ok) { renderAreaInfo(); slotError("area_err", m.text); return; }
+    state.area = m.ring_tm && m.ring_tm.length ? m : null;
+    state.preflight = null;
+    if (map) {
+      setTargetLayer(state.area ? m.target_geojson : null);
+      if (state.area && state.flyOnArea && targetLayer && targetLayer.getBounds().isValid()) map.fitBounds(targetLayer.getBounds().pad(0.2));
+    }
+    state.flyOnArea = false;
+    renderAreaInfo();
+    if (state.area && m.warnings && m.warnings.length) $("area_err").innerHTML = warningsHtml(m.warnings, "map");
+    var ls = $("lot_summary"); if (ls) ls.textContent = targetLabel();
+    if (state.area) sendPreflight(0);
+    if (state.run === "done" && state.result) state.dirty = true;
+    renderFooter();
+  },
+  point_state: function (m) {
+    state.point = m.center ? m : null; state.preflight = null;
+    setPointLayer(); renderPointInfo();
+    if (state.point) sendPreflight(0);
+    if (state.run === "done" && state.result) state.dirty = true;
+    renderFooter();
+  },
+  curve_shape: function (m) {
+    if (!m.ok) { slotError("area_err", m.text); return; }
+    if (m.located) { state.flyOnArea = true; send({ cmd: "set_area", ring_tm: m.ring_tm }); toast("커브 좌표 그대로 놓았습니다 — 옮기려면 [옮기기]"); }
+    else { startStamp(m.offsets, true); toast("커브 " + fmtNum(m.area, 0) + " ㎡ — 지도를 움직여 자리를 맞추세요"); }
+  },
+  preflight_result: function (m) {
+    if (m.seq < state.seq.preflight) return;
+    state.preflight = m;
+    renderEstimate(); renderDataStatus(); drawPreflightLayers(m); renderFooter();
+    var de = $("data_status_err"); if (de) de.innerHTML = "";
+  },
+  progress: function (m) {
+    m = state.progress = Object.assign({}, state.progress, m);
+    if (m.state === "failed" || m.state === "cancelled") {
+      clearInterval(timers.elapsed); state.run = m.state;
+      renderResult(); setRun(m.state); announce(m.state === "cancelled" ? "취소됨" : "생성 실패 — " + ((m.error && m.error.title) || ""));
+      return;
+    }
+    if (state.run !== "running") return;
+    var bar = $("progress_bar"); if (bar) { bar.setAttribute("aria-valuenow", m.percent); bar.firstChild.style.width = m.percent + "%"; }
+    var pc = $("percent"); if (pc) pc.textContent = m.percent;
+    renderPhaseList(); updateCancelBtn();
+  },
+  log: function (m) { appendLog(m.text, m.level); },
+  busy: function (m) { state.busy = !!m.on; state.busyLabel = m.label || ""; updateCancelBtn(); },
+  done: function (m) {
+    clearInterval(timers.elapsed);
+    state.result = m; m.basemap = m.basemap || { ready: false, exported: [] }; m.basemap.exported = m.basemap.exported || [];
+    state.dirty = !sameOpts(m.options || {}, state.options);
+    state.run = "done"; state.maxReached = 4; state.step = 4; render();
+    setQaLayer(m.qa_geojson);
+    announce("생성 완료, 경고 " + (m.warnings || []).length + "건");
+  },
+  imported: function (m) {
+    if (state.run === "running") return;   // import_after 경로 — done.context로 그린다
+    applyImported(!!m.ok, m.text, m.layers, m.objects);
+  },
+  exported: function (m) {
+    if (!state.result) return;
+    if (m.ok) { var ex = state.result.basemap.exported; if (ex.indexOf(m.path) < 0) ex.push(m.path); renderExportedList(); toast(m.path.split("/").pop() + " 내보냈습니다"); }
+    else slotError("bm_err", (m.text || "내보내기 실패") + " — log.txt 확인");
+  },
+  error: function (m) {
+    appendLog("✗ " + m.context + ": " + m.text + (m.detail ? "\n" + m.detail : ""), "error");
+    var text = m.text || "오류";
+    switch (m.context) {
+      case "generate": if (state.run === "running") { handlers.progress({ state: "failed", phase: state.progress ? state.progress.phase : "query", phase_status: state.progress ? state.progress.phase_status : {}, phase_detail: {}, percent: 0, error: { title: text, detail: m.detail || "", code: "exception" } }); } else showErrorBand(text); break;
+      case "import": var dc = $("doc_status"); if (dc) dc.innerHTML = docStatusHtml(false, text, state.result && state.result.context.path); else showErrorBand(text); break;
+      case "export": slotError("bm_err", text); break;
+      case "search": slotError("search_msg", text); break;
+      case "select": slotError(state.mode === "area" ? "area_err" : "lot_err", text); break;
+      case "preflight": if (state.step === 1 && state.mode === "area") { slotError("area_err", text); break; } slotError("data_status_err", "확인 실패 — " + text); break;
+      default: showErrorBand(text);
+    }
+  }
+};
+window.app = { receive: function (msg) { var h = handlers[msg && msg.type]; if (h) h(msg); else console.warn("모르는 푸시", msg); } };
+
+// ── 목 모드 (?mock=1) — Rhino 없이 브라우저에서 ──
+var MOCK = /[?&]mock=1/.test(location.search);
+if (MOCK) {
+  var lastPf = null;
+  send = function (msg) {   // 콘솔로. preflight만 마지막 결과를 새 seq로 되돌려 준다
+    console.log("[send]", JSON.stringify(msg));
+    if (msg.cmd === "preflight" && lastPf) setTimeout(function () { window.app.receive(Object.assign({}, lastPf, { seq: msg.seq })); }, 50);
+  };
+  var upto = +((location.search.match(/[?&]step=(\d)/) || [])[1] || 4);
+  var onlyN = +((location.search.match(/[?&]n=(\d+)/) || [])[1] || 0);
+  var w = (location.search.match(/[?&]w=(\d+)/) || [])[1]; if (w) document.documentElement.style.width = w + "px";
+  var playMock = function (msgs) {
+    var skip = { progress: 1, log: 1, busy: 1, imported: 1, done: 1, exported: 1 };
+    msgs = msgs.filter(function (m) { return upto >= 4 || !skip[m.type]; });
+    state.mode = state.mode || "lots";   // 목 데이터는 필지 방식
+    if (onlyN) msgs = msgs.slice(0, onlyN);
+    var i = 0;
+    var tick = function () {
+      if (i >= msgs.length) { if (upto === 2 && state.step === 1) go(2); return; }
+      var m = msgs[i++];
+      if (m.type === "preflight_result") { lastPf = m; m = Object.assign({}, m, { seq: state.seq.preflight }); }
+      if ((m.type === "progress" || m.type === "log") && state.run !== "running") startGenerate();
+      window.app.receive(m);
+      setTimeout(tick, 300);
+    };
+    tick();
+  };
+  var loadMock = function () {
+    var inline = $("mock");
+    if (inline) { playMock(JSON.parse(inline.textContent)); return; }
+    fetch("../tests/fixtures/site_ui_mock.json").then(function (r) { return r.json(); }).then(playMock)
+      .catch(function (e) { console.error("목 데이터 로드 실패 — Chrome은 --allow-file-access-from-files 필요", e); });
+  };
+  var css = document.createElement("link"); css.rel = "stylesheet"; css.href = "./vendor/leaflet.css"; document.head.appendChild(css);
+  var js = document.createElement("script"); js.src = "./vendor/leaflet.js"; js.onload = loadMock; document.body.appendChild(js);
+} else {
+  send({ cmd: "init" });
+}
+</script>
+</body>
+</html>
