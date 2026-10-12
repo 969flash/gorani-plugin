@@ -706,7 +706,7 @@ def _get_empty_response(options):
     return {
         "ok": False, "cancelled": False, "dir": "", "lot_name": "", "elapsed_s": 0.0, "options": dict(options or {}),
         "context": {"path": "", "layers": 0, "buildings": 0, "lots": 0, "demolished": 0, "tin_points": 0, "origin": None,
-                    "origin_reused": False, "placement": (options or {}).get("placement", "origin"), "doc_origin": None, "model_unit": "", "imported": False, "import_text": ""},
+                    "origin_reused": False, "placement": (options or {}).get("placement", "origin"), "doc_origin": None, "model_unit": "", "imported": False, "import_text": "", "dwg": ""},
         "basemap": {"ready": False, "paper": (options or {}).get("paper", ""), "layers": 0, "scales": [], "exported": []},
         "sheets": [], "tables": [], "files": [], "warnings": [],
         "quality": {"height_src": {}, "align": {}, "skipped": {"buildings": 0, "lots": 0}, "mismatch_count": 0, "dates": {}},
@@ -855,6 +855,15 @@ def _run_phases(request, progress, doc, response, state):
     response["context"].update(path=path, layers=len(layers), buildings=geo.counts["buildings"], lots=prepared.stats["lots"],
                                demolished=geo.counts.get("demolished", 0), tin_points=geo.counts["tin_points"], origin=list(prepared.origin),
                                origin_reused=prepared.origin_reused, placement=prepared.placement, doc_origin=list(prepared.doc_origin), model_unit=str(doc.ModelUnitSystem), imported=True, import_text="")
+    if options.get("make_dwg"):   # 2D 도면(BM::)만 .dwg로 — 실패해도 3dm은 남긴다
+        _report(progress, "write_3dm", 0.95, ".dwg 저장")
+        try:
+            bm_prefix = constants.BM_ROOT_LAYER + "::"
+            bm_ids = [guid for guid in ids if doc.Layers[doc.Objects.FindId(guid).Attributes.LayerIndex].FullPath.startswith(bm_prefix)]
+            dwg_path = os.path.join(prepared.result_dir, constants.DWG_FILE_FORMAT % min(prepared.scales))
+            response["context"]["dwg"] = context_baker.save_copy(doc, dwg_path, bm_ids)
+        except Exception as exc:   # noqa: BLE001
+            _phase_failed(response, "write_3dm", exc)
     _report(progress, "write_3dm", 1.0, "객체 %d · 레이어 %d" % (len(ids), len(layers)))
 
     # basemap — 요청 축척마다 basemap_ai가 .ai를 직접 쓴다(Rhino 문서·뷰 불필요, 축척당 ≈0.5 s). 한 축척의 실패는 phase 단위 경고

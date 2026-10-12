@@ -80,9 +80,9 @@ def _set_doc_origin(doc, origin):
 
 def _get_bm_leaf(full_path):
     # type: (str) -> str
-    """'BM::09_contour::main' → '09_contour' (BM_LAYERS 이름. 서브레이어는 부모 이름). BM 아래가 아니면 ""."""
+    """'BM::07_bldg_low 건물 1~4층' → '07_bldg_low' (BM_LAYERS 이름 — 레이어명 첫 단어). BM 아래가 아니면 ""."""
     parts = full_path.split("::")
-    return parts[1] if len(parts) > 1 and parts[0] == constants.BM_ROOT_LAYER else ""
+    return parts[1].split(" ")[0] if len(parts) > 1 and parts[0] == constants.BM_ROOT_LAYER else ""
 
 
 def _get_layer_rgb(full_path):
@@ -119,6 +119,8 @@ def _ensure_layer(doc, full_path, rgb=None, layer_cache=None):
             layer = Rhino.DocObjects.Layer()
             layer.Name = name
             if path.partition("::")[2] in constants.CTX_HIDDEN_LAYERS and path.startswith(constants.CTX_ROOT_LAYER + "::"):
+                layer.IsVisible = False
+            if path == constants.BM_ROOT_LAYER:   # 2D 도면은 3D와 겹쳐 어지럽다 — 루트만 끄면 Rhino가 자식을 숨기고, 루트를 켜면 자식도 켜진다
                 layer.IsVisible = False
             if parent_id != System.Guid.Empty:
                 layer.ParentLayerId = parent_id
@@ -162,7 +164,9 @@ def _set_layer_states(doc, states):
     for index in sorted(states, key=lambda i: doc.Layers[i].FullPath.count("::")):
         layer = doc.Layers[index]
         state = states[index]
-        layer.IsVisible, layer.IsLocked = bool(state[0]), bool(state[1])
+        if layer.IsVisible != bool(state[0]):   # 같은 값도 다시 넣으면 꺼진 부모 아래 자식의 PersistentVisibility가 지워진다
+            layer.IsVisible = bool(state[0])
+        layer.IsLocked = bool(state[1])
         if len(state) > 2 and state[2]:
             layer.PlotWeight = state[2]
 
@@ -260,8 +264,10 @@ def bake(doc, items, prepared, lot_key=None):
                 geometry.Transform(xform)
             if isinstance(geometry, Rhino.Geometry.TextEntity):   # Transform은 평면만 옮긴다 — 높이는 item.text_height(m)에서 문서 단위로
                 height = float(getattr(item, "text_height", 0.0) or geometry.TextHeight) * scale
+                justification = geometry.Justification   # 스타일을 바꾸면 TopLeft로 돌아간다(job 1012-224150-e615 BM::12_labels)
                 geometry.DimensionStyleId = _get_dim_style_id(doc, height, style_cache)
                 geometry.TextHeight = height
+                geometry.Justification = justification
             attributes = doc.CreateDefaultAttributes()
             attributes.LayerIndex = _ensure_layer(doc, item.layer, _get_layer_rgb(item.layer), layer_cache)
             if getattr(item, "name", ""):
@@ -365,7 +371,26 @@ def save_copy(doc, path, object_ids=None, timing=None):
         _set_layer_states(doc, saved)
         doc.Views.RedrawEnabled = redraw
         doc.Views.Redraw()
+    if path.lower().endswith(".3dm"):   # .dwg는 레이어를 켠 채 둔다 — 2D만 따로 내보낸 파일이라 꺼 둘 이유가 없다
+        _set_file_layer_states(doc, path, saved)
     return path
+
+
+def _set_file_layer_states(doc, path, indexes):
+    # type: (object, str, object) -> None
+    """save_copy가 선택하려고 켠 레이어를 파일에서도 문서 상태(끔·잠금·PersistentVisibility)로 되돌린다 — WriteFile은 켠 순간의 상태로 쓴다.
+    BM 루트(기본 off)·CTX_HIDDEN_LAYERS가 파일에서 켜져 나오던 것을 막는다. 전부 켜진 상태면 파일을 다시 쓰지 않는다. File3dm 읽고 쓰기 ≈0.01 s(1012-223825-624e)."""
+    layers = {doc.Layers[i].FullPath: doc.Layers[i] for i in indexes}
+    if all(layer.IsVisible and not layer.IsLocked for layer in layers.values()):
+        return
+    model = Rhino.FileIO.File3dm.Read(path)
+    for layer in model.AllLayers:
+        src = layers.get(layer.FullPath)
+        if src is not None:
+            layer.IsVisible, layer.IsLocked = src.IsVisible, src.IsLocked
+            layer.SetPersistentVisibility(src.GetPersistentVisibility())
+    if not model.Write(path, 0):
+        raise RuntimeError("Rhino 파일 레이어 상태를 저장할 수 없습니다: %s" % path)
 
 
 # ── 재삽입·줌 ────────────────────────────────────────────────

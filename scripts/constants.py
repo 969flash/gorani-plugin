@@ -305,6 +305,7 @@ RESULT_DATE_FORMAT = "%Y%m%d"                  # result/<YYYYMMDD>/<대상지명
 CONTEXT_MODEL_FILE_NAME = "context.3dm"
 CONTEXT_META_FILE_NAME = "context.json"
 BASEMAP_FILE_FORMAT = "basemap_%d.ai"          # 축척 분모
+DWG_FILE_FORMAT = "basemap_%d.dwg"             # 3dm BM:: 2D 레이어만 내보낸 것(옵션 make_dwg). 축척 = 2D를 만든 축척(요청 중 가장 상세)
 RESULT_LOG_FILE_NAME = "log.txt"
 
 # 3dm 레이어 — deliverables §A.1 (부모 CTX), §B.2 (부모 BM). 색은 RGB.
@@ -395,6 +396,7 @@ PANEL_DEFAULT_OPTIONS = {
     "make_tables": True,
     "include_minor_buildings": False, "demolished": "dashed", "refresh_buildings": True, "include_api_objects": False,
     "include_zoning": False, "terrain_vertex_color": False,
+    "make_dwg": False,   # 2D 도면(BM::)을 .dwg로도 — CAD 사용자용. 기본 off
     "zoom_after_import": True,
 }
 

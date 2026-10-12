@@ -314,7 +314,7 @@ var LAYER_OPTS = [["02b_landuse", "토지이용(02b)"], ["05_road_center", "도�
 var DEFAULTS = { mode: "lots", placement: "origin", flatten_site: false, flatten_level: "mean", site_output: "curve", radius: 500, shape: "circle", import_after: true, make_basemap: true, paper: "A1", paper_mm: [841, 594], scales: [3000],
   basemap_layers_on: [], make_sheets: true, sheet_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], floor_breaks: [12, 20], elev_preset: "20m",
   make_tables: true, include_minor_buildings: false, demolished: "dashed", refresh_buildings: true, include_api_objects: false,
-  include_zoning: false, terrain_vertex_color: false, zoom_after_import: true };
+  include_zoning: false, terrain_vertex_color: false, make_dwg: false, zoom_after_import: true };
 var MAP_STYLE = {
   lot: { color: "#6b7480", weight: 1, opacity: .4, fillOpacity: .01 },
   target: { color: "#d8322d", weight: 2, fillColor: "#d8322d", fillOpacity: .3 },
@@ -891,6 +891,7 @@ function renderOptions() {
       '<div class="row"><label class="chk" for="demolished">철거 건물</label><select class="sm" id="demolished" name="demolished"><option value="dashed"' + (o.demolished === "dashed" ? " selected" : "") + '>점선·회색으로 표시</option><option value="exclude"' + (o.demolished === "exclude" ? " selected" : "") + ">제외</option></select></div>" +
       '<div class="grp">3dm</div>' +
       '<label class="chk"><input type="checkbox" name="include_zoning"' + (o.include_zoning ? " checked" : "") + '>용도지역 경계선 넣기 <span class="sub">CTX::Zoning</span></label>' +
+      '<label class="chk"><input type="checkbox" name="make_dwg"' + (o.make_dwg ? " checked" : "") + '>2D 도면 DWG로도 저장 <span class="sub">BM:: 레이어 → basemap_축척.dwg</span></label>' +
       '<div class="grp">문서</div>' +
       '<label class="chk"><input type="checkbox" name="zoom_after_import"' + (o.zoom_after_import ? " checked" : "") + ">넣은 뒤 대상지로 줌</label>" +
     "</details></fieldset>";
@@ -919,7 +920,7 @@ function updateSummaries() {
   if (as) {
     var a = [];
     if (o.include_minor_buildings) a.push("무벽건물 포함"); if (o.demolished === "exclude") a.push("철거 제외");
-    if (o.include_zoning) a.push("용도지역 경계선"); if (!o.zoom_after_import) a.push("줌 안 함");
+    if (o.include_zoning) a.push("용도지역 경계선"); if (o.make_dwg) a.push("DWG"); if (!o.zoom_after_import) a.push("줌 안 함");
     as.textContent = a.join(" · ");
   }
   var rh = $("radius_hint"); if (rh) rh.hidden = !(o.radius > 1000);

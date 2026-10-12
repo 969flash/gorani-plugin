@@ -62,6 +62,11 @@ class WriteTest(unittest.TestCase):
         coords = [tuple(map(float, m)) for m in re.findall(r"^(-?\d+\.\d+) (-?\d+\.\d+) [mL]$", text, re.M)]
         self.assertTrue(coords)
         self.assertTrue(all(-0.5 <= x <= 2384.5 and -0.5 <= y <= 1684.5 for x, y in coords))
+        # 3dm 2D 레이어용 기록기 — .ai와 같은 도형을 받는다
+        recorder = basemap_ai.build_ai(prepared, 3000, basemap_ai.ShapeRecorder())
+        self.assertEqual(set(recorder.counts), set(result["counts"]))   # .ai는 종이에서 0.05 mm보다 작은 도형을 버려 수가 조금 적다
+        self.assertTrue(all(recorder.counts[k] >= v for k, v in result["counts"].items()))
+        self.assertEqual({kind for _layer, kind, _data in recorder.shapes}, {"polygon", "line", "text"})
 
 
 if __name__ == "__main__":

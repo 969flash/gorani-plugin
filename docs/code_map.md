@@ -304,9 +304,9 @@ def get_progress_message(phase, fraction, text, skipped, details):
 
 모든 베이크 객체에 `UDT_MANAGED=1`·`UDT_LOT_KEY=<pnus 정렬 후 sha1 앞 8자리>` — `clear_previous`는 같은 키의 객체만 지운다(사용자 객체 보존).
 
-### 7.2 베이스맵 레이어 (`constants.BM_LAYERS`, deliverables B.2 순서·K톤) — `.ai` 안에만 있다
+### 7.2 베이스맵 레이어 (`constants.BM_LAYERS`, deliverables B.2 순서·K톤) — `.ai`와 3dm `BM::` 2D 레이어
 
-`00_frame_scale`·`01_water`·`02_green`·`02b_landuse`(off)·`03_road_surface`·`04_road_edge`·`05_road_center`(off)·`06_rail`·`07_bldg_low/mid/high/tower`·`08_parcel`·`08b_parcel_no`(1:1000만)·`09_contour`·`10_site`·`11_zoning`(off)·`12_labels`·`13_grid`. Rhino 문서에는 `BM::` 레이어를 만들지 않는다. 레이어 이름은 `.ai`에 "`07_bldg_low` 건물 저층"처럼 이름 + 한글 설명(CP949)으로 들어간다. 꺼진 레이어(`BASEMAP_DEFAULT_OFF_LAYERS`)는 `basemap_layers_on` 옵션으로 켠다. 계곡선은 `BM_CONTOUR_INDEX_K`(K55).
+`00_frame_scale`·`01_water`·`02_green`·`02b_landuse`(off)·`03_road_surface`·`04_road_edge`·`05_road_center`(off)·`06_rail`·`07_bldg_low/mid/high/tower`·`08_parcel`·`08b_parcel_no`(1:1000만)·`09_contour`·`10_site`·`11_zoning`(off)·`12_labels`·`13_grid`. 3dm에도 같은 도면이 2D로 들어간다(2026-10-12): `context_geometry.build_basemap_2d`가 `basemap_ai.build_ai`를 `ShapeRecorder`로 받아 `BM::07_bldg_low 건물 1~4층` 같은 레이어에 Z=0 커브·텍스트(칠 없음, 레이어 색 = K톤 회색)로 만든다. 요청 축척 중 가장 상세한 한 장만, 범위는 그 프레임. `BM` 루트는 꺼진 채 만들어지고(자식은 PersistentVisibility 켜짐 — 루트만 켜면 전부 보인다), `save_copy`가 저장 뒤 파일 레이어 상태를 문서 상태로 되돌린다. 비용(성수 R=500, 1:3000): BM 객체 22,079 · write_3dm 1.6 → 5.2 s · context.3dm 18 → 38 MB. 옵션 `make_dwg`(기본 off, 패널 고급 > 3dm)이면 같은 BM 객체만 `save_copy`로 `basemap_<축척>.dwg`(레이어 `BM$…`, 켜진 채) — +1.1 s · 5.7 MB, 경로는 `done.context.dwg`. 레이어 이름은 `.ai`에 "`07_bldg_low` 건물 저층"처럼 이름 + 한글 설명(CP949)으로 들어간다. 꺼진 레이어(`BASEMAP_DEFAULT_OFF_LAYERS`)는 `basemap_layers_on` 옵션으로 켠다. 계곡선은 `BM_CONTOUR_INDEX_K`(K55).
 
 **basemap은 실제 phase다**: `run`의 phase `basemap`이 축척마다 `basemap_ai.write_basemap`을 부른다. `get_skipped_phases`는 `make_basemap=False`일 때만 `basemap`을 skipped에 넣는다. 패널의 다른 축척 [.ai 내보내기]는 `context_builder.export_basemap(result_dir, scale)` — `context.json`의 pnus·options로 DB에서 다시 `prepare`해 쓴다(문서 import 불필요, 1초 안팎).
 

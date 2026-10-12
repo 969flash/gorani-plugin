@@ -18,6 +18,7 @@ import Rhino.Geometry as rg
 from Rhino.Geometry.Intersect import Intersection
 from System.Collections.Generic import List
 
+import basemap_ai
 import constants
 import context_report
 import non_rhino_utils
@@ -720,6 +721,36 @@ def build_curves(prepared):
 
 # ── 베이스맵 2D (BM::) ───────────────────────────────────────
 
+def build_basemap_2d(prepared, scale):
+    # type: (object, int) -> list
+    """basemap_<축척>.ai와 같은 도면(basemap_ai.build_ai)을 3dm 2D 레이어 BakeItem으로. Z=0 커브·텍스트, 칠은 없다(레이어 색만).
+
+    입력: Prepared, 축척 분모(레이어 선택·프레임 범위·글자 높이를 정한다). 처리: ShapeRecorder로 받아 polygon 링 → 닫힌 커브,
+          line → 열린 커브, text → TextEntity(가운데 정렬, 높이 = 종이 mm × 축척 / 1000 m). 레이어는 'BM::07_bldg_low 건물 1~4층'.
+    출력: BakeItem 목록. BM 루트 레이어는 베이커가 꺼 둔 채 만든다(constants.BM_ROOT_LAYER).
+    """
+    recorder = basemap_ai.build_ai(prepared, scale, basemap_ai.ShapeRecorder())
+    labels = {name: label for name, label, *_ in constants.BM_LAYERS}
+    origin = prepared.origin
+    items = []
+    for name, kind, data in recorder.shapes:
+        layer = "%s::%s %s" % (constants.BM_ROOT_LAYER, name, labels[name])
+        if kind == "polygon":
+            items += [BakeItem(layer, _get_ring_crv(ring, origin, 0.0)) for ring in data]
+        elif kind == "line":
+            items.append(BakeItem(layer, rg.PolylineCurve(get_local_pts(data, origin, 0.0))))
+        else:
+            content, x, y, size_mm = data
+            height = size_mm * scale / 1000.0
+            text = rg.TextEntity()
+            text.Plane = rg.Plane(get_local_pts([(x, y)], origin, 0.0)[0], rg.Vector3d.ZAxis)
+            text.PlainText = content
+            text.Justification = rg.TextJustification.MiddleCenter
+            text.TextHeight = height
+            items.append(BakeItem(layer, text, name=content, text_height=height))
+    return items
+
+
 
 # ── 구역 커브 (패널 '구역 그리기') ───────────────────────────
 
@@ -800,13 +831,16 @@ def get_snapped_ring(area_ring, add_rings, cut_rings, tolerance):
 
 def build(prepared):
     # type: (object) -> ContextGeo
-    """지형 → 건물 → 커브 순으로 전부 만들어 ContextGeo로 묶는다(phase 'terrain' 전체). 문서는 건드리지 않는다."""
+    """지형 → 건물 → 커브 → 2D 도면(BM::) 순으로 전부 만들어 ContextGeo로 묶는다(phase 'terrain' 전체). 문서는 건드리지 않는다."""
     meshes, tris, counts = build_terrain(prepared)
     items = _get_terrain_items(prepared, meshes, counts)
     b_items, b_counts, skipped, warnings = build_buildings(prepared, meshes["all"])
     items += b_items
     curve_items = build_curves(prepared)
     items += curve_items
+    bm_items = build_basemap_2d(prepared, min(prepared.scales))   # 2D는 가장 상세한 축척 한 장만 — 축척마다 넣으면 3dm이 축척 수만큼 커진다
+    items += bm_items
+    counts["basemap_2d"] = len(bm_items)
     counts.update(b_counts)
     counts["curves"] = len(curve_items)
     counts["items"] = len(items)

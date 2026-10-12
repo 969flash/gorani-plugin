@@ -240,10 +240,11 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
  "make_tables":true,
  "include_minor_buildings":false,"demolished":"dashed","refresh_buildings":true,"include_api_objects":false,   // demolished: dashed|exclude
  "include_zoning":false,"terrain_vertex_color":false,
+ "make_dwg":false,                                     // 3dm 2D 도면(BM::)만 basemap_<축척>.dwg로도 저장(고급 > 3dm). 결과 경로는 done.context.dwg
  "zoom_after_import":true}
 ```
 
-20개. 모르는 키는 Python이 무시하고 빠진 키는 기본값(constants)으로 채운다. `generate`는 `pnus`를 옵션 밖 별도 키로 받는다(옵션은 대상지와 독립이어야 prefs로 재사용된다). **`scales`는 `generate`에도 포함한다**(code_map §3: 가장 큰 프레임이 질의 범위) — dirty 판정에서는 여전히 제외.
+26개. 모르는 키는 Python이 무시하고 빠진 키는 기본값(constants)으로 채운다. `generate`는 `pnus`를 옵션 밖 별도 키로 받는다(옵션은 대상지와 독립이어야 prefs로 재사용된다). **`scales`는 `generate`에도 포함한다**(code_map §3: 가장 큰 프레임이 질의 범위) — dirty 판정에서는 여전히 제외.
 
 ## 상태 머신
 

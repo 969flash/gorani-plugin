@@ -23,7 +23,7 @@ doc.ModelUnitSystem = Rhino.UnitSystem.Millimeters
 res = {"doc_unit": str(doc.ModelUnitSystem), "checks": {}}
 request = {"pnus": [constants.TEST_CONTEXT_PNU], "site_db": os.path.join(FIXTURE_DIR, "seongsu_site.db"),
            "context_db": os.path.join(FIXTURE_DIR, "seongsu_context.db"), "result_root": os.path.join(OUT_DIR, "result"),   # noqa: F821
-           "options": {"radius": 500, "scales": [3000], "make_basemap": True, "make_sheets": True, "make_tables": True}}
+           "options": {"radius": 500, "scales": [3000], "make_basemap": True, "make_sheets": True, "make_tables": True, "make_dwg": True}}
 lot_key = context_baker.get_lot_key(request["pnus"])
 had_origin = context_baker.get_doc_origin(doc)
 
@@ -95,9 +95,29 @@ try:
     ai_layers = re.findall(r"^\((\d\d[a-z_0-9]+)[^\n]*\) Ln$", ai_text, re.M)
     expected_order = [name for name, *_ in constants.BM_LAYERS if name in set(ai_layers)]
     check("basemap_ai_layer_order", ai_layers == expected_order and len(ai_layers) >= 14, "%s" % ai_layers)
-    check("basemap_not_in_doc", not context_baker._get_layer_indexes(doc, constants.BM_ROOT_LAYER) or not any(
-        doc.Layers[ro.Attributes.LayerIndex].FullPath.startswith("BM::") for ro in context_baker._get_objects(doc)
-        if ro.Attributes.GetUserString(constants.UDT_LOT_KEY) == lot_key))
+    # 2D 도면(BM::) — 문서에 커브·텍스트로 들어가고 루트는 꺼져 있고(자식은 PersistentVisibility 유지), 사본 3dm에서도 꺼져 있다
+    bm_objects = [ro for ro in context_baker._get_objects(doc) if ro.Attributes.GetUserString(constants.UDT_LOT_KEY) == lot_key
+                  and doc.Layers[ro.Attributes.LayerIndex].FullPath.startswith("BM::")]
+    bm_layers = {doc.Layers[ro.Attributes.LayerIndex].FullPath for ro in bm_objects}
+    res["bm_objects"] = len(bm_objects)
+    check("bm_in_doc", len(bm_objects) > 1000 and len(bm_layers) >= 10 and any(isinstance(ro, Rhino.DocObjects.TextObject) for ro in bm_objects),
+          "%d objects %s" % (len(bm_objects), sorted(bm_layers)))
+    bm_root = doc.Layers[doc.Layers.FindByFullPath(constants.BM_ROOT_LAYER, -1)]
+    bm_children = [doc.Layers[doc.Layers.FindByFullPath(path, -1)] for path in bm_layers]
+    check("bm_hidden_in_doc", not bm_root.IsVisible and not any(l.IsVisible for l in bm_children) and all(l.GetPersistentVisibility() for l in bm_children))
+    bm_objects[0].Select(True)   # 숨김 객체는 선택되지 않아야 한다(= 화면에 안 보인다)
+    check("bm_not_selectable", not bm_objects[0].IsSelected(False))
+    dwg_path = response["context"]["dwg"]
+    dwg_doc = Rhino.RhinoDoc.CreateHeadless(None)
+    dwg_read = bool(dwg_path) and os.path.exists(dwg_path) and Rhino.FileIO.FileDwg.Read(dwg_path, dwg_doc, Rhino.FileIO.FileDwgReadOptions())
+    dwg_count = dwg_doc.Objects.Count if dwg_read else -1
+    dwg_doc.Dispose()
+    check("dwg", dwg_read and dwg_path.endswith(constants.DWG_FILE_FORMAT % 3000) and dwg_count >= 0.95 * len(bm_objects),   # DWG 읽기가 퇴화 커브 몇 개를 버린다
+          "%s objects %d vs bm %d" % (dwg_path, dwg_count, len(bm_objects)))
+    file_layers = {l.FullPath: l for l in Rhino.FileIO.File3dm.Read(response["context"]["path"]).AllLayers}
+    # 파일에는 자식이 '켜짐'(= PersistentVisibility)으로 남고 루트만 꺼진다 — 열면 Rhino가 자식을 숨긴다(OpenHeadless 확인, job 1012-224122-18be)
+    check("bm_hidden_in_file", not file_layers[constants.BM_ROOT_LAYER].IsVisible and all(file_layers[path].GetPersistentVisibility() for path in bm_layers)
+          and file_layers["CTX::Buildings"].IsVisible, str({k: v.IsVisible for k, v in file_layers.items() if k.startswith("BM")}))
     with open(os.path.join(response["dir"], constants.RESULT_LOG_FILE_NAME), encoding="utf-8") as f:
         log_text = f.read()
     check("save_timing_logged", "context.3dm 저장 —" in log_text)

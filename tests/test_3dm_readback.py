@@ -53,8 +53,10 @@ class ReadbackTest(unittest.TestCase):
             self.assertIn("%s::%s" % (constants.CTX_ROOT_LAYER, name), paths)
         ctx = {p for p in paths if p.startswith(constants.CTX_ROOT_LAYER + "::")}
         self.assertGreaterEqual(len(ctx), 7, sorted(ctx))
+        bm = {p for p in paths if p.startswith(constants.BM_ROOT_LAYER + "::")}   # 2D 도면 레이어(기본 off)
+        self.assertGreaterEqual(len(bm), 10, sorted(bm))
         if self.response:
-            self.assertEqual(len(ctx), self.response["context"]["layers"], sorted(ctx))
+            self.assertEqual(len(ctx) + len(bm), self.response["context"]["layers"], sorted(ctx | bm))
 
     def test_building_count_matches_counts(self):
         buildings = self.by_layer.get(constants.CTX_ROOT_LAYER + "::Buildings", [])

@@ -309,6 +309,28 @@ class AiWriter(object):
         return 0
 
 
+class ShapeRecorder(object):
+    """AiWriter와 같은 polygon·line·text를 받아 (layer, kind, data) 목록으로 모은다 — 3dm BM:: 2D 레이어용(context_geometry.build_basemap_2d).
+    좌표는 세계 m 그대로. 칠·선 톤은 버린다(Rhino에서는 레이어 색이 대신한다)."""
+
+    def __init__(self):
+        self.shapes = []
+        self.counts = {}
+
+    def _add(self, layer, kind, data):
+        self.shapes.append((layer, kind, data))
+        self.counts[layer] = self.counts.get(layer, 0) + 1
+
+    def polygon(self, layer, rings, fill_k, line_k, width_mm):
+        self._add(layer, "polygon", rings)
+
+    def line(self, layer, pts, line_k, width_mm):
+        self._add(layer, "line", pts)
+
+    def text(self, layer, content, x, y, size_mm, k=100.0):
+        self._add(layer, "text", (content, x, y, size_mm))
+
+
 def _layer_style(name):
     # type: (str) -> tuple
     """BM_LAYERS → (fill_k, line_k)."""
@@ -318,16 +340,16 @@ def _layer_style(name):
     return None, None
 
 
-def build_ai(prepared, scale):
-    # type: (object, int) -> AiWriter
-    """Prepared 한 축척의 베이스맵을 AiWriter에 담는다(파일은 안 쓴다). 레이어 내용은 deliverables §B.2 —
+def build_ai(prepared, scale, writer=None):
+    # type: (object, int, object) -> AiWriter
+    """Prepared 한 축척의 베이스맵을 writer(기본 AiWriter, 3dm용은 ShapeRecorder)에 담는다(파일은 안 쓴다). 레이어 내용은 deliverables §B.2 —
     00 프레임 / 01 수면·지목 수계 / 02 지목 공원·임야·시설 공원·녹지·경지 / 02b 토지이용(기본 off) / 03 도로면·지목 도로 + 04 도로면 외곽 /
     05 도로중심선(기본 off) / 06 철도 / 07 건물 층수 4구간(칠+외곽) / 08 지적선 + 08b 지번(1:1000) / 09 등고선(계곡선은 진하게) /
     10 대상지·범위 / 11 용도지역·지구단위(기본 off) / 12 지명·도로명 / 13 500 m 격자. 객체는 프레임 bbox로 자른다."""
     scale = int(scale)
     options = prepared.request["options"]
     bbox = prepared.frame_bounds[scale]
-    writer = AiWriter(bbox, scale, options["paper_mm"])
+    writer = writer if writer is not None else AiWriter(bbox, scale, options["paper_mm"])
     wanted = get_basemap_layers(options, scale)
 
     def polygon(fill_layer, edge_layer, geometry):
