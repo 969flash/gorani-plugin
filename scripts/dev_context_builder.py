@@ -508,10 +508,15 @@ def get_sheet_sido(bundle_dir=BUNDLE_DIR, sheet_dir=SHEET_DIR):
 
 def _get_sido_bounds(sido_code):
     # type: (str) -> tuple
-    """시도 필지 DB의 범위(min_x, min_y, max_x, max_y). 필지 DB가 없으면 None."""
+    """시도 필지 DB의 범위(min_x, min_y, max_x, max_y). 필지 DB가 이미 팩으로 압축돼 지워졌으면 매니페스트 범위, 둘 다 없으면 None."""
     import dev_database_builder
     path = dev_database_builder.get_database_path(sido_code)
     if not path.exists():
+        manifest_path = ROOT_DIR / "build" / "packs" / "manifest.json"
+        if manifest_path.exists():
+            for pack in json.loads(manifest_path.read_text(encoding="utf-8"))["packs"]:
+                if pack["name"] == path.name and pack.get("bounds"):
+                    return tuple(pack["bounds"])
         return None
     connection = sqlite3.connect(str(path))
     try:
