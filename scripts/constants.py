@@ -211,7 +211,7 @@ DATA_CHUNK_BYTES = 1024 * 1024         # 압축 스트림을 1 MB씩 읽어 풀�
 DATA_MAX_OPEN_FILES = 11               # 한 연결에 여는 지역 DB 수 상한 — SQLite ATTACH 기본 상한 10 + main(2026-10-12 실측)
 # 테이블별 객체 최대 폭 m — bbox 질의의 min_x 하한에 쓴다. dev_context_builder가 빌드 끝에 넘지 않는지 검사한다.
 # 실측(2026-10-08): 건물 최대 887 m(가로·세로 중 큰 값), features 최대 2,779 m(도엽 1장 높이 — 도엽 단위로 잘려 있다).
-CONTEXT_MAX_EXTENT = {"buildings": 1000.0, "features": 3000.0}
+CONTEXT_MAX_EXTENT = {"buildings": 2000.0, "features": 3000.0}   # 부산 건물 최대 1,340 m(2026-10-13 전국 빌드)
 TOPO_SHEET_DIRNAME = "data/raw/수치지형도_5000"        # 도엽 zip 그대로 + sheets.csv (수동 다운로드)
 TOPO_SHEET_INDEX_FILENAME = "sheets.csv"
 TOPO_ENCODING = "cp949"                              # 수치지형도 SHP 속성 인코딩 (성수 4도엽 실측)

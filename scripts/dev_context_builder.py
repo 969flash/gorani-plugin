@@ -276,7 +276,9 @@ def _get_sheet_crs(zip_path, layers):
         crs = pyogrio.read_info("/vsizip/%s/%s" % (zip_path.resolve(), member))["crs"]
         if crs:
             return crs
-    return None
+    # .prj가 하나도 없는 도엽(대구 36810069) — 도엽 중심 경도로 원점을 고른다(서부 125° 동부 129° 동해 131°)
+    lon = sum(non_rhino_utils.get_topo_sheet_bounds(zip_path.stem)[0::2]) / 2.0
+    return "EPSG:%d" % (5185 if lon < 126.0 else 5186 if lon < 128.0 else 5187 if lon < 130.0 else 5188)
 
 
 def _read_layer(zip_path, member, sheet_crs=None):
@@ -444,12 +446,15 @@ def load_align_samples(connection, site_database_path=SITE_DATABASE_PATH):
         print("정합 샘플 건너뜀 — 필지 DB 없음: %s" % site_database_path, flush=True)
         return 0
     site = sqlite3.connect(str(site_database_path))
+    site.execute("CREATE INDEX IF NOT EXISTS idx_parcels_category ON parcels(land_category, min_x)")   # 지목 도로 bbox 질의용
     total = 0
     try:
         sheets = connection.execute(
             "SELECT sheet, MIN(reference_date) FROM features WHERE theme = 'road' AND kind = 'surface' GROUP BY sheet ORDER BY sheet").fetchall()
         for code, reference_date in sheets:
-            rows = connection.execute("SELECT geometry_json FROM features WHERE theme = 'road' AND kind = 'surface' AND sheet = ?", (code,)).fetchall()
+            # INDEXED BY — 플래너가 theme 인덱스를 골라 도엽마다 시도 전체 도로면을 훑었다(충북 1,294장에서 도엽당 4 초, 2026-10-13)
+            rows = connection.execute("SELECT geometry_json FROM features INDEXED BY idx_features_sheet WHERE sheet = ? AND theme = 'road' AND kind = 'surface'",
+                                      (code,)).fetchall()
             topo = shapely.make_valid(shapely.from_geojson([r[0] for r in rows]))
             min_x, min_y, max_x, max_y = shapely.total_bounds(topo)
             tile = shapely.box(min_x, min_y, max_x, max_y)
