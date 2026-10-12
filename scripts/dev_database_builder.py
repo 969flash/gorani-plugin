@@ -1,8 +1,13 @@
-"""서울 필지 로컬 DB(seoul_site.db)를 구축한다.
+"""시도별 필지 로컬 DB(data/<시도>_site.db)를 구축한다.
+
+    python3 scripts/dev_database_builder.py --sido 11      # 서울 하나
+    python3 scripts/dev_database_builder.py --sido all     # data/raw에 토지특성정보가 있는 시도 전부
 
 이 파일은 Rhino가 아니라 개발용 Python 환경에서 실행한다.
 공공 원천 데이터를 내려받아 보관하고, PNU별 공간교차 결과를 SQLite에 적재한다.
 모든 공간정보는 EPSG:5186으로 변환한 뒤 좌표·거리는 m, 계산면적은 ㎡로 저장한다.
+서울 외 시도는 parcel_id·overlay_id를 시도 코드 × 10^9만큼 띄워 여러 시도 DB를 한 연결로 묶어도 겹치지 않게 한다
+(data_pack.open_union). 서울은 기존 배포본과 같게 0부터.
 """
 
 import argparse
@@ -27,7 +32,14 @@ import constants
 ROOT_DIR = Path(__file__).resolve().parents[1]
 RAW_DIR = ROOT_DIR / constants.RAW_DATA_DIRNAME
 DATABASE_PATH = ROOT_DIR / constants.DATABASE_PATH
-DATABASE_BUILD_PATH = DATABASE_PATH.with_suffix(".building.db")
+SEOUL_CODE = "11"
+ID_OFFSET_PER_SIDO = 10 ** 9   # 시도 하나의 필지·오버레이 수는 10억보다 훨씬 적다(경기 약 500만 필지)
+
+
+def get_database_path(sido_code):
+    # type: (str) -> Path
+    """시도 코드 → data/<시도>_site.db."""
+    return ROOT_DIR / "data" / ("%s_site.db" % constants.SIDO[sido_code][1])
 
 SEOUL_DOWNLOAD_URL = (
     "https://datafile.seoul.go.kr/bigfile/iot/inf/nio_download.do?&useCache=false"
@@ -353,7 +365,7 @@ LAND_USE_SOURCE = {
     "license": "공공누리 제1유형(출처표시)",
     "crs": "",
     "note": (
-        "필지별 지역지구등 지정 현황. 시도별 CSV라 서울(AL_D155_11_*)만 쓴다. "
+        "필지별 지역지구등 지정 현황. 시도별 CSV(AL_D155_<시도>_*)에서 그 시도 것만 쓴다. "
         "고유번호가 PNU라 공간교차 없이 붙는다. 토지이음 화면과 같은 원천이다. "
         "용량이 커 수동으로 내려받아 data/raw/전국_토지이용계획정보에 풀어 둔다."
     ),
@@ -691,8 +703,8 @@ def _to_float(value):
     return number
 
 
-def _prepare_land_char_chunk(data):
-    """토지특성정보 한 묶음을 좌표계·도형·PNU까지 정리한다."""
+def _prepare_land_char_chunk(data, sido_code=SEOUL_CODE):
+    """토지특성정보 한 묶음을 좌표계·도형·PNU까지 정리한다. 다른 시도 PNU가 섞여 있으면 ValueError."""
     missing_columns = set(LAND_CHAR_COLUMNS).difference(data.columns)
     if missing_columns:
         raise ValueError(
@@ -715,8 +727,8 @@ def _prepare_land_char_chunk(data):
     ]["pnu_value"].tolist()
     if invalid_pnus:
         raise ValueError("SHP에 유효하지 않은 PNU가 있습니다: %s" % invalid_pnus[:5])
-    if not data["pnu_value"].str.startswith("11").all():
-        raise ValueError("서울특별시가 아닌 PNU가 SHP에 포함되어 있습니다")
+    if not data["pnu_value"].str.startswith(sido_code).all():
+        raise ValueError("%s가 아닌 PNU가 SHP에 포함되어 있습니다" % constants.SIDO[sido_code][0])
 
     data["lot_area"] = data.geometry.area
     return data[data["lot_area"] > 0.0]
@@ -776,26 +788,27 @@ def _insert_land_char_lots(connection, lot_data):
 LAND_USE_COLUMNS = ("고유번호", "용도지역지구코드", "용도지역지구명", "저촉여부")
 
 
-def load_land_use(connection, land_use_dir=None, chunk_size=200000):
-    # type: (object, object, int) -> int
+def load_land_use(connection, land_use_dir=None, chunk_size=200000, sido_code=SEOUL_CODE):
+    # type: (object, object, int, str) -> int
     """토지이용계획정보 CSV를 parcel_land_use에 적재한다.
 
     입력:
         connection: DB 연결. land_use_dir: CSV 폴더. chunk_size: 커밋 단위 행 수.
     처리:
-        시도별 파일 중 서울 것만 읽는다. 고유번호가 곧 PNU라 공간교차가 필요 없다.
+        시도별 파일 중 sido_code 것만 읽는다. 고유번호가 곧 PNU라 공간교차가 필요 없다.
         같은 (필지, 지역지구, 저촉여부)가 여러 번 나오므로 기본키로 걷어낸다.
         원천 파일에 인코딩 표기가 없어 cp949로 읽는다.
     출력:
         적재한 행 수. 파일이 없으면 FileNotFoundError를 발생시킨다.
     """
     land_use_dir = Path(land_use_dir or (ROOT_DIR / constants.LAND_USE_DIRNAME))
-    paths = sorted(land_use_dir.glob(constants.LAND_USE_FILE_PREFIX + "*.csv"))
+    prefix = constants.LAND_USE_FILE_FORMAT % sido_code
+    paths = sorted(land_use_dir.glob(prefix + "*.csv"))
     if not paths:
         raise FileNotFoundError(
             "토지이용계획정보 CSV가 없습니다: %s/%s*.csv\n"
             "공공데이터포털 국토교통부_토지이용계획정보(15045900)에서 받아 풀어 두세요."
-            % (land_use_dir, constants.LAND_USE_FILE_PREFIX)
+            % (land_use_dir, prefix)
         )
     source_id = LAND_USE_SOURCE["source_id"]
     _upsert_source(connection, source_id, LAND_USE_SOURCE)
@@ -1085,36 +1098,61 @@ def load_overlay_sources(
     return frames
 
 
-def build(refresh=False, chunk_size=50000):
-    # type: (bool, int) -> object
-    """토지특성정보와 UPIS 계획 레이어로 로컬 DB를 새로 만든다.
+def _get_land_char_paths(sido_code):
+    # type: (str) -> list
+    """그 시도의 토지특성정보 SHP 경로(정렬). 받은 zip(AL_D194_<시군구>_<기준일>.zip)이 아직 안 풀렸으면 같은 이름 폴더에 푼다."""
+    land_char_dir = ROOT_DIR / constants.LAND_CHAR_DIRNAME
+    prefix = "AL_D194_%s" % sido_code
+    for zip_path in sorted(land_char_dir.glob(prefix + "*.zip")):
+        folder = zip_path.with_suffix("")
+        if not folder.exists():
+            with zipfile.ZipFile(zip_path) as archive:
+                archive.extractall(folder)
+    return sorted(p for p in land_char_dir.glob(prefix + "*/*.shp"))
+
+
+def _offset_ids(connection, offset):
+    # type: (object, int) -> None
+    """parcel_id·overlay_id를 offset만큼 띄운다(시도 DB 여러 개를 한 연결로 묶을 때 겹치지 않게). 외래키를 잠시 끈다."""
+    connection.execute("PRAGMA foreign_keys = OFF")
+    connection.execute("UPDATE parcels SET parcel_id = parcel_id + ?", (offset,))
+    connection.execute("UPDATE overlays SET overlay_id = overlay_id + ?", (offset,))
+    connection.execute("UPDATE parcel_overlays SET overlay_id = overlay_id + ?", (offset,))
+    connection.commit()
+    connection.execute("PRAGMA foreign_keys = ON")
+
+
+def build(sido_code=SEOUL_CODE, refresh=False, chunk_size=50000):
+    # type: (str, bool, int) -> object
+    """한 시도의 필지 DB를 새로 만든다.
 
     입력:
-        refresh: 서울 열린데이터광장 원천을 다시 내려받을지 여부.
+        sido_code: PNU 앞 2자리(constants.SIDO). refresh: 서울 열린데이터광장 원천을 다시 내려받을지 여부.
         chunk_size: 필지를 몇 건씩 읽어 처리할지.
     처리:
-        1) UPIS 계획 레이어 19종을 내려받아 overlays에 적재한다.
-        2) data/raw/vworld_토지특성정보의 시군구 SHP를 훑어 parcels에 넣고
-           오버레이와의 교차를 계산한다.
-        토지특성정보는 VWorld 로그인이 필요해 자동 다운로드하지 않는다.
-        수동으로 받아 위 폴더에 풀어 두어야 한다.
+        1) 계획 오버레이 — 서울은 UPIS 계획 레이어 19종(열린데이터광장). 다른 시도는 아직 없음(전국 원천 확정 전).
+        2) data/raw/vworld_토지특성정보의 그 시도 시군구 SHP를 훑어 parcels에 넣고 오버레이와의 교차를 계산한다.
+        3) 토지이용계획정보 CSV(그 시도)를 parcel_land_use에 넣는다.
+        4) 서울 외 시도는 id를 시도 코드 × 10^9만큼 띄운다.
+        토지특성정보는 VWorld 로그인이 필요해 자동 다운로드하지 않는다. 수동으로 받아 위 폴더에 둔다(zip 그대로도 된다).
     출력:
         완성한 DB 경로. 검증을 통과해야만 기존 DB를 교체한다.
     """
-    land_char_dir = ROOT_DIR / constants.LAND_CHAR_DIRNAME
-    shp_paths = sorted(land_char_dir.glob("*/*.shp"))
+    shp_paths = _get_land_char_paths(sido_code)
     if not shp_paths:
         raise FileNotFoundError(
-            "토지특성정보 SHP가 없습니다: %s\n"
-            "VWorld 국가중점데이터(dsId=4)에서 시군구별로 내려받아 풀어 두세요."
-            % land_char_dir
+            "%s 토지특성정보 SHP가 없습니다: %s/AL_D194_%s*\n"
+            "VWorld 국가중점데이터(dsId=4)에서 시군구별로 내려받아 두세요."
+            % (constants.SIDO[sido_code][0], ROOT_DIR / constants.LAND_CHAR_DIRNAME, sido_code)
         )
     if chunk_size <= 0:
         raise ValueError("chunk_size는 1 이상이어야 합니다")
 
-    if DATABASE_BUILD_PATH.exists():
-        DATABASE_BUILD_PATH.unlink()
-    connection = _connect_database(DATABASE_BUILD_PATH, fast_build=True)
+    database_path = get_database_path(sido_code)
+    build_path = database_path.with_suffix(".building.db")
+    if build_path.exists():
+        build_path.unlink()
+    connection = _connect_database(build_path, fast_build=True)
     try:
         # parcels.source_id가 data_sources를 참조하므로 필지보다 먼저 등록한다.
         first_data = pyogrio.read_dataframe(
@@ -1141,8 +1179,10 @@ def build(refresh=False, chunk_size=50000):
             },
         )
 
-        print("계획 오버레이 적재", flush=True)
-        overlay_frames = load_overlay_sources(connection, refresh)
+        overlay_frames = []
+        if sido_code == SEOUL_CODE:
+            print("계획 오버레이 적재", flush=True)
+            overlay_frames = load_overlay_sources(connection, refresh)
 
         lot_count = overlap_count = 0
         for index, shp_path in enumerate(shp_paths, start=1):
@@ -1158,7 +1198,7 @@ def build(refresh=False, chunk_size=50000):
                     max_features=chunk_size,
                     encoding=constants.LAND_CHAR_ENCODING,
                 )
-                lot_data = _prepare_land_char_chunk(data)
+                lot_data = _prepare_land_char_chunk(data, sido_code)
                 lot_count += _insert_land_char_lots(connection, lot_data)
                 for overlay_data in overlay_frames:
                     overlap_count += _link_parcel_overlays(
@@ -1171,6 +1211,9 @@ def build(refresh=False, chunk_size=50000):
                 flush=True,
             )
 
+        print("토지이용계획 %d행" % load_land_use(connection, sido_code=sido_code), flush=True)
+        if sido_code != SEOUL_CODE:
+            _offset_ids(connection, int(sido_code) * ID_OFFSET_PER_SIDO)
         connection.execute("ANALYZE")
         connection.commit()
         _validate_overlay_links(connection)
@@ -1180,13 +1223,18 @@ def build(refresh=False, chunk_size=50000):
     finally:
         connection.close()
 
-    os.replace(DATABASE_BUILD_PATH, DATABASE_PATH)
-    return DATABASE_PATH
+    os.replace(build_path, database_path)
+    return database_path
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="서울 설계검토용 로컬 DB 구축 (토지특성정보 + UPIS 계획 레이어)"
+        description="시도별 필지 로컬 DB 구축 (토지특성정보 + 토지이용계획 + 서울은 UPIS 계획 레이어)"
+    )
+    parser.add_argument(
+        "--sido",
+        default=SEOUL_CODE,
+        help="PNU 앞 2자리 시도 코드(기본 11 서울). all = 토지특성정보가 있는 시도 전부",
     )
     parser.add_argument(
         "--refresh",
@@ -1197,11 +1245,18 @@ def main():
         "--chunk-size", type=int, default=50000, help="필지 청크 크기(기본 50000)"
     )
     args = parser.parse_args()
-    try:
-        path = build(refresh=args.refresh, chunk_size=args.chunk_size)
-    except (FileNotFoundError, RuntimeError, ValueError) as error:
-        parser.exit(1, "DB 생성 중단: %s\n" % error)
-    print("DB 생성 완료: %s" % path)
+    codes = sorted(constants.SIDO) if args.sido == "all" else [args.sido]
+    for code in codes:
+        if code not in constants.SIDO:
+            parser.exit(1, "모르는 시도 코드: %s\n" % code)
+        if args.sido == "all" and not _get_land_char_paths(code):
+            continue
+        print("== %s" % constants.SIDO[code][0], flush=True)
+        try:
+            path = build(code, refresh=args.refresh, chunk_size=args.chunk_size)
+        except (FileNotFoundError, RuntimeError, ValueError) as error:
+            parser.exit(1, "DB 생성 중단: %s\n" % error)
+        print("DB 생성 완료: %s" % path)
 
 
 if __name__ == "__main__":

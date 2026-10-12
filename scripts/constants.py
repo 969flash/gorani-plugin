@@ -53,7 +53,7 @@ HOME_DIR = _ROOT_DIR if os.path.isdir(os.path.join(_ROOT_DIR, "data")) else os.p
 # ─────────────────────────────────────────────────────────
 LAND_USE_DIRNAME = "data/raw/전국_토지이용계획정보"
 LAND_USE_ENCODING = "cp949"          # .csv에 표기가 없다. 실제 바이트로 확인했다
-LAND_USE_FILE_PREFIX = "AL_D155_11_"  # 시도코드 11 = 서울. 다른 시도는 받지 않는다
+LAND_USE_FILE_FORMAT = "AL_D155_%s_"  # 시도코드(PNU 앞 2자리)별 파일 접두어
 
 # 저촉여부 — 대지에 실제로 걸리는지를 가른다
 LAND_USE_INCLUDED = "포함"   # 필지 전체가 그 지역지구 안에 있다
