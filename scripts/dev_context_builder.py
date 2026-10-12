@@ -232,7 +232,7 @@ def _to_5186(frame, label):
     """
     crs = frame.crs
     epsg = crs.to_epsg() if crs is not None else None
-    if epsg is None and crs is not None and "Korea_2000" in crs.to_wkt():
+    if epsg is None and crs is not None:   # ESRI:102082 'KGD2002_Central_Belt_2010' 등 — 이름의 원점으로 판정(세종 36710014)
         epsg = next((code for belt, code in constants.KOREA_2000_BELTS.items() if belt in crs.to_wkt()), None)
     if epsg == constants.DATABASE_CRS:
         return frame.set_crs(epsg=constants.DATABASE_CRS, allow_override=True)
@@ -269,8 +269,18 @@ def _sheet_layers(zip_path):
     return {Path(n).name[2:12]: n for n in names}
 
 
-def _read_layer(zip_path, member):
-    # type: (Path, str) -> object
+def _get_sheet_crs(zip_path, layers):
+    # type: (Path, dict) -> str
+    """도엽 zip에서 .prj가 있는 첫 레이어의 좌표계(WKT). .prj가 빠진 레이어에 쓴다 — 세종 36710014 산 정상(N3P_H0059153)에 .prj가 없었다."""
+    for member in layers.values():
+        crs = pyogrio.read_info("/vsizip/%s/%s" % (zip_path.resolve(), member))["crs"]
+        if crs:
+            return crs
+    return None
+
+
+def _read_layer(zip_path, member, sheet_crs=None):
+    # type: (Path, str, str) -> object
     """zip 안 SHP 레이어 하나를 읽는다. GEOS가 못 만드는 도형(닫히지 않은 링 등)은 버리고 건수만 기록한다.
 
     도엽 37608066 도로경계면(N3A_A0010000) 1건의 링이 닫혀 있지 않아 전체 빌드가 멈췄다(2026-10-07).
@@ -282,6 +292,8 @@ def _read_layer(zip_path, member):
     if dropped:
         DROPPED_GEOMETRIES.append((zip_path.stem, Path(member).name, dropped))
     frame = frame[frame.geometry.notna() & ~frame.geometry.is_empty]
+    if len(frame) and frame.crs is None and sheet_crs:
+        frame = frame.set_crs(sheet_crs)
     if len(frame):
         frame = _to_5186(frame, "%s:%s" % (zip_path.name, member))
     return frame
@@ -319,11 +331,12 @@ def load_sheet(connection, zip_path, sheet_row, topo_buildings):
     if not reference_date:
         reference_date = ((sheet_row or {}).get("downloaded_at") or _now())[:10] + " (제작연도 미기재)"
     layers = _sheet_layers(zip_path)
+    sheet_crs = _get_sheet_crs(zip_path, layers)
     counts = {}
     rows = []
     for key, member in layers.items():
         if key == constants.TOPO_BUILDING_LAYER:
-            frame = _read_layer(zip_path, member)
+            frame = _read_layer(zip_path, member, sheet_crs)
             if len(frame):
                 frame = frame.assign(sheet=code, reference_date=reference_date)
                 topo_buildings.append(frame)
@@ -333,7 +346,7 @@ def load_sheet(connection, zip_path, sheet_row, topo_buildings):
         if mapping is None:
             continue
         theme, kind, value_field = mapping
-        frame = _read_layer(zip_path, member)
+        frame = _read_layer(zip_path, member, sheet_crs)
         if not len(frame):
             continue
         geometries = frame.geometry.values
@@ -506,23 +519,16 @@ def get_sheet_sido(bundle_dir=BUNDLE_DIR, sheet_dir=SHEET_DIR):
     return {sheet: sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0] for sheet, counts in votes.items()}
 
 
-def _get_sido_bounds(sido_code):
-    # type: (str) -> tuple
-    """시도 필지 DB의 범위(min_x, min_y, max_x, max_y). 필지 DB가 이미 팩으로 압축돼 지워졌으면 매니페스트 범위, 둘 다 없으면 None."""
-    import dev_database_builder
-    path = dev_database_builder.get_database_path(sido_code)
-    if not path.exists():
-        manifest_path = ROOT_DIR / "build" / "packs" / "manifest.json"
-        if manifest_path.exists():
-            for pack in json.loads(manifest_path.read_text(encoding="utf-8"))["packs"]:
-                if pack["name"] == path.name and pack.get("bounds"):
-                    return tuple(pack["bounds"])
-        return None
-    connection = sqlite3.connect(str(path))
+def _get_sido_bounds(sido_code, building_dir=BUILDING_DIR):
+    # type: (str, Path) -> tuple
+    """시도 GIS건물 전체본 SHP 헤더의 범위(min_x, min_y, max_x, max_y) — 도형을 읽지 않아 빠르다. 파일이 없으면 None."""
     try:
-        return connection.execute("SELECT MIN(min_x), MIN(min_y), MAX(max_x), MAX(max_y) FROM parcels").fetchone()
-    finally:
-        connection.close()
+        zip_path = _find_building_zip(building_dir, sido_code)
+    except FileNotFoundError:
+        return None
+    with zipfile.ZipFile(zip_path) as archive:
+        member = [n for n in archive.namelist() if n.lower().endswith(".shp")][0]
+    return tuple(pyogrio.read_info("/vsizip/%s/%s" % (zip_path.resolve(), member), force_total_bounds=True)["total_bounds"])
 
 
 def _read_neighbor_buildings(sido_code, bbox, building_dir=BUILDING_DIR):
@@ -532,7 +538,7 @@ def _read_neighbor_buildings(sido_code, bbox, building_dir=BUILDING_DIR):
     for code in sorted(constants.SIDO):
         if code == sido_code:
             continue
-        bounds = _get_sido_bounds(code)
+        bounds = _get_sido_bounds(code, building_dir)
         if bounds is None or not (bounds[0] <= bbox[2] and bounds[2] >= bbox[0] and bounds[1] <= bbox[3] and bounds[3] >= bbox[1]):
             continue
         try:
