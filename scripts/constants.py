@@ -93,6 +93,25 @@ OVERLAY_THEME_DISTRICT = "district"  # 용도지구
 OVERLAY_THEME_AREA = "area"          # 용도구역
 OVERLAY_THEME_FACILITY = "facility"  # 도시계획시설
 OVERLAY_THEME_PLAN = "plan"          # 지구단위계획
+# 서울 외 시도는 계획 도형 원천(UPIS 열린데이터)이 없다 — 토지이용계획 CSV의 필지별 지정 코드로 필지를 합쳐 만든다
+# (dev_database_builder.derive_overlays). 코드 앞부분 → (theme, kind, UPIS 레이어). 긴 접두가 먼저 맞는다.
+# 근거: 서울 overlays의 code 열(UPIS ATRB_SE)과 토지이용계획 코드가 같은 체계(예: UQA122·UQF132·UQS122·UQT220, 2026-10-12 확인)
+DERIVED_OVERLAY_CODES = (
+    ("UQA001", None, None, None),   # '도시지역' — 하위 용도지역의 상위 묶음이라 건너뛴다
+    ("UQA", "zone", "용도지역", "UQ111"), ("UQB", "zone", "용도지역", "UQ111"), ("UQC", "zone", "용도지역", "UQ111"),
+    ("UQD", "zone", "용도지역", "UQ111"),
+    ("UQF", "district", "경관지구", "UQ121"), ("UQH", "district", "고도지구", "UQ123"), ("UQI", "district", "방화지구", "UQ124"),
+    ("UQJ", "district", "방재지구", "UQ125"), ("UQK", "district", "보호지구", "UQ126"), ("UQM", "district", "취락지구", "UQ128"),
+    ("UQN", "district", "개발진흥지구", "UQ129"), ("UQO", "district", "특정용도제한지구", "UQ130"), ("UQP", "district", "기타용도지구", "UQ131"),
+    ("UDV", "area", "개발제한구역", "UQ141"), ("UQT600", "area", "도시자연공원구역", "UQ142"),
+    ("UQQ300", "plan", "지구단위계획구역", "UQ161"),
+    ("UQS1", "facility", "도로", "UQ151"), ("UQS2", "facility", "주차장", "UQ152"), ("UQS3", "facility", "자동차정류장", "UQ152"),
+    ("UQS5", "facility", "철도", "UQ152"), ("UQS8", "facility", "공항", "UQ152"), ("UQS", "facility", "기타교통시설", "UQ152"),
+    ("UQT1", "facility", "광장", "UQ153"), ("UQT2", "facility", "공원", "UQ153"), ("UQT3", "facility", "녹지", "UQ153"),
+    ("UQT4", "facility", "유원지", "UQ153"), ("UQT5", "facility", "공공공지", "UQ153"), ("UQT", "facility", "공간시설", "UQ153"),
+    ("UQW", "facility", "방재시설", "UQ155"),
+)
+DERIVED_OVERLAY_TILE = 1000.0   # m — 합친 도형을 이 격자로 나눈다. 시도 전체가 한 도형이면 패널 조회가 느리다
 
 # 도시계획시설의 세부 종별. 원천 SHP의 LCLAS_CL(대분류 코드)로 판정한다.
 # 코드에 없으면 원천 레이어의 기본 kind를 쓴다.

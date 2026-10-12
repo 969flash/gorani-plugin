@@ -1112,6 +1112,57 @@ def _get_land_char_paths(sido_code):
     return sorted(p for p in land_char_dir.glob(prefix + "*/*.shp"))
 
 
+def _get_derived_kind(code):
+    # type: (str) -> tuple
+    """토지이용계획 코드 → (theme, kind, layer). 대상이 아니면 None."""
+    for prefix, theme, kind, layer in constants.DERIVED_OVERLAY_CODES:
+        if code.startswith(prefix):
+            return (theme, kind, layer) if theme else None
+    return None
+
+
+def derive_overlays(connection):
+    # type: (object) -> int
+    """parcel_land_use(포함·저촉) 필지를 코드 × 1 km 격자로 합쳐 overlays·parcel_overlays를 만든다. 넣은 도형 수를 돌려준다.
+
+    서울은 UPIS 계획 도형을 쓰고, 다른 시도는 이것으로 대신한다 — 경계가 도로 중심이 아니라 필지 경계라는 차이가 있다.
+    parcel_overlays는 필지 전체가 그 지정에 든 것으로 적는다(겹침 비율 1). ponytail: 저촉 필지의 실제 겹침 면적은 원천에 없다.
+    """
+    groups = {}
+    rows = connection.execute(
+        """SELECT link.code, link.name, lot.pnu, lot.geometry_json, (lot.min_x + lot.max_x) / 2, (lot.min_y + lot.max_y) / 2,
+                  lot.geometry_area_sqm
+           FROM parcel_land_use link JOIN parcels lot ON lot.pnu = link.pnu
+           WHERE link.conflict IN ('포함', '저촉')""")
+    for code, name, pnu, geometry_json, x, y, area in rows:
+        target = _get_derived_kind(code)
+        if target is None:
+            continue
+        key = (code, int(x // constants.DERIVED_OVERLAY_TILE), int(y // constants.DERIVED_OVERLAY_TILE))
+        group = groups.setdefault(key, {"target": target, "name": name, "pnus": [], "geometries": [], "areas": []})
+        group["pnus"].append(pnu)
+        group["geometries"].append(geometry_json)
+        group["areas"].append(area)
+    next_id = connection.execute("SELECT COALESCE(MAX(overlay_id), 0) FROM overlays").fetchone()[0] + 1
+    overlay_rows, link_rows = [], []
+    for overlay_id, ((code, _tx, _ty), group) in enumerate(sorted(groups.items()), start=next_id):
+        theme, kind, layer = group["target"]
+        geometry = shapely.make_valid(shapely.union_all(shapely.make_valid(shapely.from_geojson(group["geometries"]))))
+        min_x, min_y, max_x, max_y = geometry.bounds
+        overlay_rows.append((overlay_id, LAND_USE_SOURCE["source_id"], theme, layer, kind, code, group["name"], None, None, None,
+                             None, round(float(geometry.area), 3), json.dumps(mapping(geometry), ensure_ascii=False),
+                             constants.DATABASE_CRS, float(min_x), float(max_x), float(min_y), float(max_y)))
+        link_rows.extend((pnu, overlay_id, area, 1.0) for pnu, area in zip(group["pnus"], group["areas"]))
+    connection.executemany(
+        """INSERT INTO overlays (overlay_id, source_id, theme, layer, kind, code, name, feature_id, notice_number, created_date,
+               attrs_json, area_sqm, geometry_json, geometry_crs, min_x, max_x, min_y, max_y)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", overlay_rows)
+    connection.executemany(
+        "INSERT OR IGNORE INTO parcel_overlays (pnu, overlay_id, overlap_area_sqm, overlap_ratio) VALUES (?, ?, ?, ?)", link_rows)
+    connection.commit()
+    return len(overlay_rows)
+
+
 def _offset_ids(connection, offset):
     # type: (object, int) -> None
     """parcel_id·overlay_id를 offset만큼 띄운다(시도 DB 여러 개를 한 연결로 묶을 때 겹치지 않게). 외래키를 잠시 끈다."""
@@ -1213,6 +1264,8 @@ def build(sido_code=SEOUL_CODE, refresh=False, chunk_size=50000):
             )
 
         print("토지이용계획 %d행" % load_land_use(connection, sido_code=sido_code), flush=True)
+        if sido_code != SEOUL_CODE:
+            print("계획 도형(토지이용계획 코드로 필지 합침) %d개" % derive_overlays(connection), flush=True)
         if sido_code != SEOUL_CODE:
             _offset_ids(connection, int(sido_code) * ID_OFFSET_PER_SIDO)
         connection.execute("ANALYZE")

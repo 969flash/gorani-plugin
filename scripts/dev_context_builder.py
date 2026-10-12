@@ -488,6 +488,9 @@ def get_sheet_sido(bundle_dir=BUNDLE_DIR, sheet_dir=SHEET_DIR):
         if code is None:
             print("시도를 모르는 묶음 — 건너뜀: %s" % bundle.name, flush=True)
             continue
+        if not zipfile.is_zipfile(bundle):
+            print("손상된 묶음 — 건너뜀(다시 받을 것): %s" % bundle.name, flush=True)
+            continue
         with zipfile.ZipFile(bundle) as archive:
             for name in archive.namelist():
                 sheet = Path(name).stem
@@ -800,6 +803,10 @@ def build(sheets=None, out_path=None, sheet_dir=SHEET_DIR, building_dir=BUILDING
         totals = {}
         for i, zip_path in enumerate(zip_paths, start=1):
             row = index.get(zip_path.stem)
+            if not zipfile.is_zipfile(zip_path):   # 덜 받힌 묶음에서 푼 도엽 등 — 건너뛰고 끝에 경고(2026-10-12 37716060 외 7장)
+                DROPPED_GEOMETRIES.append((zip_path.stem, "zip 손상", 0))
+                print("도엽 %3d/%d %s — zip 손상, 건너뜀" % (i, len(zip_paths), zip_path.stem), flush=True)
+                continue
             counts = load_sheet(connection, zip_path, row, topo_buildings)
             for kind, n in counts.items():
                 totals[kind] = totals.get(kind, 0) + n
