@@ -4,6 +4,8 @@
 여기에 절을 추가한다.
 """
 
+import os
+
 # ─────────────────────────────────────────────────────────
 # 도구 이름 — 명령 앨리어스·툴바·패널 캡션이 같은 이름을 쓴다
 # ─────────────────────────────────────────────────────────
@@ -30,6 +32,10 @@ LAND_CHAR_ENCODING = "cp949"          # .cpg는 UTF-8이라 적혀 있으나 실
 DATABASE_PATH = "data/seoul_site.db"  # Rhino가 읽는 필지 SQLite DB (스키마 v5)
 DATABASE_SCHEMA_VERSION = 5           # 5: parcel_land_use(필지별 지역지구등 지정 현황) 추가
 RESULT_DIRNAME = "result"             # 산출물(3dm·베이스맵·현황도) 저장 루트 (gitignore)
+# 쓰기 자리(data/·result/·.env)의 기준 폴더. 저장소·폴더 배포판은 루트에 data/가 있어 루트를 쓴다.
+# Yak 설치본은 패키지 폴더가 업데이트 때 통째로 바뀌므로 사용자 홈 아래 ~/UrbanDesignTool을 쓴다.
+_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+HOME_DIR = _ROOT_DIR if os.path.isdir(os.path.join(_ROOT_DIR, "data")) else os.path.join(os.path.expanduser("~"), TOOL_NAME)
 
 # ─────────────────────────────────────────────────────────
 # 토지이용계획정보 — 필지별 지역지구등 지정 현황
@@ -163,6 +169,16 @@ VWORLD_SEARCH_TIMEOUT_SECONDS = 5
 # ═════════════════════════════════════════════════════════
 CONTEXT_DATABASE_PATH = "data/seoul_context.db"
 CONTEXT_DATABASE_SCHEMA_VERSION = 1
+# 배포본은 등고선·표고점(features theme terrain)을 별도 파일로 나눈다 — 수치지형도 등고선은 국내 서버에만 둔다
+# (국가공간정보 보안관리규정 별표1·공간정보관리법 제16조). 컨텍스트 DB 옆에 있으면 context_db가 붙여 읽는다.
+TERRAIN_DATABASE_NAME = "seoul_terrain.db"
+TERRAIN_THEME = "terrain"
+
+# 데이터 팩 받기(data_pack.py) — Yak 설치본은 DB 없이 깔리고 패널에서 받는다
+DATA_MANIFEST_URL = ""                 # 매니페스트 주소. 호스팅(Hugging Face 등)이 정해지면 채운다
+DATA_STATE_FILE_NAME = "packs.json"    # data/ 안. 받은 팩의 sha256 — 바뀐 팩만 다시 받는다
+DATA_TIMEOUT_SECONDS = 30              # 연결·조각 읽기 제한
+DATA_CHUNK_BYTES = 1024 * 1024         # 압축 스트림을 1 MB씩 읽어 풀고 진행률을 알린다
 # 테이블별 객체 최대 폭 m — bbox 질의의 min_x 하한에 쓴다. dev_context_builder가 빌드 끝에 넘지 않는지 검사한다.
 # 실측(2026-10-08): 건물 최대 887 m(가로·세로 중 큰 값), features 최대 2,779 m(도엽 1장 높이 — 도엽 단위로 잘려 있다).
 CONTEXT_MAX_EXTENT = {"buildings": 1000.0, "features": 3000.0}

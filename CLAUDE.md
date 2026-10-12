@@ -3,7 +3,7 @@
 도시설계(urban design) 착수용 대지 컨텍스트 생성 도구. Rhino 8 CPython 기반.
 필지 DB에서 대상지를 고르면 주변 건물·도로·지형·수계를 3D로 만들고(3dm),
 도시설계용 베이스맵(일러스트레이터)과 공공데이터 기반 현황도·분석자료를 낸다.
-사내 정해진 사용자(건축사·도시설계자)용 내부 도구이며 SaaS가 아니다.
+개인이 무료로 공개하는 Rhino 플러그인(Yak)이고, 사용자는 불특정 다수의 건축·도시설계 실무자와 학생이다. 서버 없는 데스크톱 도구다(SaaS 아님).
 
 독립 프로젝트다. 필지는 자체 필지 DB(`data/seoul_site.db`)에서 불러온다.
 배치·법규·일조 로직은 이 프로젝트의 목적이 아니다.
@@ -24,7 +24,7 @@
 
 ### 프로젝트 성격 (개발 판단 필터)
 
-- 소수 지정 사용자용 맞춤 도구. 버그는 사용자와 대화로 수정하면 된다 — 방어적 완벽주의에 시간 쓰지 않는다.
+- 1인 개발 무료 공개 도구. 방어적 완벽주의에 시간 쓰지 않는다. 서버 유지비는 0에 가깝게(정적 파일 호스팅만).
 - 우선순위: 개발 속도·편의 > 확장성. 연산 속도는 대상지 반경 수백 m~수 km 컨텍스트를 Rhino 안에서 기다릴 만한 수준이면 된다.
 - 사용성 목표: 비개발자가 Rhino 안에서 버튼 하나(대지검토)로 바로 쓸 수 있을 것.
 - 공공데이터의 예외적 형상을 전부 알고리즘으로 방어하지 않는다. 일반 케이스만 처리하고 예외는 건너뛰거나 경고로 남긴다.
@@ -39,8 +39,8 @@
 
 - **업무 로직은 전부 로직 모듈에 둔다.** Rhino가 직접 실행하는 `cmd_*.py`는 입출력을 잇고 로직 함수를 부르는 것이 전부다. Grasshopper 경로는 없다.
 - **실행 경로는 패널 하나다.** `cmd_site.py`(컨트롤러) → `panel_host.py`(Eto WebView 호스트) → `site_ui.html`(프런트). 메시지 계약은 `docs/panel_ui.md`가 원본이다. 프레임워크·빌드 도구 없음, 단일 HTML + 바닐라 JS, 지도는 Leaflet(`scripts/vendor/`).
-- **컨텍스트 생성은 Rhino CPython 안에서 동기 실행한다.** 엔진 API는 `context_builder.run(request, progress, doc)` 하나(진행률·취소는 `progress(phase, fraction, text) -> bool` 콜백 하나). 외부 python 서브프로세스·`# r:` pip 패키지 없음 — 배포는 폴더 복사 + `cmd_install.py`로 끝난다. 3dm은 RhinoCommon 베이크 결과를 `WriteFile` 사본으로 남긴다(rhino3dm은 테스트 전용). 확정 근거는 `docs/code_map.md`.
-- **공공데이터는 DB 구축 시에만 수집하고 Rhino 실행 중에는 로컬 DB만 조회한다.** 수집·정규화·공간교차는 `dev_*.py`(Rhino 밖 python3, geopandas 가능)가 하고, Rhino 쪽 로직 모듈은 SQLite 표준 라이브러리만 쓴다. 예외는 사용자가 켠 경우의 VWorld 주소 보조 검색뿐이다.
+- **컨텍스트 생성은 Rhino CPython 안에서 동기 실행한다.** 엔진 API는 `context_builder.run(request, progress, doc)` 하나(진행률·취소는 `progress(phase, fraction, text) -> bool` 콜백 하나). 외부 python 서브프로세스·`# r:` pip 패키지 없음 — 배포는 Yak 패키지(`dev_deploy.py yak`, 진입 명령 `UrbanSite` 하나짜리 .rhp + scripts/)이고 DB는 패널의 [DB 받기]가 데이터 팩(`dev_deploy.py packs`)을 받는다. 3dm은 RhinoCommon 베이크 결과를 `WriteFile` 사본으로 남긴다(rhino3dm은 테스트 전용). 확정 근거는 `docs/code_map.md`.
+- **공공데이터는 DB 구축 시에만 수집하고 Rhino 실행 중에는 로컬 DB만 조회한다.** 수집·정규화·공간교차는 `dev_*.py`(Rhino 밖 python3, geopandas 가능)가 하고, Rhino 쪽 로직 모듈은 SQLite 표준 라이브러리만 쓴다. 예외는 데이터 팩 받기(`data_pack.py`)와 사용자가 켠 경우의 VWorld 주소 보조 검색뿐이다. 수치지형도 등고선은 별도 팩(`seoul_terrain.db`)으로 국내 서버에만 둔다(공간정보관리법 제16조 국외 반출·별표1).
 - 필지 DB `data/seoul_site.db`는 스키마 v5(`parcels`·`overlays`·`parcel_overlays`·`parcel_land_use`·`data_sources`)를 쓴다. 컨텍스트(건물·도로·지형·수계) 데이터는 별도 DB 파일에 같은 관행(EPSG:5186 GeoJSON/수치 + `min_x/max_x/min_y/max_y` 경계상자 인덱스, RTree 미사용 — Rhino 8 Windows CPython SQLite에 rtree 모듈이 없다)으로 둔다. 구체 테이블은 `docs/data_sources.md`.
 - **내부 표준 단위는 m, 좌표계는 EPSG:5186이다.** 코드의 좌표·길이·높이와 면적(㎡)은 모두 m 기준. Rhino 문서 단위는 베이커가 베이크 직전에만 변환한다. 원점은 `context_builder.prepare`가 정하고(대상지 중심 100 m 내림), **적용(DB 좌표 → 로컬 좌표)은 `context_geometry.get_local_pts` 한 함수에서만** 한다 — 메시는 생성 전에 로컬 좌표여야 하므로 베이커에서 빼면 늦다. 베이커는 오프셋을 문서에 기록(`CTX::Ref` UserString·`doc.Strings`·`context.json`)만 한다. 예외: 결과 좌표가 '실제 좌표'(`options.placement = world`)면 형상은 그대로 로컬에서 만들고 베이커가 계산 원점만큼 옮겨 굽는다(메시는 배정밀도 정점). 문서 원점 (0,0) = 실제 좌표 문서.
 - Rhino 문서 변경(베이크·저장·내보내기)은 베이커 모듈만 담당한다. 로직 모듈은 지오메트리 객체를 만들어 돌려줄 뿐 문서를 건드리지 않는다.
@@ -48,7 +48,7 @@
 - **필지 하나는 닫힌 커브 하나다.** 대상 필지가 여러 조각이거나 구멍이 있으면 가장 넓은 조각의 바깥 경계를 쓰고 경고한다. 주변 필지·도로 필지(가로망 전체가 한 필지인 도넛)는 구멍을 보존한다.
 - 좌표계: +Y = 정북 가정(EPSG:5186 격자북. 진북과의 자오선수차는 서울에서 0.1° 이내라 무시).
 - Rhino 8 CPython 기준. rhinoscriptsyntax보다 RhinoCommon 우선.
-- 산출물은 `result/<날짜>/<대상지>/`에 쌓는다. 3dm·베이스맵·현황도·로그를 한 폴더에 둔다.
+- 쓰기 자리(`data/`·`result/`·`.env`)는 `constants.HOME_DIR` — 저장소처럼 루트에 `data/`가 있으면 루트, Yak 설치본은 `~/UrbanDesignTool`. 산출물은 `HOME_DIR/result/<날짜>/<대상지>/`에 쌓는다. 3dm·베이스맵·현황도·로그를 한 폴더에 둔다.
 - 상세 스펙: `docs/deliverables.md`(산출물 정의), `docs/data_sources.md`(데이터·DB), `docs/panel_ui.md`(패널 메시지 계약), `docs/code_map.md`(확정 아키텍처·실행 흐름·엔진 API·읽는 순서), `docs/implementation_plan.md`(마일스톤·위험), `docs/research/`(조사 근거)
 
 ## 네이밍 컨벤션 (변수·메시지 키 공통)

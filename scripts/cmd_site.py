@@ -7,7 +7,7 @@ panel_host.PanelHost(Eto WebView)와 로직 모듈을 잇는다. JS 명령(dict)
 상태를 보낸다. 메시지 계약은 docs/panel_ui.md('아키텍처 정합' 절 우선). 생성은 context_builder.run을 UI 스레드에서
 동기 호출하고, 진행률은 콜백 안에서 push + Rhino.RhinoApp.Wait()로 펌핑한다(서브프로세스 없음).
 
-명령 → 로직 (16개)
+명령 → 로직 (17개)
     init            → get_init_state (DB 존재·원천 상태·타일·지도·prefs·recent·시트 카탈로그). preflight 메모이즈 비움
     search          → get_search_result (pnu_loader.resolve_addresses + review_map.get_parcel_centers)
     map_lots        → review_map.get_parcels_in_bbox (seq 에코)
@@ -24,6 +24,7 @@ panel_host.PanelHost(Eto WebView)와 로직 모듈을 잇는다. JS 명령(dict)
     zoom_view       → context_baker.zoom_to_site
     open_path       → 폴더·파일·.env 템플릿을 OS로 연다
     save_prefs      → site_prefs.save_options
+    download_data   → data_pack (매니페스트 → 바뀐 팩만 받기, 콜백 = data_progress 푸시 + Wait + 취소 플래그) → init_state
 
 조립 함수(get_*·resolve_open_path)는 Rhino 없이 돈다 — tests/test_site_ui_contract.py가 fixture DB로 키 집합을 확인한다.
 Rhino 모듈이 없으면(python3) 패널을 띄우지 않는다.
@@ -86,15 +87,16 @@ def get_init_state(site_db=None, context_db=None, today=None):
     context_builder = loader.load("context_builder")
     review_map = loader.load("review_map")
     site_prefs = loader.load("site_prefs")
-    lot_db_path = site_db or os.path.join(ROOT_DIR, constants.DATABASE_PATH)
+    lot_db_path = site_db or os.path.join(constants.HOME_DIR, constants.DATABASE_PATH)
     sources = context_builder.get_sources(site_db, context_db, today)
     return {
         "type": "init_state",
         "version": constants.PANEL_VERSION,
         "blocked": not os.path.exists(lot_db_path),
-        "paths": {"root": ROOT_DIR, "lot_db": constants.DATABASE_PATH, "context_db": constants.CONTEXT_DATABASE_PATH,
+        "paths": {"root": constants.HOME_DIR, "lot_db": constants.DATABASE_PATH, "context_db": constants.CONTEXT_DATABASE_PATH,
                   "env": ".env", "install_doc": constants.INSTALL_DOC},
         "generator": {"ok": True, "python": "Rhino CPython", "text": "Rhino 내장"},
+        "can_download": bool(constants.DATA_MANIFEST_URL),
         "sources": sources,
         "warnings": context_builder.get_source_warnings(sources),
         "tile": review_map.get_tile_config(),
@@ -280,15 +282,21 @@ def get_failed_progress(response, phase, skipped, details):
                                                 skipped, details, state=state, error=error)
 
 
-def resolve_open_path(path, root=ROOT_DIR):
+def resolve_open_path(path, root=None):
     # type: (str, str) -> str
-    """open_path 명령의 경로를 절대경로로 만든다. 외부 URL은 거부, 프로젝트 루트 상대 허용, .env가 없으면 두 줄 템플릿을 만든다.
-    없는 경로는 ValueError."""
+    """open_path 명령의 경로를 절대경로로 만든다. 외부 URL은 거부, 상대경로는 쓰기 자리(HOME_DIR) 기준이고 거기 없으면
+    코드 루트(docs/ 등 배포 문서), .env가 없으면 두 줄 템플릿을 만든다. 없는 경로는 ValueError."""
     path = str(path or "").strip()
     if not path or "://" in path:
         raise ValueError("열 수 없는 경로입니다: %s" % (path or "빈 값"))
+    root = root or loader.load("constants").HOME_DIR
     full = path if os.path.isabs(path) else os.path.join(root, path)
+    if not os.path.exists(full) and not os.path.isabs(path) and path != ".env" and os.path.exists(os.path.join(ROOT_DIR, path)):
+        full = os.path.join(ROOT_DIR, path)
+    if os.path.basename(full) == "data":
+        os.makedirs(full, exist_ok=True)
     if os.path.basename(full) == ".env" and not os.path.exists(full):
+        os.makedirs(os.path.dirname(full), exist_ok=True)
         with open(full, "w", encoding="utf-8") as f:
             f.write(ENV_TEMPLATE)
     if not os.path.exists(full):
@@ -333,7 +341,7 @@ class _SiteController:
             "set_area": self._set_area, "set_point": self._set_point, "pick_curve": self._pick_curve, "snap_area": self._snap_area,
             "preflight": self._preflight, "generate": self._generate, "cancel": self._cancel,
             "import_context": self._import_context, "export_basemap": self._export_basemap, "zoom_view": self._zoom_view,
-            "open_path": self._open_path, "save_prefs": self._save_prefs,
+            "open_path": self._open_path, "save_prefs": self._save_prefs, "download_data": self._download_data,
         }
         handler = handlers.get(cmd)
         if handler is None:
@@ -502,6 +510,33 @@ class _SiteController:
         if self._running:
             self._cancel_requested = True   # 다음 콜백이 False를 돌려준다
 
+    def _download_data(self, msg):
+        """바뀐 팩만 차례로 받는다. 진행률은 1 % 단위로만 푸시한다(조각 1 MB마다 보내면 수천 번이다). 끝나면 init_state."""
+        if self._running:
+            raise ValueError("다른 작업이 진행 중입니다")
+        data_pack = loader.load("data_pack")
+        packs = data_pack.get_missing_packs(data_pack.get_manifest())
+        self._running, self._cancel_requested = True, False
+        try:
+            for index, pack in enumerate(packs):
+                last = [-1]
+
+                def progress(done, total, pack=pack, index=index, last=last):
+                    percent = int(100 * done / max(total, 1))
+                    if percent != last[0]:
+                        last[0] = percent
+                        self.push({"type": "data_progress", "text": "%s 받는 중 (%d/%d) %d%% · %.1f GB"
+                                   % (pack["label"], index + 1, len(packs), percent, total / 1024.0 ** 3)})
+                    Rhino.RhinoApp.Wait()
+                    return not self._cancel_requested
+
+                if not data_pack.download_pack(pack, progress=progress):
+                    self.push({"type": "data_progress", "text": "받기를 멈췄습니다 — 다시 누르면 처음부터 받습니다"})
+                    return
+        finally:
+            self._running = False
+        self.push(get_init_state())
+
     def _run_busy(self, label, context, work):
         # type: (str, str, object) -> None
         """busy{on} 푸시 → AsyncInvoke로 작업 예약(busy가 먼저 그려진다) → 작업 → busy{off}. Import·Export처럼 UI 스레드가 멈추는 짧은 작업용."""
@@ -564,7 +599,7 @@ class _SiteController:
 # error.context — JS가 표시 자리를 고른다(panel_ui.md 오류 규약)
 _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "select", "set_point": "select", "pick_curve": "select",
                    "snap_area": "select", "import_context": "import", "export_basemap": "export",
-                   "zoom_view": "open", "open_path": "open", "save_prefs": "init", "cancel": "generate"}
+                   "zoom_view": "open", "open_path": "open", "save_prefs": "init", "cancel": "generate", "download_data": "init"}
 
 
 def _show_panel():

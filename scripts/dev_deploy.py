@@ -1,17 +1,22 @@
-"""배포판 빌더 — 건축사에게 넘길 폴더를 만든다 (Rhino 밖 전용).
+"""배포 빌더 — Yak 패키지와 데이터 팩을 만든다 (Rhino 밖 전용, macOS).
 
-실행하면 폴더 선택창이 뜨고, 고른 위치 아래에 `UrbanDesignTool/` 배포판을 만든다.
-진입 스크립트(loader·cmd_install·cmd_site)만 평문으로 두고 로직 모듈은 `.pyc`로 컴파일해 소스가 나가지 않게 한다.
-개발 전용(dev_*.py)·테스트·docs 조사 문서는 배포하지 않는다. 필지 DB·컨텍스트 DB 사본을 넣는다(≈3.6 GB).
+    python3 scripts/dev_deploy.py            # 둘 다
+    python3 scripts/dev_deploy.py yak        # build/UrbanDesignTool-<버전>-rh8_0-any.yak
+    python3 scripts/dev_deploy.py packs      # build/packs/*.db.xz + manifest.json
 
-    배포판_만들기.command 더블클릭          (macOS, 저장소 루트)
-    배포판_만들기.bat 더블클릭              (Windows, 저장소 루트)
-    python3 scripts/dev_deploy.py [대상 폴더]
+yak: 진입 명령 UrbanSite 하나짜리 .rhp를 rhinocode로 빌드하고(떠 있는 Rhino 8 필요), 그 옆에 scripts/(평문 진입 스크립트 +
+     로직 .pyc + 패널 HTML·vendor)를 두고 yak CLI로 묶는다. rhinocode의 Shared 리소스는 폴더 구조를 펴 버려서 쓰지 않는다
+     (2026-10-12 실측: scripts/vendor/b.txt → shared/b.txt). UrbanSite는 .rhp 옆 scripts/cmd_site.py를 그대로 실행한다.
+packs: 필지 DB(rtree 제거)·컨텍스트 DB(등고선 제외)·등고선 DB를 xz로 압축하고 sha256을 매니페스트에 적는다.
+       등고선 팩은 국내 서버에 올린다(constants.TERRAIN_DATABASE_NAME 주석). 올린 뒤 매니페스트 주소를
+       constants.DATA_MANIFEST_URL에 넣는다.
 
 `.pyc`는 Python 마이너 버전에 묶이므로 Rhino 8의 CPython과 같은 3.9로 실행해야 한다. macOS 기본 /usr/bin/python3가 3.9다.
 """
 
-import base64
+import datetime
+import hashlib
+import json
 import os
 import py_compile
 import shutil
@@ -21,16 +26,46 @@ import sys
 
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SCRIPTS_DIR)
-DEPLOY_DIR_NAME = "UrbanDesignTool"
+sys.path.insert(0, SCRIPTS_DIR)
+import constants  # noqa: E402
 
-PLAIN_SCRIPT_NAMES = ("loader.py", "cmd_install.py", "cmd_site.py")   # 입출력 연결뿐이라 감출 로직이 없다
+BUILD_DIR = os.path.join(ROOT_DIR, "build")
+RHINO_BIN_DIR = "/Applications/Rhino 8.app/Contents/Resources/bin"
+
+PACKAGE_NAME = constants.TOOL_NAME
+PACKAGE_VERSION = "0.1.0"                                  # 올릴 때마다 올린다 — yak은 같은 버전을 다시 받지 않는다
+PLUGIN_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a10"         # 바꾸지 말 것 — UrbanSite가 이 id로 자기 폴더를 찾는다
+COMMAND_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a11"
+COMMAND_NAME = "UrbanSite"
+PUBLISHER = {"name": "sanghoon", "email": "bsh969flash@gmail.com"}
+
+PLAIN_SCRIPT_NAMES = ("loader.py", "cmd_site.py")         # 입출력 연결뿐이라 감출 로직이 없다
 UI_FILE_NAMES = ("site_ui.html",)
 UI_DIR_NAMES = ("vendor",)
-ROOT_FILE_NAMES = ("UrbanDesignTool.rui", ".env.example")
 DOC_FILE_NAMES = ("docs/install.md",)
-DATABASE_NAMES = ("seoul_site.db", "seoul_context.db")
-# 배포판에서 빼는 로직 모듈 — 개발·실측 전용
-EXCLUDED_MODULE_PREFIXES = ("dev_", "cmd_", "probe_")
+EXCLUDED_MODULE_PREFIXES = ("dev_", "cmd_", "probe_")     # 개발·실측 전용과 진입 스크립트
+
+# UrbanSite 명령 본문 — rhinocode가 .rhp에 넣는다. 한글 앨리어스는 명령 이름에 못 써서 처음 실행 때 등록한다.
+COMMAND_SOURCE = '''#! python 3
+"""UrbanSite — 대지검토 패널을 연다. Yak 설치 폴더(.rhp 옆)의 scripts/cmd_site.py를 그대로 실행한다."""
+import os
+import runpy
+
+import Rhino
+import System
+
+folder = os.path.dirname(Rhino.PlugIns.PlugIn.PathFromId(System.Guid("%(plugin_id)s")))
+aliases = Rhino.ApplicationSettings.CommandAliasList
+if not aliases.IsAlias("%(alias)s"):
+    aliases.Add("%(alias)s", "%(command)s")
+runpy.run_path(os.path.join(folder, "scripts", "cmd_site.py"), run_name="__main__")
+'''
+
+PACK_SOURCES = (   # (팩 이름, 표시 이름, 원본 DB)
+    ("seoul_site.db", "서울 필지", constants.DATABASE_PATH),
+    ("seoul_context.db", "서울 건물·도로·수계", constants.CONTEXT_DATABASE_PATH),
+    (constants.TERRAIN_DATABASE_NAME, "서울 등고선", constants.CONTEXT_DATABASE_PATH),
+)
 
 
 def get_deploy_module_names():
@@ -57,125 +92,157 @@ def strip_spatial_index(database_path):
     for name in trigger_names:
         connection.execute('DROP TRIGGER "%s"' % name)
     for name in table_names:
-        try:
-            connection.execute('DROP TABLE "%s"' % name)
-        except sqlite3.OperationalError:
-            connection.close()
-            os.remove(database_path)
-            sys.exit("이 PC의 SQLite로는 rtree 객체를 지울 수 없습니다 — 맥에서 배포판을 만드세요.")
+        connection.execute('DROP TABLE "%s"' % name)
     connection.commit()
     connection.close()
-    dropped = len(trigger_names) + len(table_names)
-    if dropped:
-        print("  rtree 객체 %d개 제거, VACUUM 중... (몇 분)" % dropped, flush=True)
-        connection = sqlite3.connect(database_path)
-        connection.execute("VACUUM")
-        connection.close()
-    return dropped
+    return len(trigger_names) + len(table_names)
 
 
-def _run_applescript(script):
-    result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
-    return result.stdout.strip() if result.returncode == 0 else ""
+# ── yak ─────────────────────────────────────────────────
 
-
-def _run_powershell(script):
-    full_script = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8\n" + script
-    encoded = base64.b64encode(full_script.encode("utf-16-le")).decode("ascii")
-    result = subprocess.run(["powershell", "-NoProfile", "-Sta", "-EncodedCommand", encoded], capture_output=True)
-    return result.stdout.decode("utf-8", "replace").strip() if result.returncode == 0 else ""
-
-
-def _pick_target_dir():
-    # type: () -> str
-    """배포판을 만들 위치를 OS 폴더 선택창으로 받는다. 취소하면 빈 문자열."""
-    if sys.platform == "darwin":
-        return _run_applescript('POSIX path of (choose folder with prompt "배포판을 만들 위치를 고르세요")')
-    return _run_powershell(
-        "Add-Type -AssemblyName System.Windows.Forms\n"
-        "$dialog = New-Object System.Windows.Forms.FolderBrowserDialog\n"
-        "$dialog.Description = '배포판을 만들 위치를 고르세요'\n"
-        "if ($dialog.ShowDialog() -eq 'OK') { $dialog.SelectedPath }")
-
-
-def _show_info(title, message):
-    if sys.platform == "darwin":
-        _run_applescript('display dialog "%s" with title "%s" buttons {"확인"} default button "확인"'
-                         % (message.replace('"', "'").replace("\n", " "), title))
-    else:
-        _run_powershell("Add-Type -AssemblyName System.Windows.Forms\n[System.Windows.Forms.MessageBox]::Show('%s', '%s') | Out-Null"
-                        % (message.replace("'", "''"), title))
-
-
-def _build_scripts(deploy_root):
+def _stage_scripts(package_dir):
     # type: (str) -> int
-    """scripts/를 새로 만든다 — 평문 진입 스크립트 + UI 에셋 + 로직 .pyc(optimize=2, 개발 PC 경로 제거)."""
-    deploy_scripts_dir = os.path.join(deploy_root, "scripts")
-    if os.path.isdir(deploy_scripts_dir):
-        shutil.rmtree(deploy_scripts_dir)
-    os.makedirs(deploy_scripts_dir)
+    """package_dir/scripts/ — 평문 진입 스크립트 + UI 에셋 + 로직 .pyc(optimize=2, 개발 PC 경로 제거)."""
+    target = os.path.join(package_dir, "scripts")
+    os.makedirs(target)
     for file_name in PLAIN_SCRIPT_NAMES + UI_FILE_NAMES:
-        shutil.copyfile(os.path.join(SCRIPTS_DIR, file_name), os.path.join(deploy_scripts_dir, file_name))
+        shutil.copyfile(os.path.join(SCRIPTS_DIR, file_name), os.path.join(target, file_name))
     for dir_name in UI_DIR_NAMES:
-        shutil.copytree(os.path.join(SCRIPTS_DIR, dir_name), os.path.join(deploy_scripts_dir, dir_name))
+        shutil.copytree(os.path.join(SCRIPTS_DIR, dir_name), os.path.join(target, dir_name))
     names = get_deploy_module_names()
     for name in names:
-        py_compile.compile(os.path.join(SCRIPTS_DIR, name + ".py"), cfile=os.path.join(deploy_scripts_dir, name + ".pyc"),
+        py_compile.compile(os.path.join(SCRIPTS_DIR, name + ".py"), cfile=os.path.join(target, name + ".pyc"),
                            dfile=name + ".py", doraise=True, optimize=2)
+    for path in DOC_FILE_NAMES:
+        os.makedirs(os.path.join(package_dir, os.path.dirname(path)), exist_ok=True)
+        shutil.copyfile(os.path.join(ROOT_DIR, path), os.path.join(package_dir, path))
     return len(names)
 
 
-def _build_data(deploy_root):
-    # type: (str) -> None
-    """data/에 DB 사본 2개. 이미 있으면 건너뛴다(다시 복사하려면 지우고 실행). 필지 DB 사본은 rtree를 지운다."""
-    deploy_data_dir = os.path.join(deploy_root, "data")
-    os.makedirs(deploy_data_dir, exist_ok=True)
-    for name in DATABASE_NAMES:
-        source = os.path.realpath(os.path.join(ROOT_DIR, "data", name))
-        target = os.path.join(deploy_data_dir, name)
-        if not os.path.exists(source):
-            print("[주의] DB가 없어 건너뜀: %s" % source)
-            continue
-        if os.path.exists(target):
-            print("  %s 이미 있음 — 건너뜀" % name)
-            continue
-        print("  %s 복사 중... (%.1f GB)" % (name, os.path.getsize(source) / 1024.0 ** 3), flush=True)
+def _build_plugin(project_dir):
+    # type: (str) -> str
+    """UrbanSite 명령 하나짜리 rhproj를 쓰고 rhinocode로 빌드한다. 빌드 결과 폴더(rhp·rui·manifest.yml)를 돌려준다."""
+    os.makedirs(os.path.join(project_dir, "commands"))
+    with open(os.path.join(project_dir, "commands", COMMAND_NAME + ".py"), "w", encoding="utf-8") as f:
+        f.write(COMMAND_SOURCE % {"plugin_id": PLUGIN_ID, "alias": constants.PANEL_CAPTION, "command": COMMAND_NAME})
+    project = {
+        # rhinocode가 host를 보고 8.11 미만에서 저장한 프로젝트로 판정하면 거부한다 — os·arch까지 있어야 통과(2026-10-12 실측)
+        "host": {"name": "Rhino3D", "version": "8.35", "os": "macOS", "arch": "arm64"},
+        "id": PLUGIN_ID,
+        "identity": {
+            "name": PACKAGE_NAME, "version": PACKAGE_VERSION, "publisher": PUBLISHER, "license": "MIT",
+            "description": "도시설계 착수용 대지 컨텍스트(건물·도로·지형·수계 3D, 베이스맵, 현황도). 명령: UrbanSite / 대지검토",
+        },
+        "settings": {
+            "buildPath": "build/",
+            "buildTarget": {"host": {"name": "Rhino3D", "version": "8"}, "title": "Rhino3D (8.*)", "slug": "rh8"},
+            "publishTarget": {"title": "McNeel Yak Server"},
+        },
+        "codes": [{"id": COMMAND_ID, "language": {"id": "*.*.python", "version": "3.*.*"},
+                   "title": COMMAND_NAME, "uri": "commands/%s.py" % COMMAND_NAME}],
+    }
+    project_path = os.path.join(project_dir, PACKAGE_NAME + ".rhproj")
+    with open(project_path, "w", encoding="utf-8") as f:
+        json.dump(project, f, ensure_ascii=False, indent=2)
+    result = subprocess.run([os.path.join(RHINO_BIN_DIR, "rhinocode"), "project", "build", project_path],
+                            capture_output=True, text=True)
+    output_dir = os.path.join(project_dir, "build", "rh8")
+    if result.returncode != 0 or not os.path.exists(os.path.join(output_dir, PACKAGE_NAME + ".rhp")):
+        sys.exit("rhinocode 빌드 실패 — Rhino 8이 떠 있어야 합니다.\n%s%s" % (result.stdout, result.stderr))
+    return output_dir
+
+
+def build_yak():
+    # type: () -> str
+    """build/yak/ 아래에서 스크립트를 모으고 플러그인을 빌드해 .yak 하나를 build/에 만든다. 경로를 돌려준다."""
+    work_dir = os.path.join(BUILD_DIR, "yak")
+    shutil.rmtree(work_dir, ignore_errors=True)
+    package_dir = os.path.join(work_dir, "package")
+    os.makedirs(package_dir)
+    print("  로직 모듈 %d개 컴파일" % _stage_scripts(package_dir))
+    plugin_dir = _build_plugin(os.path.join(work_dir, "project"))
+    for file_name in (PACKAGE_NAME + ".rhp", PACKAGE_NAME + ".rui", "manifest.yml"):
+        shutil.copyfile(os.path.join(plugin_dir, file_name), os.path.join(package_dir, file_name))
+    result = subprocess.run([os.path.join(RHINO_BIN_DIR, "yak"), "build", "--platform", "any"],
+                            cwd=package_dir, capture_output=True, text=True)
+    packages = [name for name in os.listdir(package_dir) if name.endswith(".yak")]
+    if result.returncode != 0 or len(packages) != 1:
+        sys.exit("yak build 실패\n%s%s" % (result.stdout, result.stderr))
+    target = os.path.join(BUILD_DIR, packages[0])
+    shutil.move(os.path.join(package_dir, packages[0]), target)
+    return target
+
+
+# ── packs ───────────────────────────────────────────────
+
+def _make_pack_database(pack_name, source, target):
+    # type: (str, str, str) -> None
+    """팩 하나의 DB 파일. 필지 = 사본 + rtree 제거, 컨텍스트 = 사본 − 등고선, 등고선 = features 스키마 + terrain 행만."""
+    if pack_name == constants.TERRAIN_DATABASE_NAME:
+        connection = sqlite3.connect(target)
+        connection.execute("ATTACH DATABASE ? AS source", (source,))
+        for (sql,) in connection.execute("SELECT sql FROM source.sqlite_master WHERE tbl_name = 'features' AND sql IS NOT NULL").fetchall():
+            connection.execute(sql)
+        connection.execute("INSERT INTO features SELECT * FROM source.features WHERE theme = ?", (constants.TERRAIN_THEME,))
+        connection.execute("PRAGMA user_version = %d" % connection.execute("PRAGMA source.user_version").fetchone()[0])
+        connection.commit()
+        connection.execute("DETACH DATABASE source")
+    else:
         shutil.copyfile(source, target)
+        connection = sqlite3.connect(target)
+        if pack_name == os.path.basename(constants.CONTEXT_DATABASE_PATH):
+            connection.execute("DELETE FROM features WHERE theme = ?", (constants.TERRAIN_THEME,))
+            connection.commit()
+        connection.close()
         strip_spatial_index(target)
+        connection = sqlite3.connect(target)
+    connection.execute("ANALYZE")
+    connection.execute("VACUUM")
+    connection.close()
 
 
-def _delete_appledouble(deploy_root):
-    for dir_path, _dirs, file_names in os.walk(deploy_root):
-        for file_name in file_names:
-            if file_name.startswith("._"):
-                os.remove(os.path.join(dir_path, file_name))
+def _get_sha256(path):
+    # type: (str) -> str
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def build_packs():
+    # type: () -> str
+    """build/packs/에 팩 DB → xz(-T0 멀티스레드, 원본 지움) + manifest.json. 매니페스트 경로를 돌려준다."""
+    pack_dir = os.path.join(BUILD_DIR, "packs")
+    shutil.rmtree(pack_dir, ignore_errors=True)
+    os.makedirs(pack_dir)
+    packs = []
+    for pack_name, label, source in PACK_SOURCES:
+        source = os.path.realpath(os.path.join(ROOT_DIR, source))
+        target = os.path.join(pack_dir, pack_name)
+        print("  %s 만드는 중..." % pack_name, flush=True)
+        _make_pack_database(pack_name, source, target)
+        size, sha256 = os.path.getsize(target), _get_sha256(target)
+        print("  %s 압축 중... (%.2f GB)" % (pack_name, size / 1024.0 ** 3), flush=True)
+        subprocess.run(["xz", "-6", "-T0", target], check=True)
+        packs.append({"name": pack_name, "label": label, "url": pack_name + ".xz", "size": size, "sha256": sha256,
+                      "xz_size": os.path.getsize(target + ".xz")})
+    manifest_path = os.path.join(pack_dir, "manifest.json")
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump({"version": datetime.date.today().isoformat(), "packs": packs}, f, ensure_ascii=False, indent=1)
+    return manifest_path
 
 
 def main():
     if sys.version_info[:2] != (3, 9):
         sys.exit("Rhino 8의 CPython(3.9)과 같은 Python 3.9로 실행해야 .pyc가 호환됩니다. 현재: %d.%d" % sys.version_info[:2])
-    interactive = len(sys.argv) < 2
-    target_dir = _pick_target_dir() if interactive else sys.argv[1]
-    if not target_dir:
-        print("취소했습니다.")
-        return
-    deploy_root = os.path.join(os.path.abspath(target_dir), DEPLOY_DIR_NAME)
-    os.makedirs(deploy_root, exist_ok=True)
-    print("배포판 위치: %s" % deploy_root)
-    count = _build_scripts(deploy_root)
-    print("  로직 모듈 %d개 컴파일" % count)
-    for name in ROOT_FILE_NAMES:
-        shutil.copyfile(os.path.join(ROOT_DIR, name), os.path.join(deploy_root, name))
-    os.makedirs(os.path.join(deploy_root, "docs"), exist_ok=True)
-    for name in DOC_FILE_NAMES:
-        shutil.copyfile(os.path.join(ROOT_DIR, name), os.path.join(deploy_root, name))
-    os.makedirs(os.path.join(deploy_root, "result"), exist_ok=True)
-    _build_data(deploy_root)
-    _delete_appledouble(deploy_root)
-    message = "배포판 완료: %s\n이 폴더를 복사해 docs/install.md 대로 설치합니다." % deploy_root
-    print(message)
-    if interactive:
-        _show_info("UrbanDesignTool 배포판", message)
+    what = sys.argv[1] if len(sys.argv) > 1 else "all"
+    if what in ("all", "yak"):
+        print("yak: %s" % build_yak())
+    if what in ("all", "packs"):
+        manifest_path = build_packs()
+        print("packs: %s" % manifest_path)
+        print("  등고선 팩(%s.xz)은 국내 서버에, 나머지는 매니페스트와 같은 곳에 올린다." % constants.TERRAIN_DATABASE_NAME)
 
 
 if __name__ == "__main__":

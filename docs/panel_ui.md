@@ -75,6 +75,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `zoom_view` | `dir`(결과 폴더 절대경로), `center`[lng,lat](선택) | — (`error{context:"open"}`) | `import_context`·`export_basemap`과 같은 꼴 — JS가 `result.dir`을 붙인다(Python은 마지막 결과 폴더를 기억하지 않는다). `center` 없으면 `CTX::Site` 객체로 줌. 있으면 `<dir>/context.json`의 ORIGIN으로 문서 좌표 환산 후 그 점 주변 100 m |
 | `open_path` | `path`(str) | — (`error{context:"open"}`) | 절대경로 또는 프로젝트 루트 상대(`docs/data_sources.md`, `.env`, `data`). 폴더 = 탐색기, 파일 = OS 기본 앱. `.env`가 없으면 두 줄 템플릿(`VWORLD_API_KEY=`·`DATA_GO_KR_KEY=`)을 만든 뒤 연다. 외부 URL은 열지 않는다(WebView가 이동하므로 JS에서도 링크 금지) |
 | `save_prefs` | `options` | — | `prefs.json`에 `options`만 덮어쓴다(`recent`는 `generate` 성공 시 Python이 갱신) |
+| `download_data` | — | `data_progress`×N → `init_state` (`error{context:"init"}`) | 블로커의 [DB 받기]. `data_pack`이 매니페스트(`constants.DATA_MANIFEST_URL`)에서 바뀐 팩만 `HOME_DIR/data/`에 받는다. 진행 중 `cancel`이면 그 팩에서 멈추고 `data_progress`로 알린다(받던 팩은 버리고 쓰던 DB는 그대로). 유일한 네트워크 명령(주소 보조검색 제외) |
 
 명령 12개. `auth_pin`(옛 PIN 인증)은 없다 — 사내 배포라 인증 게이트 없음.
 
@@ -113,8 +114,9 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 {"type":"init_state",
  "version":"0.1",
  "blocked":false,                                 // true = 필지 DB 없음 → 블로커(차단은 이것뿐. 컨텍스트 DB 없음은 경고)
- "paths":{"root":"/…/UrbanDesignTool","lot_db":"data/seoul_site.db","context_db":"data/seoul_context.db","env":".env","install_doc":"docs/install.md"},
+ "paths":{"root":"<HOME_DIR>","lot_db":"data/seoul_site.db","context_db":"data/seoul_context.db","env":".env","install_doc":"docs/install.md"},
  "generator":{"ok":true,"python":"Rhino CPython","text":"Rhino 내장"},   // 항상 ok. UI 호환용(블로커 3행째는 ✓ 고정)
+ "can_download":true,                             // DATA_MANIFEST_URL이 있으면 블로커에 [DB 받기]·[멈추기]
  "sources":[source, source, source, source],      // id = lot, building, terrain, api 순서 고정(헤더 배지·블로커 체크리스트)
  "warnings":[warning],                            // 헤더 아래 띠. 예: no_context_db
  "tile":{"url":"…","fallback_url":"…","attribution":"…"},   // review_map.get_tile_config()
@@ -161,6 +163,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 
 {"type":"log","text":"여러 줄\n가능","level":"info|warn|error"}
 {"type":"busy","on":true,"label":"문서에 넣는 중"}   // Import·Export처럼 UI 스레드가 멈추는 짧은 작업 전후
+{"type":"data_progress","text":"서울 필지 받는 중 (1/3) 42% · 1.9 GB"}   // download_data 진행(1 % 단위)·멈춤 안내. 블로커 #data_progress 한 줄
 {"type":"error","context":"init|search|select|preflight|generate|import|export|open","text":"한 줄","detail":"traceback 또는 빈 문자열"}
 
 {"type":"done",
@@ -295,12 +298,15 @@ Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `r
 
 ## 설정 저장 위치
 
+`HOME_DIR`(constants) = 저장소·폴더 배포판처럼 루트에 `data/`가 있으면 루트, Yak 설치본이면 `~/UrbanDesignTool`(패키지 폴더는 업데이트 때 바뀐다). `open_path`의 상대경로는 `HOME_DIR` 기준이고, 거기 없으면 코드 루트(`docs/install.md` 등)를 본다.
+
 | 파일 | 내용 | 쓰는 쪽 | 읽는 쪽 |
 |---|---|---|---|
 | `~/.urbandesigntool/prefs.json` | `{"options":{…20키…}, "recent":[{pnus,label,total_area,date}×5]}` | `save_prefs`(options), `generate` 성공(recent 앞에 삽입·중복 제거·5개) | `init` |
 | `~/.urbandesigntool/source_news.json` | `{"checked_at":"2026-10-07","building":{"newer_date":"2026-09-09"},"lot":{…},"upis":{…}}` | `dev_check_sources.py`(P1. 없으면 `newer_date:null`) | `preflight`·`init`(배지)·생성기(`done.warnings`) |
-| `.env`(프로젝트 루트) | `VWORLD_API_KEY=…`(건물 최신화) · `DATA_GO_KR_KEY=…`(건축HUB 철거·말소). `= ` 뒤 공백 금지 | 사용자(OS 편집기). 없으면 `open_path`가 두 줄 템플릿 생성 | `pnu_loader._read_local_env_value`(strip)·생성기 |
-| `result/<YYYYMMDD>/<lot_name>/` | deliverables §E. 같은 폴더가 있으면 생성기 시작 시 `sheets/`·`tables/`·`context.3dm`·`context.json`을 지우고 새로 쓴다(이전 옵션의 시트·CSV가 새것처럼 남지 않도록). `basemap_*.ai`(사용자가 만든 것)·`log.txt`(이어 쓰고 구분선)는 보존 | 생성기·베이커(.ai) | `done`·`open_path` |
+| `.env`(`HOME_DIR`) | `VWORLD_API_KEY=…`(건물 최신화) · `DATA_GO_KR_KEY=…`(건축HUB 철거·말소). `= ` 뒤 공백 금지 | 사용자(OS 편집기). 없으면 `open_path`가 두 줄 템플릿 생성 | `pnu_loader._read_local_env_value`(strip)·생성기 |
+| `HOME_DIR/data/*.db`·`packs.json` | 필지·컨텍스트·등고선 DB. `packs.json` = 받은 팩의 sha256 | `download_data` | `init`·전 명령 |
+| `HOME_DIR/result/<YYYYMMDD>/<lot_name>/` | deliverables §E. 같은 폴더가 있으면 생성기 시작 시 `sheets/`·`tables/`·`context.3dm`·`context.json`을 지우고 새로 쓴다(이전 옵션의 시트·CSV가 새것처럼 남지 않도록). `basemap_*.ai`(사용자가 만든 것)·`log.txt`(이어 쓰고 구분선)는 보존 | 생성기·베이커(.ai) | `done`·`open_path` |
 
 `localStorage`·쿠키는 쓰지 않는다(file:// 임시 파일 출처).
 

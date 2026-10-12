@@ -15,8 +15,8 @@ from pathlib import Path
 
 import constants
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
-DEFAULT_DATABASE_PATH = ROOT_DIR / constants.DATABASE_PATH
+HOME_DIR = Path(constants.HOME_DIR)
+DEFAULT_DATABASE_PATH = HOME_DIR / constants.DATABASE_PATH
 _PNU_PATTERN = re.compile(r"^\d{%d}$" % constants.PNU_LENGTH)
 
 

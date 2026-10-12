@@ -35,7 +35,6 @@ import pnu_loader
 import site_prefs
 from sheet_svg import Frame
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
 
 
 class Cancelled(Exception):
@@ -652,7 +651,7 @@ def prepare(request, progress=None, today=None):
     warnings += get_source_warnings(sources)
 
     skipped = get_skipped_phases(options)
-    result_root = request.get("result_root") or str(ROOT_DIR / constants.RESULT_DIRNAME)
+    result_root = request.get("result_root") or os.path.join(constants.HOME_DIR, constants.RESULT_DIRNAME)
     prepared = Prepared(
         request=request, lot_name=lot_name, target_lots=target_lots, near_lots=near_lots, origin=origin, origin_reused=origin_reused,
         radius=radius, shape=shape, extent_ring=extent_ring, scales=scales, bounds=bounds, frame_bounds=frame_bounds, context=context,

@@ -47,11 +47,11 @@ class TileConfigTest(unittest.TestCase):
         self.assertIn("openstreetmap", config["fallback_url"])
 
     def test_without_vworld_key(self):
-        # 개발 PC의 .env를 안 보도록 pnu_loader.ROOT_DIR을 빈 임시 폴더로 바꾼다
+        # 개발 PC의 .env를 안 보도록 pnu_loader.HOME_DIR을 빈 임시 폴더로 바꾼다
         # (.env 파서는 pnu_loader.get_local_env_value 하나를 같이 쓴다)
         with tempfile.TemporaryDirectory() as temp_dir:
             with patch.dict(os.environ, {}, clear=True), patch.object(
-                pnu_loader, "ROOT_DIR", Path(temp_dir)
+                pnu_loader, "HOME_DIR", Path(temp_dir)
             ):
                 config = review_map.get_tile_config()
         self.assertIn("openstreetmap", config["url"])

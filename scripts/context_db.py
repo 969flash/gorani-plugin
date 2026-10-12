@@ -11,8 +11,7 @@ from pathlib import Path
 
 import constants
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
-DEFAULT_DATABASE_PATH = ROOT_DIR / constants.CONTEXT_DATABASE_PATH
+DEFAULT_DATABASE_PATH = Path(constants.HOME_DIR) / constants.CONTEXT_DATABASE_PATH
 
 
 @dataclass
@@ -110,7 +109,17 @@ def _open_database(database_path=None):
             "컨텍스트 DB 스키마가 v%d가 아닙니다(v%d). dev_context_builder.py로 다시 만드세요"
             % (constants.CONTEXT_DATABASE_SCHEMA_VERSION, version)
         )
+    _attach_terrain(connection, database_path.with_name(constants.TERRAIN_DATABASE_NAME))
     return connection
+
+
+def _attach_terrain(connection, terrain_path):
+    """배포본의 등고선 파일이 옆에 있으면 붙이고, 임시 뷰 features가 본 테이블을 가려 두 파일을 한 테이블처럼 읽게 한다.
+    이름 해석은 temp → main → 붙인 DB 순이라 질의문은 그대로 둔다."""
+    if not terrain_path.exists():
+        return
+    connection.execute("ATTACH DATABASE ? AS terrain", (str(terrain_path),))
+    connection.execute("CREATE TEMP VIEW features AS SELECT * FROM main.features UNION ALL SELECT * FROM terrain.features")
 
 
 def _building_from_row(row):

@@ -16,7 +16,7 @@ import constants
 import lot_db
 from lot_db import (
     DEFAULT_DATABASE_PATH,
-    ROOT_DIR,
+    HOME_DIR,
     _PNU_PATTERN,
     _normalize_pnus,
     _open_database,
@@ -209,12 +209,12 @@ def search_lots(query, database_path=None, limit=None):
 
 
 def get_local_env_value(key):
-    """Rhino GUI에서도 쓸 수 있도록 gitignore된 프로젝트 .env를 보조로 읽는다."""
+    """Rhino GUI에서도 쓸 수 있도록 HOME_DIR의 .env(gitignore)를 보조로 읽는다."""
     value = os.environ.get(key)
     if value:
         return value.strip()
 
-    env_path = ROOT_DIR / ".env"
+    env_path = HOME_DIR / ".env"
     if not env_path.exists():
         return ""
     for raw_line in env_path.read_text(encoding="utf-8").splitlines():

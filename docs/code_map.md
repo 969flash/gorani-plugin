@@ -52,7 +52,7 @@
   dev_context_builder.py   수치지형도 139도엽 zip + GIS건물 zip → data/seoul_context.db (완료: 372 s, 1,509 MB, 995,026동)
   dev_make_fixture.py      전체 DB 2개 → tests/fixtures/seongsu_*.db (SQL 추출, ≈10 MB)
   dev_database_builder.py  (보유) 토지특성·UPIS → data/seoul_site.db
-  dev_deploy.py            scripts .pyc + DB 2개 → 배포 폴더
+  dev_deploy.py            Yak 패키지(.rhp + scripts .pyc) · 데이터 팩(필지·컨텍스트·등고선 xz + manifest.json)
 
 [사용자 Rhino 8, 버튼 한 번]
   cmd_site.py ─► panel_host.py(Eto WebView) ◄─► site_ui.html
@@ -104,7 +104,7 @@
 | **`basemap_ai.py`** | 신규(2026-10-08) | 공통(Rhino 금지) | `write_basemap(prepared, scale, out_dir)` — 레거시 AI5 PostScript 직접 작성(§5.7·§7.3). `export_basemap`(context_builder)이 다른 축척 재작성에 쓴다 | sheet_svg(Frame), constants |
 | `dev_context_builder.py` | 있음+ | 개발 python3 | 도엽 features + GIS건물 병합·높이 규칙(`decide_height`). 139도엽 전체 빌드 완료(372 s). 추가: 정합 샘플(theme `qa`) 적재 | geopandas·pyogrio·shapely·pandas·numpy, constants |
 | `dev_make_fixture.py` | 신규(≈30줄) | 개발 python3(sqlite3만) | 전체 DB 2개를 `ATTACH`하고 `INSERT INTO … SELECT … WHERE bbox 교차`로 `tests/fixtures/seongsu_context.db`(buildings·features·data_sources·source_files)와 `seongsu_site.db`(parcels·overlays·parcel_overlays·parcel_land_use·data_sources, 스키마 v5, `user_version 5`, bbox 인덱스 포함) 생성 | constants |
-| `dev_deploy.py` | 신규 | 개발 | `PLAIN_SCRIPT_NAMES=(loader, cmd_install, cmd_site)`, `DATABASE_NAMES=(seoul_site.db, seoul_context.db)`, `strip_spatial_index` 둘 다, `.pyc` optimize=2 | — |
+| `dev_deploy.py` | 신규 | 개발 | `yak`: rhinocode로 UrbanSite .rhp 빌드 + scripts/(평문 loader·cmd_site, 로직 .pyc optimize=2) → yak CLI. `packs`: 필지(rtree 제거)·컨텍스트(등고선 제외)·등고선 DB → xz + manifest.json. 받는 쪽은 `data_pack.py` | — |
 | `dev_rhino_run.py` | 보유+ | 개발 | 128–130행: `data/*.db` 전부 심링크 | constants |
 | `dev_database_builder.py`·`dev_probe_*.py` | 보유 | 개발 | 필지 DB·08 실측 재현 | — |
 
