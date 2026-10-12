@@ -14,6 +14,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import constants
+import data_pack
 
 HOME_DIR = Path(constants.HOME_DIR)
 DEFAULT_DATABASE_PATH = HOME_DIR / constants.DATABASE_PATH
@@ -185,14 +186,23 @@ def _normalize_pnus(pnus):
     return list(dict.fromkeys(normalized))
 
 
-def _open_database(database_path=None):
-    database_path = Path(database_path or DEFAULT_DATABASE_PATH)
-    if not database_path.exists():
-        raise FileNotFoundError("로컬 DB가 없습니다: %s" % database_path)
+def _open_database(database_path=None, bounds=None, pnus=None):
+    """필지 DB 연결. database_path를 주면 그 파일 하나, 아니면 data/의 시도별 `*_site.db` 중
+    bounds(min_x, min_y, max_x, max_y)에 걸리거나 pnus의 시도에 해당하는 것을 한 연결로 묶는다(data_pack.open_union)."""
+    if database_path:
+        paths = [str(database_path)] if Path(database_path).exists() else []
+    else:
+        paths = data_pack.get_local_paths("site", bounds, {pnu[:2] for pnu in pnus} if pnus else None)
+    if not paths:
+        raise FileNotFoundError("로컬 DB가 없습니다: %s" % (database_path or DEFAULT_DATABASE_PATH))
+    return data_pack.open_union(paths)
 
-    connection = sqlite3.connect(str(database_path))
-    connection.row_factory = sqlite3.Row
-    return connection
+
+def _get_lots_bounds(lots, margin):
+    # type: (list, float) -> tuple
+    """필지 목록의 경계상자 + 여유 m → (min_x, min_y, max_x, max_y)."""
+    return (min(lot.min_x for lot in lots) - margin, min(lot.min_y for lot in lots) - margin,
+            max(lot.max_x for lot in lots) + margin, max(lot.max_y for lot in lots) + margin)
 
 
 def _lot_info_from_row(row):
@@ -248,7 +258,7 @@ def _overlay_info_from_row(row):
 def load(pnus, database_path=None):
     """PNU 목록을 조회하여 하나의 LotData로 반환한다."""
     pnus = _normalize_pnus(pnus)
-    connection = _open_database(database_path)
+    connection = _open_database(database_path, pnus=pnus)
     placeholders = ",".join("?" for _ in pnus)
     try:
         _require_bbox_index(connection)
@@ -290,7 +300,7 @@ def load(pnus, database_path=None):
         designations = [DesignationInfo(**dict(row)) for row in designation_rows]
 
         source_rows = connection.execute(
-            "SELECT * FROM data_sources ORDER BY source_id"
+            "SELECT * FROM data_sources GROUP BY source_id ORDER BY source_id"
         ).fetchall()
         sources = [DataSource(**dict(row)) for row in source_rows]
     finally:
@@ -361,7 +371,7 @@ def load_near_lot_candidates(
 
     target_pnus = {lot.pnu for lot in target_lots}
     candidates_by_pnu = {}
-    connection = _open_database(database_path)
+    connection = _open_database(database_path, _get_lots_bounds(target_lots, radius))
     try:
         _require_bbox_index(connection)
         for target in target_lots:
@@ -437,7 +447,7 @@ def load_near_overlays(
     filter_sql = (" AND " + " AND ".join(filters)) if filters else ""
 
     rows_by_id = {}
-    connection = _open_database(database_path)
+    connection = _open_database(database_path, _get_lots_bounds(target_lots, radius))
     try:
         _require_bbox_index(connection)
         for target in target_lots:
@@ -487,7 +497,7 @@ def load_parcels_in_bounds(
     ``limit=None``이면 전부 읽는다(컨텍스트 생성 — 1 km bbox 8,918필지 0.34 s).
     출력: ``(list[LotInfo], truncated)``.
     """
-    connection = _open_database(database_path)
+    connection = _open_database(database_path, (min_x, min_y, max_x, max_y))
     try:
         _require_bbox_index(connection)
         sql = """
@@ -514,7 +524,7 @@ def load_sources(database_path=None):
     """필지 DB의 원천 목록만 읽는다(형상 없음). 패널 자료 상태용."""
     connection = _open_database(database_path)
     try:
-        rows = connection.execute("SELECT * FROM data_sources ORDER BY source_id").fetchall()
+        rows = connection.execute("SELECT * FROM data_sources GROUP BY source_id ORDER BY source_id").fetchall()
     finally:
         connection.close()
     return [DataSource(**dict(row)) for row in rows]
@@ -523,7 +533,7 @@ def load_sources(database_path=None):
 def count_parcels_in_bounds(min_x, min_y, max_x, max_y, database_path=None):
     # type: (float, float, float, float, object) -> int
     """경계상자(EPSG:5186 m)와 겹치는 필지 수. 형상을 읽지 않아 빠르다(사전 점검 예상치용)."""
-    connection = _open_database(database_path)
+    connection = _open_database(database_path, (min_x, min_y, max_x, max_y))
     try:
         _require_bbox_index(connection)
         return int(connection.execute(

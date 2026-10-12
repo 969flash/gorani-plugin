@@ -6,6 +6,7 @@ import http.server
 import json
 import lzma
 import os
+import sqlite3
 import sys
 import tempfile
 import threading
@@ -56,6 +57,27 @@ class DataPackTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             data_pack.download_pack(pack, self.data_dir.name)
         self.assertEqual(os.listdir(self.data_dir.name), [])
+
+
+class LocalPackTest(unittest.TestCase):
+    def test_paths_filter_and_union(self):
+        with tempfile.TemporaryDirectory() as data_dir:
+            for name, rows in (("seoul_site.db", [(1, "11")]), ("gyeonggi_site.db", [(41000000001, "41")]), ("busan_site.db", [(26000000001, "26")])):
+                connection = sqlite3.connect(os.path.join(data_dir, name))
+                connection.execute("CREATE TABLE parcels (parcel_id INTEGER PRIMARY KEY, pnu TEXT)")
+                connection.executemany("INSERT INTO parcels VALUES (?, ?)", rows)
+                connection.commit()
+                connection.close()
+            with open(os.path.join(data_dir, "packs.json"), "w") as f:   # 부산은 멀리 떨어진 범위
+                json.dump({"busan_site.db": {"sha256": "x", "bounds": [380000, 180000, 420000, 220000]}}, f)
+            self.assertEqual(len(data_pack.get_local_paths("site", data_dir=data_dir)), 3)
+            near_seoul = data_pack.get_local_paths("site", (190000, 540000, 210000, 560000), data_dir=data_dir)
+            self.assertEqual([os.path.basename(p) for p in near_seoul], ["gyeonggi_site.db", "seoul_site.db"])
+            by_pnu = data_pack.get_local_paths("site", sido_codes={"41"}, data_dir=data_dir)
+            self.assertEqual([os.path.basename(p) for p in by_pnu], ["gyeonggi_site.db"])
+            connection = data_pack.open_union(near_seoul)
+            self.assertEqual(sorted(r["pnu"] for r in connection.execute("SELECT pnu FROM parcels")), ["11", "41"])
+            connection.close()
 
 
 class _QuietHandler(http.server.SimpleHTTPRequestHandler):

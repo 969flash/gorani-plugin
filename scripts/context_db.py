@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import constants
+import data_pack
 
 DEFAULT_DATABASE_PATH = Path(constants.HOME_DIR) / constants.CONTEXT_DATABASE_PATH
 
@@ -94,14 +95,23 @@ class ContextData:
                 if (theme is None or f.theme == theme) and (kind is None or f.kind == kind)]
 
 
-def _open_database(database_path=None):
-    database_path = Path(database_path or DEFAULT_DATABASE_PATH)
-    if not database_path.exists():
+def _open_database(database_path=None, bounds=None):
+    """컨텍스트 DB 연결. database_path를 주면 그 파일(+ 옆의 `<시도>_terrain.db`), 아니면 data/의 시도별
+    `*_context.db`·`*_terrain.db` 중 bounds(min_x, min_y, max_x, max_y)에 걸리는 것을 한 연결로 묶는다(data_pack.open_union).
+    등고선 팩은 배포 때 따로 받는다(constants.TERRAIN_DATABASE_NAME 주석)."""
+    if database_path:
+        database_path = Path(database_path)
+        terrain_path = database_path.with_name(database_path.name.replace("_context.db", "_terrain.db"))
+        paths = [str(database_path)] if database_path.exists() else []
+        if paths and terrain_path != database_path and terrain_path.exists():
+            paths.append(str(terrain_path))
+    else:
+        paths = data_pack.get_local_paths("context", bounds) + data_pack.get_local_paths("terrain", bounds)
+    if not paths:
         raise FileNotFoundError(
-            "컨텍스트 DB가 없습니다: %s\npython3 scripts/dev_context_builder.py 로 만드세요" % database_path
+            "컨텍스트 DB가 없습니다: %s\npython3 scripts/dev_context_builder.py 로 만드세요" % (database_path or DEFAULT_DATABASE_PATH)
         )
-    connection = sqlite3.connect(str(database_path))
-    connection.row_factory = sqlite3.Row
+    connection = data_pack.open_union(paths)
     version = connection.execute("PRAGMA user_version").fetchone()[0]
     if version < constants.CONTEXT_DATABASE_SCHEMA_VERSION:
         connection.close()
@@ -109,17 +119,7 @@ def _open_database(database_path=None):
             "컨텍스트 DB 스키마가 v%d가 아닙니다(v%d). dev_context_builder.py로 다시 만드세요"
             % (constants.CONTEXT_DATABASE_SCHEMA_VERSION, version)
         )
-    _attach_terrain(connection, database_path.with_name(constants.TERRAIN_DATABASE_NAME))
     return connection
-
-
-def _attach_terrain(connection, terrain_path):
-    """배포본의 등고선 파일이 옆에 있으면 붙이고, 임시 뷰 features가 본 테이블을 가려 두 파일을 한 테이블처럼 읽게 한다.
-    이름 해석은 temp → main → 붙인 DB 순이라 질의문은 그대로 둔다."""
-    if not terrain_path.exists():
-        return
-    connection.execute("ATTACH DATABASE ? AS terrain", (str(terrain_path),))
-    connection.execute("CREATE TEMP VIEW features AS SELECT * FROM main.features UNION ALL SELECT * FROM terrain.features")
 
 
 def _building_from_row(row):
@@ -167,7 +167,7 @@ def load_buildings_in_bounds(bounds, database_path=None, include_demolished=Fals
     ``include_minor=False``면 보충(src_key 'ngii:…') 행 중 무벽건물·가건물·공사중건물을 뺀다.
     대장과 매칭된 벌크 건물은 ngii_kind와 무관하게 남긴다.
     """
-    connection = _open_database(database_path)
+    connection = _open_database(database_path, bounds)
     try:
         sql = "SELECT * FROM buildings" + _BBOX_SQL
         values = list(_bbox_values(bounds, "buildings"))
@@ -193,7 +193,7 @@ def load_features_in_bounds(bounds, themes=None, kinds=None, database_path=None)
         filters.append("kind IN (%s)" % ",".join("?" for _ in kinds))
         values.extend(kinds)
     sql = "SELECT * FROM features" + _BBOX_SQL + ("".join(" AND " + f for f in filters))
-    connection = _open_database(database_path)
+    connection = _open_database(database_path, bounds)
     try:
         rows = connection.execute(sql, values).fetchall()
     finally:
@@ -205,7 +205,7 @@ def load_sources(database_path=None):
     # type: (object) -> list
     connection = _open_database(database_path)
     try:
-        rows = connection.execute("SELECT * FROM data_sources ORDER BY source_id").fetchall()
+        rows = connection.execute("SELECT * FROM data_sources GROUP BY source_id ORDER BY source_id").fetchall()
     finally:
         connection.close()
     return [DataSource(**dict(row)) for row in rows]
@@ -232,7 +232,7 @@ def count_in_bounds(bounds, database_path=None, include_minor=False):
     if not include_minor:
         sql += " AND NOT (src_key LIKE 'ngii:%%' AND ngii_kind IN (%s))" % ",".join("?" for _ in constants.TOPO_MINOR_KINDS)
         bld_values.extend(constants.TOPO_MINOR_KINDS)
-    connection = _open_database(database_path)
+    connection = _open_database(database_path, bounds)
     try:
         buildings = connection.execute(sql, bld_values).fetchone()[0]
         themes = {

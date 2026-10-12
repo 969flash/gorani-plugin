@@ -7,9 +7,9 @@
 yak: 진입 명령 UrbanSite 하나짜리 .rhp를 rhinocode로 빌드하고(떠 있는 Rhino 8 필요), 그 옆에 scripts/(평문 진입 스크립트 +
      로직 .pyc + 패널 HTML·vendor)를 두고 yak CLI로 묶는다. rhinocode의 Shared 리소스는 폴더 구조를 펴 버려서 쓰지 않는다
      (2026-10-12 실측: scripts/vendor/b.txt → shared/b.txt). UrbanSite는 .rhp 옆 scripts/cmd_site.py를 그대로 실행한다.
-packs: 필지 DB(rtree 제거)·컨텍스트 DB(등고선 제외)·등고선 DB를 xz로 압축하고 sha256을 매니페스트에 적는다.
-       등고선 팩은 국내 서버에 올린다(constants.TERRAIN_DATABASE_NAME 주석). 올린 뒤 매니페스트 주소를
-       constants.DATA_MANIFEST_URL에 넣는다.
+packs: data/의 시도별 `<시도>_site.db`·`<시도>_context.db`마다 필지(rtree 제거)·컨텍스트(등고선 제외)·등고선 팩을
+       xz로 압축하고 sha256·범위를 매니페스트에 적는다. 등고선 팩은 국내 서버에 올린다(constants.TERRAIN_DATABASE_NAME 주석).
+       올린 뒤 매니페스트 주소를 constants.DATA_MANIFEST_URL에 넣는다.
 
 `.pyc`는 Python 마이너 버전에 묶이므로 Rhino 8의 CPython과 같은 3.9로 실행해야 한다. macOS 기본 /usr/bin/python3가 3.9다.
 """
@@ -61,11 +61,16 @@ if not aliases.IsAlias("%(alias)s"):
 runpy.run_path(os.path.join(folder, "scripts", "cmd_site.py"), run_name="__main__")
 '''
 
-PACK_SOURCES = (   # (팩 이름, 표시 이름, 원본 DB)
-    ("seoul_site.db", "서울 필지", constants.DATABASE_PATH),
-    ("seoul_context.db", "서울 건물·도로·수계", constants.CONTEXT_DATABASE_PATH),
-    (constants.TERRAIN_DATABASE_NAME, "서울 등고선", constants.CONTEXT_DATABASE_PATH),
+PACK_KINDS = (   # (종류, 표시 이름 꼬리, 원본 DB 종류) — 등고선 팩은 컨텍스트 DB에서 terrain만 떼어 낸다
+    ("site", "필지", "site"),
+    ("context", "건물·도로·수계", "context"),
+    ("terrain", "등고선", "context"),
 )
+BOUNDS_SQL = {   # 팩 범위(EPSG:5186) — data_pack이 대상지에 걸리는 시도 파일만 열 때 쓴다
+    "site": "SELECT MIN(min_x), MIN(min_y), MAX(max_x), MAX(max_y) FROM parcels",
+    "context": "SELECT MIN(min_x), MIN(min_y), MAX(max_x), MAX(max_y) FROM buildings",
+    "terrain": "SELECT MIN(min_x), MIN(min_y), MAX(max_x), MAX(max_y) FROM features",
+}
 
 
 def get_deploy_module_names():
@@ -178,7 +183,7 @@ def build_yak():
 def _make_pack_database(pack_name, source, target):
     # type: (str, str, str) -> None
     """팩 하나의 DB 파일. 필지 = 사본 + rtree 제거, 컨텍스트 = 사본 − 등고선, 등고선 = features 스키마 + terrain 행만."""
-    if pack_name == constants.TERRAIN_DATABASE_NAME:
+    if pack_name.endswith("_terrain.db"):
         connection = sqlite3.connect(target)
         connection.execute("ATTACH DATABASE ? AS source", (source,))
         for (sql,) in connection.execute("SELECT sql FROM source.sqlite_master WHERE tbl_name = 'features' AND sql IS NOT NULL").fetchall():
@@ -190,7 +195,7 @@ def _make_pack_database(pack_name, source, target):
     else:
         shutil.copyfile(source, target)
         connection = sqlite3.connect(target)
-        if pack_name == os.path.basename(constants.CONTEXT_DATABASE_PATH):
+        if pack_name.endswith("_context.db"):
             connection.execute("DELETE FROM features WHERE theme = ?", (constants.TERRAIN_THEME,))
             connection.commit()
         connection.close()
@@ -217,16 +222,24 @@ def build_packs():
     shutil.rmtree(pack_dir, ignore_errors=True)
     os.makedirs(pack_dir)
     packs = []
-    for pack_name, label, source in PACK_SOURCES:
-        source = os.path.realpath(os.path.join(ROOT_DIR, source))
-        target = os.path.join(pack_dir, pack_name)
-        print("  %s 만드는 중..." % pack_name, flush=True)
-        _make_pack_database(pack_name, source, target)
-        size, sha256 = os.path.getsize(target), _get_sha256(target)
-        print("  %s 압축 중... (%.2f GB)" % (pack_name, size / 1024.0 ** 3), flush=True)
-        subprocess.run(["xz", "-6", "-T0", target], check=True)
-        packs.append({"name": pack_name, "label": label, "url": pack_name + ".xz", "size": size, "sha256": sha256,
-                      "xz_size": os.path.getsize(target + ".xz")})
+    data_dir = os.path.join(ROOT_DIR, "data")
+    for code, (sido_name, slug) in sorted(constants.SIDO.items(), key=lambda item: item[1][1]):
+        for kind, label, source_kind in PACK_KINDS:
+            source = os.path.join(data_dir, "%s_%s.db" % (slug, source_kind))
+            if not os.path.exists(source):
+                continue
+            pack_name = "%s_%s.db" % (slug, kind)
+            target = os.path.join(pack_dir, pack_name)
+            print("  %s 만드는 중..." % pack_name, flush=True)
+            _make_pack_database(pack_name, source, target)
+            connection = sqlite3.connect(target)
+            bounds = [round(v, 1) for v in connection.execute(BOUNDS_SQL[kind]).fetchone()]
+            connection.close()
+            size, sha256 = os.path.getsize(target), _get_sha256(target)
+            print("  %s 압축 중... (%.2f GB)" % (pack_name, size / 1024.0 ** 3), flush=True)
+            subprocess.run(["xz", "-6", "-T0", target], check=True)
+            packs.append({"name": pack_name, "label": "%s %s" % (sido_name, label), "url": pack_name + ".xz", "size": size,
+                          "sha256": sha256, "bounds": bounds, "xz_size": os.path.getsize(target + ".xz")})
     manifest_path = os.path.join(pack_dir, "manifest.json")
     with open(manifest_path, "w", encoding="utf-8") as f:
         json.dump({"version": datetime.date.today().isoformat(), "packs": packs}, f, ensure_ascii=False, indent=1)
@@ -242,7 +255,7 @@ def main():
     if what in ("all", "packs"):
         manifest_path = build_packs()
         print("packs: %s" % manifest_path)
-        print("  등고선 팩(%s.xz)은 국내 서버에, 나머지는 매니페스트와 같은 곳에 올린다." % constants.TERRAIN_DATABASE_NAME)
+        print("  등고선 팩(*_terrain.db.xz)은 국내 서버에, 나머지는 매니페스트와 같은 곳에 올린다.")
 
 
 if __name__ == "__main__":

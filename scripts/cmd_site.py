@@ -87,12 +87,12 @@ def get_init_state(site_db=None, context_db=None, today=None):
     context_builder = loader.load("context_builder")
     review_map = loader.load("review_map")
     site_prefs = loader.load("site_prefs")
-    lot_db_path = site_db or os.path.join(constants.HOME_DIR, constants.DATABASE_PATH)
+    has_lot_db = os.path.exists(site_db) if site_db else bool(loader.load("data_pack").get_local_paths("site"))
     sources = context_builder.get_sources(site_db, context_db, today)
     return {
         "type": "init_state",
         "version": constants.PANEL_VERSION,
-        "blocked": not os.path.exists(lot_db_path),
+        "blocked": not has_lot_db,
         "paths": {"root": constants.HOME_DIR, "lot_db": constants.DATABASE_PATH, "context_db": constants.CONTEXT_DATABASE_PATH,
                   "env": ".env", "install_doc": constants.INSTALL_DOC},
         "generator": {"ok": True, "python": "Rhino CPython", "text": "Rhino 내장"},

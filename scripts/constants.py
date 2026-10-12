@@ -23,7 +23,15 @@ SPATIAL_OVERLAP_MIN_AREA = 0.01  # DB 공간교차에서 무시할 미세 중첩
 # ─────────────────────────────────────────────────────────
 # 행정·데이터·경로
 # ─────────────────────────────────────────────────────────
-SIDO_NAMES = {"11": "서울특별시"}  # PNU 앞 2자리 → 시도. 필요 시 추가
+# PNU 앞 2자리 → (시도명, 데이터 팩 파일 접두어). 2026-09 기준 16개 시도 — 강원 51·전북 52(특별자치도 전환),
+# 전남광주통합특별시 12(광주 29·전남 46 통합). 근거: data/raw/전국_토지이용계획정보 AL_D155_<코드> 파일 목록(2026-08-26)
+SIDO = {
+    "11": ("서울특별시", "seoul"), "26": ("부산광역시", "busan"), "27": ("대구광역시", "daegu"), "28": ("인천광역시", "incheon"),
+    "30": ("대전광역시", "daejeon"), "31": ("울산광역시", "ulsan"), "36": ("세종특별자치시", "sejong"), "41": ("경기도", "gyeonggi"),
+    "43": ("충청북도", "chungbuk"), "44": ("충청남도", "chungnam"), "47": ("경상북도", "gyeongbuk"), "48": ("경상남도", "gyeongnam"),
+    "50": ("제주특별자치도", "jeju"), "51": ("강원특별자치도", "gangwon"), "52": ("전북특별자치도", "jeonbuk"),
+    "12": ("전남광주통합특별시", "jeonnamgwangju"),
+}
 DATABASE_CRS = 5186                   # 내부 형상 좌표계 (GRS80 중부원점, EPSG:5186)
 SEOUL_SOURCE_CRS = 5174               # 서울 UPIS 공개 SHP 좌표계
 RAW_DATA_DIRNAME = "data/raw"         # 공공 원천 데이터 보관 (gitignore)
@@ -179,6 +187,7 @@ DATA_MANIFEST_URL = ""                 # 매니페스트 주소. 호스팅(Huggi
 DATA_STATE_FILE_NAME = "packs.json"    # data/ 안. 받은 팩의 sha256 — 바뀐 팩만 다시 받는다
 DATA_TIMEOUT_SECONDS = 30              # 연결·조각 읽기 제한
 DATA_CHUNK_BYTES = 1024 * 1024         # 압축 스트림을 1 MB씩 읽어 풀고 진행률을 알린다
+DATA_MAX_OPEN_FILES = 11               # 한 연결에 여는 지역 DB 수 상한 — SQLite ATTACH 기본 상한 10 + main(2026-10-12 실측)
 # 테이블별 객체 최대 폭 m — bbox 질의의 min_x 하한에 쓴다. dev_context_builder가 빌드 끝에 넘지 않는지 검사한다.
 # 실측(2026-10-08): 건물 최대 887 m(가로·세로 중 큰 값), features 최대 2,779 m(도엽 1장 높이 — 도엽 단위로 잘려 있다).
 CONTEXT_MAX_EXTENT = {"buildings": 1000.0, "features": 3000.0}
