@@ -206,6 +206,40 @@ CONTEXT_DATABASE_SCHEMA_VERSION = 1
 TERRAIN_DATABASE_NAME = "seoul_terrain.db"
 TERRAIN_THEME = "terrain"
 
+# 해외 대상지(osm_context.py) — OSM Overpass + AWS Terrain Tiles. 사용자 PC가 직접 부른다(서버 없음).
+# Overpass 이용 기준: IP당 하루 1만 질의·1 GB 미만(https://wiki.openstreetmap.org/wiki/Overpass_API) — 대상지 1회 1질의
+OSM_USER_AGENT = "UrbanDesignTool/0.1 (Rhino plugin; https://www.openstreetmap.org/copyright)"
+OSM_TIMEOUT_SECONDS = 60         # 미러 하나당. 공개 Overpass는 자주 붐빈다(2026-10-13 파리 900 m: 독일 504, kumi·coffee 120 s 초과, mail.ru 22 s)
+OSM_OVERPASS_URLS = ("https://overpass-api.de/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+                     "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter")
+OSM_OVERPASS_QUERY = """[out:json][timeout:55][bbox:{bbox}];
+(
+  way["building"]; relation["building"]["type"="multipolygon"];
+  way["highway"]; way["railway"];
+  way["waterway"]; way["natural"="water"]; relation["natural"="water"]; way["landuse"~"^(reservoir|basin|grass|forest|meadow|recreation_ground|village_green|cemetery)$"];
+  way["leisure"~"^(park|garden|pitch|playground)$"]; relation["leisure"="park"]; way["natural"~"^(wood|scrub|grassland)$"];
+);
+out geom;"""
+OSM_ROAD_WIDTHS = {   # highway 등급 → 기본 도로폭 m (width·lanes 태그가 없을 때). 국내 도로 분류와 비교한 대략값
+    "motorway": 22.0, "trunk": 18.0, "primary": 15.0, "secondary": 12.0, "tertiary": 9.0, "unclassified": 6.0,
+    "residential": 6.0, "living_street": 5.0, "service": 4.0, "pedestrian": 6.0, "footway": 2.0, "cycleway": 2.0, "path": 1.5,
+    "motorway_link": 8.0, "trunk_link": 8.0, "primary_link": 7.0, "secondary_link": 7.0, "tertiary_link": 6.0, "track": 3.0, "steps": 2.0,
+}
+OSM_LANE_WIDTH = 3.3            # m — 차로당 폭
+OSM_RAIL_TYPES = ("rail", "subway", "light_rail", "tram", "narrow_gauge", "monorail")
+OSM_GREEN_TAGS = {"leisure": ("park", "garden", "pitch", "playground"), "natural": ("wood", "scrub", "grassland"),
+                  "landuse": ("grass", "forest", "meadow", "recreation_ground", "village_green", "cemetery")}
+OSM_BUILDING_USE = {   # building 태그 → 국내 건축물용도 대분류(시트 색). 근거: 건축법 시행령 별표1 대분류와 뜻이 가까운 것만
+    "house": "01000", "detached": "01000", "semidetached_house": "01000", "bungalow": "01000",
+    "apartments": "02000", "residential": "02000", "terrace": "02000", "dormitory": "02000",
+    "retail": "03000", "kiosk": "03000", "commercial": "04000", "office": "14000", "hotel": "15000",
+    "industrial": "17000", "warehouse": "18000", "school": "10000", "university": "10000", "college": "10000", "kindergarten": "11000",
+    "hospital": "09000", "church": "06000", "cathedral": "06000", "temple": "06000", "mosque": "06000", "train_station": "08000",
+}
+OSM_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+OSM_TERRAIN_ZOOM = 13           # 픽셀 약 19 m(적도)·15 m(위도 37°). 원천 DEM이 약 30 m라 더 키워도 정밀해지지 않는다
+OSM_TERRAIN_STEP = 2            # 픽셀 건너뛰기 — 표고점 간격 약 30 m
+
 # 데이터 팩 받기(data_pack.py) — Yak 설치본은 DB 없이 깔리고 패널에서 받는다
 DATA_MANIFEST_URL = ""                 # 매니페스트 주소. 호스팅(Hugging Face 등)이 정해지면 채운다
 DATA_STATE_FILE_NAME = "packs.json"    # data/ 안. 받은 팩의 sha256 — 바뀐 팩만 다시 받는다
@@ -496,7 +530,8 @@ REF_VDATUM = "인천만 평균해수면(수준원점 26.6871 m)"
 RESULT_TABLES_DIRNAME = "tables"
 RESULT_SHEETS_DIRNAME = "sheets"
 # data_sources.source_id → 메타 역할(lot·building·terrain·upis). prepare가 DataSource 객체를 그대로 넘겨도 역할을 찾는다
-SOURCE_ID_ROLES = {"vworld_land_char": "lot", "vworld_building": "building", "ngii_topo_5000": "terrain", "seoul_zoning": "upis"}
+SOURCE_ID_ROLES = {"vworld_land_char": "lot", "vworld_building": "building", "ngii_topo_5000": "terrain", "seoul_zoning": "upis",
+                   "osm": "building", "aws_terrain": "terrain"}   # osm·aws_terrain = 해외 대상지(osm_context)
 META_SOURCE_NAMES = {"lot": "필지 토지특성정보", "building": "건물 GIS건물통합정보", "upis": "도시계획 서울시 UPIS", "terrain": "지형 수치지형도 1:5,000"}
 # ② 출처·라이선스 — 토지특성·토지이용계획은 '이용허락범위 제한 없음'(공공누리 1유형/CC BY로 적지 않는다, data_sources §3)
 META_SOURCE_LINE = ("출처: 국토교통부(GIS건물통합정보 — CC BY/공공누리 1유형; 토지특성정보·토지이용계획정보 — 이용허락범위 제한 없음), "

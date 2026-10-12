@@ -150,6 +150,7 @@ def get_lot_state(pnus, site_db=None):
     lot_db = loader.load("lot_db")
     non_rhino_utils = loader.load("non_rhino_utils")
     review_map = loader.load("review_map")
+    non_rhino_utils.set_projection()   # 필지는 국내뿐 — 해외 대상지 원점을 되돌린다
     lots = lot_db.load(pnus, site_db).lots
     rings, warnings = context_builder.get_target_rings(lots)
     geojson = review_map.get_parcels_geojson(pnus, "lot", site_db)
@@ -192,8 +193,11 @@ def get_area_state(msg, site_db=None):
     if msg.get("ring_tm"):
         points = [(float(x), float(y)) for x, y in msg["ring_tm"]]
     elif msg.get("ring_lnglat"):
-        points = [non_rhino_utils.get_tm_from_wgs84(float(lng), float(lat)) for lng, lat in msg["ring_lnglat"]]
+        lnglats = [(float(lng), float(lat)) for lng, lat in msg["ring_lnglat"]]
+        non_rhino_utils.set_projection(sum(p[0] for p in lnglats) / len(lnglats), sum(p[1] for p in lnglats) / len(lnglats))   # 해외면 지역 원점
+        points = [non_rhino_utils.get_tm_from_wgs84(lng, lat) for lng, lat in lnglats]
     elif msg.get("center") and msg.get("offsets"):
+        non_rhino_utils.set_projection(float(msg["center"][0]), float(msg["center"][1]))
         cx, cy = non_rhino_utils.get_tm_from_wgs84(float(msg["center"][0]), float(msg["center"][1]))
         points = [(cx + float(dx), cy + float(dy)) for dx, dy in msg["offsets"]]
     else:
@@ -225,6 +229,7 @@ def get_point_state(msg, site_db=None):
     context_builder = loader.load("context_builder")
     non_rhino_utils = loader.load("non_rhino_utils")
     lng, lat = float(msg["center"][0]), float(msg["center"][1])
+    non_rhino_utils.set_projection(lng, lat)   # 해외면 지역 원점, 국내면 EPSG:5186
     x, y = non_rhino_utils.get_tm_from_wgs84(lng, lat)
     request = context_builder.get_request_with_defaults({"target": {"mode": "point", "center": [x, y]}, "site_db": site_db})
     target = context_builder.resolve_target(request)

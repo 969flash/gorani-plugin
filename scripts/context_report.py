@@ -17,6 +17,7 @@ import json
 import os
 
 import constants
+import non_rhino_utils
 
 MISSING = "—"
 
@@ -112,10 +113,26 @@ def _built_at(prepared):
 
 # ── ① ~ ⑤ 메타 5줄 ────────────────────────────────────────
 
+def _get_abroad_meta_lines(prepared):
+    # type: (object) -> list
+    """해외 대상지 메타 5줄 — OSM·지형 타일 출처와 지역 횡메르카토르."""
+    dates = get_source_dates(prepared)
+    return [
+        "자료기준 — OpenStreetMap %s · Terrain Tiles · %s · 생성 %s · %s v%s" % (dates["building"], non_rhino_utils.get_crs_label(),
+                                                                         _built_at(prepared)[:10], constants.TOOL_NAME, constants.PANEL_VERSION),
+        "출처: © OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright); 지형 Terrain Tiles (Mapzen·AWS Open Data, SRTM 등 공개 DEM)",
+        "좌표계: 대상지 중심 횡메르카토르(GRS80, 축척 1) · 지형 약 30 m 격자 — 실측·법정 자료 아님",
+        "정합 오차: — (필지 자료 없음)",
+        "건물 높이: OSM height 태그(B)·층수(C)·기본값 %.1f m(D)" % constants.DEFAULT_BUILDING_HEIGHT_M,
+    ]
+
+
 def get_meta_lines(prepared):
     # type: (object) -> list
     """deliverables §C 공통 ①자료기준 ②출처·라이선스 ③좌표계·정확도 ④정합 오차 ⑤기준일 경고 — 5줄.
     SVG 여백·context.json·CTX::Ref META_LINES가 모두 이 문자열을 쓴다."""
+    if non_rhino_utils.is_local_projection():
+        return _get_abroad_meta_lines(prepared)
     dates = get_source_dates(prepared)
     sheets = get_sheet_codes(prepared)
     sheet_text = MISSING if not sheets else (sheets[0] + (" 외 %d" % (len(sheets) - 1) if len(sheets) > 1 else ""))
@@ -310,7 +327,7 @@ def write_context_json(prepared, response_partial, out_dir):
         "mode": _get(prepared, "mode", "lots"), "target": (_get(prepared, "request") or {}).get("target"),
         "lot_key": _get(prepared, "target_key", ""), "center": list(_get(prepared, "center") or []),
         "placement": _get(prepared, "placement", "origin"), "doc_origin": list(_get(prepared, "doc_origin") or _get(prepared, "origin") or []),
-        "crs": "EPSG:%d" % constants.DATABASE_CRS,
+        "crs": non_rhino_utils.get_crs_label(),
         "origin": list(_get(prepared, "origin") or []), "origin_reused": bool(_get(prepared, "origin_reused", False)),
         "radius": _get(prepared, "radius"), "shape": _get(prepared, "shape"),
         "extent_ring": [list(p) for p in (_get(prepared, "extent_ring") or [])],

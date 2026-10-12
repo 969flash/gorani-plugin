@@ -31,6 +31,7 @@ import context_db
 import context_report
 import lot_db
 import non_rhino_utils
+import osm_context
 import pnu_loader
 import site_prefs
 from sheet_svg import Frame
@@ -347,7 +348,10 @@ def get_place_name(center, site_db=None):
 
 def _get_place_label(center, suffix, site_db):
     # type: (tuple, str, str) -> str
-    """'성수동2가_333-139_구역' — 결과 폴더명. 필지가 없으면 'E198100_N552000_<suffix>'."""
+    """'성수동2가_333-139_구역' — 결과 폴더명. 필지가 없으면 'E198100_N552000_<suffix>', 해외면 'N37.7929_W122.4194_<suffix>'."""
+    if non_rhino_utils.is_local_projection():
+        lng, lat = non_rhino_utils.get_wgs84_from_tm(*center)
+        return "%s%.4f_%s%.4f_%s" % ("N" if lat >= 0 else "S", abs(lat), "E" if lng >= 0 else "W", abs(lng), suffix)
     dong, jibun = get_place_name(center, site_db)
     if not dong and not jibun:
         return "E%.0f_N%.0f_%s" % (center[0], center[1], suffix)
@@ -367,7 +371,9 @@ def resolve_target(request, with_lots=True):
     spec = dict(request["target"])
     mode = spec["mode"]
     site_db = request.get("site_db")
+    abroad = non_rhino_utils.is_local_projection()   # 해외 대상지 — 필지 DB를 보지 않는다(osm_context)
     if mode == "lots":
+        non_rhino_utils.set_projection()   # 필지는 국내뿐 — 앞서 해외 대상지를 다뤘어도 EPSG:5186으로 되돌린다
         lot_data = _load_lots(spec.get("pnus"), site_db)
         spec["pnus"] = list(lot_data.pnus)
         rings, warnings = get_target_rings(lot_data.lots)
@@ -380,7 +386,9 @@ def resolve_target(request, with_lots=True):
         min_x, min_y, max_x, max_y = non_rhino_utils.get_bbox(ring)
         center = ((min_x + max_x) * 0.5, (min_y + max_y) * 0.5)
         target = Target(mode, spec, get_target_key(spec), "", center, [ring], [])
-        if with_lots:
+        if with_lots and abroad:
+            target.name = _get_place_label(center, "구역", site_db)
+        elif with_lots:
             lots = get_area_lots(ring, site_db)
             target.lot_data = _load_lots([lot.pnu for lot in lots], site_db) if lots else None
             target.lots = list(target.lot_data.lots) if target.lot_data else []
@@ -489,6 +497,17 @@ def _get_align_stats(samples):
 
 
 # ── 원천 상태 ──────────────────────────────────────────────
+
+def get_abroad_sources(today=None):
+    # type: (datetime.date) -> list
+    """해외 대상지의 원천 상태 4건(lot·building·terrain·api) — 필지 없음, 건물·지형은 생성 때 OSM·지형 타일에서 받는다."""
+    today = (today or datetime.date.today()).isoformat()
+    def row(source_id, name, level, text):
+        return {"id": source_id, "label": constants.SOURCE_LABELS[source_id], "name": name, "date": today if level == "ok" else "",
+                "age_months": 0.0 if level == "ok" else None, "level": level, "newer_date": None, "text": text}
+    return [row("lot", "해외 — 필지 자료 없음", "missing", "해외"), row("building", "OpenStreetMap", "ok", "생성 때 받음"),
+            row("terrain", "Terrain Tiles (약 30 m DEM)", "ok", "생성 때 받음"), row("api", "필요 없음", "ok", "")]
+
 
 def get_sources(lot_database_path=None, context_database_path=None, today=None):
     # type: (object, object, datetime.date) -> list
@@ -629,6 +648,10 @@ def prepare(request, progress=None, today=None):
     bounds = (min(b[0] for b in boxes) - margin, min(b[1] for b in boxes) - margin,
               max(b[2] for b in boxes) + margin, max(b[3] for b in boxes) + margin)
 
+    if non_rhino_utils.is_local_projection():
+        return _prepare_abroad(request, options, today, target, lot_name, warnings, origin, origin_reused, doc_origin, radius, shape,
+                               extent_ring, extent_bounds, scales, bounds, frame_bounds, center, placement, progress)
+
     _report(progress, "query", 0.3, "주변 필지 조회")
     target_pnus = {lot.pnu for lot in target_lots}
     near_lots, truncated = lot_db.load_parcels_in_bounds(*bounds, limit=None, database_path=request["site_db"])
@@ -679,6 +702,41 @@ def prepare(request, progress=None, today=None):
                      "sources": context_report.get_sources_by_role(prepared), "dates": context_report.get_source_dates(prepared)}
     prepared.meta["meta_lines"] = context_report.get_meta_lines(prepared)
     _report(progress, "query", 1.0, "건물 %d동 · 필지 %d" % (height["n"], prepared.stats["lots"]))
+    return prepared
+
+
+def _prepare_abroad(request, options, today, target, lot_name, warnings, origin, origin_reused, doc_origin, radius, shape,
+                    extent_ring, extent_bounds, scales, bounds, frame_bounds, center, placement, progress):
+    # type: (...) -> Prepared
+    """prepare의 해외 갈래 — 필지·계획 없이 OSM 건물·피처 + 지형 타일 표고점(osm_context). 인터넷이 안 되면 DomainError(osm_failed)."""
+    _report(progress, "query", 0.3, "OpenStreetMap·지형 타일 받는 중")
+    try:
+        context = osm_context.load(bounds, today.isoformat())
+    except RuntimeError as exc:
+        raise DomainError("osm_failed", str(exc))
+    # OSM에는 국내 '무벽·가건물' 구분이 없다 — include_minor_buildings와 무관하게 전부 넣는다
+    skipped = get_skipped_phases(options)
+    result_root = request.get("result_root") or os.path.join(constants.HOME_DIR, constants.RESULT_DIRNAME)
+    prepared = Prepared(
+        request=request, lot_name=lot_name, target_lots=[], near_lots=[], origin=origin, origin_reused=origin_reused,
+        radius=radius, shape=shape, extent_ring=extent_ring, scales=scales, bounds=bounds, frame_bounds=frame_bounds, context=context,
+        align_samples=[], overlays=[], sources=context.sources, warnings=warnings, skipped_phases=skipped,
+        result_dir=os.path.join(result_root, today.strftime(constants.RESULT_DATE_FORMAT), lot_name), lots_truncated=False,
+        mode=target.mode, site_rings=target.site_rings, center=center, target_key=target.key, placement=placement, doc_origin=doc_origin,
+    )
+    height = context_report.get_height_src_stats(prepared)
+    grade_ab = height["height_grade"].get("A", 0.0) + height["height_grade"].get("B", 0.0)
+    prepared.stats = {"height_src": height["height_src"], "height_grade": height["height_grade"], "grade_ab": round(grade_ab, 4),
+                      "buildings": height["n"], "lots": 0, "sheets": [], "sheets_needed": [], "align": _get_align_stats([]), "mismatch_count": 0}
+    warnings.append(_warning("info", "abroad", "해외 대상지 — OpenStreetMap 건물 %d동·지형 타일" % height["n"],
+                             "필지·용도지역 자료가 없어 그 시트는 비고, 높이 태그가 있는 건물은 %d %%입니다(나머지 %.1f m 또는 층수 추정)."
+                             % (round(grade_ab * 100), constants.DEFAULT_BUILDING_HEIGHT_M)))
+    if not height["n"]:
+        warnings.append(_warning("warn", "empty_buildings", "범위 안 OSM 건물 0동 — 지도에 건물이 그려진 곳인지 확인", ""))
+    prepared.meta = {"built_at": datetime.datetime.now().isoformat(timespec="seconds"), "today": today.isoformat(),
+                     "sources": context_report.get_sources_by_role(prepared), "dates": context_report.get_source_dates(prepared)}
+    prepared.meta["meta_lines"] = context_report.get_meta_lines(prepared)
+    _report(progress, "query", 1.0, "건물 %d동 (OSM)" % height["n"])
     return prepared
 
 
@@ -908,6 +966,23 @@ def _run_phases(request, progress, doc, response, state):
 
 # ── preflight ──────────────────────────────────────────────
 
+def _get_abroad_preflight(sources, features, warnings, scales, paper_mm, paper, center, bounds):
+    # type: (list, list, list, list, tuple, str, tuple, tuple) -> dict
+    """해외 대상지 preflight — 범위·프레임만 그리고 필지가 필요한 시트는 빈 시트로 둔다."""
+    for scale in scales:
+        f_min_x, f_min_y, f_max_x, f_max_y = Frame(paper_mm, scale, center).world_bounds()
+        features.append(_ring_feature([(f_min_x, f_min_y), (f_max_x, f_min_y), (f_max_x, f_max_y), (f_min_x, f_max_y)],
+                                      {"role": "frame", "scale": scale, "paper": paper, "over": False}))
+    warnings.append(_warning("info", "abroad", "해외 대상지 — OpenStreetMap·지형 타일을 생성 때 받습니다",
+                             "필지·용도지역 자료가 없어 그 시트는 비고, 건물 높이는 OSM 태그(없으면 %.1f m)입니다. 인터넷 연결이 필요합니다."
+                             % constants.DEFAULT_BUILDING_HEIGHT_M))
+    empty_sheets = [sheet_id for sheet_id, _name, needs in constants.SHEET_CATALOG if needs == "lot"]
+    estimate = {"buildings": 0, "lots": 0, "topo_have": 0, "topo_total": 0, "seconds": int(constants.ESTIMATE_SECONDS_BASE) + 20,
+                "mb": 1, "note": "건물 수는 OSM에서 받은 뒤 알 수 있습니다"}
+    return {"sources": sources, "extent_geojson": {"type": "FeatureCollection", "features": features}, "estimate": estimate,
+            "empty_sheets": empty_sheets, "warnings": warnings, "bounds": list(bounds), "center": list(center)}
+
+
 def preflight(request, today=None):
     # type: (dict, datetime.date) -> dict
     """Rhino 금지, 100 ms급. COUNT 질의만으로 사전 점검 — panel_ui.md `preflight_result` 페이로드(seq 제외).
@@ -927,9 +1002,12 @@ def preflight(request, today=None):
     ring = get_target_extent_ring(target, radius, shape, paper_mm, scales)
     min_x, min_y, max_x, max_y = non_rhino_utils.get_bbox(ring)
     center = target.center
-    sources = get_sources(request["site_db"], request["context_db"], today)
-    warnings += get_source_warnings(sources)
+    abroad = non_rhino_utils.is_local_projection()
+    sources = get_abroad_sources(today) if abroad else get_sources(request["site_db"], request["context_db"], today)
+    warnings += [] if abroad else get_source_warnings(sources)
     features = [_ring_feature(ring, {"role": "extent", "radius": radius, "shape": shape})]
+    if abroad:   # 해외 — 도엽·DB 개수가 없다. 건물 수는 생성 때 OSM에서 받아야 안다
+        return _get_abroad_preflight(sources, features, warnings, scales, paper_mm, paper, center, (min_x, min_y, max_x, max_y))
 
     # 도엽 커버
     try:
