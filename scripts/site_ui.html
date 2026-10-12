@@ -1142,7 +1142,7 @@ function renderBlocker() {
     row(lotOk, "필지 DB", (p.lot_db || "data/seoul_site.db") + (lotOk ? " (" + mmdd(src.lot.date) + ")" : " 없음")) +
     row(ctxOk, "컨텍스트 DB", (p.context_db || "data/seoul_context.db") + (ctxOk ? " (" + mmdd(src.building ? src.building.date : "") + ")" : " 없음"), ctxOk ? "ok" : "opt") +
     row(true, "생성기", g.text || "Rhino 내장") + "</div>" +
-    (lotOk ? "" : init.can_download ? "<p>[DB 받기]를 누르면 서울 DB(약 1 GB 압축)를 받아 data 폴더에 넣습니다. 받는 동안 Rhino가 느려집니다.</p><p id=\"data_progress\" aria-live=\"polite\"></p>"
+    (lotOk ? "" : init.can_download ? "<p>[DB 받기]를 누르면 서울 DB(약 600 MB)를 받아 data 폴더에 넣습니다. 받는 동안 Rhino가 느려집니다.</p><p id=\"data_progress\" aria-live=\"polite\"></p>"
       : "<p>필지 DB <span class=\"mono\">data/seoul_site.db</span> 를 data 폴더에 넣으세요.<br>절차: <span class=\"mono\">docs/data_sources.md §0</span></p>") +
     '<div class="acts" style="display:flex;gap:8px;flex-wrap:wrap">' + (init.can_download && !lotOk ? '<button type="button" class="btn primary" data-act="download">DB 받기</button><button type="button" class="btn" data-act="download_stop">멈추기</button>' : "") + '<button type="button" class="btn" data-act="open" data-path="data">data 폴더 열기</button><button type="button" class="btn" data-act="open" data-path="' + esc(p.install_doc || "docs/install.md") + '">문서 열기</button><button type="button" class="btn primary" data-act="init">다시 확인</button></div>';
   el.hidden = false;

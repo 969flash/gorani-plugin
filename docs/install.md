@@ -9,7 +9,7 @@ Rhino 8 명령창에 `PackageManager` → `UrbanDesignTool` 검색 → 설치 �
 ## 2. 데이터 받기 (처음 한 번)
 
 명령창에 `UrbanSite`(또는 `대지검토`)를 입력하면 패널이 열린다. 데이터가 없으면 패널이 [DB 받기]를 보여 준다.
-누르면 서울 DB(압축 약 1 GB, 풀면 약 4 GB)를 받아 `~/UrbanDesignTool/data/`에 넣는다. 받는 동안 Rhino가 느려진다.
+누르면 서울 DB(압축 약 600 MB, 풀면 약 3.9 GB)를 받아 `~/UrbanDesignTool/data/`에 넣는다. 받는 동안 Rhino가 느려진다.
 
 | 파일 | 내용 | 없으면 |
 |---|---|---|
