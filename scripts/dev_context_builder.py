@@ -1,10 +1,13 @@
-"""서울 컨텍스트 DB(data/seoul_context.db)를 구축한다 — 건물·도로·지형·수계·녹지·철도.
+"""시도별 컨텍스트 DB(data/<시도>_context.db)를 구축한다 — 건물·도로·지형·수계·녹지·철도.
 
 Rhino가 아니라 개발용 python3(geopandas 환경)에서 실행한다. 원천은 두 가지다.
-  1) 수치지형도 1:5000 Ver2.0 도엽 zip  — data/raw/수치지형도_5000/<도엽>.zip + sheets.csv (수동 다운로드)
-  2) GIS건물통합정보 서울 SHP           — data/raw/vworld_GIS건물통합정보/AL_D010_11_<기준일>.zip (수동 다운로드)
+  1) 수치지형도 1:5000 Ver2.0 — 시군구 묶음 data/raw/수치지형도_5000_시군구/2MAP5000_SHP_<시도>_<시군구>.zip(dsId=30205)을
+     data/raw/수치지형도_5000/<도엽>.zip으로 풀어 쓴다. 도엽은 묶음 이름의 시도 하나에 배정한다(get_sheet_sido).
+  2) GIS건물통합정보 시도 SHP           — data/raw/vworld_GIS건물통합정보/AL_D010_<시도>_<기준일>.zip (수동 다운로드)
 
-    python3 scripts/dev_context_builder.py                                   # 전체 (137도엽 + 건물 69만 동)
+    python3 scripts/dev_context_builder.py --sido 26                         # 부산
+    python3 scripts/dev_context_builder.py --sido all                        # 묶음이 있는 시도 전부
+    python3 scripts/dev_context_builder.py                                   # 서울 (묶음이 없으면 도엽 폴더 전부)
     python3 scripts/dev_context_builder.py --sheets 37705072,37705073,37705082,37705083   # 성수 4도엽만 (개발·테스트)
     python3 scripts/dev_context_builder.py --sheets 37705072 --out /tmp/ctx.db           # 결과 파일 지정
 
@@ -47,6 +50,9 @@ SHEET_DIR = ROOT_DIR / constants.TOPO_SHEET_DIRNAME
 BUILDING_DIR = ROOT_DIR / constants.BUILDING_BULK_DIRNAME
 DATABASE_PATH = ROOT_DIR / constants.CONTEXT_DATABASE_PATH
 SITE_DATABASE_PATH = ROOT_DIR / constants.DATABASE_PATH   # 정합 샘플용 지목 도로 필지
+BUNDLE_DIR = ROOT_DIR / constants.TOPO_BUNDLE_DIRNAME
+SEOUL_CODE = "11"
+ID_OFFSET_PER_SIDO = 10 ** 9   # dev_database_builder와 같다 — 시도 DB 여러 개를 한 연결로 묶어도 id가 겹치지 않게
 DROPPED_GEOMETRIES = []  # (도엽, 레이어 파일, 버린 피처 수) — 빌드 끝에 출력
 
 TOPO_SOURCE = {
@@ -226,10 +232,13 @@ def _to_5186(frame, label):
     """
     crs = frame.crs
     epsg = crs.to_epsg() if crs is not None else None
+    if epsg is None and crs is not None and "Korea_2000" in crs.to_wkt():
+        epsg = next((code for belt, code in constants.KOREA_2000_BELTS.items() if belt in crs.to_wkt()), None)
     if epsg == constants.DATABASE_CRS:
-        return frame
-    if epsg is None and crs is not None and "Korea_2000" in crs.to_wkt() and "Central_Belt_2010" in crs.to_wkt():
         return frame.set_crs(epsg=constants.DATABASE_CRS, allow_override=True)
+    if epsg in constants.KOREA_2000_BELTS.values():
+        # 서부·동부·동해 원점 도엽(예: 충북 36801001 EPSG:5187)은 내부 좌표계 중부원점으로 옮긴다 — 반도 안은 왜곡 무시 가능
+        return frame.to_crs(epsg=constants.DATABASE_CRS)
     y_values = shapely.bounds(frame.geometry.values)[:, 1]
     median_y = float(np.nanmedian(y_values)) if len(y_values) else 0.0
     if 530000 <= median_y <= 575000 and epsg is None:
@@ -453,15 +462,84 @@ def load_align_samples(connection, site_database_path=SITE_DATABASE_PATH):
 
 # ── 건물 ────────────────────────────────────────────────────
 
-def _find_building_zip(building_dir=BUILDING_DIR):
-    # type: (Path) -> Path
-    paths = sorted(building_dir.glob(constants.BUILDING_BULK_FILE_GLOB))
+def _find_building_zip(building_dir=BUILDING_DIR, sido_code=SEOUL_CODE):
+    # type: (Path, str) -> Path
+    pattern = constants.BUILDING_BULK_FILE_GLOB % sido_code
+    paths = sorted(building_dir.glob(pattern))
     if not paths:
         raise FileNotFoundError(
-            "GIS건물통합정보 zip이 없습니다: %s/%s\n브이월드 국가중점데이터(dsId=18)에서 서울특별시 전체본을 받아 두세요."
-            % (building_dir, constants.BUILDING_BULK_FILE_GLOB)
+            "GIS건물통합정보 zip이 없습니다: %s/%s\n브이월드 국가중점데이터(dsId=18)에서 시도 전체본을 받아 두세요."
+            % (building_dir, pattern)
         )
     return paths[-1]  # 파일명의 기준일이 가장 늦은 것
+
+
+def get_sheet_sido(bundle_dir=BUNDLE_DIR, sheet_dir=SHEET_DIR):
+    # type: (Path, Path) -> dict
+    """시군구 묶음 → {도엽번호: 시도 코드}. 안 풀린 도엽 zip은 sheet_dir에 푼다.
+
+    경계 도엽은 이웃 시도 묶음에도 들어 있다 — 가장 많은 묶음에 든 시도, 같으면 코드가 작은 시도 하나에 배정한다
+    (여러 시도 팩을 한 연결로 묶을 때 같은 도엽이 두 번 나오지 않게). ponytail: 도엽 중심이 실제로 어느 시도인지는 보지 않는다.
+    """
+    votes = {}
+    for bundle in sorted(bundle_dir.glob("2MAP5000_SHP_*.zip")):
+        prefix = bundle.stem[len("2MAP5000_SHP_"):].split("_")[0]
+        code = constants.TOPO_BUNDLE_SIDO.get(prefix)
+        if code is None:
+            print("시도를 모르는 묶음 — 건너뜀: %s" % bundle.name, flush=True)
+            continue
+        with zipfile.ZipFile(bundle) as archive:
+            for name in archive.namelist():
+                sheet = Path(name).stem
+                if not name.endswith(".zip") or not sheet.isdigit():
+                    continue
+                target = sheet_dir / (sheet + ".zip")
+                if not target.exists():
+                    sheet_dir.mkdir(parents=True, exist_ok=True)
+                    with archive.open(name) as src, open(target, "wb") as dst:
+                        dst.write(src.read())
+                votes.setdefault(sheet, {}).setdefault(code, 0)
+                votes[sheet][code] += 1
+    return {sheet: sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0] for sheet, counts in votes.items()}
+
+
+def _get_sido_bounds(sido_code):
+    # type: (str) -> tuple
+    """시도 필지 DB의 범위(min_x, min_y, max_x, max_y). 필지 DB가 없으면 None."""
+    import dev_database_builder
+    path = dev_database_builder.get_database_path(sido_code)
+    if not path.exists():
+        return None
+    connection = sqlite3.connect(str(path))
+    try:
+        return connection.execute("SELECT MIN(min_x), MIN(min_y), MAX(max_x), MAX(max_y) FROM parcels").fetchone()
+    finally:
+        connection.close()
+
+
+def _read_neighbor_buildings(sido_code, bbox, building_dir=BUILDING_DIR):
+    # type: (str, tuple, Path) -> list
+    """bbox에 걸치는 이웃 시도의 GIS건물 프레임 목록 — 경계 도엽의 수치지형도 건물을 이웃 대장 건물과 매칭만 하려고 읽는다(넣지 않는다)."""
+    frames = []
+    for code in sorted(constants.SIDO):
+        if code == sido_code:
+            continue
+        bounds = _get_sido_bounds(code)
+        if bounds is None or not (bounds[0] <= bbox[2] and bounds[2] >= bbox[0] and bounds[1] <= bbox[3] and bounds[3] >= bbox[1]):
+            continue
+        try:
+            frames.append(read_bulk_buildings(_find_building_zip(building_dir, code), bbox))
+        except FileNotFoundError:
+            continue
+    return frames
+
+
+def _offset_ids(connection, offset):
+    # type: (sqlite3.Connection, int) -> None
+    """building_id·feature_id를 offset만큼 띄운다(dev_database_builder._offset_ids와 같은 이유)."""
+    connection.execute("UPDATE buildings SET building_id = building_id + ?", (offset,))
+    connection.execute("UPDATE features SET feature_id = feature_id + ?", (offset,))
+    connection.commit()
 
 
 def read_bulk_buildings(zip_path, bbox=None):
@@ -680,13 +758,27 @@ def insert_buildings(connection, merged):
 
 # ── 전체 흐름 ────────────────────────────────────────────────
 
-def build(sheets=None, out_path=None, sheet_dir=SHEET_DIR, building_dir=BUILDING_DIR):
-    # type: (list, Path, Path, Path) -> Path
-    """DB를 새로 만든다. sheets가 있으면 그 도엽만(건물도 그 범위만) 넣는다."""
-    out_path = Path(out_path or DATABASE_PATH)
+def get_database_path(sido_code):
+    # type: (str) -> Path
+    """시도 코드 → data/<시도>_context.db."""
+    return ROOT_DIR / "data" / ("%s_context.db" % constants.SIDO[sido_code][1])
+
+
+def build(sheets=None, out_path=None, sheet_dir=SHEET_DIR, building_dir=BUILDING_DIR, sido_code=SEOUL_CODE):
+    # type: (list, Path, Path, Path, str) -> Path
+    """한 시도의 DB를 새로 만든다. sheets가 있으면 그 도엽만(건물도 그 범위만) 넣는다.
+
+    도엽 = 시군구 묶음에서 그 시도에 배정된 것(get_sheet_sido). 묶음이 없으면(서울 개발 DB) 도엽 폴더 전부.
+    건물 = 그 시도 GIS건물 전체본 + 수치지형도 보충. 경계 도엽의 수치지형도 건물은 이웃 시도 GIS건물과도 매칭해 보고
+    이웃 것과 같으면 넣지 않는다(이웃 팩에 이미 있다). 서울 외 시도는 id를 시도 코드 × 10^9만큼 띄운다.
+    """
+    out_path = Path(out_path or get_database_path(sido_code))
     build_path = out_path.with_suffix(".building.db")
     index = read_sheet_index(sheet_dir)
+    sheet_sido = get_sheet_sido(sheet_dir=sheet_dir)
     zip_paths = sorted(sheet_dir.glob("*.zip"))
+    if sheet_sido:
+        zip_paths = [p for p in zip_paths if sheet_sido.get(p.stem) == sido_code]
     if sheets:
         wanted = set(sheets)
         zip_paths = [p for p in zip_paths if p.stem in wanted]
@@ -695,7 +787,7 @@ def build(sheets=None, out_path=None, sheet_dir=SHEET_DIR, building_dir=BUILDING
             raise FileNotFoundError("도엽 zip이 없습니다: %s" % sorted(missing))
     if not zip_paths:
         raise FileNotFoundError("수치지형도 zip이 없습니다: %s" % sheet_dir)
-    building_zip = _find_building_zip(building_dir)
+    building_zip = _find_building_zip(building_dir, sido_code)
 
     if build_path.exists():
         build_path.unlink()
@@ -717,7 +809,8 @@ def build(sheets=None, out_path=None, sheet_dir=SHEET_DIR, building_dir=BUILDING
                                            ", ".join("%s %d" % kv for kv in sorted(counts.items()))), flush=True)
         struct_spots = reclassify_struct_spots(connection)
         print("표고점 재분류(spot_struct): %d" % struct_spots, flush=True)
-        align = load_align_samples(connection)
+        import dev_database_builder
+        align = load_align_samples(connection, dev_database_builder.get_database_path(sido_code))
         connection.commit()
         print("정합 샘플(qa/align_sample): %d" % align, flush=True)
         if DROPPED_GEOMETRIES:
@@ -725,7 +818,7 @@ def build(sheets=None, out_path=None, sheet_dir=SHEET_DIR, building_dir=BUILDING
 
         # 2) 건물
         bbox = None
-        if sheets:
+        if sheets or sheet_sido:
             from pyproj import Transformer
             to5186 = Transformer.from_crs("EPSG:4326", "EPSG:%d" % constants.DATABASE_CRS, always_xy=True)
             lons, lats = [], []
@@ -736,12 +829,19 @@ def build(sheets=None, out_path=None, sheet_dir=SHEET_DIR, building_dir=BUILDING
             xs, ys = to5186.transform(lons, lats)
             bbox = (min(xs), min(ys), max(xs), max(ys))
         print("건물 읽기: %s%s" % (building_zip.name, " (범위 한정)" if bbox else ""), flush=True)
-        bulk = read_bulk_buildings(building_zip, bbox)
+        bulk = read_bulk_buildings(building_zip, None if sheet_sido and not sheets else bbox)
         reference_date = bulk["reference_date"].mode().iloc[0] if len(bulk) else ""
         _upsert_source(connection, BUILDING_SOURCE, reference_date)
         _record_file(connection, BUILDING_SOURCE["source_id"], building_zip, building_zip.stem.split("_")[-1])
         topo = _normalize_topo_buildings(topo_buildings)
-        merged, matched, extra = merge_buildings(bulk, topo)
+        bulk["own"] = True
+        neighbors = _read_neighbor_buildings(sido_code, bbox, building_dir) if bbox and sheet_sido else []
+        for frame in neighbors:
+            frame["own"] = False
+        merged, matched, extra = merge_buildings(pd.concat([bulk] + neighbors, ignore_index=True) if neighbors else bulk, topo)
+        merged = merged[merged["own"].fillna(True).astype(bool)].drop(columns=["own"]).reset_index(drop=True)
+        if neighbors:
+            print("경계 매칭용 이웃 시도 GIS건물 %d동 (넣지 않음)" % sum(len(f) for f in neighbors), flush=True)
         print("건물 GIS %d동 + 수치지형도 %d동 → 매칭 %d, 보충 %d, 합계 %d"
               % (len(bulk), 0 if topo is None else len(topo), matched, extra, len(merged)), flush=True)
         stats = insert_buildings(connection, merged)
@@ -752,6 +852,8 @@ def build(sheets=None, out_path=None, sheet_dir=SHEET_DIR, building_dir=BUILDING
             extent = connection.execute("SELECT MAX(MAX(max_x - min_x, max_y - min_y)) FROM %s" % table).fetchone()[0] or 0.0
             if extent > limit:
                 raise RuntimeError("%s 최대 폭 %.0f m가 CONTEXT_MAX_EXTENT %.0f m를 넘는다 — bbox 질의가 객체를 놓친다. 상수를 키우세요" % (table, extent, limit))
+        if sido_code != SEOUL_CODE:
+            _offset_ids(connection, int(sido_code) * ID_OFFSET_PER_SIDO)
         connection.execute("ANALYZE")
         connection.commit()
         integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
@@ -766,15 +868,21 @@ def build(sheets=None, out_path=None, sheet_dir=SHEET_DIR, building_dir=BUILDING
 
 
 def main():
-    parser = argparse.ArgumentParser(description="서울 컨텍스트 DB 구축 (수치지형도 1:5000 + GIS건물통합정보)")
+    parser = argparse.ArgumentParser(description="시도별 컨텍스트 DB 구축 (수치지형도 1:5000 + GIS건물통합정보)")
+    parser.add_argument("--sido", default=SEOUL_CODE, help="PNU 앞 2자리 시도 코드(기본 11 서울). all = 묶음에 도엽이 있는 시도 전부")
     parser.add_argument("--sheets", help="쉼표로 구분한 도엽번호. 주면 그 도엽(과 그 범위의 건물)만 넣는다")
-    parser.add_argument("--out", help="결과 DB 경로 (기본 %s)" % constants.CONTEXT_DATABASE_PATH)
+    parser.add_argument("--out", help="결과 DB 경로 (기본 data/<시도>_context.db)")
     args = parser.parse_args()
     sheets = [s.strip() for s in args.sheets.split(",") if s.strip()] if args.sheets else None
-    try:
-        build(sheets=sheets, out_path=args.out)
-    except (FileNotFoundError, RuntimeError, ValueError) as error:
-        parser.exit(1, "DB 생성 중단: %s\n" % error)
+    codes = sorted(set(get_sheet_sido().values())) if args.sido == "all" else [args.sido]
+    for code in codes:
+        if code not in constants.SIDO:
+            parser.exit(1, "모르는 시도 코드: %s\n" % code)
+        print("== %s" % constants.SIDO[code][0], flush=True)
+        try:
+            build(sheets=sheets, out_path=args.out, sido_code=code)
+        except (FileNotFoundError, RuntimeError, ValueError) as error:
+            parser.exit(1, "DB 생성 중단: %s\n" % error)
 
 
 if __name__ == "__main__":

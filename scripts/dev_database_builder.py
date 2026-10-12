@@ -15,6 +15,7 @@ import csv
 import io
 import json
 import os
+import shutil
 import sqlite3
 import zipfile
 from datetime import datetime
@@ -722,11 +723,11 @@ def _prepare_land_char_chunk(data, sido_code=SEOUL_CODE):
 
     data["pnu_value"] = data["A1"].map(_bulk_text)
     pnu_pattern = r"\d{%d}" % constants.PNU_LENGTH
-    invalid_pnus = data[
-        ~data["pnu_value"].str.fullmatch(pnu_pattern, na=False)
-    ]["pnu_value"].tolist()
-    if invalid_pnus:
-        raise ValueError("SHP에 유효하지 않은 PNU가 있습니다: %s" % invalid_pnus[:5])
+    valid = data["pnu_value"].str.fullmatch(pnu_pattern, na=False)
+    if not valid.all():
+        # 원천 오류 행은 건너뛴다 — 예: 충북 영동군 AL_D194_43740 '437403202402080001'(18자리)
+        print("  유효하지 않은 PNU %d건 건너뜀: %s" % ((~valid).sum(), data.loc[~valid, "pnu_value"].tolist()[:5]), flush=True)
+        data = data[valid].copy()
     if not data["pnu_value"].str.startswith(sido_code).all():
         raise ValueError("%s가 아닌 PNU가 SHP에 포함되어 있습니다" % constants.SIDO[sido_code][0])
 
@@ -1224,6 +1225,10 @@ def build(sido_code=SEOUL_CODE, refresh=False, chunk_size=50000):
         connection.close()
 
     os.replace(build_path, database_path)
+    if sido_code != SEOUL_CODE:   # 받은 zip은 남기고 푼 폴더만 지운다 — 전국을 풀어 두면 디스크가 모자란다
+        for shp_path in shp_paths:
+            if shp_path.parent.with_suffix(".zip").exists():
+                shutil.rmtree(shp_path.parent, ignore_errors=True)
     return database_path
 
 

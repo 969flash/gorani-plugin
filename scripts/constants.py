@@ -33,6 +33,8 @@ SIDO = {
     "12": ("전남광주통합특별시", "jeonnamgwangju"),
 }
 DATABASE_CRS = 5186                   # 내부 형상 좌표계 (GRS80 중부원점, EPSG:5186)
+# 수치지형도 도엽은 지역마다 원점이 다르다(.prj 이름 → EPSG). 빌드 때 전부 DATABASE_CRS로 옮긴다
+KOREA_2000_BELTS = {"East_Sea_Belt_2010": 5188, "West_Belt_2010": 5185, "Central_Belt_2010": 5186, "East_Belt_2010": 5187}
 SEOUL_SOURCE_CRS = 5174               # 서울 UPIS 공개 SHP 좌표계
 RAW_DATA_DIRNAME = "data/raw"         # 공공 원천 데이터 보관 (gitignore)
 LAND_CHAR_DIRNAME = "data/raw/vworld_토지특성정보"  # 시군구별 SHP 폴더 (수동 다운로드)
@@ -196,7 +198,14 @@ TOPO_SHEET_INDEX_FILENAME = "sheets.csv"
 TOPO_ENCODING = "cp949"                              # 수치지형도 SHP 속성 인코딩 (성수 4도엽 실측)
 BUILDING_BULK_DIRNAME = "data/raw/vworld_GIS건물통합정보"  # AL_D010_11_<기준일>.zip (수동 다운로드)
 BUILDING_BULK_ENCODING = "cp949"
-BUILDING_BULK_FILE_GLOB = "AL_D010_11_*.zip"
+BUILDING_BULK_FILE_GLOB = "AL_D010_%s_*.zip"   # 시도 코드별 전체본
+# 수치지형도 1:5,000 Ver2.0 시군구 묶음(브이월드 dsId=30205, 2MAP5000_SHP_<시도>_<시군구>.zip — 안에 도엽 zip들).
+# 도엽 zip은 TOPO_SHEET_DIRNAME에 풀어 쓰고, 묶음 이름의 시도로 도엽을 시도 하나에 배정한다(경계 도엽은 여러 묶음에 들어 있다).
+TOPO_BUNDLE_DIRNAME = "data/raw/수치지형도_5000_시군구"
+TOPO_BUNDLE_SIDO = {   # 묶음 이름 앞부분 → 시도 코드. 광주·전남은 2026-09 전남광주통합특별시(12)로 합쳐졌다
+    "서울": "11", "부산": "26", "대구": "27", "인천": "28", "광주": "12", "전남": "12", "대전": "30", "울산": "31",
+    "세종시": "36", "경기": "41", "충북": "43", "충남": "44", "경북": "47", "경남": "48", "제주": "50", "강원": "51", "전북": "52",
+}
 
 # 수치지형도 레이어 → (theme, kind, 값 필드). 키는 접두 'N3'/'N1'을 뗀 '도형자_코드'다.
 # 도엽마다 접두가 다르다(137장 중 2장이 N1). 코드 의미는 docs/reference/수치지형도_지형지물_표준코드.csv.
