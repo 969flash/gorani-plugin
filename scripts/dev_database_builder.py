@@ -704,8 +704,9 @@ def _to_float(value):
     return number
 
 
-def _prepare_land_char_chunk(data, sido_code=SEOUL_CODE):
-    """토지특성정보 한 묶음을 좌표계·도형·PNU까지 정리한다. 다른 시도 PNU가 섞여 있으면 ValueError."""
+def _prepare_land_char_chunk(data, sido_code=SEOUL_CODE, legacy_sgg=None):
+    """토지특성정보 한 묶음을 좌표계·도형·PNU까지 정리한다. 다른 시도 PNU가 섞여 있으면 ValueError.
+    legacy_sgg(옛 시군구 → 새 시군구)가 있으면 PNU 앞 5자리를 새 코드로 바꾼다."""
     missing_columns = set(LAND_CHAR_COLUMNS).difference(data.columns)
     if missing_columns:
         raise ValueError(
@@ -722,6 +723,8 @@ def _prepare_land_char_chunk(data, sido_code=SEOUL_CODE):
         data.loc[invalid, "geometry"] = data.loc[invalid, "geometry"].buffer(0)
 
     data["pnu_value"] = data["A1"].map(_bulk_text)
+    if legacy_sgg:
+        data["pnu_value"] = data["pnu_value"].map(lambda pnu: legacy_sgg.get(pnu[:5], pnu[:5]) + pnu[5:])
     pnu_pattern = r"\d{%d}" % constants.PNU_LENGTH
     valid = data["pnu_value"].str.fullmatch(pnu_pattern, na=False)
     if not valid.all():
@@ -1103,13 +1106,48 @@ def _get_land_char_paths(sido_code):
     # type: (str) -> list
     """그 시도의 토지특성정보 SHP 경로(정렬). 받은 zip(AL_D194_<시군구>_<기준일>.zip)이 아직 안 풀렸으면 같은 이름 폴더에 푼다."""
     land_char_dir = ROOT_DIR / constants.LAND_CHAR_DIRNAME
-    prefix = "AL_D194_%s" % sido_code
-    for zip_path in sorted(land_char_dir.glob(prefix + "*.zip")):
-        folder = zip_path.with_suffix("")
-        if not folder.exists():
-            with zipfile.ZipFile(zip_path) as archive:
-                archive.extractall(folder)
-    return sorted(p for p in land_char_dir.glob(prefix + "*/*.shp"))
+    paths = []
+    for code in (sido_code,) + constants.SIDO_LEGACY_CODES.get(sido_code, ()):   # 통합 시도는 옛 코드 파일도 함께
+        prefix = "AL_D194_%s" % code
+        for zip_path in sorted(land_char_dir.glob(prefix + "*.zip")):
+            folder = zip_path.with_suffix("")
+            if not folder.exists():
+                with zipfile.ZipFile(zip_path) as archive:
+                    archive.extractall(folder)
+        paths += sorted(land_char_dir.glob(prefix + "*/*.shp"))
+    return paths
+
+
+def get_legacy_sgg_map(sido_code, shp_paths, land_use_dir=None):
+    # type: (str, list, object) -> dict
+    """옛 시군구 코드 5자리 → 새 코드 5자리. 통합 시도가 아니면 빈 dict.
+
+    새 코드·이름은 토지이용계획 CSV(법정동코드·법정동명), 옛 코드·이름은 토지특성 SHP 첫 행(A3)에서 읽어 시군구 이름으로 맞춘다.
+    """
+    if sido_code not in constants.SIDO_LEGACY_CODES:
+        return {}
+    land_use_dir = Path(land_use_dir or (ROOT_DIR / constants.LAND_USE_DIRNAME))
+    new_by_name = {}
+    for path in sorted(land_use_dir.glob(constants.LAND_USE_FILE_FORMAT % sido_code + "*.csv")):
+        with io.open(path, encoding=constants.LAND_USE_ENCODING, errors="replace", newline="") as handle:
+            reader = csv.reader(handle)
+            header = next(reader, [])
+            code_at, name_at = header.index("법정동코드"), header.index("법정동명")
+            for record in reader:
+                parts = record[name_at].split()
+                if len(parts) > 1:
+                    new_by_name.setdefault(parts[1], record[code_at][:5])
+    mapping = {}
+    for shp_path in shp_paths:
+        old = shp_path.parent.name.split("_")[2]
+        if old[:2] == sido_code or old in mapping:
+            continue
+        first = pyogrio.read_dataframe(shp_path, columns=["A3"], max_features=1, read_geometry=False, encoding=constants.LAND_CHAR_ENCODING)
+        name = _bulk_text(first["A3"].iloc[0]).split()[1]
+        if name not in new_by_name:
+            raise ValueError("새 시군구 코드를 찾지 못했습니다: %s %s" % (old, name))
+        mapping[old] = new_by_name[name]
+    return mapping
 
 
 def _get_derived_kind(code):
@@ -1200,6 +1238,9 @@ def build(sido_code=SEOUL_CODE, refresh=False, chunk_size=50000):
     if chunk_size <= 0:
         raise ValueError("chunk_size는 1 이상이어야 합니다")
 
+    legacy_sgg = get_legacy_sgg_map(sido_code, shp_paths)
+    if legacy_sgg:
+        print("옛 시군구 코드 → 새 코드: %s" % legacy_sgg, flush=True)
     database_path = get_database_path(sido_code)
     build_path = database_path.with_suffix(".building.db")
     if build_path.exists():
@@ -1250,7 +1291,7 @@ def build(sido_code=SEOUL_CODE, refresh=False, chunk_size=50000):
                     max_features=chunk_size,
                     encoding=constants.LAND_CHAR_ENCODING,
                 )
-                lot_data = _prepare_land_char_chunk(data, sido_code)
+                lot_data = _prepare_land_char_chunk(data, sido_code, legacy_sgg)
                 lot_count += _insert_land_char_lots(connection, lot_data)
                 for overlay_data in overlay_frames:
                     overlap_count += _link_parcel_overlays(
