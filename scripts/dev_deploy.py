@@ -23,8 +23,11 @@ import os
 import py_compile
 import shutil
 import sqlite3
+import statistics
 import subprocess
 import sys
+
+import shapely
 
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SCRIPTS_DIR)
@@ -68,6 +71,7 @@ PACK_KINDS = (   # (종류, 표시 이름 꼬리, 원본 DB 종류) — 등고�
     ("context", "건물·도로·수계", "context"),
     ("terrain", "등고선", "context"),
 )
+SLIM_PACK_ID = 0x55445431   # 'UDT1' — slim_pack_database를 거친 팩 표시(PRAGMA application_id)
 BOUNDS_SQL = {   # 팩 범위(EPSG:5186) — data_pack이 대상지에 걸리는 시도 파일만 열 때 쓴다
     "site": "SELECT MIN(min_x), MIN(min_y), MAX(max_x), MAX(max_y) FROM parcels",
     "context": "SELECT MIN(min_x), MIN(min_y), MAX(max_x), MAX(max_y) FROM buildings",
@@ -182,6 +186,85 @@ def build_yak():
 
 # ── packs ───────────────────────────────────────────────
 
+def _get_rounded(value, digits):
+    # type: (object, int) -> object
+    if isinstance(value, float):
+        return round(value, digits)
+    if isinstance(value, list):
+        return [_get_rounded(v, digits) for v in value]
+    return value
+
+
+def _rewrite_geometries(connection, table, id_column, where, digits, tolerance=None):
+    # type: (sqlite3.Connection, str, str, str, int, float) -> None
+    """geometry_json을 digits 자리로 반올림(공백 없는 JSON)하고, tolerance가 있으면 그만큼 단순화한다(shapely — 개발 환경 전용)."""
+    rows = connection.execute("SELECT %s, geometry_json FROM %s %s" % (id_column, table, where)).fetchall()
+    updates = []
+    for row_id, text in rows:
+        geometry = json.loads(text)
+        if tolerance:
+            simplified = shapely.from_geojson(text).simplify(tolerance, preserve_topology=geometry["type"].endswith("Polygon"))
+            if not simplified.is_empty:
+                geometry = json.loads(shapely.to_geojson(simplified))
+        geometry["coordinates"] = _get_rounded(geometry["coordinates"], digits)
+        updates.append((json.dumps(geometry, separators=(",", ":")), row_id))
+    connection.executemany("UPDATE %s SET geometry_json = ? WHERE %s = ?" % (table, id_column), updates)
+
+
+def _aggregate_align_samples(connection):
+    # type: (sqlite3.Connection) -> int
+    """정합 샘플 점(theme qa, kind align_sample — 서울만 134만 행)을 도엽별 요약 1행(kind align_sheet)으로 바꾼다.
+    value = 거리 중앙값, attrs {n, p90, dx, dy}, 점 = 샘플 평균 위치. 런타임은 n 가중평균으로 합친다(context_builder._get_align_stats)."""
+    groups = {}
+    for sheet, value, attrs, geometry, source_id, reference_date in connection.execute(
+            "SELECT sheet, value, attrs_json, geometry_json, source_id, reference_date FROM features WHERE theme = 'qa' AND kind = 'align_sample'"):
+        attrs = json.loads(attrs or "{}")
+        group = groups.setdefault(sheet, {"values": [], "dx": [], "dy": [], "xy": [], "source": (source_id, reference_date)})
+        group["values"].append(float(value))
+        group["dx"].append(float(attrs.get("dx", 0.0)))
+        group["dy"].append(float(attrs.get("dy", 0.0)))
+        group["xy"].append(json.loads(geometry)["coordinates"])
+    rows = []
+    for sheet, group in groups.items():
+        values = group["values"]
+        x = sum(p[0] for p in group["xy"]) / len(values)
+        y = sum(p[1] for p in group["xy"]) / len(values)
+        attrs = {"n": len(values), "p90": round(statistics.quantiles(values, n=10)[8] if len(values) >= 2 else values[0], 2),
+                 "dx": round(statistics.median(group["dx"]), 2), "dy": round(statistics.median(group["dy"]), 2)}
+        rows.append((group["source"][0], "qa", "align_sheet", round(statistics.median(values), 2), json.dumps(attrs), sheet,
+                     json.dumps({"type": "Point", "coordinates": [round(x, 2), round(y, 2)]}), constants.DATABASE_CRS, group["source"][1], x, x, y, y))
+    connection.execute("DELETE FROM features WHERE theme = 'qa' AND kind = 'align_sample'")
+    connection.executemany("""INSERT INTO features (source_id, theme, kind, value, attrs_json, sheet, geometry_json, geometry_crs,
+                                  reference_date, min_x, max_x, min_y, max_y) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""", rows)
+    return len(rows)
+
+
+def slim_pack_database(connection, kind):
+    # type: (sqlite3.Connection, str) -> None
+    """배포 팩 용량 줄이기 — 원천 정확도(수치지형도 ±1.5 m, 지적 ±0.36 m)에 맞춰 정밀도를 낮추고 런타임이 안 쓰는 것을 뺀다.
+
+    공통: 좌표 cm(0.01 m)·공백 없는 JSON. 등고선: 0.3 m 단순화 + 0.1 m(서울 실측 163 → 67 MB). 계획 도형: 0.1 m 단순화.
+    컨텍스트: 정합 샘플 → 도엽 요약, 피처 속성의 UFID(원천 식별자, 런타임 미사용 — 서울 약 45 MB) 삭제.
+    필지: 파생 계획 도형의 필지 연결표(parcel_land_use와 같은 정보)·빌드용 지목 인덱스 삭제.
+    처리한 팩은 PRAGMA application_id = SLIM_PACK_ID로 표시한다(repack이 두 번 줄이지 않게).
+    """
+    if kind == "site":
+        connection.execute("DROP INDEX IF EXISTS idx_parcels_category")
+        connection.execute("DELETE FROM parcel_overlays WHERE overlay_id IN (SELECT overlay_id FROM overlays WHERE source_id = 'molit_land_use')")
+        _rewrite_geometries(connection, "parcels", "parcel_id", "", 2)
+        _rewrite_geometries(connection, "overlays", "overlay_id", "", 2, 0.1)
+    else:
+        if kind == "context":
+            _aggregate_align_samples(connection)
+            _rewrite_geometries(connection, "buildings", "building_id", "", 2)
+        _rewrite_geometries(connection, "features", "feature_id", "WHERE theme = 'terrain' AND kind = 'contour'", 1, 0.3)
+        _rewrite_geometries(connection, "features", "feature_id", "WHERE NOT (theme = 'terrain' AND kind = 'contour')", 2)
+        connection.execute("UPDATE features SET attrs_json = json_remove(attrs_json, '$.UFID') WHERE attrs_json LIKE '%\"UFID\"%'")
+        connection.execute("UPDATE features SET attrs_json = NULL WHERE attrs_json = '{}'")
+    connection.execute("PRAGMA application_id = %d" % SLIM_PACK_ID)
+    connection.commit()
+
+
 def _make_pack_database(pack_name, source, target):
     # type: (str, str, str) -> None
     """팩 하나의 DB 파일. 필지 = 사본 + rtree 제거, 컨텍스트 = 사본 − 등고선, 등고선 = features 스키마 + terrain 행만."""
@@ -203,6 +286,7 @@ def _make_pack_database(pack_name, source, target):
         connection.close()
         strip_spatial_index(target)
         connection = sqlite3.connect(target)
+    slim_pack_database(connection, pack_name.rsplit("_", 1)[1][:-3])
     connection.execute("ANALYZE")
     connection.execute("VACUUM")
     connection.close()

@@ -484,6 +484,14 @@ def _get_coverage_warning(needed, missing):
 def _get_align_stats(samples):
     # type: (list) -> dict
     """features theme 'qa' kind 'align_sample'(value = 거리 m, attrs dx·dy) → {median, p90, n, low_sample, dx, dy}."""
+    sheets = [s for s in samples if getattr(s, "kind", "") == "align_sheet"]   # 배포 팩은 도엽 요약(dev_deploy.slim_pack_database) — n 가중평균
+    if sheets:
+        weights = [int(s.attrs.get("n", 0)) for s in sheets]
+        total = sum(weights)
+        if total:
+            mean = lambda key: round(sum(w * float(s.attrs.get(key, 0.0)) for w, s in zip(weights, sheets)) / total, 2)
+            return {"median": round(sum(w * float(s.value) for w, s in zip(weights, sheets)) / total, 2), "p90": mean("p90"),
+                    "n": total, "low_sample": total < constants.ALIGN_LOW_SAMPLE, "dx": mean("dx"), "dy": mean("dy")}
     values = [float(s.value) for s in samples if s.value is not None]
     n = len(values)
     if not n:
@@ -668,7 +676,7 @@ def prepare(request, progress=None, today=None):
 
     _report(progress, "query", 0.6, "건물·지형 조회")
     context = _load_context(bounds, request["context_db"], bool(options.get("include_minor_buildings")))
-    align_samples = context.get_features("qa", "align_sample")
+    align_samples = context.get_features("qa", "align_sample") + context.get_features("qa", "align_sheet")
     lot_sources = lot_data.sources if lot_data else lot_db.load_sources(request["site_db"])
     sources = get_sources(request["site_db"], request["context_db"], today) + [_get_upis_source(lot_sources, today)]
     warnings += get_source_warnings(sources)
