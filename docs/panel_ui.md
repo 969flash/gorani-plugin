@@ -75,7 +75,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `zoom_view` | `dir`(결과 폴더 절대경로), `center`[lng,lat](선택) | — (`error{context:"open"}`) | `import_context`·`export_basemap`과 같은 꼴 — JS가 `result.dir`을 붙인다(Python은 마지막 결과 폴더를 기억하지 않는다). `center` 없으면 `CTX::Site` 객체로 줌. 있으면 `<dir>/context.json`의 ORIGIN으로 문서 좌표 환산 후 그 점 주변 100 m |
 | `open_path` | `path`(str) | — (`error{context:"open"}`) | 절대경로 또는 프로젝트 루트 상대(`docs/data_sources.md`, `.env`, `data`). 폴더 = 탐색기, 파일 = OS 기본 앱. `.env`가 없으면 두 줄 템플릿(`VWORLD_API_KEY=`·`DATA_GO_KR_KEY=`)을 만든 뒤 연다. 외부 URL은 열지 않는다(WebView가 이동하므로 JS에서도 링크 금지) |
 | `save_prefs` | `options` | — | `prefs.json`에 `options`만 덮어쓴다(`recent`는 `generate` 성공 시 Python이 갱신) |
-| `area_packs` | `bbox`([서, 남, 동, 북] 경위도), `seq` | `area_packs` | 지도 이동(600 ms 디바운스)마다. 화면에 걸리는데 아직 안 받은 시군구 팩 `{seq, missing[{name, label, mb}], mb, labels}` — 해외·매니페스트 없음·오프라인은 빈 목록. 지도 칩 [받기] |
+| `area_packs` | `bbox`([서, 남, 동, 북] 경위도), `seq` | `area_packs` | 지도 이동(600 ms 디바운스)마다. 화면에 걸리는데 아직 안 받았거나 새 판이 나온 시군구 팩 `{seq, missing[{name, label, mb, update}], mb, labels}` — 전부 update면 칩이 '새 판 있음' — 해외·매니페스트 없음·오프라인은 빈 목록. 지도 칩 [받기] |
 | `download_data` | `names`(선택 — 없으면 전부) | `data_progress`×N → `init_state` (`error{context:"init"}`) | 지도 칩 [받기](area_packs의 names). 멈추면 그때까지 받은 팩은 남는다. `data_pack`이 매니페스트(`constants.DATA_MANIFEST_URL`)에서 바뀐 팩만 `HOME_DIR/data/`에 받는다. 진행 중 `cancel`이면 그 팩에서 멈추고 `data_progress`로 알린다(받던 팩은 버리고 쓰던 DB는 그대로). 유일한 네트워크 명령(주소 보조검색 제외) |
 
 명령 12개. `auth_pin`(옛 PIN 인증)은 없다 — 사내 배포라 인증 게이트 없음.

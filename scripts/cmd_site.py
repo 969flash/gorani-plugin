@@ -270,8 +270,11 @@ def get_area_packs(bbox, seq=None, manifest=None):
         return empty
     labels = list(dict.fromkeys(" ".join(pack["label"].split()[:-1]) for pack in missing if pack["name"].endswith("_site.db")))
     total = sum(pack.get("xz_size", 0) for pack in missing) / 1048576.0
-    return {"type": "area_packs", "seq": seq, "missing": [{"name": p["name"], "label": p["label"], "mb": round(p.get("xz_size", 0) / 1048576.0, 1)}
-                                                          for p in missing], "mb": round(total), "labels": labels}
+    # 받아 둔 팩의 새 판(매니페스트 sha256이 바뀜) — 칩이 '새 판 있음'으로 구분한다
+    installed = set(os.listdir(data_pack.get_data_dir())) if os.path.isdir(data_pack.get_data_dir()) else set()
+    return {"type": "area_packs", "seq": seq, "missing": [{"name": p["name"], "label": p["label"], "mb": round(p.get("xz_size", 0) / 1048576.0, 1),
+                                                           "update": p["name"] in installed} for p in missing],
+            "mb": round(total), "labels": labels}
 
 
 def get_target_from_msg(msg):

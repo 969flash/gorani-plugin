@@ -741,7 +741,8 @@ function renderAreaPacks(text) {
   if (text) { chip.innerHTML = "<span>" + esc(text) + '</span><button type="button" class="btn sm" data-act="download_stop">멈추기</button>'; chip.hidden = false; return; }
   if (!a || !a.missing.length) { chip.hidden = true; return; }
   var names = a.labels.length ? a.labels[0].split(" ").slice(1).join(" ") + (a.labels.length > 1 ? " 외 " + (a.labels.length - 1) : "") : "이 지역";
-  chip.innerHTML = "<span>이 지역 DB 없음 · " + esc(names) + " · " + esc(fmtNum(a.mb)) + ' MB</span><button type="button" class="btn sm primary" data-act="download_area">받기</button>';
+  var updateOnly = a.missing.every(function (p) { return p.update; });
+  chip.innerHTML = "<span>" + (updateOnly ? "이 지역 DB 새 판 있음 · " : "이 지역 DB 없음 · ") + esc(names) + " · " + esc(fmtNum(a.mb)) + ' MB</span><button type="button" class="btn sm primary" data-act="download_area">받기</button>';
   chip.hidden = false;
 }
 function requestLots() {
