@@ -37,6 +37,7 @@ SIDO = {
 }
 DATABASE_CRS = 5186                   # 내부 형상 좌표계 (GRS80 중부원점, EPSG:5186)
 # 수치지형도 도엽은 지역마다 원점이 다르다(.prj 이름 → EPSG). 빌드 때 전부 DATABASE_CRS로 옮긴다
+UTMK_CRS = 5179   # UTM-K — 일부 도엽(충남 36603020)의 .prj
 KOREA_2000_BELTS = {"East_Sea_Belt_2010": 5188, "West_Belt_2010": 5185, "Central_Belt_2010": 5186, "East_Belt_2010": 5187}
 SEOUL_SOURCE_CRS = 5174               # 서울 UPIS 공개 SHP 좌표계
 RAW_DATA_DIRNAME = "data/raw"         # 공공 원천 데이터 보관 (gitignore)

@@ -236,7 +236,7 @@ def _to_5186(frame, label):
         epsg = next((code for belt, code in constants.KOREA_2000_BELTS.items() if belt in crs.to_wkt()), None)
     if epsg == constants.DATABASE_CRS:
         return frame.set_crs(epsg=constants.DATABASE_CRS, allow_override=True)
-    if epsg in constants.KOREA_2000_BELTS.values():
+    if epsg in constants.KOREA_2000_BELTS.values() or epsg == constants.UTMK_CRS:
         # 서부·동부·동해 원점 도엽(예: 충북 36801001 EPSG:5187)은 내부 좌표계 중부원점으로 옮긴다 — 반도 안은 왜곡 무시 가능
         return frame.to_crs(epsg=constants.DATABASE_CRS)
     y_values = shapely.bounds(frame.geometry.values)[:, 1]
@@ -269,6 +269,12 @@ def _sheet_layers(zip_path):
     return {Path(n).name[2:12]: n for n in names}
 
 
+def _empty_frame():
+    # type: () -> object
+    import geopandas
+    return geopandas.GeoDataFrame({"geometry": []}, geometry="geometry", crs="EPSG:%d" % constants.DATABASE_CRS)
+
+
 def _get_sheet_crs(zip_path, layers):
     # type: (Path, dict) -> str
     """도엽 zip에서 .prj가 있는 첫 레이어의 좌표계(WKT). .prj가 빠진 레이어에 쓴다 — 세종 36710014 산 정상(N3P_H0059153)에 .prj가 없었다."""
@@ -289,7 +295,11 @@ def _read_layer(zip_path, member, sheet_crs=None):
     원천 오류를 알고리즘으로 고치지 않고 그 피처만 뺀다(CLAUDE.md 예외 형상 원칙).
     """
     path = "/vsizip/%s/%s" % (zip_path.resolve(), member)
-    frame = pyogrio.read_dataframe(path, encoding=constants.TOPO_ENCODING, on_invalid="ignore")
+    try:
+        frame = pyogrio.read_dataframe(path, encoding=constants.TOPO_ENCODING, on_invalid="ignore")
+    except Exception as error:   # 원천 레이어 손상(경남 35708086 등 .shx 손상) — 그 레이어만 버린다
+        DROPPED_GEOMETRIES.append((zip_path.stem, "%s 읽기 실패: %s" % (Path(member).name, str(error)[:40]), 0))
+        return _empty_frame()
     dropped = int(frame.geometry.isna().sum())
     if dropped:
         DROPPED_GEOMETRIES.append((zip_path.stem, Path(member).name, dropped))
@@ -699,7 +709,9 @@ def merge_buildings(bulk, topo):
         if len(unmatched):
             cand = tree.query(unmatched.geometry.values, predicate="intersects")  # [unmatched index, bulk index]
             if cand.shape[1]:
-                inter = shapely.area(shapely.intersection(unmatched.geometry.values[cand[0]], bulk.geometry.values[cand[1]]))
+                # make_valid — 점이 모자란 고리가 섞인 건물(경기 214629, 538967 부근)에서 GEOS가 멈췄다
+                inter = shapely.area(shapely.intersection(shapely.make_valid(unmatched.geometry.values[cand[0]]),
+                                                          shapely.make_valid(bulk.geometry.values[cand[1]])))
                 ratio = inter / np.maximum(shapely.area(unmatched.geometry.values[cand[0]]), 1e-9)
                 dup_positions = set(cand[0][ratio > constants.TOPO_DUPLICATE_OVERLAP_RATIO].tolist())
                 keep = np.ones(len(unmatched), dtype=bool)
