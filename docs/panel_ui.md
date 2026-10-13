@@ -119,7 +119,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
  "can_download":true,                             // DATA_MANIFEST_URL이 있으면 블로커에 [DB 받기]·[멈추기]
  "sources":[source, source, source, source],      // id = lot, building, terrain, api 순서 고정(헤더 배지·블로커 체크리스트)
  "warnings":[warning],                            // 헤더 아래 띠. 예: no_context_db
- "tile":{"url":"…","fallback_url":"…","attribution":"…"},   // review_map.get_tile_config()
+ "tile":{"url":"…","fallback_url":"…","attribution":"…","abroad_url":"…","abroad_attribution":"…"},   // review_map.get_tile_config(). 지도 중심이 map.korea_bounds 밖이면 abroad_url(OSM)
  "map":{"center":[126.9784,37.5665],"zoom":16},              // review_map.get_map_init()
  "options":{…옵션 키 전부, prefs.json 복원 또는 기본값…},
  "recent":[{"pnus":["…"],"label":"성수동2가 277-17 외 1","total_area":1234.5,"date":"2026-10-06"}],   // 최대 5
@@ -194,6 +194,13 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 ```
 
 푸시 12종. `toast`는 없다 — 성공 토스트는 JS가 `imported`·`exported`를 받아 띄운다.
+
+## 해외 대상지 (2026-10-13)
+
+- 대상지 중심(구역 링 평균·위치 점)이 `map.korea_bounds` 밖이면 `set_area`·`set_point`가 투영 원점을 그 중심으로 옮긴다(`non_rhino_utils.set_projection`). 이후 `ring_tm`·`center_tm`은 그 지역 횡메르카토르 m이다. `select_lots`는 늘 EPSG:5186으로 되돌린다.
+- `preflight`·`generate`는 해외면 필지 DB를 보지 않고 `osm_context`(Overpass·지형 타일·인터넷 필요)를 쓴다. 필지가 필요한 시트는 빈 시트, 경고 `abroad`.
+- 블로커(필지 DB 없음)에 [DB 없이 해외 대상지로 계속] — JS `state.abroadOnly = true`, 필지 방식 카드 비활성, 이후 `init_state.blocked`를 무시한다.
+- `search`: 국내 필지에서 못 찾거나 필지 DB가 없으면 OSM Nominatim 지명 후보 — `matches[].pnu = ""`, `center` 있음. JS는 위치 방식이면 `set_point`, 아니면 지도만 옮긴다.
 
 ## 대상지 방식 (2026-10-10)
 

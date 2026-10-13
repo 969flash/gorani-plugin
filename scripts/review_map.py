@@ -16,6 +16,9 @@ VWORLD_TILE_URL_TEMPLATE = (
 VWORLD_ATTRIBUTION = "© VWorld"
 OSM_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
 OSM_ATTRIBUTION = "© OpenStreetMap contributors"
+# 해외 배경(VWorld는 국내만) — OSM 표준 타일. 소량 사용·출처 표기 조건(타일 이용 정책). CARTO는 2026-10 기준 키가 필요해 쓰지 않는다
+ABROAD_TILE_URL = OSM_TILE_URL
+ABROAD_ATTRIBUTION = OSM_ATTRIBUTION
 MAP_CENTER = [126.9784, 37.5665]  # 서울시청 (WGS84 lng, lat)
 MAP_ZOOM = 16
 COORDINATE_DECIMALS = 7  # GeoJSON 좌표 반올림 자리수 (약 1cm)
@@ -38,18 +41,20 @@ def get_tile_config():
             "url": VWORLD_TILE_URL_TEMPLATE % api_key,
             "fallback_url": OSM_TILE_URL,
             "attribution": VWORLD_ATTRIBUTION,
+            "abroad_url": ABROAD_TILE_URL, "abroad_attribution": ABROAD_ATTRIBUTION,
         }
     return {
         "url": OSM_TILE_URL,
         "fallback_url": OSM_TILE_URL,
         "attribution": OSM_ATTRIBUTION,
+        "abroad_url": ABROAD_TILE_URL, "abroad_attribution": ABROAD_ATTRIBUTION,
     }
 
 
 def get_map_init():
     # type: () -> dict
-    """지도 초기 뷰(서울시청 중심)를 만든다. ``{"center": [lng, lat], "zoom"}``."""
-    return {"center": list(MAP_CENTER), "zoom": MAP_ZOOM}
+    """지도 초기 뷰(서울시청 중심)를 만든다. ``{"center": [lng, lat], "zoom", "korea_bounds": [서, 남, 동, 북]}`` — 화면 중심이 한국 밖이면 해외 타일."""
+    return {"center": list(MAP_CENTER), "zoom": MAP_ZOOM, "korea_bounds": list(non_rhino_utils.KOREA_LNGLAT_BOUNDS)}
 
 
 def get_wgs84_ring(ring):

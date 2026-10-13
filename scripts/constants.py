@@ -237,6 +237,7 @@ OSM_BUILDING_USE = {   # building 태그 → 국내 건축물용도 대분류(�
     "industrial": "17000", "warehouse": "18000", "school": "10000", "university": "10000", "college": "10000", "kindergarten": "11000",
     "hospital": "09000", "church": "06000", "cathedral": "06000", "temple": "06000", "mosque": "06000", "train_station": "08000",
 }
+OSM_NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"   # 지명 검색 — 사용자가 [검색]을 누를 때 한 번
 OSM_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 OSM_TERRAIN_ZOOM = 13           # 픽셀 약 19 m(적도)·15 m(위도 37°). 원천 DEM이 약 30 m라 더 키워도 정밀해지지 않는다
 OSM_TERRAIN_STEP = 2            # 픽셀 건너뛰기 — 표고점 간격 약 30 m

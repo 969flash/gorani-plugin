@@ -326,6 +326,20 @@ def get_terrain_spots(bounds, reference_date):
     return spots
 
 
+# ── 지명 검색 (Nominatim) ───────────────────────────────
+
+def search_places(query, limit):
+    # type: (str, int) -> list
+    """지명·주소 → [{"name", "center": [lng, lat]}]. 국내 필지 검색이 비었을 때만 부른다(Nominatim 이용 정책: 초당 1건, 식별 가능한 User-Agent).
+    네트워크 오류면 빈 목록."""
+    url = constants.OSM_NOMINATIM_URL + "?" + urllib.parse.urlencode({"q": query, "format": "jsonv2", "limit": limit})
+    try:
+        places = json.loads(_fetch(url).decode("utf-8"))
+    except Exception:
+        return []
+    return [{"name": p.get("display_name", ""), "center": [round(float(p["lon"]), 7), round(float(p["lat"]), 7)]} for p in places]
+
+
 # ── 묶기 ────────────────────────────────────────────────
 
 def load(bounds, today):

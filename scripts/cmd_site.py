@@ -115,8 +115,15 @@ def get_search_result(query, site_db=None):
     pnu_loader = loader.load("pnu_loader")
     review_map = loader.load("review_map")
     use_vworld = bool(pnu_loader.get_local_env_value(constants.VWORLD_API_KEY_ENV))
-    resolution = pnu_loader.resolve_addresses([query], use_vworld, site_db)[0]
-    matches = resolution.matches[:SEARCH_MAX_MATCHES]
+    try:
+        matches = pnu_loader.resolve_addresses([query], use_vworld, site_db)[0].matches[:SEARCH_MAX_MATCHES]
+    except FileNotFoundError:   # 국내 필지 DB 없음(해외만 쓰는 사용자) — 지명 검색으로
+        matches = []
+    if not matches:
+        places = loader.load("osm_context").search_places(query, SEARCH_MAX_MATCHES)
+        return {"type": "search_result", "query": query, "seq": None,
+                "matches": [{"pnu": "", "address": p["name"], "jibun": "", "land_category": "", "area": None, "center": p["center"]} for p in places],
+                "message": "지명 후보 %d건 (OpenStreetMap)" % len(places) if places else "찾지 못했습니다 — 동 이름까지 적어 보세요"}
     centers = review_map.get_parcel_centers([m.pnu for m in matches], site_db) if matches else {}
     return {
         "type": "search_result", "query": query, "seq": None,
