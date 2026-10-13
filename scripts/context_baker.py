@@ -52,8 +52,11 @@ def get_model_unit_scale(doc):
 
 def get_doc_origin(doc):
     # type: (object) -> tuple
-    """doc.Strings UDT_ORIGIN_E/N → (E, N). 없으면 None. context_builder.run이 request['doc_origin']에 넣는다."""
-    e, n = (doc.Strings.GetValue(key) for key in constants.DOC_ORIGIN_KEYS[:2])
+    """doc.Strings UDT_ORIGIN_E/N → (E, N). 없거나 좌표계가 지금과 다르면(국내 문서에 해외 대상지 등) None.
+    context_builder.run이 request['doc_origin']에 넣는다."""
+    e, n, crs = (doc.Strings.GetValue(key) for key in constants.DOC_ORIGIN_KEYS)
+    if crs and crs != non_rhino_utils.get_crs_label():
+        return None
     try:
         return (float(e), float(n)) if e and n else None
     except ValueError:
@@ -65,7 +68,7 @@ def _set_doc_origin(doc, origin):
     """doc.Strings 원점 3키 + EarthAnchorPoint(위경도, ModelNorth=+Y). 재사용 여부 판단은 호출자가 한다."""
     doc.Strings.SetString(constants.DOC_ORIGIN_KEYS[0], "%.3f" % origin[0])
     doc.Strings.SetString(constants.DOC_ORIGIN_KEYS[1], "%.3f" % origin[1])
-    doc.Strings.SetString(constants.DOC_ORIGIN_KEYS[2], "EPSG:%d" % constants.DATABASE_CRS)
+    doc.Strings.SetString(constants.DOC_ORIGIN_KEYS[2], non_rhino_utils.get_crs_label())
     lng, lat = non_rhino_utils.get_wgs84_from_tm(origin[0], origin[1])
     anchor = Rhino.DocObjects.EarthAnchorPoint()
     anchor.EarthBasepointLatitude = lat
@@ -294,7 +297,7 @@ def get_ref_attrs(prepared):
     dates = meta.get("dates") or {}
     num = lambda v: "" if v is None else "%g" % v
     return {
-        "CRS": "EPSG:%d" % constants.DATABASE_CRS, "ORIGIN_E": "%.3f" % prepared.origin[0], "ORIGIN_N": "%.3f" % prepared.origin[1],
+        "CRS": non_rhino_utils.get_crs_label(), "ORIGIN_E": "%.3f" % prepared.origin[0], "ORIGIN_N": "%.3f" % prepared.origin[1],
         "RADIUS_M": num(prepared.radius), "SHAPE": str(prepared.shape or ""), "SRC_SHEETS": ",".join(stats.get("sheets") or []),
         "BUILT_AT": str(meta.get("built_at") or ""), "TOOL_VERSION": constants.PANEL_VERSION,
         "ALIGN_MEDIAN_M": num(align.get("median")), "ALIGN_P90_M": num(align.get("p90")), "ALIGN_N": str(align.get("n") or 0),

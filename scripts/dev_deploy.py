@@ -3,6 +3,8 @@
     python3 scripts/dev_deploy.py            # 둘 다
     python3 scripts/dev_deploy.py yak        # build/UrbanDesignTool-<버전>-rh8_0-any.yak
     python3 scripts/dev_deploy.py packs      # build/packs/*.db.xz + manifest.json
+    python3 scripts/dev_deploy.py packs --sido 43 --drop   # 시도 하나만 압축하고 원본 DB를 지운다(전국 빌드 흐름)
+    python3 scripts/dev_deploy.py repack     # 용량 줄이기 전에 만든 팩을 풀어 줄이고 다시 압축
 
 yak: 진입 명령 UrbanSite 하나짜리 .rhp를 rhinocode로 빌드하고(떠 있는 Rhino 8 필요), 그 옆에 scripts/(평문 진입 스크립트 +
      로직 .pyc + 패널 HTML·vendor)를 두고 yak CLI로 묶는다. rhinocode의 Shared 리소스는 폴더 구조를 펴 버려서 쓰지 않는다
@@ -14,6 +16,7 @@ packs: data/의 시도별 `<시도>_site.db`·`<시도>_context.db`마다 필지
 `.pyc`는 Python 마이너 버전에 묶이므로 Rhino 8의 CPython과 같은 3.9로 실행해야 한다. macOS 기본 /usr/bin/python3가 3.9다.
 """
 
+import argparse
 import datetime
 import hashlib
 import json
@@ -21,8 +24,11 @@ import os
 import py_compile
 import shutil
 import sqlite3
+import statistics
 import subprocess
 import sys
+
+import shapely
 
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SCRIPTS_DIR)
@@ -66,6 +72,8 @@ PACK_KINDS = (   # (종류, 표시 이름 꼬리, 원본 DB 종류) — 등고�
     ("context", "건물·도로·수계", "context"),
     ("terrain", "등고선", "context"),
 )
+REWRITE_CHUNK = 100000      # 도형 다시 쓰기 한 번에 읽는 id 구간
+SLIM_PACK_ID = 0x55445431   # 'UDT1' — slim_pack_database를 거친 팩 표시(PRAGMA application_id)
 BOUNDS_SQL = {   # 팩 범위(EPSG:5186) — data_pack이 대상지에 걸리는 시도 파일만 열 때 쓴다
     "site": "SELECT MIN(min_x), MIN(min_y), MAX(max_x), MAX(max_y) FROM parcels",
     "context": "SELECT MIN(min_x), MIN(min_y), MAX(max_x), MAX(max_y) FROM buildings",
@@ -180,6 +188,97 @@ def build_yak():
 
 # ── packs ───────────────────────────────────────────────
 
+def _get_rounded(value, digits):
+    # type: (object, int) -> object
+    if isinstance(value, float):
+        return round(value, digits)
+    if isinstance(value, list):
+        return [_get_rounded(v, digits) for v in value]
+    return value
+
+
+def _rewrite_geometries(connection, table, id_column, where, digits, tolerance=None):
+    # type: (sqlite3.Connection, str, str, str, int, float) -> None
+    """geometry_json을 digits 자리로 반올림(공백 없는 JSON)하고, tolerance가 있으면 그만큼 단순화한다(shapely — 개발 환경 전용).
+    id 구간 REWRITE_CHUNK씩 나눠 읽는다 — 충북 컨텍스트(9.6 GB)를 한 번에 읽었더니 스왑으로 3시간 멈췄다(2026-10-13)."""
+    low, high = connection.execute("SELECT MIN(%s), MAX(%s) FROM %s" % (id_column, id_column, table)).fetchone()
+    if low is None:
+        return
+    condition = (where + " AND" if where else "WHERE") + " %s BETWEEN ? AND ?" % id_column
+    for start in range(low, high + 1, REWRITE_CHUNK):
+        rows = connection.execute("SELECT %s, geometry_json FROM %s %s" % (id_column, table, condition), (start, start + REWRITE_CHUNK - 1)).fetchall()
+        _rewrite_rows(connection, table, id_column, rows, digits, tolerance)
+        connection.commit()
+
+
+def _rewrite_rows(connection, table, id_column, rows, digits, tolerance):
+    # type: (sqlite3.Connection, str, str, list, int, float) -> None
+    updates = []
+    for row_id, text in rows:
+        geometry = json.loads(text)
+        if tolerance:
+            simplified = shapely.from_geojson(text).simplify(tolerance, preserve_topology=geometry["type"].endswith("Polygon"))
+            if not simplified.is_empty:
+                geometry = json.loads(shapely.to_geojson(simplified))
+        geometry["coordinates"] = _get_rounded(geometry["coordinates"], digits)
+        updates.append((json.dumps(geometry, separators=(",", ":")), row_id))
+    connection.executemany("UPDATE %s SET geometry_json = ? WHERE %s = ?" % (table, id_column), updates)
+
+
+def _aggregate_align_samples(connection):
+    # type: (sqlite3.Connection) -> int
+    """정합 샘플 점(theme qa, kind align_sample — 서울만 134만 행)을 도엽별 요약 1행(kind align_sheet)으로 바꾼다.
+    value = 거리 중앙값, attrs {n, p90, dx, dy}, 점 = 샘플 평균 위치. 런타임은 n 가중평균으로 합친다(context_builder._get_align_stats)."""
+    groups = {}
+    for sheet, value, attrs, geometry, source_id, reference_date in connection.execute(
+            "SELECT sheet, value, attrs_json, geometry_json, source_id, reference_date FROM features WHERE theme = 'qa' AND kind = 'align_sample'"):
+        attrs = json.loads(attrs or "{}")
+        group = groups.setdefault(sheet, {"values": [], "dx": [], "dy": [], "xy": [], "source": (source_id, reference_date)})
+        group["values"].append(float(value))
+        group["dx"].append(float(attrs.get("dx", 0.0)))
+        group["dy"].append(float(attrs.get("dy", 0.0)))
+        group["xy"].append(json.loads(geometry)["coordinates"])
+    rows = []
+    for sheet, group in groups.items():
+        values = group["values"]
+        x = sum(p[0] for p in group["xy"]) / len(values)
+        y = sum(p[1] for p in group["xy"]) / len(values)
+        attrs = {"n": len(values), "p90": round(statistics.quantiles(values, n=10)[8] if len(values) >= 2 else values[0], 2),
+                 "dx": round(statistics.median(group["dx"]), 2), "dy": round(statistics.median(group["dy"]), 2)}
+        rows.append((group["source"][0], "qa", "align_sheet", round(statistics.median(values), 2), json.dumps(attrs), sheet,
+                     json.dumps({"type": "Point", "coordinates": [round(x, 2), round(y, 2)]}), constants.DATABASE_CRS, group["source"][1], x, x, y, y))
+    connection.execute("DELETE FROM features WHERE theme = 'qa' AND kind = 'align_sample'")
+    connection.executemany("""INSERT INTO features (source_id, theme, kind, value, attrs_json, sheet, geometry_json, geometry_crs,
+                                  reference_date, min_x, max_x, min_y, max_y) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""", rows)
+    return len(rows)
+
+
+def slim_pack_database(connection, kind):
+    # type: (sqlite3.Connection, str) -> None
+    """배포 팩 용량 줄이기 — 원천 정확도(수치지형도 ±1.5 m, 지적 ±0.36 m)에 맞춰 정밀도를 낮추고 런타임이 안 쓰는 것을 뺀다.
+
+    공통: 좌표 cm(0.01 m)·공백 없는 JSON. 등고선: 0.3 m 단순화 + 0.1 m(서울 실측 163 → 67 MB). 계획 도형: 0.1 m 단순화.
+    컨텍스트: 정합 샘플 → 도엽 요약, 피처 속성의 UFID(원천 식별자, 런타임 미사용 — 서울 약 45 MB) 삭제.
+    필지: 파생 계획 도형의 필지 연결표(parcel_land_use와 같은 정보)·빌드용 지목 인덱스 삭제.
+    처리한 팩은 PRAGMA application_id = SLIM_PACK_ID로 표시한다(repack이 두 번 줄이지 않게).
+    """
+    if kind == "site":
+        connection.execute("DROP INDEX IF EXISTS idx_parcels_category")
+        connection.execute("DELETE FROM parcel_overlays WHERE overlay_id IN (SELECT overlay_id FROM overlays WHERE source_id = 'molit_land_use')")
+        _rewrite_geometries(connection, "parcels", "parcel_id", "", 2)
+        _rewrite_geometries(connection, "overlays", "overlay_id", "", 2, 0.1)
+    else:
+        if kind == "context":
+            _aggregate_align_samples(connection)
+            _rewrite_geometries(connection, "buildings", "building_id", "", 2)
+        _rewrite_geometries(connection, "features", "feature_id", "WHERE theme = 'terrain' AND kind = 'contour'", 1, 0.3)
+        _rewrite_geometries(connection, "features", "feature_id", "WHERE NOT (theme = 'terrain' AND kind = 'contour')", 2)
+        connection.execute("UPDATE features SET attrs_json = json_remove(attrs_json, '$.UFID') WHERE attrs_json LIKE '%\"UFID\"%'")
+        connection.execute("UPDATE features SET attrs_json = NULL WHERE attrs_json = '{}'")
+    connection.execute("PRAGMA application_id = %d" % SLIM_PACK_ID)
+    connection.commit()
+
+
 def _make_pack_database(pack_name, source, target):
     # type: (str, str, str) -> None
     """팩 하나의 DB 파일. 필지 = 사본 + rtree 제거, 컨텍스트 = 사본 − 등고선, 등고선 = features 스키마 + terrain 행만."""
@@ -201,6 +300,7 @@ def _make_pack_database(pack_name, source, target):
         connection.close()
         strip_spatial_index(target)
         connection = sqlite3.connect(target)
+    slim_pack_database(connection, pack_name.rsplit("_", 1)[1][:-3])
     connection.execute("ANALYZE")
     connection.execute("VACUUM")
     connection.close()
@@ -215,45 +315,99 @@ def _get_sha256(path):
     return digest.hexdigest()
 
 
-def build_packs():
-    # type: () -> str
-    """build/packs/에 팩 DB → xz(-T0 멀티스레드, 원본 지움) + manifest.json. 매니페스트 경로를 돌려준다."""
+def build_packs(sido_codes=None, drop=False):
+    # type: (list, bool) -> str
+    """build/packs/에 시도 팩 DB → xz(-T0 멀티스레드) + manifest.json. 매니페스트 경로를 돌려준다.
+
+    sido_codes를 주면 그 시도만 만들고 매니페스트의 다른 시도 항목은 그대로 둔다(시도 하나씩 빌드·압축하며 디스크를 아끼는 흐름).
+    drop이면 압축 뒤 원본 DB(data/<시도>_site.db·_context.db)를 지운다 — 서울은 개발용이라 남긴다. 전국 원본은 디스크에 다 못 둔다.
+    """
     pack_dir = os.path.join(BUILD_DIR, "packs")
-    shutil.rmtree(pack_dir, ignore_errors=True)
-    os.makedirs(pack_dir)
-    packs = []
+    os.makedirs(pack_dir, exist_ok=True)
+    manifest_path = os.path.join(pack_dir, "manifest.json")
+    packs = {}
+    if os.path.exists(manifest_path):
+        with open(manifest_path, encoding="utf-8") as f:
+            packs = {pack["name"]: pack for pack in json.load(f)["packs"]}
     data_dir = os.path.join(ROOT_DIR, "data")
     for code, (sido_name, slug) in sorted(constants.SIDO.items(), key=lambda item: item[1][1]):
+        if sido_codes and code not in sido_codes:
+            continue
+        sources = set()
         for kind, label, source_kind in PACK_KINDS:
             source = os.path.join(data_dir, "%s_%s.db" % (slug, source_kind))
             if not os.path.exists(source):
                 continue
+            sources.add(source)
             pack_name = "%s_%s.db" % (slug, kind)
             target = os.path.join(pack_dir, pack_name)
             print("  %s 만드는 중..." % pack_name, flush=True)
+            if os.path.exists(target):
+                os.remove(target)
             _make_pack_database(pack_name, source, target)
             connection = sqlite3.connect(target)
             bounds = [round(v, 1) for v in connection.execute(BOUNDS_SQL[kind]).fetchone()]
             connection.close()
             size, sha256 = os.path.getsize(target), _get_sha256(target)
             print("  %s 압축 중... (%.2f GB)" % (pack_name, size / 1024.0 ** 3), flush=True)
-            subprocess.run(["xz", "-6", "-T0", target], check=True)
-            packs.append({"name": pack_name, "label": "%s %s" % (sido_name, label), "url": pack_name + ".xz", "size": size,
-                          "sha256": sha256, "bounds": bounds, "xz_size": os.path.getsize(target + ".xz")})
-    manifest_path = os.path.join(pack_dir, "manifest.json")
+            subprocess.run(["xz", "-6", "-T0", "-f", target], check=True)
+            packs[pack_name] = {"name": pack_name, "label": "%s %s" % (sido_name, label), "url": pack_name + ".xz", "size": size,
+                                "sha256": sha256, "bounds": bounds, "xz_size": os.path.getsize(target + ".xz")}
+        if drop and code != "11":
+            for source in sources:
+                os.remove(source)
     with open(manifest_path, "w", encoding="utf-8") as f:
-        json.dump({"version": datetime.date.today().isoformat(), "packs": packs}, f, ensure_ascii=False, indent=1)
+        json.dump({"version": datetime.date.today().isoformat(), "packs": sorted(packs.values(), key=lambda p: p["name"])},
+                  f, ensure_ascii=False, indent=1)
     return manifest_path
+
+
+def repack():
+    # type: () -> list
+    """build/packs/의 옛 팩(slim_pack_database 이전)을 풀어 줄이고 다시 압축한다. 매니페스트의 크기·sha256을 고친다. 고친 팩 이름 목록.
+    원본 DB를 지운 시도도 팩에서 바로 다시 만들 수 있다."""
+    pack_dir = os.path.join(BUILD_DIR, "packs")
+    manifest_path = os.path.join(pack_dir, "manifest.json")
+    with open(manifest_path, encoding="utf-8") as f:
+        manifest = json.load(f)
+    done = []
+    for pack in manifest["packs"]:
+        target = os.path.join(pack_dir, pack["name"])
+        subprocess.run(["xz", "-d", "-k", "-f", "-T0", target + ".xz"], check=True)
+        connection = sqlite3.connect(target)
+        if connection.execute("PRAGMA application_id").fetchone()[0] == SLIM_PACK_ID:
+            connection.close()
+            os.remove(target)
+            continue
+        print("  %s 줄이는 중... (%.2f GB)" % (pack["name"], os.path.getsize(target) / 1024.0 ** 3), flush=True)
+        slim_pack_database(connection, pack["name"].rsplit("_", 1)[1][:-3])
+        connection.execute("ANALYZE")
+        connection.execute("VACUUM")
+        connection.close()
+        pack["size"], pack["sha256"] = os.path.getsize(target), _get_sha256(target)
+        subprocess.run(["xz", "-6", "-T0", "-f", target], check=True)
+        pack["xz_size"] = os.path.getsize(target + ".xz")
+        done.append(pack["name"])
+        with open(manifest_path, "w", encoding="utf-8") as f:   # 팩마다 적는다 — 중간에 멈춰도 매니페스트가 맞다
+            json.dump(manifest, f, ensure_ascii=False, indent=1)
+    return done
 
 
 def main():
     if sys.version_info[:2] != (3, 9):
         sys.exit("Rhino 8의 CPython(3.9)과 같은 Python 3.9로 실행해야 .pyc가 호환됩니다. 현재: %d.%d" % sys.version_info[:2])
-    what = sys.argv[1] if len(sys.argv) > 1 else "all"
-    if what in ("all", "yak"):
+    parser = argparse.ArgumentParser(description="Yak 패키지·데이터 팩 빌드")
+    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "packs", "repack"))
+    parser.add_argument("--sido", help="packs: 쉼표로 구분한 시도 코드만 (기본 data/에 있는 전부)")
+    parser.add_argument("--drop", action="store_true", help="packs: 압축 뒤 원본 시도 DB를 지운다(서울 제외)")
+    args = parser.parse_args()
+    if args.what == "repack":
+        print("repack: %s" % repack())
+        return
+    if args.what in ("all", "yak"):
         print("yak: %s" % build_yak())
-    if what in ("all", "packs"):
-        manifest_path = build_packs()
+    if args.what in ("all", "packs"):
+        manifest_path = build_packs(args.sido.split(",") if args.sido else None, args.drop)
         print("packs: %s" % manifest_path)
         print("  등고선 팩(*_terrain.db.xz)은 국내 서버에, 나머지는 매니페스트와 같은 곳에 올린다.")
 

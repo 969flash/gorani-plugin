@@ -7,6 +7,7 @@ Rhino 커브·벡터·Brep을 다루는 연산은 ``utils.py``에 둔다.
 """
 
 import math
+import os
 
 import constants
 
@@ -128,8 +129,9 @@ def get_ring_area(ring):
 # 127, 축척 1. 횡메르카토르 Karney 급수(6차) 구현 — 왕복 오차 1e-14도 수준.
 A_GRS80 = 6378137.0  # GRS80 장반경 m
 F_GRS80 = 1.0 / 298.257222101  # GRS80 편평률
-LAT0, LON0 = 38.0, 127.0  # 투영 원점 (도)
-FALSE_E, FALSE_N = 200000.0, 600000.0  # 가산치 m
+KOREA_TM = (38.0, 127.0, 200000.0, 600000.0)   # EPSG:5186 원점 위도·경도, 가산치 E·N
+KOREA_LNGLAT_BOUNDS = (124.0, 33.0, 132.0, 39.0)  # 한국 판정 경위도 사각형(서·남·동·북) — 제주·울릉 포함, 북한 일부도 들어간다
+LAT0, LON0, FALSE_E, FALSE_N = KOREA_TM  # 지금 투영 원점 (도)·가산치 m — set_projection이 바꾼다
 n = F_GRS80 / (2.0 - F_GRS80)  # 제3편평률
 A_BAR = A_GRS80 / (1.0 + n) * (1.0 + n**2/4.0 + n**4/64.0 + n**6/256.0)
 ALPHA = (  # 경위도 → 평면 급수 계수
@@ -174,6 +176,7 @@ def _get_xi_eta(lat_rad, lon_rad):
 
 
 XI0 = _get_xi_eta(math.radians(LAT0), math.radians(LON0))[0]  # 원점 위도의 xi
+PROJECTION_ENV = "UDT_PROJECTION_ORIGIN"   # 해외 대상지 원점 "경도,위도" — set_projection 참고
 
 
 def get_tm_from_wgs84(lng, lat):
@@ -219,6 +222,60 @@ def get_wgs84_from_tm(x, y):
     lat_out = math.degrees(math.atan(tau))
     lng_out = LON0 + math.degrees(math.atan2(math.sinh(eta_p), math.cos(xi_p)))
     return lng_out, lat_out
+
+
+def is_korea(lng, lat):
+    # type: (float, float) -> bool
+    """경위도가 한국(국내 DB·EPSG:5186 범위) 안인지. 대략의 경위도 사각형으로만 본다."""
+    west, south, east, north = KOREA_LNGLAT_BOUNDS
+    return west <= lng <= east and south <= lat <= north
+
+
+def set_projection(lng=None, lat=None):
+    # type: (float, float) -> None
+    """이후 get_tm_from_wgs84·get_wgs84_from_tm이 쓸 횡메르카토르 원점을 정한다.
+
+    입력: 대상지 중심 경위도. None이거나 한국 안이면 EPSG:5186(국내 DB 좌표계).
+    처리: 해외면 대상지 중심(0.01° 반올림 — 같은 대상지는 늘 같은 원점)을 원점으로, 가산치 0인 지역 횡메르카토르(GRS80, 축척 1).
+          원점은 환경변수 PROJECTION_ENV에도 적는다 — loader가 모듈을 다시 읽어도(전역 초기화) 같은 Rhino 세션에서는 유지된다.
+          ponytail: 프로세스 전역 상태다. 패널 한 개가 대상지 하나를 다루는 동안만 유효 — 동시에 두 대상지를 다루면 원점 인자로 바꿀 것.
+    출력: 없음.
+    """
+    if lng is None or lat is None or is_korea(lng, lat):
+        os.environ.pop(PROJECTION_ENV, None)
+    else:
+        os.environ[PROJECTION_ENV] = "%.2f,%.2f" % (float(lng), float(lat))
+    _apply_projection()
+
+
+def _apply_projection():
+    # type: () -> None
+    """환경변수의 원점(없으면 EPSG:5186)을 모듈 전역에 적용한다. import 때도 부른다."""
+    global LAT0, LON0, FALSE_E, FALSE_N, XI0
+    value = os.environ.get(PROJECTION_ENV)
+    if value:
+        lng, lat = (float(v) for v in value.split(","))
+        LAT0, LON0, FALSE_E, FALSE_N = lat, lng, 0.0, 0.0
+    else:
+        LAT0, LON0, FALSE_E, FALSE_N = KOREA_TM
+    XI0 = _get_xi_eta(math.radians(LAT0), math.radians(LON0))[0]
+
+
+_apply_projection()
+
+
+def is_local_projection():
+    # type: () -> bool
+    """지금 원점이 해외 지역 횡메르카토르인지(= 국내 DB 대신 OSM을 쓴다)."""
+    return (LAT0, LON0, FALSE_E, FALSE_N) != KOREA_TM
+
+
+def get_crs_label():
+    # type: () -> str
+    """문서·메타에 적을 좌표계 이름."""
+    if not is_local_projection():
+        return "EPSG:5186"
+    return "+proj=tmerc +lat_0=%.2f +lon_0=%.2f +k=1 +x_0=0 +y_0=0 +ellps=GRS80 +units=m" % (LAT0, LON0)
 
 
 # ═════════════════════════════════════════════════════════

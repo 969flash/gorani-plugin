@@ -15,6 +15,7 @@ import csv
 import io
 import json
 import os
+import shutil
 import sqlite3
 import zipfile
 from datetime import datetime
@@ -703,8 +704,9 @@ def _to_float(value):
     return number
 
 
-def _prepare_land_char_chunk(data, sido_code=SEOUL_CODE):
-    """토지특성정보 한 묶음을 좌표계·도형·PNU까지 정리한다. 다른 시도 PNU가 섞여 있으면 ValueError."""
+def _prepare_land_char_chunk(data, sido_code=SEOUL_CODE, legacy_sgg=None):
+    """토지특성정보 한 묶음을 좌표계·도형·PNU까지 정리한다. 다른 시도 PNU가 섞여 있으면 ValueError.
+    legacy_sgg(옛 시군구 → 새 시군구)가 있으면 PNU 앞 5자리를 새 코드로 바꾼다."""
     missing_columns = set(LAND_CHAR_COLUMNS).difference(data.columns)
     if missing_columns:
         raise ValueError(
@@ -721,12 +723,14 @@ def _prepare_land_char_chunk(data, sido_code=SEOUL_CODE):
         data.loc[invalid, "geometry"] = data.loc[invalid, "geometry"].buffer(0)
 
     data["pnu_value"] = data["A1"].map(_bulk_text)
+    if legacy_sgg:
+        data["pnu_value"] = data["pnu_value"].map(lambda pnu: legacy_sgg.get(pnu[:5], pnu[:5]) + pnu[5:])
     pnu_pattern = r"\d{%d}" % constants.PNU_LENGTH
-    invalid_pnus = data[
-        ~data["pnu_value"].str.fullmatch(pnu_pattern, na=False)
-    ]["pnu_value"].tolist()
-    if invalid_pnus:
-        raise ValueError("SHP에 유효하지 않은 PNU가 있습니다: %s" % invalid_pnus[:5])
+    valid = data["pnu_value"].str.fullmatch(pnu_pattern, na=False)
+    if not valid.all():
+        # 원천 오류 행은 건너뛴다 — 예: 충북 영동군 AL_D194_43740 '437403202402080001'(18자리)
+        print("  유효하지 않은 PNU %d건 건너뜀: %s" % ((~valid).sum(), data.loc[~valid, "pnu_value"].tolist()[:5]), flush=True)
+        data = data[valid].copy()
     if not data["pnu_value"].str.startswith(sido_code).all():
         raise ValueError("%s가 아닌 PNU가 SHP에 포함되어 있습니다" % constants.SIDO[sido_code][0])
 
@@ -1102,13 +1106,99 @@ def _get_land_char_paths(sido_code):
     # type: (str) -> list
     """그 시도의 토지특성정보 SHP 경로(정렬). 받은 zip(AL_D194_<시군구>_<기준일>.zip)이 아직 안 풀렸으면 같은 이름 폴더에 푼다."""
     land_char_dir = ROOT_DIR / constants.LAND_CHAR_DIRNAME
-    prefix = "AL_D194_%s" % sido_code
-    for zip_path in sorted(land_char_dir.glob(prefix + "*.zip")):
-        folder = zip_path.with_suffix("")
-        if not folder.exists():
-            with zipfile.ZipFile(zip_path) as archive:
-                archive.extractall(folder)
-    return sorted(p for p in land_char_dir.glob(prefix + "*/*.shp"))
+    paths = []
+    for code in (sido_code,) + constants.SIDO_LEGACY_CODES.get(sido_code, ()):   # 통합 시도는 옛 코드 파일도 함께
+        prefix = "AL_D194_%s" % code
+        for zip_path in sorted(land_char_dir.glob(prefix + "*.zip")):
+            folder = zip_path.with_suffix("")
+            if not folder.exists():
+                with zipfile.ZipFile(zip_path) as archive:
+                    archive.extractall(folder)
+        paths += sorted(land_char_dir.glob(prefix + "*/*.shp"))
+    return paths
+
+
+def get_legacy_sgg_map(sido_code, shp_paths, land_use_dir=None):
+    # type: (str, list, object) -> dict
+    """옛 시군구 코드 5자리 → 새 코드 5자리. 통합 시도가 아니면 빈 dict.
+
+    새 코드·이름은 토지이용계획 CSV(법정동코드·법정동명), 옛 코드·이름은 토지특성 SHP 첫 행(A3)에서 읽어 시군구 이름으로 맞춘다.
+    """
+    if sido_code not in constants.SIDO_LEGACY_CODES:
+        return {}
+    land_use_dir = Path(land_use_dir or (ROOT_DIR / constants.LAND_USE_DIRNAME))
+    new_by_name = {}
+    for path in sorted(land_use_dir.glob(constants.LAND_USE_FILE_FORMAT % sido_code + "*.csv")):
+        with io.open(path, encoding=constants.LAND_USE_ENCODING, errors="replace", newline="") as handle:
+            reader = csv.reader(handle)
+            header = next(reader, [])
+            code_at, name_at = header.index("법정동코드"), header.index("법정동명")
+            for record in reader:
+                parts = record[name_at].split()
+                if len(parts) > 1:
+                    new_by_name.setdefault(parts[1], record[code_at][:5])
+    mapping = {}
+    for shp_path in shp_paths:
+        old = shp_path.parent.name.split("_")[2]
+        if old[:2] == sido_code or old in mapping:
+            continue
+        first = pyogrio.read_dataframe(shp_path, columns=["A3"], max_features=1, read_geometry=False, encoding=constants.LAND_CHAR_ENCODING)
+        name = _bulk_text(first["A3"].iloc[0]).split()[1]
+        if name not in new_by_name:
+            raise ValueError("새 시군구 코드를 찾지 못했습니다: %s %s" % (old, name))
+        mapping[old] = new_by_name[name]
+    return mapping
+
+
+def _get_derived_kind(code):
+    # type: (str) -> tuple
+    """토지이용계획 코드 → (theme, kind, layer). 대상이 아니면 None."""
+    for prefix, theme, kind, layer in constants.DERIVED_OVERLAY_CODES:
+        if code.startswith(prefix):
+            return (theme, kind, layer) if theme else None
+    return None
+
+
+def derive_overlays(connection):
+    # type: (object) -> int
+    """parcel_land_use(포함·저촉) 필지를 코드 × 1 km 격자로 합쳐 overlays·parcel_overlays를 만든다. 넣은 도형 수를 돌려준다.
+
+    서울은 UPIS 계획 도형을 쓰고, 다른 시도는 이것으로 대신한다 — 경계가 도로 중심이 아니라 필지 경계라는 차이가 있다.
+    parcel_overlays는 필지 전체가 그 지정에 든 것으로 적는다(겹침 비율 1). ponytail: 저촉 필지의 실제 겹침 면적은 원천에 없다.
+    """
+    groups = {}
+    rows = connection.execute(
+        """SELECT link.code, link.name, lot.pnu, lot.geometry_json, (lot.min_x + lot.max_x) / 2, (lot.min_y + lot.max_y) / 2,
+                  lot.geometry_area_sqm
+           FROM parcel_land_use link JOIN parcels lot ON lot.pnu = link.pnu
+           WHERE link.conflict IN ('포함', '저촉')""")
+    for code, name, pnu, geometry_json, x, y, area in rows:
+        target = _get_derived_kind(code)
+        if target is None:
+            continue
+        key = (code, int(x // constants.DERIVED_OVERLAY_TILE), int(y // constants.DERIVED_OVERLAY_TILE))
+        group = groups.setdefault(key, {"target": target, "name": name, "pnus": [], "geometries": [], "areas": []})
+        group["pnus"].append(pnu)
+        group["geometries"].append(geometry_json)
+        group["areas"].append(area)
+    next_id = connection.execute("SELECT COALESCE(MAX(overlay_id), 0) FROM overlays").fetchone()[0] + 1
+    overlay_rows, link_rows = [], []
+    for overlay_id, ((code, _tx, _ty), group) in enumerate(sorted(groups.items()), start=next_id):
+        theme, kind, layer = group["target"]
+        geometry = shapely.make_valid(shapely.union_all(shapely.make_valid(shapely.from_geojson(group["geometries"]))))
+        min_x, min_y, max_x, max_y = geometry.bounds
+        overlay_rows.append((overlay_id, LAND_USE_SOURCE["source_id"], theme, layer, kind, code, group["name"], None, None, None,
+                             None, round(float(geometry.area), 3), json.dumps(mapping(geometry), ensure_ascii=False),
+                             constants.DATABASE_CRS, float(min_x), float(max_x), float(min_y), float(max_y)))
+        link_rows.extend((pnu, overlay_id, area, 1.0) for pnu, area in zip(group["pnus"], group["areas"]))
+    connection.executemany(
+        """INSERT INTO overlays (overlay_id, source_id, theme, layer, kind, code, name, feature_id, notice_number, created_date,
+               attrs_json, area_sqm, geometry_json, geometry_crs, min_x, max_x, min_y, max_y)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", overlay_rows)
+    connection.executemany(
+        "INSERT OR IGNORE INTO parcel_overlays (pnu, overlay_id, overlap_area_sqm, overlap_ratio) VALUES (?, ?, ?, ?)", link_rows)
+    connection.commit()
+    return len(overlay_rows)
 
 
 def _offset_ids(connection, offset):
@@ -1148,6 +1238,9 @@ def build(sido_code=SEOUL_CODE, refresh=False, chunk_size=50000):
     if chunk_size <= 0:
         raise ValueError("chunk_size는 1 이상이어야 합니다")
 
+    legacy_sgg = get_legacy_sgg_map(sido_code, shp_paths)
+    if legacy_sgg:
+        print("옛 시군구 코드 → 새 코드: %s" % legacy_sgg, flush=True)
     database_path = get_database_path(sido_code)
     build_path = database_path.with_suffix(".building.db")
     if build_path.exists():
@@ -1198,7 +1291,7 @@ def build(sido_code=SEOUL_CODE, refresh=False, chunk_size=50000):
                     max_features=chunk_size,
                     encoding=constants.LAND_CHAR_ENCODING,
                 )
-                lot_data = _prepare_land_char_chunk(data, sido_code)
+                lot_data = _prepare_land_char_chunk(data, sido_code, legacy_sgg)
                 lot_count += _insert_land_char_lots(connection, lot_data)
                 for overlay_data in overlay_frames:
                     overlap_count += _link_parcel_overlays(
@@ -1213,6 +1306,8 @@ def build(sido_code=SEOUL_CODE, refresh=False, chunk_size=50000):
 
         print("토지이용계획 %d행" % load_land_use(connection, sido_code=sido_code), flush=True)
         if sido_code != SEOUL_CODE:
+            print("계획 도형(토지이용계획 코드로 필지 합침) %d개" % derive_overlays(connection), flush=True)
+        if sido_code != SEOUL_CODE:
             _offset_ids(connection, int(sido_code) * ID_OFFSET_PER_SIDO)
         connection.execute("ANALYZE")
         connection.commit()
@@ -1224,6 +1319,10 @@ def build(sido_code=SEOUL_CODE, refresh=False, chunk_size=50000):
         connection.close()
 
     os.replace(build_path, database_path)
+    if sido_code != SEOUL_CODE:   # 받은 zip은 남기고 푼 폴더만 지운다 — 전국을 풀어 두면 디스크가 모자란다
+        for shp_path in shp_paths:
+            if shp_path.parent.with_suffix(".zip").exists():
+                shutil.rmtree(shp_path.parent, ignore_errors=True)
     return database_path
 
 

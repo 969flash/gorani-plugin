@@ -62,7 +62,7 @@ class InitStateTest(unittest.TestCase):
         self.assertEqual(set(state["options"]), set(constants.PANEL_DEFAULT_OPTIONS))
         self.assertEqual([c["id"] for c in state["sheet_catalog"]], list(range(1, 14)))
         self.assertEqual(state["sheet_catalog"][11]["needs"], "terrain")
-        self.assertEqual(set(state["tile"]), {"url", "fallback_url", "attribution"})
+        self.assertEqual(set(state["tile"]), {"url", "fallback_url", "attribution", "abroad_url", "abroad_attribution"})
         for warning in state["warnings"]:
             self.assertEqual(set(warning), WARNING_KEYS)
 

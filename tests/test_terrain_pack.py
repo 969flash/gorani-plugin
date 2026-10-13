@@ -23,7 +23,9 @@ class TerrainPackTest(unittest.TestCase):
             context_only = context_db.get_counts(context_path)
             dev_deploy._make_pack_database(constants.TERRAIN_DATABASE_NAME, FIXTURE, terrain_path)
             self.assertFalse(any(key.startswith(constants.TERRAIN_THEME + "/") for key in context_only["features"]))
-            self.assertEqual(context_db.get_counts(context_path), context_db.get_counts(FIXTURE))
+            packed, original = context_db.get_counts(context_path), context_db.get_counts(FIXTURE)
+            packed["features"].pop("qa/align_sheet"), original["features"].pop("qa/align_sample")   # 팩은 정합 샘플을 도엽 요약으로 줄인다
+            self.assertEqual(packed, original)
             sheet_bounds = (-1e9, 1e9, -1e9, 1e9)
             self.assertEqual(len(context_db.load_features_in_bounds(sheet_bounds, themes=[constants.TERRAIN_THEME], database_path=context_path)),
                              len(context_db.load_features_in_bounds(sheet_bounds, themes=[constants.TERRAIN_THEME], database_path=FIXTURE)))

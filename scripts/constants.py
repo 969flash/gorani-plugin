@@ -25,6 +25,9 @@ SPATIAL_OVERLAP_MIN_AREA = 0.01  # DB 공간교차에서 무시할 미세 중첩
 # ─────────────────────────────────────────────────────────
 # PNU 앞 2자리 → (시도명, 데이터 팩 파일 접두어). 2026-09 기준 16개 시도 — 강원 51·전북 52(특별자치도 전환),
 # 전남광주통합특별시 12(광주 29·전남 46 통합). 근거: data/raw/전국_토지이용계획정보 AL_D155_<코드> 파일 목록(2026-08-26)
+# 통합으로 코드가 바뀐 시도 — 토지특성정보(2026-05)는 아직 옛 코드다. 빌드 때 시군구 이름으로 새 코드에 맞춘다
+# (dev_database_builder.get_legacy_sgg_map). 예: 광주 동구 29110 → 12210, 전남 광양 46230 → 12190, 목포 46110 → 12110
+SIDO_LEGACY_CODES = {"12": ("29", "46")}
 SIDO = {
     "11": ("서울특별시", "seoul"), "26": ("부산광역시", "busan"), "27": ("대구광역시", "daegu"), "28": ("인천광역시", "incheon"),
     "30": ("대전광역시", "daejeon"), "31": ("울산광역시", "ulsan"), "36": ("세종특별자치시", "sejong"), "41": ("경기도", "gyeonggi"),
@@ -33,6 +36,9 @@ SIDO = {
     "12": ("전남광주통합특별시", "jeonnamgwangju"),
 }
 DATABASE_CRS = 5186                   # 내부 형상 좌표계 (GRS80 중부원점, EPSG:5186)
+# 수치지형도 도엽은 지역마다 원점이 다르다(.prj 이름 → EPSG). 빌드 때 전부 DATABASE_CRS로 옮긴다
+UTMK_CRS = 5179   # UTM-K — 일부 도엽(충남 36603020)의 .prj
+KOREA_2000_BELTS = {"East_Sea_Belt_2010": 5188, "West_Belt_2010": 5185, "Central_Belt_2010": 5186, "East_Belt_2010": 5187}
 SEOUL_SOURCE_CRS = 5174               # 서울 UPIS 공개 SHP 좌표계
 RAW_DATA_DIRNAME = "data/raw"         # 공공 원천 데이터 보관 (gitignore)
 LAND_CHAR_DIRNAME = "data/raw/vworld_토지특성정보"  # 시군구별 SHP 폴더 (수동 다운로드)
@@ -91,6 +97,25 @@ OVERLAY_THEME_DISTRICT = "district"  # 용도지구
 OVERLAY_THEME_AREA = "area"          # 용도구역
 OVERLAY_THEME_FACILITY = "facility"  # 도시계획시설
 OVERLAY_THEME_PLAN = "plan"          # 지구단위계획
+# 서울 외 시도는 계획 도형 원천(UPIS 열린데이터)이 없다 — 토지이용계획 CSV의 필지별 지정 코드로 필지를 합쳐 만든다
+# (dev_database_builder.derive_overlays). 코드 앞부분 → (theme, kind, UPIS 레이어). 긴 접두가 먼저 맞는다.
+# 근거: 서울 overlays의 code 열(UPIS ATRB_SE)과 토지이용계획 코드가 같은 체계(예: UQA122·UQF132·UQS122·UQT220, 2026-10-12 확인)
+DERIVED_OVERLAY_CODES = (
+    ("UQA001", None, None, None),   # '도시지역' — 하위 용도지역의 상위 묶음이라 건너뛴다
+    ("UQA", "zone", "용도지역", "UQ111"), ("UQB", "zone", "용도지역", "UQ111"), ("UQC", "zone", "용도지역", "UQ111"),
+    ("UQD", "zone", "용도지역", "UQ111"),
+    ("UQF", "district", "경관지구", "UQ121"), ("UQH", "district", "고도지구", "UQ123"), ("UQI", "district", "방화지구", "UQ124"),
+    ("UQJ", "district", "방재지구", "UQ125"), ("UQK", "district", "보호지구", "UQ126"), ("UQM", "district", "취락지구", "UQ128"),
+    ("UQN", "district", "개발진흥지구", "UQ129"), ("UQO", "district", "특정용도제한지구", "UQ130"), ("UQP", "district", "기타용도지구", "UQ131"),
+    ("UDV", "area", "개발제한구역", "UQ141"), ("UQT600", "area", "도시자연공원구역", "UQ142"),
+    ("UQQ300", "plan", "지구단위계획구역", "UQ161"),
+    ("UQS1", "facility", "도로", "UQ151"), ("UQS2", "facility", "주차장", "UQ152"), ("UQS3", "facility", "자동차정류장", "UQ152"),
+    ("UQS5", "facility", "철도", "UQ152"), ("UQS8", "facility", "공항", "UQ152"), ("UQS", "facility", "기타교통시설", "UQ152"),
+    ("UQT1", "facility", "광장", "UQ153"), ("UQT2", "facility", "공원", "UQ153"), ("UQT3", "facility", "녹지", "UQ153"),
+    ("UQT4", "facility", "유원지", "UQ153"), ("UQT5", "facility", "공공공지", "UQ153"), ("UQT", "facility", "공간시설", "UQ153"),
+    ("UQW", "facility", "방재시설", "UQ155"),
+)
+DERIVED_OVERLAY_TILE = 1000.0   # m — 합친 도형을 이 격자로 나눈다. 시도 전체가 한 도형이면 패널 조회가 느리다
 
 # 도시계획시설의 세부 종별. 원천 SHP의 LCLAS_CL(대분류 코드)로 판정한다.
 # 코드에 없으면 원천 레이어의 기본 kind를 쓴다.
@@ -182,6 +207,41 @@ CONTEXT_DATABASE_SCHEMA_VERSION = 1
 TERRAIN_DATABASE_NAME = "seoul_terrain.db"
 TERRAIN_THEME = "terrain"
 
+# 해외 대상지(osm_context.py) — OSM Overpass + AWS Terrain Tiles. 사용자 PC가 직접 부른다(서버 없음).
+# Overpass 이용 기준: IP당 하루 1만 질의·1 GB 미만(https://wiki.openstreetmap.org/wiki/Overpass_API) — 대상지 1회 1질의
+OSM_USER_AGENT = "UrbanDesignTool/0.1 (Rhino plugin; https://www.openstreetmap.org/copyright)"
+OSM_TIMEOUT_SECONDS = 60         # 미러 하나당. 공개 Overpass는 자주 붐빈다(2026-10-13 파리 900 m: 독일 504, kumi·coffee 120 s 초과, mail.ru 22 s)
+OSM_OVERPASS_URLS = ("https://overpass-api.de/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+                     "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter")
+OSM_OVERPASS_QUERY = """[out:json][timeout:55][bbox:{bbox}];
+(
+  way["building"]; relation["building"]["type"="multipolygon"];
+  way["highway"]; way["railway"];
+  way["waterway"]; way["natural"="water"]; relation["natural"="water"]; way["landuse"~"^(reservoir|basin|grass|forest|meadow|recreation_ground|village_green|cemetery)$"];
+  way["leisure"~"^(park|garden|pitch|playground)$"]; relation["leisure"="park"]; way["natural"~"^(wood|scrub|grassland)$"];
+);
+out geom;"""
+OSM_ROAD_WIDTHS = {   # highway 등급 → 기본 도로폭 m (width·lanes 태그가 없을 때). 국내 도로 분류와 비교한 대략값
+    "motorway": 22.0, "trunk": 18.0, "primary": 15.0, "secondary": 12.0, "tertiary": 9.0, "unclassified": 6.0,
+    "residential": 6.0, "living_street": 5.0, "service": 4.0, "pedestrian": 6.0, "footway": 2.0, "cycleway": 2.0, "path": 1.5,
+    "motorway_link": 8.0, "trunk_link": 8.0, "primary_link": 7.0, "secondary_link": 7.0, "tertiary_link": 6.0, "track": 3.0, "steps": 2.0,
+}
+OSM_LANE_WIDTH = 3.3            # m — 차로당 폭
+OSM_RAIL_TYPES = ("rail", "subway", "light_rail", "tram", "narrow_gauge", "monorail")
+OSM_GREEN_TAGS = {"leisure": ("park", "garden", "pitch", "playground"), "natural": ("wood", "scrub", "grassland"),
+                  "landuse": ("grass", "forest", "meadow", "recreation_ground", "village_green", "cemetery")}
+OSM_BUILDING_USE = {   # building 태그 → 국내 건축물용도 대분류(시트 색). 근거: 건축법 시행령 별표1 대분류와 뜻이 가까운 것만
+    "house": "01000", "detached": "01000", "semidetached_house": "01000", "bungalow": "01000",
+    "apartments": "02000", "residential": "02000", "terrace": "02000", "dormitory": "02000",
+    "retail": "03000", "kiosk": "03000", "commercial": "04000", "office": "14000", "hotel": "15000",
+    "industrial": "17000", "warehouse": "18000", "school": "10000", "university": "10000", "college": "10000", "kindergarten": "11000",
+    "hospital": "09000", "church": "06000", "cathedral": "06000", "temple": "06000", "mosque": "06000", "train_station": "08000",
+}
+OSM_NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"   # 지명 검색 — 사용자가 [검색]을 누를 때 한 번
+OSM_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+OSM_TERRAIN_ZOOM = 13           # 픽셀 약 19 m(적도)·15 m(위도 37°). 원천 DEM이 약 30 m라 더 키워도 정밀해지지 않는다
+OSM_TERRAIN_STEP = 2            # 픽셀 건너뛰기 — 표고점 간격 약 30 m
+
 # 데이터 팩 받기(data_pack.py) — Yak 설치본은 DB 없이 깔리고 패널에서 받는다
 DATA_MANIFEST_URL = ""                 # 매니페스트 주소. 호스팅(Hugging Face 등)이 정해지면 채운다
 DATA_STATE_FILE_NAME = "packs.json"    # data/ 안. 받은 팩의 sha256 — 바뀐 팩만 다시 받는다
@@ -190,13 +250,20 @@ DATA_CHUNK_BYTES = 1024 * 1024         # 압축 스트림을 1 MB씩 읽어 풀�
 DATA_MAX_OPEN_FILES = 11               # 한 연결에 여는 지역 DB 수 상한 — SQLite ATTACH 기본 상한 10 + main(2026-10-12 실측)
 # 테이블별 객체 최대 폭 m — bbox 질의의 min_x 하한에 쓴다. dev_context_builder가 빌드 끝에 넘지 않는지 검사한다.
 # 실측(2026-10-08): 건물 최대 887 m(가로·세로 중 큰 값), features 최대 2,779 m(도엽 1장 높이 — 도엽 단위로 잘려 있다).
-CONTEXT_MAX_EXTENT = {"buildings": 1000.0, "features": 3000.0}
+CONTEXT_MAX_EXTENT = {"buildings": 2000.0, "features": 3000.0}   # 부산 건물 최대 1,340 m(2026-10-13 전국 빌드)
 TOPO_SHEET_DIRNAME = "data/raw/수치지형도_5000"        # 도엽 zip 그대로 + sheets.csv (수동 다운로드)
 TOPO_SHEET_INDEX_FILENAME = "sheets.csv"
 TOPO_ENCODING = "cp949"                              # 수치지형도 SHP 속성 인코딩 (성수 4도엽 실측)
 BUILDING_BULK_DIRNAME = "data/raw/vworld_GIS건물통합정보"  # AL_D010_11_<기준일>.zip (수동 다운로드)
 BUILDING_BULK_ENCODING = "cp949"
-BUILDING_BULK_FILE_GLOB = "AL_D010_11_*.zip"
+BUILDING_BULK_FILE_GLOB = "AL_D010_%s_*.zip"   # 시도 코드별 전체본
+# 수치지형도 1:5,000 Ver2.0 시군구 묶음(브이월드 dsId=30205, 2MAP5000_SHP_<시도>_<시군구>.zip — 안에 도엽 zip들).
+# 도엽 zip은 TOPO_SHEET_DIRNAME에 풀어 쓰고, 묶음 이름의 시도로 도엽을 시도 하나에 배정한다(경계 도엽은 여러 묶음에 들어 있다).
+TOPO_BUNDLE_DIRNAME = "data/raw/수치지형도_5000_시군구"
+TOPO_BUNDLE_SIDO = {   # 묶음 이름 앞부분 → 시도 코드. 광주·전남은 2026-09 전남광주통합특별시(12)로 합쳐졌다
+    "서울": "11", "부산": "26", "대구": "27", "인천": "28", "광주": "12", "전남": "12", "대전": "30", "울산": "31",
+    "세종시": "36", "경기": "41", "충북": "43", "충남": "44", "경북": "47", "경남": "48", "제주": "50", "강원": "51", "전북": "52",
+}
 
 # 수치지형도 레이어 → (theme, kind, 값 필드). 키는 접두 'N3'/'N1'을 뗀 '도형자_코드'다.
 # 도엽마다 접두가 다르다(137장 중 2장이 N1). 코드 의미는 docs/reference/수치지형도_지형지물_표준코드.csv.
@@ -467,7 +534,8 @@ REF_VDATUM = "인천만 평균해수면(수준원점 26.6871 m)"
 RESULT_TABLES_DIRNAME = "tables"
 RESULT_SHEETS_DIRNAME = "sheets"
 # data_sources.source_id → 메타 역할(lot·building·terrain·upis). prepare가 DataSource 객체를 그대로 넘겨도 역할을 찾는다
-SOURCE_ID_ROLES = {"vworld_land_char": "lot", "vworld_building": "building", "ngii_topo_5000": "terrain", "seoul_zoning": "upis"}
+SOURCE_ID_ROLES = {"vworld_land_char": "lot", "vworld_building": "building", "ngii_topo_5000": "terrain", "seoul_zoning": "upis",
+                   "osm": "building", "aws_terrain": "terrain"}   # osm·aws_terrain = 해외 대상지(osm_context)
 META_SOURCE_NAMES = {"lot": "필지 토지특성정보", "building": "건물 GIS건물통합정보", "upis": "도시계획 서울시 UPIS", "terrain": "지형 수치지형도 1:5,000"}
 # ② 출처·라이선스 — 토지특성·토지이용계획은 '이용허락범위 제한 없음'(공공누리 1유형/CC BY로 적지 않는다, data_sources §3)
 META_SOURCE_LINE = ("출처: 국토교통부(GIS건물통합정보 — CC BY/공공누리 1유형; 토지특성정보·토지이용계획정보 — 이용허락범위 제한 없음), "
