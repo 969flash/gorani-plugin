@@ -111,7 +111,7 @@ def _open_database(database_path=None, bounds=None):
         raise FileNotFoundError(
             "컨텍스트 DB가 없습니다: %s\npython3 scripts/dev_context_builder.py 로 만드세요" % (database_path or DEFAULT_DATABASE_PATH)
         )
-    connection = data_pack.open_union(paths)
+    connection = data_pack.open_databases(paths)
     version = connection.execute("PRAGMA user_version").fetchone()[0]
     if version < constants.CONTEXT_DATABASE_SCHEMA_VERSION:
         connection.close()
@@ -179,7 +179,7 @@ def load_buildings_in_bounds(bounds, database_path=None, include_demolished=Fals
         rows = connection.execute(sql, values).fetchall()
     finally:
         connection.close()
-    return [_building_from_row(row) for row in rows]
+    return [_building_from_row(row) for row in {row["building_id"]: row for row in rows}.values()]   # 시군구 팩 경계 중복 제거
 
 
 def load_features_in_bounds(bounds, themes=None, kinds=None, database_path=None):
@@ -198,7 +198,7 @@ def load_features_in_bounds(bounds, themes=None, kinds=None, database_path=None)
         rows = connection.execute(sql, values).fetchall()
     finally:
         connection.close()
-    return [_feature_from_row(row) for row in rows]
+    return [_feature_from_row(row) for row in {row["feature_id"]: row for row in rows}.values()]   # 시군구 팩 경계 중복 제거
 
 
 def load_sources(database_path=None):
@@ -208,7 +208,7 @@ def load_sources(database_path=None):
         rows = connection.execute("SELECT * FROM data_sources GROUP BY source_id ORDER BY source_id").fetchall()
     finally:
         connection.close()
-    return [DataSource(**dict(row)) for row in rows]
+    return list({row["source_id"]: DataSource(**dict(row)) for row in rows}.values())
 
 
 def load(bounds, themes=None, database_path=None, include_minor=False):
@@ -234,11 +234,10 @@ def count_in_bounds(bounds, database_path=None, include_minor=False):
         bld_values.extend(constants.TOPO_MINOR_KINDS)
     connection = _open_database(database_path, bounds)
     try:
-        buildings = connection.execute(sql, bld_values).fetchone()[0]
-        themes = {
-            row[0]: int(row[1])
-            for row in connection.execute("SELECT theme, COUNT(*) FROM features" + _BBOX_SQL + " GROUP BY theme", _bbox_values(bounds, "features"))
-        }
+        buildings = sum(row[0] for row in connection.execute(sql, bld_values).fetchall())   # 묶음마다 한 줄 — 경계 중복은 예상치라 그대로
+        themes = {}
+        for row in connection.execute("SELECT theme, COUNT(*) FROM features" + _BBOX_SQL + " GROUP BY theme", _bbox_values(bounds, "features")):
+            themes[row[0]] = themes.get(row[0], 0) + int(row[1])
     finally:
         connection.close()
     return {"buildings": int(buildings), "themes": themes}
@@ -261,12 +260,12 @@ def get_counts(database_path=None):
     """건물 수와 theme/kind별 피처 수. 패널의 데이터 상태 표시와 QA에 쓴다."""
     connection = _open_database(database_path)
     try:
-        buildings = connection.execute("SELECT COUNT(*) FROM buildings").fetchone()[0]
-        features = {
-            "%s/%s" % (row[0], row[1]): int(row[2])
-            for row in connection.execute("SELECT theme, kind, COUNT(*) FROM features GROUP BY 1, 2")
-        }
-        sheets = connection.execute("SELECT COUNT(DISTINCT sheet) FROM features").fetchone()[0]
+        buildings = sum(row[0] for row in connection.execute("SELECT COUNT(*) FROM buildings").fetchall())
+        features = {}
+        for row in connection.execute("SELECT theme, kind, COUNT(*) FROM features GROUP BY 1, 2"):
+            key = "%s/%s" % (row[0], row[1])
+            features[key] = features.get(key, 0) + int(row[2])
+        sheets = len({row[0] for row in connection.execute("SELECT DISTINCT sheet FROM features").fetchall()})
     finally:
         connection.close()
     return {"buildings": int(buildings), "features": features, "sheets": int(sheets)}
