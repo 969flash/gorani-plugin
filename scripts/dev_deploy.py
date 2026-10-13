@@ -5,6 +5,7 @@
     python3 scripts/dev_deploy.py packs      # build/packs/*.db.xz + manifest.json
     python3 scripts/dev_deploy.py packs --sido 43 --drop   # 시도 하나만 압축하고 원본 DB를 지운다(전국 빌드 흐름)
     python3 scripts/dev_deploy.py repack     # 시도 팩 압축본을 풀어 (줄이고) 시군구 팩으로 나눠 다시 압축
+    python3 scripts/dev_deploy.py upload     # 시군구 필지·컨텍스트 팩 + 매니페스트를 Hugging Face 공개 데이터셋에(hf auth login 먼저)
 
 yak: 진입 명령 UrbanSite 하나짜리 .rhp를 rhinocode로 빌드하고(떠 있는 Rhino 8 필요), 그 옆에 scripts/(평문 진입 스크립트 +
      로직 .pyc + 패널 HTML·vendor)를 두고 yak CLI로 묶는다. rhinocode의 Shared 리소스는 폴더 구조를 펴 버려서 쓰지 않는다
@@ -602,14 +603,77 @@ def _fill_manifest(pack_dir):
     return added
 
 
+DATASET_CARD = """---
+license: other
+license_name: kogl-type1-cc-by
+pretty_name: UrbanDesignTool 시군구 데이터 팩
+language: [ko]
+tags: [geospatial, korea, cadastral, buildings, rhino]
+---
+# UrbanDesignTool 데이터 팩
+
+Rhino 플러그인 UrbanDesignTool(대지검토)이 대상지 주변만 받아 쓰는 시군구 단위 SQLite 팩(xz 압축). 좌표계 EPSG:5186.
+
+- `<시군구코드>_site.db.xz` — 필지(토지특성정보 도형·속성), 토지이용계획 지정 현황, 계획 도형(서울 UPIS / 그 외 지정 코드로 필지를 합친 것)
+- `<시군구코드>_context.db.xz` — 건물(GIS건물통합정보 + 수치지형도 보충), 도로·수계·철도·녹지 등 수치지형도 1:5,000 지형지물
+- 등고선·표고점(`*_terrain`)은 여기 올리지 않는다(국가공간정보 보안관리규정 별표1·공간정보관리법 제16조).
+- `manifest.json` — 팩 목록·sha256·범위. 플러그인이 읽는다.
+
+## 출처·라이선스 (원천 그대로 — 가공: 재투영·병합·단순화·시군구 분할)
+- 국토교통부 토지특성정보·토지이용계획정보 — 이용허락범위 제한 없음(공공데이터포털 15048121·15045900)
+- 국토교통부 GIS건물통합정보 — CC BY 2.0 KR(브이월드 dsId=18) / 공공누리 제1유형
+- 국토지리정보원 수치지형도 1:5,000 Ver2.0 — 공공누리 제1유형
+- 서울특별시 도시계획정보(UPIS) — 공공누리 제1유형
+- 본 데이터는 정보제공 목적이며 법적 효력이 없다(국토교통부 국가중점데이터 안내).
+"""
+
+
+def upload():
+    # type: () -> str
+    """build/packs/의 시군구 필지·컨텍스트 팩 + 공개 매니페스트 + 설명을 Hugging Face 데이터셋(constants.DATA_REPO_ID, 공개)에 올린다.
+
+    등고선 팩은 constants.DATA_TERRAIN_BASE_URL(국내 서버)이 있으면 매니페스트에 절대 주소로만 적고, 없으면 매니페스트에서 뺀다.
+    `hf auth login`(쓰기 토큰)이 먼저 필요하다. upload_large_folder라 끊겨도 다시 실행하면 이어 올린다.
+    """
+    from huggingface_hub import HfApi
+    pack_dir = os.path.join(BUILD_DIR, "packs")
+    with open(os.path.join(pack_dir, "manifest.json"), encoding="utf-8") as f:
+        manifest = json.load(f)
+    public = []
+    for pack in manifest["packs"]:
+        if not pack["name"][:5].isdigit():   # 옛 시도 팩
+            continue
+        if pack["name"].endswith("_terrain.db"):
+            if not constants.DATA_TERRAIN_BASE_URL:
+                continue
+            pack = dict(pack, url=constants.DATA_TERRAIN_BASE_URL + pack["url"])
+        public.append(pack)
+    stage = os.path.join(BUILD_DIR, "hf_stage")
+    os.makedirs(stage, exist_ok=True)
+    with open(os.path.join(stage, "manifest.json"), "w", encoding="utf-8") as f:
+        json.dump({"version": manifest["version"], "packs": public}, f, ensure_ascii=False, indent=1)
+    with open(os.path.join(stage, "README.md"), "w", encoding="utf-8") as f:
+        f.write(DATASET_CARD)
+    api = HfApi()
+    api.create_repo(constants.DATA_REPO_ID, repo_type="dataset", private=False, exist_ok=True)
+    api.upload_large_folder(repo_id=constants.DATA_REPO_ID, repo_type="dataset", folder_path=pack_dir,
+                            allow_patterns=["[0-9][0-9][0-9][0-9][0-9]_site.db.xz", "[0-9][0-9][0-9][0-9][0-9]_context.db.xz"])
+    api.upload_folder(repo_id=constants.DATA_REPO_ID, repo_type="dataset", folder_path=stage, commit_message="manifest·README")
+    print("  올림: 팩 %d개 → https://huggingface.co/datasets/%s" % (len(public), constants.DATA_REPO_ID), flush=True)
+    return constants.DATA_MANIFEST_URL
+
+
 def main():
     if sys.version_info[:2] != (3, 9):
         sys.exit("Rhino 8의 CPython(3.9)과 같은 Python 3.9로 실행해야 .pyc가 호환됩니다. 현재: %d.%d" % sys.version_info[:2])
     parser = argparse.ArgumentParser(description="Yak 패키지·데이터 팩 빌드")
-    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "packs", "repack"))
+    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "packs", "repack", "upload"))
     parser.add_argument("--sido", help="packs: 쉼표로 구분한 시도 코드만 (기본 data/에 있는 전부)")
     parser.add_argument("--drop", action="store_true", help="packs: 압축 뒤 원본 시도 DB를 지운다(서울 제외)")
     args = parser.parse_args()
+    if args.what == "upload":
+        print("manifest: %s" % upload())
+        return
     if args.what == "repack":
         print("repack: %s" % repack())
         return
