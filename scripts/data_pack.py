@@ -51,12 +51,13 @@ def _read_state(data_dir):
         return {}
 
 
-def get_local_paths(kind, bounds=None, sido_codes=None, data_dir=None):
-    # type: (str, tuple, set, str) -> list
-    """data/의 `<시도>_<kind>.db` 경로 목록(정렬).
+def get_local_paths(kind, bounds=None, sido_codes=None, data_dir=None, sgg_codes=None):
+    # type: (str, tuple, set, str, set) -> list
+    """data/의 `<지역>_<kind>.db` 경로 목록(정렬). 지역 = 시도 접두어(seoul — 개발 DB·옛 시도 팩) 또는 시군구 코드 5자리(배포 팩).
 
     입력: kind = site·context·terrain. bounds = (min_x, min_y, max_x, max_y) EPSG:5186 — packs.json 범위가 겹치는 파일만.
-          sido_codes = PNU 앞 2자리 집합 — 그 시도 파일만. 범위·시도를 모르는 파일(저장소 개발 DB)은 거르지 않는다.
+          sido_codes = PNU 앞 2자리 집합, sgg_codes = PNU 앞 5자리 집합 — 그 지역 파일만(시도 파일은 시도로 본다).
+          범위·지역을 모르는 파일은 거르지 않는다.
     출력: 경로 문자열 목록. 없으면 빈 목록.
     """
     data_dir = data_dir or get_data_dir()
@@ -67,7 +68,11 @@ def get_local_paths(kind, bounds=None, sido_codes=None, data_dir=None):
     for name in sorted(os.listdir(data_dir)) if os.path.isdir(data_dir) else []:
         if not name.endswith(suffix):
             continue
-        if slugs is not None and name[:-len(suffix)] not in slugs:
+        region = name[:-len(suffix)]
+        if region.isdigit():
+            if (sgg_codes is not None and region not in sgg_codes) or (slugs is not None and region[:2] not in sido_codes):
+                continue
+        elif slugs is not None and region not in slugs:
             continue
         pack_bounds = (state.get(name) or {}).get("bounds") if isinstance(state.get(name), dict) else None
         if bounds and pack_bounds and not (bounds[0] <= pack_bounds[2] and bounds[2] >= pack_bounds[0]
@@ -75,6 +80,43 @@ def get_local_paths(kind, bounds=None, sido_codes=None, data_dir=None):
             continue
         paths.append(os.path.join(data_dir, name))
     return paths
+
+
+class _Rows(list):
+    """여러 연결의 결과를 이어 붙인 행 목록 — sqlite3 커서처럼 fetchall·fetchone을 쓴다."""
+
+    def fetchall(self):
+        return list(self)
+
+    def fetchone(self):
+        return self[0] if self else None
+
+
+class _Connections:
+    """파일이 SQLite ATTACH 상한을 넘을 때 — 묶음마다 open_union 연결을 열고 같은 질의 결과를 이어 붙인다.
+    COUNT·GROUP BY는 묶음마다 한 줄씩 나오므로 호출자가 합친다(lot_db·context_db). 같은 id가 여러 시군구 팩에 있으면 호출자가 걸러 낸다."""
+
+    def __init__(self, groups):
+        self.groups = groups
+
+    def execute(self, sql, params=()):
+        rows = _Rows()
+        for connection in self.groups:
+            rows.extend(connection.execute(sql, params).fetchall())
+        return rows
+
+    def close(self):
+        for connection in self.groups:
+            connection.close()
+
+
+def open_databases(paths):
+    # type: (list) -> object
+    """파일 목록 → 연결 하나(open_union). 상한(DATA_MAX_OPEN_FILES)을 넘으면 묶음마다 연결해 결과를 이어 붙이는 _Connections."""
+    size = constants.DATA_MAX_OPEN_FILES
+    if len(paths) <= size:
+        return open_union(paths)
+    return _Connections([open_union(paths[i:i + size]) for i in range(0, len(paths), size)])
 
 
 def open_union(paths):

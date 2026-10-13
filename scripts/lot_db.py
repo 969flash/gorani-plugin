@@ -192,10 +192,11 @@ def _open_database(database_path=None, bounds=None, pnus=None):
     if database_path:
         paths = [str(database_path)] if Path(database_path).exists() else []
     else:
-        paths = data_pack.get_local_paths("site", bounds, {pnu[:2] for pnu in pnus} if pnus else None)
+        paths = data_pack.get_local_paths("site", bounds, {pnu[:2] for pnu in pnus} if pnus else None,
+                                          sgg_codes={pnu[:5] for pnu in pnus} if pnus else None)
     if not paths:
         raise FileNotFoundError("로컬 DB가 없습니다: %s" % (database_path or DEFAULT_DATABASE_PATH))
-    return data_pack.open_union(paths)
+    return data_pack.open_databases(paths)
 
 
 def _get_lots_bounds(lots, margin):
@@ -287,6 +288,8 @@ def load(pnus, database_path=None):
             """ % placeholders,
             pnus,
         ).fetchall()
+        # 시군구 팩은 경계에 걸친 계획 도형을 양쪽에 넣는다 — 같은 (필지, 도형)은 한 번만
+        overlay_rows = list({(row["pnu"], row["overlay_id"]): row for row in overlay_rows}.values())
         overlays = [_overlay_info_from_row(row) for row in overlay_rows]
 
         designation_rows = connection.execute(
@@ -297,12 +300,13 @@ def load(pnus, database_path=None):
             """ % placeholders,
             pnus,
         ).fetchall()
-        designations = [DesignationInfo(**dict(row)) for row in designation_rows]
+        designations = [DesignationInfo(pnu=pnu, code=code, name=name, conflict=conflict)
+                        for pnu, code, name, conflict in dict.fromkeys(tuple(row) for row in designation_rows)]
 
         source_rows = connection.execute(
             "SELECT * FROM data_sources GROUP BY source_id ORDER BY source_id"
         ).fetchall()
-        sources = [DataSource(**dict(row)) for row in source_rows]
+        sources = list({row["source_id"]: DataSource(**dict(row)) for row in source_rows}.values())
     finally:
         connection.close()
 
@@ -527,7 +531,7 @@ def load_sources(database_path=None):
         rows = connection.execute("SELECT * FROM data_sources GROUP BY source_id ORDER BY source_id").fetchall()
     finally:
         connection.close()
-    return [DataSource(**dict(row)) for row in rows]
+    return list({row["source_id"]: DataSource(**dict(row)) for row in rows}.values())
 
 
 def count_parcels_in_bounds(min_x, min_y, max_x, max_y, database_path=None):
@@ -536,10 +540,10 @@ def count_parcels_in_bounds(min_x, min_y, max_x, max_y, database_path=None):
     connection = _open_database(database_path, (min_x, min_y, max_x, max_y))
     try:
         _require_bbox_index(connection)
-        return int(connection.execute(
+        return sum(int(row[0]) for row in connection.execute(   # 묶음마다 한 줄(data_pack._Connections)
             "SELECT COUNT(*) FROM parcels WHERE min_x <= ? AND max_x >= ? AND min_y <= ? AND max_y >= ?",
             (float(max_x), float(min_x), float(max_y), float(min_y)),
-        ).fetchone()[0])
+        ).fetchall())
     finally:
         connection.close()
 
