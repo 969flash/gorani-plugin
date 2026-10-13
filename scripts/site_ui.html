@@ -124,6 +124,7 @@ label.chk { display: flex; align-items: center; min-height: 32px; }
 .map-chips { position: absolute; left: 8px; bottom: 8px; z-index: 800; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
 .chip { background: rgba(255,255,255,.92); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-size: 12px; color: var(--sub); }
 .chip.lv-danger { color: var(--danger); }
+.chip.packs { pointer-events: auto; color: var(--text); display: flex; align-items: center; gap: 8px; padding: 3px 4px 3px 10px; }
 .leaflet-container { font: inherit; }
 .map-label { background: none; border: 0; box-shadow: none; color: #5c5c58; font-size: 11px; padding: 0; }
 .map-label.extent { color: var(--ink); font-weight: 600; }
@@ -332,7 +333,7 @@ var MAP_STYLE = {
 // ── 상태 ──
 var state = { step: 1, run: "idle", blocked: false, dirty: false, maxReached: 1,
   mode: null, lots: [], lotState: null, area: null, point: null, flyOnArea: false, options: {}, preflight: null, progress: null, result: null,
-  init: null, busy: false, logLines: [], startedAt: 0, flyOnLot: false, seq: { map: 0, preflight: 0 } };
+  init: null, busy: false, logLines: [], startedAt: 0, flyOnLot: false, seq: { map: 0, preflight: 0, packs: 0 }, areaPacks: null };
 var map = null, tiles = null, lotsLayer = null, targetLayer = null, extentLayer = null, topoLayer = null, frameLayer = null, qaLayer = null, svgRenderer = null;
 var tileErrors = 0, tileFallback = false, tileDead = false;
 var pointLayer = null, draw = { on: false, pts: [], layer: null, rubber: null }, stamp = { on: false, offsets: null, layer: null };
@@ -702,7 +703,8 @@ function initMap(init) {
   var el = $("map");
   // 지도 위 칩 — 컨테이너 자식이라 슬롯을 옮겨도 따라간다
   var chips = document.createElement("div"); chips.className = "map-chips";
-  chips.innerHTML = '<span class="chip" id="chip_zoom" hidden>확대하면 필지가 보입니다</span><span class="chip" id="chip_trunc" hidden>일부만 표시 — 더 확대하세요</span><span class="chip lv-danger" id="chip_offline" hidden>지도 타일을 못 받음(오프라인) — 필지선만 표시</span>';
+  chips.innerHTML = '<span class="chip" id="chip_zoom" hidden>확대하면 필지가 보입니다</span><span class="chip" id="chip_trunc" hidden>일부만 표시 — 더 확대하세요</span><span class="chip lv-danger" id="chip_offline" hidden>지도 타일을 못 받음(오프라인) — 필지선만 표시</span>' +
+    '<span class="chip packs" id="chip_packs" hidden></span>';
   el.appendChild(chips);
   map = L.map(el, { preferCanvas: true, zoomControl: false, attributionControl: true }).setView(ll(init.map.center), init.map.zoom);
   el.tabIndex = -1;
@@ -719,7 +721,7 @@ function initMap(init) {
     } else { tileDead = true; $("chip_offline").hidden = false; }
   });
   tiles.on("load", function () { tileErrors = 0; });
-  map.on("moveend zoomend", function () { updateTileSource(); if (state.step === 1) debounce("move", 250, requestLots); });
+  map.on("moveend zoomend", function () { updateTileSource(); if (state.step === 1) { debounce("move", 250, requestLots); debounce("packs", 600, requestAreaPacks); } });
   map.on("click", function (e) {
     if (state.step !== 1 || state.run === "running") return;
     if (draw.on) { draw.pts.push(e.latlng); redrawDraw(e.latlng); renderAreaInfo(); return; }
@@ -727,6 +729,20 @@ function initMap(init) {
   });
   map.on("dblclick", function () { if (draw.on) finishDraw(); });
   map.on("mousemove", function (e) { if (draw.on) redrawDraw(e.latlng); });
+}
+function requestAreaPacks() {   // 지도 화면에 걸리는데 아직 안 받은 시군구 팩(시군구 팩 배포, panel_ui.md area_packs)
+  if (!map || !state.init || !state.init.can_download || state.downloading) return;
+  var b = map.getBounds();
+  send({ cmd: "area_packs", bbox: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], seq: ++state.seq.packs });
+}
+function renderAreaPacks(text) {
+  var chip = $("chip_packs"); if (!chip) return;
+  var a = state.areaPacks;
+  if (text) { chip.innerHTML = "<span>" + esc(text) + '</span><button type="button" class="btn sm" data-act="download_stop">멈추기</button>'; chip.hidden = false; return; }
+  if (!a || !a.missing.length) { chip.hidden = true; return; }
+  var names = a.labels.length ? a.labels[0].split(" ").slice(1).join(" ") + (a.labels.length > 1 ? " 외 " + (a.labels.length - 1) : "") : "이 지역";
+  chip.innerHTML = "<span>이 지역 DB 없음 · " + esc(names) + " · " + esc(fmtNum(a.mb)) + ' MB</span><button type="button" class="btn sm primary" data-act="download_area">받기</button>';
+  chip.hidden = false;
 }
 function requestLots() {
   if (!map || state.step !== 1) return;
@@ -1150,7 +1166,7 @@ function applyImported(ok, text, layers, objects) {
 // ── 블로커·헤더 띠 ──
 function renderBlocker() {
   var init = state.init, el = $("blocker");
-  if (!init || !init.blocked || state.abroadOnly) { el.hidden = true; return; }
+  if (!init || !init.blocked || state.abroadOnly || state.dataLater) { el.hidden = true; return; }
   var src = {}; init.sources.forEach(function (s) { src[s.id] = s; });
   var g = init.generator || {}, p = init.paths || {};
   var row = function (ok, label, text, cls) { return '<span class="' + (cls || (ok ? "ok" : "bad")) + '">' + (cls === "opt" ? "○" : ok ? "✓" : "✗") + "</span><span>" + esc(label) + "</span><span>" + esc(text) + "</span>"; };
@@ -1159,9 +1175,9 @@ function renderBlocker() {
     row(lotOk, "필지 DB", (p.lot_db || "data/seoul_site.db") + (lotOk ? " (" + mmdd(src.lot.date) + ")" : " 없음")) +
     row(ctxOk, "컨텍스트 DB", (p.context_db || "data/seoul_context.db") + (ctxOk ? " (" + mmdd(src.building ? src.building.date : "") + ")" : " 없음"), ctxOk ? "ok" : "opt") +
     row(true, "생성기", g.text || "Rhino 내장") + "</div>" +
-    (lotOk ? "" : init.can_download ? "<p>[DB 받기]를 누르면 서울 DB(약 600 MB)를 받아 data 폴더에 넣습니다. 받는 동안 Rhino가 느려집니다.</p><p id=\"data_progress\" aria-live=\"polite\"></p>"
+    (lotOk ? "" : init.can_download ? "<p>DB는 시군구 단위로 받습니다(구 하나에 수십 MB). [지도에서 지역 골라 받기]를 누르고 지도를 대상지로 옮긴 뒤 지도 왼쪽 아래 [받기]를 누르세요.</p>"
       : "<p>필지 DB <span class=\"mono\">data/seoul_site.db</span> 를 data 폴더에 넣으세요.<br>절차: <span class=\"mono\">docs/data_sources.md §0</span></p>") +
-    '<div class="acts" style="display:flex;gap:8px;flex-wrap:wrap">' + (init.can_download && !lotOk ? '<button type="button" class="btn primary" data-act="download">DB 받기</button><button type="button" class="btn" data-act="download_stop">멈추기</button>' : "") + '<button type="button" class="btn" data-act="open" data-path="data">data 폴더 열기</button><button type="button" class="btn" data-act="open" data-path="' + esc(p.install_doc || "docs/install.md") + '">문서 열기</button><button type="button" class="btn primary" data-act="init">다시 확인</button></div>' +
+    '<div class="acts" style="display:flex;gap:8px;flex-wrap:wrap">' + (init.can_download && !lotOk ? '<button type="button" class="btn primary" data-act="data_later">지도에서 지역 골라 받기</button>' : "") + '<button type="button" class="btn" data-act="open" data-path="data">data 폴더 열기</button><button type="button" class="btn" data-act="open" data-path="' + esc(p.install_doc || "docs/install.md") + '">문서 열기</button><button type="button" class="btn primary" data-act="init">다시 확인</button></div>' +
     '<p class="hint" style="margin-top:12px">해외 대상지만 쓴다면 DB 없이 시작할 수 있습니다 — 건물·도로·지형은 OpenStreetMap·지형 타일에서 받습니다.</p>' +
     '<div class="acts"><button type="button" class="btn" data-act="abroad">DB 없이 해외 대상지로 계속</button></div>';
   el.hidden = false;
@@ -1206,8 +1222,13 @@ function requestCancel() { var b = $("cancel_btn"); if (state.run === "running" 
 var ACTIONS = {
   init: function () { send({ cmd: "init" }); },
   abroad: function () { state.abroadOnly = true; state.blocked = false; $("blocker").hidden = true; if (state.mode === "lots") state.mode = null; render(); toast("지도를 해외로 옮겨 구역을 그리거나 위치를 찍으세요"); },
-  download: function () { var p = $("data_progress"); if (p) p.textContent = "연결 중…"; send({ cmd: "download_data" }); },
   download_stop: function () { send({ cmd: "cancel" }); },
+  download_area: function () {
+    var a = state.areaPacks; if (!a || !a.missing.length) return;
+    state.downloading = true; renderAreaPacks("받기 시작…");
+    send({ cmd: "download_data", names: a.missing.map(function (p) { return p.name; }) });
+  },
+  data_later: function () { state.abroadOnly = false; state.dataLater = true; state.blocked = false; $("blocker").hidden = true; render(); toast("지도를 대상지로 옮기면 그 지역 DB를 받을 수 있습니다"); requestAreaPacks(); },
   search: doSearch,
   clear: function () { send({ cmd: "select_lots", pnus: [] }); },
   remove: function (b) { toggleLot(b.dataset.pnu); },
@@ -1304,7 +1325,7 @@ window.addEventListener("resize", function () { if (map) map.invalidateSize(); }
 var handlers = {
   init_state: function (m) {
     var first = !state.init;
-    state.init = m; state.blocked = !!m.blocked && !state.abroadOnly;
+    state.init = m; state.blocked = !!m.blocked && !state.abroadOnly && !state.dataLater;
     if (first) {
       Object.keys(DEFAULTS).forEach(function (k) { state.options[k] = (m.options && k in m.options) ? m.options[k] : JSON.parse(JSON.stringify(DEFAULTS[k])); });
       initMap(m);
@@ -1312,6 +1333,7 @@ var handlers = {
     } else {
       if (tiles && m.tile && m.tile.url !== tiles._url && !tileFallback) tiles.setUrl(m.tile.url);
       renderHeader();
+      if (state.downloading) { state.downloading = false; state.areaPacks = null; renderAreaPacks(); requestLots(); requestAreaPacks(); }
       if (state.step === 2 || state.step === 3) { state.preflight = null; renderDataStatus(); sendPreflight(0); }
     }
     renderInitWarnings(); renderBlocker();
@@ -1384,7 +1406,8 @@ var handlers = {
     renderPhaseList(); updateCancelBtn();
   },
   log: function (m) { appendLog(m.text, m.level); },
-  data_progress: function (m) { var p = $("data_progress"); if (p) p.textContent = m.text; },
+  data_progress: function (m) { var p = $("data_progress"); if (p) p.textContent = m.text; if (state.downloading) renderAreaPacks(m.text); },
+  area_packs: function (m) { if (m.seq !== state.seq.packs) return; state.areaPacks = m; renderAreaPacks(); },
   busy: function (m) { state.busy = !!m.on; state.busyLabel = m.label || ""; updateCancelBtn(); },
   done: function (m) {
     clearInterval(timers.elapsed);
