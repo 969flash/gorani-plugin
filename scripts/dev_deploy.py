@@ -4,6 +4,7 @@
     python3 scripts/dev_deploy.py yak        # build/UrbanDesignTool-<버전>-rh8_0-any.yak
     python3 scripts/dev_deploy.py packs      # build/packs/*.db.xz + manifest.json
     python3 scripts/dev_deploy.py packs --sido 43 --drop   # 시도 하나만 압축하고 원본 DB를 지운다(전국 빌드 흐름)
+    python3 scripts/dev_deploy.py repack     # 용량 줄이기 전에 만든 팩을 풀어 줄이고 다시 압축
 
 yak: 진입 명령 UrbanSite 하나짜리 .rhp를 rhinocode로 빌드하고(떠 있는 Rhino 8 필요), 그 옆에 scripts/(평문 진입 스크립트 +
      로직 .pyc + 패널 HTML·vendor)를 두고 yak CLI로 묶는다. rhinocode의 Shared 리소스는 폴더 구조를 펴 버려서 쓰지 않는다
@@ -361,14 +362,48 @@ def build_packs(sido_codes=None, drop=False):
     return manifest_path
 
 
+def repack():
+    # type: () -> list
+    """build/packs/의 옛 팩(slim_pack_database 이전)을 풀어 줄이고 다시 압축한다. 매니페스트의 크기·sha256을 고친다. 고친 팩 이름 목록.
+    원본 DB를 지운 시도도 팩에서 바로 다시 만들 수 있다."""
+    pack_dir = os.path.join(BUILD_DIR, "packs")
+    manifest_path = os.path.join(pack_dir, "manifest.json")
+    with open(manifest_path, encoding="utf-8") as f:
+        manifest = json.load(f)
+    done = []
+    for pack in manifest["packs"]:
+        target = os.path.join(pack_dir, pack["name"])
+        subprocess.run(["xz", "-d", "-k", "-f", "-T0", target + ".xz"], check=True)
+        connection = sqlite3.connect(target)
+        if connection.execute("PRAGMA application_id").fetchone()[0] == SLIM_PACK_ID:
+            connection.close()
+            os.remove(target)
+            continue
+        print("  %s 줄이는 중... (%.2f GB)" % (pack["name"], os.path.getsize(target) / 1024.0 ** 3), flush=True)
+        slim_pack_database(connection, pack["name"].rsplit("_", 1)[1][:-3])
+        connection.execute("ANALYZE")
+        connection.execute("VACUUM")
+        connection.close()
+        pack["size"], pack["sha256"] = os.path.getsize(target), _get_sha256(target)
+        subprocess.run(["xz", "-6", "-T0", "-f", target], check=True)
+        pack["xz_size"] = os.path.getsize(target + ".xz")
+        done.append(pack["name"])
+        with open(manifest_path, "w", encoding="utf-8") as f:   # 팩마다 적는다 — 중간에 멈춰도 매니페스트가 맞다
+            json.dump(manifest, f, ensure_ascii=False, indent=1)
+    return done
+
+
 def main():
     if sys.version_info[:2] != (3, 9):
         sys.exit("Rhino 8의 CPython(3.9)과 같은 Python 3.9로 실행해야 .pyc가 호환됩니다. 현재: %d.%d" % sys.version_info[:2])
     parser = argparse.ArgumentParser(description="Yak 패키지·데이터 팩 빌드")
-    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "packs"))
+    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "packs", "repack"))
     parser.add_argument("--sido", help="packs: 쉼표로 구분한 시도 코드만 (기본 data/에 있는 전부)")
     parser.add_argument("--drop", action="store_true", help="packs: 압축 뒤 원본 시도 DB를 지운다(서울 제외)")
     args = parser.parse_args()
+    if args.what == "repack":
+        print("repack: %s" % repack())
+        return
     if args.what in ("all", "yak"):
         print("yak: %s" % build_yak())
     if args.what in ("all", "packs"):
