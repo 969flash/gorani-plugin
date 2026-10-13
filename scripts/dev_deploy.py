@@ -71,6 +71,7 @@ PACK_KINDS = (   # (종류, 표시 이름 꼬리, 원본 DB 종류) — 등고�
     ("context", "건물·도로·수계", "context"),
     ("terrain", "등고선", "context"),
 )
+REWRITE_CHUNK = 100000      # 도형 다시 쓰기 한 번에 읽는 id 구간
 SLIM_PACK_ID = 0x55445431   # 'UDT1' — slim_pack_database를 거친 팩 표시(PRAGMA application_id)
 BOUNDS_SQL = {   # 팩 범위(EPSG:5186) — data_pack이 대상지에 걸리는 시도 파일만 열 때 쓴다
     "site": "SELECT MIN(min_x), MIN(min_y), MAX(max_x), MAX(max_y) FROM parcels",
@@ -197,8 +198,20 @@ def _get_rounded(value, digits):
 
 def _rewrite_geometries(connection, table, id_column, where, digits, tolerance=None):
     # type: (sqlite3.Connection, str, str, str, int, float) -> None
-    """geometry_json을 digits 자리로 반올림(공백 없는 JSON)하고, tolerance가 있으면 그만큼 단순화한다(shapely — 개발 환경 전용)."""
-    rows = connection.execute("SELECT %s, geometry_json FROM %s %s" % (id_column, table, where)).fetchall()
+    """geometry_json을 digits 자리로 반올림(공백 없는 JSON)하고, tolerance가 있으면 그만큼 단순화한다(shapely — 개발 환경 전용).
+    id 구간 REWRITE_CHUNK씩 나눠 읽는다 — 충북 컨텍스트(9.6 GB)를 한 번에 읽었더니 스왑으로 3시간 멈췄다(2026-10-13)."""
+    low, high = connection.execute("SELECT MIN(%s), MAX(%s) FROM %s" % (id_column, id_column, table)).fetchone()
+    if low is None:
+        return
+    condition = (where + " AND" if where else "WHERE") + " %s BETWEEN ? AND ?" % id_column
+    for start in range(low, high + 1, REWRITE_CHUNK):
+        rows = connection.execute("SELECT %s, geometry_json FROM %s %s" % (id_column, table, condition), (start, start + REWRITE_CHUNK - 1)).fetchall()
+        _rewrite_rows(connection, table, id_column, rows, digits, tolerance)
+        connection.commit()
+
+
+def _rewrite_rows(connection, table, id_column, rows, digits, tolerance):
+    # type: (sqlite3.Connection, str, str, list, int, float) -> None
     updates = []
     for row_id, text in rows:
         geometry = json.loads(text)
