@@ -12,6 +12,7 @@
 
 import argparse
 import csv
+import gzip
 import io
 import json
 import os
@@ -792,6 +793,20 @@ def _insert_land_char_lots(connection, lot_data):
 LAND_USE_COLUMNS = ("고유번호", "용도지역지구코드", "용도지역지구명", "저촉여부")
 
 
+def _get_land_use_paths(land_use_dir, prefix):
+    # type: (Path, str) -> list
+    """토지이용계획 CSV 경로 — 원본 .csv 또는 보관용으로 압축한 .csv.gz(전국 42 GB → 수 GB)."""
+    return sorted(list(land_use_dir.glob(prefix + "*.csv")) + list(land_use_dir.glob(prefix + "*.csv.gz")))
+
+
+def _open_land_use(path):
+    # type: (Path) -> object
+    """CSV 텍스트 핸들(cp949). .gz면 풀면서 읽는다."""
+    if str(path).endswith(".gz"):
+        return gzip.open(path, "rt", encoding=constants.LAND_USE_ENCODING, errors="replace", newline="")
+    return io.open(path, encoding=constants.LAND_USE_ENCODING, errors="replace", newline="")
+
+
 def load_land_use(connection, land_use_dir=None, chunk_size=200000, sido_code=SEOUL_CODE):
     # type: (object, object, int, str) -> int
     """토지이용계획정보 CSV를 parcel_land_use에 적재한다.
@@ -807,7 +822,7 @@ def load_land_use(connection, land_use_dir=None, chunk_size=200000, sido_code=SE
     """
     land_use_dir = Path(land_use_dir or (ROOT_DIR / constants.LAND_USE_DIRNAME))
     prefix = constants.LAND_USE_FILE_FORMAT % sido_code
-    paths = sorted(land_use_dir.glob(prefix + "*.csv"))
+    paths = _get_land_use_paths(land_use_dir, prefix)
     if not paths:
         raise FileNotFoundError(
             "토지이용계획정보 CSV가 없습니다: %s/%s*.csv\n"
@@ -819,12 +834,7 @@ def load_land_use(connection, land_use_dir=None, chunk_size=200000, sido_code=SE
     connection.execute("DELETE FROM parcel_land_use")
     total = 0
     for path in paths:
-        with io.open(
-            path,
-            encoding=constants.LAND_USE_ENCODING,
-            errors="replace",
-            newline="",
-        ) as handle:
+        with _open_land_use(path) as handle:
             reader = csv.reader(handle)
             header = next(reader, [])
             missing = [name for name in LAND_USE_COLUMNS if name not in header]
@@ -1128,8 +1138,8 @@ def get_legacy_sgg_map(sido_code, shp_paths, land_use_dir=None):
         return {}
     land_use_dir = Path(land_use_dir or (ROOT_DIR / constants.LAND_USE_DIRNAME))
     new_by_name = {}
-    for path in sorted(land_use_dir.glob(constants.LAND_USE_FILE_FORMAT % sido_code + "*.csv")):
-        with io.open(path, encoding=constants.LAND_USE_ENCODING, errors="replace", newline="") as handle:
+    for path in _get_land_use_paths(land_use_dir, constants.LAND_USE_FILE_FORMAT % sido_code):
+        with _open_land_use(path) as handle:
             reader = csv.reader(handle)
             header = next(reader, [])
             code_at, name_at = header.index("법정동코드"), header.index("법정동명")
