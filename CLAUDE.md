@@ -5,7 +5,7 @@
 도시설계용 베이스맵(일러스트레이터)과 공공데이터 기반 현황도·분석자료를 낸다.
 개인이 무료로 공개하는 Rhino 플러그인(Yak)이고, 사용자는 불특정 다수의 건축·도시설계 실무자와 학생이다. 서버 없는 데스크톱 도구다(SaaS 아님).
 
-독립 프로젝트다. 필지는 자체 필지 DB(`data/seoul_site.db`)에서 불러온다.
+독립 프로젝트다. 국내는 자체 필지·컨텍스트 DB(시군구 팩, 전국)에서, 해외는 OpenStreetMap·지형 타일에서 불러온다.
 배치·법규·일조 로직은 이 프로젝트의 목적이 아니다.
 
 ## Claude의 역할
@@ -40,13 +40,13 @@
 - **업무 로직은 전부 로직 모듈에 둔다.** Rhino가 직접 실행하는 `cmd_*.py`는 입출력을 잇고 로직 함수를 부르는 것이 전부다. Grasshopper 경로는 없다.
 - **실행 경로는 패널 하나다.** `cmd_site.py`(컨트롤러) → `panel_host.py`(Eto WebView 호스트) → `site_ui.html`(프런트). 메시지 계약은 `docs/panel_ui.md`가 원본이다. 프레임워크·빌드 도구 없음, 단일 HTML + 바닐라 JS, 지도는 Leaflet(`scripts/vendor/`).
 - **컨텍스트 생성은 Rhino CPython 안에서 동기 실행한다.** 엔진 API는 `context_builder.run(request, progress, doc)` 하나(진행률·취소는 `progress(phase, fraction, text) -> bool` 콜백 하나). 외부 python 서브프로세스·`# r:` pip 패키지 없음 — 배포는 Yak 패키지(`dev_deploy.py yak`, 진입 명령 `UrbanSite` 하나짜리 .rhp + scripts/)이고 DB는 패널의 [DB 받기]가 데이터 팩(`dev_deploy.py packs`)을 받는다. 3dm은 RhinoCommon 베이크 결과를 `WriteFile` 사본으로 남긴다(rhino3dm은 테스트 전용). 확정 근거는 `docs/code_map.md`.
-- **공공데이터는 DB 구축 시에만 수집하고 Rhino 실행 중에는 로컬 DB만 조회한다.** 수집·정규화·공간교차는 `dev_*.py`(Rhino 밖 python3, geopandas 가능)가 하고, Rhino 쪽 로직 모듈은 SQLite 표준 라이브러리만 쓴다. 예외는 데이터 팩 받기(`data_pack.py`)와 사용자가 켠 경우의 VWorld 주소 보조 검색뿐이다. 수치지형도 등고선은 별도 팩(`seoul_terrain.db`)으로 국내 서버에만 둔다(공간정보관리법 제16조 국외 반출·별표1).
-- 필지 DB `data/seoul_site.db`는 스키마 v5(`parcels`·`overlays`·`parcel_overlays`·`parcel_land_use`·`data_sources`)를 쓴다. 컨텍스트(건물·도로·지형·수계) 데이터는 별도 DB 파일에 같은 관행(EPSG:5186 GeoJSON/수치 + `min_x/max_x/min_y/max_y` 경계상자 인덱스, RTree 미사용 — Rhino 8 Windows CPython SQLite에 rtree 모듈이 없다)으로 둔다. 구체 테이블은 `docs/data_sources.md`.
+- **공공데이터는 DB 구축 시에만 수집하고 Rhino 실행 중에는 로컬 DB만 조회한다.** 수집·정규화·공간교차는 `dev_*.py`(Rhino 밖 python3, geopandas 가능)가 하고, Rhino 쪽 로직 모듈은 SQLite 표준 라이브러리만 쓴다. 예외는 셋: ① 데이터 팩 받기(`data_pack.py` — 패널 지도 칩 [받기]로 화면 지역 시군구 팩만, Hugging Face 공개 데이터셋 `constants.DATA_REPO_ID`) ② 해외 대상지(`osm_context.py` — Overpass·Nominatim·지형 타일) ③ 사용자가 켠 VWorld 주소 보조 검색. 수치지형도 등고선 팩(`*_terrain.db`)은 국내 서버(`constants.DATA_TERRAIN_BASE_URL`)에만 둔다(공간정보관리법 제16조 국외 반출·별표1).
+- DB 파일은 지역 단위로 나뉜다: 개발 저장소는 시도 DB `data/<시도>_site.db`·`_context.db`(빌더 출력), 배포·설치본은 시군구 팩 `<시군구코드>_site|context|terrain.db`(dev_deploy가 200 m 격자·PNU로 나눔, 경계 객체는 양쪽 팩에). 런타임(`lot_db`·`context_db`)은 대상지 범위·PNU에 걸리는 파일만 골라 한 연결로 묶고(`data_pack.open_databases`, ATTACH 상한을 넘으면 묶음별) id로 중복을 걷어 낸다. 필지 DB 스키마 v5(`parcels`·`overlays`·`parcel_overlays`·`parcel_land_use`·`data_sources`), 컨텍스트 DB는 같은 관행(EPSG:5186 GeoJSON/수치 + `min_x/max_x/min_y/max_y` 경계상자 인덱스, RTree 미사용 — Rhino 8 Windows CPython SQLite에 rtree 모듈이 없다). 서울 외 시도의 계획 도형은 토지이용계획 코드로 필지를 합친 것이다. 구체 테이블은 `docs/data_sources.md`.
 - **내부 표준 단위는 m, 좌표계는 EPSG:5186이다.** 코드의 좌표·길이·높이와 면적(㎡)은 모두 m 기준. Rhino 문서 단위는 베이커가 베이크 직전에만 변환한다. 원점은 `context_builder.prepare`가 정하고(대상지 중심 100 m 내림), **적용(DB 좌표 → 로컬 좌표)은 `context_geometry.get_local_pts` 한 함수에서만** 한다 — 메시는 생성 전에 로컬 좌표여야 하므로 베이커에서 빼면 늦다. 베이커는 오프셋을 문서에 기록(`CTX::Ref` UserString·`doc.Strings`·`context.json`)만 한다. 예외: 결과 좌표가 '실제 좌표'(`options.placement = world`)면 형상은 그대로 로컬에서 만들고 베이커가 계산 원점만큼 옮겨 굽는다(메시는 배정밀도 정점). 문서 원점 (0,0) = 실제 좌표 문서.
 - Rhino 문서 변경(베이크·저장·내보내기)은 베이커 모듈만 담당한다. 로직 모듈은 지오메트리 객체를 만들어 돌려줄 뿐 문서를 건드리지 않는다.
 - **대상지 방식은 셋이다**: 필지로 고르기(`lots`)·구역 그리기(`area` — 지도에 그린 폴리곤 또는 Rhino 닫힌 커브)·위치만 찍기(`point`). 엔진은 `context_builder.resolve_target` 하나로 방식별 경계 링·안의 필지·중심·이름을 만든다. 구역 안 필지 = 면적 50 % 이상이 구역 안.
 - **필지 하나는 닫힌 커브 하나다.** 대상 필지가 여러 조각이거나 구멍이 있으면 가장 넓은 조각의 바깥 경계를 쓰고 경고한다. 주변 필지·도로 필지(가로망 전체가 한 필지인 도넛)는 구멍을 보존한다.
-- 좌표계: +Y = 정북 가정(EPSG:5186 격자북. 진북과의 자오선수차는 서울에서 0.1° 이내라 무시).
+- 좌표계: +Y = 정북 가정(EPSG:5186 격자북. 진북과의 자오선수차는 서울에서 0.1° 이내라 무시). 해외 대상지는 대상지 중심 지역 횡메르카토르(`non_rhino_utils.set_projection`, 투영 원점은 환경변수로 loader 재적재에도 유지).
 - Rhino 8 CPython 기준. rhinoscriptsyntax보다 RhinoCommon 우선.
 - 쓰기 자리(`data/`·`result/`·`.env`)는 `constants.HOME_DIR` — 저장소처럼 루트에 `data/`가 있으면 루트, Yak 설치본은 `~/UrbanDesignTool`. 산출물은 `HOME_DIR/result/<날짜>/<대상지>/`에 쌓는다. 3dm·베이스맵·현황도·로그를 한 폴더에 둔다.
 - 상세 스펙: `docs/deliverables.md`(산출물 정의), `docs/data_sources.md`(데이터·DB), `docs/panel_ui.md`(패널 메시지 계약), `docs/code_map.md`(확정 아키텍처·실행 흐름·엔진 API·읽는 순서), `docs/implementation_plan.md`(마일스톤·위험), `docs/research/`(조사 근거)
@@ -58,7 +58,7 @@
 - **컨텍스트 요소 이름은 고정한다**: 건물 `building`, 도로 `road`, 지형 `terrain`, 수계 `water`(하천·구거·유지), 녹지 `green`, 철도 `rail`. 이들 전체를 `context`라 부른다. 베이스맵은 `basemap`, 현황도 한 장은 `sheet`.
 - 대상지 방식은 `mode`, 구역 방식에서 사용자가 그린 경계는 `area`(링은 `area_ring`), 위치 방식의 점은 `center`, 결과 좌표 방식은 `placement`.
 - 같은 성격의 객체는 **같은 명사 + 역할 수식어**로 구분: `target_lot_crv` / `near_lot_crvs`.
-- 기존 SQLite 물리 스키마의 `parcels`, `parcel_id`, `parcel_*`, 면적 컬럼 `*_area_sqm`와 DB 파일명 `seoul_site.db`는 DB 호환을 위한 예외로 유지한다. `_sqm`는 SQL과 `row[...]` 키에만 남고 파이썬 쪽 이름(`LotInfo.area`)에는 쓰지 않는다.
+- 기존 SQLite 물리 스키마의 `parcels`, `parcel_id`, `parcel_*`, 면적 컬럼 `*_area_sqm`와 DB 파일명 `<시도>_site.db`는 DB 호환을 위한 예외로 유지한다. `_sqm`는 SQL과 `row[...]` 키에만 남고 파이썬 쪽 이름(`LotInfo.area`)에는 쓰지 않는다.
 - 지오메트리는 타입 접미사 필수: `_crv`, `_brep`, `_mesh`, `_pt`, `_vec`, 혼합 `_geo`, json 문자열 `_json`. 리스트는 복수형: `_crvs`, `_breps`, `_geos`.
 - bool·상태·문자열 스칼라는 타입 태그 없이 의미 있는 이름. 길이·면적은 m·㎡가 기본이라 단위 접미사를 붙이지 않는다(`radius`, `lot_area`). 기본 단위가 아닌 값만 `_mm`처럼 밝힌다.
 - 수동 우회 입력은 `manual_` 접두어.

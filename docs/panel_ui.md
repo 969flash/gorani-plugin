@@ -79,7 +79,8 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `apply_style` | `dir`, `style` | `busy{on}` → `style_applied` → `busy{off}` | `context_builder.apply_style` — 결과 폴더의 시트 전부 + 이미 쓴 `basemap_<축척>.ai`를 다시 쓰고 `context.json.options.style`을 바꾼다. 지형 삼각형이 없으면 지형 시트 파일은 그대로(`kept`). JS는 성공하면 `options.style`을 `save_prefs` |
 | `save_style` | `name`, `style` | `styles` / `error{context:"style"}` | `site_prefs.save_style` → `HOME_DIR/styles/<이름>.json`(경로 문자 제거, 같은 이름 덮어씀). 사무소 표준을 파일로 나눠 쓴다 |
 | `sheet_ai` | `dir`, `path`(도면 SVG) 또는 `all:true` | `busy{on}` → `sheet_ai` → `busy{off}` | `sheet_svg.get_sheet_ai` — 도면 SVG를 레이어 .ai로(없거나 SVG보다 오래됐을 때만 다시 쓴다). 한 장이면 쓰고 OS로 연다. 생성 때 .ai를 다 쓰지 않는다(23장이면 Rhino에서 10 s+) |
-| `download_data` | — | `data_progress`×N → `init_state` (`error{context:"init"}`) | 블로커의 [DB 받기]. `data_pack`이 매니페스트(`constants.DATA_MANIFEST_URL`)에서 바뀐 팩만 `HOME_DIR/data/`에 받는다. 진행 중 `cancel`이면 그 팩에서 멈추고 `data_progress`로 알린다(받던 팩은 버리고 쓰던 DB는 그대로). 유일한 네트워크 명령(주소 보조검색 제외) |
+| `area_packs` | `bbox`([서, 남, 동, 북] 경위도), `seq` | `area_packs` | 지도 이동(600 ms 디바운스)마다. 화면에 걸리는데 아직 안 받았거나 새 판이 나온 시군구 팩 `{seq, missing[{name, label, mb, update}], mb, labels}` — 전부 update면 칩이 '새 판 있음' — 해외·매니페스트 없음·오프라인은 빈 목록. 지도 칩 [받기] |
+| `download_data` | `names`(선택 — 없으면 전부) | `data_progress`×N → `init_state` (`error{context:"init"}`) | 지도 칩 [받기](area_packs의 names). 멈추면 그때까지 받은 팩은 남는다. `data_pack`이 매니페스트(`constants.DATA_MANIFEST_URL`)에서 바뀐 팩만 `HOME_DIR/data/`에 받는다. 진행 중 `cancel`이면 그 팩에서 멈추고 `data_progress`로 알린다(받던 팩은 버리고 쓰던 DB는 그대로). 유일한 네트워크 명령(주소 보조검색 제외) |
 
 명령 16개(+ 도면 스타일 3개·도면 .ai 1개, 2026-10-13). `auth_pin`(옛 PIN 인증)은 없다 — 사내 배포라 인증 게이트 없음.
 
@@ -206,6 +207,11 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 ```
 
 푸시 12종. `toast`는 없다 — 성공 토스트는 JS가 `imported`·`exported`를 받아 띄운다.
+
+## 시군구 팩 (2026-10-13)
+
+- 배포 팩은 시군구 단위 `<시군구코드>_<site|context|terrain>.db.xz`(dev_deploy가 시도 DB를 200 m 격자·PNU로 나눈다, 경계 객체는 양쪽에). 런타임은 대상지 범위에 걸리는 파일만 열고 id로 중복을 걷어 낸다.
+- 필지 DB가 없을 때 블로커의 [지도에서 지역 골라 받기] — JS `state.dataLater = true`로 블로커를 닫고, 지도를 옮기면 `area_packs` → 칩 [받기] → `download_data{names}`.
 
 ## 해외 대상지 (2026-10-13)
 

@@ -347,14 +347,17 @@ def _require_bbox_index(connection):
     # RTree는 SQLite 빌드에 따라 없다(Rhino 8 Windows CPython). 경계상자 컬럼에
     # 일반 인덱스를 걸면 같은 결과를 얻는다. 다른 PC로 복사해 온 DB에 인덱스가
     # 없으면 여기서 한 번 만든다(서울 전체 약 1초).
-    connection.executescript(
-        """
-        CREATE INDEX IF NOT EXISTS idx_parcels_bbox
-            ON parcels(min_x, max_x, min_y, max_y);
-        CREATE INDEX IF NOT EXISTS idx_overlays_bbox
-            ON overlays(min_x, max_x, min_y, max_y);
-        """
-    )
+    # 여러 팩을 붙여 열면 parcels가 임시 뷰라 인덱스를 못 건다 — 배포 팩에는 이미 있으니 단일 파일일 때만 보강한다
+    if isinstance(connection, sqlite3.Connection) and not connection.execute(
+            "SELECT 1 FROM sqlite_temp_master WHERE type = 'view' AND name = 'parcels'").fetchone():
+        connection.executescript(
+            """
+            CREATE INDEX IF NOT EXISTS idx_parcels_bbox
+                ON parcels(min_x, max_x, min_y, max_y);
+            CREATE INDEX IF NOT EXISTS idx_overlays_bbox
+                ON overlays(min_x, max_x, min_y, max_y);
+            """
+        )
 
 
 def load_near_lot_candidates(

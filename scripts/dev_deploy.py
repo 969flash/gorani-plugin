@@ -4,7 +4,8 @@
     python3 scripts/dev_deploy.py yak        # build/UrbanDesignTool-<버전>-rh8_0-any.yak
     python3 scripts/dev_deploy.py packs      # build/packs/*.db.xz + manifest.json
     python3 scripts/dev_deploy.py packs --sido 43 --drop   # 시도 하나만 압축하고 원본 DB를 지운다(전국 빌드 흐름)
-    python3 scripts/dev_deploy.py repack     # 용량 줄이기 전에 만든 팩을 풀어 줄이고 다시 압축
+    python3 scripts/dev_deploy.py repack     # 시도 팩 압축본을 풀어 (줄이고) 시군구 팩으로 나눠 다시 압축
+    python3 scripts/dev_deploy.py upload     # 시군구 필지·컨텍스트 팩 + 매니페스트를 Hugging Face 공개 데이터셋에(hf auth login 먼저)
 
 yak: 진입 명령 UrbanSite 하나짜리 .rhp를 rhinocode로 빌드하고(떠 있는 Rhino 8 필요), 그 옆에 scripts/(평문 진입 스크립트 +
      로직 .pyc + 패널 HTML·vendor)를 두고 yak CLI로 묶는다. rhinocode의 Shared 리소스는 폴더 구조를 펴 버려서 쓰지 않는다
@@ -73,6 +74,8 @@ PACK_KINDS = (   # (종류, 표시 이름 꼬리, 원본 DB 종류) — 등고�
     ("terrain", "등고선", "context"),
 )
 REWRITE_CHUNK = 100000      # 도형 다시 쓰기 한 번에 읽는 id 구간
+SPLIT_CELL = 200.0          # m — 시군구 나누기 격자. 필지 중심 다수결로 격자의 시군구를 정한다
+SPLIT_SEARCH = 50           # 칸 — 필지 없는 곳(바다·큰 산)은 이 범위(10 km) 안 가장 가까운 격자의 시군구로
 SLIM_PACK_ID = 0x55445431   # 'UDT1' — slim_pack_database를 거친 팩 표시(PRAGMA application_id)
 BOUNDS_SQL = {   # 팩 범위(EPSG:5186) — data_pack이 대상지에 걸리는 시도 파일만 열 때 쓴다
     "site": "SELECT MIN(min_x), MIN(min_y), MAX(max_x), MAX(max_y) FROM parcels",
@@ -306,6 +309,140 @@ def _make_pack_database(pack_name, source, target):
     connection.close()
 
 
+class SggMap:
+    """200 m 격자 → 시군구 코드(격자 안 필지 중심이 가장 많은 시군구). 필지 없는 격자는 가장 가까운 격자를 따른다."""
+
+    def __init__(self, site_path):
+        counts, names = {}, {}
+        connection = sqlite3.connect(site_path)
+        for sgg, x, y, address in connection.execute(
+                "SELECT substr(pnu, 1, 5), (min_x + max_x) / 2, (min_y + max_y) / 2, address FROM parcels"):
+            cell = (int(x // SPLIT_CELL), int(y // SPLIT_CELL))
+            bucket = counts.setdefault(cell, {})
+            bucket[sgg] = bucket.get(sgg, 0) + 1
+            if sgg not in names:
+                names[sgg] = _get_sgg_name(address)
+        connection.close()
+        self.cells = {cell: max(bucket.items(), key=lambda item: item[1])[0] for cell, bucket in counts.items()}
+        self.names = names
+
+    def get_sggs(self, min_x, min_y, max_x, max_y):
+        # type: (float, float, float, float) -> set
+        """경계상자가 걸치는 격자의 시군구들. 하나도 없으면 중심에서 가까운 격자(최대 SPLIT_SEARCH칸)의 시군구 하나."""
+        x0, y0, x1, y1 = int(min_x // SPLIT_CELL), int(min_y // SPLIT_CELL), int(max_x // SPLIT_CELL), int(max_y // SPLIT_CELL)
+        found = {self.cells[(x, y)] for x in range(x0, x1 + 1) for y in range(y0, y1 + 1) if (x, y) in self.cells}
+        if found:
+            return found
+        cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
+        for radius in range(1, SPLIT_SEARCH + 1):
+            ring = [(cx + dx, cy + dy) for dx in range(-radius, radius + 1) for dy in (-radius, radius)]
+            ring += [(cx + dx, cy + dy) for dx in (-radius, radius) for dy in range(-radius + 1, radius)]
+            hits = [self.cells[c] for c in ring if c in self.cells]
+            if hits:
+                return {max(set(hits), key=hits.count)}
+        return set()
+
+
+def _get_sgg_name(address):
+    # type: (str) -> str
+    """'경기도 성남시 분당구 정자동 1' → '성남시 분당구', '서울특별시 성동구 성수동2가 1' → '성동구'."""
+    parts = (address or "").split()
+    if len(parts) >= 3 and parts[1].endswith("시") and parts[2].endswith("구"):
+        return "%s %s" % (parts[1], parts[2])
+    return parts[1] if len(parts) > 1 else ""
+
+
+def _copy_rows(source_path, target_path, plan, user_version):
+    # type: (str, str, dict, int) -> None
+    """source의 테이블을 target에 같은 스키마로 만들고 plan대로 행을 옮긴다. plan = {테이블: None(전부) | (id 열, id 목록) | "pnu5:<코드>"}.
+    인덱스는 행을 다 넣은 뒤 만든다(빠르다)."""
+    connection = sqlite3.connect(target_path)
+    connection.execute("ATTACH DATABASE ? AS source", (source_path,))
+    schema = connection.execute("SELECT type, name, tbl_name, sql FROM source.sqlite_master WHERE sql IS NOT NULL").fetchall()
+    plan = {table: rule for table, rule in plan.items() if any(kind == "table" and name == table for kind, name, _t, _s in schema)}
+    for kind, name, table, sql in schema:
+        if kind == "table" and table in plan:
+            connection.execute(sql)
+    connection.execute("CREATE TEMP TABLE keep (id INTEGER PRIMARY KEY)")
+    for table, rule in plan.items():
+        if rule is None:
+            connection.execute('INSERT INTO "%s" SELECT * FROM source."%s"' % (table, table))
+        elif isinstance(rule, str):
+            connection.execute('INSERT INTO "%s" SELECT * FROM source."%s" WHERE substr(pnu, 1, 5) = ?' % (table, table), (rule[5:],))
+        else:
+            column, ids = rule
+            connection.execute("DELETE FROM keep")
+            connection.executemany("INSERT OR IGNORE INTO keep VALUES (?)", ((i,) for i in ids))
+            connection.execute('INSERT INTO "%s" SELECT * FROM source."%s" WHERE %s IN (SELECT id FROM keep)' % (table, table, column))
+    for kind, name, table, sql in schema:
+        if kind == "index" and table in plan:
+            connection.execute(sql)
+    connection.execute("PRAGMA user_version = %d" % user_version)
+    connection.execute("PRAGMA application_id = %d" % SLIM_PACK_ID)
+    connection.commit()
+    connection.execute("DETACH DATABASE source")
+    connection.execute("ANALYZE")
+    connection.close()
+
+
+def _get_ids_by_sgg(path, table, id_column, sgg_map, pnu_column=None):
+    # type: (str, str, str, SggMap, str) -> dict
+    """테이블 행 → {시군구: [id]}. pnu_column이 있고 값이 있으면 그 시군구 하나, 아니면 경계상자가 걸치는 격자의 시군구 전부."""
+    result = {}
+    connection = sqlite3.connect(path)
+    columns = "%s, min_x, min_y, max_x, max_y" % id_column + (", %s" % pnu_column if pnu_column else "")
+    for row in connection.execute("SELECT %s FROM %s" % (columns, table)):
+        pnu = row[5] if pnu_column else None
+        sggs = {pnu[:5]} if pnu and len(pnu) == constants.PNU_LENGTH else sgg_map.get_sggs(*row[1:5])
+        for sgg in sggs:
+            result.setdefault(sgg, []).append(row[0])
+    connection.close()
+    return result
+
+
+def split_sido_packs(slug, pack_dir):
+    # type: (str, str) -> list
+    """pack_dir의 <시도>_site·_context·_terrain.db(줄인 팩)를 시군구 팩 <코드>_<종류>.db로 나눈다. [(이름, 표시 이름, 경로)]. 시도 파일은 지운다.
+
+    필지·토지이용계획·필지 연결표는 PNU 앞 5자리로, 계획 도형·건물(PNU 없는 보충 건물)·피처는 경계상자가 걸치는 200 m 격자의 시군구 전부로
+    (경계 객체는 양쪽 팩에 들어간다 — 시군구 팩 하나만 받아도 그 지역은 빠짐없이 나온다. 런타임이 id로 중복을 걷어 낸다).
+    """
+    site = os.path.join(pack_dir, slug + "_site.db")
+    sgg_map = SggMap(site)
+    sido_name = next(name for name, s in constants.SIDO.values() if s == slug)
+    version = {kind: sqlite3.connect(os.path.join(pack_dir, "%s_%s.db" % (slug, kind))).execute("PRAGMA user_version").fetchone()[0]
+               for kind in ("site", "context", "terrain") if os.path.exists(os.path.join(pack_dir, "%s_%s.db" % (slug, kind)))}
+    overlay_ids = _get_ids_by_sgg(site, "overlays", "overlay_id", sgg_map)
+    out = []
+    for sgg in sorted(sgg_map.names):
+        target = os.path.join(pack_dir, "%s_site.db" % sgg)
+        if os.path.exists(target):
+            os.remove(target)
+        _copy_rows(site, target, {"data_sources": None, "parcels": "pnu5:" + sgg, "parcel_land_use": "pnu5:" + sgg,
+                                  "parcel_overlays": "pnu5:" + sgg, "overlays": ("overlay_id", overlay_ids.get(sgg, []))}, version["site"])
+        out.append(("%s_site.db" % sgg, "%s %s 필지" % (sido_name, sgg_map.names[sgg]), target))
+    for kind, label in (("context", "건물·도로·수계"), ("terrain", "등고선")):
+        source = os.path.join(pack_dir, "%s_%s.db" % (slug, kind))
+        if not os.path.exists(source):
+            continue
+        feature_ids = _get_ids_by_sgg(source, "features", "feature_id", sgg_map)
+        building_ids = _get_ids_by_sgg(source, "buildings", "building_id", sgg_map, "pnu") if kind == "context" else {}
+        for sgg in sorted(sgg_map.names):
+            target = os.path.join(pack_dir, "%s_%s.db" % (sgg, kind))
+            if os.path.exists(target):
+                os.remove(target)
+            plan = {"data_sources": None, "features": ("feature_id", feature_ids.get(sgg, []))}
+            if kind == "context":
+                plan.update({"source_files": None, "buildings": ("building_id", building_ids.get(sgg, []))})
+            _copy_rows(source, target, plan, version[kind])
+            out.append(("%s_%s.db" % (sgg, kind), "%s %s %s" % (sido_name, sgg_map.names[sgg], label), target))
+    for kind in ("site", "context", "terrain"):
+        path = os.path.join(pack_dir, "%s_%s.db" % (slug, kind))
+        if os.path.exists(path):
+            os.remove(path)
+    return out
+
+
 def _get_sha256(path):
     # type: (str) -> str
     digest = hashlib.sha256()
@@ -315,26 +452,66 @@ def _get_sha256(path):
     return digest.hexdigest()
 
 
+def _update_manifest(pack_dir, slug, entries):
+    # type: (str, str, list) -> str
+    """매니페스트에서 그 시도의 항목(시도 팩 <slug>_* 와 그 시도 시군구 팩)을 빼고 entries를 넣는다. 파일 잠금 — 시도 여러 개를 동시에 압축한다."""
+    import fcntl
+    manifest_path = os.path.join(pack_dir, "manifest.json")
+    code = next(c for c, (_name, s) in constants.SIDO.items() if s == slug)
+    with open(manifest_path + ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        packs = {}
+        if os.path.exists(manifest_path):
+            with open(manifest_path, encoding="utf-8") as f:
+                packs = {pack["name"]: pack for pack in json.load(f)["packs"]}
+        packs = {name: pack for name, pack in packs.items()
+                 if not name.startswith(slug + "_") and not (name[:5].isdigit() and name[:2] == code)}
+        packs.update({entry["name"]: entry for entry in entries})
+        with open(manifest_path + ".tmp", "w", encoding="utf-8") as f:
+            json.dump({"version": datetime.date.today().isoformat(), "packs": sorted(packs.values(), key=lambda p: p["name"])},
+                      f, ensure_ascii=False, indent=1)
+        os.replace(manifest_path + ".tmp", manifest_path)
+    return manifest_path
+
+
+def _split_and_compress(slug, pack_dir):
+    # type: (str, str) -> list
+    """pack_dir의 시도 팩 DB(줄인 것) → 시군구 팩 → xz. 빈 팩은 버린다. 매니페스트 항목 목록."""
+    entries = []
+    for name, label, path in split_sido_packs(slug, pack_dir):
+        kind = name.rsplit("_", 1)[1][:-3]
+        connection = sqlite3.connect(path)
+        bounds = connection.execute(BOUNDS_SQL[kind]).fetchone()
+        if kind == "context" and bounds[0] is None:   # 건물 없는 시군구(섬 등) — 피처 범위로
+            bounds = connection.execute(BOUNDS_SQL["terrain"]).fetchone()
+        connection.close()
+        if bounds[0] is None:
+            os.remove(path)
+            continue
+        size, sha256 = os.path.getsize(path), _get_sha256(path)
+        subprocess.run(["xz", "-6", "-T0", "-f", path], check=True)
+        entries.append({"name": name, "label": label, "url": name + ".xz", "size": size, "sha256": sha256,
+                        "bounds": [round(v, 1) for v in bounds], "xz_size": os.path.getsize(path + ".xz")})
+    print("  %s → 시군구 팩 %d개 (압축 %.2f GB)" % (slug, len(entries), sum(e["xz_size"] for e in entries) / 1024.0 ** 3), flush=True)
+    return entries
+
+
 def build_packs(sido_codes=None, drop=False):
     # type: (list, bool) -> str
-    """build/packs/에 시도 팩 DB → xz(-T0 멀티스레드) + manifest.json. 매니페스트 경로를 돌려준다.
+    """data/의 시도 DB → 줄인 시도 팩 DB → 시군구 팩(<시군구코드>_<종류>.db.xz) + manifest.json. 매니페스트 경로를 돌려준다.
 
-    sido_codes를 주면 그 시도만 만들고 매니페스트의 다른 시도 항목은 그대로 둔다(시도 하나씩 빌드·압축하며 디스크를 아끼는 흐름).
+    사용자는 대상지에 걸리는 시군구 팩만 받는다(data_pack). sido_codes를 주면 그 시도만 만들고 다른 시도 항목은 그대로 둔다.
     drop이면 압축 뒤 원본 DB(data/<시도>_site.db·_context.db)를 지운다 — 서울은 개발용이라 남긴다. 전국 원본은 디스크에 다 못 둔다.
     """
     pack_dir = os.path.join(BUILD_DIR, "packs")
     os.makedirs(pack_dir, exist_ok=True)
     manifest_path = os.path.join(pack_dir, "manifest.json")
-    packs = {}
-    if os.path.exists(manifest_path):
-        with open(manifest_path, encoding="utf-8") as f:
-            packs = {pack["name"]: pack for pack in json.load(f)["packs"]}
     data_dir = os.path.join(ROOT_DIR, "data")
     for code, (sido_name, slug) in sorted(constants.SIDO.items(), key=lambda item: item[1][1]):
         if sido_codes and code not in sido_codes:
             continue
         sources = set()
-        for kind, label, source_kind in PACK_KINDS:
+        for kind, _label, source_kind in PACK_KINDS:
             source = os.path.join(data_dir, "%s_%s.db" % (slug, source_kind))
             if not os.path.exists(source):
                 continue
@@ -345,62 +522,160 @@ def build_packs(sido_codes=None, drop=False):
             if os.path.exists(target):
                 os.remove(target)
             _make_pack_database(pack_name, source, target)
-            connection = sqlite3.connect(target)
-            bounds = [round(v, 1) for v in connection.execute(BOUNDS_SQL[kind]).fetchone()]
-            connection.close()
-            size, sha256 = os.path.getsize(target), _get_sha256(target)
-            print("  %s 압축 중... (%.2f GB)" % (pack_name, size / 1024.0 ** 3), flush=True)
-            subprocess.run(["xz", "-6", "-T0", "-f", target], check=True)
-            packs[pack_name] = {"name": pack_name, "label": "%s %s" % (sido_name, label), "url": pack_name + ".xz", "size": size,
-                                "sha256": sha256, "bounds": bounds, "xz_size": os.path.getsize(target + ".xz")}
+        if not sources:
+            continue
+        manifest_path = _update_manifest(pack_dir, slug, _split_and_compress(slug, pack_dir))
+        for kind in ("site", "context", "terrain"):   # 옛 시도 팩 압축본
+            old = os.path.join(pack_dir, "%s_%s.db.xz" % (slug, kind))
+            if os.path.exists(old):
+                os.remove(old)
         if drop and code != "11":
             for source in sources:
                 os.remove(source)
-    with open(manifest_path, "w", encoding="utf-8") as f:
-        json.dump({"version": datetime.date.today().isoformat(), "packs": sorted(packs.values(), key=lambda p: p["name"])},
-                  f, ensure_ascii=False, indent=1)
     return manifest_path
 
 
 def repack():
     # type: () -> list
-    """build/packs/의 옛 팩(slim_pack_database 이전)을 풀어 줄이고 다시 압축한다. 매니페스트의 크기·sha256을 고친다. 고친 팩 이름 목록.
+    """build/packs/의 시도 팩 압축본(<시도>_<종류>.db.xz)을 풀어 줄이고(slim 이전 팩이면) 시군구 팩으로 나눠 다시 압축한다. 처리한 시도 목록.
     원본 DB를 지운 시도도 팩에서 바로 다시 만들 수 있다."""
     pack_dir = os.path.join(BUILD_DIR, "packs")
+    done = []
+    for code, (_name, slug) in sorted(constants.SIDO.items(), key=lambda item: item[1][1]):
+        archives = [os.path.join(pack_dir, "%s_%s.db.xz" % (slug, kind)) for kind in ("site", "context", "terrain")]
+        if not os.path.exists(archives[0]):
+            continue
+        print("  %s 풀기..." % slug, flush=True)
+        for archive in archives:
+            if not os.path.exists(archive):
+                continue
+            subprocess.run(["xz", "-d", "-f", "-T0", archive], check=True)
+            path = archive[:-3]
+            connection = sqlite3.connect(path)
+            if connection.execute("PRAGMA application_id").fetchone()[0] != SLIM_PACK_ID:
+                slim_pack_database(connection, os.path.basename(path).rsplit("_", 1)[1][:-3])
+                connection.execute("VACUUM")
+            connection.close()
+        _update_manifest(pack_dir, slug, _split_and_compress(slug, pack_dir))
+        done.append(slug)
+    _fill_manifest(pack_dir)
+    return done
+
+
+def _fill_manifest(pack_dir):
+    # type: (str) -> list
+    """매니페스트에 없는 시군구 팩 압축본을 풀어 크기·sha256·범위를 재고 항목을 채운다(동시 실행으로 항목이 덮어써진 경우, 2026-10-13 대전·서울)."""
+    import fcntl
     manifest_path = os.path.join(pack_dir, "manifest.json")
     with open(manifest_path, encoding="utf-8") as f:
-        manifest = json.load(f)
-    done = []
-    for pack in manifest["packs"]:
-        target = os.path.join(pack_dir, pack["name"])
-        subprocess.run(["xz", "-d", "-k", "-f", "-T0", target + ".xz"], check=True)
-        connection = sqlite3.connect(target)
-        if connection.execute("PRAGMA application_id").fetchone()[0] == SLIM_PACK_ID:
-            connection.close()
-            os.remove(target)
+        known = {pack["name"] for pack in json.load(f)["packs"]}
+    added = []
+    for file_name in sorted(os.listdir(pack_dir), key=lambda n: (n[:5], not n.endswith("_site.db.xz"))):   # 필지 팩 먼저(이름)
+        name = file_name[:-3]
+        if not file_name.endswith(".db.xz") or not name[:5].isdigit() or name in known:
             continue
-        print("  %s 줄이는 중... (%.2f GB)" % (pack["name"], os.path.getsize(target) / 1024.0 ** 3), flush=True)
-        slim_pack_database(connection, pack["name"].rsplit("_", 1)[1][:-3])
-        connection.execute("ANALYZE")
-        connection.execute("VACUUM")
+        path = os.path.join(pack_dir, name)
+        subprocess.run(["xz", "-d", "-k", "-f", "-T0", path + ".xz"], check=True)
+        kind = name.rsplit("_", 1)[1][:-3]
+        connection = sqlite3.connect(path)
+        bounds = connection.execute(BOUNDS_SQL[kind]).fetchone()
+        if kind == "context" and bounds[0] is None:
+            bounds = connection.execute(BOUNDS_SQL["terrain"]).fetchone()
+        sgg_name = ""
+        if kind == "site":
+            sgg_name = _get_sgg_name((connection.execute("SELECT address FROM parcels LIMIT 1").fetchone() or [""])[0])
         connection.close()
-        pack["size"], pack["sha256"] = os.path.getsize(target), _get_sha256(target)
-        subprocess.run(["xz", "-6", "-T0", "-f", target], check=True)
-        pack["xz_size"] = os.path.getsize(target + ".xz")
-        done.append(pack["name"])
-        with open(manifest_path, "w", encoding="utf-8") as f:   # 팩마다 적는다 — 중간에 멈춰도 매니페스트가 맞다
-            json.dump(manifest, f, ensure_ascii=False, indent=1)
-    return done
+        if not sgg_name:   # 컨텍스트·등고선 팩 — 같은 시군구 필지 팩 항목의 이름을 따른다
+            sgg_name = next((" ".join(p["label"].split()[1:-1]) for p in added if p["name"] == name[:5] + "_site.db"), "") or name[:5]
+        code = name[:2]
+        label = "%s %s %s" % (constants.SIDO[code][0], sgg_name, dict((k, l) for k, l, _s in PACK_KINDS)[kind])
+        added.append({"name": name, "label": label, "url": file_name, "size": os.path.getsize(path), "sha256": _get_sha256(path),
+                      "bounds": [round(v, 1) for v in bounds], "xz_size": os.path.getsize(path + ".xz")})
+        os.remove(path)
+    if added:
+        with open(manifest_path + ".lock", "w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            with open(manifest_path, encoding="utf-8") as f:
+                manifest = json.load(f)
+            manifest["packs"] = sorted(manifest["packs"] + added, key=lambda p: p["name"])
+            with open(manifest_path + ".tmp", "w", encoding="utf-8") as f:
+                json.dump(manifest, f, ensure_ascii=False, indent=1)
+            os.replace(manifest_path + ".tmp", manifest_path)
+    print("  매니페스트에 채운 팩 %d개" % len(added), flush=True)
+    return added
+
+
+DATASET_CARD = """---
+license: other
+license_name: kogl-type1-cc-by
+pretty_name: UrbanDesignTool 시군구 데이터 팩
+language: [ko]
+tags: [geospatial, korea, cadastral, buildings, rhino]
+---
+# UrbanDesignTool 데이터 팩
+
+Rhino 플러그인 UrbanDesignTool(대지검토)이 대상지 주변만 받아 쓰는 시군구 단위 SQLite 팩(xz 압축). 좌표계 EPSG:5186.
+
+- `<시군구코드>_site.db.xz` — 필지(토지특성정보 도형·속성), 토지이용계획 지정 현황, 계획 도형(서울 UPIS / 그 외 지정 코드로 필지를 합친 것)
+- `<시군구코드>_context.db.xz` — 건물(GIS건물통합정보 + 수치지형도 보충), 도로·수계·철도·녹지 등 수치지형도 1:5,000 지형지물
+- 등고선·표고점(`*_terrain`)은 여기 올리지 않는다(국가공간정보 보안관리규정 별표1·공간정보관리법 제16조).
+- `manifest.json` — 팩 목록·sha256·범위. 플러그인이 읽는다.
+
+## 출처·라이선스 (원천 그대로 — 가공: 재투영·병합·단순화·시군구 분할)
+- 국토교통부 토지특성정보·토지이용계획정보 — 이용허락범위 제한 없음(공공데이터포털 15048121·15045900)
+- 국토교통부 GIS건물통합정보 — CC BY 2.0 KR(브이월드 dsId=18) / 공공누리 제1유형
+- 국토지리정보원 수치지형도 1:5,000 Ver2.0 — 공공누리 제1유형
+- 서울특별시 도시계획정보(UPIS) — 공공누리 제1유형
+- 본 데이터는 정보제공 목적이며 법적 효력이 없다(국토교통부 국가중점데이터 안내).
+"""
+
+
+def upload():
+    # type: () -> str
+    """build/packs/의 시군구 필지·컨텍스트 팩 + 공개 매니페스트 + 설명을 Hugging Face 데이터셋(constants.DATA_REPO_ID, 공개)에 올린다.
+
+    등고선 팩은 constants.DATA_TERRAIN_BASE_URL(국내 서버)이 있으면 매니페스트에 절대 주소로만 적고, 없으면 매니페스트에서 뺀다.
+    `hf auth login`(쓰기 토큰)이 먼저 필요하다. upload_large_folder라 끊겨도 다시 실행하면 이어 올린다.
+    """
+    from huggingface_hub import HfApi
+    pack_dir = os.path.join(BUILD_DIR, "packs")
+    with open(os.path.join(pack_dir, "manifest.json"), encoding="utf-8") as f:
+        manifest = json.load(f)
+    public = []
+    for pack in manifest["packs"]:
+        if not pack["name"][:5].isdigit():   # 옛 시도 팩
+            continue
+        if pack["name"].endswith("_terrain.db"):
+            if not constants.DATA_TERRAIN_BASE_URL:
+                continue
+            pack = dict(pack, url=constants.DATA_TERRAIN_BASE_URL + pack["url"])
+        public.append(pack)
+    stage = os.path.join(BUILD_DIR, "hf_stage")
+    os.makedirs(stage, exist_ok=True)
+    with open(os.path.join(stage, "manifest.json"), "w", encoding="utf-8") as f:
+        json.dump({"version": manifest["version"], "packs": public}, f, ensure_ascii=False, indent=1)
+    with open(os.path.join(stage, "README.md"), "w", encoding="utf-8") as f:
+        f.write(DATASET_CARD)
+    api = HfApi()
+    api.create_repo(constants.DATA_REPO_ID, repo_type="dataset", private=False, exist_ok=True)
+    api.upload_large_folder(repo_id=constants.DATA_REPO_ID, repo_type="dataset", folder_path=pack_dir,
+                            allow_patterns=["[0-9][0-9][0-9][0-9][0-9]_site.db.xz", "[0-9][0-9][0-9][0-9][0-9]_context.db.xz"])
+    api.upload_folder(repo_id=constants.DATA_REPO_ID, repo_type="dataset", folder_path=stage, commit_message="manifest·README")
+    print("  올림: 팩 %d개 → https://huggingface.co/datasets/%s" % (len(public), constants.DATA_REPO_ID), flush=True)
+    return constants.DATA_MANIFEST_URL
 
 
 def main():
     if sys.version_info[:2] != (3, 9):
         sys.exit("Rhino 8의 CPython(3.9)과 같은 Python 3.9로 실행해야 .pyc가 호환됩니다. 현재: %d.%d" % sys.version_info[:2])
     parser = argparse.ArgumentParser(description="Yak 패키지·데이터 팩 빌드")
-    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "packs", "repack"))
+    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "packs", "repack", "upload"))
     parser.add_argument("--sido", help="packs: 쉼표로 구분한 시도 코드만 (기본 data/에 있는 전부)")
     parser.add_argument("--drop", action="store_true", help="packs: 압축 뒤 원본 시도 DB를 지운다(서울 제외)")
     args = parser.parse_args()
+    if args.what == "upload":
+        print("manifest: %s" % upload())
+        return
     if args.what == "repack":
         print("repack: %s" % repack())
         return

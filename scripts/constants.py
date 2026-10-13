@@ -243,7 +243,9 @@ OSM_TERRAIN_ZOOM = 13           # 픽셀 약 19 m(적도)·15 m(위도 37°). �
 OSM_TERRAIN_STEP = 2            # 픽셀 건너뛰기 — 표고점 간격 약 30 m
 
 # 데이터 팩 받기(data_pack.py) — Yak 설치본은 DB 없이 깔리고 패널에서 받는다
-DATA_MANIFEST_URL = ""                 # 매니페스트 주소. 호스팅(Hugging Face 등)이 정해지면 채운다
+DATA_REPO_ID = "hooooooooon/urbandesigntool-data"   # Hugging Face 공개 데이터셋(필지·컨텍스트 시군구 팩) — dev_deploy upload
+DATA_MANIFEST_URL = "https://huggingface.co/datasets/%s/resolve/main/manifest.json" % DATA_REPO_ID
+DATA_TERRAIN_BASE_URL = ""             # 등고선 팩을 둘 국내 서버 주소(끝 /). 비면 공개 매니페스트에서 등고선 팩을 뺀다(국외 반출 — TERRAIN_DATABASE_NAME 주석)
 DATA_STATE_FILE_NAME = "packs.json"    # data/ 안. 받은 팩의 sha256 — 바뀐 팩만 다시 받는다
 DATA_TIMEOUT_SECONDS = 30              # 연결·조각 읽기 제한
 DATA_CHUNK_BYTES = 1024 * 1024         # 압축 스트림을 1 MB씩 읽어 풀고 진행률을 알린다
