@@ -557,7 +557,49 @@ def repack():
             connection.close()
         _update_manifest(pack_dir, slug, _split_and_compress(slug, pack_dir))
         done.append(slug)
+    _fill_manifest(pack_dir)
     return done
+
+
+def _fill_manifest(pack_dir):
+    # type: (str) -> list
+    """매니페스트에 없는 시군구 팩 압축본을 풀어 크기·sha256·범위를 재고 항목을 채운다(동시 실행으로 항목이 덮어써진 경우, 2026-10-13 대전·서울)."""
+    import fcntl
+    manifest_path = os.path.join(pack_dir, "manifest.json")
+    with open(manifest_path, encoding="utf-8") as f:
+        known = {pack["name"] for pack in json.load(f)["packs"]}
+    added = []
+    for file_name in sorted(os.listdir(pack_dir)):
+        name = file_name[:-3]
+        if not file_name.endswith(".db.xz") or not name[:5].isdigit() or name in known:
+            continue
+        path = os.path.join(pack_dir, name)
+        subprocess.run(["xz", "-d", "-k", "-f", "-T0", path + ".xz"], check=True)
+        kind = name.rsplit("_", 1)[1][:-3]
+        connection = sqlite3.connect(path)
+        bounds = connection.execute(BOUNDS_SQL[kind]).fetchone()
+        if kind == "context" and bounds[0] is None:
+            bounds = connection.execute(BOUNDS_SQL["terrain"]).fetchone()
+        sgg_name = ""
+        if kind == "site":
+            sgg_name = _get_sgg_name((connection.execute("SELECT address FROM parcels LIMIT 1").fetchone() or [""])[0])
+        connection.close()
+        code = name[:2]
+        label = "%s %s %s" % (constants.SIDO[code][0], sgg_name or name[:5], dict((k, l) for k, l, _s in PACK_KINDS)[kind])
+        added.append({"name": name, "label": label, "url": file_name, "size": os.path.getsize(path), "sha256": _get_sha256(path),
+                      "bounds": [round(v, 1) for v in bounds], "xz_size": os.path.getsize(path + ".xz")})
+        os.remove(path)
+    if added:
+        with open(manifest_path + ".lock", "w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            with open(manifest_path, encoding="utf-8") as f:
+                manifest = json.load(f)
+            manifest["packs"] = sorted(manifest["packs"] + added, key=lambda p: p["name"])
+            with open(manifest_path + ".tmp", "w", encoding="utf-8") as f:
+                json.dump(manifest, f, ensure_ascii=False, indent=1)
+            os.replace(manifest_path + ".tmp", manifest_path)
+    print("  매니페스트에 채운 팩 %d개" % len(added), flush=True)
+    return added
 
 
 def main():

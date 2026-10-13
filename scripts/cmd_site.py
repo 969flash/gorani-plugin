@@ -244,6 +244,36 @@ def get_point_state(msg, site_db=None):
             "lot_name": target.name}
 
 
+def get_area_packs(bbox, seq=None, manifest=None):
+    # type: (list, int, dict) -> dict
+    """area_packs 페이로드 — 지도 화면(경위도 bbox)에 걸치는데 아직 안 받은 시군구 팩. 해외·매니페스트 없음은 빈 목록.
+
+    출력: {"type": "area_packs", seq, missing[{name, label, mb}], mb, labels(시군구 이름, 중복 없이)}.
+    """
+    empty = {"type": "area_packs", "seq": seq, "missing": [], "mb": 0, "labels": []}
+    constants = loader.load("constants")
+    non_rhino_utils = loader.load("non_rhino_utils")
+    data_pack = loader.load("data_pack")
+    if len(bbox) != 4 or not constants.DATA_MANIFEST_URL and manifest is None:
+        return empty
+    west, south, east, north = (float(v) for v in bbox)
+    if not non_rhino_utils.is_korea((west + east) / 2.0, (south + north) / 2.0):
+        return empty
+    corners = [non_rhino_utils.get_tm_from_wgs84(x, y) for x in (west, east) for y in (south, north)] if not non_rhino_utils.is_local_projection() else []
+    if not corners:
+        return empty
+    bounds = (min(c[0] for c in corners), min(c[1] for c in corners), max(c[0] for c in corners), max(c[1] for c in corners))
+    try:
+        missing = [pack for pack in data_pack.get_missing_packs(manifest or data_pack.get_manifest(), bounds=bounds)
+                   if pack["name"][:5].isdigit()]   # 시군구 팩만 — 옛 시도 팩은 지역 받기 대상이 아니다
+    except Exception:   # 오프라인 — 지도는 그대로 쓴다
+        return empty
+    labels = list(dict.fromkeys(" ".join(pack["label"].split()[:-1]) for pack in missing if pack["name"].endswith("_site.db")))
+    total = sum(pack.get("xz_size", 0) for pack in missing) / 1048576.0
+    return {"type": "area_packs", "seq": seq, "missing": [{"name": p["name"], "label": p["label"], "mb": round(p.get("xz_size", 0) / 1048576.0, 1)}
+                                                          for p in missing], "mb": round(total), "labels": labels}
+
+
 def get_target_from_msg(msg):
     # type: (dict) -> dict
     """generate·preflight 메시지 → 요청 target. 예전 메시지(pnus만)는 필지 방식."""
@@ -354,6 +384,7 @@ class _SiteController:
             "preflight": self._preflight, "generate": self._generate, "cancel": self._cancel,
             "import_context": self._import_context, "export_basemap": self._export_basemap, "zoom_view": self._zoom_view,
             "open_path": self._open_path, "save_prefs": self._save_prefs, "download_data": self._download_data,
+            "area_packs": self._area_packs,
         }
         handler = handlers.get(cmd)
         if handler is None:
@@ -518,6 +549,9 @@ class _SiteController:
         if response["options"].get("zoom_after_import"):
             context_baker.zoom_to_site(doc, response["dir"])
 
+    def _area_packs(self, msg):
+        self.push(get_area_packs(msg.get("bbox") or [], msg.get("seq")))
+
     def _cancel(self, msg):
         if self._running:
             self._cancel_requested = True   # 다음 콜백이 False를 돌려준다
@@ -528,6 +562,8 @@ class _SiteController:
             raise ValueError("다른 작업이 진행 중입니다")
         data_pack = loader.load("data_pack")
         packs = data_pack.get_missing_packs(data_pack.get_manifest())
+        if msg.get("names"):   # 지역 받기(area_packs가 알려 준 시군구 팩)
+            packs = [pack for pack in packs if pack["name"] in set(msg["names"])]
         self._running, self._cancel_requested = True, False
         try:
             for index, pack in enumerate(packs):

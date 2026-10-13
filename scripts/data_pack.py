@@ -28,17 +28,22 @@ def get_data_dir():
     return os.path.join(constants.HOME_DIR, os.path.dirname(constants.DATABASE_PATH))
 
 
-def get_manifest(manifest_url=None):
-    # type: (str) -> dict
-    """매니페스트를 받아 dict로. 각 팩의 url을 절대 URL로 바꿔 둔다. 주소가 비었으면 ValueError."""
+_MANIFEST = {}   # 매니페스트 주소 → 받은 매니페스트 — 지도를 옮길 때마다(area_packs) 다시 받지 않는다
+
+
+def get_manifest(manifest_url=None, refresh=False):
+    # type: (str, bool) -> dict
+    """매니페스트를 받아 dict로(Rhino 세션 동안 한 번). 각 팩의 url을 절대 URL로 바꿔 둔다. 주소가 비었으면 ValueError."""
     manifest_url = manifest_url or constants.DATA_MANIFEST_URL
     if not manifest_url:
         raise ValueError("데이터 주소가 아직 정해지지 않았습니다(constants.DATA_MANIFEST_URL)")
-    with urllib.request.urlopen(manifest_url, timeout=constants.DATA_TIMEOUT_SECONDS) as response:
-        manifest = json.loads(response.read().decode("utf-8"))
-    for pack in manifest["packs"]:
-        pack["url"] = urllib.parse.urljoin(manifest_url, pack["url"])
-    return manifest
+    if refresh or manifest_url not in _MANIFEST:
+        with urllib.request.urlopen(manifest_url, timeout=constants.DATA_TIMEOUT_SECONDS) as response:
+            manifest = json.loads(response.read().decode("utf-8"))
+        for pack in manifest["packs"]:
+            pack["url"] = urllib.parse.urljoin(manifest_url, pack["url"])
+        _MANIFEST[manifest_url] = manifest
+    return _MANIFEST[manifest_url]
 
 
 def _read_state(data_dir):
@@ -158,13 +163,28 @@ def _write_state(data_dir, state):
     os.replace(path + ".tmp", path)
 
 
-def get_missing_packs(manifest, data_dir=None):
-    # type: (dict, str) -> list
-    """받아야 할 팩 목록 — 파일이 없거나 받은 sha256이 매니페스트와 다른 것."""
+def get_missing_packs(manifest, data_dir=None, bounds=None):
+    # type: (dict, str, tuple) -> list
+    """받아야 할 팩 목록 — 파일이 없거나 받은 sha256이 매니페스트와 다른 것. bounds(EPSG:5186)를 주면 그 범위에 걸치는 팩만(시군구 팩)."""
     data_dir = data_dir or get_data_dir()
     state = _read_state(data_dir)
     return [pack for pack in manifest["packs"]
-            if (state.get(pack["name"]) or {}).get("sha256") != pack["sha256"] or not os.path.exists(os.path.join(data_dir, pack["name"]))]
+            if ((state.get(pack["name"]) or {}).get("sha256") != pack["sha256"] or not os.path.exists(os.path.join(data_dir, pack["name"])))
+            and (bounds is None or _is_overlapping(bounds, pack.get("bounds")))]
+
+
+def get_installed_names(manifest, data_dir=None):
+    # type: (dict, str) -> set
+    """받아 둔 팩 이름 — 매니페스트와 sha256이 같은 것."""
+    data_dir = data_dir or get_data_dir()
+    state = _read_state(data_dir)
+    return {pack["name"] for pack in manifest["packs"] if (state.get(pack["name"]) or {}).get("sha256") == pack["sha256"]}
+
+
+def _is_overlapping(bounds, pack_bounds):
+    # type: (tuple, list) -> bool
+    return not pack_bounds or (bounds[0] <= pack_bounds[2] and bounds[2] >= pack_bounds[0]
+                               and bounds[1] <= pack_bounds[3] and bounds[3] >= pack_bounds[1])
 
 
 def download_pack(pack, data_dir=None, progress=None):
