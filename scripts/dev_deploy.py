@@ -570,7 +570,7 @@ def _fill_manifest(pack_dir):
     with open(manifest_path, encoding="utf-8") as f:
         known = {pack["name"] for pack in json.load(f)["packs"]}
     added = []
-    for file_name in sorted(os.listdir(pack_dir)):
+    for file_name in sorted(os.listdir(pack_dir), key=lambda n: (n[:5], not n.endswith("_site.db.xz"))):   # 필지 팩 먼저(이름)
         name = file_name[:-3]
         if not file_name.endswith(".db.xz") or not name[:5].isdigit() or name in known:
             continue
@@ -585,8 +585,10 @@ def _fill_manifest(pack_dir):
         if kind == "site":
             sgg_name = _get_sgg_name((connection.execute("SELECT address FROM parcels LIMIT 1").fetchone() or [""])[0])
         connection.close()
+        if not sgg_name:   # 컨텍스트·등고선 팩 — 같은 시군구 필지 팩 항목의 이름을 따른다
+            sgg_name = next((" ".join(p["label"].split()[1:-1]) for p in added if p["name"] == name[:5] + "_site.db"), "") or name[:5]
         code = name[:2]
-        label = "%s %s %s" % (constants.SIDO[code][0], sgg_name or name[:5], dict((k, l) for k, l, _s in PACK_KINDS)[kind])
+        label = "%s %s %s" % (constants.SIDO[code][0], sgg_name, dict((k, l) for k, l, _s in PACK_KINDS)[kind])
         added.append({"name": name, "label": label, "url": file_name, "size": os.path.getsize(path), "sha256": _get_sha256(path),
                       "bounds": [round(v, 1) for v in bounds], "xz_size": os.path.getsize(path + ".xz")})
         os.remove(path)
