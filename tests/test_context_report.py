@@ -123,11 +123,11 @@ class TablesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             tables = context_report.write_tables(_prepared(), tmp, today=TODAY)
             rows = _read_csv(tables[2]["path"])
-            floors = {r["category"]: r["count"] for r in rows if r["sheet_id"] == "8"}
+            floors = {r["category"]: r["count"] for r in rows if r["sheet_id"] == str(constants.SHEET_IDS["floor"])}
             self.assertEqual(floors, {"2~3": "1", "13~20": "1", "21+": "1"})
-            ages = {r["category"]: r["count"] for r in rows if r["sheet_id"] == "9"}
+            ages = {r["category"]: r["count"] for r in rows if r["sheet_id"] == str(constants.SHEET_IDS["age"])}
             self.assertEqual(ages, {"30년 이상": "2", "연도 미상": "1"})
-            jimok = {r["category"]: r["ratio"] for r in rows if r["sheet_id"] == "3"}
+            jimok = {r["category"]: r["ratio"] for r in rows if r["sheet_id"] == str(constants.SHEET_IDS["land_category"])}
             self.assertEqual(jimok, {"대": "0.5", "도로": "0.5"})
 
     def test_height_src_strips_flags(self):

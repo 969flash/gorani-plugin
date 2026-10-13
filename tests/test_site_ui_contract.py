@@ -22,7 +22,8 @@ TODAY = datetime.date(2026, 10, 7)
 HOLE_PNU = "1120011400100130219"   # 성수동1가 13-219 — 구멍 3개(test_context_builder와 같은 필지)
 
 # docs/panel_ui.md 푸시 정의의 키 집합
-INIT_KEYS = {"type", "version", "blocked", "paths", "generator", "can_download", "sources", "warnings", "tile", "map", "options", "modes", "recent", "sheet_catalog"}
+INIT_KEYS = {"type", "version", "blocked", "paths", "generator", "can_download", "sources", "warnings", "tile", "map", "options", "modes", "recent", "sheet_catalog",
+             "style_presets", "style_defaults", "style_ramps", "styles"}
 SOURCE_KEYS = {"id", "label", "name", "date", "age_months", "level", "newer_date", "text"}
 SEARCH_KEYS = {"type", "query", "seq", "matches", "message"}
 MATCH_KEYS = {"pnu", "address", "jibun", "land_category", "area", "center"}
@@ -60,8 +61,9 @@ class InitStateTest(unittest.TestCase):
         self.assertIn("keys", state["sources"][3])
         self.assertEqual(set(state["paths"]), {"root", "lot_db", "context_db", "env", "install_doc"})
         self.assertEqual(set(state["options"]), set(constants.PANEL_DEFAULT_OPTIONS))
-        self.assertEqual([c["id"] for c in state["sheet_catalog"]], list(range(1, 14)))
-        self.assertEqual(state["sheet_catalog"][11]["needs"], "terrain")
+        self.assertEqual([c["id"] for c in state["sheet_catalog"]], list(range(len(constants.SHEET_CATALOG))))
+        self.assertEqual(state["sheet_catalog"][constants.SHEET_IDS["elev"]]["needs"], "terrain")
+        self.assertEqual(set(state["sheet_catalog"][0]), {"id", "key", "name", "subtitle", "needs"})
         self.assertEqual(set(state["tile"]), {"url", "fallback_url", "attribution", "abroad_url", "abroad_attribution"})
         for warning in state["warnings"]:
             self.assertEqual(set(warning), WARNING_KEYS)

@@ -75,9 +75,13 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `zoom_view` | `dir`(결과 폴더 절대경로), `center`[lng,lat](선택) | — (`error{context:"open"}`) | `import_context`·`export_basemap`과 같은 꼴 — JS가 `result.dir`을 붙인다(Python은 마지막 결과 폴더를 기억하지 않는다). `center` 없으면 `CTX::Site` 객체로 줌. 있으면 `<dir>/context.json`의 ORIGIN으로 문서 좌표 환산 후 그 점 주변 100 m |
 | `open_path` | `path`(str) | — (`error{context:"open"}`) | 절대경로 또는 프로젝트 루트 상대(`docs/data_sources.md`, `.env`, `data`). 폴더 = 탐색기, 파일 = OS 기본 앱. `.env`가 없으면 두 줄 템플릿(`VWORLD_API_KEY=`·`DATA_GO_KR_KEY=`)을 만든 뒤 연다. 외부 URL은 열지 않는다(WebView가 이동하므로 JS에서도 링크 금지) |
 | `save_prefs` | `options` | — | `prefs.json`에 `options`만 덮어쓴다(`recent`는 `generate` 성공 시 Python이 갱신) |
+| `style_preview` | `dir`, `sheet_id`(0~15), `style`(스타일 dict), `seq` | `style_preview`(같은 `seq`) / `error{context:"style"}` | ③ 결과의 도면 스타일 화면. `context_builder.preview_sheet` — 한 장을 스타일로 다시 그린 SVG 문자열(파일 안 씀). 시트 데이터는 컨트롤러 `_keep`(이번 세션 생성 결과, 지형 삼각형 포함), 없으면 `context.json`으로 한 번 prepare(지형 시트는 비어 나온다). SVG id·`url(#…)`은 `pv_` 접두어(패널 `#map`과 겹치지 않게). JS 250 ms 디바운스, 늦은 `seq`는 버린다 |
+| `apply_style` | `dir`, `style` | `busy{on}` → `style_applied` → `busy{off}` | `context_builder.apply_style` — 결과 폴더의 시트 전부 + 이미 쓴 `basemap_<축척>.ai`를 다시 쓰고 `context.json.options.style`을 바꾼다. 지형 삼각형이 없으면 지형 시트 파일은 그대로(`kept`). JS는 성공하면 `options.style`을 `save_prefs` |
+| `save_style` | `name`, `style` | `styles` / `error{context:"style"}` | `site_prefs.save_style` → `HOME_DIR/styles/<이름>.json`(경로 문자 제거, 같은 이름 덮어씀). 사무소 표준을 파일로 나눠 쓴다 |
+| `sheet_ai` | `dir`, `path`(도면 SVG) 또는 `all:true` | `busy{on}` → `sheet_ai` → `busy{off}` | `sheet_svg.get_sheet_ai` — 도면 SVG를 레이어 .ai로(없거나 SVG보다 오래됐을 때만 다시 쓴다). 한 장이면 쓰고 OS로 연다. 생성 때 .ai를 다 쓰지 않는다(23장이면 Rhino에서 10 s+) |
 | `download_data` | — | `data_progress`×N → `init_state` (`error{context:"init"}`) | 블로커의 [DB 받기]. `data_pack`이 매니페스트(`constants.DATA_MANIFEST_URL`)에서 바뀐 팩만 `HOME_DIR/data/`에 받는다. 진행 중 `cancel`이면 그 팩에서 멈추고 `data_progress`로 알린다(받던 팩은 버리고 쓰던 DB는 그대로). 유일한 네트워크 명령(주소 보조검색 제외) |
 
-명령 12개. `auth_pin`(옛 PIN 인증)은 없다 — 사내 배포라 인증 게이트 없음.
+명령 16개(+ 도면 스타일 3개·도면 .ai 1개, 2026-10-13). `auth_pin`(옛 PIN 인증)은 없다 — 사내 배포라 인증 게이트 없음.
 
 ## 푸시 목록 (Python → JS)
 
@@ -123,7 +127,11 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
  "map":{"center":[126.9784,37.5665],"zoom":16},              // review_map.get_map_init()
  "options":{…옵션 키 전부, prefs.json 복원 또는 기본값…},
  "recent":[{"pnus":["…"],"label":"성수동2가 277-17 외 1","total_area":1234.5,"date":"2026-10-06"}],   // 최대 5
- "sheet_catalog":[{"id":1,"name":"위치·범위"},…,{"id":12,"name":"표고","needs":"terrain"},{"id":13,"name":"경사","needs":"terrain"}]}
+ "sheet_catalog":[{"id":0,"key":"base","name":"베이스맵","subtitle":"Base map","needs":"lot"},…,{"id":15,"key":"slope","name":"경사","subtitle":"Slope","needs":"terrain"}],   // constants.SHEET_CATALOG 23장(분석도 8 · 현황도 12 · 틀 3). done.sheets[].thumb = 160 px PNG data URI(패널 도면 칸)
+ "style_presets":{"std":{"name":"표준","paper":"#FFFFFF",…,"ramp":"warm"},"vivid":…,"mono":…,"dark":…},   // constants.STYLE_PRESETS
+ "style_defaults":{"layout":"side","line_scale":1.0,"text_scale":1.0,"font":"sans","fade_outside":0.55,"labels":true,"subtitle_en":true,"project":""},
+ "style_ramps":{"warm":["#FBEFC9",…],…},
+ "styles":[{"name":"OO건축 표준","style":{…}}]}      // HOME_DIR/styles/*.json
 
 {"type":"search_result","query":"…","seq":null,
  "matches":[{"pnu":"1120010200102770017","address":"서울특별시 성동구 성수동2가 277-17","jibun":"277-17",
@@ -191,6 +199,10 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 
 {"type":"imported","ok":true,"dir":"…","layers":12,"objects":4120,"replaced":true,"text":""}   // ok=false면 text에 Rhino 메시지. run=running 중(import_after 경로)에는 JS가 무시 — 결과는 done.context에 담겨 온다
 {"type":"exported","ok":true,"dir":"…","scale":3000,"path":"…/basemap_3000.ai","text":""}
+{"type":"style_preview","seq":3,"sheet_id":0,"svg":"<svg …>","empty":false,"reason":""}   // id는 pv_ 접두어
+{"type":"style_applied","ok":true,"dir":"…","sheets":[{id,name,path,thumb,empty,reason}],"basemaps":["…/basemap_5000.ai"],"kept":[14,15],"text":""}
+{"type":"sheet_ai","ok":true,"dir":"…","paths":["…/sheets/02_필지규모.ai"]}
+{"type":"styles","styles":[{"name":"OO건축 표준","style":{…}}],"saved":"OO건축 표준","dir":"<HOME_DIR>/styles"}
 ```
 
 푸시 12종. `toast`는 없다 — 성공 토스트는 JS가 `imported`·`exported`를 받아 띄운다.
@@ -241,17 +253,19 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
  "flatten_site":false,"flatten_level":"mean",          // 대상지 평탄화(lots·area) — 높이 = 대상지 경계 자연 지반 mean|min|max
  "site_output":"curve",                                // 대상지 표시(lots·area): curve = 경계 커브만, mesh = 바닥 메시도(CTX::Site::ground). 방식 기본: 필지 mesh, 구역 curve
  "import_after":true,                                  // context.3dm은 항상 쓴다(산출물의 뼈대, 수 초). 끌 수 있는 건 Import뿐
- "make_basemap":true,"paper":"A1","paper_mm":[841,594],"scales":[3000],"basemap_layers_on":[],   // "02b_landuse"|"05_road_center"|"11_zoning"
+ "make_basemap":true,"paper":"A3","paper_mm":[420,297],"scales":[5000],"basemap_layers_on":[],   // A3 가로 = 분석도 템플릿 기준(2026-10-13)   // "02b_landuse"|"05_road_center"|"11_zoning"
                                                        // scales: ② 프레임 미리보기·③ .ai select 기본값 전용(prefs·preflight에만). generate 페이로드에서 JS가 뺀다. dirty 판정 제외
- "make_sheets":true,"sheet_ids":[1,2,3,4,5,6,7,8,9,10,11,12,13],"floor_breaks":[12,20],"elev_preset":"20m",   // "20m"|"50m"
+ "make_sheets":true,"sheet_ids":[0,1,…,22],"floor_breaks":[12,20],"elev_preset":"20m",   // "20m"|"50m". 카탈로그에 없는 id는 엔진이 버린다(get_sheet_ids)
  "make_tables":true,
  "include_minor_buildings":false,"demolished":"dashed","refresh_buildings":true,"include_api_objects":false,   // demolished: dashed|exclude
  "include_zoning":false,"terrain_vertex_color":false,
  "make_dwg":false,                                     // 3dm 2D 도면(BM::)만 basemap_<축척>.dwg로도 저장(고급 > 3dm). 결과 경로는 done.context.dwg
- "zoom_after_import":true}
+ "zoom_after_import":true,
+ "style":{"preset":"std"}}                              // 도면 스타일 — 사용자가 고른·바꾼 값. 해석은 sheet_svg.get_style(STYLE_*): 색 10개(paper·block·road·green·water·building·rail·site·extent·ink),
+                                                       // ramp, layout(side|bottom|map), line_scale, text_scale, font(sans|serif), fade_outside, labels, subtitle_en, project, name(저장한 스타일)
 ```
 
-26개. 모르는 키는 Python이 무시하고 빠진 키는 기본값(constants)으로 채운다. `generate`는 `pnus`를 옵션 밖 별도 키로 받는다(옵션은 대상지와 독립이어야 prefs로 재사용된다). **`scales`는 `generate`에도 포함한다**(code_map §3: 가장 큰 프레임이 질의 범위) — dirty 판정에서는 여전히 제외.
+27개. 모르는 키는 Python이 무시하고 빠진 키는 기본값(constants)으로 채운다. `generate`는 `pnus`를 옵션 밖 별도 키로 받는다(옵션은 대상지와 독립이어야 prefs로 재사용된다). **`scales`는 `generate`에도 포함한다**(code_map §3: 가장 큰 프레임이 질의 범위) — dirty 판정에서는 여전히 제외.
 
 ## 상태 머신
 

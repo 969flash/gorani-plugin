@@ -75,21 +75,27 @@
    "zoom": 17
   },
   "options": {
+   "mode": "lots",
+   "placement": "origin",
    "radius": 500,
-   "shape": "buffer",
+   "shape": "circle",
+   "flatten_site": false,
+   "flatten_level": "mean",
+   "site_output": "curve",
    "import_after": true,
    "make_basemap": true,
-   "paper": "A1",
+   "paper": "A3",
    "paper_mm": [
-    841,
-    594
+    420,
+    297
    ],
    "scales": [
-    3000
+    5000
    ],
    "basemap_layers_on": [],
    "make_sheets": true,
    "sheet_ids": [
+    0,
     1,
     2,
     3,
@@ -102,7 +108,16 @@
     10,
     11,
     12,
-    13
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22
    ],
    "floor_breaks": [
     12,
@@ -116,7 +131,11 @@
    "include_api_objects": false,
    "include_zoning": false,
    "terrain_vertex_color": false,
-   "zoom_after_import": true
+   "make_dwg": false,
+   "zoom_after_import": true,
+   "style": {
+    "preset": "std"
+   }
   },
   "recent": [
    {
@@ -139,58 +158,276 @@
   ],
   "sheet_catalog": [
    {
+    "id": 0,
+    "key": "base",
+    "name": "베이스맵",
+    "subtitle": "Base map",
+    "needs": "lot"
+   },
+   {
     "id": 1,
-    "name": "위치·범위도"
+    "key": "figure",
+    "name": "도형-배경도",
+    "subtitle": "Figure-ground",
+    "needs": "building"
    },
    {
     "id": 2,
-    "name": "토지이용현황도"
+    "key": "lot_size",
+    "name": "필지 규모",
+    "subtitle": "Parcel grain",
+    "needs": "lot"
    },
    {
     "id": 3,
-    "name": "지목 현황도"
+    "key": "density",
+    "name": "블록 밀도",
+    "subtitle": "Block density",
+    "needs": "building"
    },
    {
     "id": 4,
-    "name": "용도지역도"
+    "key": "transit",
+    "name": "대중교통 역세권",
+    "subtitle": "Transit catchment",
+    "needs": "building"
    },
    {
     "id": 5,
-    "name": "용도지구·구역도"
+    "key": "walk",
+    "name": "보행권",
+    "subtitle": "Walking distance",
+    "needs": "road"
    },
    {
     "id": 6,
-    "name": "도시계획시설·지구단위계획구역도"
+    "key": "green",
+    "name": "녹지·수계",
+    "subtitle": "Green and blue",
+    "needs": "building"
    },
    {
     "id": 7,
-    "name": "건축물 용도 현황도"
+    "key": "public",
+    "name": "생활 공공시설",
+    "subtitle": "Community facilities",
+    "needs": "building"
    },
    {
     "id": 8,
-    "name": "건축물 층수 현황도"
+    "key": "road",
+    "name": "가로 위계",
+    "subtitle": "Street hierarchy",
+    "needs": "road"
    },
    {
     "id": 9,
-    "name": "건축물 노후도 현황도"
+    "key": "land_use",
+    "name": "토지이용현황",
+    "subtitle": "Land use",
+    "needs": "lot"
    },
    {
     "id": 10,
-    "name": "도로현황도(폭원·위계)"
+    "key": "land_category",
+    "name": "지목 현황",
+    "subtitle": "Land category",
+    "needs": "lot"
    },
    {
     "id": 11,
-    "name": "공시지가 현황도"
+    "key": "zone",
+    "name": "용도지역",
+    "subtitle": "Zoning",
+    "needs": "lot"
    },
    {
     "id": 12,
-    "name": "표고 분석도",
-    "needs": "terrain"
+    "key": "district",
+    "name": "용도지구·구역",
+    "subtitle": "Districts",
+    "needs": "lot"
    },
    {
     "id": 13,
-    "name": "경사 분석도",
+    "key": "facility",
+    "name": "도시계획시설·지구단위계획",
+    "subtitle": "Planning facilities",
+    "needs": "lot"
+   },
+   {
+    "id": 14,
+    "key": "use",
+    "name": "건축물 용도",
+    "subtitle": "Building use",
+    "needs": "building"
+   },
+   {
+    "id": 15,
+    "key": "floor",
+    "name": "건축물 층수",
+    "subtitle": "Building height",
+    "needs": "building"
+   },
+   {
+    "id": 16,
+    "key": "age",
+    "name": "건축물 노후도",
+    "subtitle": "Building age",
+    "needs": "building"
+   },
+   {
+    "id": 17,
+    "key": "price",
+    "name": "공시지가",
+    "subtitle": "Land price",
+    "needs": "lot"
+   },
+   {
+    "id": 18,
+    "key": "elev",
+    "name": "표고",
+    "subtitle": "Elevation",
     "needs": "terrain"
+   },
+   {
+    "id": 19,
+    "key": "slope",
+    "name": "경사",
+    "subtitle": "Slope",
+    "needs": "terrain"
+   },
+   {
+    "id": 20,
+    "key": "view",
+    "name": "경관·조망 (틀)",
+    "subtitle": "Views",
+    "needs": "lot"
+   },
+   {
+    "id": 21,
+    "key": "image",
+    "name": "이미지맵 (틀)",
+    "subtitle": "Image of the city",
+    "needs": "lot"
+   },
+   {
+    "id": 22,
+    "key": "synthesis",
+    "name": "종합분석 (틀)",
+    "subtitle": "Synthesis",
+    "needs": "lot"
+   }
+  ],
+  "style_presets": {
+   "std": {
+    "name": "표준",
+    "paper": "#FFFFFF",
+    "block": "#ECECE8",
+    "road": "#FFFFFF",
+    "green": "#DDE6D3",
+    "water": "#D2DEE7",
+    "building": "#C2C2BC",
+    "rail": "#8C8C88",
+    "site": "#E2412F",
+    "extent": "#2B2B29",
+    "ink": "#2B2B29",
+    "ramp": "warm"
+   },
+   "vivid": {
+    "name": "선명",
+    "paper": "#FFFFFF",
+    "block": "#E8EDF1",
+    "road": "#FFFFFF",
+    "green": "#C9E0BA",
+    "water": "#B7D2EC",
+    "building": "#98A6B3",
+    "rail": "#4E5A66",
+    "site": "#FF4F1F",
+    "extent": "#16202A",
+    "ink": "#16202A",
+    "ramp": "cool"
+   },
+   "mono": {
+    "name": "흑백",
+    "paper": "#FFFFFF",
+    "block": "#EDEDED",
+    "road": "#FFFFFF",
+    "green": "#E0E0E0",
+    "water": "#D5D5D5",
+    "building": "#BDBDBD",
+    "rail": "#6E6E6E",
+    "site": "#111111",
+    "extent": "#111111",
+    "ink": "#111111",
+    "ramp": "mono"
+   },
+   "dark": {
+    "name": "다크",
+    "paper": "#15181C",
+    "block": "#23272D",
+    "road": "#15181C",
+    "green": "#27332A",
+    "water": "#1E2A35",
+    "building": "#464B53",
+    "rail": "#7A828E",
+    "site": "#FF6A4D",
+    "extent": "#D9DDE3",
+    "ink": "#E6E8EB",
+    "ramp": "cool"
+   }
+  },
+  "style_defaults": {
+   "layout": "side",
+   "line_scale": 1.0,
+   "text_scale": 1.0,
+   "font": "sans",
+   "fade_outside": 0.55,
+   "labels": true,
+   "subtitle_en": true,
+   "project": ""
+  },
+  "style_ramps": {
+   "warm": [
+    "#FBEFC9",
+    "#F5D58A",
+    "#EDB45C",
+    "#DB8A3A",
+    "#B85E2A",
+    "#7E3A1E"
+   ],
+   "cool": [
+    "#E3EEF7",
+    "#B9D3EA",
+    "#86B2DA",
+    "#5288C2",
+    "#2D62A3",
+    "#173F73"
+   ],
+   "green": [
+    "#E8F2DC",
+    "#C4DFA6",
+    "#97C46F",
+    "#66A045",
+    "#3F7A2E",
+    "#22501D"
+   ],
+   "mono": [
+    "#EEEEEE",
+    "#D0D0D0",
+    "#ABABAB",
+    "#828282",
+    "#575757",
+    "#2E2E2E"
+   ]
+  },
+  "styles": [
+   {
+    "name": "OO건축 표준",
+    "style": {
+     "preset": "mono",
+     "site": "#0057FF"
+    }
    }
   ]
  },
@@ -867,21 +1104,27 @@
   "lot_name": "성수동2가_277-17외1",
   "elapsed_s": 41,
   "options": {
+   "mode": "lots",
+   "placement": "origin",
    "radius": 500,
-   "shape": "buffer",
+   "shape": "circle",
+   "flatten_site": false,
+   "flatten_level": "mean",
+   "site_output": "curve",
    "import_after": true,
    "make_basemap": true,
-   "paper": "A1",
+   "paper": "A3",
    "paper_mm": [
-    841,
-    594
+    420,
+    297
    ],
    "scales": [
-    3000
+    5000
    ],
    "basemap_layers_on": [],
    "make_sheets": true,
    "sheet_ids": [
+    0,
     1,
     2,
     3,
@@ -894,7 +1137,16 @@
     10,
     11,
     12,
-    13
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22
    ],
    "floor_breaks": [
     12,
@@ -908,7 +1160,11 @@
    "include_api_objects": false,
    "include_zoning": false,
    "terrain_vertex_color": false,
-   "zoom_after_import": true
+   "make_dwg": false,
+   "zoom_after_import": true,
+   "style": {
+    "preset": "std"
+   }
   },
   "context": {
    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/context.3dm",
@@ -932,93 +1188,186 @@
   },
   "sheets": [
    {
+    "id": 0,
+    "name": "베이스맵",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/00_베이스맵.svg",
+    "thumb": "",
+    "empty": false,
+    "reason": ""
+   },
+   {
     "id": 1,
-    "name": "위치·범위도",
-    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/01_위치범위도.svg",
+    "name": "도형-배경도",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/01_도형-배경도.svg",
+    "thumb": "",
     "empty": false,
     "reason": ""
    },
    {
     "id": 2,
-    "name": "토지이용현황도",
-    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/02_토지이용현황도.svg",
+    "name": "필지 규모",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/02_필지 규모.svg",
+    "thumb": "",
     "empty": false,
     "reason": ""
    },
    {
     "id": 3,
-    "name": "지목 현황도",
-    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/03_지목 현황도.svg",
+    "name": "블록 밀도",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/03_블록 밀도.svg",
+    "thumb": "",
     "empty": false,
     "reason": ""
    },
    {
     "id": 4,
-    "name": "용도지역도",
-    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/04_용도지역도.svg",
+    "name": "대중교통 역세권",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/04_대중교통 역세권.svg",
+    "thumb": "",
     "empty": false,
     "reason": ""
    },
    {
     "id": 5,
-    "name": "용도지구·구역도",
-    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/05_용도지구구역도.svg",
+    "name": "보행권",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/05_보행권.svg",
+    "thumb": "",
     "empty": false,
     "reason": ""
    },
    {
     "id": 6,
-    "name": "도시계획시설·지구단위계획구역도",
-    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/06_도시계획시설지구단위계획구역도.svg",
+    "name": "녹지·수계",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/06_녹지·수계.svg",
+    "thumb": "",
     "empty": false,
     "reason": ""
    },
    {
     "id": 7,
-    "name": "건축물 용도 현황도",
-    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/07_건축물 용도 현황도.svg",
+    "name": "생활 공공시설",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/07_생활 공공시설.svg",
+    "thumb": "",
     "empty": false,
     "reason": ""
    },
    {
     "id": 8,
-    "name": "건축물 층수 현황도",
-    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/08_건축물 층수 현황도.svg",
+    "name": "가로 위계",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/08_가로 위계.svg",
+    "thumb": "",
     "empty": false,
     "reason": ""
    },
    {
     "id": 9,
-    "name": "건축물 노후도 현황도",
-    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/09_건축물 노후도 현황도.svg",
+    "name": "토지이용현황",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/09_토지이용현황.svg",
+    "thumb": "",
     "empty": false,
     "reason": ""
    },
    {
     "id": 10,
-    "name": "도로현황도(폭원·위계)",
-    "path": null,
-    "empty": true,
-    "reason": "데이터 없음"
+    "name": "지목 현황",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/10_지목 현황.svg",
+    "thumb": "",
+    "empty": false,
+    "reason": ""
    },
    {
     "id": 11,
-    "name": "공시지가 현황도",
-    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/11_공시지가 현황도.svg",
+    "name": "용도지역",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/11_용도지역.svg",
+    "thumb": "",
     "empty": false,
     "reason": ""
    },
    {
     "id": 12,
-    "name": "표고 분석도",
-    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/12_표고 분석도.svg",
+    "name": "용도지구·구역",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/12_용도지구·구역.svg",
+    "thumb": "",
+    "empty": true,
+    "reason": "데이터 없음"
+   },
+   {
+    "id": 13,
+    "name": "도시계획시설·지구단위계획",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/13_도시계획시설·지구단위계획.svg",
+    "thumb": "",
     "empty": false,
     "reason": ""
    },
    {
-    "id": 13,
-    "name": "경사 분석도",
-    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/13_경사 분석도.svg",
+    "id": 14,
+    "name": "건축물 용도",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/14_건축물 용도.svg",
+    "thumb": "",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 15,
+    "name": "건축물 층수",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/15_건축물 층수.svg",
+    "thumb": "",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 16,
+    "name": "건축물 노후도",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/16_건축물 노후도.svg",
+    "thumb": "",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 17,
+    "name": "공시지가",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/17_공시지가.svg",
+    "thumb": "",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 18,
+    "name": "표고",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/18_표고.svg",
+    "thumb": "",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 19,
+    "name": "경사",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/19_경사.svg",
+    "thumb": "",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 20,
+    "name": "경관·조망 (틀)",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/20_경관·조망 (틀).svg",
+    "thumb": "",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 21,
+    "name": "이미지맵 (틀)",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/21_이미지맵 (틀).svg",
+    "thumb": "",
+    "empty": false,
+    "reason": ""
+   },
+   {
+    "id": 22,
+    "name": "종합분석 (틀)",
+    "path": "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result/20261007/성수동2가_277-17외1/sheets/22_종합분석 (틀).svg",
+    "thumb": "",
     "empty": false,
     "reason": ""
    }

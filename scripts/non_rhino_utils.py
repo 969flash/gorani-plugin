@@ -97,6 +97,12 @@ def get_center_xy_from_bounds(bounds):
     )
 
 
+def get_text_width_em(text):
+    # type: (str) -> float
+    """글자 폭 어림(em) — 한글·한자 1.0, 그 밖 0.55. 가운데 정렬·줄바꿈용(basemap_ai·sheet_svg)."""
+    return sum(1.0 if ord(ch) > 0x2000 else 0.55 for ch in text)
+
+
 def get_ring_area(ring):
     # type: (list) -> float
     """좌표 링이 감싸는 면적을 구한다.

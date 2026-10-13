@@ -6,6 +6,7 @@ WebView는 임시 파일 file:// 출처라 localStorage를 믿을 수 없어 Pyt
 
 import json
 import os
+import re
 import tempfile
 
 import constants
@@ -82,3 +83,36 @@ def get_source_news(path=SOURCE_NEWS_PATH):
     # type: (str) -> dict
     """dev_check_sources.py가 남긴 '새 판' 캐시. 없으면 빈 dict."""
     return _read_json(path)
+
+
+def get_styles_dir():
+    # type: () -> str
+    """도면 스타일 파일 폴더 — HOME_DIR/styles. 사용자가 열어 다른 사람과 파일로 주고받는다."""
+    return os.path.join(constants.HOME_DIR, constants.STYLES_DIRNAME)
+
+
+def list_styles(styles_dir=None):
+    # type: (str) -> list
+    """styles/*.json → [{name, style}] 이름순. 깨진 파일·dict가 아닌 파일은 건너뛴다(값 검사는 sheet_svg.get_style이 한다)."""
+    styles_dir = styles_dir or get_styles_dir()
+    if not os.path.isdir(styles_dir):
+        return []
+    styles = []
+    for file_name in sorted(os.listdir(styles_dir)):
+        if not file_name.endswith(".json"):
+            continue
+        style = _read_json(os.path.join(styles_dir, file_name))
+        if style:
+            styles.append({"name": file_name[:-5], "style": style})
+    return styles
+
+
+def save_style(name, style, styles_dir=None):
+    # type: (str, dict, str) -> list
+    """스타일 하나를 styles/<이름>.json으로 쓴다(같은 이름은 덮어쓴다). 이름의 경로 문자는 지운다. 반환 list_styles()."""
+    clean = re.sub(r'[\\/:*?"<>|]', "", str(name or "")).strip()[:40]
+    if not clean or clean.startswith("."):
+        raise ValueError("스타일 이름을 적어 주세요")
+    styles_dir = styles_dir or get_styles_dir()
+    _write_json(os.path.join(styles_dir, clean + ".json"), dict(style or {}, name=clean))
+    return list_styles(styles_dir)

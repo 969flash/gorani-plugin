@@ -181,6 +181,18 @@ class PrefsTest(unittest.TestCase):
             with open(path, encoding="utf-8") as f:
                 self.assertIn("options", json.load(f))
 
+    def test_style_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(site_prefs.list_styles(tmp), [])
+            styles = site_prefs.save_style("OO건축/표준", {"preset": "mono", "site": "#0057FF"}, tmp)   # 경로 문자는 지운다
+            self.assertEqual([s["name"] for s in styles], ["OO건축표준"])
+            self.assertEqual(styles[0]["style"]["site"], "#0057FF")
+            with open(os.path.join(tmp, "broken.json"), "w") as handle:
+                handle.write("{not json")
+            self.assertEqual(len(site_prefs.list_styles(tmp)), 1)   # 깨진 파일은 건너뛴다
+            with self.assertRaises(ValueError):
+                site_prefs.save_style("  ", {}, tmp)
+
 
 @unittest.skipUnless(HAS_FIXTURES, "tests/fixtures/seongsu_*.db가 없다 (python3 scripts/dev_make_fixture.py)")
 class PrepareTest(unittest.TestCase):
@@ -229,11 +241,11 @@ class PrepareTest(unittest.TestCase):
         self.assertGreater(len(p.extent_ring), 4)
         self.assertLess(p.bounds[0], p.bounds[2])
         self.assertLess(p.bounds[1], p.bounds[3])
-        # bounds = 범위 bbox ∪ 최대 프레임 bbox + 20 m (A1 1:3000 = 2,523×1,782 m가 반경 500 m 범위보다 크다)
-        frame = p.frame_bounds[3000]
+        # bounds = 범위 bbox ∪ 최대 프레임 bbox + 20 m (A3 1:5000 = 2,100×1,485 m가 반경 500 m 범위보다 크다)
+        frame = p.frame_bounds[5000]
         self.assertAlmostEqual(p.bounds[0], frame[0] - constants.QUERY_MARGIN, 3)
         self.assertAlmostEqual(p.bounds[2], frame[2] + constants.QUERY_MARGIN, 3)
-        self.assertAlmostEqual(frame[2] - frame[0], 2523.0, 3)
+        self.assertAlmostEqual(frame[2] - frame[0], 2100.0, 3)
         extent = non_rhino_utils.get_bbox(p.extent_ring)
         self.assertTrue(p.bounds[0] <= extent[0] and p.bounds[2] >= extent[2])
 
@@ -280,7 +292,7 @@ class PrepareTest(unittest.TestCase):
         self.assertEqual([s["id"] for s in p.sources], ["lot", "building", "terrain", "api", "upis"])
         self.assertEqual(p.skipped_phases, {"refresh", "import"})
         self.assertEqual(p.request["options"]["radius"], 500)
-        self.assertEqual(p.request["options"]["paper"], "A1")
+        self.assertEqual(p.request["options"]["paper"], "A3")
         for w in p.warnings:
             self.assertEqual(set(w), {"level", "code", "text", "detail", "action", "center"})
 
@@ -399,7 +411,7 @@ class ResponseSchemaTest(unittest.TestCase):
             self.assertEqual(response["quality"]["dates"]["building"], "2026-09-06")
             self.assertEqual(response["qa_geojson"], {"type": "FeatureCollection", "features": []})
             self.assertEqual(response["options"]["radius"], 500)
-            self.assertEqual(response["options"]["paper"], "A1")
+            self.assertEqual(response["options"]["paper"], "A3")
             for w in response["warnings"]:
                 self.assertEqual(set(w), {"level", "code", "text", "detail", "action", "center"})
             # 결과 폴더 result/<날짜>/<lot_name>/ 가 생기고 log.txt에 오류가 남는다 → files 목록
@@ -463,6 +475,41 @@ class AlignTest(unittest.TestCase):
         self.assertTrue(0.5 <= align["median"] <= 2.5, align)                 # 08정합 실측 중앙값 1.2 m
         self.assertTrue(align["median"] < align["p90"] <= 8.0, align)         # p90 3.9 m
         self.assertIn("정합 오차 중앙값", p.meta["meta_lines"][3])
+
+
+class StyleRedrawTest(unittest.TestCase):
+    """패널 '도면 스타일' — 미리보기(파일 안 씀)·적용(시트·.ai 다시 쓰기, context.json options.style)."""
+
+    def test_sheet_ids_keep_catalog_order_and_drop_unknown(self):
+        self.assertEqual(context_builder.get_sheet_ids({"sheet_ids": [11, 0, 99, "x"]}), [0, 11])
+        self.assertEqual(context_builder.get_sheet_ids({}), [sheet_id for sheet_id, *_ in constants.SHEET_CATALOG])
+
+    @unittest.skipUnless(HAS_FIXTURES, "fixture DB 없음")
+    def test_preview_and_apply(self):
+        import basemap_ai
+        import context_report
+        import sheet_svg
+        with tempfile.TemporaryDirectory() as tmp:
+            prepared = context_builder.prepare(_request(options={"radius": 300, "shape": "circle"}))
+            data = sheet_svg.SheetData.from_prepared(prepared, [])
+            ids = [0, constants.SHEET_IDS["floor"], constants.SHEET_IDS["elev"]]
+            sheets = sheet_svg.write_sheets(data, os.path.join(tmp, constants.RESULT_SHEETS_DIRNAME), ids)
+            basemap_ai.write_basemap(prepared, 5000, tmp)
+            context_report.write_context_json(prepared, {"sheets": sheets}, tmp)
+            keep = {"dir": tmp, "data": data, "prepared": prepared}
+            preview = context_builder.preview_sheet(tmp, 0, {"preset": "mono"}, keep)
+            self.assertIn('fill="%s"' % constants.STYLE_PRESETS["mono"]["site"], preview["svg"])
+            self.assertNotIn(' id="map"', preview["svg"])   # 패널의 #map(Leaflet)과 겹치지 않는다
+            self.assertIn('clip-path="url(#pv_map_clip)"', preview["svg"])
+            before = open(sheets[0]["path"], encoding="utf-8").read()
+            self.assertNotIn("style mono", before)   # 미리보기는 파일을 건드리지 않는다
+            result = context_builder.apply_style(tmp, {"preset": "mono", "layout": "bottom"}, keep)
+            self.assertEqual([s["id"] for s in result["sheets"]], ids)
+            self.assertEqual(result["kept"], [constants.SHEET_IDS["elev"]])   # 지형 삼각형이 없으면 지형 시트는 그대로 둔다
+            self.assertIn("style mono", open(sheets[0]["path"], encoding="utf-8").read())
+            self.assertEqual(len(result["basemaps"]), 1)
+            with open(os.path.join(tmp, constants.CONTEXT_META_FILE_NAME), encoding="utf-8") as handle:
+                self.assertEqual(json.load(handle)["options"]["style"], {"preset": "mono", "layout": "bottom"})
 
 
 class ProgressMessageTest(unittest.TestCase):

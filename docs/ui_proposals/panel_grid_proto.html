@@ -1,0 +1,558 @@
+<title>도면 스타일 편집기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@500;700&family=Tektur:wght@400;500;600&display=swap">
+<style>
+/* 방안지 위의 패널: 8px 모눈, 1px 사각 괘선, 크라우얼 블루 하나. 데스크톱 = 패널 480 + 출력 미리보기, 폰 = 한 열 */
+:root{
+  --paper:#F5F7FA; --grid:#E4EAF2; --surface:#FFFFFF; --ink:#111418; --ink-2:#465061; --ink-3:#7D8798;
+  --hair:#C9D2DE; --rule:#111418; --line:#A9C0F2; --blue:#0057FF; --blue-dn:#0044CC; --blue-ink:#0047D6; --blue-wash:#E9F0FF; --on-blue:#FFFFFF;
+  --warn:#A8460B;
+  --ui:"Pretendard Variable",Pretendard,"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --num:"Tektur","Pretendard Variable","Noto Sans KR",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0C1016; --grid:#18202B; --surface:#111821; --ink:#E8ECF2; --ink-2:#A9B3C3; --ink-3:#8792A4;
+  --hair:#2A3442; --rule:#5B6677; --line:#24427A; --blue:#2E69EE; --blue-dn:#2457C9; --blue-ink:#8CB0FF; --blue-wash:#132241; --on-blue:#FFFFFF; --warn:#F0A060; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0C1016; --grid:#18202B; --surface:#111821; --ink:#E8ECF2; --ink-2:#A9B3C3; --ink-3:#8792A4;
+  --hair:#2A3442; --rule:#5B6677; --line:#24427A; --blue:#2E69EE; --blue-dn:#2457C9; --blue-ink:#8CB0FF; --blue-wash:#132241; --on-blue:#FFFFFF; --warn:#F0A060; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background-color:var(--paper);color:var(--ink);font:400 13px/1.5 var(--ui);padding-inline:16px;padding-block:24px 40px;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:16px 16px}
+::selection{background:var(--blue-wash);color:var(--ink)}
+input{caret-color:var(--blue)}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.num{font-family:var(--num);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.page{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:480px minmax(0,1fr);gap:32px;align-items:start}
+.page-head{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 24px;border-bottom:1px solid var(--rule);padding-bottom:12px}
+.page-head h1{margin:0;font:600 24px/1.2 var(--ui);letter-spacing:-.01em;text-wrap:balance}
+.page-head p{margin:0;color:var(--ink-2);max-width:62ch}
+/* 패널 */
+.panel{background:var(--surface);border:1px solid var(--rule);display:flex;flex-direction:column;min-width:0}
+.p-head{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:8px 16px;padding:12px 16px;border-bottom:1px solid var(--rule)}
+.brand{font:700 16px/24px var(--ui)}
+.srcs{justify-self:end;color:var(--ink-3);font-size:12px}
+.steps{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--rule)}
+.steps button{color:var(--ink-2);height:32px;border:0;border-left:1px solid var(--rule);background:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:0 12px;font-size:12px;color:var(--ink-2);text-align:left}
+.steps button:first-child{border-left:0}
+.steps button .num{font-size:13px;color:var(--ink-3)}
+.steps button[aria-current="step"]{background:var(--blue);color:var(--on-blue);font-weight:600;clip-path:polygon(0 0,100% 0,calc(100% - 12px) 100%,0 100%)}
+.steps button[aria-current="step"] .num{color:var(--on-blue)}
+.steps button:not([aria-current]):hover{background:var(--blue-wash);color:var(--ink)}
+.p-body{padding:0 16px 16px;display:grid;gap:0;background-color:var(--paper);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:8px 8px;background-position:-1px -1px}
+.sec{padding-top:16px;margin-top:16px;border-top:1px solid var(--line);display:grid;gap:8px}
+.sec:first-child{border-top:0;margin-top:0}
+.sec>h3{margin:0;font:600 13px/16px var(--ui);color:var(--blue-ink);display:flex;justify-content:space-between;align-items:baseline}
+.sec>h3 small{font:400 12px/16px var(--ui);color:var(--ink-3)}
+.p-foot{position:sticky;bottom:0;display:flex;gap:8px;align-items:center;padding:12px 16px;border-top:1px solid var(--rule);background:var(--surface)}
+.p-foot .spacer{flex:1}
+.p-foot .msg{flex:1;color:var(--ink-2);font-size:12px;min-width:0}
+/* 버튼·셀 */
+.btn{height:32px;padding:0 12px;border:1px solid var(--rule);background:var(--surface);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:12px;font-size:13px;white-space:nowrap}
+.btn:hover{border-color:var(--blue);color:var(--blue-ink)}
+.btn.go::after{content:"";width:12px;height:12px;flex:none;background:linear-gradient(to bottom right,transparent calc(50% - .8px),currentColor calc(50% - .8px),currentColor calc(50% + .8px),transparent calc(50% + .8px))}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:var(--on-blue)}
+.btn.primary:hover{background:var(--blue-dn);border-color:var(--blue-dn);color:var(--on-blue)}
+.btn.ghost{border-color:transparent;background:none;color:var(--ink-2);padding:0 8px}
+.btn.ghost:hover{color:var(--blue-ink);border-color:transparent}
+.btn[disabled]{opacity:.5;cursor:default}
+.cells{display:grid;gap:8px;grid-template-columns:repeat(var(--n,3),minmax(0,1fr))}
+.cell{min-height:32px;border:1px solid var(--hair);background:var(--surface);cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;padding:6px 8px;font-size:12px;color:var(--ink-2);text-align:left;min-width:0}
+.cell:hover{border-color:var(--ink-3);color:var(--ink)}
+.cell[aria-pressed="true"]{border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue);color:var(--blue-ink);font-weight:600}
+.cell.center{align-items:center;text-align:center}
+.cell svg{display:block}
+.strip{display:flex;width:100%;height:8px}
+.strip i{flex:1}
+.field{display:flex;gap:8px;align-items:center}
+.field input[type=text]{flex:1;min-width:0;height:32px;border:1px solid var(--hair);background:var(--surface);padding:0 8px}
+.field input[type=text]:hover{border-color:var(--ink-3)}
+.field input[type=text]:focus{border-color:var(--blue);outline:none;box-shadow:inset 0 0 0 1px var(--blue)}
+.check{display:flex;align-items:center;gap:8px;min-height:32px;cursor:pointer}
+.check input{appearance:none;width:16px;height:16px;border:1px solid var(--rule);background:var(--surface);margin:0;display:grid;place-content:center;cursor:pointer;flex:none}
+.check input:checked{background:var(--blue);border-color:var(--blue)}
+.check input:checked::after{content:"";width:8px;height:4px;border-left:1.5px solid var(--on-blue);border-bottom:1.5px solid var(--on-blue);transform:translateY(-1px) rotate(-45deg)}
+.row-between{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.muted{color:var(--ink-3)}
+.ico{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:square;flex:none}
+/* 지도 상자·미리보기 */
+.mapbox{border:1px solid var(--rule);line-height:0;background:var(--surface);position:relative}
+.mapbox svg{width:100%;height:auto;display:block}
+.sheetbox{border:1px solid var(--rule);line-height:0}
+.sheetbox svg{width:100%;height:auto;display:block}
+.prev-bar{display:flex;gap:8px;align-items:stretch}
+.prev-bar .cells{flex:1}
+/* 범례형 요소 색 */
+.legend{display:grid;border:1px solid var(--hair);background:var(--surface)}
+.legend .grp{font-size:12px;color:var(--ink-3);padding:8px 8px 4px;border-top:1px solid var(--hair)}
+.legend .grp:first-child{border-top:0}
+.el{color:var(--ink);display:grid;grid-template-columns:32px 1fr auto 16px;align-items:center;gap:8px;height:32px;padding:0 8px;border:0;background:none;cursor:pointer;text-align:left;width:100%}
+.el:hover{background:var(--blue-wash)}
+.el[aria-expanded="true"]{background:var(--blue-wash);color:var(--blue-ink);font-weight:600}
+.el .sw{width:32px;height:16px;border:1px solid var(--hair)}
+.el .sw.line{border:0;height:16px;background:none!important;position:relative}
+.el .sw.line::after{content:"";position:absolute;left:0;right:0;top:7px;height:2px;background:var(--c)}
+.el .hex{font-size:12px;color:var(--ink-3)}
+.el .ico{transition:transform .15s}
+.el[aria-expanded="true"] .ico{transform:rotate(180deg)}
+.picker{display:grid;gap:8px;padding:8px;border-top:1px solid var(--blue);border-bottom:1px solid var(--blue);background:var(--surface)}
+.swatches{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px}
+.swatches button{color:var(--ink);aspect-ratio:3/2;border:1px solid var(--hair);cursor:pointer;padding:0}
+.swatches button[aria-pressed="true"]{outline:2px solid var(--blue);outline-offset:1px}
+.native{position:relative;height:32px;border:1px solid var(--rule);display:inline-flex;align-items:center;gap:8px;padding:0 10px;cursor:pointer;font-size:13px;white-space:nowrap}
+.native:hover{border-color:var(--blue);color:var(--blue-ink)}
+.native input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.err{color:var(--warn);font-size:12px;min-height:0}
+.lockline{display:flex;align-items:center;gap:8px;color:var(--ink-3);font-size:12px;padding:8px;border-top:1px solid var(--hair)}
+/* 결과 */
+.mod{border:1px solid var(--rule);background:var(--surface);display:grid}
+.mod-top{padding:12px;display:grid;gap:4px}
+.mod-top h4{margin:0;font:600 15px/20px var(--ui);display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.mod-top p{margin:0;color:var(--ink-2)}
+.mod-bar{border-top:1px solid var(--rule);display:flex;gap:8px;padding:8px 12px;align-items:center;flex-wrap:wrap}
+.thumbs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:0 12px 12px}
+.thumb{color:var(--ink);border:1px solid var(--hair);background:var(--surface);padding:0;cursor:pointer;text-align:left;display:grid;min-width:0}
+.thumb:hover{border-color:var(--blue)}
+.thumb svg{width:100%;height:auto;display:block;aspect-ratio:1.414}
+.thumb span{display:flex;gap:4px;align-items:baseline;padding:4px 6px;font-size:11px;line-height:14px;color:var(--ink-2);border-top:1px solid var(--hair);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thumb .num{color:var(--ink);font-size:11px}
+.bar4{display:flex;height:8px;border:1px solid var(--rule)}
+.bar4 i{display:block}
+.dirty{font-size:11px;color:var(--warn)}
+.sub-head{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--rule)}
+.sub-head h2{margin:0;font:600 15px/20px var(--ui)}
+.sub-head .muted{margin-left:auto;font-size:12px}
+/* 출력 미리보기 */
+.out{display:grid;gap:8px;position:sticky;top:16px;min-width:0}
+.out-cap{display:flex;justify-content:space-between;color:var(--ink-2);font-size:12px;gap:8px}
+.out .sheetbox{background:var(--surface)}
+@media (max-width:1000px){.page{grid-template-columns:minmax(0,1fr)}.panel{max-width:480px;width:100%}.out{position:static}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-back" viewBox="0 0 16 16"><path d="M10 3 5 8l5 5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 16 16"><path d="M3 8.5 6.5 12 13 4.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
+    <symbol id="i-down" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 16 16"><path d="M4 7.5h8v6H4zM5.5 7.5V5a2.5 2.5 0 0 1 5 0v2.5"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 16 16"><path d="M2 4h4l1.5 1.5H14v7.5H2z"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 16 16"><path d="M2 2h12v12H2zM6 2v12M10 2v12M2 6h12M2 10h12"/></symbol>
+    <symbol id="i-search" viewBox="0 0 16 16"><path d="M7 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM10 10l3.5 3.5"/></symbol>
+  </defs>
+</svg>
+<svg id="mapdefs" width="0" height="0" style="position:absolute" aria-hidden="true"><defs></defs></svg>
+
+<div class="page">
+  <header class="page-head">
+    <h1>도면 스타일 편집기</h1>
+    <p>대지검토 패널 시안. 단계 셋과 결과의 스타일 화면이 같은 모눈 문법을 쓴다. 지도는 성수동2가 333-139 실데이터 640 m 조각.</p>
+  </header>
+
+  <div class="panel" id="panel">
+    <div class="p-head">
+      <div class="brand">대지검토</div>
+      <div class="srcs">필지 <span class="num">05-13</span> · 건물 <span class="num">10-06</span> · 지형 <span class="num">4/4</span></div>
+      <nav class="steps" aria-label="단계">
+        <button data-step="1"><span class="num">1</span>대상지</button>
+        <button data-step="2"><span class="num">2</span>범위·출력</button>
+        <button data-step="3"><span class="num">3</span>결과</button>
+      </nav>
+    </div>
+
+    <section data-screen="1" hidden>
+      <div class="p-body">
+        <div class="sec">
+          <div class="cells" style="--n:3" data-seg="mode">
+            <button class="cell center" data-v="lots" aria-pressed="true">필지</button>
+            <button class="cell center" data-v="area">구역 그리기</button>
+            <button class="cell center" data-v="point">위치만</button>
+          </div>
+          <div class="field">
+            <input type="text" id="q" value="성수동2가 333-139" aria-label="주소 또는 지번">
+            <button class="btn" aria-label="검색"><svg class="ico"><use href="#i-search"/></svg></button>
+          </div>
+          <div class="mapbox"><svg viewBox="0 60 640 440" id="map1" role="img" aria-label="대상지 선택 지도"></svg></div>
+          <div class="row-between" style="border:1px solid var(--rule);padding:0 4px 0 12px;height:40px;background:var(--surface)">
+            <span><strong>성수동2가 333-139</strong> <span class="muted">· 1필지</span></span>
+            <span style="display:flex;align-items:center;gap:8px"><span class="num">5,875.6</span>㎡<button class="btn ghost" aria-label="선택 해제"><svg class="ico"><use href="#i-x"/></svg></button></span>
+          </div>
+        </div>
+      </div>
+      <div class="p-foot"><button class="btn" data-go="3">바로 생성</button><span class="spacer"></span><button class="btn primary go" data-go="2">다음</button></div>
+    </section>
+
+    <section data-screen="2" hidden>
+      <div class="p-body">
+        <div class="sec">
+          <div class="mapbox"><svg viewBox="10 10 620 620" id="map2" role="img" aria-label="분석 범위 지도"></svg></div>
+        </div>
+        <div class="sec">
+          <h3>반경</h3>
+          <div class="cells" style="--n:4" data-seg="radius">
+            <button class="cell center" data-v="300"><span class="num">300 m</span></button>
+            <button class="cell center" data-v="500" aria-pressed="true"><span class="num">500 m</span></button>
+            <button class="cell center" data-v="1000"><span class="num">1,000 m</span></button>
+            <button class="cell center" data-v="custom">직접</button>
+          </div>
+          <div class="cells" style="--n:3" data-seg="shape">
+            <button class="cell center" data-v="buffer">경계 버퍼</button>
+            <button class="cell center" data-v="circle" aria-pressed="true">원</button>
+            <button class="cell center" data-v="rect">사각형</button>
+          </div>
+          <div class="muted">건물 약 <span class="num">2,105</span>동 · 도엽 <span class="num">4/4</span> · 약 <span class="num">9</span>초</div>
+        </div>
+        <div class="sec">
+          <h3>출력 <small>3dm은 항상</small></h3>
+          <label class="check"><input type="checkbox" checked> 생성 뒤 문서에 넣기</label>
+          <label class="check"><input type="checkbox" checked> 베이스맵 .ai</label>
+          <div class="row-between"><label class="check"><input type="checkbox" checked> 분석도 <span class="num">16</span>장</label><button class="btn ghost">고르기</button></div>
+          <label class="check"><input type="checkbox" checked> 조서 CSV</label>
+          <div class="cells" style="--n:3" data-seg="paper">
+            <button class="cell center" data-v="A3" aria-pressed="true"><span class="num">A3 · 1:5,000</span></button>
+            <button class="cell center" data-v="A1"><span class="num">A1 · 1:3,000</span></button>
+            <button class="cell center" data-v="sq">정사각</button>
+          </div>
+        </div>
+        <div class="sec">
+          <h3>도면 스타일</h3>
+          <button class="el" data-go="style" style="border:1px solid var(--hair);background:var(--surface)">
+            <span class="strip" id="styleStrip2" style="height:16px"></span><span id="styleName2">표준</span><span class="hex">바꾸기</span><svg class="ico" style="transform:rotate(-90deg)"><use href="#i-down"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="p-foot"><button class="btn ghost" data-go="1"><svg class="ico"><use href="#i-back"/></svg>대상지</button><span class="spacer"></span><button class="btn primary go" data-go="3">생성</button></div>
+    </section>
+
+    <section data-screen="3" hidden>
+      <div class="p-body">
+        <div class="sec">
+          <div class="row-between"><span style="display:flex;align-items:center;gap:8px;font-weight:600"><svg class="ico" style="color:var(--blue)"><use href="#i-check"/></svg>생성 완료 · <span class="num">0:09</span></span>
+          <button class="btn ghost"><svg class="ico"><use href="#i-folder"/></svg>결과 폴더</button></div>
+          <div class="mod">
+            <div class="mod-top"><h4>Rhino 문서</h4><p>건물 <span class="num">2,105</span> · 필지 <span class="num">3,412</span> · 지형 메시 · 도로 · 수계</p></div>
+            <div class="mod-bar"><button class="btn">대상지로 줌</button><button class="btn">다시 넣기</button></div>
+          </div>
+          <div class="mod">
+            <div class="mod-top"><h4>도면 <span class="num" style="font-size:15px">16</span><span style="margin-left:auto;font:400 12px/16px var(--ui);color:var(--ink-3)" id="appliedName">표준</span></h4></div>
+            <div class="thumbs" id="thumbs"></div>
+            <div class="mod-bar"><button class="btn go" data-go="style">스타일</button><span class="dirty" id="dirty3" hidden>적용 안 한 변경 있음</span><span class="spacer" style="flex:1"></span><button class="btn">.ai 내보내기</button></div>
+          </div>
+          <div class="mod">
+            <div class="mod-top"><h4>믿어도 되나</h4>
+              <div class="bar4" aria-label="높이 출처 비율"><i style="width:38%;background:var(--ink)"></i><i style="width:34%;background:var(--ink-2)"></i><i style="width:21%;background:var(--ink-3)"></i><i style="width:7%;background:var(--hair)"></i></div>
+              <p style="font-size:12px">높이 출처 대장 <span class="num">38</span> · 층수 <span class="num">34</span> · 지형도 <span class="num">21</span> · 기본값 <span class="num">7</span> % · 정합 오차 중앙값 <span class="num">1.2</span> m</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="p-foot"><button class="btn ghost" data-go="2"><svg class="ico"><use href="#i-back"/></svg>옵션 바꿔 다시</button><span class="spacer"></span><button class="btn go" data-go="1">새 대상지</button></div>
+    </section>
+
+    <section data-screen="style">
+      <div class="sub-head"><button class="btn ghost" data-go="3" aria-label="결과로"><svg class="ico"><use href="#i-back"/></svg></button><h2>도면 스타일</h2><span class="muted" id="presetLabel">표준</span></div>
+      <div class="p-body">
+        <div class="sec">
+          <div class="sheetbox"><svg id="sheetSmall" viewBox="0 0 420 297" role="img" aria-label="도면 미리보기"></svg></div>
+          <div class="prev-bar">
+            <div class="cells" style="--n:3" data-seg="sheet">
+              <button class="cell center" data-v="base" aria-pressed="true"><span><span class="num">00</span> 베이스맵</span></button>
+              <button class="cell center" data-v="fg"><span><span class="num">01</span> 도형-배경</span></button>
+              <button class="cell center" data-v="floor"><span><span class="num">08</span> 층수</span></button>
+            </div>
+            <button class="cell center" style="flex:none;width:40px" id="gridBtn" aria-pressed="false" aria-label="모눈 100 m 보기"><svg class="ico"><use href="#i-grid"/></svg></button>
+          </div>
+        </div>
+        <div class="sec">
+          <h3>프리셋</h3>
+          <div class="cells" style="--n:4" id="presets"></div>
+        </div>
+        <div class="sec">
+          <h3>레이아웃</h3>
+          <div class="cells" style="--n:3" data-seg="layout">
+            <button class="cell" data-v="side" aria-pressed="true"><svg width="40" height="28" viewBox="0 0 40 28"><rect x=".5" y=".5" width="39" height="27" fill="none" stroke="currentColor"/><rect x="3" y="3" width="22" height="22" fill="currentColor" opacity=".25"/><path d="M28 5h9M28 9h7M28 13h8" stroke="currentColor"/></svg>정보 오른쪽</button>
+            <button class="cell" data-v="bottom"><svg width="40" height="28" viewBox="0 0 40 28"><rect x=".5" y=".5" width="39" height="27" fill="none" stroke="currentColor"/><rect x="3" y="3" width="34" height="15" fill="currentColor" opacity=".25"/><path d="M4 22h10M18 22h8M29 22h7" stroke="currentColor"/></svg>정보 아래</button>
+            <button class="cell" data-v="map"><svg width="40" height="28" viewBox="0 0 40 28"><rect x=".5" y=".5" width="39" height="27" fill="currentColor" opacity=".25" stroke="currentColor"/></svg>지도만</button>
+          </div>
+        </div>
+        <div class="sec">
+          <h3>요소 색</h3>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div class="sec">
+          <h3>단계색 <small>층수·노후도·지가·표고</small></h3>
+          <div class="cells" style="--n:4" data-seg="ramp" id="ramps"></div>
+        </div>
+        <div class="sec">
+          <h3>선과 글자</h3>
+          <div class="cells" style="--n:5" data-seg="line" id="lineCells"></div>
+          <div class="cells" style="--n:5">
+            <button class="cell center" data-seg-one="text" data-v="0.85"><span style="font-size:11px">가</span>작게</button>
+            <button class="cell center" data-seg-one="text" data-v="1" aria-pressed="true"><span style="font-size:14px">가</span>보통</button>
+            <button class="cell center" data-seg-one="text" data-v="1.2"><span style="font-size:17px;line-height:1">가</span>크게</button>
+            <button class="cell center" data-seg-one="font" data-v="sans" aria-pressed="true"><span style="font-size:14px">가</span>고딕</button>
+            <button class="cell center" data-seg-one="font" data-v="serif"><span style="font:700 14px 'Noto Serif KR',serif">가</span>명조</button>
+          </div>
+        </div>
+        <div class="sec">
+          <h3>범위 밖 흐리기</h3>
+          <div class="cells" style="--n:4" data-seg="fade">
+            <button class="cell center" data-v="0">끔</button>
+            <button class="cell center" data-v="0.3">약</button>
+            <button class="cell center" data-v="0.55" aria-pressed="true">중</button>
+            <button class="cell center" data-v="0.8">강</button>
+          </div>
+        </div>
+        <div class="sec">
+          <h3>표제</h3>
+          <div class="field"><input type="text" id="proj" placeholder="프로젝트명 · 사무소" aria-label="프로젝트명"></div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap">
+            <label class="check"><input type="checkbox" id="labelsC" checked> 지명·역명</label>
+            <label class="check"><input type="checkbox" id="enC" checked> 영문 부제</label>
+          </div>
+        </div>
+      </div>
+      <div class="p-foot" id="styleFoot">
+        <button class="btn ghost" id="resetB">초기화</button>
+        <span class="msg" id="footMsg" role="status"></span>
+        <button class="btn" id="saveB">저장</button>
+        <button class="btn primary go" id="applyB">16장에 적용</button>
+      </div>
+      <div class="p-foot" id="saveFoot" hidden>
+        <div class="field" style="flex:1"><input type="text" id="saveName" placeholder="스타일 이름" aria-label="스타일 이름"></div>
+        <button class="btn ghost" id="saveCancel">취소</button>
+        <button class="btn primary" id="saveOk">저장</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="out">
+    <div class="out-cap"><span>출력 미리보기 · <span class="num">A3</span></span><span id="outName" class="num">00_베이스맵.ai</span></div>
+    <div class="sheetbox"><svg id="sheetBig" viewBox="0 0 420 297" role="img" aria-label="출력 도면 미리보기"></svg></div>
+  </div>
+</div>
+
+<script>
+const D=__DATA__;
+const NS="http://www.w3.org/2000/svg";
+const $=id=>document.getElementById(id);
+const RAMPS={warm:["#FBEFC9","#F5D58A","#EDB45C","#DB8A3A","#B85E2A","#7E3A1E"],cool:["#E3EEF7","#B9D3EA","#86B2DA","#5288C2","#2D62A3","#173F73"],green:["#E8F2DC","#C4DFA6","#97C46F","#66A045","#3F7A2E","#22501D"],mono:["#EEEEEE","#D0D0D0","#ABABAB","#828282","#575757","#2E2E2E"]};
+const RAMP_NAMES={warm:"웜",cool:"쿨",green:"그린",mono:"모노"};
+const PRESETS={
+ std:{name:"표준",paper:"#FFFFFF",block:"#ECECE8",road:"#FFFFFF",green:"#DDE6D3",water:"#D2DEE7",building:"#C2C2BC",rail:"#8C8C88",site:"#E2412F",extent:"#2B2B29",ink:"#2B2B29",ramp:"warm"},
+ vivid:{name:"선명",paper:"#FFFFFF",block:"#E8EDF1",road:"#FFFFFF",green:"#C9E0BA",water:"#B7D2EC",building:"#98A6B3",rail:"#4E5A66",site:"#FF4F1F",extent:"#16202A",ink:"#16202A",ramp:"cool"},
+ mono:{name:"흑백",paper:"#FFFFFF",block:"#EDEDED",road:"#FFFFFF",green:"#E0E0E0",water:"#D5D5D5",building:"#BDBDBD",rail:"#6E6E6E",site:"#111111",extent:"#111111",ink:"#111111",ramp:"mono"},
+ dark:{name:"다크",paper:"#15181C",block:"#23272D",road:"#15181C",green:"#27332A",water:"#1E2A35",building:"#464B53",rail:"#7A828E",site:"#FF6A4D",extent:"#D9DDE3",ink:"#E6E8EB",ramp:"cool"}};
+const ELEMENTS=[["paper","종이","면"],["block","가구(블록)","면"],["road","도로","면"],["green","녹지·공원","면"],["water","수계","면"],["building","건물","면"],
+ ["rail","철도","선·글자",1],["site","대상지","선·글자",1],["extent","분석 범위","선·글자",1],["ink","글자·선","선·글자",1]];
+const SWATCHES=["#FFFFFF","#F2F2EF","#E6E6E1","#CFCFC8","#A9A9A2","#6E6E68","#3A3A37","#111111","#DDE6D3","#C4DCB0","#D2DEE7","#B3CDE6","#F6C7C0","#E2412F","#FF7A1A","#0057FF"];
+const SHEETS={base:["00","베이스맵","Base map"],fg:["01","도형-배경도","Figure-ground"],floor:["08","건축물 층수","Building height"]};
+const THUMBS=[["00","베이스맵","base"],["01","도형-배경도","fg"],["02","역세권","base"],["03","녹지·수계","base"],["04","가로 위계","base"],["05","토지이용","base"],["06","용도지역","base"],["07","건물 용도","base"],
+ ["08","건물 층수","floor"],["09","노후도","floor"],["10","표고","base"],["11","경사","base"],["12","필지 규모","base"],["13","블록 밀도","base"],["14","보행권","base"],["15","공공시설","base"]];
+const FL=["1층","2~3층","4~6층","7~12층","13~20층","21층 이상"];
+const STYLE_KEYS=["paper","block","road","green","water","building","rail","site","extent","ink","ramp","line","text","font","fade","labels","en","proj","layout"];
+const clone=o=>JSON.parse(JSON.stringify(o));
+let S=Object.assign(clone(PRESETS.std),{preset:"std",sheet:"base",layout:"side",line:1,text:1,font:"sans",fade:0.55,labels:true,en:true,proj:"",grid:false});
+let applied=clone(S), mine=null, openEl=null, screen="style";
+const counts=[];
+
+function hex2rgb(h){h=h.replace("#","");return[0,2,4].map(i=>parseInt(h.substr(i,2),16));}
+function rgb2hex(a){return"#"+a.map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,"0")).join("").toUpperCase();}
+function mix(a,b,t){const x=hex2rgb(a),y=hex2rgb(b);return rgb2hex(x.map((v,i)=>v+(y[i]-v)*t));}
+function lum(h){const [r,g,b]=hex2rgb(h);return(0.2126*r+0.7152*g+0.0722*b)/255;}
+function rampOf(st){const r=RAMPS[st.ramp].slice();return lum(st.paper)<0.4?r.reverse():r;}
+
+/* 지도 심볼 하나 — 모든 미리보기·썸네일이 CSS 변수만 바꿔 재사용 */
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+(function buildSymbol(){
+  const defs=$("mapdefs").querySelector("defs");
+  const sym=el("symbol",{id:"map",viewBox:"0 0 640 640"},defs);
+  el("rect",{x:-400,y:-400,width:1440,height:1440,style:"fill:var(--m-block)"},sym);
+  el("path",{d:D.road,"fill-rule":"evenodd",style:"fill:var(--m-road)"},sym);
+  el("path",{d:D.water,"fill-rule":"evenodd",style:"fill:var(--m-water)"},sym);
+  el("path",{d:D.green,"fill-rule":"evenodd",style:"fill:var(--m-green)"},sym);
+  el("path",{d:D.rail,fill:"none",style:"stroke:var(--m-rail);stroke-width:var(--m-railw)"},sym);
+  Object.keys(D.bld).forEach(k=>{el("path",{d:D.bld[k],"fill-rule":"evenodd",style:"fill:var(--m-b"+k+");stroke:var(--m-bstroke);stroke-width:var(--m-bw)"},sym);counts[+k]=(D.bld[k].match(/M/g)||[]).length;});
+  const g=el("g",{style:"stroke:var(--m-gridc);stroke-opacity:var(--m-grido);stroke-width:.8"},sym);
+  for(let v=20;v<=620;v+=100){el("path",{d:"M"+v+" -400V1040M-400 "+v+"H1040"},g);}
+  el("path",{d:"M-400 -400H1040V1040H-400Z M20 320a300 300 0 1 0 600 0a300 300 0 1 0 -600 0Z","fill-rule":"evenodd",style:"fill:var(--m-paper);fill-opacity:var(--m-fade)"},sym);
+  el("circle",{cx:320,cy:320,r:300,fill:"none","stroke-dasharray":"10 6",style:"stroke:var(--m-ext);stroke-width:var(--m-extw)"},sym);
+  el("path",{d:D.site,"stroke-linejoin":"round",style:"stroke:var(--m-site);stroke-width:var(--m-sitew);fill:var(--m-sitefill);fill-opacity:var(--m-sitefo)"},sym);
+  const pl=el("g",{"text-anchor":"middle",style:"fill:var(--m-muted);font-size:var(--m-fs);display:var(--m-labels);font-weight:500"},sym);
+  D.places.forEach(([x,y,n])=>{const t=el("text",{x:x,y:y},pl);t.textContent=n;});
+})();
+
+function mapVars(st,sheet){
+  const muted=mix(st.ink,st.paper,0.45);
+  const v={"--m-paper":st.paper,"--m-block":st.block,"--m-road":st.road,"--m-water":st.water,"--m-green":st.green,"--m-rail":st.rail,"--m-railw":1.2*st.line,
+    "--m-bstroke":mix(st.building,st.ink,0.3),"--m-bw":0.25*st.line,"--m-site":st.site,"--m-sitefill":st.site,"--m-sitefo":0.3,"--m-sitew":2.4*st.line,
+    "--m-ext":st.extent,"--m-extw":1.1*st.line,"--m-fade":0,"--m-muted":muted,"--m-fs":(9*st.text)+"px","--m-labels":st.labels?"inline":"none",
+    "--m-gridc":st.extent,"--m-grido":st.grid?0.4:0};
+  for(let k=0;k<6;k++)v["--m-b"+k]=st.building;
+  if(sheet==="fg"){["--m-block","--m-road","--m-water","--m-green"].forEach(k=>v[k]=st.paper);for(let k=0;k<6;k++)v["--m-b"+k]=st.ink;
+    v["--m-bstroke"]="transparent";v["--m-sitefo"]=0;v["--m-fade"]=st.fade;v["--m-rail"]="transparent";}
+  if(sheet==="floor"){const r=rampOf(st);for(let k=0;k<6;k++)v["--m-b"+k]=r[k];v["--m-bstroke"]="transparent";v["--m-sitefo"]=0;v["--m-fade"]=st.fade;
+    v["--m-block"]=mix(st.block,st.paper,0.4);}
+  return v;
+}
+function setVars(node,v){for(const k in v)node.style.setProperty(k,v[k]);}
+
+/* 도면 한 장(A3 비율) — 레이아웃·정보 열 */
+function T(g,x,y,s,size,o){o=o||{};const t=el("text",{x:x.toFixed(2),y:y.toFixed(2),"font-size":size.toFixed(2),fill:o.fill,"font-weight":o.w||400},g);
+  if(o.a)t.setAttribute("text-anchor",o.a);if(o.f)t.setAttribute("font-family",o.f);t.textContent=s;return t;}
+function R(g,x,y,w,h,f,st){return el("rect",{x:x,y:y,width:w,height:h,fill:f,stroke:st||"none","stroke-width":st?0.25:0},g);}
+function legendOf(st,sheet){const muted=mix(st.ink,st.paper,0.45);
+  if(sheet==="fg")return[[st.ink,"건축물"],[st.paper,"외부공간",muted],["none","대상지",st.site]];
+  if(sheet==="floor"){const r=rampOf(st);return FL.map((l,i)=>[r[i],l+"  "+(counts[i]||0).toLocaleString()+"동"]);}
+  return[[st.building,"건축물"],[st.road,"도로",muted],[st.green,"녹지·공원"],[st.water,"수계"],["none","대상지",st.site],["none","분석 범위",st.extent]];}
+function drawSheet(svg,st){
+  svg.innerHTML="";
+  const sheet=st.sheet, ts=st.text, ink=st.ink, muted=mix(st.ink,st.paper,0.45);
+  const fam=st.font==="serif"?"'Noto Serif KR',serif":"'Pretendard Variable',Pretendard,'Noto Sans KR',sans-serif", numf="Tektur,sans-serif";
+  svg.setAttribute("font-family",fam);
+  R(svg,0,0,420,297,st.paper);
+  const box=st.layout==="side"?[12,12,273,273]:st.layout==="bottom"?[12,12,396,226]:[0,0,420,297];
+  const vp=el("svg",{x:box[0],y:box[1],width:box[2],height:box[3],viewBox:"0 0 640 640",preserveAspectRatio:"xMidYMid slice"},svg);
+  setVars(vp,mapVars(st,sheet)); el("use",{href:"#map"},vp);
+  if(st.layout!=="map")R(svg,box[0],box[1],box[2],box[3],"none",ink).setAttribute("stroke-width",0.35*st.line);
+  if(st.layout==="map")return;
+  const [n,t,en]=SHEETS[sheet]; const total=counts.reduce((a,b)=>a+(b||0),0);
+  const g=el("g",{},svg);
+  const leg=legendOf(st,sheet);
+  const scale=(x,y)=>{const u=20;[[0,1],[1,2.5],[2.5,5]].forEach(([a,b],i)=>R(g,x+a*u,y,(b-a)*u,1.4,i%2?st.paper:ink,ink));
+    [0,100,250,500].forEach(v=>T(g,x+v/100*u,y-1.3,String(v),2*ts,{fill:ink,a:"middle",f:numf}));T(g,x+102,y+1.4,"m",2*ts,{fill:ink});};
+  if(st.layout==="side"){const x=297,w=111;let y=23;
+    T(g,x,y,n,12*ts,{fill:st.site,w:600,f:numf});
+    if(st.en)T(g,x+19*ts,y-5.6*ts,en,2.3*ts,{fill:muted,w:500,f:numf});
+    T(g,x+19*ts,y,t,5.4*ts,{fill:ink,w:700});
+    R(g,x,y+4,w,0.35,ink);y+=11;
+    T(g,x,y,"성수동2가 333-139 · 분석 범위 300 m",2.5*ts,{fill:ink,w:600});
+    if(st.proj){y+=4.6*ts;T(g,x,y,st.proj,2.4*ts,{fill:muted});}
+    y+=11;T(g,x,y,"범례",2.6*ts,{fill:ink,w:700});y+=6*ts;
+    leg.forEach(([f,l,s])=>{R(g,x,y-2.6,7,3.4,f,s);T(g,x+10,y,l,2.4*ts,{fill:ink});y+=5*ts;});
+    y+=6;T(g,x,y,"주요 수치",2.6*ts,{fill:ink,w:700});y+=6*ts;
+    T(g,x,y,"범위 내 건축물",2.4*ts,{fill:muted});T(g,x+w,y,total.toLocaleString()+"동",3*ts,{fill:ink,w:600,a:"end",f:numf});
+    scale(x+2,263);T(g,x,276,"1:5,000 · A3 · EPSG:5186",2.1*ts,{fill:ink,w:600,f:numf});
+    T(g,x,281,"자료기준 필지 2026-05-13 · 건물 2026-10-06 · 지형 수치지형도",1.7*ts,{fill:muted});
+    T(g,x,285,"UrbanDesignTool · 정보제공용, 법적 효력 없음",1.7*ts,{fill:muted});
+  }else{const y0=247;
+    T(g,12,y0+10,n,12*ts,{fill:st.site,w:600,f:numf});
+    if(st.en)T(g,31*ts,y0+4.4,en,2.3*ts,{fill:muted,w:500,f:numf});
+    T(g,31*ts,y0+10,t,5.4*ts,{fill:ink,w:700});
+    T(g,12,y0+18,"성수동2가 333-139"+(st.proj?" · "+st.proj:""),2.4*ts,{fill:muted});
+    leg.forEach(([f,l,s],i)=>{const cx=128+Math.floor(i/3)*56,cy=y0+5+(i%3)*5*ts;R(g,cx,cy-2.6,7,3.4,f,s);T(g,cx+10,cy,l,2.3*ts,{fill:ink});});
+    scale(300,y0+6);T(g,300,y0+14,"1:5,000 · A3 · 자료기준 필지 2026-05-13 · 건물 2026-10-06",1.7*ts,{fill:muted});
+    T(g,300,y0+18,"UrbanDesignTool · 정보제공용, 법적 효력 없음",1.7*ts,{fill:muted});}
+}
+
+/* 패널 지도(①②) — 같은 심볼, 패널 톤 */
+function panelMapVars(){const cs=getComputedStyle(document.documentElement);const g=n=>cs.getPropertyValue(n).trim();
+  const dark=lum(g("--surface").length===7?g("--surface"):"#FFFFFF")<0.4;
+  const base={paper:g("--surface"),block:dark?"#18212C":"#EEF1F5",road:g("--surface"),green:dark?"#1B2A22":"#E2EADB",water:dark?"#172536":"#D6E3EF",
+    building:dark?"#2C3846":"#CDD4DD",rail:g("--ink-3"),site:g("--blue"),extent:g("--blue"),ink:g("--ink"),ramp:"mono",line:1,text:1,labels:true,grid:false,fade:0};
+  return base;}
+function drawPanelMap(svg,withExtent){svg.innerHTML="";const st=panelMapVars();const v=mapVars(st,"base");v["--m-sitefo"]=0.35;
+  if(!withExtent){v["--m-ext"]="transparent";}else{v["--m-extw"]=2;}
+  setVars(svg,v);el("use",{href:"#map"},svg);}
+
+/* 컨트롤 */
+function presetCells(){const box=$("presets");box.innerHTML="";const list=Object.keys(PRESETS).map(k=>[k,PRESETS[k]]);if(mine)list.push(["mine",mine]);
+  box.style.setProperty("--n",list.length);
+  list.forEach(([k,p])=>{const b=document.createElement("button");b.className="cell";b.dataset.preset=k;b.setAttribute("aria-pressed",S.preset===k);
+    b.innerHTML='<span class="strip">'+[p.paper,p.block,p.building,p.site].map(c=>'<i style="background:'+c+'"></i>').join("")+'</span>'+p.name;
+    b.querySelector(".strip").style.outline="1px solid var(--hair)";box.appendChild(b);});}
+function rampCells(){const box=$("ramps");box.innerHTML="";Object.keys(RAMPS).forEach(k=>{const b=document.createElement("button");b.className="cell";b.dataset.v=k;
+  b.innerHTML='<span class="strip">'+RAMPS[k].map(c=>'<i style="background:'+c+'"></i>').join("")+'</span>'+RAMP_NAMES[k];box.appendChild(b);});}
+function lineCells(){const box=$("lineCells");box.innerHTML="";[0.5,0.75,1,1.5,2].forEach(v=>{const b=document.createElement("button");b.className="cell center";b.dataset.v=v;
+  b.innerHTML='<svg width="36" height="10" viewBox="0 0 36 10"><path d="M1 5h34" stroke="currentColor" stroke-width="'+(1.4*v)+'"/></svg><span class="num">×'+v+'</span>';box.appendChild(b);});}
+function legendRows(){const box=$("legend");box.innerHTML="";let grp="";
+  ELEMENTS.forEach(([k,label,group,isLine])=>{
+    if(group!==grp){grp=group;const h=document.createElement("div");h.className="grp";h.textContent=group;box.appendChild(h);}
+    const b=document.createElement("button");b.className="el";b.dataset.el=k;b.setAttribute("aria-expanded",openEl===k);b.setAttribute("aria-controls","pk-"+k);
+    b.innerHTML='<span class="sw'+(isLine?' line':'')+'"></span><span>'+label+'</span><span class="hex num"></span><svg class="ico"><use href="#i-down"/></svg>';
+    box.appendChild(b);
+    if(openEl===k){const p=document.createElement("div");p.className="picker";p.id="pk-"+k;
+      p.innerHTML='<div class="swatches">'+SWATCHES.map(c=>'<button data-sw="'+c+'" aria-label="'+c+'" style="background:'+c+'"></button>').join("")+'</div>'+
+        '<div class="field"><input type="text" id="hexIn" maxlength="7" spellcheck="false" aria-label="'+label+' 색 코드" class="num"><label class="native">직접 고르기<input type="color" id="nativeIn" aria-label="'+label+' 색 직접 고르기"></label></div><div class="err" id="hexErr" role="alert"></div>';
+      box.appendChild(p);}
+  });
+  const lk=document.createElement("div");lk.className="lockline";lk.innerHTML='<svg class="ico"><use href="#i-lock"/></svg>용도지역·토지이용 관행색과 출처 줄은 고정';box.appendChild(lk);
+  legendValues();}
+function legendValues(){document.querySelectorAll("#legend .el").forEach(b=>{const k=b.dataset.el,c=S[k];const sw=b.querySelector(".sw");
+    if(sw.classList.contains("line"))sw.style.setProperty("--c",c);else sw.style.background=c;b.querySelector(".hex").textContent=c;});
+  if(openEl){const c=S[openEl];const hi=$("hexIn");if(hi&&document.activeElement!==hi)hi.value=c;const ni=$("nativeIn");if(ni)ni.value=c.toLowerCase();
+    document.querySelectorAll(".swatches button").forEach(s=>s.setAttribute("aria-pressed",s.dataset.sw.toLowerCase()===c.toLowerCase()));}}
+
+function pressSeg(name,val){document.querySelectorAll('[data-seg="'+name+'"] .cell').forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v)===String(val)));}
+function styleSnap(st){const o={};STYLE_KEYS.forEach(k=>o[k]=st[k]);return JSON.stringify(o);}
+function isDirty(){return styleSnap(S)!==styleSnap(applied);}
+
+function renderThumbs(){const box=$("thumbs");if(!box.children.length){THUMBS.forEach(([n,name,kind])=>{const b=document.createElement("button");b.className="thumb";b.dataset.kind=kind;
+    b.setAttribute("aria-label",n+" "+name);
+    b.innerHTML='<svg viewBox="40 120 560 396" preserveAspectRatio="xMidYMid slice"><use href="#map"/></svg><span><span class="num">'+n+'</span>'+name+'</span>';box.appendChild(b);});}
+  box.querySelectorAll(".thumb").forEach(b=>setVars(b.querySelector("svg"),mapVars(Object.assign({},applied,{grid:false}),b.dataset.kind)));
+  $("appliedName").textContent=applied.preset==="mine"&&mine?mine.name:(PRESETS[applied.preset]||{name:"사용자 지정"}).name+(styleSnap(applied)!==styleSnap(Object.assign({},applied,PRESETS[applied.preset]||{}))?" · 수정됨":"");}
+
+function render(){
+  document.querySelectorAll("[data-screen]").forEach(s=>s.hidden=s.dataset.screen!==String(screen));
+  const step=screen==="style"?3:screen;
+  document.querySelectorAll(".steps button").forEach(b=>{if(+b.dataset.step===step)b.setAttribute("aria-current","step");else b.removeAttribute("aria-current");});
+  if(screen===1)drawPanelMap($("map1"),false);
+  if(screen===2)drawPanelMap($("map2"),true);
+  drawSheet($("sheetSmall"),S);drawSheet($("sheetBig"),screen==="style"?S:applied);
+  $("outName").textContent=SHEETS[S.sheet][0]+"_"+SHEETS[S.sheet][1].replace(/[^0-9A-Za-z가-힣]/g,"")+".ai";
+  ["sheet","layout","fade","ramp","line"].forEach(k=>pressSeg(k,S[k]));
+  document.querySelectorAll("[data-seg-one]").forEach(b=>b.setAttribute("aria-pressed",String(S[b.dataset.segOne])===String(b.dataset.v)));
+  $("gridBtn").setAttribute("aria-pressed",S.grid);
+  document.querySelectorAll("#presets .cell").forEach(b=>b.setAttribute("aria-pressed",S.preset===b.dataset.preset));
+  const pn=(S.preset==="mine"&&mine)?mine.name:(PRESETS[S.preset]||{}).name||"사용자 지정";
+  const edited=S.preset!=="custom"&&styleSnap(S)!==styleSnap(Object.assign({},S,S.preset==="mine"?mine:PRESETS[S.preset]));
+  $("presetLabel").textContent=pn+(edited?" · 수정됨":"");
+  legendValues();
+  const dirty=isDirty();$("dirty3").hidden=!dirty;$("applyB").disabled=!dirty;
+  $("styleName2").textContent=pn;$("styleStrip2").innerHTML=[S.paper,S.block,S.building,S.site].map(c=>'<i style="background:'+c+'"></i>').join("");
+  $("styleStrip2").style.width="32px";
+  if(screen===3)renderThumbs();
+}
+
+/* 이벤트 — 위임 하나 */
+document.addEventListener("click",e=>{
+  const t=e.target.closest("button");if(!t)return;
+  if(t.dataset.step){screen=+t.dataset.step;render();return;}
+  if(t.dataset.go){screen=t.dataset.go==="style"?"style":+t.dataset.go;render();window.scrollTo({top:0});return;}
+  const seg=t.closest("[data-seg]");
+  if(seg&&t.classList.contains("cell")){const name=seg.dataset.seg;let v=t.dataset.v;
+    if(["sheet","layout","ramp"].includes(name)){S[name]=v;}else if(["line","fade"].includes(name)){S[name]=+v;}else{pressSeg(name,v);return;}
+    render();return;}
+  if(t.dataset.segOne){S[t.dataset.segOne]=t.dataset.segOne==="text"?+t.dataset.v:t.dataset.v;render();return;}
+  if(t.dataset.preset){const k=t.dataset.preset;const p=k==="mine"?mine:PRESETS[k];Object.assign(S,clone(p));S.preset=k;openEl=null;legendRows();render();return;}
+  if(t.id==="gridBtn"){S.grid=!S.grid;render();return;}
+  if(t.dataset.el){openEl=openEl===t.dataset.el?null:t.dataset.el;legendRows();return;}
+  if(t.dataset.sw&&openEl){S[openEl]=t.dataset.sw.toUpperCase();$("hexErr").textContent="";render();return;}
+  if(t.classList.contains("thumb")){const k=t.dataset.kind;S.sheet=k;screen="style";render();window.scrollTo({top:0});return;}
+});
+document.addEventListener("input",e=>{
+  if(e.target.id==="hexIn"){let v=e.target.value.trim();if(v&&v[0]!=="#")v="#"+v;
+    if(/^#[0-9a-fA-F]{6}$/.test(v)){S[openEl]=v.toUpperCase();$("hexErr").textContent="";render();}
+    else $("hexErr").textContent=v.length>=7?"#RRGGBB 형식으로 적어 주세요.":"";}
+  if(e.target.id==="nativeIn"){S[openEl]=e.target.value.toUpperCase();render();}
+  if(e.target.id==="proj"){S.proj=e.target.value.trim();render();}
+});
+document.addEventListener("change",e=>{if(e.target.id==="labelsC"){S.labels=e.target.checked;render();}if(e.target.id==="enC"){S.en=e.target.checked;render();}});
+$("resetB").onclick=()=>{const k=S.preset;Object.assign(S,clone(k==="mine"&&mine?mine:PRESETS[k]||PRESETS.std));S.line=1;S.text=1;S.font="sans";S.fade=0.55;openEl=null;legendRows();render();$("footMsg").textContent="프리셋 값으로 되돌림";};
+$("saveB").onclick=()=>{$("styleFoot").hidden=true;$("saveFoot").hidden=false;$("saveName").value="";$("saveName").focus();};
+$("saveCancel").onclick=()=>{$("styleFoot").hidden=false;$("saveFoot").hidden=true;};
+$("saveOk").onclick=()=>{const name=$("saveName").value.trim();if(!name){$("saveName").setAttribute("aria-invalid","true");$("saveName").placeholder="이름을 적어 주세요";$("saveName").focus();return;}
+  mine=Object.assign(clone(S),{name:name});S.preset="mine";presetCells();$("styleFoot").hidden=false;$("saveFoot").hidden=true;render();
+  $("footMsg").innerHTML='저장됨 · <span class="num">styles/'+name.replace(/[<>&"]/g,"")+'.json</span>';};
+$("saveName").addEventListener("keydown",e=>{if(e.key==="Enter")$("saveOk").click();if(e.key==="Escape")$("saveCancel").click();});
+$("applyB").onclick=()=>{const b=$("applyB");b.disabled=true;let i=0;const tick=()=>{i+=2;$("footMsg").innerHTML='다시 그리는 중 <span class="num">'+Math.min(i,16)+'/16</span>';
+  if(i<16)setTimeout(tick,90);else{applied=clone(S);$("footMsg").textContent="16장에 적용됨";render();}};tick();};
+
+presetCells();rampCells();lineCells();legendRows();render();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>render());
+</script>

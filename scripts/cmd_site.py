@@ -7,7 +7,7 @@ panel_host.PanelHost(Eto WebView)와 로직 모듈을 잇는다. JS 명령(dict)
 상태를 보낸다. 메시지 계약은 docs/panel_ui.md('아키텍처 정합' 절 우선). 생성은 context_builder.run을 UI 스레드에서
 동기 호출하고, 진행률은 콜백 안에서 push + Rhino.RhinoApp.Wait()로 펌핑한다(서브프로세스 없음).
 
-명령 → 로직 (17개)
+명령 → 로직 (21개)
     init            → get_init_state (DB 존재·원천 상태·타일·지도·prefs·recent·시트 카탈로그). preflight 메모이즈 비움
     search          → get_search_result (pnu_loader.resolve_addresses + review_map.get_parcel_centers)
     map_lots        → review_map.get_parcels_in_bbox (seq 에코)
@@ -24,6 +24,10 @@ panel_host.PanelHost(Eto WebView)와 로직 모듈을 잇는다. JS 명령(dict)
     zoom_view       → context_baker.zoom_to_site
     open_path       → 폴더·파일·.env 템플릿을 OS로 연다
     save_prefs      → site_prefs.save_options
+    style_preview   → context_builder.preview_sheet (스타일 바꾼 한 장 SVG 문자열 — 파일 안 씀, seq 에코)
+    apply_style     → context_builder.apply_style (시트 전부 + 쓴 .ai 다시 쓰기, busy·style_applied)
+    save_style      → site_prefs.save_style (HOME_DIR/styles/<이름>.json → styles)
+    sheet_ai        → sheet_svg.get_sheet_ai (도면 SVG → 레이어 .ai, 누를 때 · all이면 결과 폴더 전부, busy·sheet_ai) → 하나면 OS로 연다
     download_data   → data_pack (매니페스트 → 바뀐 팩만 받기, 콜백 = data_progress 푸시 + Wait + 취소 플래그) → init_state
 
 조립 함수(get_*·resolve_open_path)는 Rhino 없이 돈다 — tests/test_site_ui_contract.py가 fixture DB로 키 집합을 확인한다.
@@ -81,7 +85,8 @@ def get_init_state(site_db=None, context_db=None, today=None):
     입력: DB 경로 override 2개(테스트가 fixture를 꽂는다. None = constants 경로), today(테스트용).
     처리: 필지 DB 존재 → blocked, context_builder.get_sources/get_source_warnings, review_map 타일·지도, site_prefs 옵션·recent,
           SHEET_CATALOG. 네트워크 접근 없음. generator는 항상 ok(서브프로세스 없음 — UI 호환 키).
-    출력: {"type": "init_state", version, blocked, paths, generator, sources, warnings, tile, map, options, modes, recent, sheet_catalog}.
+    출력: {"type": "init_state", version, blocked, paths, generator, sources, warnings, tile, map, options, modes, recent, sheet_catalog,
+          style_presets, style_defaults, style_ramps, styles}.
     """
     constants = loader.load("constants")
     context_builder = loader.load("context_builder")
@@ -104,7 +109,11 @@ def get_init_state(site_db=None, context_db=None, today=None):
         "options": site_prefs.get_options(),
         "modes": {"defaults": constants.MODE_DEFAULTS, "shapes": {k: list(v) for k, v in constants.SHAPES_BY_MODE.items()}},
         "recent": site_prefs.get_recent(),
-        "sheet_catalog": [{"id": sheet_id, "name": name, "needs": needs} for sheet_id, name, needs in constants.SHEET_CATALOG],
+        "sheet_catalog": [{"id": sheet_id, "key": key, "name": name, "subtitle": en, "needs": needs} for sheet_id, key, name, en, needs in constants.SHEET_CATALOG],
+        "style_presets": {key: dict(preset) for key, preset in constants.STYLE_PRESETS.items()},
+        "style_defaults": dict(constants.STYLE_DEFAULTS),
+        "style_ramps": {key: list(ramp) for key, ramp in constants.STYLE_RAMPS.items()},
+        "styles": site_prefs.list_styles(),
     }
 
 
@@ -342,6 +351,7 @@ class _SiteController:
         self._skipped = set()
         self._phase_detail = {}
         self._last_phase = "query"
+        self._keep = {}                # 마지막 결과의 시트 데이터(지형 삼각형 포함) — 도면 스타일 미리보기·적용이 다시 쓴다
 
     def handle(self, msg):
         # type: (dict) -> None
@@ -354,6 +364,7 @@ class _SiteController:
             "preflight": self._preflight, "generate": self._generate, "cancel": self._cancel,
             "import_context": self._import_context, "export_basemap": self._export_basemap, "zoom_view": self._zoom_view,
             "open_path": self._open_path, "save_prefs": self._save_prefs, "download_data": self._download_data,
+            "style_preview": self._style_preview, "apply_style": self._apply_style, "save_style": self._save_style, "sheet_ai": self._sheet_ai,
         }
         handler = handlers.get(cmd)
         if handler is None:
@@ -501,7 +512,7 @@ class _SiteController:
         self._running, self._cancel_requested = True, False
         doc = Rhino.RhinoDoc.ActiveDoc
         try:
-            response = context_builder.run(request, self._progress, doc)
+            response = context_builder.run(request, self._progress, doc, self._keep)
         finally:
             self._running = False
         doc.Views.Redraw()
@@ -607,11 +618,58 @@ class _SiteController:
     def _save_prefs(self, msg):
         loader.load("site_prefs").save_options(msg.get("options") or {})
 
+    def _get_result_dir(self, msg):
+        result_dir = str(msg.get("dir") or "")
+        if not os.path.isdir(result_dir):
+            raise ValueError("결과 폴더가 없습니다: %s" % result_dir)
+        return result_dir
+
+    def _style_preview(self, msg):
+        """한 장을 스타일로 다시 그려 SVG 문자열을 보낸다(파일 안 씀). 결과 데이터는 _keep 캐시(없으면 context.json으로 한 번 prepare)."""
+        result = loader.load("context_builder").preview_sheet(self._get_result_dir(msg), int(msg.get("sheet_id") or 0), msg.get("style") or {}, self._keep)
+        self.push(dict(result, type="style_preview", seq=msg.get("seq"), sheet_id=int(msg.get("sheet_id") or 0)))
+
+    def _apply_style(self, msg):
+        result_dir = self._get_result_dir(msg)
+        context_builder = loader.load("context_builder")
+        style = msg.get("style") or {}
+
+        def work():
+            try:
+                result = context_builder.apply_style(result_dir, style, self._keep)
+                self.push(dict(result, type="style_applied", ok=True, dir=result_dir, text=""))
+            except (ValueError, KeyError, FileNotFoundError, RuntimeError) as exc:
+                self.push({"type": "style_applied", "ok": False, "dir": result_dir, "sheets": [], "basemaps": [], "kept": [], "text": str(exc)})
+
+        self._run_busy("도면 다시 그리는 중", "style", work)
+
+    def _sheet_ai(self, msg):
+        """도면 한 장(path) 또는 결과 폴더 전부(all)를 레이어 .ai로 — 하나면 쓰고 바로 연다."""
+        result_dir = self._get_result_dir(msg)
+        sheet_svg = loader.load("sheet_svg")
+        sheets_dir = os.path.join(result_dir, loader.load("constants").RESULT_SHEETS_DIRNAME)
+        paths = sorted(os.path.join(sheets_dir, n) for n in os.listdir(sheets_dir) if n.endswith(".svg")) if msg.get("all") else [str(msg.get("path") or "")]
+        if not all(p.startswith(sheets_dir) and os.path.exists(p) for p in paths):
+            raise ValueError("도면 파일이 없습니다")
+
+        def work():
+            written = [sheet_svg.get_sheet_ai(p) for p in paths]
+            self.push({"type": "sheet_ai", "ok": True, "dir": result_dir, "paths": written})
+            if not msg.get("all"):
+                _open_with_os(written[0])
+
+        self._run_busy("레이어 .ai 쓰는 중", "style", work)
+
+    def _save_style(self, msg):
+        styles = loader.load("site_prefs").save_style(msg.get("name"), msg.get("style") or {})
+        self.push({"type": "styles", "styles": styles, "saved": msg.get("name"), "dir": loader.load("site_prefs").get_styles_dir()})
+
 
 # error.context — JS가 표시 자리를 고른다(panel_ui.md 오류 규약)
 _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "select", "set_point": "select", "pick_curve": "select",
                    "snap_area": "select", "import_context": "import", "export_basemap": "export",
-                   "zoom_view": "open", "open_path": "open", "save_prefs": "init", "cancel": "generate", "download_data": "init"}
+                   "zoom_view": "open", "open_path": "open", "save_prefs": "init", "cancel": "generate", "download_data": "init",
+                   "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style"}
 
 
 def _show_panel():
