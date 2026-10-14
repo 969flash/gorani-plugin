@@ -254,10 +254,11 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
  "include_minor_buildings":false,"demolished":"dashed","refresh_buildings":true,"include_api_objects":false,   // demolished: dashed|exclude
  "include_zoning":false,"terrain_vertex_color":false,
  "make_dwg":false,                                     // 3dm 2D 도면(BM::)만 basemap_<축척>.dwg로도 저장(고급 > 3dm). 결과 경로는 done.context.dwg
- "zoom_after_import":true}
+ "zoom_after_import":true,
+ "usage_stats":true}                                   // 사용 통계 보내기 — 헤더 [≡] 메뉴의 체크박스(고지문 포함). generate에 실려도 엔진은 무시
 ```
 
-26개. 모르는 키는 Python이 무시하고 빠진 키는 기본값(constants)으로 채운다. `generate`는 `pnus`를 옵션 밖 별도 키로 받는다(옵션은 대상지와 독립이어야 prefs로 재사용된다). **`scales`는 `generate`에도 포함한다**(code_map §3: 가장 큰 프레임이 질의 범위) — dirty 판정에서는 여전히 제외.
+27개. 모르는 키는 Python이 무시하고 빠진 키는 기본값(constants)으로 채운다. `generate`는 `pnus`를 옵션 밖 별도 키로 받는다(옵션은 대상지와 독립이어야 prefs로 재사용된다). **`scales`는 `generate`에도 포함한다**(code_map §3: 가장 큰 프레임이 질의 범위) — dirty 판정에서는 여전히 제외.
 
 ## 상태 머신
 
@@ -318,6 +319,7 @@ Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `r
 |---|---|---|---|
 | `~/.urbandesigntool/prefs.json` | `{"options":{…20키…}, "recent":[{pnus,label,total_area,date}×5]}` | `save_prefs`(options), `generate` 성공(recent 앞에 삽입·중복 제거·5개) | `init` |
 | `~/.urbandesigntool/source_news.json` | `{"checked_at":"2026-10-07","building":{"newer_date":"2026-09-09"},"lot":{…},"upis":{…}}` | `dev_check_sources.py`(P1. 없으면 `newer_date:null`) | `preflight`·`init`(배지)·생성기(`done.warnings`) |
+| `~/.urbandesigntool/client_id` | 무작위 UUID 한 줄(사용 통계 설치 식별) | `usage_stats.get_client_id`(없으면 생성) | `usage_stats` |
 | `.env`(`HOME_DIR`) | `VWORLD_API_KEY=…`(건물 최신화) · `DATA_GO_KR_KEY=…`(건축HUB 철거·말소). `= ` 뒤 공백 금지 | 사용자(OS 편집기). 없으면 `open_path`가 두 줄 템플릿 생성 | `pnu_loader._read_local_env_value`(strip)·생성기 |
 | `HOME_DIR/data/*.db`·`packs.json` | 필지·컨텍스트·등고선 DB. `packs.json` = 받은 팩의 sha256 | `download_data` | `init`·전 명령 |
 | `HOME_DIR/result/<YYYYMMDD>/<lot_name>/` | deliverables §E. 같은 폴더가 있으면 생성기 시작 시 `sheets/`·`tables/`·`context.3dm`·`context.json`을 지우고 새로 쓴다(이전 옵션의 시트·CSV가 새것처럼 남지 않도록). `basemap_*.ai`(사용자가 만든 것)·`log.txt`(이어 쓰고 구분선)는 보존 | 생성기·베이커(.ai) | `done`·`open_path` |
@@ -374,3 +376,16 @@ Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `r
 ## 아키텍처 정합 (2026-10-07, code_map 확정 반영)
 
 - 생성 서브프로세스·`GENERATOR_PYTHON`·`dev_generate_context.py`·`UITimer` stdout 읽기 삭제 → `context_builder.run` in-process + 콜백. `site_preflight.py`→`context_builder.preflight`, `site_baker.py`→`context_baker`. `init_state.generator`는 항상 ok(UI 호환). `generate` 페이로드에 `scales` 포함. phase `import`는 항상 skipped. 범위 링은 `non_rhino_utils.get_extent_ring` 하나(RhinoCommon Offset 경로 없음). `preflight_result.estimate`에 1:5000 프레임이면 '수십 초' 경고.
+
+## 사용 통계(`usage_stats.py`)
+
+GA4 Measurement Protocol로 데몬 스레드에서 보내고 실패는 버린다. `constants.GA_MEASUREMENT_ID`·`GA_API_SECRET`이 비었거나 `options.usage_stats=false`면 보내지 않는다. 고지·끄기는 헤더 [≡] 메뉴(`renderMenu` — 이 표와 같게 유지).
+
+| 이벤트 | 보내는 곳 | 매개변수 |
+|---|---|---|
+| `panel_open` | 첫 `init` | `version`·`rhino`·`has_lot_db`·`packs`(받은 시군구 필지 팩 수) |
+| `build` | `generate` 끝(성공·실패·취소) | `mode`·`lng`·`lat`·`korea` + 필지 `pnus`·`pnus_2`…(5개씩 최대 20필지)·`lot_count`·`area` / 구역 `area`·`width`·`height`(링은 보내지 않는다) + `result`·`error`·`elapsed_s`·`radius`·`shape`·`placement`·`buildings` |
+| `pack_download` | `download_data` 끝 | `packs`(시군구 코드)·`count`·`requested` |
+| `error` | `_guard`의 예상 밖 예외 | `context`·`error`(예외 타입명) |
+
+모든 이벤트에 `session_id`(패널 하나)·`engagement_time_msec`, 요청에 `device`(OS·언어). GA 보고서에서 매개변수를 보려면 관리 > 맞춤 정의에 이벤트 범위 측정기준으로 등록한다.

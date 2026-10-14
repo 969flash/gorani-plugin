@@ -253,6 +253,13 @@ DATA_STATE_FILE_NAME = "packs.json"    # data/ 안. 받은 팩의 sha256 — 바
 DATA_TIMEOUT_SECONDS = 30              # 연결·조각 읽기 제한
 DATA_CHUNK_BYTES = 1024 * 1024         # 압축 스트림을 1 MB씩 읽어 풀고 진행률을 알린다
 DATA_MAX_OPEN_FILES = 11               # 한 연결에 여는 지역 DB 수 상한 — SQLite ATTACH 기본 상한 10 + main(2026-10-12 실측)
+# 사용 통계(usage_stats.py) — GA4 Measurement Protocol. 측정 ID·secret이 비면 보내지 않는다. 사용자는 패널 [≡]에서 끈다(usage_stats)
+GA_MEASUREMENT_ID = "G-NJC4VMHPM1"  # GA4 웹 스트림 측정 ID(G-…)
+GA_API_SECRET = "Yxwc8yciQiGRUAVajxTBjg"  # 관리 > 데이터 스트림 > Measurement Protocol API secret. 코드에 드러나도 된다(가짜 이벤트 주입 위험만)
+GA_ENDPOINT = "https://www.google-analytics.com/mp/collect"
+GA_TIMEOUT_SECONDS = 5  # 백그라운드 스레드라 패널을 막지 않는다
+GA_PARAM_VALUE_MAX = 100  # GA4 표준 속성 이벤트 매개변수 값 길이 상한(360은 500)
+GA_PNU_PARAMS = 4  # 필지 PNU를 나눠 담는 매개변수 수(값 하나에 5개 → 20필지). 이벤트당 매개변수 상한 25 안에서
 # 테이블별 객체 최대 폭 m — bbox 질의의 min_x 하한에 쓴다. dev_context_builder가 빌드 끝에 넘지 않는지 검사한다.
 # 실측(2026-10-08): 건물 최대 887 m(가로·세로 중 큰 값), features 최대 2,779 m(도엽 1장 높이 — 도엽 단위로 잘려 있다).
 CONTEXT_MAX_EXTENT = {"buildings": 2000.0, "features": 3000.0}   # 부산 건물 최대 1,340 m(2026-10-13 전국 빌드)
@@ -470,6 +477,7 @@ PANEL_DEFAULT_OPTIONS = {
     "include_zoning": False, "terrain_vertex_color": False,
     "make_dwg": False,   # 2D 도면(BM::)을 .dwg로도 — CAD 사용자용. 기본 off
     "zoom_after_import": True,
+    "usage_stats": True,   # 사용 통계 보내기 — [≡] 메뉴에 고지·끄기(usage_stats.py)
 }
 
 # 기준일 경고 임계(개월) — data_sources.md §2.4. (노랑, 빨강). 노랑은 새 판이 있을 때만.

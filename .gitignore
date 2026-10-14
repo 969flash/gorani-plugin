@@ -235,3 +235,6 @@ data/*.db
 data/*.db-wal
 data/*.db-shm
 scratch/
+
+# 디자인 스킬 작업 폴더(참고 이미지·리뷰 캡처)
+.impeccable/

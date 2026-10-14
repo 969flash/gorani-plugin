@@ -45,10 +45,19 @@ h3 { font-size: 13px; font-weight: 600; line-height: 1.4; margin: 12px 0 8px; di
 
 /* ── 헤더 ── */
 header { flex: none; height: 56px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
-.titlebar { height: 28px; display: flex; align-items: center; justify-content: space-between; }
+.titlebar { height: 28px; display: flex; align-items: center; gap: 4px; }
 .titlebar h1 { font-size: 16px; font-weight: 600; margin: 0; line-height: 28px; }
 #badges { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--sub); background: none; border: 0; padding: 0 4px; height: 24px; border-radius: 999px; }
 #badges:hover { background: var(--bg); }
+#badges { margin-left: auto; }
+#menu { position: relative; }
+#menu summary { list-style: none; width: 24px; height: 24px; line-height: 24px; text-align: center; font-size: 16px; color: var(--sub); border-radius: 4px; cursor: pointer; }
+#menu summary::-webkit-details-marker { display: none; }
+#menu summary:hover, #menu[open] summary { background: var(--bg); color: var(--ink); }
+#menu_body { position: absolute; right: 0; top: 28px; z-index: 1000; width: 300px; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+#menu_body h4 { margin: 0 0 6px; font-size: 13px; }
+#menu_body label { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+#menu_body p { margin: 0 0 6px; }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; vertical-align: middle; }
 .dot.lv-ok { background: var(--ok); } .dot.lv-warn { background: var(--warn); } .dot.lv-danger { background: var(--danger); } .dot.lv-missing { background: var(--muted); }
 .stepper { height: 28px; margin: 0; padding: 0; list-style: none; display: flex; align-items: center; }
@@ -260,6 +269,7 @@ footer .busy-label { color: var(--sub); font-size: 12px; }
   <div class="titlebar">
     <h1>대지검토</h1>
     <button id="badges" type="button" data-act="init" title="자료 상태 다시 확인">확인 중…</button>
+    <details id="menu"><summary aria-label="메뉴" title="메뉴">≡</summary><div id="menu_body"></div></details>
   </div>
   <ol class="stepper" id="stepper">
     <li><button type="button" data-go="1"><span class="o"></span><span class="t">대상지</span></button></li>
@@ -315,7 +325,7 @@ var LAYER_OPTS = [["02b_landuse", "토지이용(02b)"], ["05_road_center", "도�
 var DEFAULTS = { mode: "lots", placement: "origin", flatten_site: false, flatten_level: "mean", site_output: "curve", radius: 500, shape: "circle", import_after: true, make_basemap: true, paper: "A1", paper_mm: [841, 594], scales: [3000],
   basemap_layers_on: [], make_sheets: true, sheet_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], floor_breaks: [12, 20], elev_preset: "20m",
   make_tables: true, include_minor_buildings: false, demolished: "dashed", refresh_buildings: true, include_api_objects: false,
-  include_zoning: false, terrain_vertex_color: false, make_dwg: false, zoom_after_import: true };
+  include_zoning: false, terrain_vertex_color: false, make_dwg: false, zoom_after_import: true, usage_stats: true };
 var MAP_STYLE = {
   lot: { color: "#6b7480", weight: 1, opacity: .4, fillOpacity: .01 },
   target: { color: "#d8322d", weight: 2, fillColor: "#d8322d", fillOpacity: .3 },
@@ -427,6 +437,15 @@ function lockSteps() {
 }
 
 // 헤더: 배지 + 스텝퍼
+// [≡] 메뉴 — 사용 통계 고지·끄기(usage_stats.py가 보내는 것과 같게 유지)
+function renderMenu() {
+  $("menu_body").innerHTML = '<h4>대지검토 ' + esc((state.init && state.init.version) || "") + '</h4>' +
+    '<label><input type="checkbox" id="usage_stats"' + (state.options.usage_stats ? " checked" : "") + '> 사용 통계 보내기</label>' +
+    '<p class="hint">도구를 고치고 어디서 얼마나 쓰이는지 알기 위해 Google Analytics로 아래를 보냅니다. 끄면 바로 멈춥니다.</p>' +
+    '<p class="hint">· 설치마다 만든 무작위 ID, 패널·Rhino 버전, OS·언어<br>· 생성한 대상지 — 필지 PNU·중심 좌표, 구역은 중심·면적·크기, 위치는 그 좌표<br>' +
+    '· 범위·결과·걸린 시간·건물 수, 받은 데이터 팩 지역, 예상 밖 오류 종류</p>' +
+    '<p class="hint">이름·파일 경로·도면 내용은 보내지 않습니다.</p>';
+}
 function renderHeader() {
   var init = state.init, src = {}; if (init) init.sources.forEach(function (s) { src[s.id] = s; });
   var b = $("badges");
@@ -1273,6 +1292,7 @@ var ACTIONS = {
   dismiss: function (b) { b.parentNode.parentNode.removeChild(b.parentNode); }
 };
 document.addEventListener("click", function (e) {
+  if (!e.target.closest("#menu")) $("menu").open = false;
   var t = e.target.closest("[data-act]");
   if (t) { if (t.disabled) return; var fn = ACTIONS[t.dataset.act]; if (fn) { fn(t); } return; }
   var g = e.target.closest("[data-go]"); if (g && !g.disabled && canGo(+g.dataset.go)) { if (state.step === 4 && +g.dataset.go === 1) resetLots(); else go(+g.dataset.go); return; }
@@ -1283,6 +1303,7 @@ document.addEventListener("click", function (e) {
 document.addEventListener("mouseover", function (e) { var r = e.target.closest(".chip-row"); if (r) highlightLot(r.dataset.pnu, true); });
 document.addEventListener("mouseout", function (e) { var r = e.target.closest(".chip-row"); if (r) highlightLot(r.dataset.pnu, false); });
 document.addEventListener("change", function (e) {
+  if (e.target.id === "usage_stats") { state.options.usage_stats = e.target.checked; send({ cmd: "save_prefs", options: state.options }); return; }
   if (!e.target.closest('section[data-step="2"], section[data-step="3"]')) return;
   var n = readOption(e.target); if (n) afterOptionChange(n);
 });
@@ -1330,6 +1351,7 @@ var handlers = {
     if (first) {
       Object.keys(DEFAULTS).forEach(function (k) { state.options[k] = (m.options && k in m.options) ? m.options[k] : JSON.parse(JSON.stringify(DEFAULTS[k])); });
       initMap(m);
+      renderMenu();
       render();
     } else {
       if (tiles && m.tile && m.tile.url !== tiles._url && !tileFallback) tiles.setUrl(m.tile.url);

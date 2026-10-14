@@ -36,6 +36,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import traceback
 
 try:
@@ -375,6 +376,16 @@ class _SiteController:
         self._skipped = set()
         self._phase_detail = {}
         self._last_phase = "query"
+        self._session_id = str(int(time.time()))   # 사용 통계 세션 = 패널 하나
+        self._opened = False
+
+    def _send_stats(self, name, params):
+        # type: (str, dict) -> None
+        """사용 통계 이벤트 하나(usage_stats). 통계 준비 중 어떤 예외도 패널 흐름을 막지 않는다."""
+        try:
+            loader.load("usage_stats").send_event(name, dict(params, session_id=self._session_id))
+        except Exception:
+            pass
 
     def handle(self, msg):
         # type: (dict) -> None
@@ -405,6 +416,7 @@ class _SiteController:
             self.push({"type": "error", "context": context, "text": text, "detail": ""})
         except Exception:
             self.push({"type": "error", "context": context, "text": "예상 밖 오류", "detail": traceback.format_exc()})
+            self._send_stats("error", {"context": context, "error": type(sys.exc_info()[1]).__name__})
 
     def on_close(self):
         # type: () -> None
@@ -416,7 +428,12 @@ class _SiteController:
 
     def _init(self, msg):
         self._preflight_memo.clear()   # 키 유무·새 판은 메모 키에 없으므로 init마다 비운다
-        self.push(get_init_state())
+        state = get_init_state()
+        self.push(state)
+        if not self._opened:   # init은 배지 [다시 확인]에도 온다 — 패널 열기는 한 번만
+            self._opened = True
+            self._send_stats("panel_open", {"version": state["version"], "rhino": str(Rhino.RhinoApp.Version), "has_lot_db": not state["blocked"],
+                                            "packs": len(loader.load("data_pack").get_local_paths("site"))})
 
     def _search(self, msg):
         query = (msg.get("query") or "").strip()
@@ -539,18 +556,34 @@ class _SiteController:
         finally:
             self._running = False
         doc.Views.Redraw()
+        target = request["target"]
         if not response["ok"]:
+            self._send_build_stats(target, [], response)   # 실패는 필지 DB 자체가 원인일 수 있어 다시 읽지 않는다(PNU만)
             self.push({"type": "log", "level": "error", "text": "%s: %s\n%s" % (response["error"]["code"], response["error"]["title"], response["error"]["detail"])})
             self.push(get_failed_progress(response, self._last_phase, self._skipped, self._phase_detail))
             return
         self.push(self._context_builder.get_progress_message(self._last_phase, 1.0, "", self._skipped, self._phase_detail, state="done"))
         self.push(get_done_message(response))
-        if request["target"]["mode"] == "lots":   # 최근 대상지는 필지 방식만(구역·위치는 다시 그리는 편이 빠르다)
-            pnus = request["target"]["pnus"]
-            total_area = sum(lot.area for lot in lot_db.load(pnus).lots)
-            site_prefs.add_recent(pnus, response["lot_name"].replace("_", " "), total_area, datetime.date.today().isoformat())
+        lots = lot_db.load(target["pnus"]).lots if target["mode"] == "lots" else []
+        self._send_build_stats(target, lots, response)
+        if lots:   # 최근 대상지는 필지 방식만(구역·위치는 다시 그리는 편이 빠르다)
+            site_prefs.add_recent(target["pnus"], response["lot_name"].replace("_", " "), sum(lot.area for lot in lots), datetime.date.today().isoformat())
         if response["options"].get("zoom_after_import"):
             context_baker.zoom_to_site(doc, response["dir"])
+
+    def _send_build_stats(self, target, lots, response):
+        # type: (dict, list, dict) -> None
+        """생성 한 번 → build 이벤트(대상지 위치·규모, 범위 옵션, 결과·소요 시간)."""
+        try:
+            params = loader.load("usage_stats").get_target_params(target, lots)
+        except Exception:
+            params = {"mode": target.get("mode")}
+        options = response.get("options") or {}
+        params.update(result="ok" if response["ok"] else ("cancelled" if response.get("cancelled") else "failed"),
+                      error=(response.get("error") or {}).get("code"), elapsed_s=response.get("elapsed_s"),
+                      radius=options.get("radius"), shape=options.get("shape"), placement=options.get("placement"),
+                      buildings=response["context"].get("buildings"))
+        self._send_stats("build", params)
 
     def _area_packs(self, msg):
         self.push(get_area_packs(msg.get("bbox") or [], msg.get("seq")))
@@ -568,6 +601,7 @@ class _SiteController:
         if msg.get("names"):   # 지역 받기(area_packs가 알려 준 시군구 팩)
             packs = [pack for pack in packs if pack["name"] in set(msg["names"])]
         self._running, self._cancel_requested = True, False
+        done = []
         try:
             for index, pack in enumerate(packs):
                 last = [-1]
@@ -584,8 +618,11 @@ class _SiteController:
                 if not data_pack.download_pack(pack, progress=progress):
                     self.push({"type": "data_progress", "text": "받기를 멈췄습니다 — 다 받은 팩은 남고, 다시 누르면 나머지를 받습니다"})
                     break
+                done.append(pack["name"])
         finally:
             self._running = False
+        if packs:
+            self._send_stats("pack_download", {"packs": ",".join(dict.fromkeys(name.split("_")[0] for name in done)), "count": len(done), "requested": len(packs)})
         self.push(get_init_state())
 
     def _run_busy(self, label, context, work):
