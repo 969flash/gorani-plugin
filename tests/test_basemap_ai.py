@@ -55,6 +55,7 @@ class StylePaintTest(unittest.TestCase):
         self.assertEqual(basemap_ai.get_layer_paint("09_contour", style), (None, 35))             # 스타일 밖 레이어는 K톤
 
 
+@unittest.skipUnless((FIXTURE_DIR / "seongsu_context.db").exists(), "tests/fixtures/seongsu_context.db가 없다 (python3 scripts/dev_make_fixture.py)")
 class WriteTest(unittest.TestCase):
     def test_fixture_basemap(self):
         request = {"pnus": [constants.TEST_CONTEXT_PNU], "site_db": str(FIXTURE_DIR / "seongsu_site.db"),

@@ -14,6 +14,7 @@ import dev_deploy  # noqa: E402
 FIXTURE = os.path.join(ROOT_DIR, "tests", "fixtures", "seongsu_context.db")
 
 
+@unittest.skipUnless(os.path.exists(FIXTURE), "tests/fixtures/seongsu_context.db가 없다 (python3 scripts/dev_make_fixture.py)")
 class TerrainPackTest(unittest.TestCase):
     def test_split_reads_like_original(self):
         with tempfile.TemporaryDirectory() as tmp:

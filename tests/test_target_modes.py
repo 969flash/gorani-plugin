@@ -22,6 +22,7 @@ import non_rhino_utils   # noqa: E402
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
 SITE_DB = str(FIXTURE_DIR / "seongsu_site.db")
 CONTEXT_DB = str(FIXTURE_DIR / "seongsu_context.db")
+HAS_FIXTURES = os.path.exists(SITE_DB) and os.path.exists(CONTEXT_DB)   # 컨텍스트 픽스처는 저장소에 없다(수치지형도 — dev_make_fixture.py)
 
 
 def _load_cmd_site():
@@ -65,6 +66,7 @@ class RingTest(unittest.TestCase):
         self.assertAlmostEqual(half, 0.5, delta=0.05)
 
 
+@unittest.skipUnless(HAS_FIXTURES, "tests/fixtures/seongsu_*.db가 없다 (python3 scripts/dev_make_fixture.py)")
 class ResolveTargetTest(unittest.TestCase):
     def test_lots_key_matches_previous_lot_key(self):
         request = context_builder.get_request_with_defaults({"pnus": [constants.TEST_CONTEXT_PNU], "site_db": SITE_DB})
@@ -104,6 +106,7 @@ class ResolveTargetTest(unittest.TestCase):
         self.assertEqual(target.name, "성수동2가_333-139_일대")
 
 
+@unittest.skipUnless(HAS_FIXTURES, "tests/fixtures/seongsu_*.db가 없다 (python3 scripts/dev_make_fixture.py)")
 class PrepareTest(unittest.TestCase):
     def test_area_prepare_outputs(self):
         cx, cy = _center()
@@ -145,6 +148,7 @@ class PrepareTest(unittest.TestCase):
             self.assertEqual(ctx.exception.code, "placement_mismatch")
 
 
+@unittest.skipUnless(HAS_FIXTURES, "tests/fixtures/seongsu_*.db가 없다 (python3 scripts/dev_make_fixture.py)")
 class ControllerTest(unittest.TestCase):
     def test_area_state_roundtrip_and_errors(self):
         cx, cy = _center()
