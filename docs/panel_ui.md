@@ -211,7 +211,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 ## 시군구 팩 (2026-10-13)
 
 - 배포 팩은 시군구 단위 `<시군구코드>_<site|context|terrain>.db.xz`(dev_deploy가 시도 DB를 200 m 격자·PNU로 나눈다, 경계 객체는 양쪽에). 런타임은 대상지 범위에 걸리는 파일만 열고 id로 중복을 걷어 낸다.
-- 필지 DB가 없을 때 블로커의 [지도에서 지역 골라 받기] — JS `state.dataLater = true`로 블로커를 닫고, 지도를 옮기면 `area_packs` → 칩 [받기] → `download_data{names}`.
+- 필지 DB가 없어도 `can_download`면 블로커 없이 지도로 시작한다. 지도가 배율 16 이상이면 `area_packs`의 안 받은 팩을 저절로 `download_data{names}`(새 판은 칩 [받기]로만). 칩 [멈추기]를 누르면 그 패널에서는 자동 받기를 끈다. 블로커는 받을 곳이 없을 때(`can_download=false`)만.
 
 ## 해외 대상지 (2026-10-13)
 

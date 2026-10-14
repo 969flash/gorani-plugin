@@ -627,7 +627,7 @@ class _SiteController:
                     return not self._cancel_requested
 
                 if not data_pack.download_pack(pack, progress=progress):
-                    self.push({"type": "data_progress", "text": "받기를 멈췄습니다 — 다 받은 팩은 남고, 다시 누르면 나머지를 받습니다"})
+                    self.push({"type": "data_progress", "text": "받기를 멈췄습니다 — 다 받은 지역은 남고, [받기]를 누르면 나머지를 받습니다"})
                     break
                 done.append(pack["name"])
         finally:
