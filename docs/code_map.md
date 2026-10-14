@@ -54,6 +54,9 @@
   dev_database_builder.py  (보유) 토지특성·UPIS → data/seoul_site.db
   dev_deploy.py            Yak 패키지(.rhp + scripts .pyc) · 데이터 팩(필지·컨텍스트·등고선 xz + manifest.json)
 
+[국내 서버 VM, python3 — 문지기]
+  server_gate.py           nginx auth_request로 팩 요청을 하루 한도로 거르고 비공개 버킷(PAR)에서 내준다 — docs/domestic_gate.md
+
 [사용자 Rhino 8, 버튼 한 번]
   cmd_site.py ─► panel_host.py(Eto WebView) ◄─► site_ui.html
       │  generate{pnus, options, scales}

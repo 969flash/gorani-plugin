@@ -69,6 +69,7 @@
   - `cmd_*.py` — Rhino가 직접 실행하는 진입 스크립트(설치·패널). 입출력 연결만, 얇게.
   - 접두사 없음 — Rhino 런타임에서 import되어 실행되는 로직 모듈. 표준 라이브러리 + RhinoCommon만.
   - `dev_*.py` — Rhino 밖 개발용 python3 전용(geopandas·pyogrio·shapely·pyproj·requests·rhino3dm 가능). DB 구축·데이터 수집·QA.
+  - `server_*.py` — 국내 서버(춘천 VM)에서 도는 python3 표준 라이브러리 전용. Yak 패키지에서 뺀다. 절차는 `docs/domestic_gate.md`.
 - **로직 모듈은 서로 평범하게 `import`한다.** 모듈 이름 충돌과 편집 반영은 `scripts/loader.py`가 한 곳에서 처리한다. 진입 스크립트만 loader를 파일 경로로 읽는다.
 - 모든 상수(레이어명·색·반경·층고 가정·API 설정)는 `scripts/constants.py` 한 파일에 근거 주석과 함께 둔다. 다른 곳에 매직넘버 금지.
 - **파일·모듈은 최소로 시작.** 로직이 실제로 커지면 그때 분리. 스텁만 있는 파일을 선제적으로 만들지 말 것.

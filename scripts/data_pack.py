@@ -12,6 +12,7 @@ import json
 import lzma
 import os
 import sqlite3
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -187,11 +188,39 @@ def _is_overlapping(bounds, pack_bounds):
                                and bounds[1] <= pack_bounds[3] and bounds[3] >= pack_bounds[1])
 
 
-def download_pack(pack, data_dir=None, progress=None):
-    # type: (dict, str, callable) -> bool
+def _open_pack(pack, client_id, manifest_url):
+    # type: (dict, str, str) -> tuple
+    """팩 주소를 연다. 403·404면 국내 서버 주소가 바뀐 것일 수 있어(문지기 서버로 옮김·되돌림) 매니페스트를 새로 받아 한 번만 다시 연다.
+    문지기 서버의 하루 한도(429)는 사용자에게 보일 문장으로 바꾼다. 출력: (응답, 실제로 받는 팩 dict)."""
+    headers = {"User-Agent": "%s/%s" % (constants.TOOL_NAME, constants.PANEL_VERSION)}
+    if client_id and not pack["name"].endswith("_site.db"):   # 필지 팩(Hugging Face)에는 보내지 않는다
+        headers["X-UDT-Client"] = client_id   # 국내 문지기 서버가 설치마다 하루 한도를 센다(docs/domestic_gate.md)
+
+    def open_url(url):
+        try:
+            return urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=constants.DATA_TIMEOUT_SECONDS)
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429:
+                raise ValueError("오늘 받을 수 있는 지역 데이터 양을 넘었습니다 — 내일 다시 받아 주세요") from None
+            raise
+
+    try:
+        return open_url(pack["url"]), pack
+    except urllib.error.HTTPError as exc:
+        if exc.code not in (403, 404):
+            raise
+        fresh = next((p for p in get_manifest(manifest_url, refresh=True)["packs"] if p["name"] == pack["name"]), None)
+        if not fresh or fresh["url"] == pack["url"]:
+            raise
+    return open_url(fresh["url"]), fresh
+
+
+def download_pack(pack, data_dir=None, progress=None, client_id="", manifest_url=None):
+    # type: (dict, str, callable, str, str) -> bool
     """팩 하나를 받아 풀면서 쓴다.
 
-    입력: 매니페스트의 팩 dict(절대 url), 저장 폴더, progress(받은 원본 바이트, 전체 원본 바이트) -> False면 취소.
+    입력: 매니페스트의 팩 dict(절대 url), 저장 폴더, progress(받은 원본 바이트, 전체 원본 바이트) -> False면 취소,
+          설치 ID(usage_stats.get_client_id — 국내 서버가 설치마다 한도를 센다), 다시 받을 매니페스트 주소(None = constants).
     처리: xz 스트림을 조각마다 풀어 .part 파일에 쓰며 sha256을 잰다. 끝까지 맞으면 원래 이름으로 바꾸고 packs.json에 적는다.
           취소·오류면 .part를 지운다. 기존 파일은 다 받은 뒤에야 교체하므로 중간에 끊겨도 쓰던 DB는 남는다.
     출력: 다 받았으면 True, 취소면 False. sha256 불일치는 ValueError.
@@ -204,7 +233,8 @@ def download_pack(pack, data_dir=None, progress=None):
     decompressor = lzma.LZMADecompressor()
     written = 0
     try:
-        with urllib.request.urlopen(pack["url"], timeout=constants.DATA_TIMEOUT_SECONDS) as response, open(part, "wb") as f:
+        response, pack = _open_pack(pack, client_id, manifest_url)
+        with response, open(part, "wb") as f:
             while True:
                 chunk = response.read(constants.DATA_CHUNK_BYTES)
                 if not chunk:

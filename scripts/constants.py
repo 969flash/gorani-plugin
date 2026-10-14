@@ -248,7 +248,10 @@ DATA_MANIFEST_URL = "https://huggingface.co/datasets/%s/resolve/main/manifest.js
 # 수치지형도에서 나온 컨텍스트·등고선 팩은 국내 서버에만 둔다 — 수치지형도는 기본측량성과라 국외 반출에 허가가 필요하다
 # (공간정보관리법 제16조). Oracle Cloud 춘천 리전 Always Free 버킷(공개 읽기·목록 금지). 계정을 유료로 올리지 말 것 —
 # Always Free 전용 계정은 과금 수단이 없어 한도(저장 20 GB·전송 월 10 TB)를 넘으면 멈출 뿐 청구되지 않는다.
-DATA_DOMESTIC_BASE_URL = "https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/axmhzznfqthg/b/urbandesigntool-data/o/"
+DATA_DOMESTIC_BUCKET_URL = "https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/axmhzznfqthg/b/urbandesigntool-data/o/"   # 올리는 곳
+# 매니페스트에 적는 받기 주소. 문지기 서버(scripts/server_gate.py, 같은 리전 VM)를 세우면 "http://<VM 공인 IP>/"로 바꾸고
+# 버킷을 Private로 돌린다. 되돌리기 = 버킷 주소로 바꿔 dev_deploy upload + 버킷 Public — 플러그인은 매니페스트만 보므로 사용자는 할 일이 없다.
+DATA_DOMESTIC_BASE_URL = "http://150.230.249.1/"   # 문지기 VM udt-gate(2026-10-14, VM.Standard.E2.1.Micro)
 DATA_STATE_FILE_NAME = "packs.json"    # data/ 안. 받은 팩의 sha256 — 바뀐 팩만 다시 받는다
 DATA_TIMEOUT_SECONDS = 30              # 연결·조각 읽기 제한
 DATA_CHUNK_BYTES = 1024 * 1024         # 압축 스트림을 1 MB씩 읽어 풀고 진행률을 알린다

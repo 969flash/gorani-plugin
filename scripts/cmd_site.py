@@ -627,7 +627,8 @@ class _SiteController:
         names = list(dict.fromkeys(get_region_name(pack) for pack in packs))
         region = names[0] + (" 외 %d곳" % (len(names) - 1) if len(names) > 1 else "")
         total_bytes = float(sum(pack.get("xz_size", 0) for pack in packs)) or 1.0
-        done, ok, offset = [], True, 0.0
+        client_id = loader.load("usage_stats").get_client_id()
+        done, ok, offset, reason = [], True, 0.0, ""
         for pack in packs:
             last = [-1]
 
@@ -642,16 +643,17 @@ class _SiteController:
                 return not self._cancel_requested
 
             try:
-                if not data_pack.download_pack(pack, progress=progress):
+                if not data_pack.download_pack(pack, progress=progress, client_id=client_id):
                     ok = False
                     break
             except Exception as exc:   # 오프라인·서버 오류 — 받은 데까지 쓴다
                 self.push({"type": "log", "level": "warn", "text": "지역 데이터 받기 실패 %s: %s" % (pack["name"], exc)})
-                ok = False
+                ok, reason = False, str(exc) if isinstance(exc, ValueError) else ""   # 하루 한도·sha256 불일치는 그 문장을 그대로
                 break
             done.append(pack["name"])
             offset += pack.get("xz_size", 0)
-        text = "" if ok else ("받기를 멈췄습니다 — 받은 지역은 남습니다" if self._cancel_requested else "지역 데이터를 다 받지 못했습니다 — 인터넷 연결을 확인하세요")
+        text = "" if ok else ("받기를 멈췄습니다 — 받은 지역은 남습니다" if self._cancel_requested
+                              else reason or "지역 데이터를 다 받지 못했습니다 — 인터넷 연결을 확인하세요")
         self.push({"type": "data_progress", "done": True, "ok": ok, "text": text, "in_generate": in_generate})
         self._send_stats("pack_download", {"packs": ",".join(dict.fromkeys(name.split("_")[0] for name in done)), "count": len(done),
                                            "requested": len(packs), "in_generate": in_generate})

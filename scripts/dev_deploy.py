@@ -50,7 +50,7 @@ PLAIN_SCRIPT_NAMES = ("loader.py", "cmd_site.py")         # 입출력 연결뿐�
 UI_FILE_NAMES = ("site_ui.html",)
 UI_DIR_NAMES = ("vendor",)
 DOC_FILE_NAMES = ("docs/install.md",)
-EXCLUDED_MODULE_PREFIXES = ("dev_", "cmd_", "probe_")     # 개발·실측 전용과 진입 스크립트
+EXCLUDED_MODULE_PREFIXES = ("dev_", "cmd_", "probe_", "server_")     # 개발·실측 전용, 진입 스크립트, 국내 서버(VM) 전용
 
 # UrbanSite 명령 본문 — rhinocode가 .rhp에 넣는다. 한글 앨리어스는 명령 이름에 못 써서 처음 실행 때 등록한다.
 COMMAND_SOURCE = '''#! python 3
@@ -668,7 +668,8 @@ Rhino 플러그인 UrbanDesignTool(대지검토)이 대상지 주변만 받아 �
 def upload():
     # type: () -> str
     """build/packs/의 시군구 팩을 올린다. 필지 팩 + 공개 매니페스트 + 설명은 Hugging Face 데이터셋(constants.DATA_REPO_ID, 공개),
-    컨텍스트·등고선 팩은 국내 버킷(constants.DATA_DOMESTIC_BASE_URL)에 올리고 매니페스트에 절대 주소로 적는다.
+    컨텍스트·등고선 팩은 국내 버킷(constants.DATA_DOMESTIC_BUCKET_URL)에 올리고 매니페스트에는 받기 주소(DATA_DOMESTIC_BASE_URL —
+    문지기 서버 또는 버킷)로 적는다.
 
     `hf auth login`(쓰기 토큰)과 OCI CLI(`brew install oci-cli`, ~/.oci/config API 키)가 먼저 필요하다.
     둘 다 끊겨도 다시 실행하면 이어 올린다(upload_large_folder, oci sync는 크기가 다르거나 로컬이 더 새 파일만 올린다).
@@ -685,7 +686,7 @@ def upload():
             pack = dict(pack, url=constants.DATA_DOMESTIC_BASE_URL + pack["url"])
         public.append(pack)
     # 주소 꼴: https://objectstorage.<리전>.oraclecloud.com/n/<namespace>/b/<bucket>/o/
-    parts = constants.DATA_DOMESTIC_BASE_URL.rstrip("/").split("/")
+    parts = constants.DATA_DOMESTIC_BUCKET_URL.rstrip("/").split("/")
     subprocess.run(["oci", "os", "object", "sync", "-ns", parts[-4], "-bn", parts[-2], "--src-dir", ".",
                     "--include", "[0-9]*_context.db.xz", "--include", "[0-9]*_terrain.db.xz"],
                    check=True, cwd=pack_dir, env=dict(os.environ, SUPPRESS_LABEL_WARNING="True"))   # --include는 현재 폴더 기준

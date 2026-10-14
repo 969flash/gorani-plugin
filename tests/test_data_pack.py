@@ -58,6 +58,14 @@ class DataPackTest(unittest.TestCase):
             data_pack.download_pack(pack, self.data_dir.name)
         self.assertEqual(os.listdir(self.data_dir.name), [])
 
+    def test_moved_url_rereads_manifest(self):
+        # 국내 서버 주소가 바뀐 뒤(문지기 서버로 옮김·되돌림) 세션에 남은 옛 주소 — 404면 매니페스트를 새로 읽어 받는다
+        pack = dict(data_pack.get_manifest(self.url)["packs"][0])
+        pack["url"] = pack["url"].replace("a.db.xz", "gone.db.xz")
+        self.assertTrue(data_pack.download_pack(pack, self.data_dir.name, client_id="x", manifest_url=self.url))
+        with open(os.path.join(self.data_dir.name, "a.db"), "rb") as f:
+            self.assertEqual(f.read(), self.raw)
+
 
 class LocalPackTest(unittest.TestCase):
     def test_paths_filter_and_union(self):
