@@ -1078,7 +1078,8 @@ function renderEstimate() {
   var pf = state.preflight;
   if (!pf || !pf.estimate) { el.textContent = ""; debounce("est", 200, function () { if (!state.preflight && $("estimate")) $("estimate").textContent = "계산 중…"; }); return; }
   var e = pf.estimate;
-  el.textContent = "건물 약 " + fmtNum(e.buildings) + "동 · 도엽 " + e.topo_have + "/" + e.topo_total + "장 · ~" + e.seconds + "초 · " + e.mb + " MB";
+  el.textContent = e.pending_mb ? "건물·지형은 생성할 때 받음(약 " + e.pending_mb + " MB)"   // 아직 이 PC에 없어 건물 수·도엽을 모른다
+    : "건물 약 " + fmtNum(e.buildings) + "동 · 도엽 " + e.topo_have + "/" + e.topo_total + "장 · ~" + e.seconds + "초 · " + e.mb + " MB";
   el.className = "num";
   var fh = $("frame_hint"), fo = (pf.warnings || []).filter(function (w) { return w.code === "frame_over"; })[0];
   if (fh) fh.textContent = fo ? fo.detail || fo.text : "";

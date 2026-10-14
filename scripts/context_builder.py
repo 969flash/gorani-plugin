@@ -1118,9 +1118,10 @@ def preflight(request, today=None):
     buildings = counts["buildings"]
     estimate = {"buildings": buildings, "lots": lot_count, "topo_have": len(needed) - len(missing), "topo_total": len(needed),
                 "seconds": int(round(constants.ESTIMATE_SECONDS_BASE + buildings * constants.ESTIMATE_SECONDS_PER_BUILDING)),
-                "mb": max(1, int(round(buildings * constants.ESTIMATE_MB_PER_BUILDING))), "note": ""}
-    available = {"lot": lot_count > 0, "building": buildings > 0,
-                 "terrain": counts["themes"].get("terrain", 0) > 0, "road": counts["themes"].get("road", 0) > 0}
+                "mb": max(1, int(round(buildings * constants.ESTIMATE_MB_PER_BUILDING))), "note": "",
+                "pending_mb": round(sum(p.get("xz_size", 0) for p in pending) / 1048576.0) if pending else 0}   # 받기 전 — 건물 수·도엽은 모른다
+    available = {"lot": lot_count > 0, "building": buildings > 0 or bool(pending),
+                 "terrain": counts["themes"].get("terrain", 0) > 0 or bool(pending), "road": counts["themes"].get("road", 0) > 0 or bool(pending)}
     empty_sheets = [sheet_id for sheet_id, _key, _name, _en, needs in constants.SHEET_CATALOG if not available[needs]]
 
     # 베이스맵 프레임
@@ -1138,7 +1139,7 @@ def preflight(request, today=None):
         # 실측 외삽(code_map §5.8): 1:5000 A1 프레임은 건물 4만 동·필지 10만 급 → 수십 초
         estimate["note"] = "1:%d 프레임은 건물·필지가 수만 건이라 수십 초 걸립니다" % max(scales)
         warnings.append(_warning("info", "slow_frame", "1:%d 프레임 — 생성에 수십 초" % max(scales), estimate["note"]))
-    if buildings == 0 and terrain["level"] != "missing":
+    if buildings == 0 and terrain["level"] != "missing" and not pending:   # 받기 전에는 0동으로 센다
         warnings.append(_warning("warn", "empty_buildings", "반경 안 건물 0동 — 컨텍스트 DB 범위·반경 확인", ""))
     return {"sources": sources, "extent_geojson": {"type": "FeatureCollection", "features": features},
             "estimate": estimate, "empty_sheets": empty_sheets, "warnings": warnings,

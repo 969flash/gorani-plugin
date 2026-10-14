@@ -155,7 +155,8 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
  "extent_geojson":FC,                            // role="extent" 1개(properties.radius, shape)
                                                  // role="topo_sheet" n개(properties.topo_sheet, year, have:bool) — 수치지형도 도엽
                                                  // role="frame" 축척마다 1개(properties.scale, paper, over:bool)
- "estimate":{"buildings":1842,"lots":2310,"topo_have":3,"topo_total":4,"seconds":40,"mb":8},   // topo_* = 도엽
+ "estimate":{"buildings":1842,"lots":2310,"topo_have":3,"topo_total":4,"seconds":40,"mb":8,"pending_mb":0},   // pending_mb>0 = 건물·지형 팩을 생성할 때 받는다(그 전 건물 수·도엽은 0으로 센 값 — 패널은 "생성할 때 받음"만 보인다)
+   // topo_* = 도엽
  "empty_sheets":[10],                            // 데이터 없어 빌 시트 id
  "warnings":[warning]}                           // coverage(center 포함)·stale_*·no_api_key·frame_over·no_context_db
 

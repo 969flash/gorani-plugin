@@ -330,7 +330,7 @@ class PreflightTest(unittest.TestCase):
     def test_keys_and_roles(self):
         result = context_builder.preflight(_request(options={"radius": 500, "scales": [3000]}), today=TODAY)
         self.assertEqual(set(result), {"sources", "extent_geojson", "estimate", "empty_sheets", "warnings", "bounds", "center"})
-        self.assertEqual(set(result["estimate"]), {"buildings", "lots", "topo_have", "topo_total", "seconds", "mb", "note"})
+        self.assertEqual(set(result["estimate"]), {"buildings", "lots", "topo_have", "topo_total", "seconds", "mb", "note", "pending_mb"})
         self.assertGreater(result["estimate"]["buildings"], 1000)
         self.assertEqual(result["estimate"]["topo_total"], result["estimate"]["topo_have"] + len(
             next(s for s in result["sources"] if s["id"] == "terrain")["coverage"]["missing"]))
