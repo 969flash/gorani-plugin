@@ -600,7 +600,7 @@ function setRun(run) { state.run = run; document.body.dataset.run = run; renderF
 window.app = { receive(msg) { handlers[msg.type]?.(msg); } };
 ```
 
-- **섹션 `innerHTML` 재렌더는 step 전환(`go`) 때만.** 푸시 핸들러는 슬롯 요소만 교체한다: `preflight_result`→`#estimate`·`#data_status`·지도 레이어 / `progress`→`#phase_list`·progressbar 속성·[취소] 활성 / `log`→`<pre>` append / `lot_state`→`#lot_chips`·합계 / `init_state`(두 번째부터)→`#badges`·`#init_warnings`·블로커 / `done`→③ 섹션 1회 렌더(`go(3)`와 같음) / `imported`·`exported`→카드 안 슬롯. 반경 직접 입력 중 300 ms 뒤 `preflight_result`가 와도 포커스·커서·IME 조합(한글 검색줄)·열린 `<details>`·로그 스크롤 위치가 보존된다 — 옵션 입력은 네이티브 폼 요소라 값 보존 코드가 없다. 가상 DOM·컴포넌트 없음. 이벤트는 섹션별 위임 1개.
+- **섹션 `innerHTML` 재렌더는 step 전환(`go`) 때만.** 푸시 핸들러는 슬롯 요소만 교체한다: `preflight_result`→`#estimate`·`#data_status`·지도 레이어 / `progress`→`#phase_list`·progressbar 속성·[취소] 활성 / `log`→`<pre>` append / `lot_state`→`#lot_chips`·합계 / `init_state`(두 번째부터)→`#badges`·`#menu`·블로커 / `done`→③ 섹션 1회 렌더(`go(3)`와 같음) / `imported`·`exported`→카드 안 슬롯. 반경 직접 입력 중 300 ms 뒤 `preflight_result`가 와도 포커스·커서·IME 조합(한글 검색줄)·열린 `<details>`·로그 스크롤 위치가 보존된다 — 옵션 입력은 네이티브 폼 요소라 값 보존 코드가 없다. 가상 DOM·컴포넌트 없음. 이벤트는 섹션별 위임 1개.
 - CSS: `body[data-run="running"] section[data-step="1"], …[data-step="2"] { pointer-events:none }` + `fieldset[disabled]`. 스텝퍼 `canGo(step) = step <= maxReached && run !== "running"`.
 - 옵션 변경 → `state.options` 갱신 → `save_prefs`(500 ms) + ②면 `preflight`(300 ms) + `run==="done"`이면 `dirty=true`.
 - 경고 렌더 함수 하나 `renderWarnings(list, slot)`. 오류 푸시는 `error.context`로 슬롯(`generate`·`import`·`export`·`search`·`select`·`open`·`init`)을 골라 그 자리에 블록, 모르는 context는 헤더 아래 띠.

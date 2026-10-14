@@ -51,8 +51,12 @@ h3 { font-size: 13px; font-weight: 600; line-height: 16px; margin: 16px 0 8px; p
 header { flex: none; padding: 8px 16px 12px; background: var(--surface); border-bottom: 1px solid var(--rule); }
 .titlebar { height: 32px; display: flex; align-items: center; justify-content: space-between; }
 .titlebar h1 { font-size: 16px; font-weight: 700; margin: 0; line-height: 32px; }
-#badges { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--sub); background: none; border: 1px solid transparent; padding: 0 6px; height: 24px; }
-#badges:hover { border-color: var(--border); }
+/* 자료 날짜 + 더보기 — 누르면 메뉴 */
+#menu_btn { display: flex; gap: 8px; align-items: center; height: 32px; padding: 0 8px; font-size: 12px; color: var(--sub); background: none; border: 1px solid transparent; }
+#menu_btn:hover { border-color: var(--border); color: var(--ink); }
+#menu_btn[aria-expanded="true"] { border-color: var(--accent); color: var(--accent-ink); }
+#badges { display: flex; gap: 6px; align-items: center; }
+#menu_btn .bar { width: 1px; height: 16px; background: var(--border); }
 .dot { display: inline-block; width: 8px; height: 8px; vertical-align: middle; }
 .dot.lv-ok { background: var(--ok); } .dot.lv-warn { background: var(--warn); } .dot.lv-danger { background: var(--danger); } .dot.lv-missing { background: var(--muted); }
 .stepper { margin: 4px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--rule); }
@@ -78,6 +82,22 @@ header { flex: none; padding: 8px 16px 12px; background: var(--surface); border-
 #blocker h2 { margin-bottom: 16px; }
 .check-list { display: grid; grid-template-columns: 1.4em 7em 1fr; gap: 4px 8px; margin-bottom: 16px; }
 .check-list .ok { color: var(--ok); } .check-list .bad { color: var(--danger); } .check-list .opt { color: var(--muted); }
+/* 더보기 메뉴 — 헤더 괘선 아래로 내려오는 흰 면. 어느 단계에도 안 맞는 것(최근 대상지·자료·키·폴더)을 모은다 */
+#menu { position: absolute; top: 0; left: 0; right: 0; max-height: 100%; overflow: auto; z-index: 1100; background: var(--surface); border-bottom: 1px solid var(--rule); padding: 0 16px 16px; }
+#menu h3:first-child { border-top: 0; margin-top: 0; }
+.mrow { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 32px; border-top: 1px solid var(--border); font-size: 12px; }
+.mrow:first-of-type { border-top: 0; }
+.mrow .k { color: var(--sub); display: flex; align-items: center; gap: 6px; }
+.mrow .v { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mlist { border: 1px solid var(--border); }
+.mlist .mrow { padding: 0 8px; }
+.recent { display: grid; grid-template-columns: minmax(0, 1fr) auto 16px; align-items: center; gap: 8px; width: 100%; height: 32px; padding: 0 8px; border: 0; border-top: 1px solid var(--border); background: none; text-align: left; color: var(--ink); }
+.recent:first-child { border-top: 0; }
+.recent:hover:not(:disabled) { background: var(--accent-bg); color: var(--accent-ink); }
+.recent:disabled { color: var(--muted); }
+.recent span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-acts { display: flex; gap: 8px; margin-top: 8px; }
+.menu-ver { margin: 16px 0 0; color: var(--muted); font-size: 11px; }
 #toast { position: absolute; left: 50%; bottom: 80px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 8px 14px; font-size: 12px; z-index: 60; opacity: 0; transition: opacity .15s; pointer-events: none; }
 #toast.show { opacity: 1; }
 
@@ -118,10 +138,19 @@ input[type="number"].sm, select.sm { height: 28px; padding: 0 6px; font-size: 12
 input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; margin: 0 8px 0 0; accent-color: var(--accent); vertical-align: -3px; }
 label.chk { display: flex; align-items: center; min-height: 32px; }
 
-/* ── ① 대상지 ── */
-.search { display: flex; gap: 8px; position: relative; }
+/* ── ① 대상지 — 지도가 첫 화면. 위 도구줄(방식 칸 + 검색), 아래 트레이(고른 것·방식 도구) ── */
+.toolrow { display: flex; gap: 8px; position: relative; margin-bottom: 8px; }
+.modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); flex: none; width: 208px; border: 1px solid var(--rule); background: var(--surface); }
+.modes button { display: flex; align-items: center; justify-content: center; gap: 6px; height: 30px; padding: 0 8px; border: 0; border-left: 1px solid var(--rule); background: none; color: var(--sub); font-size: 12px; white-space: nowrap; }
+.modes button:first-child { border-left: 0; }
+.modes button:hover:not(:disabled):not([aria-pressed="true"]) { background: var(--accent-bg); color: var(--ink); }
+.modes button[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--accent); color: var(--accent-ink); font-weight: 600; }
+.modes button:disabled { color: var(--border); }
+.search { display: flex; flex: 1; min-width: 0; }
 .search input { flex: 1; min-width: 0; }
-#search_msg { min-height: 18px; margin: 2px 0 4px; }
+.search .btn { width: 32px; padding: 0; justify-content: center; margin-left: -1px; }
+#search_msg { min-height: 18px; margin: -4px 0 4px; }
+#search_msg:empty { min-height: 0; margin: 0; }
 #search_list { position: absolute; top: 36px; left: 0; right: 0; z-index: 20; margin: 0; padding: 0; list-style: none; background: var(--surface); border: 1px solid var(--rule); max-height: 264px; overflow: auto; }
 #search_list li { height: 32px; padding: 0 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; border-top: 1px solid var(--border); }
 #search_list li:first-child { border-top: 0; }
@@ -143,23 +172,7 @@ label.chk { display: flex; align-items: center; min-height: 32px; }
 .map-label.frame { color: var(--accent-ink); }
 .map-label.topo-miss { color: #5c5c58; font-weight: 600; }
 .topo-missing { fill: url(#hatch) !important; fill-opacity: 1 !important; }
-/* 대상지 방식 */
-.mode-intro { margin: 8px 0 4px; }
-.chooser { overflow: auto; flex: 1; min-height: 0; padding-bottom: 12px; }
-.hero { background: var(--surface); border: 1px solid var(--rule); padding: 16px; margin: 4px 0 16px; }
-.hero .lead { font-size: 15px; font-weight: 600; line-height: 1.45; margin: 0 0 4px; }
-.hero .what { color: var(--sub); font-size: 12px; margin: 0 0 12px; }
-.hero ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.hero li { border: 1px solid var(--border); padding: 6px 8px; font-size: 12px; line-height: 1.35; }
-.hero li b { display: block; font-size: 12px; font-weight: 600; }
-.hero .src { color: var(--muted); font-size: 11px; margin: 12px 0 0; }
-.mode-cards { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
-.mode-card { text-align: left; padding: 12px; border: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; gap: 4px; }
-.mode-card:hover { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-.mode-card b { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
-.mode-card .last { font-size: 11px; color: var(--accent-ink); font-weight: 400; }
-.mode-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; }
-.mode-bar b { font-weight: 600; font-size: 13px; }
+.tray { flex: none; padding-bottom: 8px; }
 .area-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 .draw-band { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 6px 10px; margin: 8px 0; background: var(--accent-bg); border: 1px solid var(--line); font-size: 12px; }
 .draw-band .acts { margin-left: auto; display: flex; gap: 8px; }
@@ -326,6 +339,8 @@ footer .busy-label { color: var(--sub); font-size: 12px; }
 @media (max-width: 419px) {
   .badge-date { display: none; }
   .stepper button .t { display: none; }
+  .modes { width: 120px; }
+  .modes .t { display: none; }
   .sheet-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -335,7 +350,7 @@ footer .busy-label { color: var(--sub); font-size: 12px; }
 <header>
   <div class="titlebar">
     <h1>대지검토</h1>
-    <button id="badges" type="button" data-act="init" title="자료 상태 다시 확인">확인 중…</button>
+    <button id="menu_btn" type="button" data-act="menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu" title="최근 대상지 · 자료 · 키 · 폴더"><span id="badges">확인 중…</span><span class="bar" aria-hidden="true"></span><svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg><span class="sr-only">더보기</span></button>
   </div>
   <ol class="stepper" id="stepper">
     <li><button type="button" data-go="1"><span class="o"></span><span class="t">대상지</span></button></li>
@@ -351,6 +366,7 @@ footer .busy-label { color: var(--sub); font-size: 12px; }
   <section data-step="3" aria-label="옵션"></section>
   <section data-step="4" aria-label="결과"></section>
   <div id="blocker" hidden></div>
+  <div id="menu" role="region" aria-label="더보기" hidden></div>
 </main>
 <footer id="footer"></footer>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -369,6 +385,11 @@ footer .busy-label { color: var(--sub); font-size: 12px; }
   <symbol id="i-warn" viewBox="0 0 16 16"><path d="M8 2.5 14 13.5H2zM8 6.5v3.5M8 11.5v.5"/></symbol>
   <symbol id="i-ext" viewBox="0 0 16 16"><path d="M6 3h7v7M13 3 4 12"/></symbol>
   <symbol id="i-lock" viewBox="0 0 16 16"><path d="M4 7.5h8v6H4zM5.5 7.5V5a2.5 2.5 0 0 1 5 0v2.5"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 16 16"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><path d="M7 2.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zM10.5 10.5l3 3"/></symbol>
+  <symbol id="i-lots" viewBox="0 0 16 16"><path d="M2.5 5 10 2.5l3.5 7.5-9 3.5z" fill="currentColor" fill-opacity=".2"/></symbol>
+  <symbol id="i-area" viewBox="0 0 16 16"><path d="M2.5 4 9.5 2.5l4 4.5-2 6.5-8.5-1z" stroke-dasharray="2.5 1.5"/></symbol>
+  <symbol id="i-point" viewBox="0 0 16 16"><path d="M8 1.5v3.5M8 11v3.5M1.5 8H5M11 8h3.5"/><path d="M6.5 6.5h3v3h-3z" fill="currentColor"/></symbol>
   <pattern id="hatch" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
     <line x1="0" y1="0" x2="0" y2="8" stroke="#5c5c58" stroke-opacity=".35" stroke-width="2"/>
   </pattern>
@@ -393,7 +414,7 @@ var PHASE_ICON = { done: "check", running: "dot", pending: "ring", skipped: "das
 var SHAPE_LABEL = { buffer: "경계 버퍼", circle: "중심 원", rect: "사각형", frame: "용지 프레임", site: "그린 경계 그대로" };
 var SHAPE_SHORT = { buffer: "버퍼", circle: "원", rect: "사각형", frame: "용지", site: "경계" };
 var MODE_LABEL = { lots: "필지로 고르기", area: "구역 그리기", point: "위치만 찍기" };
-var MODE_DESC = { lots: "건축 대지검토 · 고른 필지 + 주변", area: "지구단위계획·정비구역 · 지도에 그리거나 Rhino 커브", point: "광역 현황·베이스맵 · 점 하나 주변" };
+var MODE_SHORT = { lots: "필지", area: "구역", point: "위치" };
 var PLACEMENT_HINT = { origin: "대상지 중심(100 m 단위)을 Rhino (0,0)으로 옮깁니다 — 작업이 편합니다",
   world: "EPSG:5186 좌표 그대로 — GIS·다른 도면과 겹칠 때. Rhino 문서 단위를 m로 쓰세요(mm면 좌표가 수억)" };
 var PAPERS = { A3: [420, 297], A1: [841, 594], A0: [1189, 841] };
@@ -421,7 +442,7 @@ var MAP_STYLE = {   // 패널 지도 — 대상지·선택은 패널 블루 하�
 var state = { step: 1, run: "idle", blocked: false, dirty: false, maxReached: 1,
   mode: null, lots: [], lotState: null, area: null, point: null, flyOnArea: false, options: {}, preflight: null, progress: null, result: null,
   init: null, busy: false, logLines: [], startedAt: 0, flyOnLot: false, seq: { map: 0, preflight: 0, packs: 0, style: 0 }, areaPacks: null,
-  styleOpen: false, styleSheet: 0, styleEdit: null, appliedStyle: null, openEl: null, styleSaving: false };
+  styleOpen: false, styleSheet: 0, styleEdit: null, appliedStyle: null, openEl: null, styleSaving: false, menuOpen: false };
 var map = null, tiles = null, lotsLayer = null, targetLayer = null, extentLayer = null, topoLayer = null, frameLayer = null, qaLayer = null, svgRenderer = null;
 var tileErrors = 0, tileFallback = false, tileDead = false;
 var pointLayer = null, draw = { on: false, pts: [], layer: null, rubber: null }, stamp = { on: false, offsets: null, layer: null };
@@ -515,7 +536,7 @@ function lockSteps() {
   if (f1) f1.disabled = dis; if (f2) f2.disabled = dis; if (f3) f3.disabled = dis;
 }
 
-// 헤더: 배지 + 스텝퍼
+// 헤더: 자료 날짜(+ 경고 점) + 더보기 · 스텝퍼
 function renderHeader() {
   var init = state.init, src = {}; if (init) init.sources.forEach(function (s) { src[s.id] = s; });
   var b = $("badges");
@@ -524,6 +545,9 @@ function renderHeader() {
       var s = src[id]; if (!s) return "";
       return '<span title="' + esc(s.name + " " + s.date) + '">' + esc(s.label) + ' <span class="badge-date num">' + esc(mmdd(s.date)) + "</span>" + (s.level !== "ok" ? ' <span class="dot lv-' + s.level + '"></span>' : "") + "</span>";
     });
+    // 띠 대신 점 — 자료 경고(경과·DB 없음)는 메뉴 안에 있다
+    var bad = (init.warnings || []).filter(function (w) { return (w.level === "danger" || w.level === "warn") && w.code !== "stale_lot" && w.code !== "stale_building"; })[0];   // 필지·건물은 날짜 옆 점이 이미 있다
+    if (bad) parts.push('<span class="dot lv-' + bad.level + '" title="' + esc(bad.text) + '"></span>');
     b.innerHTML = parts.filter(Boolean).join('<span class="sub">·</span>');
   }
   document.querySelectorAll("#stepper button").forEach(function (btn) {
@@ -553,7 +577,6 @@ function renderFooter() {
   var s = state.step, r = state.run, html = "";
   if (s === 1) {
     var can = hasTarget() && !busyTarget(), quick = can && state.preflight && !pfHasWarn();
-    if (!state.mode) { $("footer").innerHTML = ""; return; }
     html = '<button type="button" class="btn" data-act="quick"' + (quick ? "" : " hidden") + '>바로 생성 <small>' + esc(quickSummary()) + "</small></button><span></span>" +
       '<button type="button" class="btn primary go" data-act="next"' + (can ? "" : " disabled") + ">다음: 범위</button>";
   } else if (s === 2) {
@@ -585,49 +608,29 @@ function updateCancelBtn() {
 
 // ── ① 대상지 ──
 function renderLots() {
-  var sec = document.querySelector('section[data-step="1"]');
-  if (!state.mode) { sec.innerHTML = modeChooserHtml(); placeMap(); renderFooter(); lockSteps(); return; }
-  var m = state.mode;
-  var ph = { lots: "주소·지번·PNU (↓ 최근 대상지)", area: "주소·지번으로 지도 이동", point: "주소·지번으로 위치 찍기" }[m];
-  sec.innerHTML = '<h2 class="sr-only" tabindex="-1">대상지</h2><fieldset>' +
-    '<div class="mode-bar"><b>' + esc(MODE_LABEL[m]) + '</b><span class="sub">' + esc(MODE_DESC[m]) + '</span><button type="button" class="link" data-act="mode_change" style="margin-left:auto">방식 바꾸기</button></div>' +
-    '<div class="search"><input type="text" id="search_input" role="combobox" aria-expanded="false" aria-controls="search_list" aria-autocomplete="list" placeholder="' + ph + '" autocomplete="off">' +
-    '<button type="button" class="btn" data-act="search">검색</button>' +
-    '<ul id="search_list" role="listbox" hidden></ul></div>' +
-    '<div id="search_msg" class="hint" aria-live="polite"></div>' +
-    (m === "area" ? '<div id="area_info"></div>' : "") +
-    '<div id="map_slot_1" class="map-slot map-slot-1"></div>' +
-    (m === "lots" ? '<div id="lot_chips"></div><div id="lot_err"></div>' : m === "point" ? '<div id="point_info"></div>' : "") + "</fieldset>";
-  renderLotChips(); renderAreaInfo(); renderPointInfo(); lockSteps();
-  setTimeout(function () { var i = state.blocked ? $("blocker").querySelector("h2") : $("search_input"); if (i && state.step === 1) i.focus(); }, 0);
-}
-function modeChooserHtml() {
-  var d = (state.init && state.init.modes && state.init.modes.defaults) || {}, last = state.options.mode;
-  var desc = function (k) {
-    var x = d[k] || {}, sc = (x.scales || []).map(function (v) { return "1:" + fmtNum(v); }).join("·");
-    return (x.shape === "frame" ? "범위 = 용지 한 장" : x.shape === "site" ? "범위 = 그린 경계" : "주변 " + x.radius + " m") + " · " + sc;
+  var sec = document.querySelector('section[data-step="1"]'), m = state.mode;
+  var ph = { lots: "주소·지번·PNU", area: "주소·지번으로 지도 이동", point: "주소·지명으로 위치 찍기" }[m];
+  var modeBtn = function (k) {
+    var off = k === "lots" && state.abroadOnly;
+    return '<button type="button" data-act="mode" data-mode="' + k + '" aria-pressed="' + (k === m) + '" title="' + esc(MODE_LABEL[k]) + (off ? " — 국내 필지 DB가 필요합니다" : "") + '"' + (off ? " disabled" : "") + ">" + ico(k) + '<span class="t">' + MODE_SHORT[k] + "</span></button>";
   };
-  var src = {}; ((state.init && state.init.sources) || []).forEach(function (x) { src[x.id] = x; });
-  var dates = [["lot", "필지"], ["building", "건물"], ["terrain", "지형"]].filter(function (x) { return src[x[0]] && src[x[0]].date; })
-    .map(function (x) { return x[1] + " " + src[x[0]].date; }).join(" · ");
-  return '<div class="chooser"><div class="hero"><p class="lead">대상지를 정하면 주변 도시 현황을<br>3D 모델·베이스맵·현황도로 한 번에 만듭니다.</p>' +
-    '<p class="what">서울 공공데이터(수치지형도·GIS건물통합정보·토지특성정보·도시계획)로 도시설계 착수용 기초 자료를 만드는 Rhino 도구입니다.</p>' +
-    "<ul><li><b>3D 컨텍스트 .3dm</b>지형·건물·도로·수계·필지</li><li><b>베이스맵 .ai</b>Illustrator 레이어 그대로</li>" +
-    "<li><b>현황도 13장 .svg</b>토지이용·용도지역·층수·노후도·표고·경사 등</li><li><b>조서 .csv</b>필지·건물·정합 통계</li></ul>" +
-    (dates ? '<p class="src">자료 기준 · ' + esc(dates) + "</p>" : "") + "</div>" +
-    '<h2 tabindex="-1">어떤 방식으로 시작할까요?</h2><div class="hint mode-intro">방식마다 범위·축척 기본값이 다릅니다. 다음 단계에서 바꿀 수 있습니다.</div><div class="mode-cards">' +
-    ["lots", "area", "point"].map(function (k) {
-      var off = k === "lots" && state.abroadOnly;
-      return '<button type="button" class="mode-card" data-act="mode" data-mode="' + k + '"' + (off ? ' disabled title="국내 필지 DB가 필요합니다"' : "") + '><b>' + esc(MODE_LABEL[k]) + (k === last ? ' <span class="last">최근</span>' : "") +
-        '</b><span class="sub">' + esc(MODE_DESC[k]) + '</span><span class="sub">' + esc(desc(k)) + "</span></button>";
-    }).join("") + "</div></div>";
+  sec.innerHTML = '<h2 class="sr-only" tabindex="-1">대상지</h2><fieldset>' +
+    '<div class="toolrow"><div class="modes" role="group" aria-label="대상지 방식">' + ["lots", "area", "point"].map(modeBtn).join("") + "</div>" +
+    '<div class="search"><input type="text" id="search_input" role="combobox" aria-expanded="false" aria-controls="search_list" aria-autocomplete="list" placeholder="' + ph + '" aria-label="검색" autocomplete="off">' +
+    '<button type="button" class="btn" data-act="search" aria-label="검색">' + ico("search") + "</button>" +
+    '<ul id="search_list" role="listbox" hidden></ul></div></div>' +
+    '<div id="search_msg" class="hint" aria-live="polite"></div>' +
+    '<div id="map_slot_1" class="map-slot map-slot-1"></div>' +
+    '<div class="tray">' + (m === "lots" ? '<div id="lot_chips"></div><div id="lot_err"></div>' : m === "area" ? '<div id="area_info"></div>' : '<div id="point_info"></div>') + "</div></fieldset>";
+  renderLotChips(); renderAreaInfo(); renderPointInfo(); lockSteps();
+  setTimeout(function () { var i = state.blocked ? $("blocker").querySelector("h2") : $("search_input"); if (i && state.step === 1 && !state.menuOpen) i.focus(); }, 0);
 }
-function chooseMode(m) {
+// 방식 기본값(범위·축척)을 옵션에 덮는다 — 방식을 바꿀 때만. 첫 화면은 저장된 옵션 그대로
+function applyMode(m) {
   state.mode = m; state.options.mode = m;
   var d = state.init && state.init.modes && state.init.modes.defaults && state.init.modes.defaults[m];
   if (d) Object.keys(d).forEach(function (k) { state.options[k] = JSON.parse(JSON.stringify(d[k])); });
   send({ cmd: "save_prefs", options: state.options });
-  render();
 }
 function renderAreaInfo() {
   var slot = $("area_info"); if (!slot) return;
@@ -646,7 +649,7 @@ function renderAreaInfo() {
   }
   html += a && !draw.on && !stamp.on ? '<div class="target-line"><span>구역 <b class="num">' + esc(fmtNum(a.area, 0)) + ' ㎡</b></span><span class="sub">· 안의 필지 ' + a.lots + " · " + esc(fmtArea(a.lots_area)) + "</span>" +
       (a.snapped ? '<span class="sub">· 필지 경계에 맞춤</span>' : "") + "</div>"
-    : (draw.on || stamp.on ? "" : '<div class="hint">지도에 구역을 그리거나 Rhino 커브를 가져오세요. 안의 필지는 면적 50 % 이상이 구역 안에 있는 필지입니다.</div>');
+    : (draw.on || stamp.on ? "" : '<div class="hint">안의 필지 = 면적 50 % 이상이 구역 안에 있는 필지</div>');
   html += '<div id="area_err"></div>';
   slot.innerHTML = html;
 }
@@ -1372,11 +1375,46 @@ function renderBlocker() {
     '<div class="acts"><button type="button" class="btn" data-act="abroad">DB 없이 해외 대상지로 계속</button></div>';
   el.hidden = false;
 }
-function renderInitWarnings() {
-  var init = state.init; if (!init) return;
-  $("init_warnings").innerHTML = (init.warnings || []).map(function (w) {
-    return '<div class="band lv-' + esc(w.level || "info") + '"><span>' + esc(w.detail || w.text) + "</span>" + (w.action && w.action.path ? '<button type="button" class="btn sm" data-act="open" data-path="' + esc(w.action.path) + '">' + esc(w.action.label) + "</button>" : "") + "</div>";
-  }).join("");
+// ── 더보기 메뉴 — 최근 대상지 · 자료 · 설정(키·폴더·안내) ──
+function renderMenu() {
+  var init = state.init, el = $("menu"); if (!init || !state.menuOpen) return;
+  var src = {}; init.sources.forEach(function (s) { src[s.id] = s; });
+  var recent = init.recent || [], lock = state.run === "running" || state.abroadOnly;
+  var openBtn = function (path, label) { return '<button type="button" class="btn sm" data-act="open" data-path="' + esc(path) + '">' + esc(label || "열기") + "</button>"; };
+  var srcRow = function (s) {
+    return '<div class="mrow"><span class="k"><span class="dot lv-' + esc(s.level) + '" aria-hidden="true"></span>' + esc(s.label) + '</span><span class="v">' + esc(s.name) + (s.date ? ' <span class="num sub">' + esc(s.date) + "</span>" : "") + '</span><span class="sub num">' + esc(s.text || "") + "</span></div>";
+  };
+  var api = src.api || {}, p = init.paths || {};
+  el.innerHTML = "<h3>최근 대상지</h3>" +
+    (recent.length ? '<div class="mlist">' + recent.map(function (r, i) {
+      return '<button type="button" class="recent" data-act="recent" data-i="' + i + '"' + (lock ? " disabled" : "") + '><span>' + esc(r.label) + '</span><span class="sub num">' + esc(fmtNum(r.total_area)) + " ㎡ · " + esc(mmdd(r.date)) + "</span>" + ico("next") + "</button>";
+    }).join("") + "</div>" : '<div class="hint">아직 없음 · 생성하면 여기에 남습니다</div>') +
+    "<h3>자료</h3>" +
+    '<div class="mlist">' + ["lot", "building", "terrain"].filter(function (id) { return src[id]; }).map(function (id) { return srcRow(src[id]); }).join("") + "</div>" +
+    warningsHtml((init.warnings || []).filter(function (w) { return w.code !== "no_api_key"; }), "map") +
+    '<div class="menu-acts"><button type="button" class="btn sm" data-act="init">다시 확인</button>' + openBtn("data", "data 폴더") + "</div>" +
+    "<h3>설정</h3>" +
+    '<div class="mlist">' +
+      '<div class="mrow"><span class="k"><span class="dot lv-' + esc(api.level || "missing") + '" aria-hidden="true"></span>API 키</span><span class="v" title="VWorld · 공공데이터포털">' + esc(keyText(api)) + "</span>" + openBtn(p.env || ".env", ".env 열기") + "</div>" +
+      '<div class="mrow"><span class="k">작업 폴더</span><span class="v mono" title="' + esc(p.root || "") + '">' + esc(p.root || "") + "</span>" + openBtn(p.root || "data") + "</div>" +
+      '<div class="mrow"><span class="k">안내</span><span class="v">설치·데이터·사용법</span>' + openBtn(p.install_doc || "docs/install.md") + "</div>" +
+    "</div>" +
+    '<p class="menu-ver">UrbanDesignTool ' + esc(init.version || "") + "</p>";
+}
+function openMenu() {
+  state.menuOpen = true; renderMenu(); $("menu").hidden = false;
+  $("menu_btn").setAttribute("aria-expanded", "true");
+  var f = $("menu").querySelector("button:not(:disabled)"); if (f) f.focus();
+}
+function closeMenu(refocus) {
+  if (!state.menuOpen) return;
+  state.menuOpen = false; $("menu").hidden = true; $("menu_btn").setAttribute("aria-expanded", "false");
+  if (refocus) $("menu_btn").focus();
+}
+function loadRecent(i) {   // 최근 대상지는 필지 방식 기록이다(site_prefs.add_recent)
+  var r = ((state.init && state.init.recent) || [])[i]; if (!r || state.run === "running") return;
+  closeMenu(); state.flyOnLot = true;
+  resetLots("lots", r.pnus.slice());
 }
 function showErrorBand(text) {
   var d = document.createElement("div"); d.className = "band lv-danger"; d.setAttribute("role", "alert");
@@ -1392,13 +1430,16 @@ function startGenerate() {
   state.dirty = false; state.progress = null; state.result = null; state.logLines = []; state.busy = false;
   state.run = "running"; startTimer(); go(4);
 }
-function resetLots() {
+// 대상지를 지우고 지도(①)로. mode를 주면 그 방식으로 바꾸고, pnus를 주면 그 필지로 다시 고른다(최근 대상지)
+function resetLots(mode, pnus) {
   cancelDraw(); stopStamp();
-  state.mode = null; state.area = null; state.point = null; setPointLayer();
+  state.area = null; state.point = null;
+  if (mode && mode !== state.mode) applyMode(mode);
+  setPointLayer();
   state.lots = []; state.lotState = null; state.preflight = null; state.result = null; state.progress = null; state.dirty = false;
   state.run = "idle"; state.maxReached = 1; clearInterval(timers.elapsed);
   if (map) { setTargetLayer(null); [extentLayer, topoLayer, frameLayer, qaLayer].forEach(function (l) { if (l) map.removeLayer(l); }); extentLayer = topoLayer = frameLayer = qaLayer = null; }
-  send({ cmd: "select_lots", pnus: [] });
+  send({ cmd: "select_lots", pnus: pnus || [] });
   go(1);
 }
 function primaryAction() {
@@ -1411,7 +1452,9 @@ function primaryAction() {
 function requestCancel() { var b = $("cancel_btn"); if (state.run === "running" && b && !b.disabled) send({ cmd: "cancel" }); }
 var ACTIONS = {
   init: function () { send({ cmd: "init" }); },
-  abroad: function () { state.abroadOnly = true; state.blocked = false; $("blocker").hidden = true; if (state.mode === "lots") state.mode = null; render(); toast("지도를 해외로 옮겨 구역을 그리거나 위치를 찍으세요"); },
+  abroad: function () { state.abroadOnly = true; state.blocked = false; $("blocker").hidden = true; if (state.mode === "lots") resetLots("point"); else render(); toast("지도를 해외로 옮겨 구역을 그리거나 위치를 찍으세요"); },
+  menu: function () { if (state.menuOpen) closeMenu(true); else openMenu(); },
+  recent: function (b) { loadRecent(+b.dataset.i); },
   download_stop: function () { send({ cmd: "cancel" }); },
   download_area: function () {
     var a = state.areaPacks; if (!a || !a.missing.length) return;
@@ -1423,8 +1466,7 @@ var ACTIONS = {
   clear: function () { send({ cmd: "select_lots", pnus: [] }); },
   remove: function (b) { toggleLot(b.dataset.pnu); },
   next: function () { if (hasTarget() && !busyTarget()) go(state.step === 2 ? 3 : 2); },
-  mode: function (b) { chooseMode(b.dataset.mode); },
-  mode_change: function () { resetLots(); },
+  mode: function (b) { if (b.dataset.mode !== state.mode) resetLots(b.dataset.mode); },
   draw_start: startDraw,
   draw_done: finishDraw,
   draw_cancel: cancelDraw,
@@ -1443,7 +1485,7 @@ var ACTIONS = {
   retry: startGenerate,
   cancel: requestCancel,
   rerun: function () { go(3); },
-  newlot: resetLots,
+  newlot: function () { resetLots(); },   // ACTIONS는 버튼을 넘긴다 — resetLots(mode)에 들어가면 안 된다
   disc: function (b) { var body = $(b.getAttribute("aria-controls")); var open = body.hidden; body.hidden = !open; b.setAttribute("aria-expanded", String(open)); },
   sheets_all: function () { document.querySelectorAll('input[name="sheet_ids"]:not(:disabled)').forEach(function (i) { i.checked = true; }); state.options.sheet_ids = checkedValues("sheet_ids", true); afterOptionChange("sheet_ids"); },
   sheets_none: function () { document.querySelectorAll('input[name="sheet_ids"]').forEach(function (i) { i.checked = false; }); state.options.sheet_ids = []; afterOptionChange("sheet_ids"); },
@@ -1483,6 +1525,7 @@ var ACTIONS = {
   st_apply: function () { if (state.result && styleDirty()) send({ cmd: "apply_style", dir: state.result.dir, style: Object.assign(pickStyle(state.styleEdit), { preset: state.styleEdit.preset, name: state.styleEdit.name }) }); }
 };
 document.addEventListener("click", function (e) {
+  if (state.menuOpen && !e.target.closest("#menu, #menu_btn")) closeMenu();
   var t = e.target.closest("[data-act]");
   if (t) { if (t.disabled) return; var fn = ACTIONS[t.dataset.act]; if (fn) { fn(t); } return; }
   var g = e.target.closest("[data-go]"); if (g && !g.disabled && canGo(+g.dataset.go)) { if (state.step === 4 && +g.dataset.go === 1) resetLots(); else go(+g.dataset.go); return; }
@@ -1537,6 +1580,7 @@ document.addEventListener("keydown", function (e) {
   }
   if (stamp.on && e.key === "Escape") { stopStamp(); renderAreaInfo(); renderFooter(); return; }
   if (e.target.id === "st_save_name" && e.key === "Enter") { e.preventDefault(); ACTIONS.st_save_ok(); return; }
+  if (e.key === "Escape" && state.menuOpen) { closeMenu(true); return; }
   if (e.key === "Escape") {
     if (state.styleOpen) { if (state.styleSaving) ACTIONS.st_save_cancel(); else closeStyle(); return; }
     if (state.step === 4 && state.run === "running") requestCancel();
@@ -1556,6 +1600,7 @@ var handlers = {
     state.init = m; state.blocked = !!m.blocked && !state.abroadOnly && !state.dataLater;
     if (first) {
       Object.keys(DEFAULTS).forEach(function (k) { state.options[k] = (m.options && k in m.options) ? m.options[k] : JSON.parse(JSON.stringify(DEFAULTS[k])); });
+      state.mode = state.mode || (MODE_LABEL[state.options.mode] ? state.options.mode : "lots");   // 첫 화면 = 마지막 방식의 지도
       initMap(m);
       render();
     } else {
@@ -1564,7 +1609,7 @@ var handlers = {
       if (state.downloading) { state.downloading = false; state.areaPacks = null; renderAreaPacks(); requestLots(); requestAreaPacks(); }
       if (state.step === 2 || state.step === 3) { state.preflight = null; renderDataStatus(); sendPreflight(0); }
     }
-    renderInitWarnings(); renderBlocker();
+    renderMenu(); renderBlocker();
   },
   search_result: function (m) {
     var msg = $("search_msg"); if (!msg) return;
@@ -1667,6 +1712,11 @@ var handlers = {
     state.dirty = !sameOpts(m.options || {}, state.options);
     state.run = "done"; state.maxReached = 4; state.step = 4; render();
     setQaLayer(m.qa_geojson);
+    if (state.mode === "lots" && state.lotState && state.init) {   // 메뉴의 최근 대상지 — Python이 prefs에 넣는 것(site_prefs.add_recent)과 같은 꼴로 앞에 넣는다
+      var key = state.lots.slice().sort().join();
+      state.init.recent = [{ pnus: state.lots.slice(), label: String(m.lot_name || "").replace(/_/g, " "), total_area: state.lotState.total_area, date: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) }]
+        .concat((state.init.recent || []).filter(function (r) { return r.pnus.slice().sort().join() !== key; })).slice(0, 5);
+    }
     announce("생성 완료, 경고 " + (m.warnings || []).length + "건");
   },
   imported: function (m) {
@@ -1713,7 +1763,7 @@ if (MOCK) {
     if (onlyN) msgs = msgs.slice(0, onlyN);
     var i = 0;
     var tick = function () {
-      if (i >= msgs.length) { if (upto === 2 && state.step === 1) go(2); return; }
+      if (i >= msgs.length) { if (upto === 2 && state.step === 1) go(2); if (/[?&]menu=1/.test(location.search)) openMenu(); return; }
       var m = msgs[i++];
       if (m.type === "preflight_result") { lastPf = m; m = Object.assign({}, m, { seq: state.seq.preflight }); }
       if ((m.type === "progress" || m.type === "log") && state.run !== "running") startGenerate();

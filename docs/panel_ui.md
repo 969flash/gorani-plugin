@@ -59,7 +59,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 
 | cmd | 페이로드 | 응답 푸시(순서) | 비고 |
 |---|---|---|---|
-| `init` | — | `init_state` | 창 열림·[다시 확인]·헤더 배지 클릭(셋 다 같은 명령, 화면 이동 없음). `generator`는 항상 `{ok:true, python:"Rhino CPython", text:"Rhino 내장"}`(서브프로세스 없음 — 키는 UI 호환으로 유지). `dev_check_sources.py`는 P1(없으면 `newer_date:null`). **매번 preflight 메모이즈를 비운다**(키 유무·새 판은 메모 키에 없으므로) |
+| `init` | — | `init_state` | 창 열림·더보기 메뉴 [다시 확인](같은 명령, 화면 이동 없음). `generator`는 항상 `{ok:true, python:"Rhino CPython", text:"Rhino 내장"}`(서브프로세스 없음 — 키는 UI 호환으로 유지). `dev_check_sources.py`는 P1(없으면 `newer_date:null`). **매번 preflight 메모이즈를 비운다**(키 유무·새 판은 메모 키에 없으므로) |
 | `search` | `query`(str) | `search_result` | 주소·지번·PNU. 키 있으면 VWorld 보조(`pnu_loader.search_lots`) |
 | `map_lots` | `bbox`[minLng,minLat,maxLng,maxLat], `seq`(int) | `map_lots`(같은 `seq`) | 줌 ≥ 17. JS는 `seq` < 최신이면 버린다 |
 | `select_lots` | `pnus`(list, 현재 대상 전체) | `lot_state` / `error{context:"select"}` | 토글마다 전체 목록. 상태 원본은 JS. 빈 배열 = 모두 지움(응답 `lots:[]`) |
@@ -122,12 +122,12 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
  "paths":{"root":"<HOME_DIR>","lot_db":"data/seoul_site.db","context_db":"data/seoul_context.db","env":".env","install_doc":"docs/install.md"},
  "generator":{"ok":true,"python":"Rhino CPython","text":"Rhino 내장"},   // 항상 ok. UI 호환용(블로커 3행째는 ✓ 고정)
  "can_download":true,                             // DATA_MANIFEST_URL이 있으면 블로커에 [DB 받기]·[멈추기]
- "sources":[source, source, source, source],      // id = lot, building, terrain, api 순서 고정(헤더 배지·블로커 체크리스트)
- "warnings":[warning],                            // 헤더 아래 띠. 예: no_context_db
+ "sources":[source, source, source, source],      // id = lot, building, terrain, api 순서 고정(헤더 자료 날짜·더보기 메뉴 자료 칸·블로커 체크리스트)
+ "warnings":[warning],                            // 더보기 메뉴 자료 칸(no_api_key는 설정 칸 API 키 행). warn·danger면 헤더 자료 날짜 옆 점. 띠로 띄우지 않는다
  "tile":{"url":"…","fallback_url":"…","attribution":"…","abroad_url":"…","abroad_attribution":"…"},   // review_map.get_tile_config(). 지도 중심이 map.korea_bounds 밖이면 abroad_url(OSM)
  "map":{"center":[126.9784,37.5665],"zoom":16},              // review_map.get_map_init()
  "options":{…옵션 키 전부, prefs.json 복원 또는 기본값…},
- "recent":[{"pnus":["…"],"label":"성수동2가 277-17 외 1","total_area":1234.5,"date":"2026-10-06"}],   // 최대 5
+ "recent":[{"pnus":["…"],"label":"성수동2가 277-17 외 1","total_area":1234.5,"date":"2026-10-06"}],   // 최대 5, 필지 방식만. 더보기 메뉴 [최근 대상지] → 필지 방식으로 select_lots. done 때 JS가 같은 꼴로 앞에 넣는다(다음 init까지)
  "sheet_catalog":[{"id":0,"key":"base","name":"베이스맵","subtitle":"Base map","needs":"lot"},…,{"id":15,"key":"slope","name":"경사","subtitle":"Slope","needs":"terrain"}],   // constants.SHEET_CATALOG 23장(분석도 8 · 현황도 12 · 틀 3). done.sheets[].thumb = 160 px PNG data URI(패널 도면 칸)
  "style_presets":{"std":{"name":"표준","paper":"#FFFFFF",…,"ramp":"warm"},"vivid":…,"mono":…,"dark":…},   // constants.STYLE_PRESETS
  "style_defaults":{"layout":"side","line_scale":1.0,"text_scale":1.0,"font":"sans","fade_outside":0.55,"labels":true,"subtitle_en":true,"project":""},
@@ -217,12 +217,12 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 
 - 대상지 중심(구역 링 평균·위치 점)이 `map.korea_bounds` 밖이면 `set_area`·`set_point`가 투영 원점을 그 중심으로 옮긴다(`non_rhino_utils.set_projection`). 이후 `ring_tm`·`center_tm`은 그 지역 횡메르카토르 m이다. `select_lots`는 늘 EPSG:5186으로 되돌린다.
 - `preflight`·`generate`는 해외면 필지 DB를 보지 않고 `osm_context`(Overpass·지형 타일·인터넷 필요)를 쓴다. 필지가 필요한 시트는 빈 시트, 경고 `abroad`.
-- 블로커(필지 DB 없음)에 [DB 없이 해외 대상지로 계속] — JS `state.abroadOnly = true`, 필지 방식 카드 비활성, 이후 `init_state.blocked`를 무시한다.
+- 블로커(필지 DB 없음)에 [DB 없이 해외 대상지로 계속] — JS `state.abroadOnly = true`, 필지 방식 칸 비활성(필지 방식이었으면 위치 방식으로), 이후 `init_state.blocked`를 무시한다.
 - `search`: 국내 필지에서 못 찾거나 필지 DB가 없으면 OSM Nominatim 지명 후보 — `matches[].pnu = ""`, `center` 있음. JS는 위치 방식이면 `set_point`, 아니면 지도만 옮긴다.
 
 ## 대상지 방식 (2026-10-10)
 
-① 시작 화면에서 방식을 고른다. 고르면 `init_state.modes.defaults[mode]`(constants `MODE_DEFAULTS` — 필지 200 m·1:1000 / 구역 500 m·1:3000 / 위치 용지 프레임·1:5000)를 옵션에 덮고 `save_prefs`. [방식 바꾸기]·[새 대상지]는 대상지를 모두 지우고 시작 화면으로.
+① 첫 화면은 지도다(2026-10-14 — 소개·방식 고르기 화면 없음). 지도 위 도구줄의 방식 칸 [필지·구역·위치]로 바꾸고, 처음엔 마지막 방식(`options.mode`, 저장된 옵션 그대로). 방식을 바꾸면 대상지를 지우고 `init_state.modes.defaults[mode]`(constants `MODE_DEFAULTS` — 필지 200 m·1:1000 / 구역 500 m·1:3000 / 위치 용지 프레임·1:5000)를 옵션에 덮고 `save_prefs`. [새 대상지]는 대상지만 지우고 같은 방식의 지도로.
 
 | 방식 | 요청 `target` | 대상지 경계(`site_rings`) | 대상 필지 | 결과 폴더명 |
 |---|---|---|---|---|
@@ -254,7 +254,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 ## 옵션 키(`generate.options` = `save_prefs.options` = `init_state.options`)
 
 ```jsonc
-{"mode":"lots","placement":"origin",                 // mode = 마지막 방식(시작 화면 '최근' 표시용). placement origin|world
+{"mode":"lots","placement":"origin",                 // mode = 마지막 방식(첫 화면 방식 칸 초깃값). placement origin|world
  "radius":500,"shape":"circle",                       // circle|rect|frame|site(+예전 buffer). radius 100~2000
  "flatten_site":false,"flatten_level":"mean",          // 대상지 평탄화(lots·area) — 높이 = 대상지 경계 자연 지반 mean|min|max
  "site_output":"curve",                                // 대상지 표시(lots·area): curve = 경계 커브만, mesh = 바닥 메시도(CTX::Site::ground). 방식 기본: 필지 mesh, 구역 curve
@@ -284,7 +284,7 @@ JS 상태 두 축: `step ∈ {1,2,3,4}`, `run ∈ {idle, running, done, failed, 
 | (시작) | `init_state.blocked=true` | blocked | 블로커 표시(필지 DB 없음 또는 `generator.ok=false`). [다시 확인] → `init` |
 | (시작) | `init_state.blocked=false` | step 1, run idle | 검색줄 포커스. options·recent 복원 |
 | 초기화 뒤 어디서나 | `init_state`(배지 클릭·[다시 확인]) | 변화 없음 | `sources`·`warnings`·`tile`·`paths`·`generator`(·`blocked`)만 갱신. **`step`·`run`·`lots`·`options`·`result`는 건드리지 않는다.** ②에 있으면 `preflight`를 다시 보낸다(Python 메모이즈가 비워졌으므로 자료 상태가 바뀐다) |
-| step 1 (방식 없음) | 방식 카드 | step 1 | 방식 기본값 적용·`save_prefs`. 방식별 화면 |
+| step 1 | 방식 칸(다른 방식) | step 1 | 대상지 지움·방식 기본값 적용·`save_prefs`. 방식별 트레이(필지 목록 / 구역 도구 / 위치) |
 | step 1 | `lot_state.lots ≥ 1` / `area_state.ok` / `point_state.center` | step 1 | `preflight` 전송. [다음]·[바로 생성] 활성(그리기·옮기기 중에는 비활성) |
 | step 1 | [다음] | step 2 | 지도 컨테이너 이동. `preflight`(메모이즈 적중이면 즉시) |
 | step 1 | [바로 생성] (preflight warn/danger 없음) | step 3, run running | `generate` |
@@ -352,7 +352,7 @@ Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `r
 레이아웃·문안·토큰은 `docs/ui_spec.md` §4·§5·§9. 여기서는 계약에 직접 걸리는 것만.
 
 - 상태: `state = {step, run, blocked, dirty, lots, lotState, options, preflight, progress, result, seq:{map, preflight}}`. `render()`는 **step 전환 때만** 섹션 `innerHTML`을 다시 그린다(`body.dataset` 갱신 + 해당 섹션 템플릿 1회 + 지도 컨테이너 이동). 푸시 핸들러는 섹션을 다시 그리지 않고 **슬롯 요소만 교체**한다 — 입력 중 포커스·IME 조합·열린 `<details>`·로그 스크롤이 날아가지 않도록. 옵션 입력은 네이티브 폼 요소라 값 보존 코드가 필요 없다. 가상 DOM 없음.
-- `receive` 핸들러 표(슬롯만 교체): `init_state`→첫 수신이면 상태 복원·`render()`; 이후는 `#badges`·`#init_warnings`·블로커·`state.generator`만(step·run·lots·options·result 불변, ②면 `preflight` 재전송) / `search_result`→`#search_list` 또는 즉시 `select_lots` / `map_lots`→`seq` 검사 후 `lotsLayer` 교체 / `lot_state`→`#lot_chips`·합계·`targetLayer`·`preflight` 전송 / `preflight_result`→`seq` 검사 후 `#estimate`·`#data_status`·`extentLayer`·`topoLayer`·`frameLayer`·[바로 생성] 노출 / `progress`→`#phase_list`·progressbar 속성·[취소] 활성(phase≠import) / `log`→`<pre>` append(400줄) / `busy`→푸터 잠금·라벨·[취소] 비활성 / `done`→③ 섹션 1회 렌더·`qaLayer` / `imported`(run≠running일 때만)·`exported`→카드 안 슬롯·토스트 / `error`→`context` 슬롯.
+- `receive` 핸들러 표(슬롯만 교체): `init_state`→첫 수신이면 상태 복원·`render()`; 이후는 `#badges`·`#menu`(열려 있으면)·블로커·`state.generator`만(step·run·lots·options·result 불변, ②면 `preflight` 재전송) / `search_result`→`#search_list` 또는 즉시 `select_lots` / `map_lots`→`seq` 검사 후 `lotsLayer` 교체 / `lot_state`→`#lot_chips`·합계·`targetLayer`·`preflight` 전송 / `preflight_result`→`seq` 검사 후 `#estimate`·`#data_status`·`extentLayer`·`topoLayer`·`frameLayer`·[바로 생성] 노출 / `progress`→`#phase_list`·progressbar 속성·[취소] 활성(phase≠import) / `log`→`<pre>` append(400줄) / `busy`→푸터 잠금·라벨·[취소] 비활성 / `done`→③ 섹션 1회 렌더·`qaLayer` / `imported`(run≠running일 때만)·`exported`→카드 안 슬롯·토스트 / `error`→`context` 슬롯.
 - Leaflet 인스턴스 1개. ①↔② 사이 `#map` 컨테이너를 `appendChild`로 옮기고 `invalidateSize()`. `map.remove()` 금지. 줌 ≥ 17에서만 `map_lots`(moveend 250 ms 디바운스, `seq` 증가). `tileerror` 3회 → `fallback_url`로 `setUrl` 1회; 폴백 뒤에도 3회면 지도 위 칩 "지도 타일을 못 받음(오프라인) — 필지선만 표시"를 띄우고 더 전환하지 않는다(필지는 로컬 DB라 계속 동작).
 - 경고 렌더 `renderWarnings(warnings, slotEl, {mapClick})` 하나. `center` 있으면 ②에서는 flyTo, ③에서는 [Rhino] = `zoom_view{dir: result.dir, center}`(`result.context.imported`일 때만 활성).
 - `generate` 페이로드: `{pnus, options}`에서 `options.scales`를 뺀다. dirty 판정은 `done.options` vs 현재 `options`(둘 다 `scales` 제외) 얕은 비교.
