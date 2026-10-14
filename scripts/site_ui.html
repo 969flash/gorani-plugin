@@ -1030,6 +1030,7 @@ function renderOptions() {
       '<div class="row"><label class="chk" for="demolished">철거 건물</label><select class="sm" id="demolished" name="demolished"><option value="dashed"' + (o.demolished === "dashed" ? " selected" : "") + '>점선·회색으로 표시</option><option value="exclude"' + (o.demolished === "exclude" ? " selected" : "") + ">제외</option></select></div>" +
       '<div class="grp">3dm</div>' +
       '<label class="chk"><input type="checkbox" name="include_zoning"' + (o.include_zoning ? " checked" : "") + '>용도지역 경계선 넣기 <span class="sub">CTX::Zoning</span></label>' +
+      '<label class="chk"><input type="checkbox" name="make_dwg"' + (o.make_dwg ? " checked" : "") + '>2D 도면 DWG로도 저장 <span class="sub">BM:: 레이어 → basemap_축척.dwg</span></label>' +
       '<div class="grp">문서</div>' +
       '<label class="chk"><input type="checkbox" name="zoom_after_import"' + (o.zoom_after_import ? " checked" : "") + ">넣은 뒤 대상지로 줌</label>" +
     "</details></fieldset>";
@@ -1063,7 +1064,7 @@ function updateSummaries() {
   if (as) {
     var a = [];
     if (o.include_minor_buildings) a.push("무벽건물 포함"); if (o.demolished === "exclude") a.push("철거 제외");
-    if (o.include_zoning) a.push("용도지역 경계선"); if (!o.zoom_after_import) a.push("줌 안 함");
+    if (o.include_zoning) a.push("용도지역 경계선"); if (o.make_dwg) a.push("DWG"); if (!o.zoom_after_import) a.push("줌 안 함");
     as.textContent = a.join(" · ");
   }
   var rh = $("radius_hint"); if (rh) rh.hidden = !(o.radius > 1000);

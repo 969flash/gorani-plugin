@@ -981,11 +981,9 @@ def _run_phases(request, progress, doc, response, state):
                                origin_reused=prepared.origin_reused, placement=prepared.placement, doc_origin=list(prepared.doc_origin), model_unit=str(doc.ModelUnitSystem), imported=True, import_text="")
     if options.get("make_dwg") and constants.DWG_EXPORT_ENABLED:   # 2D 도면(BM::)만 .dwg로 — 실패해도 3dm은 남긴다
         _report(progress, "write_3dm", 0.95, ".dwg 저장")
-        try:
-            bm_prefix = constants.BM_ROOT_LAYER + "::"
-            bm_ids = [guid for guid in ids if doc.Layers[doc.Objects.FindId(guid).Attributes.LayerIndex].FullPath.startswith(bm_prefix)]
+        try:   # 방금 쓴 3dm을 헤드리스로 열어 쓴다 — 활성 문서에서 쓰면 Mac에서 멈춘다(context_baker.save_dwg_from_3dm)
             dwg_path = os.path.join(prepared.result_dir, constants.DWG_FILE_FORMAT % min(prepared.scales))
-            response["context"]["dwg"] = context_baker.save_copy(doc, dwg_path, bm_ids)
+            response["context"]["dwg"] = context_baker.save_dwg_from_3dm(path, dwg_path, constants.BM_ROOT_LAYER)
         except Exception as exc:   # noqa: BLE001
             _phase_failed(response, "write_3dm", exc)
     _report(progress, "write_3dm", 1.0, "객체 %d · 레이어 %d" % (len(ids), len(layers)))

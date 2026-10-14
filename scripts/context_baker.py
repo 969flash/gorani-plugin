@@ -379,6 +379,34 @@ def save_copy(doc, path, object_ids=None, timing=None):
     return path
 
 
+def save_dwg_from_3dm(model_path, dwg_path, layer_root):
+    # type: (str, str, str) -> str
+    """방금 쓴 3dm 사본을 헤드리스 문서로 열어 layer_root(BM) 아래 객체만 .dwg로 쓴다. 실패는 RuntimeError.
+    활성 문서에서 바로 .dwg를 쓰면 Mac Rhino 8이 돌아오지 않았다(2026-10-14 job 1014-152140: 무교동 BM 1,026객체, 10분+ CPU 1 %,
+    패널 생성은 12분 뒤 실패) — 같은 객체를 헤드리스 문서에서는 0.2 s(job 1014-152115). 단위는 파일 그대로(OpenHeadless)."""
+    doc = Rhino.RhinoDoc.OpenHeadless(model_path)
+    if doc is None:
+        raise RuntimeError("3dm을 열 수 없습니다: %s" % model_path)
+    try:
+        for layer in doc.Layers:   # 꺼지거나 잠긴 레이어의 객체는 선택이 안 된다 — 헤드리스 사본이라 되돌리지 않는다
+            layer.IsVisible, layer.IsLocked = True, False
+        settings = Rhino.DocObjects.ObjectEnumeratorSettings()
+        settings.HiddenObjects, settings.LockedObjects, settings.VisibleFilter = True, True, False
+        objects = [o for o in doc.Objects.GetObjectList(settings)
+                   if doc.Layers.FindIndex(o.Attributes.LayerIndex).FullPath.split("::")[0] == layer_root]
+        if not objects:
+            raise RuntimeError("%s 레이어에 객체가 없습니다" % layer_root)
+        for rhino_object in objects:
+            rhino_object.Select(True)
+        options = Rhino.FileIO.FileWriteOptions()
+        options.SuppressDialogBoxes, options.UpdateDocumentPath, options.WriteSelectedObjectsOnly = True, False, True
+        if not doc.WriteFile(dwg_path, options):
+            raise RuntimeError("DWG를 저장할 수 없습니다: %s" % dwg_path)
+    finally:
+        doc.Dispose()
+    return dwg_path
+
+
 def _set_file_layer_states(doc, path, indexes):
     # type: (object, str, object) -> None
     """save_copy가 선택하려고 켠 레이어를 파일에서도 문서 상태(끔·잠금·PersistentVisibility)로 되돌린다 — WriteFile은 켠 순간의 상태로 쓴다.
