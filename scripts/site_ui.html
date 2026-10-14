@@ -981,7 +981,6 @@ function renderRange() {
     '<div class="row"><span class="lbl">용지</span><div class="seg" role="radiogroup" aria-label="용지">' + seg("paper", "A3", "A3", o.paper === "A3" ? " checked" : "") + seg("paper", "A1", "A1", o.paper === "A1" ? " checked" : "") + seg("paper", "A0", "A0", o.paper === "A0" ? " checked" : "") +
       '<label><input type="radio" name="paper" value="custom" id="paper_c"' + (customP ? " checked" : "") + '>직접 <input type="number" name="paper_mm" id="paper_w" min="100" max="3000" value="' + (o.paper_mm ? o.paper_mm[0] : 420) + '" aria-label="가로 mm">×<input type="number" name="paper_mm" id="paper_h" min="100" max="3000" value="' + (o.paper_mm ? o.paper_mm[1] : 297) + '" aria-label="세로 mm"> mm</label></div></div>' +
     '<div class="row"><span class="lbl">축척</span>' + SCALES.map(function (s) { return '<label class="chk"><input type="checkbox" name="scales" value="' + s + '"' + ((o.scales || []).indexOf(s) >= 0 ? " checked" : "") + ">1:" + fmtNum(s) + "</label>"; }).join("") + "</div>" +
-    '<div class="row"><span class="lbl">예상</span><span id="estimate" class="hint"></span></div>' +
     '<div id="frame_hint" class="hint"></div></div></fieldset>';
   updateSummaries(); renderEstimate(); lockSteps();
   sendPreflight(0);
@@ -1073,14 +1072,8 @@ function updateSummaries() {
   var fl = $("flatten_level"); if (fl) fl.disabled = !o.flatten_site;
   var ph = $("placement_hint"); if (ph) ph.textContent = PLACEMENT_HINT[o.placement === "world" ? "world" : "origin"];
 }
-function renderEstimate() {
-  var el = $("estimate"); if (!el) return;
-  var pf = state.preflight;
-  if (!pf || !pf.estimate) { el.textContent = ""; debounce("est", 200, function () { if (!state.preflight && $("estimate")) $("estimate").textContent = "계산 중…"; }); return; }
-  var e = pf.estimate;
-  el.textContent = e.pending_mb ? "건물·지형은 생성할 때 받음(약 " + e.pending_mb + " MB)"   // 아직 이 PC에 없어 건물 수·도엽을 모른다
-    : "건물 약 " + fmtNum(e.buildings) + "동 · 도엽 " + e.topo_have + "/" + e.topo_total + "장 · ~" + e.seconds + "초 · " + e.mb + " MB";
-  el.className = "num";
+function renderEstimate() {   // 프레임 넘침 안내·빈 시트 표시(예상 규모 줄은 없앴다 — 건물·지형을 생성할 때 받아 미리 셀 수 없고 생성은 몇 초다)
+  var pf = state.preflight; if (!pf) return;
   var fh = $("frame_hint"), fo = (pf.warnings || []).filter(function (w) { return w.code === "frame_over"; })[0];
   if (fh) fh.textContent = fo ? fo.detail || fo.text : "";
   document.querySelectorAll("[data-empty]").forEach(function (s) { if (!s.textContent || s.textContent === "데이터 없음") s.textContent = (pf.empty_sheets || []).indexOf(+s.dataset.empty) >= 0 ? "데이터 없음" : ""; });
