@@ -191,7 +191,8 @@ def install(par_url=None):
             f.write(par_url)
     with open(par_path) as f:
         par_url = f.read().strip()
-    shutil.copy(os.path.abspath(__file__), os.path.join(INSTALL_DIR, "server_gate.py"))
+    if os.path.abspath(__file__) != os.path.join(INSTALL_DIR, "server_gate.py"):   # 설치본으로 다시 install할 때는 복사하지 않는다
+        shutil.copy(os.path.abspath(__file__), os.path.join(INSTALL_DIR, "server_gate.py"))
     conf = NGINX_CONF.replace("@PAR@", par_url).replace("@PORT@", str(PORT)).replace("@CONN@", str(CONN_PER_IP))
     with open(os.open("/etc/nginx/sites-available/udt", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
         f.write(conf)   # PAR이 들어 있어 root만 읽는다

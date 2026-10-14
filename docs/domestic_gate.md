@@ -14,7 +14,7 @@
 - 플러그인은 팩 요청에 `User-Agent: UrbanDesignTool/<버전>`과 `X-UDT-Client: <설치 ID>`를 붙인다. 403·404가 오면 매니페스트를 새로 읽어 한 번 다시 받는다.
 - HTTP로 둔다. 파일 변조는 매니페스트(HTTPS)의 sha256으로 걸러진다. HTTPS가 필요하면 도메인을 붙이고 certbot을 쓴다.
 
-현재(2026-10-14): VM `udt-gate`, `VM.Standard.E2.1.Micro`(이 계정은 A1 한도가 0), 공인 IP 150.230.249.1, VCN `udt-gate-vcn`, 알람 topic `udt-alerts`(bsh969flash@gmail.com). SSH 키 `~/.ssh/udt-gate.key`, PAR 만료 2027-10-01.
+현재(2026-10-14): VM `udt-gate`, `VM.Standard.E2.1.Micro`(이 계정은 A1 한도가 0), 공인 IP 150.230.249.1, VCN `udt-gate-vcn`, 알람 topic `udt-alerts`(bsh969flash@gmail.com). SSH 키 `~/.ssh/udt-gate.key`, PAR `udt-gate-2036` 만료 2036-10-01.
 
 ## 비정상 요청 기준
 
@@ -42,8 +42,8 @@
 2. **PAR을 만들어 파일로 받는다.** 만료일은 달력에 적어 둔다.
    ```
    oci os preauth-request create --profile SESSION --auth security_token \
-     -bn urbandesigntool-data --name udt-gate --access-type AnyObjectRead \
-     --bucket-listing-action Deny --time-expires 2027-10-01T00:00:00Z \
+     -bn urbandesigntool-data --name udt-gate-2036 --access-type AnyObjectRead \
+     --bucket-listing-action Deny --time-expires 2036-10-01T00:00:00Z \
      --query 'data."full-path"' --raw-output > ~/.oci/udt_gate_par && chmod 600 ~/.oci/udt_gate_par
    ```
 3. **콘솔에서 VM을 만든다** (cloud.oracle.com, 리전 Chuncheon).
