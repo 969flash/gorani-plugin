@@ -107,7 +107,8 @@ main { flex: 1; min-height: 0; position: relative; overflow: hidden;
   background-size: 8px 8px; background-position: -1px -1px; }
 section { display: none; height: 100%; }
 body[data-step="1"] section[data-step="1"], body[data-step="2"] section[data-step="2"] { display: flex; flex-direction: column; padding: 8px 16px 0; }
-body[data-step="3"] section[data-step="3"], body[data-step="4"] section[data-step="4"] { display: block; overflow: auto; padding: 8px 16px 16px; }
+/* 옵션·결과는 넓은 창에서도 내용 폭 880 px까지만(가운데) — 스크롤은 창 전체 */
+body[data-step="3"] section[data-step="3"], body[data-step="4"] section[data-step="4"] { display: block; overflow: auto; padding: 8px max(16px, calc((100% - 880px) / 2)) 16px; }
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: contents; }
 body[data-run="running"] section[data-step="1"], body[data-run="running"] section[data-step="2"], body[data-run="running"] section[data-step="3"] { pointer-events: none; }
 section[data-step="1"] fieldset, section[data-step="2"] fieldset { display: flex; flex-direction: column; flex: 1; min-height: 0; }
@@ -266,7 +267,7 @@ details.adv .grp { color: var(--sub); font-size: 12px; margin-top: 8px; }
 .done-line .ok .ico { color: var(--accent); }
 .done-line .link { font-size: 12px; font-weight: 400; margin-left: auto; }
 .dirty { padding: 6px 12px; margin-bottom: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--sub); font-size: 12px; }
-.sheet-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 0 12px 12px; }
+.sheet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; padding: 0 12px 12px; }   /* 칸 폭 고정·칸 수가 폭 따라 — 4칸 고정은 넓으면 썸네일이 커졌다 */
 .sheet-cell { border: 1px solid var(--border); background: var(--surface); padding: 0 0 6px; text-align: left; display: grid; gap: 2px; min-width: 0; min-height: 48px; align-content: start; color: var(--ink); }
 .sheet-cell img { display: block; width: 100%; aspect-ratio: 1; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
 .sheet-cell .n, .sheet-cell .t { padding: 0 8px; }
