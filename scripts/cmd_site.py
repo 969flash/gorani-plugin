@@ -145,9 +145,13 @@ def get_search_result(query, site_db=None):
 
 def get_map_lots(bbox, seq, site_db=None):
     # type: (list, int, str) -> dict
-    """map_lots 페이로드 — review_map.get_parcels_in_bbox 그대로 + seq 에코."""
+    """map_lots 페이로드 — review_map.get_parcels_in_bbox 그대로 + seq 에코. 그 지역 필지 데이터가 아직 없으면 빈 지도
+    (오류가 아니다 — area_packs가 받는 중이고, 다 받으면 패널이 다시 묻는다)."""
     review_map = loader.load("review_map")
-    result = review_map.get_parcels_in_bbox(bbox, database_path=site_db)
+    try:
+        result = review_map.get_parcels_in_bbox(bbox, database_path=site_db)
+    except FileNotFoundError:
+        return {"type": "map_lots", "seq": seq, "geojson": _EMPTY_FC, "truncated": False}
     return {"type": "map_lots", "seq": seq, "geojson": result["geojson"], "truncated": result["truncated"]}
 
 
