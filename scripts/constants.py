@@ -390,6 +390,9 @@ RESULT_DATE_FORMAT = "%Y%m%d"                  # result/<YYYYMMDD>/<대상지명
 CONTEXT_MODEL_FILE_NAME = "context.3dm"
 CONTEXT_META_FILE_NAME = "context.json"
 BASEMAP_FILE_FORMAT = "basemap_%d.ai"          # 축척 분모
+# DWG 저장은 꺼 둔다 — Mac Rhino 8에서 패널 생성 중 doc.WriteFile(.dwg)가 돌아오지 않았다(2026-10-14 을지로1가 87: basemap_1000.dwg 0바이트,
+# Rhino CPU 5 %·대화상자 없음, 8분 대기). 원인을 고치고 Mac·Windows에서 확인한 뒤 켠다. 옵션 make_dwg는 그때까지 무시한다
+DWG_EXPORT_ENABLED = False
 DWG_FILE_FORMAT = "basemap_%d.dwg"             # 3dm BM:: 2D 레이어만 내보낸 것(옵션 make_dwg). 축척 = 2D를 만든 축척(요청 중 가장 상세)
 RESULT_LOG_FILE_NAME = "log.txt"
 

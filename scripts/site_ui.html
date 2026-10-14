@@ -412,7 +412,7 @@ function send(msg) {
 window.__flush = function () { var m = JSON.stringify(window.__outbox); window.__outbox = []; return m; };
 
 // ── 상수 (constants.py와 같은 값) ──
-var PHASES = ["query", "refresh", "terrain", "write_3dm", "basemap", "sheets", "tables", "import"];
+var PHASES = ["query", "terrain", "write_3dm", "basemap", "sheets", "tables"];   // 보이는 단계만 — refresh·import는 엔진이 늘 건너뛴다(사용자가 알 필요 없음)
 var PHASE_LABELS = { query: "필지·건물·지형 조회", refresh: "건물 최신화(VWorld·건축HUB)", terrain: "지형 TIN·면 분류·정합 측정",
   write_3dm: "3dm 쓰기(베이크)", basemap: "베이스맵 레이어", sheets: "현황도 시트", tables: "조서 CSV", import: "문서에 넣기(Import)" };
 var PHASE_ICON = { done: "check", running: "dot", pending: "ring", skipped: "dash", failed: "x" };
@@ -1029,7 +1029,6 @@ function renderOptions() {
       '<div class="row"><label class="chk" for="demolished">철거 건물</label><select class="sm" id="demolished" name="demolished"><option value="dashed"' + (o.demolished === "dashed" ? " selected" : "") + '>점선·회색으로 표시</option><option value="exclude"' + (o.demolished === "exclude" ? " selected" : "") + ">제외</option></select></div>" +
       '<div class="grp">3dm</div>' +
       '<label class="chk"><input type="checkbox" name="include_zoning"' + (o.include_zoning ? " checked" : "") + '>용도지역 경계선 넣기 <span class="sub">CTX::Zoning</span></label>' +
-      '<label class="chk"><input type="checkbox" name="make_dwg"' + (o.make_dwg ? " checked" : "") + '>2D 도면 DWG로도 저장 <span class="sub">BM:: 레이어 → basemap_축척.dwg</span></label>' +
       '<div class="grp">문서</div>' +
       '<label class="chk"><input type="checkbox" name="zoom_after_import"' + (o.zoom_after_import ? " checked" : "") + ">넣은 뒤 대상지로 줌</label>" +
     "</details></fieldset>";
@@ -1063,7 +1062,7 @@ function updateSummaries() {
   if (as) {
     var a = [];
     if (o.include_minor_buildings) a.push("무벽건물 포함"); if (o.demolished === "exclude") a.push("철거 제외");
-    if (o.include_zoning) a.push("용도지역 경계선"); if (o.make_dwg) a.push("DWG"); if (!o.zoom_after_import) a.push("줌 안 함");
+    if (o.include_zoning) a.push("용도지역 경계선"); if (!o.zoom_after_import) a.push("줌 안 함");
     as.textContent = a.join(" · ");
   }
   var rh = $("radius_hint"); if (rh) rh.hidden = !(o.radius > 1000);
@@ -1152,7 +1151,7 @@ function renderResult() {
     '<ul class="phase-list" id="phase_list"></ul>' +
     '<div id="error_card"></div>' +
     '<div class="log"><details><summary>로그 (<span id="log_count">' + state.logLines.length + '</span>줄)</summary><pre id="log_pre">' + state.logLines.map(logLineHtml).join("\n") + "</pre></details></div>" +
-    (state.run === "running" ? '<p class="hint" style="margin-top:16px">생성은 Rhino 안에서 돌아 화면이 잠깐씩 멈출 수 있습니다.<br>베이크가 곧 문서에 넣기라 Import 단계는 없습니다.</p>' : "");
+    (state.run === "running" ? '<p class="hint" style="margin-top:16px">생성은 Rhino 안에서 돌아 화면이 잠깐씩 멈출 수 있습니다.</p>' : "");
   renderPhaseList(); renderErrorCard();
 }
 function runTitle() {
@@ -1177,7 +1176,7 @@ function renderErrorCard() {
   var p = state.progress, e = p && p.error;
   if (state.run === "running" || (!e && state.run !== "cancelled")) { slot.innerHTML = ""; return; }
   var doneCount = p ? PHASES.filter(function (ph) { return (p.phase_status || {})[ph] === "done"; }).length : 0;
-  var title = state.run === "cancelled" ? "취소됨 — " + doneCount + "/8까지 완료. 부분 산출물은 폴더에 남아 있습니다(log.txt 끝에 기록)" : (e && e.title) || "생성 실패";
+  var title = state.run === "cancelled" ? "취소됨 — " + doneCount + "/" + PHASES.length + "까지 완료. 부분 산출물은 폴더에 남아 있습니다(log.txt 끝에 기록)" : (e && e.title) || "생성 실패";
   var dir = state.result && state.result.dir;
   slot.innerHTML = '<div class="err-card" role="alert"><h4>' + esc(title) + "</h4>" +
     (e && e.detail ? '<details><summary class="hint">상세</summary><pre id="err_detail">' + esc(e.detail) + "</pre></details>" : "") +

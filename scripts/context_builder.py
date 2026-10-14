@@ -979,7 +979,7 @@ def _run_phases(request, progress, doc, response, state):
     response["context"].update(path=path, layers=len(layers), buildings=geo.counts["buildings"], lots=prepared.stats["lots"],
                                demolished=geo.counts.get("demolished", 0), tin_points=geo.counts["tin_points"], origin=list(prepared.origin),
                                origin_reused=prepared.origin_reused, placement=prepared.placement, doc_origin=list(prepared.doc_origin), model_unit=str(doc.ModelUnitSystem), imported=True, import_text="")
-    if options.get("make_dwg"):   # 2D 도면(BM::)만 .dwg로 — 실패해도 3dm은 남긴다
+    if options.get("make_dwg") and constants.DWG_EXPORT_ENABLED:   # 2D 도면(BM::)만 .dwg로 — 실패해도 3dm은 남긴다
         _report(progress, "write_3dm", 0.95, ".dwg 저장")
         try:
             bm_prefix = constants.BM_ROOT_LAYER + "::"
