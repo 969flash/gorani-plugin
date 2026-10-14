@@ -242,15 +242,15 @@ def _sheet_stat_rows(prepared, today):
     buildings = get_buildings_in_extent(prepared)
     options = _get(_get(prepared, "request") or {}, "options") or {}
     breaks = tuple(options.get("floor_breaks") or constants.FLOOR_BREAKS_DEFAULT)
-    names = dict((sid, name) for sid, name, _ in constants.SHEET_CATALOG)
+    sheet = dict((key, (sid, name)) for sid, key, name, _en, _needs in constants.SHEET_CATALOG)
     lot_area = lambda lot: _get(lot, "registered_area") or _get(lot, "geometry_area")
     rows = []
-    rows += _group(2, names[2], lots, lambda lot: _get(lot, "land_use_status"), lot_area)
-    rows += _group(3, names[3], lots, lambda lot: _get(lot, "land_category"), lot_area)
-    rows += _group(4, names[4], lots, lambda lot: _get(lot, "zone_name"), lot_area)
-    rows += _group(7, names[7], buildings, lambda b: (_get(b, "usability") or "")[:2])
-    rows += _group(8, names[8], buildings, lambda b: _floor_band(_get(b, "grnd_flr"), breaks))
-    rows += _group(9, names[9], buildings, lambda b: _age_band(_get(b, "use_apr_day"), today))
+    rows += _group(*sheet["land_use"], lots, lambda lot: _get(lot, "land_use_status"), lot_area)
+    rows += _group(*sheet["land_category"], lots, lambda lot: _get(lot, "land_category"), lot_area)
+    rows += _group(*sheet["zone"], lots, lambda lot: _get(lot, "zone_name"), lot_area)
+    rows += _group(*sheet["use"], buildings, lambda b: (_get(b, "usability") or "")[:2])
+    rows += _group(*sheet["floor"], buildings, lambda b: _floor_band(_get(b, "grnd_flr"), breaks))
+    rows += _group(*sheet["age"], buildings, lambda b: _age_band(_get(b, "use_apr_day"), today))
     return rows
 
 

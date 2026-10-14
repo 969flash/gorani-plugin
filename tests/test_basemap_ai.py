@@ -10,6 +10,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import basemap_ai
+import sheet_svg
 import constants
 import context_builder
 
@@ -40,10 +41,24 @@ class HelperTest(unittest.TestCase):
         self.assertEqual(basemap_ai._ps_string("성수(2)"), "(\\274\\272\\274\\366\\(2\\))")
 
 
+class StylePaintTest(unittest.TestCase):
+    def test_cmyk_and_layer_paint(self):
+        self.assertEqual(basemap_ai.get_cmyk(None), (0.0, 0.0, 0.0, 0.0))
+        self.assertEqual(basemap_ai.get_cmyk(40), (0.0, 0.0, 0.0, 0.4))
+        c, m, y, k = basemap_ai.get_cmyk("#808080")   # 회색은 K만
+        self.assertEqual((c, m, y), (0.0, 0.0, 0.0))
+        self.assertAlmostEqual(k, 1 - 128 / 255.0)
+        self.assertEqual(basemap_ai.get_cmyk("#FF0000"), (0.0, 1.0, 1.0, 0.0))
+        style = sheet_svg.get_style({"style": {"preset": "std", "water": "#112233"}})
+        self.assertEqual(basemap_ai.get_layer_paint("01_water", style), ("#112233", None))
+        self.assertEqual(basemap_ai.get_layer_paint("00_frame_scale", style)[0], style["block"])   # 가구 칠 위에 흰 도로면
+        self.assertEqual(basemap_ai.get_layer_paint("09_contour", style), (None, 35))             # 스타일 밖 레이어는 K톤
+
+
 class WriteTest(unittest.TestCase):
     def test_fixture_basemap(self):
         request = {"pnus": [constants.TEST_CONTEXT_PNU], "site_db": str(FIXTURE_DIR / "seongsu_site.db"),
-                   "context_db": str(FIXTURE_DIR / "seongsu_context.db"), "options": {"radius": 500, "scales": [3000]}}
+                   "context_db": str(FIXTURE_DIR / "seongsu_context.db"), "options": {"radius": 500, "scales": [3000], "paper": "A1", "paper_mm": [841, 594]}}
         prepared = context_builder.prepare(request)
         with tempfile.TemporaryDirectory() as tmp:
             result = basemap_ai.write_basemap(prepared, 3000, tmp)

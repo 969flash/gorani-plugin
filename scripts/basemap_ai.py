@@ -12,6 +12,7 @@
 
 import math
 import os
+import re
 
 import constants
 import non_rhino_utils
@@ -174,12 +175,6 @@ def _ps_string(text):
     return "".join(out)
 
 
-def _text_width_em(text):
-    # type: (str) -> float
-    """글자 폭 어림(em) — 한글·한자 1.0, 그 밖 0.55. 가운데 정렬용."""
-    return sum(1.0 if ord(ch) > 0x2000 else 0.55 for ch in text)
-
-
 class AiWriter(object):
     """레이어별 PostScript 조각을 모아 .ai 한 장을 쓴다. 좌표는 세계 m → 종이 pt(프레임 왼쪽 아래 = 0, 0)."""
 
@@ -216,23 +211,29 @@ class AiWriter(object):
         self.layers.setdefault(layer, []).append(chunk)
         self.counts[layer] = self.counts.get(layer, 0) + 1
 
-    @staticmethod
-    def _style(fill_k, line_k, width_pt):
-        # type: (float, float, float) -> str
-        """CMYK K만 쓰는 칠·선 상태(Rhino .ai와 같은 연산자). K는 0~100."""
-        fill = (fill_k if fill_k is not None else 0) / 100.0
-        line = (line_k if line_k is not None else 0) / 100.0
-        return "0 0 0 %.4f K\n0 0 0 %.4f k\n0 i 1 J 1 j %.3f w 4 M []0 d\n0 D\n" % (line, fill, width_pt)
+    _style_cache = {}
 
-    def polygon(self, layer, rings, fill_k, line_k, width_mm):
-        # type: (str, list, float, float, float) -> None
+    @classmethod
+    def _style(cls, fill, line, width_pt, dash_pt=None):
+        # type: (object, object, float, list) -> str
+        """칠·선 상태(Rhino .ai와 같은 연산자). 색은 K 톤(0~100) 또는 스타일 색 #RRGGBB(→ CMYK). dash_pt = 파선 [칠, 틈] pt."""
+        key = (fill, line, round(width_pt, 3), tuple(dash_pt or ()))
+        text = cls._style_cache.get(key)
+        if text is None:
+            dash = "[%s]" % " ".join("%.2f" % v for v in dash_pt) if dash_pt else "[]"
+            text = cls._style_cache[key] = "%.4f %.4f %.4f %.4f K\n%.4f %.4f %.4f %.4f k\n0 i 1 J 1 j %.3f w 4 M %s0 d\n0 D\n" % (get_cmyk(line) + get_cmyk(fill) + (width_pt, dash))
+        return text
+
+    def polygon(self, layer, rings, fill_k, line_k, width_mm, dash_mm=None, holes=None):
+        # type: (str, list, object, object, float, list, list) -> None
         """외곽 + 구멍 링(세계좌표). fill_k만 있으면 칠(f), line_k만 있으면 선(s), 둘 다면 b. 구멍이 있으면 compound path(*u … *U).
         외곽은 반시계, 구멍은 시계로 맞춰 칠 규칙과 무관하게 구멍이 뚫린다."""
         op = "b" if fill_k is not None and line_k is not None else ("f" if fill_k is not None else "s")
         oriented = []
         for i, ring in enumerate(rings):
             ccw = non_rhino_utils.get_ring_orientation(ring) >= 0
-            if (i == 0) != ccw:
+            outer = (i == 0) if holes is None else not holes[i]   # holes = 링마다 구멍인가(짝홀 규칙 — 여러 조각 path)
+            if outer != ccw:
                 ring = list(reversed(ring))
             path = self._path(ring, True)
             if path:
@@ -241,39 +242,42 @@ class AiWriter(object):
                 return
         if not oriented:
             return
-        style = self._style(fill_k, line_k, width_mm * MM_TO_PT)
+        style = self._style(fill_k, line_k, width_mm * MM_TO_PT, [v * MM_TO_PT for v in dash_mm] if dash_mm else None)
         if len(oriented) == 1:
             self._add(layer, style + "\n".join(oriented[0]) + "\n" + op + "\n")
         else:
             body = "".join("\n".join(path) + "\n" + op + "\n" for path in oriented)
             self._add(layer, style + "*u\n" + body + "*U\n")
 
-    def line(self, layer, pts, line_k, width_mm):
-        # type: (str, list, float, float) -> None
+    def line(self, layer, pts, line_k, width_mm, dash_mm=None):
+        # type: (str, list, object, float, list) -> None
         path = self._path(pts, False)
         if path:
-            self._add(layer, self._style(None, line_k, width_mm * MM_TO_PT) + "\n".join(path) + "\nS\n")
+            self._add(layer, self._style(None, line_k, width_mm * MM_TO_PT, [v * MM_TO_PT for v in dash_mm] if dash_mm else None) + "\n".join(path) + "\nS\n")
 
-    def text(self, layer, content, x, y, size_mm, k=100.0):
-        # type: (str, str, float, float, float, float) -> None
+    def text(self, layer, content, x, y, size_mm, k=100.0, anchor="middle", baseline=False):
+        # type: (str, str, float, float, float, object, str, bool) -> None
         """가운데 정렬 점 텍스트. 글꼴은 한글 CMap(AI_FONT_CMAP) — 레거시 텍스트로 열리고, 편집하려면 Illustrator '레거시 텍스트 업데이트'."""
         size_pt = size_mm * MM_TO_PT / constants.AI_CAP_HEIGHT_RATIO
         px, py = self._pt(x, y)
-        px -= _text_width_em(content) * size_pt * 0.5
-        py -= size_mm * MM_TO_PT * 0.5
-        self._add(layer, "0 0 0 %.4f k\n0 i 1 J 1 j 1 w 4 M []0 d\n0 D\nu\n0 To\n1 0 0 1 %.2f %.2f 0 Tp\nTP\n0 Tr\n/_%s %.2f Tf\n%s Tx\nTO\nU\n"
-                  % (k / 100.0, px, py, constants.AI_FONT_CMAP, size_pt, _ps_string(content)))
+        px -= non_rhino_utils.get_text_width_em(content) * size_pt * {"start": 0.0, "end": 1.0}.get(anchor, 0.5)
+        if not baseline:
+            py -= size_mm * MM_TO_PT * 0.5
+        self._add(layer, "%.4f %.4f %.4f %.4f k\n0 i 1 J 1 j 1 w 4 M []0 d\n0 D\nu\n0 To\n1 0 0 1 %.2f %.2f 0 Tp\nTP\n0 Tr\n/_%s %.2f Tf\n%s Tx\nTO\nU\n"
+                  % (get_cmyk(k) + (px, py, constants.AI_FONT_CMAP, size_pt, _ps_string(content))))
 
-    def write(self, path, title):
-        # type: (str, str) -> int
-        """레이어를 BM_LAYERS 순서로 써서 파일 하나. 반환: 쓴 레이어 수."""
+    def write(self, path, title, order=None):
+        # type: (str, str, list) -> int
+        """레이어를 순서대로 써서 파일 하나 — 기본 BM_LAYERS(빈 레이어는 뺀다), order = [(이름, 라벨)]면 그 순서(빈 레이어도 쓴다 — 틀 시트). 반환: 쓴 레이어 수."""
         w, h = int(round(self.paper_pt[0])), int(round(self.paper_pt[1]))
         font = constants.AI_FONT_CMAP
-        names = [name for name, *_ in constants.BM_LAYERS if self.layers.get(name)]
+        if order is None:
+            order = [(name, label) for name, label, *_ in constants.BM_LAYERS if self.layers.get(name)]
+        names = [name for name, _label in order]
         out = [
             "%!PS-Adobe-3.0", "%%Creator: " + constants.TOOL_NAME, "%%Title: " + _ps_string(title),
             "%%%%BoundingBox: 0 0 %d %d" % (w, h), "%%%%HiResBoundingBox: 0 0 %.4f %.4f" % self.paper_pt,
-            "%%DocumentProcessColors: Black", "%%DocumentFonts: " + font,
+            "%%DocumentProcessColors: Cyan Magenta Yellow Black", "%%DocumentFonts: " + font,
             "%%DocumentNeededResources: procset Adobe_packedarray 2.0 0", "%%+ procset Adobe_cmykcolor 1.1 0", "%%+ procset Adobe_cshow 1.1 0",
             "%%+ procset Adobe_customcolor 1.0 0", "%%+ procset Adobe_typography_AI3 1.0 0", "%%+ procset Adobe_IllustratorA_AI3 1.0 0",
             "%AI3_ColorUsage: Color", "%%AI3_TemplateBox: %d %d %d %d" % (w // 2, h // 2, w // 2, h // 2), "%%AI3_TileBox: 0 0 %d %d" % (w, h),
@@ -287,11 +291,11 @@ class AiWriter(object):
             "Adobe_typography_AI3 /initialize get exec", "Adobe_IllustratorA_AI3 /initialize get exec", "%%EndSetup",
         ]
         parts = ["\n".join(out) + "\n"]
-        labels = {name: label for name, label, *_ in constants.BM_LAYERS}
+        labels = dict(order)
         for name in names:
             gray = 255 - int(round(255 * self._layer_k(name) / 100.0))
-            parts.append("%%AI5_BeginLayer\n1 1 1 1 0 0 -1 %d %d %d Lb\n%s Ln\n0 A\n0 R\n" % (gray, gray, gray, _ps_string("%s %s" % (name, labels[name]))))
-            parts.append("".join(self.layers[name]))
+            parts.append("%%AI5_BeginLayer\n1 1 1 1 0 0 -1 %d %d %d Lb\n%s Ln\n0 A\n0 R\n" % (gray, gray, gray, _ps_string(("%s %s" % (name, labels[name])).strip())))
+            parts.append("".join(self.layers.get(name, [])))
             parts.append("LB\n%AI5_EndLayer--\n")
         parts.append("%%PageTrailer\ngsave annotatepage grestore showpage\n%%Trailer\n"
                      "Adobe_IllustratorA_AI3 /terminate get exec\nAdobe_typography_AI3 /terminate get exec\nAdobe_customcolor /terminate get exec\n"
@@ -331,6 +335,37 @@ class ShapeRecorder(object):
         self._add(layer, "text", (content, x, y, size_mm))
 
 
+def get_cmyk(value):
+    # type: (object) -> tuple
+    """K 톤(0~100) 또는 #RRGGBB → (C, M, Y, K) 0~1. 회색은 K만 남는다(흑백 스타일 = K 전용 .ai). None은 무색."""
+    if value is None:
+        return (0.0, 0.0, 0.0, 0.0)
+    if isinstance(value, str):
+        r, g, b = (int(value[i:i + 2], 16) / 255.0 for i in (1, 3, 5))
+        k = 1.0 - max(r, g, b)
+        if k >= 1.0:
+            return (0.0, 0.0, 0.0, 1.0)
+        return ((1.0 - r - k) / (1.0 - k), (1.0 - g - k) / (1.0 - k), (1.0 - b - k) / (1.0 - k), k)
+    return (0.0, 0.0, 0.0, float(value) / 100.0)
+
+
+def get_layer_paint(name, style):
+    # type: (str, dict) -> tuple
+    """BM 레이어 → (칠, 선). 도면 스타일 요소에 대응하는 레이어는 스타일 색, 나머지(지적·등고선·격자·도로경계 등)는 BM_LAYERS K톤.
+    00 프레임은 가구(블록) 색으로 칠해 그 위 흰 도로면이 가로 패턴을 만든다. 건물 층수 4구간은 건물 색에서 글자색 쪽으로 진해진다."""
+    fill_k, line_k = _layer_style(name)
+    if style is None:
+        return fill_k, line_k
+    mix = sheet_svg.get_mixed_color
+    paints = {"00_frame_scale": (style["block"], style["ink"]), "01_water": (style["water"], None), "02_green": (style["green"], None),
+              "03_road_surface": (style["road"], None), "06_rail": (None, style["rail"]), "10_site": (None, style["site"]),
+              "12_labels": (None, style["ink"])}
+    edge = mix(style["building"], style["ink"], 0.3)
+    for index, band in enumerate(("07_bldg_low", "07_bldg_mid", "07_bldg_high", "07_bldg_tower")):
+        paints[band] = (mix(style["building"], style["ink"], 0.12 * index), edge)
+    return paints.get(name, (fill_k, line_k))
+
+
 def _layer_style(name):
     # type: (str) -> tuple
     """BM_LAYERS → (fill_k, line_k)."""
@@ -351,6 +386,7 @@ def build_ai(prepared, scale, writer=None):
     bbox = prepared.frame_bounds[scale]
     writer = writer if writer is not None else AiWriter(bbox, scale, options["paper_mm"])
     wanted = get_basemap_layers(options, scale)
+    style = sheet_svg.get_style(options)
 
     def polygon(fill_layer, edge_layer, geometry):
         fill_layer = fill_layer if fill_layer in wanted else None
@@ -358,8 +394,8 @@ def build_ai(prepared, scale, writer=None):
         if not fill_layer and not edge_layer:
             return
         layer = fill_layer or edge_layer
-        fill_k = _layer_style(fill_layer)[0] if fill_layer else None
-        line_k = _layer_style(edge_layer)[1] if edge_layer else None
+        fill_k = get_layer_paint(fill_layer, style)[0] if fill_layer else None
+        line_k = get_layer_paint(edge_layer, style)[1] if edge_layer else None
         width = get_line_width_mm(edge_layer, scale) if edge_layer else 0.0
         if fill_layer and edge_layer and fill_layer != edge_layer:
             # 칠과 외곽이 다른 레이어(도로면 03 + 도로경계 04, 토지이용 02b + 지적선 08) — 따로 쓴다
@@ -375,7 +411,7 @@ def build_ai(prepared, scale, writer=None):
             return
         kind = geometry.get("type")
         parts = [geometry["coordinates"]] if kind == "LineString" else (geometry["coordinates"] if kind == "MultiLineString" else [])
-        k = line_k if line_k is not None else _layer_style(layer)[1]
+        k = line_k if line_k is not None else get_layer_paint(layer, style)[1]
         for coords in parts:
             for piece in get_clipped_lines([(float(p[0]), float(p[1])) for p in coords], bbox):
                 writer.line(layer, piece, k, get_line_width_mm(layer, scale))
@@ -385,11 +421,12 @@ def build_ai(prepared, scale, writer=None):
         if not content or layer not in wanted or not (bbox[0] <= x <= bbox[2] and bbox[1] <= y <= bbox[3]):
             return
         mm, ref_scale = constants.BM_TEXT_MM[layer]
-        writer.text(layer, content, x, y, mm * ref_scale / float(scale), _layer_style(layer)[1] or 100.0)
+        writer.text(layer, content, x, y, mm * ref_scale / float(scale), get_layer_paint(layer, style)[1] or 100.0)
 
     # 00 프레임
     frame = [(bbox[0], bbox[1]), (bbox[2], bbox[1]), (bbox[2], bbox[3]), (bbox[0], bbox[3])]
-    writer.polygon("00_frame_scale", [frame], None, _layer_style("00_frame_scale")[1], get_line_width_mm("00_frame_scale", scale))
+    frame_fill, frame_line = get_layer_paint("00_frame_scale", style)
+    writer.polygon("00_frame_scale", [frame], frame_fill, frame_line, get_line_width_mm("00_frame_scale", scale))
     # 수치지형도 피처
     for f in prepared.features:
         if not _hits(f, bbox):
@@ -479,3 +516,179 @@ def write_basemap(prepared, scale, out_dir):
     path = os.path.join(out_dir, constants.BASEMAP_FILE_FORMAT % int(scale))
     layers = writer.write(path, "%s 1:%d" % (prepared.lot_name, int(scale)))
     return {"ok": True, "path": path, "layers": layers, "counts": dict(writer.counts), "bytes": os.path.getsize(path)}
+
+
+# ── 도면 SVG → 레이어 .ai (sheet_svg가 쓴 SVG만 읽는다) ──────────────────
+
+_PATH_TOKEN = re.compile(r"[MLlHhVvZz]|-?\d*\.?\d+")
+_CIRCLE_PATH = re.compile(r"M(-?[\d.]+) (-?[\d.]+)a([\d.]+)")
+_INHERIT = ("fill", "stroke", "stroke-width", "fill-opacity", "stroke-dasharray", "font-size", "font-weight", "text-anchor")
+SVG_NS = "{http://www.w3.org/2000/svg}"
+
+
+def get_svg_path_rings(d):
+    # type: (str) -> list
+    """sheet_svg path d → [(점들, 닫힘)]. 쓰는 명령(M·L·l·H·V·Z)만, 원(_circle_d의 호 두 개)은 48각형."""
+    circle = _CIRCLE_PATH.match(d)
+    if circle and "a" in d:
+        x, y, r = (float(v) for v in circle.groups())
+        cx = x + r
+        return [([(cx + r * math.cos(2 * math.pi * i / 48), y + r * math.sin(2 * math.pi * i / 48)) for i in range(48)], True)]
+    rings, pts, cmd, x, y = [], None, "M", 0.0, 0.0
+    tokens, i = _PATH_TOKEN.findall(d), 0
+    while i < len(tokens):
+        token = tokens[i]
+        if token.isalpha():
+            cmd = token
+            i += 1
+            if cmd in "Zz":
+                if pts:
+                    rings.append((pts, True))
+                pts = None
+            continue
+        if cmd == "M":
+            if pts:
+                rings.append((pts, False))
+            x, y = float(tokens[i]), float(tokens[i + 1])
+            pts, i, cmd = [(x, y)], i + 2, "L"
+            continue
+        if cmd in "Ll":
+            dx, dy = float(tokens[i]), float(tokens[i + 1])
+            x, y = (x + dx, y + dy) if cmd == "l" else (dx, dy)
+            i += 2
+        elif cmd in "Hh":
+            x = x + float(tokens[i]) if cmd == "h" else float(tokens[i])
+            i += 1
+        elif cmd in "Vv":
+            y = y + float(tokens[i]) if cmd == "v" else float(tokens[i])
+            i += 1
+        else:
+            i += 1
+            continue
+        if pts is None:
+            pts = [(x, y)]
+        else:
+            pts.append((x, y))
+    if pts:
+        rings.append((pts, False))
+    return rings
+
+
+def _get_paint(value, opacity, paper):
+    # type: (str, float, str) -> object
+    """SVG 칠 값 → #RRGGBB 또는 None. 해치 패턴은 해치 선 색을 옅게, 반투명(레거시 .ai에 투명도 없음)은 0.5 미만이면 칠 없음·이상이면 종이와 섞는다."""
+    if not value or value in ("none", "transparent"):
+        return None
+    if value.startswith("url("):
+        value = sheet_svg.get_mixed_color(constants.SHEET_HATCH["landlocked"]["stroke"], paper, 0.7)
+    if not value.startswith("#") or len(value) != 7:
+        return None
+    if opacity < 0.5:
+        return None
+    return value.upper() if opacity >= 0.999 else sheet_svg.get_mixed_color(value.upper(), paper, 1.0 - opacity)
+
+
+def write_svg_ai(svg_text, path, title):
+    # type: (str, str, str) -> int
+    """sheet_svg 도면 한 장(SVG 문자열) → 레거시 .ai. 지도 칸 안 그룹(base_*·theme_<키>·extent·site·labels…)과 정보 열이 각각 레이어.
+
+    지도 칸 밖으로 나간 면·선은 칸 사각형으로 자른다(SVG clipPath 대신). 범위 밖 흐리기(mask)는 투명도라 뺀다 — Illustrator에서 투명도로 다시 얹는다.
+    빈 theme_<키> 그룹(틀 시트)은 빈 레이어로 남긴다. 반환: 쓴 레이어 수."""
+    import xml.etree.ElementTree as ET
+    root = ET.fromstring(svg_text)
+    width, height = float(root.get("width").rstrip("m")), float(root.get("height").rstrip("m"))
+    writer = AiWriter((0.0, 0.0, width, height), 1000, (width, height))   # 1 단위 = 1 mm, y는 뒤집어 넣는다
+    paper = "#FFFFFF"
+    clip_box, map_offset = None, (0.0, 0.0)
+    for node in root.iter(SVG_NS + "rect"):
+        if node.get("id") == "paper":
+            paper = node.get("fill") or paper
+    for node in root.iter(SVG_NS + "clipPath"):
+        rect = node.find(SVG_NS + "rect")
+        clip_box = (0.0, 0.0, float(rect.get("width")), float(rect.get("height")))
+    order, seen, keep_alive = [], set(), []   # keep_alive: id() 캐시 키가 재사용되지 않게 스타일 dict를 붙잡아 둔다
+
+    def layer_of(name):
+        if name not in seen:
+            seen.add(name)
+            order.append((name, ""))
+            writer.layers.setdefault(name, [])
+        return name
+
+    def to_ai(pt, offset):
+        return (pt[0] + offset[0], height - (pt[1] + offset[1]))
+
+    paints = {}   # id(스타일 dict) → (칠, 선, 굵기, 파선) — 같은 그룹 path들이 한 dict를 나눠 쓴다
+
+    def emit(node, style, layer, offset, in_map):
+        tag = node.tag.replace(SVG_NS, "")
+        paint = paints.get(id(style))
+        if paint is None:
+            stroke = _get_paint(style.get("stroke"), 1.0, paper)
+            paint = paints[id(style)] = (_get_paint(style.get("fill", "#000000"), float(style.get("fill-opacity", 1)), paper), stroke,
+                                         float(style.get("stroke-width", 1) or 0) if stroke else 0.0,
+                                         [float(v) for v in str(style.get("stroke-dasharray", "")).replace(",", " ").split()] or None)
+        fill, stroke, width_mm, dash = paint
+        rings = []
+        if tag == "path":
+            rings = get_svg_path_rings(node.get("d", ""))
+        elif tag == "rect":
+            x, y, w, h = (float(node.get(k, 0)) for k in ("x", "y", "width", "height"))
+            rings = [([(x, y), (x + w, y), (x + w, y + h), (x, y + h)], True)]
+        elif tag == "circle":
+            cx, cy, r = (float(node.get(k)) for k in ("cx", "cy", "r"))
+            rings = [([(cx + r * math.cos(2 * math.pi * i / 32), cy + r * math.sin(2 * math.pi * i / 32)) for i in range(32)], True)]
+        elif tag == "line":
+            rings = [([(float(node.get("x1")), float(node.get("y1"))), (float(node.get("x2")), float(node.get("y2")))], False)]
+        elif tag == "text":
+            x, y = float(node.get("x")), float(node.get("y"))
+            if in_map and clip_box and not (clip_box[0] <= x <= clip_box[2] and clip_box[1] <= y <= clip_box[3]):
+                return
+            size = float(style.get("font-size", 2.4))
+            writer.text(layer_of(layer), node.text or "", *to_ai((x, y), offset), size_mm=size * constants.AI_CAP_HEIGHT_RATIO,
+                        k=fill or "#000000", anchor=style.get("text-anchor", "start"), baseline=True)
+            return
+        closed = [pts for pts, is_closed in rings if is_closed and len(pts) >= 3]
+        opened = [pts for pts, is_closed in rings if not is_closed and len(pts) >= 2]
+        if in_map and clip_box:   # 칸 안에 통째로 있으면 자르지 않는다(대부분 — 건물·필지)
+            inside = lambda pts: all(clip_box[0] <= p[0] <= clip_box[2] and clip_box[1] <= p[1] <= clip_box[3] for p in pts)
+            closed = [r for r in (r if inside(r) else sheet_svg.get_clipped_ring(r, clip_box) for r in closed) if len(r) >= 3]
+            opened = [piece for pts in opened for piece in ([pts] if inside(pts) else get_clipped_lines(pts, clip_box))]
+        if closed and (fill or stroke):
+            ai_rings = [[to_ai(p, offset) for p in ring] for ring in closed]
+            holes = [sum(1 for j, other in enumerate(ai_rings) if j != i and non_rhino_utils.is_point_in_ring(ring[0][0], ring[0][1], other)) % 2 == 1
+                     for i, ring in enumerate(ai_rings)] if len(ai_rings) > 1 else None
+            writer.polygon(layer_of(layer), ai_rings, fill, stroke, width_mm, dash, holes)
+        for pts in opened:
+            if stroke:
+                writer.line(layer_of(layer), [to_ai(p, offset) for p in pts], stroke, width_mm, dash)
+
+    def walk(node, style, layer, offset, in_map, depth):
+        tag = node.tag.replace(SVG_NS, "")
+        if tag in ("defs", "clipPath", "pattern"):
+            return
+        if tag != "path" or len(node.attrib) > 1:   # 칠·선을 새로 정하는 노드만 스타일을 새로 만든다
+            style = dict(style, **{k: node.get(k) for k in _INHERIT if node.get(k) is not None})
+            keep_alive.append(style)
+        node_id = node.get("id") or ""
+        if node_id == "mask":
+            return
+        if tag == "g":
+            if node_id == "map":
+                transform = re.match(r"translate\(([-\d.]+) ([-\d.]+)\)", node.get("transform", ""))
+                offset = (float(transform.group(1)), float(transform.group(2))) if transform else offset
+                in_map, child_layer = True, None
+            elif in_map and (layer is None or node_id.startswith("theme_")):
+                child_layer = node_id or layer
+            else:
+                child_layer = layer or node_id or "info"
+            if node_id.startswith("theme_") and len(node) == 0:
+                layer_of(node_id)   # 틀 시트 — 빈 레이어
+            for child in node:
+                walk(child, style, child_layer, offset, in_map, depth + 1)
+            return
+        emit(node, style, layer or node_id or ("map" if in_map else "frame"), offset, in_map)
+
+    for child in root:   # <svg> 바로 아래 — paper·map·info·map_frame이 각자 레이어
+        walk(child, {k: root.get(k) for k in _INHERIT if root.get(k) is not None}, None, (0.0, 0.0), False, 0)
+    return writer.write(path, title, order)

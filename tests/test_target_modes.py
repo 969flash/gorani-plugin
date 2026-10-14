@@ -117,7 +117,7 @@ class PrepareTest(unittest.TestCase):
             rect = context_builder.prepare({"target": {"mode": "area", "ring": _box(cx, cy, 150, 100)}, "options": {"radius": 300, "shape": "rect"},
                                             "site_db": SITE_DB, "context_db": CONTEXT_DB})
             self.assertLess(non_rhino_utils.get_bbox(rect.extent_ring)[0], cx - 150 - 299)   # 사각형은 경계에서 반경만큼 밖
-            ai = basemap_ai.write_basemap(p, 3000, tmp)
+            ai = basemap_ai.write_basemap(p, 5000, tmp)
             self.assertEqual(ai["counts"]["10_site"], 2)   # 구역 경계 + 범위
             path = context_report.write_context_json(p, {}, tmp)
             meta = json.load(open(path, encoding="utf-8"))

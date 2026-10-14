@@ -17,6 +17,7 @@ import hashlib
 import math
 import json
 import os
+import re
 import shutil
 import statistics
 import time
@@ -34,6 +35,7 @@ import non_rhino_utils
 import osm_context
 import pnu_loader
 import site_prefs
+import sheet_svg
 from sheet_svg import Frame
 
 
@@ -651,7 +653,7 @@ def prepare(request, progress=None, today=None):
     extent_ring = get_target_extent_ring(target, radius, shape, paper_mm, scales)
     extent_bounds = non_rhino_utils.get_bbox(extent_ring)
     frame_bounds = {scale: Frame(paper_mm, scale, center).world_bounds() for scale in scales}
-    boxes = [extent_bounds, frame_bounds[max(scales)]]
+    boxes = [extent_bounds, frame_bounds[max(scales)], sheet_svg.get_sheet_query_bounds(paper_mm, scales, center, extent_ring)]
     margin = constants.QUERY_MARGIN
     bounds = (min(b[0] for b in boxes) - margin, min(b[1] for b in boxes) - margin,
               max(b[2] for b in boxes) + margin, max(b[3] for b in boxes) + margin)
@@ -810,12 +812,26 @@ def _phase_failed(response, phase, exc):
                                          traceback.format_exc()))
 
 
-def run(request, progress=None, doc=None):
-    # type: (dict, object, object) -> dict
+def get_sheet_ids(options):
+    # type: (dict) -> list
+    """options.sheet_ids → 카탈로그에 있는 id만 카탈로그 순서로(옛 prefs의 다른 번호가 섞여도 깨지지 않게). 비면 전부."""
+    valid = [sheet_id for sheet_id, *_ in constants.SHEET_CATALOG]
+    wanted = set()
+    for value in (options or {}).get("sheet_ids") or []:
+        try:
+            wanted.add(int(value))
+        except (TypeError, ValueError):
+            continue
+    return [sheet_id for sheet_id in valid if sheet_id in wanted] or valid
+
+
+def run(request, progress=None, doc=None, keep=None):
+    # type: (dict, object, object, dict) -> dict
     """Rhino 안. prepare → context_geometry.build → context_baker.bake/write_ref_and_origin/save_copy → (basemap) basemap_ai.write_basemap
     → (sheets) sheet_svg.write_sheets → (tables) context_report.write_tables → context.json·log.txt → 응답 dict(code_map §4.3).
 
-    입력: 요청 dict(§4.2), progress(phase, fraction, text) -> bool(False = 취소), doc(RhinoDoc; None이면 doc.Strings 원점을 읽지 않는다 — python3 테스트).
+    입력: 요청 dict(§4.2), progress(phase, fraction, text) -> bool(False = 취소), doc(RhinoDoc; None이면 doc.Strings 원점을 읽지 않는다 — python3 테스트),
+          keep(dict, 선택 — 시트를 썼으면 {dir, data, prepared}를 담아 준다. 패널 '도면 스타일'이 지형까지 다시 그릴 때 쓴다).
     처리: phase는 constants.PHASES 순서(refresh·import는 항상 skipped, 옵션으로 끈 basemap·sheets·tables도 skipped — 콜백 없음).
           Cancelled → 이번 베이크 객체(UDT_LOT_KEY) 삭제 → ok=false·cancelled=true. 도메인 예외 → error{code,title,detail}, 그 외 → exception+traceback.
           basemap·시트 한 장·tables의 실패는 phase 단위 예외(ok=true + warnings[skipped]). Rhino 모듈은 prepare 뒤에 import한다.
@@ -843,6 +859,9 @@ def run(request, progress=None, doc=None):
         response["error"] = _get_error(exc, traceback.format_exc())
     response["elapsed_s"] = round(time.time() - started, 1)
     prepared = state["prepared"]
+    if keep is not None and response["ok"] and state.get("sheet_data") is not None:
+        keep.clear()
+        keep.update(dir=prepared.result_dir, data=state["sheet_data"], prepared=prepared)
     if prepared is not None:
         if response["ok"]:
             context_report.write_context_json(prepared, {k: response[k] for k in ("context", "basemap", "sheets", "tables", "warnings", "elapsed_s")},
@@ -951,11 +970,12 @@ def _run_phases(request, progress, doc, response, state):
     # sheets — 한 장마다 콜백, 한 장의 실패는 empty+reason '오류'
     if "sheets" not in skipped:
         state["phase"] = "sheets"
-        sheet_ids = [int(v) for v in (options.get("sheet_ids") or [sheet_id for sheet_id, _n, _d in constants.SHEET_CATALOG])]
-        names = {sheet_id: name for sheet_id, name, _d in constants.SHEET_CATALOG}
+        sheet_ids = get_sheet_ids(options)
+        names = {sheet_id: name for sheet_id, _key, name, _en, _needs in constants.SHEET_CATALOG}
         sheets_dir = os.path.join(prepared.result_dir, constants.RESULT_SHEETS_DIRNAME)
         try:
             data = sheet_svg.SheetData.from_prepared(prepared, geo.terrain_tris_world)
+            state["sheet_data"] = data
         except Exception as exc:   # noqa: BLE001
             _phase_failed(response, "sheets", exc)
             data = None
@@ -993,7 +1013,7 @@ def _get_abroad_preflight(sources, features, warnings, scales, paper_mm, paper, 
     warnings.append(_warning("info", "abroad", "해외 대상지 — OpenStreetMap·지형 타일을 생성 때 받습니다",
                              "필지·용도지역 자료가 없어 그 시트는 비고, 건물 높이는 OSM 태그(없으면 %.1f m)입니다. 인터넷 연결이 필요합니다."
                              % constants.DEFAULT_BUILDING_HEIGHT_M))
-    empty_sheets = [sheet_id for sheet_id, _name, needs in constants.SHEET_CATALOG if needs == "lot"]
+    empty_sheets = [sheet_id for sheet_id, _key, _name, _en, needs in constants.SHEET_CATALOG if needs == "lot"]
     estimate = {"buildings": 0, "lots": 0, "topo_have": 0, "topo_total": 0, "seconds": int(constants.ESTIMATE_SECONDS_BASE) + 20,
                 "mb": 1, "note": "건물 수는 OSM에서 받은 뒤 알 수 있습니다"}
     return {"sources": sources, "extent_geojson": {"type": "FeatureCollection", "features": features}, "estimate": estimate,
@@ -1054,7 +1074,7 @@ def preflight(request, today=None):
                 "mb": max(1, int(round(buildings * constants.ESTIMATE_MB_PER_BUILDING))), "note": ""}
     available = {"lot": lot_count > 0, "building": buildings > 0,
                  "terrain": counts["themes"].get("terrain", 0) > 0, "road": counts["themes"].get("road", 0) > 0}
-    empty_sheets = [sheet_id for sheet_id, _name, needs in constants.SHEET_CATALOG if not available[needs]]
+    empty_sheets = [sheet_id for sheet_id, _key, _name, _en, needs in constants.SHEET_CATALOG if not available[needs]]
 
     # 베이스맵 프레임
     for scale in scales:
@@ -1139,17 +1159,85 @@ def get_progress_message(phase, fraction, text, skipped=(), details=None, state=
     return message
 
 
-def export_basemap(result_dir, scale, site_db=None, context_db=None):
-    # type: (str, int, object, object) -> dict
-    """결과 폴더의 context.json(pnus·options·원점)으로 prepare를 다시 돌려 basemap_<축척>.ai 한 장을 쓴다(패널 '.ai 내보내기').
-    Rhino 문서를 쓰지 않는다 — 문서에서 객체를 지웠어도 된다. 반환 basemap_ai.write_basemap 결과."""
+def _read_meta(result_dir):
+    # type: (str) -> dict
     with open(os.path.join(result_dir, constants.CONTEXT_META_FILE_NAME), encoding="utf-8") as handle:
-        meta = json.load(handle)
+        return json.load(handle)
+
+
+def _prepare_from_meta(result_dir, extra_scale=None, site_db=None, context_db=None):
+    # type: (str, int, object, object) -> object
+    """결과 폴더의 context.json(target·options)으로 prepare를 다시 돌린다 — 원점은 도면과 무관해 doc_origin 없이(좌표 방식 검사도 건너뜀)."""
+    meta = _read_meta(result_dir)
     options = dict(meta.get("options") or {})
-    scales = sorted(set(int(v) for v in (options.get("scales") or [])) | {int(scale)})
-    options["scales"] = scales
-    # 원점은 .ai와 무관 — doc_origin 없이 다시 prepare한다(좌표 방식 검사도 건너뜀)
+    scales = set(int(v) for v in (options.get("scales") or []))
+    if extra_scale:
+        scales.add(int(extra_scale))
+    options["scales"] = sorted(scales)
     request = {"target": meta.get("target") or {"mode": "lots", "pnus": meta["pnus"]}, "options": options, "site_db": site_db,
                "context_db": context_db, "lot_name": meta.get("lot_name"), "result_root": os.path.dirname(os.path.dirname(result_dir))}
-    prepared = prepare(request)
+    return prepare(request)
+
+
+def export_basemap(result_dir, scale, site_db=None, context_db=None):
+    # type: (str, int, object, object) -> dict
+    """결과 폴더의 context.json(pnus·options·원점·스타일)으로 prepare를 다시 돌려 basemap_<축척>.ai 한 장을 쓴다(패널 '.ai 내보내기').
+    Rhino 문서를 쓰지 않는다 — 문서에서 객체를 지웠어도 된다. 반환 basemap_ai.write_basemap 결과."""
+    prepared = _prepare_from_meta(result_dir, scale, site_db, context_db)
     return basemap_ai.write_basemap(prepared, int(scale), result_dir)
+
+
+def get_sheet_data(result_dir, keep=None, site_db=None, context_db=None):
+    # type: (str, dict, object, object) -> tuple
+    """결과 폴더의 (SheetData, Prepared). 이번 세션에 만든 결과면 keep(지형 삼각형 포함), 아니면 context.json으로 다시 prepare
+    (지형 삼각형은 Rhino 메시에서 나와 다시 만들지 않는다 — 지형 시트는 비어 있다). keep이 있으면 새로 만든 것을 담아 둔다."""
+    import sheet_svg
+    if keep and keep.get("dir") == result_dir and keep.get("data") is not None:
+        return keep["data"], keep["prepared"]
+    prepared = _prepare_from_meta(result_dir, None, site_db, context_db)
+    data = sheet_svg.SheetData.from_prepared(prepared, [])
+    if keep is not None:
+        keep.clear()
+        keep.update(dir=result_dir, data=data, prepared=prepared)
+    return data, prepared
+
+
+def preview_sheet(result_dir, sheet_id, style, keep=None):
+    # type: (str, int, dict, dict) -> dict
+    """스타일을 바꾼 한 장 — 파일은 쓰지 않는다(패널 미리보기). 반환 {svg, empty, reason}."""
+    import sheet_svg
+    data, _prepared = get_sheet_data(result_dir, keep)
+    data.options["style"] = dict(style or {})
+    svg, empty, reason = sheet_svg.render_sheet(int(sheet_id), data)
+    # 패널 DOM에 그대로 넣는다 — 시트 id(map·legend·info…)가 패널 id(#map = Leaflet)와 겹치지 않게 접두어
+    svg = svg.replace(' id="', ' id="pv_').replace("url(#", "url(#pv_")
+    return {"svg": svg, "empty": empty, "reason": reason}
+
+
+def apply_style(result_dir, style, keep=None):
+    # type: (str, dict, dict) -> dict
+    """스타일로 결과 폴더의 시트 전부와 이미 쓴 basemap_<축척>.ai를 다시 쓰고, context.json options.style을 바꾼다.
+    지형 삼각형이 없으면(다시 prepare한 결과) 지형 시트 파일은 그대로 둔다. 반환 {sheets, basemaps, kept}."""
+    import sheet_svg
+    data, prepared = get_sheet_data(result_dir, keep)
+    style = dict(style or {})
+    data.options["style"] = style
+    prepared.request["options"]["style"] = style
+    meta = _read_meta(result_dir)
+    written = [s for s in (meta.get("sheets") or []) if isinstance(s, dict) and s.get("path")]
+    ids = [int(s["id"]) for s in written] or get_sheet_ids(meta.get("options") or {})
+    terrain_ids = {sheet_id for sheet_id, _key, _name, _en, needs in constants.SHEET_CATALOG if needs == "terrain"}
+    kept = [sheet_id for sheet_id in ids if sheet_id in terrain_ids and not data.terrain_tris]
+    sheets = sheet_svg.write_sheets(data, os.path.join(result_dir, constants.RESULT_SHEETS_DIRNAME), [i for i in ids if i not in kept])
+    sheets += [s for s in written if int(s["id"]) in kept]
+    sheets.sort(key=lambda s: int(s["id"]))
+    basemaps = []
+    for name in sorted(os.listdir(result_dir)):
+        match = re.match(r"basemap_(\d+)\.ai$", name)
+        if match and int(match.group(1)) in prepared.frame_bounds:
+            basemaps.append(basemap_ai.write_basemap(prepared, int(match.group(1)), result_dir)["path"])
+    meta.setdefault("options", {})["style"] = style
+    meta["sheets"] = sheets
+    with open(os.path.join(result_dir, constants.CONTEXT_META_FILE_NAME), "w", encoding="utf-8") as handle:
+        json.dump(meta, handle, ensure_ascii=False, indent=2)
+    return {"sheets": sheets, "basemaps": basemaps, "kept": kept}

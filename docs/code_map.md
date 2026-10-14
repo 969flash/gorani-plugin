@@ -30,7 +30,7 @@
 | 1 | 진행률·취소를 콜백 하나 `progress(phase, fraction, text) -> bool`(False = 취소)로 | onepath | §4.4 |
 | 2 | `prepare(request, progress) -> Prepared`(Rhino 금지)와 `run()`을 명시적으로 분리. Rhino 모듈은 `run` 안에서 지연 import | hybrid | §4.1 |
 | 3 | phase 이름·가중치를 `docs/panel_ui.md`의 8개(`query·refresh·terrain·write_3dm·basemap·sheets·tables·import`)·`PHASE_WEIGHTS`에 맞춤 | 공통 지적 | §4.4 |
-| 4 | `get_meta_lines(prepared)` 한 함수로 시트 여백 5줄·CSV·context.json·CTX::Ref 문자열 공유, 시트 13장은 `SHEETS` 선언 표 하나 | onepath | §3 `context_report`·`sheet_svg` |
+| 4 | `get_meta_lines(prepared)` 한 함수로 시트 여백 5줄·CSV·context.json·CTX::Ref 문자열 공유, 시트 16장은 `SHEETS` 선언 표 하나(키 → 분류 함수·바탕 방식) | onepath | §3 `context_report`·`sheet_svg` |
 | 5 | 요청 dict에 `site_db`·`context_db` 경로 덮어쓰기 키 — 테스트가 fixture DB를 꽂는 유일한 방법 | onepath | §4.2 |
 | 6 | python3 테스트에서 `rhino3dm.File3dm.Read`로 결과 3dm 되읽어 레이어·객체 수·UserString·단위 단언(rhino3dm은 테스트 전용, 배포 불포함) | onepath·hybrid | §8 |
 | 7 | `dev_rhino_run.py`가 `data/*.db` 전부를 심링크(지금은 `constants.DATABASE_PATH` 하나) | onepath 지적(확인: `scripts/dev_rhino_run.py:128–130`) | §3 |
@@ -70,7 +70,7 @@
       3  context_baker.bake(doc, items)              ← 문서 변경은 여기만
          CTX:: 레이어·UserString·Ref·doc.Strings·EarthAnchorPoint → WriteFile(context.3dm) → context.json
       4  basemap_ai.write_basemap(prepared, scale)    basemap_<축척>.ai — Prepared에서 직접(문서·Rhino 무관, python3 unittest 대상)
-      5  sheet_svg.write_sheets(prepared, faces)     sheets/NN_*.svg 13장 (Rhino 무관)
+      5  sheet_svg.write_sheets(prepared, faces)     sheets/NN_*.svg 23장 + 썸네일 (Rhino 무관, 도면 스타일)
       6  context_report.write_tables(prepared)       tables/*.csv, log.txt
       ▼
   response dict(= panel_ui.md `done` 페이로드) → host.push
@@ -99,9 +99,9 @@
 | **`context_builder.py`** | 신규 | 공통(Rhino 금지) + `run`만 Rhino | 엔진 API: `prepare`·`run`·`preflight`·`get_progress_message`. `run`은 Rhino 모듈을 함수 안에서 `import`하고 `doc.Strings["UDT_ORIGIN_E/N"]`을 읽어 `request["doc_origin"]`에 넣어 `prepare`에 준다(§6) | lot_db, context_db, context_report, non_rhino_utils |
 | **`context_geometry.py`** | 신규 | Rhino(RhinoCommon, `RhinoDoc` 금지) | `build(prepared) -> ContextGeo`: `get_local_pts`(원점 적용 유일), TIN·면 분류·수면 평탄·투영(`ProjectPointsToMeshesEx`)·건물 Mesh·커브 | Rhino.Geometry, non_rhino_utils, sheet_svg, constants |
 | **`context_baker.py`** | 신규 | Rhino(RhinoDoc) | `bake`(레이어 ensure·속성·UserString·Ref·단위 환산·`RedrawEnabled` try/finally·`WriteFile` 사본)·`clear_previous`(`UDT_LOT_KEY`, `FindByUserString`)·`import_3dm`(재삽입용 `_-Import` 5줄 + `context.json.origin` ≠ 문서 원점이면 차이만큼 `Transform.Translation` 보정) | Rhino, constants |
-| **`sheet_svg.py`** | 신규 | 공통(Rhino 금지, origin을 모른다 — 입력은 전부 세계좌표 m) | 프레임 수학 `Frame(paper_mm, scale, center)`(유일한 정의 — `context_geometry`도 이것을 쓴다) + SVG 작성기(`<g id>`·clipPath·범례·카드·여백 5줄) + `SHEETS = [(id, name, classify_fn, legend), …]` 13장. Seoungsu `make_basemap_L.py`의 `path_of/geom_paths/save_svg` 이식(geopandas 제거) | constants, non_rhino_utils, context_report |
+| **`sheet_svg.py`** | 신규 | 공통(Rhino 금지, origin을 모른다 — 입력은 전부 세계좌표 m) | 프레임 수학 `Frame(paper_mm, scale, center)`(유일한 정의 — `context_geometry`도 이것을 쓴다) + 도면 템플릿(`get_map_box` — A3 기준 side·bottom·map, 지도 칸이 곧 Frame) + 도면 스타일 해석 `get_style(options)`(STYLE_PRESETS ← options.style) + SVG 작성기(`<g id>`·clipPath·범례·카드·여백 줄) + `SHEETS = {키: (classify_fn, 바탕 방식)}` 23장(2026-10-13) + 블록(`get_blocks`)·보행망(`get_walk`, heapq Dijkstra)·썸네일(`render_thumbnail` — 스캔라인 격자 + zlib PNG). 레이어 .ai는 `get_sheet_ai` → `basemap_ai.write_svg_ai`(누를 때). 패널 미리보기·적용은 `context_builder.preview_sheet`·`apply_style`이 `render_sheet`·`write_sheets`를 다시 부른다. Seoungsu `make_basemap_L.py`의 `path_of/geom_paths/save_svg` 이식(geopandas 제거) | constants, non_rhino_utils, context_report |
 | **`context_report.py`** | 신규 | 공통(Rhino 금지) | `get_meta_lines(prepared)`(자료기준·출처·좌표계·정합·경고 5줄 — SVG·CSV·json·Ref가 같은 문자열), `write_tables`(CSV 5), `write_context_json`, `append_log` | constants |
-| **`basemap_ai.py`** | 신규(2026-10-08) | 공통(Rhino 금지) | `write_basemap(prepared, scale, out_dir)` — 레거시 AI5 PostScript 직접 작성(§5.7·§7.3). `export_basemap`(context_builder)이 다른 축척 재작성에 쓴다 | sheet_svg(Frame), constants |
+| **`basemap_ai.py`** | 신규(2026-10-08) | 공통(Rhino 금지) | `write_basemap(prepared, scale, out_dir)` — 레거시 AI5 PostScript 직접 작성(§5.7·§7.3). 색은 도면 스타일(`get_layer_paint` → CMYK, 2026-10-13). `export_basemap`(context_builder)이 다른 축척 재작성에 쓴다 | sheet_svg(Frame), constants |
 | `dev_context_builder.py` | 있음+ | 개발 python3 | 도엽 features + GIS건물 병합·높이 규칙(`decide_height`). 139도엽 전체 빌드 완료(372 s). 추가: 정합 샘플(theme `qa`) 적재 | geopandas·pyogrio·shapely·pandas·numpy, constants |
 | `dev_make_fixture.py` | 신규(≈30줄) | 개발 python3(sqlite3만) | 전체 DB 2개를 `ATTACH`하고 `INSERT INTO … SELECT … WHERE bbox 교차`로 `tests/fixtures/seongsu_context.db`(buildings·features·data_sources·source_files)와 `seongsu_site.db`(parcels·overlays·parcel_overlays·parcel_land_use·data_sources, 스키마 v5, `user_version 5`, bbox 인덱스 포함) 생성 | constants |
 | `dev_deploy.py` | 신규 | 개발 | `yak`: rhinocode로 UrbanSite .rhp 빌드 + scripts/(평문 loader·cmd_site, 로직 .pyc optimize=2) → yak CLI. `packs`: 필지(rtree 제거)·컨텍스트(등고선 제외)·등고선 DB → xz + manifest.json. 받는 쪽은 `data_pack.py` | — |

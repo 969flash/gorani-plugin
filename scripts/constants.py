@@ -253,7 +253,7 @@ DATA_STATE_FILE_NAME = "packs.json"    # data/ 안. 받은 팩의 sha256 — 바
 DATA_TIMEOUT_SECONDS = 30              # 연결·조각 읽기 제한
 DATA_CHUNK_BYTES = 1024 * 1024         # 압축 스트림을 1 MB씩 읽어 풀고 진행률을 알린다
 DATA_MAX_OPEN_FILES = 11               # 한 연결에 여는 지역 DB 수 상한 — SQLite ATTACH 기본 상한 10 + main(2026-10-12 실측)
-# 사용 통계(usage_stats.py) — GA4 Measurement Protocol. 측정 ID·secret이 비면 보내지 않는다. 사용자는 패널 [≡]에서 끈다(usage_stats)
+# 사용 통계(usage_stats.py) — GA4 Measurement Protocol. 측정 ID·secret이 비면 보내지 않는다. 사용자는 패널 더보기 메뉴에서 끈다(usage_stats)
 GA_MEASUREMENT_ID = "G-NJC4VMHPM1"  # GA4 웹 스트림 측정 ID(G-…)
 GA_API_SECRET = "Yxwc8yciQiGRUAVajxTBjg"  # 관리 > 데이터 스트림 > Measurement Protocol API secret. 코드에 드러나도 된다(가짜 이벤트 주입 위험만)
 GA_ENDPOINT = "https://www.google-analytics.com/mp/collect"
@@ -428,7 +428,7 @@ BASEMAP_SCALE_LAYERS = {
 }
 BASEMAP_SCALES = (1000, 3000, 5000)
 BASEMAP_DEFAULT_OFF_LAYERS = ("02b_landuse", "05_road_center", "11_zoning")
-PAPER_SIZES_MM = {"A1": (841, 594), "A0": (1189, 841)}
+PAPER_SIZES_MM = {"A3": (420, 297), "A1": (841, 594), "A0": (1189, 841)}   # A3 가로 = 보고서·분석도 기본, A1·A0 = 판넬
 # 베이스맵 .ai(basemap_ai) — 범위는 축척별 프레임 bbox. 객체는 bbox로 자른다.
 BM_CLIP_INSET = 0.01            # m — 구멍 링은 이만큼 안쪽 사각형으로 잘라 바깥 링과 변이 겹치지 않게(겹치면 Hatch.Create 실패). 1:1000에서 0.01 mm
 BM_TEXT_MM = {"08b_parcel_no": (1.5, 1000), "12_labels": (2.5, 3000)}   # (종이 mm, 기준 축척) → 모델 높이 m = mm × 축척 / 1000. 지번은 1:1000 전용, 주기는 1:3000 기준
@@ -458,26 +458,48 @@ ESTIMATE_SECONDS_BASE = 2.0
 ESTIMATE_SECONDS_PER_BUILDING = 1.0 / 370.0   # (50.7 − 2) / 18016
 ESTIMATE_MB_PER_BUILDING = 1.0 / 170.0        # 110 / 18016 (반경 500 m는 1/205)
 RADIUS_MIN, RADIUS_MAX = 100, 2000
-SHEET_CATALOG = [   # (id, 이름, 필요한 데이터: lot|building|terrain|road)
-    (1, "위치·범위도", "lot"), (2, "토지이용현황도", "lot"), (3, "지목 현황도", "lot"), (4, "용도지역도", "lot"),
-    (5, "용도지구·구역도", "lot"), (6, "도시계획시설·지구단위계획구역도", "lot"), (7, "건축물 용도 현황도", "building"),
-    (8, "건축물 층수 현황도", "building"), (9, "건축물 노후도 현황도", "building"), (10, "도로현황도(폭원·위계)", "road"),
-    (11, "공시지가 현황도", "lot"), (12, "표고 분석도", "terrain"), (13, "경사 분석도", "terrain"),
+SHEET_CATALOG = [   # (id, 키, 이름, 영문 부제, 필요한 데이터: lot|building|terrain|road). 번호 = 파일 번호(00_베이스맵.svg)
+    # 도시설계 분석도(형태·조직·접근·녹지·시설) → 현황도(가로·토지·규제·건축물·지가·지형) → 직접 그리는 틀. 2026-10-13 개편 — 옛 #1 위치·범위도는 00 베이스맵이 맡는다
+    (0, "base", "베이스맵", "Base map", "lot"),
+    (1, "figure", "도형-배경도", "Figure-ground", "building"),
+    (2, "lot_size", "필지 규모", "Parcel grain", "lot"),
+    (3, "density", "블록 밀도", "Block density", "building"),
+    (4, "transit", "대중교통 역세권", "Transit catchment", "building"),
+    (5, "walk", "보행권", "Walking distance", "road"),
+    (6, "green", "녹지·수계", "Green and blue", "building"),
+    (7, "public", "생활 공공시설", "Community facilities", "building"),
+    (8, "road", "가로 위계", "Street hierarchy", "road"),
+    (9, "land_use", "토지이용현황", "Land use", "lot"),
+    (10, "land_category", "지목 현황", "Land category", "lot"),
+    (11, "zone", "용도지역", "Zoning", "lot"),
+    (12, "district", "용도지구·구역", "Districts", "lot"),
+    (13, "facility", "도시계획시설·지구단위계획", "Planning facilities", "lot"),
+    (14, "use", "건축물 용도", "Building use", "building"),
+    (15, "floor", "건축물 층수", "Building height", "building"),
+    (16, "age", "건축물 노후도", "Building age", "building"),
+    (17, "price", "공시지가", "Land price", "lot"),
+    (18, "elev", "표고", "Elevation", "terrain"),
+    (19, "slope", "경사", "Slope", "terrain"),
+    (20, "view", "경관·조망 (틀)", "Views", "lot"),
+    (21, "image", "이미지맵 (틀)", "Image of the city", "lot"),
+    (22, "synthesis", "종합분석 (틀)", "Synthesis", "lot"),
 ]
+SHEET_IDS = {key: sheet_id for sheet_id, key, _name, _en, _needs in SHEET_CATALOG}
 PANEL_DEFAULT_OPTIONS = {
     "mode": "lots", "placement": "origin",
     "radius": 500, "shape": "circle",
     "flatten_site": False, "flatten_level": "mean",
     "site_output": "curve",   # 대상지 표시(lots·area): curve = 경계 커브만, mesh = 대상지 바닥 메시도(CTX::Site::ground, 대상지 색). 필지 방식 기본 mesh   # 대상지 평탄화(lots·area) — 높이 = 경계 자연 지반의 mean|min|max
     "import_after": True,
-    "make_basemap": True, "paper": "A1", "paper_mm": [841, 594], "scales": [3000], "basemap_layers_on": [],
-    "make_sheets": True, "sheet_ids": list(range(1, 14)), "floor_breaks": [12, 20], "elev_preset": "20m",
+    "make_basemap": True, "paper": "A3", "paper_mm": [420, 297], "scales": [5000], "basemap_layers_on": [],
+    "make_sheets": True, "sheet_ids": [sheet_id for sheet_id, *_ in SHEET_CATALOG], "floor_breaks": [12, 20], "elev_preset": "20m",
     "make_tables": True,
     "include_minor_buildings": False, "demolished": "dashed", "refresh_buildings": True, "include_api_objects": False,
     "include_zoning": False, "terrain_vertex_color": False,
     "make_dwg": False,   # 2D 도면(BM::)을 .dwg로도 — CAD 사용자용. 기본 off
     "zoom_after_import": True,
-    "usage_stats": True,   # 사용 통계 보내기 — [≡] 메뉴에 고지·끄기(usage_stats.py)
+    "usage_stats": True,   # 사용 통계 보내기 — 더보기 메뉴에 고지·끄기(usage_stats.py)
+    "style": {"preset": "std"},   # 도면 스타일 — 사용자가 바꾼 값만. 해석은 sheet_svg.get_style(STYLE_*)
 }
 
 # 기준일 경고 임계(개월) — data_sources.md §2.4. (노랑, 빨강). 노랑은 새 판이 있을 때만.
@@ -500,7 +522,7 @@ TARGET_MODES = ("lots", "area", "point")
 # 방식별 기본 범위·축척 — 실무 관행에서 고른 제안값(확인 필요: 사내 기준이 있으면 바꾼다).
 # 필지 = 건축 대지검토 규모, 구역 = 지구단위계획·정비구역 현황분석 규모, 위치 = 광역 베이스맵(범위 = 용지 프레임)
 MODE_DEFAULTS = {
-    "lots": {"radius": 200, "shape": "circle", "scales": [1000], "site_output": "mesh"},
+    "lots": {"radius": 200, "shape": "circle", "scales": [1000, 3000], "site_output": "mesh"},   # A3 1:1000 = 420×297 m(지번) + 1:3000 주변
     "area": {"radius": 500, "shape": "site", "scales": [3000], "site_output": "curve"},
     "point": {"radius": 500, "shape": "frame", "scales": [5000], "site_output": "curve"},
 }
@@ -528,6 +550,8 @@ TERRAIN_CLASS_PRIORITY = ("water", "rail", "road", "green")   # 면 분류 우�
 BUILDING_SLOPE_FLAG = 3.0       # m — 발자국 정점 지형 고저차가 이보다 크면 HEIGHT_SRC에 '~slope' (deliverables A.1)
 SLOPE_BREAKS_DEG = (5, 10, 15, 21, 27)       # 경사 6단계 (서울시 2013 범례)
 ELEV_PRESETS = {"20m": 20.0, "50m": 50.0}    # 표고 단계 간격
+ELEV_MIN_BANDS = 4                           # 이보다 단계가 적으면(평탄지) 아래 간격으로 줄인다 — 표고도에 읽을 거리가 생기게
+ELEV_FINE_STEPS = (10.0, 5.0, 2.0, 1.0)
 FLOOR_BREAKS_DEFAULT = (12, 20)              # 층수 현황도 구간 (C #8)
 ALIGN_SAMPLE_STEP = 10.0        # m — 정합 샘플 간격 (지목 도로 경계 ↔ 수치지형도 도로경계)
 ALIGN_MAX_DIST = 10.0           # m — 이보다 멀면 상대선 없음
@@ -562,31 +586,111 @@ AGE_BANDS_YEARS = (10, 20, 30)   # 노후도 구간 (C #9)
 # ═════════════════════════════════════════════════════════
 # 현황도 시트(sheet_svg) — deliverables §C 1~13, code_map §2 'SHEETS 선언 표'
 # ═════════════════════════════════════════════════════════
-SHEET_FONT_FAMILY = "Pretendard, 'Noto Sans KR', sans-serif"
-SHEET_MARGIN_MM = 8.0            # 범례·카드·메타 박스가 용지 가장자리에서 띄우는 거리
-SHEET_FONT_MM = {"title": 6.0, "legend": 3.2, "card": 3.2, "meta": 2.2, "label": 2.4}
-SHEET_LEGEND_ROW_MM = 5.0        # 범례 한 줄 높이
-SHEET_BOX_WIDTH_MM = {"legend": 70.0, "card": 80.0}
-SHEET_SCALE_BAR_M = {1000: 200.0, 3000: 500.0, 5000: 1000.0}   # 축척별 축척 막대 길이
-SHEET_LINE_MM = {"parcel": 0.08, "site": 0.7, "extent": 0.4, "overlay": 0.5, "frame": 0.5, "building": 0.06}
-SHEET_CLIP_MARGIN_MM = 2.0       # 면 형상을 용지 밖 이 거리에서 잘라 쓴다(도로 필지·시설 결정선 같은 거대 폴리곤이 파일을 키운다 — 성수 #6 2.4 MB 실측)
-SHEET_META_BAND_WIDTH_MM = 560.0   # 제목·메타 흰 띠 폭(A1 가로 841의 2/3 — 축척 막대·방위 자리는 비운다)
+# ── 도면 템플릿 (A3 가로 기준 mm. 다른 용지는 min(가로/420, 세로/297)배로 키운다) ──
+# side = 정사각 지도 + 오른쪽 정보 열, bottom = 넓은 지도 + 아래 정보 띠, map = 지도만(축척·방위·출처 한 줄은 남긴다)
+SHEET_TEMPLATE_MM = {"margin": 12.0, "gap": 12.0, "column": 111.0, "strip": 50.0}
+SHEET_FONT_MM = {"number": 11.0, "title": 5.4, "subtitle": 2.2, "head": 2.6, "body": 2.4, "small": 2.1, "meta": 1.7, "label": 2.3}
+SHEET_LEGEND_ROW_MM = 5.0        # 범례 한 줄 높이(정보 열)
+SHEET_SCALE_BAR_M = {1000: 100.0, 3000: 300.0, 5000: 500.0}   # 축척별 축척 막대 길이 — 4칸(0·¼·½·1)
+SHEET_LINE_MM = {"parcel": 0.08, "site": 0.6, "extent": 0.3, "frame": 0.35, "building": 0.05, "rail": 0.35, "station": 0.45}
+SHEET_CLIP_MARGIN_MM = 2.0       # 면 형상을 지도 칸 밖 이 거리에서 잘라 쓴다(도로 필지·시설 결정선 같은 거대 폴리곤이 파일을 키운다 — 성수 #6 2.4 MB 실측)
 SHEET_MIN_VERTEX_MM = 0.05       # 종이에서 이보다 가까운 연속 정점은 버린다(1:3000에서 0.15 m — 선굵기 0.08 mm 아래)
-SHEET_HEIGHT_SRC_LABELS = {"height": "대장 높이", "grnd_flr": "대장 층수", "topo_flr": "지형도 층수", "hub": "건축HUB", "default": "기본값"}  # #8 카드, A.4 HEIGHT_SRC
+SHEET_PARCEL_MAX_SCALE = 3000    # 이 축척보다 작은 도면(1:5000)은 지적선을 그리지 않는다 — deliverables B.2 '1:5000 지적선 off'
+SHEET_FADE_TO_PAPER = 0.45       # 주제도의 바탕(가구·건물·녹지·수계)을 종이색 쪽으로 이만큼 흐린다 — 주제 색이 먼저 읽히게
+SHEET_HEIGHT_SRC_LABELS = {"height": "대장 높이", "grnd_flr": "대장 층수", "topo_flr": "지형도 층수", "hub": "건축HUB", "default": "기본값"}  # 층수 카드, A.4 HEIGHT_SRC
 SHEET_HATCH = {"landlocked": {"stroke": "#D83A3A", "stroke-width": 0.25, "spacing_mm": 1.5}}   # <pattern id="hatch_<키>"> 45° 사선
-# 베이스(모든 시트 공통) — BM_LAYERS K톤을 회색 RGB로 옮긴 값
-SHEET_BASE_STYLE = {
-    "water": {"fill": "#E2E6EA"}, "green": {"fill": "#EAEFE6"}, "road": {"fill": "#D9D9D6"},
-    "building": {"fill": "#E8E8E6", "stroke": "#C6C6C3"}, "parcel": {"stroke": "#B0B0AC"},
-    "site": {"stroke": "#DC2828"}, "extent": {"stroke": "#3A3A38", "stroke-dasharray": "3 1.5"},
-    "ink": "#3A3A38", "muted": "#8A8A86",
+# 지명 라벨에서 뺄 이름 — 수치지형도 명칭 레이어에 공사장 안내가 섞여 있다(성수 '성수동오피스신축공사(24년01월예정)' 2026-10-13 실측)
+SHEET_LABEL_SKIP_PATTERN = r"공사|예정|\d{2}년"
+SHEET_TRANSIT_RADII_M = (250.0, 500.0)   # 역세권 1차·2차 — 서울시 2017 역세권 기준 반경(deliverables C #17). 역 중심점 기준(출입구 아님)
+SHEET_TRANSIT_COLOR = "#2D6CB5"
+SHEET_LOT_SIZE_BREAKS = (90.0, 200.0, 500.0, 1000.0, 3000.0)   # ㎡ — 90 = 서울시 건축조례 주거지역 분할 최소면적, '과소필지' 기준(deliverables C #21)
+SHEET_DENSITY_BREAKS = (100.0, 200.0, 300.0, 500.0, 800.0)     # 블록 용적률 % — 2종일반 200·3종 250~300·준주거 400~500·상업 800 언저리를 가른다
+SHEET_BLOCK_MIN_AREA = 300.0     # ㎡ — 도로 필지 구멍 중 이보다 작은 것은 블록이 아니다(교통섬·조각)
+SHEET_WALK_SPEED_M_PER_MIN = 80.0   # 4.8 km/h — 보행권 관행(5분 400 m · 10분 800 m)
+SHEET_WALK_MINUTES = (5, 10, 15)
+SHEET_WALK_COLORS = ("#0E5C49", "#4FAF8E", "#A9D9C7")   # 5분 진하게 → 15분 옅게(선 굵기도 1.0 → 0.6 mm)
+SHEET_WALK_SNAP_M = 1.0          # 도로 중심선 정점을 이 격자로 맞춰 교차점을 잇는다(수치지형도 A002는 교차점에서 끊겨 끝점이 같다)
+SHEET_WALK_START_M = 150.0       # 대상지 중심에서 이 거리 안 중심선 정점을 출발점으로(직선 거리를 더한다)
+SHEET_PUBLIC_USE = {"10": "education", "09": "welfare", "11": "welfare", "05": "culture", "12": "culture", "13": "culture"}   # 건축물대장 용도 앞 2자리
+SHEET_PUBLIC_NGII = {"교육연구시설": "education", "의료시설": "welfare", "노유자(노인및어린이)시설": "welfare",
+                     "문화및집회시설": "culture", "운동시설": "culture", "수련시설": "culture"}   # 대장 용도가 빈 건물은 수치지형도 용도로
+SHEET_PUBLIC_FACILITY = {"광장": "plaza", "공공공지": "plaza", "자동차정류장": "plaza", "보건위생시설": "welfare"}   # UPIS 시설 — 학교·청사는 서울 UPIS 시설 레이어에 없다(2026-10-13 확인)
+SHEET_NO_MASK = ("base", "walk")   # 범위 밖을 흐리지 않는 시트 — 보행권은 15분(1.2 km)이 범위보다 넓다
+SHEET_TEMPLATE_KEYS = ("view", "image", "synthesis")   # 직접 그리는 틀 — 빈 레이어와 범례만
+SHEET_THUMB_PX = 160             # 패널 도면 칸 썸네일(정사각 지도 칸 가운데) 한 변 px — PNG 1장 ≈ 5~15 KB
+
+# ── 도면 스타일 (패널 '도면 스타일' 화면 · HOME_DIR/styles/*.json · options.style) ──
+# 색은 도면 요소별, 나머지는 전 도면 공통. 법정·관행 색표가 있는 주제(용도지역·토지이용)는 SHEET_LEGENDS에 고정 — 바꾸면 보는 사람이 오독한다
+STYLE_COLOR_KEYS = ("paper", "block", "road", "green", "water", "building", "rail", "site", "extent", "ink")
+STYLE_RAMPS = {   # 단계색(층수·노후도·지가·표고) 6단 — 단계 수가 다르면 sheet_svg가 보간
+    "warm": ("#FBEFC9", "#F5D58A", "#EDB45C", "#DB8A3A", "#B85E2A", "#7E3A1E"),
+    "cool": ("#E3EEF7", "#B9D3EA", "#86B2DA", "#5288C2", "#2D62A3", "#173F73"),
+    "green": ("#E8F2DC", "#C4DFA6", "#97C46F", "#66A045", "#3F7A2E", "#22501D"),
+    "mono": ("#EEEEEE", "#D0D0D0", "#ABABAB", "#828282", "#575757", "#2E2E2E"),
 }
-# 시트 id → (대상, [(키, 범례 라벨, SVG 스타일 attrs)]). 대상 ∈ target_lot|lot|overlay|building|road|terrain.
-# 분류 함수(sheet_svg.SHEETS)가 돌려주는 키가 이 표에 있어야 그려진다. 범례가 데이터로 정해지는 시트(#8 층수·#11 지가·#12 표고)는 [] 두고
-# sheet_svg가 SHEET_RAMPS에서 색을 꺼내 만든다.
+STYLE_PRESETS = {
+    "std": {"name": "표준", "paper": "#FFFFFF", "block": "#ECECE8", "road": "#FFFFFF", "green": "#DDE6D3", "water": "#D2DEE7",
+            "building": "#C2C2BC", "rail": "#8C8C88", "site": "#E2412F", "extent": "#2B2B29", "ink": "#2B2B29", "ramp": "warm"},
+    "vivid": {"name": "선명", "paper": "#FFFFFF", "block": "#E8EDF1", "road": "#FFFFFF", "green": "#C9E0BA", "water": "#B7D2EC",
+              "building": "#98A6B3", "rail": "#4E5A66", "site": "#FF4F1F", "extent": "#16202A", "ink": "#16202A", "ramp": "cool"},
+    "mono": {"name": "흑백", "paper": "#FFFFFF", "block": "#EDEDED", "road": "#FFFFFF", "green": "#E0E0E0", "water": "#D5D5D5",
+             "building": "#BDBDBD", "rail": "#6E6E6E", "site": "#111111", "extent": "#111111", "ink": "#111111", "ramp": "mono"},
+    "dark": {"name": "다크", "paper": "#15181C", "block": "#23272D", "road": "#15181C", "green": "#27332A", "water": "#1E2A35",
+             "building": "#464B53", "rail": "#7A828E", "site": "#FF6A4D", "extent": "#D9DDE3", "ink": "#E6E8EB", "ramp": "cool"},
+}
+STYLE_DEFAULT_PRESET = "std"
+STYLE_DEFAULTS = {"layout": "side", "line_scale": 1.0, "text_scale": 1.0, "font": "sans", "fade_outside": 0.55,
+                  "labels": True, "subtitle_en": True, "project": ""}
+STYLE_CHOICES = {"layout": ("side", "bottom", "map"), "font": ("sans", "serif"), "ramp": tuple(STYLE_RAMPS)}
+STYLE_RANGES = {"line_scale": (0.5, 2.0), "text_scale": (0.8, 1.4), "fade_outside": (0.0, 0.8)}
+STYLE_FONTS = {"sans": "Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif",
+               "serif": "'Noto Serif KR', AppleMyungjo, Batang, serif"}
+STYLE_PROJECT_MAX = 60           # 표제 프로젝트명 글자 수 상한
+STYLES_DIRNAME = "styles"        # HOME_DIR/styles/<이름>.json — 사무소 표준을 파일로 나눠 쓴다
+
+# 시트 키 → (대상, [(키, 범례 라벨, SVG 스타일 attrs)]). 대상 ∈ target_lot|lot|overlay|building|road|terrain|station|green.
+# 분류 함수(sheet_svg.SHEETS)가 돌려주는 키가 이 표에 있어야 그려진다. 범례 색이 스타일·데이터로 정해지는 시트(베이스맵·도형-배경·역세권·
+# 층수·노후도·지가·표고)는 [] 두고 sheet_svg가 만든다(스타일 요소 색, 단계색 STYLE_RAMPS).
 SHEET_LEGENDS = {
-    1: ("target_lot", [("target", "대상지 (K100)", {"fill": "#1E1E1C"})]),   # 위치·범위 — 대상지 검정 채움 + 범위 링(공통 extent 그룹). 광역 인셋은 생략
-    2: ("lot", [   # parcels.land_use_status → 2013 도시관리계획 수립지침 토지이용 재분류(단독/공동/주상/상업/공업/나지/도로·하천·공원)
+    "base": ("target_lot", []),       # 대상지 + 바탕 요소 — 스타일 색
+    "figure": ("building", []),       # 건물 = 글자·선 색, 나머지 = 종이
+    "transit": ("station", []),       # 역 · 250/500 m 원 · 철도 강조(SHEET_TRANSIT_COLOR)
+    "lot_size": ("lot", []),          # 필지 면적 6구간(SHEET_LOT_SIZE_BREAKS) — 단계색. 도로·하천 필지는 뺀다
+    "density": ("block", []),         # 블록(도로 필지 구멍) 용적률 6구간 — 단계색
+    "walk": ("walk", []),             # 도로 중심선 네트워크 거리 5·10·15분 — SHEET_WALK_COLORS
+    "public": ("public", [            # 건축물대장 용도·지목 학교용지·UPIS 광장·공공공지
+        ("school_lot", "학교 부지", {"fill": "#F6E3B4", "stroke": "#B08A2E", "stroke-width": 0.2}),
+        ("plaza", "광장·공공공지·정류장", {"fill": "#E7DDF2", "stroke": "#6E5FA0", "stroke-width": 0.2}),
+        ("education", "교육연구 시설", {"fill": "#D9822B"}),
+        ("welfare", "의료·노유자 시설", {"fill": "#C43C3C"}),
+        ("culture", "문화·집회·체육 시설", {"fill": "#6E5FA0"}),
+    ]),
+    "view": ("none", [                # 직접 그리는 틀 — 빈 레이어(조망점 근경 250 m·중경 500 m·원경, 눈높이 1.5 m — deliverables D.1)
+        ("viewpoint", "조망점", {"shape": "circle", "fill": "#FFFFFF", "stroke": "#C2185B", "stroke-width": 0.5}),
+        ("axis", "조망축", {"fill": "none", "stroke": "#C2185B", "stroke-width": 0.8, "stroke-dasharray": "3 1.5"}),
+        ("landmark", "경관 요소", {"fill": "#F4B6C8", "stroke": "#C2185B", "stroke-width": 0.3}),
+        ("barrier", "시야 차폐", {"fill": "none", "stroke": "#555555", "stroke-width": 1.2}),
+    ]),
+    "image": ("none", [               # 케빈 린치 도시 이미지 5요소
+        ("path", "통로", {"fill": "none", "stroke": "#2D6CB5", "stroke-width": 1.2}),
+        ("edge", "경계", {"fill": "none", "stroke": "#8E2F2F", "stroke-width": 1.6, "stroke-dasharray": "4 1.5"}),
+        ("district", "지역", {"fill": "#F3E3B8", "stroke": "#B08A2E", "stroke-width": 0.3}),
+        ("node", "결절점", {"shape": "circle", "fill": "#FFFFFF", "stroke": "#2D6CB5", "stroke-width": 0.6}),
+        ("landmark", "랜드마크", {"fill": "#2B2B29"}),
+    ]),
+    "synthesis": ("none", [           # 제약·기회 두 층 — 현황도를 겹쳐 사람이 판단한다(03 §5)
+        ("opportunity", "기회·강점", {"fill": "#CFE8D8", "stroke": "#1F8A5B", "stroke-width": 0.3}),
+        ("constraint", "제약·약점", {"fill": "#F6D0C8", "stroke": "#C43C3C", "stroke-width": 0.3}),
+        ("improve", "개선 대상", {"fill": "none", "stroke": "#A8460B", "stroke-width": 0.8, "stroke-dasharray": "2 1"}),
+        ("link", "연계 축", {"fill": "none", "stroke": "#2D6CB5", "stroke-width": 1.2}),
+        ("hub", "거점", {"shape": "circle", "fill": "#2D6CB5", "stroke": "#2D6CB5", "stroke-width": 0.5}),
+    ]),
+    "green": ("green", [              # 공원(도시계획시설·지목) · 녹지(임야·수치지형도 녹지) · 수계(지목·수면)
+        ("park", "공원", {"fill": "#8DBF73", "stroke": "#5E8F48", "stroke-width": 0.15}),
+        ("green", "녹지·임야", {"fill": "#C3DDAE"}),
+        ("water", "하천·수면", {"fill": "#86B3DA"}),
+    ]),
+    "land_use": ("lot", [   # parcels.land_use_status → 2013 도시관리계획 수립지침 토지이용 재분류(단독/공동/주상/상업/공업/나지/도로·하천·공원)
         ("detached", "단독주택", {"fill": "#F6E7A9"}), ("multi", "다세대·연립", {"fill": "#F0C96B"}),
         ("apartment", "아파트", {"fill": "#E09A3C"}), ("residential_etc", "주거 기타", {"fill": "#F9F0CF"}),
         ("mixed", "주상복합", {"fill": "#F2B7A3"}), ("commercial", "상업·업무", {"fill": "#E07070"}),
@@ -594,14 +698,14 @@ SHEET_LEGENDS = {
         ("road", "도로", {"fill": "#D9D9D6"}), ("water", "하천", {"fill": "#C9D8E8"}), ("park", "공원·녹지", {"fill": "#C5DBB9"}),
         ("etc", "기타·미상", {"fill": "#EFEFEC"}),
     ]),
-    3: ("lot", [   # parcels.land_category 28 지목 → 통합 범례
+    "land_category": ("lot", [   # parcels.land_category 28 지목 → 통합 범례
         ("site", "대", {"fill": "#F6E7A9"}), ("factory", "공장용지", {"fill": "#A9B4D6"}), ("road", "도로", {"fill": "#D9D9D6"}),
         ("water", "하천·구거·유지", {"fill": "#C9D8E8"}), ("levee", "제방", {"fill": "#D8CFC0"}), ("farm", "전·답·과수원", {"fill": "#E4ECC8"}),
         ("forest", "임야", {"fill": "#B9CFA8"}), ("park", "공원", {"fill": "#C5DBB9"}), ("school", "학교용지", {"fill": "#F2C7D6"}),
         ("religion", "종교용지", {"fill": "#E8D2EC"}), ("rail", "철도용지", {"fill": "#B9B9B4"}), ("parking", "주차장·주유소", {"fill": "#D0CCDD"}),
         ("public", "공공시설(수도·창고 등)", {"fill": "#CFE1E6"}), ("misc", "잡종지", {"fill": "#EFE6D3"}), ("etc", "기타·미상", {"fill": "#EFEFEC"}),
     ]),
-    4: ("lot", [   # parcels.zone_name → 도시·군관리계획 수립지침 도면 색표의 RGB 근사(ACI 변환표는 확인 필요)
+    "zone": ("lot", [   # parcels.zone_name → 도시·군관리계획 수립지침 도면 색표의 RGB 근사(ACI 변환표는 확인 필요)
         ("r1e", "제1종전용주거", {"fill": "#FFF6C2"}), ("r2e", "제2종전용주거", {"fill": "#FFEFA0"}),
         ("r1", "제1종일반주거", {"fill": "#FFE680"}), ("r2", "제2종일반주거", {"fill": "#FFD966"}), ("r3", "제3종일반주거", {"fill": "#F4B942"}),
         ("rq", "준주거", {"fill": "#F2A08C"}), ("c_center", "중심상업", {"fill": "#D83A3A"}), ("c_general", "일반상업", {"fill": "#E86060"}),
@@ -610,11 +714,11 @@ SHEET_LEGENDS = {
         ("g_conserve", "보전녹지", {"fill": "#7FB77E"}), ("g_produce", "생산녹지", {"fill": "#A6CF9E"}), ("g_natural", "자연녹지", {"fill": "#CFE6C3"}),
         ("etc", "기타·미지정", {"fill": "#EFEFEC"}),
     ]),
-    5: ("overlay", [   # overlays theme district(용도지구)·area(용도구역) — v1은 색 경계선 + 라벨
+    "district": ("overlay", [   # overlays theme district(용도지구)·area(용도구역) — v1은 색 경계선 + 라벨
         ("district", "용도지구", {"fill": "none", "stroke": "#B05A1E", "stroke-width": 0.5}),
         ("area", "용도구역", {"fill": "none", "stroke": "#2F6DB5", "stroke-width": 0.5, "stroke-dasharray": "2 1"}),
     ]),
-    6: ("overlay", [   # overlays theme facility(kind) + plan(지구단위계획구역) — 결정선
+    "facility": ("overlay", [   # overlays theme facility(kind) + plan(지구단위계획구역) — 결정선
         ("road", "도로", {"fill": "none", "stroke": "#D83A3A", "stroke-width": 0.4}),
         ("park", "공원·녹지", {"fill": "#C5DBB9", "stroke": "#4E8A3E", "stroke-width": 0.3}),
         ("plaza", "광장·공공공지", {"fill": "#F3E3B8", "stroke": "#B08A2E", "stroke-width": 0.3}),
@@ -623,7 +727,7 @@ SHEET_LEGENDS = {
         ("facility_etc", "기타 시설", {"fill": "none", "stroke": "#7A4EA0", "stroke-width": 0.3}),
         ("plan", "지구단위계획구역", {"fill": "none", "stroke": "#1E5AA8", "stroke-width": 0.7, "stroke-dasharray": "4 1.5"}),
     ]),
-    7: ("building", [   # buildings.usability 앞 2자리(VWorld 건축물용도코드 33종) → 대분류
+    "use": ("building", [   # buildings.usability 앞 2자리(VWorld 건축물용도코드 33종) → 대분류
         ("detached", "단독주택", {"fill": "#F6E7A9"}), ("apartment", "공동주택", {"fill": "#E09A3C"}),
         ("neighborhood", "근린생활시설", {"fill": "#E07070"}), ("culture", "문화·집회·종교·판매", {"fill": "#D98CB3"}),
         ("education", "교육연구", {"fill": "#8FB8DE"}), ("welfare", "노유자·의료", {"fill": "#B5D8C8"}),
@@ -631,13 +735,9 @@ SHEET_LEGENDS = {
         ("factory", "공장·창고", {"fill": "#A3A3C2"}), ("vehicle", "자동차·위험물", {"fill": "#BFBFBF"}),
         ("etc", "기타", {"fill": "#E5E5E2"}), ("unknown", "용도 미상", {"fill": "#FFFFFF", "stroke": "#8A8A86"}),
     ]),
-    8: ("building", []),   # 층수 — 1/2~3/4/5~6/7~b1/b1+1~b2/b2+1+ (b1, b2 = options.floor_breaks). SHEET_RAMPS['floor']
-    9: ("building", [   # 사용승인 경과 연수(AGE_BANDS_YEARS) — 철거 건물은 집계 제외(v1 status 전부 active)
-        ("age0", "10년 미만", {"fill": "#F6F0D8"}), ("age1", "10~19년", {"fill": "#F1D08C"}),
-        ("age2", "20~29년", {"fill": "#E09A3C"}), ("age3", "30년 이상", {"fill": "#B5541E"}),
-        ("unknown", "연도 미상", {"fill": "#FFFFFF", "stroke": "#8A8A86"}),
-    ]),
-    10: ("road", [   # 수치지형도 도로중심선 도로폭(features.value) → 규칙 제9조 폭원 등급 + 맹지(parcels.road_contact)
+    "floor": ("building", []),   # 층수 — 1/2~3/4/5~6/7~b1/b1+1~b2/b2+1+ (b1, b2 = options.floor_breaks). 단계색
+    "age": ("building", []),     # 사용승인 경과 연수(AGE_BANDS_YEARS) 4구간 + 미상. 단계색. 철거 건물은 집계 제외(v1 status 전부 active)
+    "road": ("road", [   # 수치지형도 도로중심선 도로폭(features.value) → 규칙 제9조 폭원 등급 + 맹지(parcels.road_contact)
         ("w_grand", "광로 (40 m 이상)", {"fill": "none", "stroke": "#1E1E1C", "stroke-width": 1.6}),
         ("w_large", "대로 (25~40 m)", {"fill": "none", "stroke": "#1E1E1C", "stroke-width": 1.2}),
         ("w_mid", "중로 (12~25 m)", {"fill": "none", "stroke": "#3A3A38", "stroke-width": 0.8}),
@@ -647,19 +747,15 @@ SHEET_LEGENDS = {
         ("w_unknown", "폭 미상", {"fill": "none", "stroke": "#9A9A98", "stroke-width": 0.2, "stroke-dasharray": "1 1"}),
         ("landlocked", "맹지", {"fill": "url(#hatch_landlocked)", "stroke": "#D83A3A", "stroke-width": 0.2}),   # 사선 해치(SHEET_HATCH)
     ]),
-    11: ("lot", []),   # 공시지가 5분위 — 데이터 분위수로 범례 생성. SHEET_RAMPS['price']
-    12: ("terrain", []),   # 표고 — ELEV_PRESETS 간격 밴드. SHEET_RAMPS['elev']
-    13: ("terrain", [   # 경사 — SLOPE_BREAKS_DEG 6단계 (서울시 2013 범례)
-        ("s0", "0~5°", {"fill": "#F3F7EC"}), ("s1", "5~10°", {"fill": "#D9E8C4"}), ("s2", "10~15°", {"fill": "#F1DC9A"}),
-        ("s3", "15~21°", {"fill": "#E7A85C"}), ("s4", "21~27°", {"fill": "#C9663A"}), ("s5", "27° 이상", {"fill": "#8E2F2F"}),
+    "price": ("lot", []),   # 공시지가 5분위 — 데이터 분위수로 범례 생성. 단계색
+    "elev": ("terrain", []),   # 표고 — ELEV_PRESETS 간격 밴드. 단계색
+    "slope": ("terrain", [   # 경사 — SLOPE_BREAKS_DEG 6단계 (서울시 2013 범례)
+        ("s0", "0~5°", {"fill": "#F3F7EC", "stroke": "#F3F7EC", "stroke-width": "0.15"}), ("s1", "5~10°", {"fill": "#D9E8C4", "stroke": "#D9E8C4", "stroke-width": "0.15"}),
+        ("s2", "10~15°", {"fill": "#F1DC9A", "stroke": "#F1DC9A", "stroke-width": "0.15"}), ("s3", "15~21°", {"fill": "#E7A85C", "stroke": "#E7A85C", "stroke-width": "0.15"}),
+        ("s4", "21~27°", {"fill": "#C9663A", "stroke": "#C9663A", "stroke-width": "0.15"}), ("s5", "27° 이상", {"fill": "#8E2F2F", "stroke": "#8E2F2F", "stroke-width": "0.15"}),   # 같은 색 가는 선 = 삼각형 이음매 가림
     ]),
 }
 SHEET_PRICE_QUANTILES = 5
-SHEET_RAMPS = {
-    "floor": ["#F7F2DC", "#F1DFA8", "#E8C476", "#DB9F4A", "#C97A2C", "#A6531E", "#6E3214"],
-    "price": ["#F2F0E6", "#E3D7B8", "#D0B57E", "#B98A4A", "#8F5A26"],
-    "elev": ["#F6F7F1", "#E9EFDA", "#D8E4BF", "#C6D9A6", "#B9CB8C", "#C8B97C", "#D2A36A", "#C6835A", "#A8654C", "#7F4A3C"],
-}
 SHEET_LAND_USE_KEYS = {   # land_use_status → #2 키 (없으면 etc)
     "단독": "detached", "다세대": "multi", "연립": "multi", "아파트": "apartment", "주거기타": "residential_etc",
     "주상용": "mixed", "주상기타": "mixed", "상업용": "commercial", "상업기타": "commercial", "업무용": "commercial",

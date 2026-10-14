@@ -46,7 +46,8 @@ try:
         print("progress %-9s %.2f %6.2fs %s" % (phase, fraction, time.time() - t0, text))
         return True
 
-    response = context_builder.run(request, progress, doc)
+    keep = {}
+    response = context_builder.run(request, progress, doc, keep)
     res["response"] = response
     res["calls"] = calls
     with open(os.path.join(OUT_DIR, "response.json"), "w", encoding="utf-8") as f:   # noqa: F821
@@ -69,8 +70,14 @@ try:
     check("context_3dm", os.path.exists(response["context"]["path"]) and os.path.getsize(response["context"]["path"]) > 1_000_000,
           "%s %d bytes" % (response["context"]["path"], os.path.getsize(response["context"]["path"]) if os.path.exists(response["context"]["path"]) else -1))
     check("context_json", os.path.exists(os.path.join(response["dir"], constants.CONTEXT_META_FILE_NAME)))
-    check("sheets_13", len(response["sheets"]) == 13 and all(r["path"] and os.path.exists(r["path"]) for r in response["sheets"]),
+    check("sheets_all", len(response["sheets"]) == len(constants.SHEET_CATALOG) and all(r["path"] and os.path.exists(r["path"]) for r in response["sheets"]),
           str([(r["id"], r["empty"], r["reason"]) for r in response["sheets"]]))
+    # 도면 스타일 — 이번 run의 시트 데이터(지형 삼각형 포함)로 미리보기·적용(2026-10-13)
+    preview = context_builder.preview_sheet(response["dir"], constants.SHEET_IDS["elev"], {"preset": "dark"}, keep)
+    check("style_preview_terrain", not preview["empty"] and 'id="pv_map"' in preview["svg"], str(preview["reason"]))
+    applied = context_builder.apply_style(response["dir"], {"preset": "mono", "layout": "bottom"}, keep)
+    check("style_apply", len(applied["sheets"]) == len(constants.SHEET_CATALOG) and applied["kept"] == [] and len(applied["basemaps"]) == 1,
+          "%d sheets kept=%s basemaps=%s" % (len(applied["sheets"]), applied["kept"], applied["basemaps"]))
     check("tables_5", len(response["tables"]) == 5 and all(os.path.exists(t["path"]) for t in response["tables"]), str([t["name"] for t in response["tables"]]))
     check("files", {f["name"] for f in response["files"]} >= {constants.CONTEXT_MODEL_FILE_NAME, constants.CONTEXT_META_FILE_NAME, constants.RESULT_LOG_FILE_NAME},
           str(len(response["files"])))
@@ -147,7 +154,7 @@ try:
     check("cancel_rollback", count_baked() == 0, str(count_baked()))
     with open(os.path.join(cancelled["dir"], constants.RESULT_LOG_FILE_NAME), encoding="utf-8") as f:
         check("cancel_log", "cancelled at write_3dm" in f.read())
-    check("first_run_kept", len(response["sheets"]) == 13 and all(os.path.exists(r["path"]) for r in response["sheets"])
+    check("first_run_kept", len(response["sheets"]) == len(constants.SHEET_CATALOG) and all(os.path.exists(r["path"]) for r in response["sheets"])
           and all(os.path.exists(t["path"]) for t in response["tables"]) and os.path.exists(response["context"]["path"]))
 finally:
     deleted, layers = context_baker.clear_previous(doc, lot_key)
