@@ -5,14 +5,13 @@
     python3 scripts/dev_deploy.py packs      # build/packs/*.db.xz + manifest.json
     python3 scripts/dev_deploy.py packs --sido 43 --drop   # 시도 하나만 압축하고 원본 DB를 지운다(전국 빌드 흐름)
     python3 scripts/dev_deploy.py repack     # 시도 팩 압축본을 풀어 (줄이고) 시군구 팩으로 나눠 다시 압축
-    python3 scripts/dev_deploy.py upload     # 시군구 필지·컨텍스트 팩 + 매니페스트를 Hugging Face 공개 데이터셋에(hf auth login 먼저)
+    python3 scripts/dev_deploy.py upload     # 필지 팩 + 매니페스트는 Hugging Face(hf auth login 먼저), 컨텍스트·등고선 팩은 국내 버킷(~/.oci/config 먼저)
 
 yak: 진입 명령 UrbanSite 하나짜리 .rhp를 rhinocode로 빌드하고(떠 있는 Rhino 8 필요), 그 옆에 scripts/(평문 진입 스크립트 +
      로직 .pyc + 패널 HTML·vendor)를 두고 yak CLI로 묶는다. rhinocode의 Shared 리소스는 폴더 구조를 펴 버려서 쓰지 않는다
      (2026-10-12 실측: scripts/vendor/b.txt → shared/b.txt). UrbanSite는 .rhp 옆 scripts/cmd_site.py를 그대로 실행한다.
 packs: data/의 시도별 `<시도>_site.db`·`<시도>_context.db`마다 필지(rtree 제거)·컨텍스트(등고선 제외)·등고선 팩을
-       xz로 압축하고 sha256·범위를 매니페스트에 적는다. 등고선 팩은 국내 서버에 올린다(constants.TERRAIN_DATABASE_NAME 주석).
-       올린 뒤 매니페스트 주소를 constants.DATA_MANIFEST_URL에 넣는다.
+       xz로 압축하고 sha256·범위를 매니페스트에 적는다. 컨텍스트·등고선 팩은 국내 서버에 올린다(constants.DATA_DOMESTIC_BASE_URL 주석).
 
 `.pyc`는 Python 마이너 버전에 묶이므로 Rhino 8의 CPython과 같은 3.9로 실행해야 한다. macOS 기본 /usr/bin/python3가 3.9다.
 """
@@ -617,14 +616,12 @@ tags: [geospatial, korea, cadastral, buildings, rhino]
 Rhino 플러그인 UrbanDesignTool(대지검토)이 대상지 주변만 받아 쓰는 시군구 단위 SQLite 팩(xz 압축). 좌표계 EPSG:5186.
 
 - `<시군구코드>_site.db.xz` — 필지(토지특성정보 도형·속성), 토지이용계획 지정 현황, 계획 도형(서울 UPIS / 그 외 지정 코드로 필지를 합친 것)
-- `<시군구코드>_context.db.xz` — 건물(GIS건물통합정보 + 수치지형도 보충), 도로·수계·철도·녹지 등 수치지형도 1:5,000 지형지물
-- 등고선·표고점(`*_terrain`)은 여기 올리지 않는다(국가공간정보 보안관리규정 별표1·공간정보관리법 제16조).
 - `manifest.json` — 팩 목록·sha256·범위. 플러그인이 읽는다.
+- 건물·도로·수계·등고선 팩(`*_context`·`*_terrain`)은 여기 두지 않는다. 수치지형도(기본측량성과)에서 나온 자료라 국외 서버에 둘 수 없어
+  (공간정보관리법 제16조) 국내 서버에 있고, 매니페스트에 그 주소가 적혀 있다.
 
 ## 출처·라이선스 (원천 그대로 — 가공: 재투영·병합·단순화·시군구 분할)
 - 국토교통부 토지특성정보·토지이용계획정보 — 이용허락범위 제한 없음(공공데이터포털 15048121·15045900)
-- 국토교통부 GIS건물통합정보 — CC BY 2.0 KR(브이월드 dsId=18) / 공공누리 제1유형
-- 국토지리정보원 수치지형도 1:5,000 Ver2.0 — 공공누리 제1유형
 - 서울특별시 도시계획정보(UPIS) — 공공누리 제1유형
 - 본 데이터는 정보제공 목적이며 법적 효력이 없다(국토교통부 국가중점데이터 안내).
 """
@@ -632,10 +629,11 @@ Rhino 플러그인 UrbanDesignTool(대지검토)이 대상지 주변만 받아 �
 
 def upload():
     # type: () -> str
-    """build/packs/의 시군구 필지·컨텍스트 팩 + 공개 매니페스트 + 설명을 Hugging Face 데이터셋(constants.DATA_REPO_ID, 공개)에 올린다.
+    """build/packs/의 시군구 팩을 올린다. 필지 팩 + 공개 매니페스트 + 설명은 Hugging Face 데이터셋(constants.DATA_REPO_ID, 공개),
+    컨텍스트·등고선 팩은 국내 버킷(constants.DATA_DOMESTIC_BASE_URL)에 올리고 매니페스트에 절대 주소로 적는다.
 
-    등고선 팩은 constants.DATA_TERRAIN_BASE_URL(국내 서버)이 있으면 매니페스트에 절대 주소로만 적고, 없으면 매니페스트에서 뺀다.
-    `hf auth login`(쓰기 토큰)이 먼저 필요하다. upload_large_folder라 끊겨도 다시 실행하면 이어 올린다.
+    `hf auth login`(쓰기 토큰)과 OCI CLI(`brew install oci-cli`, ~/.oci/config API 키)가 먼저 필요하다.
+    둘 다 끊겨도 다시 실행하면 이어 올린다(upload_large_folder, oci sync는 크기가 다르거나 로컬이 더 새 파일만 올린다).
     """
     from huggingface_hub import HfApi
     pack_dir = os.path.join(BUILD_DIR, "packs")
@@ -645,11 +643,14 @@ def upload():
     for pack in manifest["packs"]:
         if not pack["name"][:5].isdigit():   # 옛 시도 팩
             continue
-        if pack["name"].endswith("_terrain.db"):
-            if not constants.DATA_TERRAIN_BASE_URL:
-                continue
-            pack = dict(pack, url=constants.DATA_TERRAIN_BASE_URL + pack["url"])
+        if not pack["name"].endswith("_site.db"):
+            pack = dict(pack, url=constants.DATA_DOMESTIC_BASE_URL + pack["url"])
         public.append(pack)
+    # 주소 꼴: https://objectstorage.<리전>.oraclecloud.com/n/<namespace>/b/<bucket>/o/
+    parts = constants.DATA_DOMESTIC_BASE_URL.rstrip("/").split("/")
+    subprocess.run(["oci", "os", "object", "sync", "-ns", parts[-4], "-bn", parts[-2], "--src-dir", ".",
+                    "--include", "[0-9]*_context.db.xz", "--include", "[0-9]*_terrain.db.xz"],
+                   check=True, cwd=pack_dir, env=dict(os.environ, SUPPRESS_LABEL_WARNING="True"))   # --include는 현재 폴더 기준
     stage = os.path.join(BUILD_DIR, "hf_stage")
     os.makedirs(stage, exist_ok=True)
     with open(os.path.join(stage, "manifest.json"), "w", encoding="utf-8") as f:
@@ -659,9 +660,10 @@ def upload():
     api = HfApi()
     api.create_repo(constants.DATA_REPO_ID, repo_type="dataset", private=False, exist_ok=True)
     api.upload_large_folder(repo_id=constants.DATA_REPO_ID, repo_type="dataset", folder_path=pack_dir,
-                            allow_patterns=["[0-9][0-9][0-9][0-9][0-9]_site.db.xz", "[0-9][0-9][0-9][0-9][0-9]_context.db.xz"])
+                            allow_patterns=["[0-9][0-9][0-9][0-9][0-9]_site.db.xz"])
     api.upload_folder(repo_id=constants.DATA_REPO_ID, repo_type="dataset", folder_path=stage, commit_message="manifest·README")
-    print("  올림: 팩 %d개 → https://huggingface.co/datasets/%s" % (len(public), constants.DATA_REPO_ID), flush=True)
+    print("  올림: 팩 %d개 → https://huggingface.co/datasets/%s + %s" % (len(public), constants.DATA_REPO_ID,
+                                                                        constants.DATA_DOMESTIC_BASE_URL), flush=True)
     return constants.DATA_MANIFEST_URL
 
 
@@ -684,7 +686,7 @@ def main():
     if args.what in ("all", "packs"):
         manifest_path = build_packs(args.sido.split(",") if args.sido else None, args.drop)
         print("packs: %s" % manifest_path)
-        print("  등고선 팩(*_terrain.db.xz)은 국내 서버에, 나머지는 매니페스트와 같은 곳에 올린다.")
+        print("  올리기: python3 scripts/dev_deploy.py upload (필지 → Hugging Face, 컨텍스트·등고선 → 국내 버킷)")
 
 
 if __name__ == "__main__":

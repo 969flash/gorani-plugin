@@ -3,7 +3,7 @@
 팩 = 시도 하나의 DB 파일 하나(`<시도>_<종류>.db`, 종류 = site·context·terrain)의 xz 압축본. 매니페스트(json)가 목록을 갖는다.
     {"version": "2026-10", "packs": [{"name": "seoul_site.db", "label": "서울 필지", "url": "seoul_site.db.xz",
                                       "size": 원본 바이트, "sha256": 원본 sha256, "bounds": [min_x, min_y, max_x, max_y]}, ...]}
-url은 매니페스트 위치 기준 상대경로 또는 절대 URL(등고선 팩은 국내 서버). 받은 팩의 sha256·bounds는 data/packs.json에 적어
+url은 매니페스트 위치 기준 상대경로 또는 절대 URL(컨텍스트·등고선 팩은 국내 서버). 받은 팩의 sha256·bounds는 data/packs.json에 적어
 다음 확인 때 바뀐 팩만 다시 받고, 조회 때 대상지에 걸리는 시도 파일만 연다. 표준 라이브러리만 쓴다. 매니페스트는 dev_deploy.py가 만든다.
 """
 

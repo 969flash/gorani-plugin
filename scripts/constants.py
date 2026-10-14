@@ -202,8 +202,8 @@ VWORLD_SEARCH_TIMEOUT_SECONDS = 5
 # ═════════════════════════════════════════════════════════
 CONTEXT_DATABASE_PATH = "data/seoul_context.db"
 CONTEXT_DATABASE_SCHEMA_VERSION = 1
-# 배포본은 등고선·표고점(features theme terrain)을 별도 파일로 나눈다 — 수치지형도 등고선은 국내 서버에만 둔다
-# (국가공간정보 보안관리규정 별표1·공간정보관리법 제16조). 컨텍스트 DB 옆에 있으면 context_db가 붙여 읽는다.
+# 배포본은 등고선·표고점(features theme terrain)을 별도 파일로 나눈다(보안관리규정 별표1 — 등고선·표고값 온라인 표시 제한).
+# 컨텍스트 팩과 함께 국내 서버에 둔다(DATA_DOMESTIC_BASE_URL 주석). 컨텍스트 DB 옆에 있으면 context_db가 붙여 읽는다.
 TERRAIN_DATABASE_NAME = "seoul_terrain.db"
 TERRAIN_THEME = "terrain"
 
@@ -243,9 +243,12 @@ OSM_TERRAIN_ZOOM = 13           # 픽셀 약 19 m(적도)·15 m(위도 37°). �
 OSM_TERRAIN_STEP = 2            # 픽셀 건너뛰기 — 표고점 간격 약 30 m
 
 # 데이터 팩 받기(data_pack.py) — Yak 설치본은 DB 없이 깔리고 패널에서 받는다
-DATA_REPO_ID = "hooooooooon/urbandesigntool-data"   # Hugging Face 공개 데이터셋(필지·컨텍스트 시군구 팩) — dev_deploy upload
+DATA_REPO_ID = "hooooooooon/urbandesigntool-data"   # Hugging Face 공개 데이터셋(필지 시군구 팩 + 매니페스트) — dev_deploy upload
 DATA_MANIFEST_URL = "https://huggingface.co/datasets/%s/resolve/main/manifest.json" % DATA_REPO_ID
-DATA_TERRAIN_BASE_URL = ""             # 등고선 팩을 둘 국내 서버 주소(끝 /). 비면 공개 매니페스트에서 등고선 팩을 뺀다(국외 반출 — TERRAIN_DATABASE_NAME 주석)
+# 수치지형도에서 나온 컨텍스트·등고선 팩은 국내 서버에만 둔다 — 수치지형도는 기본측량성과라 국외 반출에 허가가 필요하다
+# (공간정보관리법 제16조). Oracle Cloud 춘천 리전 Always Free 버킷(공개 읽기·목록 금지). 계정을 유료로 올리지 말 것 —
+# Always Free 전용 계정은 과금 수단이 없어 한도(저장 20 GB·전송 월 10 TB)를 넘으면 멈출 뿐 청구되지 않는다.
+DATA_DOMESTIC_BASE_URL = "https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/axmhzznfqthg/b/urbandesigntool-data/o/"
 DATA_STATE_FILE_NAME = "packs.json"    # data/ 안. 받은 팩의 sha256 — 바뀐 팩만 다시 받는다
 DATA_TIMEOUT_SECONDS = 30              # 연결·조각 읽기 제한
 DATA_CHUNK_BYTES = 1024 * 1024         # 압축 스트림을 1 MB씩 읽어 풀고 진행률을 알린다

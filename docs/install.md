@@ -17,7 +17,7 @@ Rhino 8 명령창에 `PackageManager` → `UrbanDesignTool` 검색 → 설치 �
 |---|---|
 | `data/<시군구코드>_site.db` | 필지·토지이용계획·계획 도형 |
 | `data/<시군구코드>_context.db` | 건물·도로·수계·철도·녹지 |
-| `data/<시군구코드>_terrain.db` | 등고선·표고점(국내 서버가 열리면 함께 받는다 — 없으면 지형이 평면) |
+| `data/<시군구코드>_terrain.db` | 등고선·표고점 |
 | `.env` | `VWORLD_API_KEY=…`(건물 최신화·주소 보조검색), `DATA_GO_KR_KEY=…`(선택). 없어도 동작. 패널 [.env 열기]가 템플릿을 만든다. `=` 뒤에 공백을 두지 말 것 |
 
 ## 3. 사용
