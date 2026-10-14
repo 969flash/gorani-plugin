@@ -1401,7 +1401,6 @@ function renderMenu() {
     '<div class="menu-acts"><button type="button" class="btn sm" data-act="init">다시 확인</button>' + openBtn("data", "data 폴더") + "</div>" +
     "<h3>설정</h3>" +
     '<div class="mlist">' +
-      '<div class="mrow"><span class="k"><span class="dot lv-' + esc(api.level || "missing") + '" aria-hidden="true"></span>API 키</span><span class="v" title="VWorld · 공공데이터포털">' + esc(keyText(api)) + "</span>" + openBtn(p.env || ".env", ".env 열기") + "</div>" +
       '<div class="mrow"><span class="k">작업 폴더</span><span class="v mono" title="' + esc(p.root || "") + '">' + esc(p.root || "") + "</span>" + openBtn(p.root || "data") + "</div>" +
       '<div class="mrow"><span class="k">안내</span><span class="v">설치·데이터·사용법</span>' + openBtn(p.install_doc || "docs/install.md") + "</div>" +
     "</div>" +

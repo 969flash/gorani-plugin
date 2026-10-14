@@ -29,6 +29,7 @@ from pathlib import Path
 import basemap_ai
 import constants
 import context_db
+import data_pack
 import context_report
 import lot_db
 import non_rhino_utils
@@ -587,16 +588,33 @@ def _get_upis_source(lot_sources, today):
             "text": "%.1f개월" % age if age is not None else ""}
 
 
+def mark_downloadable(sources, pending=True):
+    # type: (list, bool) -> list
+    """건물·지형이 이 PC에 없어도 생성할 때 받을 수 있으면(매니페스트 있음·pending) 'DB 없음' 대신 '생성할 때 받음'(level ok). sources를 고친다."""
+    if constants.DATA_MANIFEST_URL and pending:
+        for src in sources:
+            if src["id"] in ("building", "terrain") and src["level"] == "missing":
+                src.update(level="ok", text="생성할 때 받음", pending=True)
+    return sources
+
+
+def get_pending_packs(bounds):
+    # type: (tuple) -> list
+    """범위(EPSG:5186)에 걸치는데 이 PC에 없거나 새 판인 시군구 팩 — 생성 직전에 받을 것. 매니페스트 없음·오프라인은 빈 목록."""
+    if not constants.DATA_MANIFEST_URL:
+        return []
+    try:
+        return [pack for pack in data_pack.get_missing_packs(data_pack.get_manifest(), bounds=bounds) if pack["name"][:5].isdigit()]
+    except Exception:   # 오프라인 — 있는 것으로 판단한다
+        return []
+
+
 def get_source_warnings(sources):
     # type: (list) -> list
     """원천 상태 → 경고 목록(stale_*·no_api_key·no_context_db). deliverables §C ⑤ 문안."""
     warnings = []
     for src in sources:
-        if src["id"] == "api":
-            if src["level"] == "missing":
-                warnings.append(_warning("info", "no_api_key", "VWorld 키 없음 — 건물 최신화·철거 반영 생략",
-                                         ".env에 VWORLD_API_KEY=·DATA_GO_KR_KEY= 를 적으면 대상지 생성 때 최신 건물과 철거를 반영합니다. '= ' 뒤에 공백을 두지 마세요.",
-                                         {"label": ".env 열기", "path": ".env"}))
+        if src["id"] == "api":   # 키는 선택 — 있으면 건물 최신화, 없으면 조용히 건너뛴다(사용자에게 묻지 않는다)
             continue
         if src["level"] == "missing" and src["id"] in ("building", "terrain"):
             if not any(w["code"] == "no_context_db" for w in warnings):
@@ -1062,6 +1080,14 @@ def preflight(request, today=None):
     center = target.center
     abroad = non_rhino_utils.is_local_projection()
     sources = get_abroad_sources(today) if abroad else get_sources(request["site_db"], request["context_db"], today)
+    pending = []   # DB 파일을 지정한 요청(fixture·개발 DB)과 해외는 받지 않는다
+    if not abroad and not request["context_db"]:
+        bounds = _get_query_extent(target, radius, shape, paper_mm, scales)[3]
+        pending = [p for p in get_pending_packs(bounds) if not p["name"].endswith("_site.db")]
+    if pending:   # 이 범위의 건물·지형은 생성할 때 받는다 — 지금 이 PC에 있는 것만으로 '없음'·도엽 부족을 말하지 않는다
+        for src in sources:
+            if src["id"] in ("building", "terrain"):
+                src.update(level="ok", text="생성할 때 받음 (%.0f MB)" % (sum(p.get("xz_size", 0) for p in pending) / 1048576.0), pending=True)
     warnings += [] if abroad else get_source_warnings(sources)
     features = [_ring_feature(ring, {"role": "extent", "radius": radius, "shape": shape})]
     if abroad:   # 해외 — 도엽·DB 개수가 없다. 건물 수는 생성 때 OSM에서 받아야 안다
@@ -1079,8 +1105,8 @@ def preflight(request, today=None):
                          "geometry": {"type": "Polygon", "coordinates": [[[left, bottom], [right, bottom], [right, top], [left, top], [left, bottom]]]},
                          "properties": {"role": "topo_sheet", "topo_sheet": code, "year": (have.get(code) or "")[:4], "have": code in have}})
     terrain = next(s for s in sources if s["id"] == "terrain")
-    terrain["coverage"] = {"have": len(needed) - len(missing), "total": len(needed), "missing": missing}
-    if missing and terrain["level"] != "missing":
+    terrain["coverage"] = None if pending else {"have": len(needed) - len(missing), "total": len(needed), "missing": missing}
+    if missing and terrain["level"] != "missing" and not pending:
         warnings.append(_get_coverage_warning(needed, missing))
 
     # 예상 규모·빈 시트

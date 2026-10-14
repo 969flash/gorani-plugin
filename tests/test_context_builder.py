@@ -158,7 +158,7 @@ class SourceHelperTest(unittest.TestCase):
                    {"id": "building", "label": "건물", "level": "missing"}, {"id": "terrain", "label": "지형", "level": "missing"},
                    {"id": "api", "level": "missing"}]
         codes = [w["code"] for w in context_builder.get_source_warnings(sources)]
-        self.assertEqual(codes, ["stale_lot", "no_context_db", "no_api_key"])
+        self.assertEqual(codes, ["stale_lot", "no_context_db"])   # 키는 선택 — 없어도 경고하지 않는다
 
 
 class PrefsTest(unittest.TestCase):

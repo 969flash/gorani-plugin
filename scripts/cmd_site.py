@@ -94,7 +94,7 @@ def get_init_state(site_db=None, context_db=None, today=None):
     review_map = loader.load("review_map")
     site_prefs = loader.load("site_prefs")
     has_lot_db = os.path.exists(site_db) if site_db else bool(loader.load("data_pack").get_local_paths("site"))
-    sources = context_builder.get_sources(site_db, context_db, today)
+    sources = context_builder.mark_downloadable(context_builder.get_sources(site_db, context_db, today), not site_db)
     return {
         "type": "init_state",
         "version": constants.PANEL_VERSION,
@@ -436,7 +436,8 @@ class _SiteController:
         try:
             action()
         except (ValueError, KeyError, FileNotFoundError, RuntimeError) as error:
-            text = str(error.args[0]) if error.args else str(error)
+            # 운영체제 파일 오류는 args[0]이 번호(2)라 str 전체로(2026-10-14: 설치본을 바꿔 깐 뒤 '2'만 떴다)
+            text = str(error) if isinstance(error, OSError) else (str(error.args[0]) if error.args else str(error))
             self.push({"type": "error", "context": context, "text": text, "detail": ""})
         except Exception:
             self.push({"type": "error", "context": context, "text": "예상 밖 오류", "detail": traceback.format_exc()})
