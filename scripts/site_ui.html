@@ -423,7 +423,7 @@ var LAYER_OPTS = [["02b_landuse", "토지이용(02b)"], ["05_road_center", "도�
 var DEFAULTS = { mode: "lots", placement: "origin", flatten_site: false, flatten_level: "mean", site_output: "curve", radius: 500, shape: "circle", import_after: true, make_basemap: true, paper: "A3", paper_mm: [420, 297], scales: [5000],
   basemap_layers_on: [], make_sheets: true, sheet_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], floor_breaks: [12, 20], elev_preset: "20m",
   make_tables: true, include_minor_buildings: false, demolished: "dashed", refresh_buildings: true, include_api_objects: false,
-  include_zoning: false, terrain_vertex_color: false, make_dwg: false, zoom_after_import: true, usage_stats: true, style: { preset: "std" } };
+  include_zoning: false, terrain_vertex_color: false, make_dwg: false, zoom_after_import: true, style: { preset: "std" } };
 var MAP_STYLE = {   // 패널 지도 — 대상지·선택은 패널 블루 하나(DESIGN.md). 도면 안 대상지 색은 도면 스타일이 정한다
   lot: { color: "#465061", weight: 1, opacity: .4, fillOpacity: .01 },
   target: { color: "#0057ff", weight: 2, fillColor: "#0057ff", fillOpacity: .28 },
@@ -1399,11 +1399,6 @@ function renderMenu() {
       '<div class="mrow"><span class="k">작업 폴더</span><span class="v mono" title="' + esc(p.root || "") + '">' + esc(p.root || "") + "</span>" + openBtn(p.root || "data") + "</div>" +
       '<div class="mrow"><span class="k">안내</span><span class="v">설치·데이터·사용법</span>' + openBtn(p.install_doc || "docs/install.md") + "</div>" +
     "</div>" +
-    // 사용 통계 고지·끄기(usage_stats.py가 보내는 것과 같게 유지)
-    '<label class="mrow"><input type="checkbox" id="usage_stats"' + (state.options.usage_stats ? " checked" : "") + '> 사용 통계 보내기</label>' +
-    '<p class="hint">도구를 고치고 어디서 얼마나 쓰이는지 알기 위해 Google Analytics로 아래를 보냅니다. 끄면 바로 멈춥니다.<br>' +
-    '· 설치마다 만든 무작위 ID, 패널·Rhino 버전, OS·언어<br>· 생성한 대상지 — 필지 PNU·중심 좌표, 구역은 중심·면적·크기, 위치는 그 좌표<br>' +
-    '· 범위·결과·걸린 시간·건물 수, 받은 데이터 팩 지역, 예상 밖 오류 종류<br>이름·파일 경로·도면 내용은 보내지 않습니다.</p>' +
     '<p class="menu-ver">UrbanDesignTool ' + esc(init.version || "") + "</p>";
 }
 function openMenu() {
@@ -1541,7 +1536,6 @@ document.addEventListener("click", function (e) {
 document.addEventListener("mouseover", function (e) { var r = e.target.closest(".chip-row"); if (r) highlightLot(r.dataset.pnu, true); });
 document.addEventListener("mouseout", function (e) { var r = e.target.closest(".chip-row"); if (r) highlightLot(r.dataset.pnu, false); });
 document.addEventListener("change", function (e) {
-  if (e.target.id === "usage_stats") { state.options.usage_stats = e.target.checked; send({ cmd: "save_prefs", options: state.options }); return; }
   if (state.styleOpen && e.target.id === "st_sheet") { state.styleSheet = +e.target.value; requestPreview(); return; }
   if (state.styleOpen && (e.target.id === "st_labels" || e.target.id === "st_subtitle")) { state.styleEdit[e.target.id === "st_labels" ? "labels" : "subtitle_en"] = e.target.checked; afterStyleChange(false); return; }
   if (!e.target.closest('section[data-step="2"], section[data-step="3"]')) return;

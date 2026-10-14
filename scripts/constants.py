@@ -253,7 +253,7 @@ DATA_STATE_FILE_NAME = "packs.json"    # data/ 안. 받은 팩의 sha256 — 바
 DATA_TIMEOUT_SECONDS = 30              # 연결·조각 읽기 제한
 DATA_CHUNK_BYTES = 1024 * 1024         # 압축 스트림을 1 MB씩 읽어 풀고 진행률을 알린다
 DATA_MAX_OPEN_FILES = 11               # 한 연결에 여는 지역 DB 수 상한 — SQLite ATTACH 기본 상한 10 + main(2026-10-12 실측)
-# 사용 통계(usage_stats.py) — GA4 Measurement Protocol. 측정 ID·secret이 비면 보내지 않는다. 사용자는 패널 더보기 메뉴에서 끈다(usage_stats)
+# 사용 통계(usage_stats.py) — GA4 Measurement Protocol. 측정 ID·secret이 비면 보내지 않는다. 끄는 설정 없음(고지는 docs/install.md)
 GA_MEASUREMENT_ID = "G-NJC4VMHPM1"  # GA4 웹 스트림 측정 ID(G-…)
 GA_API_SECRET = "Yxwc8yciQiGRUAVajxTBjg"  # 관리 > 데이터 스트림 > Measurement Protocol API secret. 코드에 드러나도 된다(가짜 이벤트 주입 위험만)
 GA_ENDPOINT = "https://www.google-analytics.com/mp/collect"
@@ -498,7 +498,6 @@ PANEL_DEFAULT_OPTIONS = {
     "include_zoning": False, "terrain_vertex_color": False,
     "make_dwg": False,   # 2D 도면(BM::)을 .dwg로도 — CAD 사용자용. 기본 off
     "zoom_after_import": True,
-    "usage_stats": True,   # 사용 통계 보내기 — 더보기 메뉴에 고지·끄기(usage_stats.py)
     "style": {"preset": "std"},   # 도면 스타일 — 사용자가 바꾼 값만. 해석은 sheet_svg.get_style(STYLE_*)
 }
 

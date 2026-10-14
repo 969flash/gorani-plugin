@@ -1,6 +1,6 @@
 """사용 통계 — GA4 Measurement Protocol로 이벤트를 보낸다(서버 없음, 표준 라이브러리만).
 
-패널 더보기 메뉴의 '사용 통계 보내기'(options.usage_stats)로 끈다. 측정 ID·API secret이 비어 있으면(constants) 아무것도 보내지 않는다.
+끄는 설정은 두지 않는다(무료 도구 — 쓰면 보낸다). 보내는 항목 고지는 docs/install.md. 측정 ID·API secret이 비어 있으면(constants) 아무것도 보내지 않는다.
 보내는 것: 설치마다 무작위 client_id, 패널 버전·OS, 생성 대상지(필지 PNU·중심 경위도, 구역은 중심·면적·크기만), 결과·소요 시간.
 보내기는 데몬 스레드에서 하고 실패는 버린다 — 통계 때문에 패널이 멈추거나 죽으면 안 된다.
 """
@@ -99,7 +99,7 @@ def get_target_params(target, lots=None):
 
 def is_enabled():
     # type: () -> bool
-    return bool(constants.GA_MEASUREMENT_ID and constants.GA_API_SECRET and site_prefs.get_options().get("usage_stats"))
+    return bool(constants.GA_MEASUREMENT_ID and constants.GA_API_SECRET)
 
 
 def send_event(name, params=None):

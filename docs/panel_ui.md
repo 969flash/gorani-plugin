@@ -267,7 +267,6 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
  "include_zoning":false,"terrain_vertex_color":false,
  "make_dwg":false,                                     // 3dm 2D 도면(BM::)만 basemap_<축척>.dwg로도 저장(고급 > 3dm). 결과 경로는 done.context.dwg
  "zoom_after_import":true,
- "usage_stats":true,                                   // 사용 통계 보내기 — 더보기 메뉴 설정의 체크박스(고지문 포함). generate에 실려도 엔진은 무시
  "style":{"preset":"std"}}                              // 도면 스타일 — 사용자가 고른·바꾼 값. 해석은 sheet_svg.get_style(STYLE_*): 색 10개(paper·block·road·green·water·building·rail·site·extent·ink),
                                                        // ramp, layout(side|bottom|map), line_scale, text_scale, font(sans|serif), fade_outside, labels, subtitle_en, project, name(저장한 스타일)
 ```
@@ -393,7 +392,7 @@ Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `r
 
 ## 사용 통계(`usage_stats.py`)
 
-GA4 Measurement Protocol로 데몬 스레드에서 보내고 실패는 버린다. `constants.GA_MEASUREMENT_ID`·`GA_API_SECRET`이 비었거나 `options.usage_stats=false`면 보내지 않는다. 고지·끄기는 헤더 [≡] 메뉴(`renderMenu` — 이 표와 같게 유지).
+GA4 Measurement Protocol로 데몬 스레드에서 보내고 실패는 버린다. `constants.GA_MEASUREMENT_ID`·`GA_API_SECRET`이 비었을 때만 보내지 않는다. 끄는 설정은 없다(무료 도구 — 사용자 결정 2026-10-14). 보내는 항목은 `docs/install.md` §5에 고지(이 표와 같게 유지).
 
 | 이벤트 | 보내는 곳 | 매개변수 |
 |---|---|---|
