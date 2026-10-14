@@ -256,7 +256,8 @@ def get_point_state(msg, site_db=None):
 
 def get_area_packs(bbox, seq=None, manifest=None):
     # type: (list, int, dict) -> dict
-    """area_packs 페이로드 — 지도 화면(경위도 bbox)에 걸치는데 아직 안 받은 시군구 팩. 해외·매니페스트 없음은 빈 목록.
+    """area_packs 페이로드 — 지도 화면(경위도 bbox)에 걸치는데 아직 없는 시군구 필지 팩. 해외·매니페스트 없음은 빈 목록.
+    지도에서 필지를 고르려면 필지 팩만 있으면 된다. 건물·도로·지형 팩은 생성할 때 그 범위만 받는다(_generate).
 
     출력: {"type": "area_packs", seq, missing[{name, label, mb}], mb, labels(시군구 이름, 중복 없이)}.
     """
@@ -274,17 +275,25 @@ def get_area_packs(bbox, seq=None, manifest=None):
         return empty
     bounds = (min(c[0] for c in corners), min(c[1] for c in corners), max(c[0] for c in corners), max(c[1] for c in corners))
     try:
+        data_dir = data_pack.get_data_dir()
+        # 시군구 필지 팩 중 파일이 없는 것만 — 새 판은 생성할 때 범위 안에서 받는다. 옛 시도 팩은 대상이 아니다
         missing = [pack for pack in data_pack.get_missing_packs(manifest or data_pack.get_manifest(), bounds=bounds)
-                   if pack["name"][:5].isdigit()]   # 시군구 팩만 — 옛 시도 팩은 지역 받기 대상이 아니다
+                   if pack["name"][:5].isdigit() and pack["name"].endswith("_site.db")
+                   and not os.path.exists(os.path.join(data_dir, pack["name"]))]
     except Exception:   # 오프라인 — 지도는 그대로 쓴다
         return empty
-    labels = list(dict.fromkeys(" ".join(pack["label"].split()[:-1]) for pack in missing if pack["name"].endswith("_site.db")))
+    labels = list(dict.fromkeys(get_region_name(pack) for pack in missing))
     total = sum(pack.get("xz_size", 0) for pack in missing) / 1048576.0
-    # 받아 둔 팩의 새 판(매니페스트 sha256이 바뀜) — 칩이 '새 판 있음'으로 구분한다
-    installed = set(os.listdir(data_pack.get_data_dir())) if os.path.isdir(data_pack.get_data_dir()) else set()
-    return {"type": "area_packs", "seq": seq, "missing": [{"name": p["name"], "label": p["label"], "mb": round(p.get("xz_size", 0) / 1048576.0, 1),
-                                                           "update": p["name"] in installed} for p in missing],
+    return {"type": "area_packs", "seq": seq, "missing": [{"name": p["name"], "label": p["label"], "mb": round(p.get("xz_size", 0) / 1048576.0, 1)}
+                                                          for p in missing],
             "mb": round(total), "labels": labels}
+
+
+def get_region_name(pack):
+    # type: (dict) -> str
+    """팩 표시 이름 '서울특별시 종로구 필지' → '종로구'(시도 이름과 끝의 종류를 뗀다). 시도 하나뿐이면 그 이름."""
+    words = pack["label"].split()[:-1]
+    return " ".join(words[1:]) or " ".join(words)
 
 
 def get_target_from_msg(msg):
@@ -563,6 +572,7 @@ class _SiteController:
         self._running, self._cancel_requested = True, False
         doc = Rhino.RhinoDoc.ActiveDoc
         try:
+            self._download_for_generate(request)
             response = context_builder.run(request, self._progress, doc, self._keep)
         finally:
             self._running = False
@@ -581,6 +591,7 @@ class _SiteController:
             site_prefs.add_recent(target["pnus"], response["lot_name"].replace("_", " "), sum(lot.area for lot in lots), datetime.date.today().isoformat())
         if response["options"].get("zoom_after_import"):
             context_baker.zoom_to_site(doc, response["dir"])
+        self.push(get_init_state())   # 생성 중 받은 지역 데이터로 헤더 배지 갱신
 
     def _send_build_stats(self, target, lots, response):
         # type: (dict, list, dict) -> None
@@ -603,38 +614,76 @@ class _SiteController:
         if self._running:
             self._cancel_requested = True   # 다음 콜백이 False를 돌려준다
 
+    def _download_packs(self, packs, in_generate=False):
+        # type: (list, bool) -> bool
+        """팩을 차례로 받으며 data_progress{text, fraction}를 푸시한다(1 % 단위 — 조각마다 보내면 수천 번이다).
+        끝에 data_progress{done, ok, text}. 다 받았으면 True, 멈추거나 실패하면 False(받은 팩은 남는다). 호출자가 _running을 관리한다."""
+        data_pack = loader.load("data_pack")
+        names = list(dict.fromkeys(get_region_name(pack) for pack in packs))
+        region = names[0] + (" 외 %d곳" % (len(names) - 1) if len(names) > 1 else "")
+        total_bytes = float(sum(pack.get("xz_size", 0) for pack in packs)) or 1.0
+        done, ok, offset = [], True, 0.0
+        for pack in packs:
+            last = [-1]
+
+            def progress(read, total, pack=pack, offset=offset, last=last):
+                # read·total은 압축 전 바이트 — 팩 크기 비율로 전체 진행률에 옮긴다
+                fraction = (offset + pack.get("xz_size", 0) * read / max(total, 1)) / total_bytes
+                if int(fraction * 100) != last[0]:
+                    last[0] = int(fraction * 100)
+                    self.push({"type": "data_progress", "text": "%s 지역 데이터 받는 중 %d%%" % (region, last[0]),
+                               "fraction": round(fraction, 3), "in_generate": in_generate})
+                Rhino.RhinoApp.Wait()
+                return not self._cancel_requested
+
+            try:
+                if not data_pack.download_pack(pack, progress=progress):
+                    ok = False
+                    break
+            except Exception as exc:   # 오프라인·서버 오류 — 받은 데까지 쓴다
+                self.push({"type": "log", "level": "warn", "text": "지역 데이터 받기 실패 %s: %s" % (pack["name"], exc)})
+                ok = False
+                break
+            done.append(pack["name"])
+            offset += pack.get("xz_size", 0)
+        text = "" if ok else ("받기를 멈췄습니다 — 받은 지역은 남습니다" if self._cancel_requested else "지역 데이터를 다 받지 못했습니다 — 인터넷 연결을 확인하세요")
+        self.push({"type": "data_progress", "done": True, "ok": ok, "text": text, "in_generate": in_generate})
+        self._send_stats("pack_download", {"packs": ",".join(dict.fromkeys(name.split("_")[0] for name in done)), "count": len(done),
+                                           "requested": len(packs), "in_generate": in_generate})
+        return ok
+
     def _download_data(self, msg):
-        """바뀐 팩만 차례로 받는다. 진행률은 1 % 단위로만 푸시한다(조각 1 MB마다 보내면 수천 번이다). 끝나면 init_state."""
+        """지도에서 고른 시군구 팩(names, 없으면 바뀐 팩 전부)을 받는다. 끝나면 init_state."""
         if self._running:
             raise ValueError("다른 작업이 진행 중입니다")
         data_pack = loader.load("data_pack")
         packs = data_pack.get_missing_packs(data_pack.get_manifest())
-        if msg.get("names"):   # 지역 받기(area_packs가 알려 준 시군구 팩)
+        if msg.get("names"):
             packs = [pack for pack in packs if pack["name"] in set(msg["names"])]
         self._running, self._cancel_requested = True, False
-        done = []
         try:
-            for index, pack in enumerate(packs):
-                last = [-1]
-
-                def progress(done, total, pack=pack, index=index, last=last):
-                    percent = int(100 * done / max(total, 1))
-                    if percent != last[0]:
-                        last[0] = percent
-                        self.push({"type": "data_progress", "text": "%s 받는 중 (%d/%d) %d%% · %.1f GB"
-                                   % (pack["label"], index + 1, len(packs), percent, total / 1024.0 ** 3)})
-                    Rhino.RhinoApp.Wait()
-                    return not self._cancel_requested
-
-                if not data_pack.download_pack(pack, progress=progress):
-                    self.push({"type": "data_progress", "text": "받기를 멈췄습니다 — 다 받은 지역은 남고, [받기]를 누르면 나머지를 받습니다"})
-                    break
-                done.append(pack["name"])
+            if packs:
+                self._download_packs(packs)
         finally:
             self._running = False
-        if packs:
-            self._send_stats("pack_download", {"packs": ",".join(dict.fromkeys(name.split("_")[0] for name in done)), "count": len(done), "requested": len(packs)})
         self.push(get_init_state())
+
+    def _download_for_generate(self, request):
+        # type: (dict) -> None
+        """생성 범위에 걸치는데 없거나 새 판이 나온 시군구 팩(필지·건물도로·지형)을 받는다. 오프라인이면 있는 것으로 생성한다.
+        여기서 멈추기를 누르면 _cancel_requested가 남아 이어지는 run이 곧바로 취소된다."""
+        constants = loader.load("constants")
+        if not constants.DATA_MANIFEST_URL:
+            return
+        data_pack = loader.load("data_pack")
+        try:
+            bounds = self._context_builder.get_query_bounds(request)
+            packs = [pack for pack in data_pack.get_missing_packs(data_pack.get_manifest(), bounds=bounds)
+                     if pack["name"][:5].isdigit()] if bounds else []
+        except Exception:   # 대상지 오류는 run이 알린다, 오프라인은 있는 것으로
+            return
+        if packs:
+            self._download_packs(packs, in_generate=True)
 
     def _run_busy(self, label, context, work):
         # type: (str, str, object) -> None

@@ -618,6 +618,33 @@ def get_source_warnings(sources):
 
 # ── prepare ────────────────────────────────────────────────
 
+def _get_query_extent(target, radius, shape, paper_mm, scales):
+    # type: (Target, float, str, tuple, list) -> tuple
+    """범위 링·그 bbox·축척별 프레임 bbox·DB 조회 bbox(범위 ∪ 최대 프레임 ∪ 시트 + QUERY_MARGIN). 세계좌표 m."""
+    extent_ring = get_target_extent_ring(target, radius, shape, paper_mm, scales)
+    extent_bounds = non_rhino_utils.get_bbox(extent_ring)
+    frame_bounds = {scale: Frame(paper_mm, scale, target.center).world_bounds() for scale in scales}
+    boxes = [extent_bounds, frame_bounds[max(scales)], sheet_svg.get_sheet_query_bounds(paper_mm, scales, target.center, extent_ring)]
+    margin = constants.QUERY_MARGIN
+    bounds = (min(b[0] for b in boxes) - margin, min(b[1] for b in boxes) - margin,
+              max(b[2] for b in boxes) + margin, max(b[3] for b in boxes) + margin)
+    return extent_ring, extent_bounds, frame_bounds, bounds
+
+
+def get_query_bounds(request):
+    # type: (dict) -> tuple
+    """생성이 DB를 조회할 범위(EPSG:5186 bbox) — prepare와 같은 계산. 해외 대상지는 None.
+    cmd_site가 생성 직전에 이 범위의 지역 데이터(시군구 팩)를 받는 데 쓴다. 필지 방식은 고른 필지가 필지 DB에 있어야 한다."""
+    request = get_request_with_defaults(request)
+    options = request["options"]
+    paper_mm, scales = _get_paper_and_scales(options)
+    target = resolve_target(request, with_lots=False)
+    if non_rhino_utils.is_local_projection():
+        return None
+    radius = float(options.get("radius") or constants.CONTEXT_RADIUS)
+    return _get_query_extent(target, radius, options.get("shape") or "circle", paper_mm, scales)[3]
+
+
 def prepare(request, progress=None, today=None):
     # type: (dict, object, datetime.date) -> Prepared
     """Rhino 금지. 입력 검증 → 필지·컨텍스트 질의 → 원점·범위 → 통계·경고·meta. python3 unittest가 전부 덮는다.
@@ -650,13 +677,7 @@ def prepare(request, progress=None, today=None):
         warnings.append(_warning("info", "origin_reused", "문서 원점 재사용 E %.0f / N %.0f" % origin,
                                  "같은 문서에 이미 생성된 대상지가 있어 그 원점을 씁니다. 새 문서에서 생성하면 대상지 중심으로 원점이 잡힙니다."))
 
-    extent_ring = get_target_extent_ring(target, radius, shape, paper_mm, scales)
-    extent_bounds = non_rhino_utils.get_bbox(extent_ring)
-    frame_bounds = {scale: Frame(paper_mm, scale, center).world_bounds() for scale in scales}
-    boxes = [extent_bounds, frame_bounds[max(scales)], sheet_svg.get_sheet_query_bounds(paper_mm, scales, center, extent_ring)]
-    margin = constants.QUERY_MARGIN
-    bounds = (min(b[0] for b in boxes) - margin, min(b[1] for b in boxes) - margin,
-              max(b[2] for b in boxes) + margin, max(b[3] for b in boxes) + margin)
+    extent_ring, extent_bounds, frame_bounds, bounds = _get_query_extent(target, radius, shape, paper_mm, scales)
 
     if non_rhino_utils.is_local_projection():
         return _prepare_abroad(request, options, today, target, lot_name, warnings, origin, origin_reused, doc_origin, radius, shape,

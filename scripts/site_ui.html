@@ -164,7 +164,6 @@ label.chk { display: flex; align-items: center; min-height: 32px; }
 .map-chips { position: absolute; left: 8px; bottom: 8px; z-index: 800; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
 .chip { background: rgba(255,255,255,.94); border: 1px solid var(--border); padding: 2px 8px; font-size: 12px; color: var(--sub); }
 .chip.lv-danger { color: var(--danger); }
-.chip.packs { pointer-events: auto; color: var(--text); display: flex; align-items: center; gap: 8px; padding: 3px 4px 3px 10px; }
 .leaflet-container { font: inherit; }
 .leaflet-bar a { border-radius: 0 !important; }
 .map-label { background: none; border: 0; box-shadow: none; color: #5c5c58; font-size: 11px; padding: 0; }
@@ -335,6 +334,11 @@ details.files summary { line-height: 40px; cursor: pointer; font-weight: 600; co
 footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--surface); border-top: 1px solid var(--rule); }
 footer.busy .btn { pointer-events: none; color: var(--muted); }
 footer .busy-label { color: var(--sub); font-size: 12px; }
+/* 지역 데이터 받기 — 지도 밖, 푸터 위 한 줄. 받는 동안만 보인다 */
+#dl { flex: none; display: flex; align-items: center; gap: 8px; height: 24px; padding: 0 16px; font-size: 11px; color: var(--sub); background: var(--surface); border-top: 1px solid var(--grid); }
+#dl .dl-bar { flex: 1; height: 2px; background: var(--grid); }
+#dl .dl-bar i { display: block; height: 100%; background: var(--accent); }
+#dl button { font: inherit; color: var(--sub); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
 
 @media (max-width: 419px) {
   .badge-date { display: none; }
@@ -368,6 +372,7 @@ footer .busy-label { color: var(--sub); font-size: 12px; }
   <div id="blocker" hidden></div>
   <div id="menu" role="region" aria-label="더보기" hidden></div>
 </main>
+<div id="dl" role="status" hidden></div>
 <footer id="footer"></footer>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="phase_live" class="sr-only" aria-live="polite"></div>
@@ -801,8 +806,7 @@ function initMap(init) {
   var el = $("map");
   // 지도 위 칩 — 컨테이너 자식이라 슬롯을 옮겨도 따라간다
   var chips = document.createElement("div"); chips.className = "map-chips";
-  chips.innerHTML = '<span class="chip" id="chip_zoom" hidden>확대하면 필지가 보입니다</span><span class="chip" id="chip_trunc" hidden>일부만 표시 — 더 확대하세요</span><span class="chip lv-danger" id="chip_offline" hidden>지도 타일을 못 받음(오프라인) — 필지선만 표시</span>' +
-    '<span class="chip packs" id="chip_packs" hidden></span>';
+  chips.innerHTML = '<span class="chip" id="chip_zoom" hidden>확대하면 필지가 보입니다</span><span class="chip" id="chip_trunc" hidden>일부만 표시 — 더 확대하세요</span><span class="chip lv-danger" id="chip_offline" hidden>지도 타일을 못 받음(오프라인) — 필지선만 표시</span>';
   el.appendChild(chips);
   map = L.map(el, { preferCanvas: true, zoomControl: false, attributionControl: true }).setView(ll(init.map.center), init.map.zoom);
   el.tabIndex = -1;
@@ -828,25 +832,22 @@ function initMap(init) {
   map.on("dblclick", function () { if (draw.on) finishDraw(); });
   map.on("mousemove", function (e) { if (draw.on) redrawDraw(e.latlng); });
 }
-var AUTO_DOWNLOAD_ZOOM = 16;   // 이 배율(화면 폭 약 1.5 km — 시군구 1~2개, 수십 MB)부터 화면 지역을 저절로 받는다. 필지는 17부터 보인다
+var AUTO_DOWNLOAD_ZOOM = 16;   // 이 배율(화면 폭 약 1.5 km — 시군구 1~2개)부터 화면 지역의 필지 데이터를 저절로 받는다. 필지는 17부터 보인다
 function startDownload(packs) {
-  state.downloading = true; renderAreaPacks("이 지역 데이터 받는 중…");
+  state.downloading = true; showDl("이 지역 데이터 받는 중", 0, true);
   send({ cmd: "download_data", names: packs.map(function (p) { return p.name; }) });
 }
+function showDl(text, fraction, stoppable, retry) {   // 지도 밖 한 줄 진행 막대(받는 동안만)
+  var el = $("dl");
+  el.innerHTML = "<span>" + esc(text) + '</span><span class="dl-bar"><i style="width:' + Math.round((fraction || 0) * 100) + '%"></i></span>' +
+    (stoppable ? '<button type="button" data-act="download_stop">멈추기</button>' : "") + (retry ? '<button type="button" data-act="download_area">다시 받기</button>' : "");
+  el.hidden = false;
+}
+function hideDl() { $("dl").hidden = true; }
 function requestAreaPacks() {   // 지도 화면에 걸리는데 아직 안 받은 시군구 팩(시군구 팩 배포, panel_ui.md area_packs)
   if (!map || !state.init || !state.init.can_download || state.downloading) return;
   var b = map.getBounds();
   send({ cmd: "area_packs", bbox: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], seq: ++state.seq.packs });
-}
-function renderAreaPacks(text) {
-  var chip = $("chip_packs"); if (!chip) return;
-  var a = state.areaPacks;
-  if (text) { chip.innerHTML = "<span>" + esc(text) + '</span><button type="button" class="btn sm" data-act="download_stop">멈추기</button>'; chip.hidden = false; return; }
-  if (!a || !a.missing.length) { chip.hidden = true; return; }
-  var names = a.labels.length ? a.labels[0].split(" ").slice(1).join(" ") + (a.labels.length > 1 ? " 외 " + (a.labels.length - 1) : "") : "이 지역";
-  var updateOnly = a.missing.every(function (p) { return p.update; });
-  chip.innerHTML = "<span>" + (updateOnly ? "이 지역 데이터 새 판 있음 · " : "이 지역 데이터 없음 · ") + esc(names) + " · " + esc(fmtNum(a.mb)) + ' MB</span><button type="button" class="btn sm primary" data-act="download_area">받기</button>';
-  chip.hidden = false;
 }
 function requestLots() {
   if (!map || state.step !== 1) return;
@@ -1607,7 +1608,7 @@ var handlers = {
     } else {
       if (tiles && m.tile && m.tile.url !== tiles._url && !tileFallback) tiles.setUrl(m.tile.url);
       renderHeader();
-      if (state.downloading) { state.downloading = false; state.areaPacks = null; renderAreaPacks(); requestLots(); requestAreaPacks(); }
+      if (state.downloading) { state.downloading = false; state.areaPacks = null; requestLots(); requestAreaPacks(); }
       if (state.step === 2 || state.step === 3) { state.preflight = null; renderDataStatus(); sendPreflight(0); }
     }
     renderMenu(); renderBlocker();
@@ -1680,15 +1681,18 @@ var handlers = {
     renderPhaseList(); updateCancelBtn();
   },
   log: function (m) { appendLog(m.text, m.level); },
-  data_progress: function (m) { var p = $("data_progress"); if (p) p.textContent = m.text; if (state.downloading) renderAreaPacks(m.text); },
+  data_progress: function (m) {   // 지도에서 받기(download_data)·생성 직전 받기(generate) 둘 다
+    if (!m.done) { showDl(m.text, m.fraction, !m.in_generate); return; }   // 생성 중에는 푸터 [취소]가 멈춘다
+    if (m.ok) { hideDl(); return; }
+    showDl(m.text, 0, false, !m.in_generate);
+    if (m.in_generate) setTimeout(hideDl, 6000);
+  },
   area_packs: function (m) {
     if (m.seq !== state.seq.packs) return; state.areaPacks = m;
-    var fresh = m.missing.filter(function (p) { return !p.update; });
-    var key = fresh.map(function (p) { return p.name; }).join(",");
-    if (fresh.length && key !== state.lastAutoDownload && !state.noAutoDownload && map && map.getZoom() >= AUTO_DOWNLOAD_ZOOM) {
-      state.lastAutoDownload = key; startDownload(fresh); return;   // 같은 묶음은 한 번만 — 받기가 실패하면 칩 [받기]로 다시
+    var key = m.missing.map(function (p) { return p.name; }).join(",");   // 화면 지역에 없는 필지 데이터(area_packs)
+    if (m.missing.length && key !== state.lastAutoDownload && !state.noAutoDownload && map && map.getZoom() >= AUTO_DOWNLOAD_ZOOM) {
+      state.lastAutoDownload = key; startDownload(m.missing);   // 같은 묶음은 한 번만 — 실패하면 진행 줄의 [다시 받기]로
     }
-    renderAreaPacks();
   },
   busy: function (m) { state.busy = !!m.on; state.busyLabel = m.label || ""; updateCancelBtn(); },
   sheet_ai: function (m) { if (m.ok && m.paths.length > 1) toast("레이어 .ai " + m.paths.length + "장을 썼습니다"); },

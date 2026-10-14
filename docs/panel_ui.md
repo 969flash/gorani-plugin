@@ -79,8 +79,8 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `apply_style` | `dir`, `style` | `busy{on}` → `style_applied` → `busy{off}` | `context_builder.apply_style` — 결과 폴더의 시트 전부 + 이미 쓴 `basemap_<축척>.ai`를 다시 쓰고 `context.json.options.style`을 바꾼다. 지형 삼각형이 없으면 지형 시트 파일은 그대로(`kept`). JS는 성공하면 `options.style`을 `save_prefs` |
 | `save_style` | `name`, `style` | `styles` / `error{context:"style"}` | `site_prefs.save_style` → `HOME_DIR/styles/<이름>.json`(경로 문자 제거, 같은 이름 덮어씀). 사무소 표준을 파일로 나눠 쓴다 |
 | `sheet_ai` | `dir`, `path`(도면 SVG) 또는 `all:true` | `busy{on}` → `sheet_ai` → `busy{off}` | `sheet_svg.get_sheet_ai` — 도면 SVG를 레이어 .ai로(없거나 SVG보다 오래됐을 때만 다시 쓴다). 한 장이면 쓰고 OS로 연다. 생성 때 .ai를 다 쓰지 않는다(23장이면 Rhino에서 10 s+) |
-| `area_packs` | `bbox`([서, 남, 동, 북] 경위도), `seq` | `area_packs` | 지도 이동(600 ms 디바운스)마다. 화면에 걸리는데 아직 안 받았거나 새 판이 나온 시군구 팩 `{seq, missing[{name, label, mb, update}], mb, labels}` — 전부 update면 칩이 '새 판 있음' — 해외·매니페스트 없음·오프라인은 빈 목록. 지도 칩 [받기] |
-| `download_data` | `names`(선택 — 없으면 전부) | `data_progress`×N → `init_state` (`error{context:"init"}`) | 지도 칩 [받기](area_packs의 names). 멈추면 그때까지 받은 팩은 남는다. `data_pack`이 매니페스트(`constants.DATA_MANIFEST_URL`)에서 바뀐 팩만 `HOME_DIR/data/`에 받는다. 진행 중 `cancel`이면 그 팩에서 멈추고 `data_progress`로 알린다(받던 팩은 버리고 쓰던 DB는 그대로). 유일한 네트워크 명령(주소 보조검색 제외) |
+| `area_packs` | `bbox`([서, 남, 동, 북] 경위도), `seq` | `area_packs` | 지도 이동(600 ms 디바운스)마다. 화면에 걸리는데 파일이 없는 시군구 **필지** 팩 `{seq, missing[{name, label, mb}], mb, labels}`(건물·도로·지형 팩과 새 판은 생성할 때 범위만) — 해외·매니페스트 없음·오프라인은 빈 목록. 배율 16 이상이면 JS가 곧바로 `download_data{names}` |
+| `download_data` | `names`(선택 — 없으면 전부) | `data_progress`×N → `data_progress{done}` → `init_state` (`error{context:"init"}`) | 지도 자동 받기·진행 줄 [다시 받기]. 멈추면 그때까지 받은 팩은 남는다(받던 팩은 버리고 쓰던 DB는 그대로). `data_pack`이 매니페스트(`constants.DATA_MANIFEST_URL`)의 절대 주소에서 `HOME_DIR/data/`로 받는다. `generate`도 시작 전에 같은 방식으로 범위(`context_builder.get_query_bounds`)에 걸치는 없거나 새 판인 시군구 팩을 받는다 |
 
 명령 16개(+ 도면 스타일 3개·도면 .ai 1개, 2026-10-13). `auth_pin`(옛 PIN 인증)은 없다 — 사내 배포라 인증 게이트 없음.
 
@@ -172,7 +172,8 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 
 {"type":"log","text":"여러 줄\n가능","level":"info|warn|error"}
 {"type":"busy","on":true,"label":"문서에 넣는 중"}   // Import·Export처럼 UI 스레드가 멈추는 짧은 작업 전후
-{"type":"data_progress","text":"서울 필지 받는 중 (1/3) 42% · 1.9 GB"}   // download_data 진행(1 % 단위)·멈춤 안내. 블로커 #data_progress 한 줄
+{"type":"data_progress","text":"종로구 지역 데이터 받는 중 42%","fraction":0.42,"in_generate":false}   // 받기 진행(1 % 단위). 지도 밖 푸터 위 한 줄(#dl) — 생성 중(in_generate)이면 [멈추기] 없이(푸터 [취소]가 멈춘다)
+{"type":"data_progress","done":true,"ok":false,"text":"받기를 멈췄습니다 — 받은 지역은 남습니다","in_generate":false}   // 끝. ok면 줄을 숨기고, 아니면 text + [다시 받기]
 {"type":"error","context":"init|search|select|preflight|generate|import|export|open","text":"한 줄","detail":"traceback 또는 빈 문자열"}
 
 {"type":"done",
