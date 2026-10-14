@@ -5,6 +5,7 @@
     python3 scripts/dev_deploy.py packs      # build/packs/*.db.xz + manifest.json
     python3 scripts/dev_deploy.py packs --sido 43 --drop   # 시도 하나만 압축하고 원본 DB를 지운다(전국 빌드 흐름)
     python3 scripts/dev_deploy.py repack     # 시도 팩 압축본을 풀어 (줄이고) 시군구 팩으로 나눠 다시 압축
+    python3 scripts/dev_deploy.py rebounds   # 매니페스트의 팩 범위만 다시 잰다(시군구 필지 중심점 핵심 범위 — constants.PACK_BOUNDS_*)
     python3 scripts/dev_deploy.py upload     # 필지 팩 + 매니페스트는 Hugging Face(hf auth login 먼저), 컨텍스트·등고선 팩은 국내 버킷(~/.oci/config 먼저)
 
 yak: 진입 명령 UrbanSite 하나짜리 .rhp를 rhinocode로 빌드하고(떠 있는 Rhino 8 필요), 그 옆에 scripts/(평문 진입 스크립트 +
@@ -81,6 +82,34 @@ BOUNDS_SQL = {   # 팩 범위(EPSG:5186) — data_pack이 대상지에 걸리는
     "context": "SELECT MIN(min_x), MIN(min_y), MAX(max_x), MAX(max_y) FROM buildings",
     "terrain": "SELECT MIN(min_x), MIN(min_y), MAX(max_x), MAX(max_y) FROM features",
 }
+
+
+def get_core_bounds(points):
+    # type: (list) -> tuple
+    """점 [(x, y)]의 범위 — 핵심 범위(PACK_BOUNDS_CORE_QUANTILE~1-q)를 각 변마다 그 폭의 절반(최소 PACK_BOUNDS_EXTEND_MIN)까지 넓힌 창 안의
+    점만으로 min/max를 재고 PACK_BOUNDS_MARGIN을 더한다. 창 밖 점(원천 좌표 오류)은 버린다. 점이 없으면 None."""
+    if not points:
+        return None
+    window = []
+    for axis in (0, 1):
+        values = sorted(p[axis] for p in points)
+        q = constants.PACK_BOUNDS_CORE_QUANTILE
+        low, high = values[int(q * (len(values) - 1))], values[int((1 - q) * (len(values) - 1))]
+        extend = max((high - low) * 0.5, constants.PACK_BOUNDS_EXTEND_MIN)
+        window.append((low - extend, high + extend))
+    kept = [p for p in points if window[0][0] <= p[0] <= window[0][1] and window[1][0] <= p[1] <= window[1][1]]
+    margin = constants.PACK_BOUNDS_MARGIN
+    return (min(p[0] for p in kept) - margin, min(p[1] for p in kept) - margin,
+            max(p[0] for p in kept) + margin, max(p[1] for p in kept) + margin)
+
+
+def get_site_pack_bounds(site_path):
+    # type: (str) -> tuple
+    """시군구 필지 팩의 범위(get_core_bounds — 필지 경계상자 중심). 같은 시군구의 컨텍스트·등고선 팩도 이 범위를 쓴다."""
+    connection = sqlite3.connect(site_path)
+    points = [((a + b) * 0.5, (c + d) * 0.5) for a, b, c, d in connection.execute("SELECT min_x, max_x, min_y, max_y FROM parcels")]
+    connection.close()
+    return get_core_bounds(points)
 
 
 def get_deploy_module_names():
@@ -476,8 +505,8 @@ def _update_manifest(pack_dir, slug, entries):
 def _split_and_compress(slug, pack_dir):
     # type: (str, str) -> list
     """pack_dir의 시도 팩 DB(줄인 것) → 시군구 팩 → xz. 빈 팩은 버린다. 매니페스트 항목 목록."""
-    entries = []
-    for name, label, path in split_sido_packs(slug, pack_dir):
+    entries, sgg_bounds = [], {}
+    for name, label, path in split_sido_packs(slug, pack_dir):   # 필지 팩이 먼저 나온다
         kind = name.rsplit("_", 1)[1][:-3]
         connection = sqlite3.connect(path)
         bounds = connection.execute(BOUNDS_SQL[kind]).fetchone()
@@ -487,6 +516,9 @@ def _split_and_compress(slug, pack_dir):
         if bounds[0] is None:
             os.remove(path)
             continue
+        if kind == "site":
+            sgg_bounds[name[:5]] = get_site_pack_bounds(path)
+        bounds = sgg_bounds.get(name[:5]) or bounds
         size, sha256 = os.path.getsize(path), _get_sha256(path)
         subprocess.run(["xz", "-6", "-T0", "-f", path], check=True)
         entries.append({"name": name, "label": label, "url": name + ".xz", "size": size, "sha256": sha256,
@@ -567,7 +599,9 @@ def _fill_manifest(pack_dir):
     import fcntl
     manifest_path = os.path.join(pack_dir, "manifest.json")
     with open(manifest_path, encoding="utf-8") as f:
-        known = {pack["name"] for pack in json.load(f)["packs"]}
+        packs = json.load(f)["packs"]
+    known = {pack["name"] for pack in packs}
+    site_bounds = {pack["name"][:5]: pack["bounds"] for pack in packs if pack["name"].endswith("_site.db")}
     added = []
     for file_name in sorted(os.listdir(pack_dir), key=lambda n: (n[:5], not n.endswith("_site.db.xz"))):   # 필지 팩 먼저(이름)
         name = file_name[:-3]
@@ -580,6 +614,10 @@ def _fill_manifest(pack_dir):
         bounds = connection.execute(BOUNDS_SQL[kind]).fetchone()
         if kind == "context" and bounds[0] is None:
             bounds = connection.execute(BOUNDS_SQL["terrain"]).fetchone()
+        if kind == "site":
+            bounds = get_site_pack_bounds(path) or bounds
+        else:   # 같은 시군구 필지 팩 범위(이번에 채운 것 또는 매니페스트에 있는 것)
+            bounds = next((p["bounds"] for p in added if p["name"] == name[:5] + "_site.db"), None) or site_bounds.get(name[:5]) or bounds
         sgg_name = ""
         if kind == "site":
             sgg_name = _get_sgg_name((connection.execute("SELECT address FROM parcels LIMIT 1").fetchone() or [""])[0])
@@ -667,16 +705,52 @@ def upload():
     return constants.DATA_MANIFEST_URL
 
 
+def rebounds():
+    # type: () -> str
+    """build/packs/의 시군구 필지 팩을 하나씩 풀어 범위(get_site_pack_bounds)를 다시 재고, 그 시군구 세 팩의 매니페스트 bounds를 바꾼다.
+    팩 파일·sha256은 그대로라 올릴 때 매니페스트만 바뀐다(dev_deploy upload)."""
+    import fcntl
+    import tempfile
+    pack_dir = os.path.join(BUILD_DIR, "packs")
+    manifest_path = os.path.join(pack_dir, "manifest.json")
+    with open(manifest_path, encoding="utf-8") as f:
+        sites = [pack["name"] for pack in json.load(f)["packs"] if pack["name"][:5].isdigit() and pack["name"].endswith("_site.db")]
+    new_bounds = {}
+    for index, name in enumerate(sites):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, name)
+            with open(path, "wb") as out:
+                subprocess.run(["xz", "-dc", "-T0", os.path.join(pack_dir, name + ".xz")], stdout=out, check=True)
+            bounds = get_site_pack_bounds(path)
+        if bounds:
+            new_bounds[name[:5]] = [round(v, 1) for v in bounds]
+        print("  %d/%d %s %s" % (index + 1, len(sites), name, new_bounds.get(name[:5])), flush=True)
+    with open(manifest_path + ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        with open(manifest_path, encoding="utf-8") as f:
+            manifest = json.load(f)
+        for pack in manifest["packs"]:
+            if pack["name"][:5] in new_bounds:
+                pack["bounds"] = new_bounds[pack["name"][:5]]
+        with open(manifest_path + ".tmp", "w", encoding="utf-8") as f:
+            json.dump(manifest, f, ensure_ascii=False, indent=1)
+        os.replace(manifest_path + ".tmp", manifest_path)
+    return manifest_path
+
+
 def main():
     if sys.version_info[:2] != (3, 9):
         sys.exit("Rhino 8의 CPython(3.9)과 같은 Python 3.9로 실행해야 .pyc가 호환됩니다. 현재: %d.%d" % sys.version_info[:2])
     parser = argparse.ArgumentParser(description="Yak 패키지·데이터 팩 빌드")
-    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "packs", "repack", "upload"))
+    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "packs", "repack", "upload", "rebounds"))
     parser.add_argument("--sido", help="packs: 쉼표로 구분한 시도 코드만 (기본 data/에 있는 전부)")
     parser.add_argument("--drop", action="store_true", help="packs: 압축 뒤 원본 시도 DB를 지운다(서울 제외)")
     args = parser.parse_args()
     if args.what == "upload":
         print("manifest: %s" % upload())
+        return
+    if args.what == "rebounds":
+        print("rebounds: %s" % rebounds())
         return
     if args.what == "repack":
         print("repack: %s" % repack())

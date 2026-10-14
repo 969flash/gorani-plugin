@@ -253,6 +253,12 @@ DATA_STATE_FILE_NAME = "packs.json"    # data/ 안. 받은 팩의 sha256 — 바
 DATA_TIMEOUT_SECONDS = 30              # 연결·조각 읽기 제한
 DATA_CHUNK_BYTES = 1024 * 1024         # 압축 스트림을 1 MB씩 읽어 풀고 진행률을 알린다
 DATA_MAX_OPEN_FILES = 11               # 한 연결에 여는 지역 DB 수 상한 — SQLite ATTACH 기본 상한 10 + main(2026-10-12 실측)
+# 팩 범위(매니페스트 bounds) — 시군구 필지 중심점의 핵심 범위(0.5~99.5 %)를 각 변마다 그 폭의 절반(최소 5 km)까지 넓힌 창 안의 필지만으로 잰다.
+# 원천 오류 객체 몇 개가 범위를 수백 km로 늘려 엉뚱한 지역 팩을 받게 했다(2026-10-14: 41591 화성 만세구 필지 9개가 y 617 km,
+# 11305 강북구 건물 2동이 x 459 km — 홍천 팩 범위 331×243 km). 퍼센타일만 자르면 진짜 섬(화성 서쪽 8 km)이 잘린다.
+PACK_BOUNDS_CORE_QUANTILE = 0.005
+PACK_BOUNDS_EXTEND_MIN = 5000.0        # m
+PACK_BOUNDS_MARGIN = 200.0             # m — 시군구 분할 격자 한 칸(경계 객체는 양쪽 팩에 있다)
 # 사용 통계(usage_stats.py) — GA4 Measurement Protocol. 측정 ID·secret이 비면 보내지 않는다. 끄는 설정 없음(고지는 docs/install.md)
 GA_MEASUREMENT_ID = "G-NJC4VMHPM1"  # GA4 웹 스트림 측정 ID(G-…)
 GA_API_SECRET = "Yxwc8yciQiGRUAVajxTBjg"  # 관리 > 데이터 스트림 > Measurement Protocol API secret. 코드에 드러나도 된다(가짜 이벤트 주입 위험만)
