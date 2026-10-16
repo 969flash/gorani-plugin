@@ -131,6 +131,7 @@
    "include_api_objects": false,
    "include_zoning": false,
    "terrain_vertex_color": false,
+   "terrain_step": 0,
    "make_dwg": false,
    "zoom_after_import": true,
    "style": {
@@ -1160,6 +1161,7 @@
    "include_api_objects": false,
    "include_zoning": false,
    "terrain_vertex_color": false,
+   "terrain_step": 0,
    "make_dwg": false,
    "zoom_after_import": true,
    "style": {

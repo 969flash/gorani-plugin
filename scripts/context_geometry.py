@@ -345,10 +345,11 @@ def _get_site_level(mesh, rings, how):
     return min(zs) if how == "min" else max(zs) if how == "max" else sum(zs) / len(zs)
 
 
-def _get_site_wall(site_mesh, level):
-    # type: (rg.Mesh, float) -> rg.Mesh
+def _get_site_wall(site_mesh, level, step=0.0):
+    # type: (rg.Mesh, float, float) -> rg.Mesh
     """평탄면과 주변 지반 사이 수직 벽(옹벽 자리). 대상지 원지형 메시의 바깥 경계(GetNakedEdges) 정점을 그대로 쓴다 —
     윗선 = 주변 지형 경계와 같은 정점(분할 Brep이 모서리를 공유), 아랫선 = 같은 XY의 평탄 높이 → 틈이 생길 수 없다.
+    step > 0(계단 지형)이면 윗선을 주변 계단 단 높이로(get_stepped_edges).
     2026-10-10: 경계를 3 m마다 다시 뽑은 점으로 만들었더니 정점이 어긋나고 모서리를 건너뛰어 틈이 보였다(사용자 지적)."""
     wall = rg.Mesh()
     for polyline in site_mesh.GetNakedEdges() or []:
@@ -357,23 +358,24 @@ def _get_site_wall(site_mesh, level):
             pts = pts[:-1]
         n = len(pts)
         for k in range(n):
-            a, b = pts[k], pts[(k + 1) % n]
-            da, db = abs(a.Z - level) > 1e-4, abs(b.Z - level) > 1e-4
-            if not da and not db:
-                continue
-            base = wall.Vertices.Count
-            wall.Vertices.Add(a.X, a.Y, level)
-            wall.Vertices.Add(b.X, b.Y, level)
-            if da and db:
-                wall.Vertices.Add(b.X, b.Y, b.Z)
-                wall.Vertices.Add(a.X, a.Y, a.Z)
-                wall.Faces.AddFace(base, base + 1, base + 2, base + 3)
-            elif db:
-                wall.Vertices.Add(b.X, b.Y, b.Z)
-                wall.Faces.AddFace(base, base + 1, base + 2)
-            else:
-                wall.Vertices.Add(a.X, a.Y, a.Z)
-                wall.Faces.AddFace(base, base + 1, base + 2)
+            p, q = pts[k], pts[(k + 1) % n]
+            for a, b in non_rhino_utils.get_stepped_edges((p.X, p.Y, p.Z), (q.X, q.Y, q.Z), step):
+                da, db = abs(a[2] - level) > 1e-4, abs(b[2] - level) > 1e-4
+                if not da and not db:
+                    continue
+                base = wall.Vertices.Count
+                wall.Vertices.Add(a[0], a[1], level)
+                wall.Vertices.Add(b[0], b[1], level)
+                if da and db:
+                    wall.Vertices.Add(b[0], b[1], b[2])
+                    wall.Vertices.Add(a[0], a[1], a[2])
+                    wall.Faces.AddFace(base, base + 1, base + 2, base + 3)
+                elif db:
+                    wall.Vertices.Add(b[0], b[1], b[2])
+                    wall.Faces.AddFace(base, base + 1, base + 2)
+                else:
+                    wall.Vertices.Add(a[0], a[1], a[2])
+                    wall.Faces.AddFace(base, base + 1, base + 2)
     wall.Vertices.UseDoublePrecisionVertices = True
     wall.Vertices.CombineIdentical(True, True)
     wall.Compact()
@@ -381,11 +383,24 @@ def _get_site_wall(site_mesh, level):
     return wall
 
 
+def _get_stepped(mesh, step):
+    # type: (rg.Mesh, float) -> rg.Mesh
+    """메시 → 계단 지형 메시(non_rhino_utils.get_stepped_mesh). 다시 용접하지 않는다 — 벽과 단 면 정점을 따로 둬야 모서리가 선다."""
+    verts, faces = non_rhino_utils.get_stepped_mesh(*_get_mesh_faces(mesh), step=step)
+    out = rg.Mesh()
+    out.Vertices.UseDoublePrecisionVertices = True
+    out.Vertices.AddVertices(List[rg.Point3d]([rg.Point3d(*v) for v in verts]))
+    out.Faces.AddFaces(List[rg.MeshFace]([rg.MeshFace(*f) for f in faces]))
+    out.Normals.ComputeNormals()
+    return out
+
+
 def build_terrain(prepared):
     # type: (object) -> tuple
     """TIN(보간용) → 범위 평면을 분류·대상지 경계로 면 분할 → 쿼드 위주 메싱 → TIN 높이 입히기 → 분류별 메시 (code_map §5.1~§5.4).
 
     입력: Prepared(세계좌표). options.flatten_site·flatten_level(mean|min|max)·site_output(mesh|curve) — 대상지 처리는 lots·area만.
+          options.terrain_step(m, 0 = 매끈) — 지반 메시를 계단형으로(평탄면·원지형 사본은 그대로, 경계 벽 윗선은 계단에 맞춘다).
     처리: get_tin_points → Mesh.CreateFromTessellation(보간에만 — 들로네 삼각형은 내보내지 않는다)
           → _get_region_meshes(범위 링, 범위와 겹치는 분류 폴리곤 링 + 대상지 링) — 경계는 원래 선 그대로, 안쪽은 TERRAIN_GRID m 쿼드
           → 영역마다 안쪽 한 점으로 분류(TERRAIN_CLASS_PRIORITY 순 PIP)·대상지 여부 → _drape(TIN 수직 투영) → 분류별로 용접
@@ -493,6 +508,13 @@ def build_terrain(prepared):
     if water_parts:
         meshes["water"] = _join(water_parts)
     counts["water_bodies"] = water_bodies
+    step = float(options.get("terrain_step") or 0)
+    if step > 0:
+        t = time.time()
+        for cls in ("terrain", "road", "green", "rail", "water"):
+            if cls in meshes:
+                meshes[cls] = _get_stepped(meshes[cls], step)
+        counts.update(terrain_step=step, step_s=round(time.time() - t, 3))
 
     # 대상지 — 바닥 메시(원지형) 또는 평탄면 + 벽 + 원지형 사본(숨김)
     ground_parts = [meshes[cls] for cls in ("terrain", "road", "green", "rail") if cls in meshes]
@@ -505,10 +527,10 @@ def build_terrain(prepared):
                 v = flat.Vertices.Point3dAt(k)
                 flat.Vertices.SetVertex(k, v.X, v.Y, level)
             flat.Normals.ComputeNormals()
-            meshes.update(site_ground=flat, site_wall=_get_site_wall(site_in, level), site_original=site_in)
+            meshes.update(site_ground=flat, site_wall=_get_site_wall(site_in, level, step), site_original=site_in)
             counts.update(site_level=round(level, 2), site_level_how=options.get("flatten_level") or "mean")
         else:
-            meshes["site_ground"] = site_in
+            meshes["site_ground"] = _get_stepped(site_in, step) if step > 0 else site_in
         counts["site_output"] = "mesh" if site_mesh_out else "flatten_only"
         ground_parts.append(meshes["site_ground"])
     meshes["all"] = _join([m.DuplicateMesh() for m in ground_parts])

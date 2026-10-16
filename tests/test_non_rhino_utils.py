@@ -168,5 +168,66 @@ class ExtentRingTest(unittest.TestCase):
             u.get_extent_ring([self.lot_ring], self.radius, "hexagon")
 
 
+class SteppedMeshTest(unittest.TestCase):
+    """계단 지형 — 단 면은 수평·step 배수, 평면 면적 보존, 안쪽 변은 정확히 두 번(반대 방향) — 틈·겹침·뒤집힌 벽이 없다."""
+
+    N, STEP = 12, 1.0
+
+    def setUp(self):
+        n = self.N
+        verts = []
+        for j in range(n + 1):
+            for i in range(n + 1):
+                z = 0.37 * i + 0.21 * j + 1.5 * math.sin(i * 0.7) * math.cos(j * 0.5)
+                if (i + j) % 3 == 0 or 4 <= i <= 6:
+                    z = float(round(z))   # 경계 위 정점·경계를 따라가는 변(원천 등고선 값 그대로인 정점)
+                verts.append((float(i), float(j), z))
+        faces = []
+        for j in range(n):
+            for i in range(n):
+                a = j * (n + 1) + i
+                quad = (a, a + 1, a + n + 2, a + n + 1)
+                faces += [quad] if (i + j) % 2 else [quad[:3], (quad[0], quad[2], quad[3])]
+        self.verts, self.faces = verts, faces
+        self.out_verts, self.out_faces = u.get_stepped_mesh(verts, faces, self.STEP)
+
+    def test_terraces_flat_and_area_kept(self):
+        area = 0.0
+        for face in self.out_faces:
+            pts = [self.out_verts[i] for i in face]
+            ring_area = u.get_ring_area([p[:2] for p in pts]) * u.get_ring_orientation([p[:2] for p in pts])
+            if abs(ring_area) < 1e-12:   # 수직 벽
+                self.assertAlmostEqual(abs(pts[2][2] - pts[1][2]), self.STEP, 9)
+                continue
+            self.assertGreater(ring_area, 0)   # 위를 본다
+            self.assertEqual(len({p[2] for p in pts}), 1)
+            self.assertAlmostEqual(pts[0][2] / self.STEP, round(pts[0][2] / self.STEP), 9)
+            area += ring_area
+        self.assertAlmostEqual(area, self.N * self.N, 6)
+
+    def test_watertight_inside(self):
+        edges = {}
+        for face in self.out_faces:
+            for k in range(len(face)):
+                key = (self.out_verts[face[k - 1]], self.out_verts[face[k]])
+                self.assertNotIn(key, edges, "같은 방향 변 두 번 — 겹치거나 뒤집힌 면")
+                edges[key] = True
+        n = self.N
+        on_side = lambda p, q: any(p[c] == q[c] == v for c in (0, 1) for v in (0.0, float(n)))
+        open_edges = [e for e in edges if (e[1], e[0]) not in edges]
+        self.assertTrue(open_edges)
+        for p, q in open_edges:
+            self.assertTrue(on_side(p, q), "안쪽에 열린 변 %s-%s — 벽이 빠졌다" % (p, q))
+
+    def test_stepped_edges_match_mesh(self):
+        out = set(self.out_verts)
+        n = self.N
+        for i in range(n):   # 아래 변(y = 0)을 따라 — 대상지 경계 벽 윗선이 주변 계단 지형 정점에 맞는다
+            for p, q in u.get_stepped_edges(self.verts[i], self.verts[i + 1], self.STEP):
+                self.assertIn(p, out)
+                self.assertIn(q, out)
+        self.assertEqual(u.get_stepped_edges((0, 0, 1.3), (1, 0, 2.7), 0), [((0, 0, 1.3), (1, 0, 2.7))])
+
+
 if __name__ == "__main__":
     unittest.main()

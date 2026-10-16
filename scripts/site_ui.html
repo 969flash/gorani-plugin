@@ -429,7 +429,7 @@ var LAYER_OPTS = [["02b_landuse", "토지이용(02b)"], ["05_road_center", "도�
 var DEFAULTS = { mode: "lots", placement: "origin", flatten_site: false, flatten_level: "mean", site_output: "curve", radius: 500, shape: "circle", import_after: true, make_basemap: true, paper: "A3", paper_mm: [420, 297], scales: [5000],
   basemap_layers_on: [], make_sheets: true, sheet_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], floor_breaks: [12, 20], elev_preset: "20m",
   make_tables: true, include_minor_buildings: false, demolished: "dashed", refresh_buildings: true, include_api_objects: false,
-  include_zoning: false, terrain_vertex_color: false, make_dwg: false, zoom_after_import: true, style: { preset: "std" } };
+  include_zoning: false, terrain_vertex_color: false, terrain_step: 0, make_dwg: false, zoom_after_import: true, style: { preset: "std" } };
 var MAP_STYLE = {   // 패널 지도 — 대상지·선택은 패널 블루 하나(DESIGN.md). 도면 안 대상지 색은 도면 스타일이 정한다
   lot: { color: "#465061", weight: 1, opacity: .4, fillOpacity: .01 },
   target: { color: "#0057ff", weight: 2, fillColor: "#0057ff", fillOpacity: .28 },
@@ -986,7 +986,7 @@ function renderRange() {
   updateSummaries(); renderEstimate(); lockSteps();
   sendPreflight(0);
 }
-// ── ③ 옵션 — 지도와 무관한 것(좌표·평탄화·산출물·자료 상태·고급) ──
+// ── ③ 옵션 — 지도와 무관한 것(좌표·평탄화·지형·산출물·자료 상태·고급) ──
 function renderOptions() {
   var o = state.options, sec = document.querySelector('section[data-step="3"]'), seg = SEG;
   var catalog = (state.init && state.init.sheet_catalog) || [];
@@ -1005,6 +1005,8 @@ function renderOptions() {
       '<select class="sm" name="flatten_level" id="flatten_level" aria-label="평탄 높이"' + (o.flatten_site ? "" : " disabled") + '>' +
         [["mean", "경계 평균 높이"], ["min", "경계 최저 높이"], ["max", "경계 최고 높이"]].map(function (x) { return '<option value="' + x[0] + '"' + (o.flatten_level === x[0] ? " selected" : "") + ">" + x[1] + "</option>"; }).join("") + "</select></div>" +
       '<div class="hint">대상지 경계에서 지형을 정확히 잘라 평탄면 + 경계 벽(옹벽 자리)으로 만듭니다. 평탄면은 바닥 메시를 고르면 CTX::Site::ground, 아니면 CTX::Terrain::site_flat. 평탄화 전 지형은 꺼진 레이어 CTX::Terrain::site_original로 남습니다.</div>' : "") +
+    '<h3>지형</h3>' +
+    '<div class="seg" role="radiogroup" aria-label="지형 표현">' + [[0, "매끈"], [1, "계단 1 m"], [2, "계단 2 m"], [5, "계단 5 m"]].map(function (x) { return seg("terrain_step", x[0], x[1], +(o.terrain_step || 0) === x[0] ? " checked" : ""); }).join("") + "</div>" +
     '<h3>산출물 <span class="sub">context.3dm은 항상</span></h3>' +
     '<label class="chk"><input type="checkbox" name="import_after"' + (o.import_after ? " checked" : "") + ">생성 뒤 현재 문서에 넣기</label>" +
     '<div class="drow"><label class="chk"><input type="checkbox" name="make_basemap"' + (o.make_basemap ? " checked" : "") + '>베이스맵 .ai</label><span class="sum" id="basemap_summary"></span><button type="button" class="disc" data-act="disc" aria-expanded="false" aria-controls="basemap_disc">레이어' + ico("down") + '</button></div>' +
@@ -1127,6 +1129,7 @@ function readOption(el) {
     case "sheet_ids": o.sheet_ids = checkedValues("sheet_ids", true); break;
     case "basemap_layers_on": o.basemap_layers_on = checkedValues("basemap_layers_on"); break;
     case "style_pick": var sv = el.value.split(":"); o.style = sv[0] === "s" ? Object.assign({}, savedStyle(sv.slice(1).join(":")), { name: sv.slice(1).join(":") }) : { preset: sv[1] }; break;
+    case "terrain_step": o.terrain_step = +el.value; break;
     case "floor_breaks": o.floor_breaks = [+$("fb0").value || 12, +$("fb1").value || 20]; break;
     default: o[n] = el.type === "checkbox" ? el.checked : el.value;
   }
