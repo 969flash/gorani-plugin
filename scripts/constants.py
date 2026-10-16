@@ -508,6 +508,7 @@ PANEL_DEFAULT_OPTIONS = {
     "make_tables": True,
     "include_minor_buildings": False, "demolished": "dashed", "refresh_buildings": True, "include_api_objects": False,
     "include_zoning": False, "terrain_vertex_color": False,
+    "terrain_step": 0,   # 지형 표현: 0 = 매끈(TIN), > 0 = 계단형(등고 모형) 단 간격 m — 패널은 1·2·5 m. 국내 원천 등고선은 5 m 간격이라 1·2 m 단은 보간값
     "make_dwg": False,   # 2D 도면(BM::)을 .dwg로도 — CAD 사용자용. 기본 off
     "zoom_after_import": True,
     "style": {"preset": "std"},   # 도면 스타일 — 사용자가 바꾼 값만. 해석은 sheet_svg.get_style(STYLE_*)
@@ -553,6 +554,7 @@ TERRAIN_RESAMPLE = 4.0          # m — 등고선 리샘플 간격 (07 §1)
 TERRAIN_GRID = 3.0              # m — 출력 지형 메시 칸(2026-10-10: 들로네 대신 쿼드 위주 — 영역 경계는 원래 선, 안쪽은 정사각 칸)
 TERRAIN_GRID_MAX_FACES = 250000 # 범위 bbox ÷ 칸² 상한 — 넘으면 칸을 키운다(위치 1:5000 용지 4.2×3.0 km → 약 7 m)
 TERRAIN_MARGIN = 20.0           # m — TIN 입력 범위 여유 (범위 bbox ∪ 건물 bbox + 이 값)
+TERRAIN_STEP_SNAP = 1e-4        # m — 계단 지형: 단 경계에서 이만큼 안의 정점은 경계 위로 본다(투영 오차로 생기는 실오라기 면 방지)
 CLASSIFY_GRID = 50.0            # m — 면 분류용 격자 버킷
 WATER_LIFT = 0.02               # m — 수면 메시를 지형 위로 띄우는 높이
 WATER_EDGE_STEP = 2.0           # m — 수면 경계 조밀화 간격 (TIN 입력, code_map §5.1)

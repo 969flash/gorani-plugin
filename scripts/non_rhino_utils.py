@@ -668,3 +668,118 @@ def get_inside_fraction(parts, ring, ring_bbox=None):
                 total += 1
                 hit += is_point_in_ring(x, y, ring)
     return hit / float(total) if total else 0.0
+
+
+def _get_step_band(z, step):
+    # type: (float, float) -> tuple
+    """표고 z → (z, 단 번호 floor(z / step)). 단 경계 TERRAIN_STEP_SNAP 안이면 z를 경계에 붙이고 경계 위 단으로."""
+    k = int(round(z / step))
+    if abs(z - k * step) < constants.TERRAIN_STEP_SNAP:
+        return k * step, k
+    return z, int(math.floor(z / step))
+
+
+def _get_cross_xy(low, low_z, high, high_z, level):
+    # type: (tuple, float, tuple, float, float) -> tuple
+    """아래 단 점 low → 위 단 점 high 변이 높이 level을 지나는 (x, y). 위 점이 경계 위면 그 점 그대로.
+    늘 아래 → 위 순서로 보간해 이웃 면·대상지 벽이 같은 변에서 같은 값을 얻는다."""
+    if high_z == level:
+        return high[0], high[1]
+    t = (level - low_z) / (high_z - low_z)
+    return low[0] + (high[0] - low[0]) * t, low[1] + (high[1] - low[1]) * t
+
+
+def get_stepped_mesh(verts, faces, step):
+    # type: (list, list, float) -> tuple
+    """매끈한 지형 메시 → 계단형 지형(등고 모형) 메시.
+
+    입력: verts ``[(x, y, z)]``, faces ``[(a, b, c)]`` 또는 ``(a, b, c, d)`` — 공유 정점 번호. step = 단 간격 m(> 0).
+    처리: 정점 단 = floor(z / step). 한 단 안의 면은 그 단 높이로 내린다. 여러 단에 걸친 면은 삼각형으로 나눠
+          둘레(원래 정점 + 변 위 단 경계 교차점)를 돌며 단마다 다각형을 뽑고, 단 경계선마다 높이 step 수직 벽(아래 단 쪽을 본다).
+          교차점은 정점 번호로 묶어 이웃 면과 공유한다. 벽 정점은 단 면과 따로 둔다(공유하면 모서리 음영이 뭉개진다).
+    출력: ``(verts, faces)`` — 면은 3·4각형. 입력은 바꾸지 않는다.
+    """
+    zs, bands = zip(*[_get_step_band(v[2], step) for v in verts]) if verts else ((), ())
+    out_verts, out_faces, index = [], [], {}
+
+    def add(key, x, y, z):
+        i = index.get(key)
+        if i is None:
+            i = index[key] = len(out_verts)
+            out_verts.append((x, y, z))
+        return i
+
+    def vertex(i):
+        return add(i, verts[i][0], verts[i][1], bands[i] * step)
+
+    def cross(a, b, j):
+        """변 a-b × 단 경계 j → (묶음 키, x, y). 위 정점이 경계 위면 키 = 그 정점."""
+        if bands[a] > bands[b]:
+            a, b = b, a
+        x, y = _get_cross_xy(verts[a], zs[a], verts[b], zs[b], j * step)
+        return (b if zs[b] == j * step else (a, b, j)), x, y
+
+    def add_face(face):
+        face = [i for k, i in enumerate(face) if i != face[k - 1]]
+        if len(face) <= 4:
+            if len(face) >= 3:
+                out_faces.append(tuple(face))
+            return
+        out_faces.extend((face[0], face[k], face[k + 1]) for k in range(1, len(face) - 1))
+
+    for face in faces:
+        if min(bands[i] for i in face) == max(bands[i] for i in face):
+            out_faces.append(tuple(vertex(i) for i in face))
+            continue
+        for tri in ([face] if len(face) == 3 else [(face[0], face[1], face[2]), (face[0], face[2], face[3])]):
+            lo, hi = min(bands[i] for i in tri), max(bands[i] for i in tri)
+            if lo == hi:
+                out_faces.append(tuple(vertex(i) for i in tri))
+                continue
+            ring = []   # 둘레 순서 — 원래 정점 i 또는 교차점 (j, 키, x, y)
+            for e in range(3):
+                a, b = tri[e], tri[(e + 1) % 3]
+                ring.append(a)
+                levels = range(bands[a] + 1, bands[b] + 1) if bands[a] < bands[b] else range(bands[a], bands[b], -1)
+                ring.extend((j,) + cross(a, b, j) for j in levels)
+            for k in range(lo, hi + 1):   # 단 k 다각형 = 단 k 정점 + 경계 k·k+1 교차점, 높이 k × step
+                poly = []
+                for p in ring:
+                    if not isinstance(p, tuple):
+                        if bands[p] == k:
+                            poly.append(vertex(p))
+                    elif p[0] in (k, k + 1):
+                        j, key, x, y = p
+                        poly.append(vertex(key) if not isinstance(key, tuple) and bands[key] == k else add((key, k), x, y, k * step))
+                add_face(poly)
+            for j in range(lo + 1, hi + 1):   # 경계 j 벽 — 높이 (j−1)·step → j·step
+                (_j, ka, xa, ya), (_j, kb, xb, yb) = [p for p in ring if isinstance(p, tuple) and p[0] == j]
+                if (xa, ya) == (xb, yb):
+                    continue
+                low = next(i for i in tri if bands[i] < j)
+                if (yb - ya) * (verts[low][0] - xa) - (xb - xa) * (verts[low][1] - ya) < 0:
+                    (ka, xa, ya), (kb, xb, yb) = (kb, xb, yb), (ka, xa, ya)
+                z0, z1 = (j - 1) * step, j * step
+                out_faces.append((add(("w", ka, z0), xa, ya, z0), add(("w", kb, z0), xb, yb, z0),
+                                  add(("w", kb, z1), xb, yb, z1), add(("w", ka, z1), xa, ya, z1)))
+    return out_verts, out_faces
+
+
+def get_stepped_edges(a, b, step):
+    # type: (tuple, tuple, float) -> list
+    """자연 지반 변 a → b ``(x, y, z)``를 계단 지형 위 토막 ``[(p, q)]``로 — 토막 두 끝 z = 그 토막의 단 높이.
+    get_stepped_mesh와 같은 교차점이라 대상지 경계 벽 윗선이 주변 계단 지형과 맞는다. step <= 0이면 ``[(a, b)]`` 그대로."""
+    if step <= 0:
+        return [(a, b)]
+    (za, ka), (zb, kb) = _get_step_band(a[2], step), _get_step_band(b[2], step)
+    up = ka < kb
+    pts = [(a[0], a[1])]
+    for j in (range(ka + 1, kb + 1) if up else range(ka, kb, -1)):
+        pts.append(_get_cross_xy(a, za, b, zb, j * step) if up else _get_cross_xy(b, zb, a, za, j * step))
+    pts.append((b[0], b[1]))
+    out = []
+    for k in range(len(pts) - 1):
+        z = (ka + (k if up else -k)) * step
+        if pts[k] != pts[k + 1]:
+            out.append(((pts[k][0], pts[k][1], z), (pts[k + 1][0], pts[k + 1][1], z)))
+    return out
