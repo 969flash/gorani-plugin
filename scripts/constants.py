@@ -1,4 +1,4 @@
-"""UrbanDesignTool 상수 — 한 파일에 근거 주석과 함께 둔다. 다른 곳에 매직넘버 금지.
+"""UrbanSite 상수 — 한 파일에 근거 주석과 함께 둔다. 다른 곳에 매직넘버 금지.
 
 필지 DB·주소 해석·VWorld 호출·컨텍스트 생성 상수만 둔다. 컨텍스트(건물·도로·지형·수계) 상수는 그 모듈을 만들 때
 여기에 절을 추가한다.
@@ -9,8 +9,7 @@ import os
 # ─────────────────────────────────────────────────────────
 # 도구 이름 — 명령 앨리어스·툴바·패널 캡션이 같은 이름을 쓴다
 # ─────────────────────────────────────────────────────────
-TOOL_NAME = "UrbanDesignTool"
-PANEL_CAPTION = "대지검토"
+TOOL_NAME = "UrbanSite"
 
 # ─────────────────────────────────────────────────────────
 # 지오메트리 범위·정밀도 (내부 단위 m)
@@ -47,7 +46,7 @@ DATABASE_PATH = "data/seoul_site.db"  # Rhino가 읽는 필지 SQLite DB (스키
 DATABASE_SCHEMA_VERSION = 5           # 5: parcel_land_use(필지별 지역지구등 지정 현황) 추가
 RESULT_DIRNAME = "result"             # 산출물(3dm·베이스맵·현황도) 저장 루트 (gitignore)
 # 쓰기 자리(data/·result/·.env)의 기준 폴더. 저장소·폴더 배포판은 루트에 data/가 있어 루트를 쓴다.
-# Yak 설치본은 패키지 폴더가 업데이트 때 통째로 바뀌므로 사용자 홈 아래 ~/UrbanDesignTool을 쓴다.
+# Yak 설치본은 패키지 폴더가 업데이트 때 통째로 바뀌므로 사용자 홈 아래 ~/UrbanSite를 쓴다.
 _ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOME_DIR = _ROOT_DIR if os.path.isdir(os.path.join(_ROOT_DIR, "data")) else os.path.join(os.path.expanduser("~"), TOOL_NAME)
 
@@ -209,7 +208,7 @@ TERRAIN_THEME = "terrain"
 
 # 해외 대상지(osm_context.py) — OSM Overpass + AWS Terrain Tiles. 사용자 PC가 직접 부른다(서버 없음).
 # Overpass 이용 기준: IP당 하루 1만 질의·1 GB 미만(https://wiki.openstreetmap.org/wiki/Overpass_API) — 대상지 1회 1질의
-OSM_USER_AGENT = "UrbanDesignTool/0.1 (Rhino plugin; https://www.openstreetmap.org/copyright)"
+OSM_USER_AGENT = "UrbanSite/0.1 (Rhino plugin; https://www.openstreetmap.org/copyright)"
 OSM_TIMEOUT_SECONDS = 60         # 미러 하나당. 공개 Overpass는 자주 붐빈다(2026-10-13 파리 900 m: 독일 504, kumi·coffee 120 s 초과, mail.ru 22 s)
 OSM_OVERPASS_URLS = ("https://overpass-api.de/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
                      "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter")
@@ -263,8 +262,12 @@ PACK_BOUNDS_CORE_QUANTILE = 0.005
 PACK_BOUNDS_EXTEND_MIN = 5000.0        # m
 PACK_BOUNDS_MARGIN = 200.0             # m — 시군구 분할 격자 한 칸(경계 객체는 양쪽 팩에 있다)
 # 사용 통계(usage_stats.py) — GA4 Measurement Protocol. 측정 ID·secret이 비면 보내지 않는다. 끄는 설정 없음(고지는 docs/install.md)
-GA_MEASUREMENT_ID = "G-NJC4VMHPM1"  # GA4 웹 스트림 측정 ID(G-…)
-GA_API_SECRET = "Yxwc8yciQiGRUAVajxTBjg"  # 관리 > 데이터 스트림 > Measurement Protocol API secret. 코드에 드러나도 된다(가짜 이벤트 주입 위험만)
+# 호스트마다 GA4 속성을 따로 둔다 — 웹사이트·Rhino·Blender·SketchUp을 섞지 않고 본다(사용자 결정 2026-10-16). 키 = context_builder.get_host()
+# 값 = (웹 스트림 측정 ID G-…, 관리 > 데이터 스트림 > Measurement Protocol API secret). 비면 그 호스트는 보내지 않는다. secret은 드러나도 된다(가짜 이벤트 주입 위험만)
+GA_STREAMS = {
+    "rhino": ("G-NJC4VMHPM1", "Yxwc8yciQiGRUAVajxTBjg"),
+    "blender": ("G-9D69356PZJ", "vHA2irOxQeiDwDQxZvIo_w"),   # 속성 "UrbanSite Blender", 스트림 16139271804
+}
 GA_ENDPOINT = "https://www.google-analytics.com/mp/collect"
 GA_TIMEOUT_SECONDS = 5  # 백그라운드 스레드라 패널을 막지 않는다
 GA_PARAM_VALUE_MAX = 100  # GA4 표준 속성 이벤트 매개변수 값 길이 상한(360은 500)
@@ -384,13 +387,14 @@ TOPO_USE_TO_USE = {
 HEIGHT_GRADES = ("A", "B", "C", "D")
 
 # ═════════════════════════════════════════════════════════
-# 패널(대지검토) — docs/panel_ui.md·docs/ui_spec.md
+# 패널 — docs/panel_ui.md·docs/ui_spec.md
 # ═════════════════════════════════════════════════════════
 PANEL_VERSION = "0.1"
 INSTALL_DOC = "docs/install.md"
-PREFS_DIRNAME = ".urbandesigntool"            # 사용자 홈 아래. prefs.json·source_news.json
+PREFS_DIRNAME = ".urbansite"            # 사용자 홈 아래. prefs.json·source_news.json
 RESULT_DATE_FORMAT = "%Y%m%d"                  # result/<YYYYMMDD>/<대상지명>/
 CONTEXT_MODEL_FILE_NAME = "context.3dm"
+BLENDER_MODEL_FILE_NAME = "context.blend"      # Blender판 사본(blender_baker.save_copy) — 3dm 대신
 CONTEXT_META_FILE_NAME = "context.json"
 BASEMAP_FILE_FORMAT = "basemap_%d.ai"          # 축척 분모
 # DWG 저장 스위치. 활성 문서에서 .dwg를 쓰면 Mac Rhino 8이 12분 멈춘 뒤 실패했다(2026-10-14 을지로1가 87, job 1014-152138 731 s) →
@@ -454,7 +458,7 @@ BM_GRID_STEP = 500.0            # m — 13_grid 간격(세계좌표 배수). 1 k
 BM_GREEN_FACILITY_KINDS = ("공원", "녹지")   # overlays facility kind 중 02_green에 넣는 것(FACILITY_KINDS 값)
 # 등고선 '구분' → 09_contour 서브레이어 ASCII 키. .ai 레이어 블록 '(BM::09_contour::main) Ln'은 Latin-1 PostScript라 한글이면 깨진다(job 1007-235316-709b 'ì£¼ê³¡ì…').
 # 한글 값은 UserString GUBUN에 남긴다. 표에 없거나 비면 'main'. 톤은 전부 부모 K35(계곡선 K55는 deliverables B.2 보류 주석).
-BM_DIM_STYLE_FORMAT = "UDT_%g"               # 문자 높이(문서 단위)별 치수 스타일 이름 — 객체 TextHeight 오버라이드는 Add에서 사라진다(context_baker._get_dim_style_id)
+BM_DIM_STYLE_FORMAT = "UrbanSite_%g"               # 문자 높이(문서 단위)별 치수 스타일 이름 — 객체 TextHeight 오버라이드는 Add에서 사라진다(context_baker._get_dim_style_id)
 
 # 생성 phase와 진행률 가중치 — panel_ui.md 진행률 규약
 PHASES = ("query", "refresh", "terrain", "write_3dm", "basemap", "sheets", "tables", "import")
@@ -470,7 +474,7 @@ ESTIMATE_SECONDS_BASE = 2.0
 ESTIMATE_SECONDS_PER_BUILDING = 1.0 / 370.0   # (50.7 − 2) / 18016
 ESTIMATE_MB_PER_BUILDING = 1.0 / 170.0        # 110 / 18016 (반경 500 m는 1/205)
 RADIUS_MIN, RADIUS_MAX = 100, 2000
-SHEET_CATALOG = [   # (id, 키, 이름, 영문 부제, 필요한 데이터: lot|building|terrain|road). 번호 = 파일 번호(00_베이스맵.svg)
+SHEET_CATALOG = [   # (id, 키, 이름, 영문 부제, 필요한 데이터: lot|building|terrain|road|image). 번호 = 파일 번호(00_베이스맵.svg)
     # 도시설계 분석도(형태·조직·접근·녹지·시설) → 현황도(가로·토지·규제·건축물·지가·지형) → 직접 그리는 틀. 2026-10-13 개편 — 옛 #1 위치·범위도는 00 베이스맵이 맡는다
     (0, "base", "베이스맵", "Base map", "lot"),
     (1, "figure", "도형-배경도", "Figure-ground", "building"),
@@ -495,6 +499,9 @@ SHEET_CATALOG = [   # (id, 키, 이름, 영문 부제, 필요한 데이터: lot|
     (20, "view", "경관·조망 (틀)", "Views", "lot"),
     (21, "image", "이미지맵 (틀)", "Image of the city", "lot"),
     (22, "synthesis", "종합분석 (틀)", "Synthesis", "lot"),
+    # 2026-10-14 추가 — 번호를 끼워 넣으면 저장된 sheet_ids·옛 결과 폴더가 다른 시트를 가리켜서 끝에 붙인다. image = 영상 타일(생성 때 받음, DB 무관)
+    (23, "aerial", "항공사진", "Aerial photo", "image"),
+    (24, "axo", "입체 매스도", "Axonometric massing", "building"),   # 2026-10-15 추가 — 범위 안 건물을 평행 투상(등각)으로
 ]
 SHEET_IDS = {key: sheet_id for sheet_id, key, _name, _en, _needs in SHEET_CATALOG}
 PANEL_DEFAULT_OPTIONS = {
@@ -574,9 +581,19 @@ QUERY_MARGIN = 20.0             # m — DB 질의 bounds 여유 (범위 bbox ∪
 HEIGHT_GRADE_AB_MIN = 0.7       # 높이 등급 A+B 비율이 이 미만이면 height_estimate 경고 (deliverables §C #8, 08높이 §0.5)
 COMPASS_DIRECTIONS = ("동", "북동", "북", "북서", "서", "남서", "남", "남동")   # 미보유 도엽 방향 표기 (atan2 45° 단위)
 RUN_BAKE_CHUNK = 500            # run이 이 수만큼 베이크할 때마다 progress 콜백(취소 지점). 청크마다 Redraw 1회 — 성수 500 m 7,200개 실측으로 조정
-UDT_MANAGED_KEY = "UDT_MANAGED"    # 베이크 객체 UserString — clear_previous 대상 표시
-UDT_LOT_KEY = "UDT_LOT_KEY"        # 베이크 객체 UserString — pnus 정렬 sha1 앞 8자리
-DOC_ORIGIN_KEYS = ("UDT_ORIGIN_E", "UDT_ORIGIN_N", "UDT_CRS")   # doc.Strings 문서 수준 원점 기록
+UDT_MANAGED_KEY = "URBANSITE_MANAGED"  # 베이크 객체 UserString — clear_previous 대상 표시
+UDT_LOT_KEY = "URBANSITE_LOT_KEY"      # 베이크 객체 UserString — pnus 정렬 sha1 앞 8자리
+DOC_ORIGIN_KEYS = ("URBANSITE_ORIGIN_E", "URBANSITE_ORIGIN_N", "URBANSITE_CRS")   # doc.Strings 문서 수준 원점 기록(Blender는 장면 사용자 속성)
+# 패널이 호스트마다 바꿔 쓰는 이름(init_state.host) — 문서 이름·결과 모델 파일·DWG 저장(Rhino만)·커브 가져오기.
+# ask_stats = 사용 통계를 동의한 사람만 보낸다(Blender 확장 약관 4.5 '사용자 허락 없이 외부 전송 금지', 사용자 결정 2026-10-16 — Rhino는 그대로)
+HOST_LABELS = {
+    "rhino": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": True, "ask_stats": False},
+    "blender": {"id": "blender", "name": "Blender", "doc": "Blender 장면", "model": BLENDER_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},
+}
+# Blender판(blender_geometry·cmd_blender)
+BLENDER_CDT_EPSILON = 1e-4      # m — mathutils delaunay_2d_cdt 근접 판정(0이면 안 된다). 0.1 mm — 원천 좌표는 mm 반올림
+BLENDER_PANEL_POLL = 0.1        # s — 브라우저 패널 명령을 Blender 메인 스레드에서 꺼내는 간격(bpy.app.timers)
+BLENDER_VIEW_CLIP_END = 20000.0  # m — 줌할 때 3D 뷰 먼 클리핑(기본 1 km면 반경 1 km 지형이 잘린다)
 # CTX::Ref UserString 고정 문자열 — deliverables §A.1 Ref 행. TRANSFORM은 UPIS 5174→5186 변환(META_CRS_LINE과 같은 근거), VDATUM은 수치지형도 표고 기준
 REF_TRANSFORM = "EPSG:5189 (UPIS EPSG:5174→5186, 공칭 ±1 m)"
 REF_VDATUM = "인천만 평균해수면(수준원점 26.6871 m)"
@@ -628,9 +645,25 @@ SHEET_PUBLIC_USE = {"10": "education", "09": "welfare", "11": "welfare", "05": "
 SHEET_PUBLIC_NGII = {"교육연구시설": "education", "의료시설": "welfare", "노유자(노인및어린이)시설": "welfare",
                      "문화및집회시설": "culture", "운동시설": "culture", "수련시설": "culture"}   # 대장 용도가 빈 건물은 수치지형도 용도로
 SHEET_PUBLIC_FACILITY = {"광장": "plaza", "공공공지": "plaza", "자동차정류장": "plaza", "보건위생시설": "welfare"}   # UPIS 시설 — 학교·청사는 서울 UPIS 시설 레이어에 없다(2026-10-13 확인)
-SHEET_NO_MASK = ("base", "walk")   # 범위 밖을 흐리지 않는 시트 — 보행권은 15분(1.2 km)이 범위보다 넓다
+SHEET_NO_MASK = ("base", "walk", "aerial")   # 범위 밖을 흐리지 않는 시트 — 보행권은 15분(1.2 km)이 범위보다 넓다, 항공사진은 주변이 곧 내용
 SHEET_TEMPLATE_KEYS = ("view", "image", "synthesis")   # 직접 그리는 틀 — 빈 레이어와 범례만
 SHEET_THUMB_PX = 160             # 패널 도면 칸 썸네일(정사각 지도 칸 가운데) 한 변 px — PNG 1장 ≈ 5~15 KB
+# 항공사진 시트 — 웹 메르카토르 영상 타일을 받아 SVG <image>로 깐다(JPEG을 풀지 않는다). 타일 URL·출처는 review_map.get_tile_config(패널 지도와 같은 선택)
+AERIAL_DPI = 150                 # 인쇄 해상도 목표 — A3 1:5000이면 줌 18(위도 37°에서 0.47 m/px, 타일 ≈150장·SVG ≈4 MB). 원천 정사영상은 25~51 cm
+AERIAL_PREVIEW_DPI = 60          # 패널 '도면 스타일' 미리보기 — 인쇄 해상도 SVG(수 MB)를 웹뷰로 밀지 않는다
+AERIAL_MAX_ZOOM = 19             # VWorld 영상·Esri 공통 최대 줌
+AERIAL_MAX_TILES = 400           # 한 장 상한 — 넘으면 줌을 한 단계씩 낮춘다(A1 1:5000 줌 18 ≈ 530장 → 17)
+AERIAL_TIMEOUT_SECONDS = 10      # 타일 한 장
+AERIAL_WORKERS = 8               # 동시에 받는 타일 수
+AERIAL_TILE_OVERLAP = 1.0 + 1.0 / 256   # 타일을 1 px 겹쳐 놓는다 — 뷰어 안티앨리어싱으로 생기는 타일 사이 머리카락 틈을 덮는다
+# 입체 매스도(axo) — 범위 안 건물(발자국 × height_m)을 평행 투상. 시점은 Rhino _SetView 등각 넷과 같다(카메라가 있는 방위). 지형은 평탄 가정
+AXO_VIEWS = {"se": ("남동 등각", 135.0), "sw": ("남서 등각", 225.0), "ne": ("북동 등각", 45.0), "nw": ("북서 등각", 315.0)}   # (이름, 카메라 방위각 — 북 0°, 시계)
+AXO_ELEVATION_DEG = 35.264       # 등각 투상 고도각 = atan(1/√2) — Rhino Isometric과 같다
+AXO_MARGIN_MM = 10.0             # 지도 칸 가장자리 여백(A3 기준 — 용지 배율을 곱한다)
+AXO_LINE_MM = 0.12               # 건물 모서리 선(평면 건물선 0.05 mm는 입체에서 묻힌다)
+AXO_WALL_SHADE = (0.12, 0.28)    # 벽 두 방향(화면 오른쪽·왼쪽을 향한 면)을 글자색 쪽으로 섞는 비율 — 지붕은 건물색 그대로
+AXO_EDGE_SHADE = 0.6             # 모서리 선 = 건물색을 글자색 쪽으로 이만큼
+AXO_SITE_TINT = 0.55             # 대상지 안 건물 면을 대상지 색 쪽으로 섞는 비율 — 대상지가 먼저 읽히게
 
 # ── 도면 스타일 (패널 '도면 스타일' 화면 · HOME_DIR/styles/*.json · options.style) ──
 # 색은 도면 요소별, 나머지는 전 도면 공통. 법정·관행 색표가 있는 주제(용도지역·토지이용)는 SHEET_LEGENDS에 고정 — 바꾸면 보는 사람이 오독한다
@@ -653,8 +686,8 @@ STYLE_PRESETS = {
 }
 STYLE_DEFAULT_PRESET = "std"
 STYLE_DEFAULTS = {"layout": "side", "line_scale": 1.0, "text_scale": 1.0, "font": "sans", "fade_outside": 0.55,
-                  "labels": True, "subtitle_en": True, "project": ""}
-STYLE_CHOICES = {"layout": ("side", "bottom", "map"), "font": ("sans", "serif"), "ramp": tuple(STYLE_RAMPS)}
+                  "labels": True, "subtitle_en": True, "project": "", "axo_view": "se"}
+STYLE_CHOICES = {"layout": ("side", "bottom", "map"), "font": ("sans", "serif"), "ramp": tuple(STYLE_RAMPS), "axo_view": tuple(AXO_VIEWS)}
 STYLE_RANGES = {"line_scale": (0.5, 2.0), "text_scale": (0.8, 1.4), "fade_outside": (0.0, 0.8)}
 STYLE_FONTS = {"sans": "Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif",
                "serif": "'Noto Serif KR', AppleMyungjo, Batang, serif"}
@@ -691,6 +724,8 @@ SHEET_LEGENDS = {
         ("node", "결절점", {"shape": "circle", "fill": "#FFFFFF", "stroke": "#2D6CB5", "stroke-width": 0.6}),
         ("landmark", "랜드마크", {"fill": "#2B2B29"}),
     ]),
+    "aerial": ("none", []),           # 영상 타일 + 대상지·범위 선 — 범례는 sheet_svg가 만든다
+    "axo": ("none", []),              # 평행 투상 건물·바닥(도로·수계·녹지·대상지) — 범례는 sheet_svg가 만든다
     "synthesis": ("none", [           # 제약·기회 두 층 — 현황도를 겹쳐 사람이 판단한다(03 §5)
         ("opportunity", "기회·강점", {"fill": "#CFE8D8", "stroke": "#1F8A5B", "stroke-width": 0.3}),
         ("constraint", "제약·약점", {"fill": "#F6D0C8", "stroke": "#C43C3C", "stroke-width": 0.3}),

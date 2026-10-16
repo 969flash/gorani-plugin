@@ -7,16 +7,21 @@
 
 RhinoDoc은 쓰지 않는다 — 객체를 만들어 돌려줄 뿐 문서는 context_baker가 만진다.
 원점 적용(세계 → 로컬)은 get_local_pts 한 함수에서만 한다. sheet_svg용 삼각형은 세계좌표로 되돌려 준다.
+Rhino가 없으면(Blender·python3) 순수 파이썬 도우미(get_tin_points·get_parts·NearestXYZ·get_class_polygons·get_building_attrs)만 쓴다 —
+blender_geometry가 같은 규칙으로 지형을 만든다.
 """
 
 import math
 import time
 from dataclasses import dataclass, field
 
-import Rhino
-import Rhino.Geometry as rg
-from Rhino.Geometry.Intersect import Intersection
-from System.Collections.Generic import List
+try:
+    import Rhino
+    import Rhino.Geometry as rg
+    from Rhino.Geometry.Intersect import Intersection
+    from System.Collections.Generic import List
+except ImportError:   # Blender·python3 — 순수 파이썬 도우미만
+    Rhino = rg = Intersection = List = None
 
 import basemap_ai
 import constants
@@ -26,8 +31,8 @@ import sheet_svg
 from context_builder import DomainError
 
 TOPO_SOURCE_ID = "ngii_topo_5000"
-_CLASS_LAYERS = {"terrain": "Terrain", "water": "Water", "road": "Roads", "green": "Green", "rail": "Rail"}
-_SITE_LAYERS = {"site_wall": "Terrain::site_wall", "site_original": "Terrain::site_original"}   # site_ground는 옵션 따라(_get_terrain_items)
+CLASS_LAYERS = {"terrain": "Terrain", "water": "Water", "road": "Roads", "green": "Green", "rail": "Rail"}
+SITE_LAYERS = {"site_wall": "Terrain::site_wall", "site_original": "Terrain::site_original"}   # site_ground는 옵션 따라(_get_terrain_items)
 
 
 @dataclass
@@ -91,7 +96,7 @@ def _strip_ring(ring):
     return pts
 
 
-def _get_parts(geometry):
+def get_parts(geometry):
     # type: (dict) -> list
     """Polygon·MultiPolygon → ``[[outer, hole, ...], ...]`` (링은 _strip_ring). 다른 타입은 빈 목록."""
     if not geometry or geometry.get("type") not in ("Polygon", "MultiPolygon"):
@@ -124,7 +129,7 @@ def _get_prism_mesh(part, origin, base_z, height):
     return rg.Mesh.CreateFromExtrusion(ext, rg.MeshingParameters.Minimal)
 
 
-class _NearestXYZ(object):
+class NearestXYZ(object):
     """(x, y, z) 점의 격자 색인 — 최근접 점의 Z. 범위 링 정점·수면 경계·건물 폴백 ①이 쓴다."""
 
     def __init__(self, points, cell):
@@ -161,7 +166,7 @@ class _NearestXYZ(object):
 
 # ── 지형 ───────────────────────────────────────────────────
 
-def _get_class_polygons(prepared):
+def get_class_polygons(prepared):
     # type: (object) -> list
     """면 분류 폴리곤 ``[(class, name, parts)]``. water = features 하천·실폭하천·호수 ∪ 지목 하천·구거·유지,
     rail = 철도부지선(면), road = 도로경계(면), green = 경지계 ∪ 지목 공원·임야·체육용지·유원지."""
@@ -177,12 +182,12 @@ def _get_class_polygons(prepared):
         elif f.theme == "green":
             cls = "green"
         if cls:
-            polys.append((cls, f.name or f.kind, _get_parts(f.geometry)))
+            polys.append((cls, f.name or f.kind, get_parts(f.geometry)))
     for lot in list(prepared.target_lots) + list(prepared.near_lots):
         if lot.land_category in constants.LAND_CATEGORIES_WATER:
-            polys.append(("water", lot.land_category, _get_parts(lot.geometry)))
+            polys.append(("water", lot.land_category, get_parts(lot.geometry)))
         elif constants.SHEET_LAND_CATEGORY_KEYS.get(lot.land_category) in ("park", "forest"):
-            polys.append(("green", lot.land_category, _get_parts(lot.geometry)))
+            polys.append(("green", lot.land_category, get_parts(lot.geometry)))
     return polys
 
 
@@ -222,14 +227,14 @@ def get_tin_points(prepared):
     n_input = len(pts)
     if not n_input:
         raise DomainError("no_terrain_points", "범위 안 등고선·표고점이 없습니다 — 컨텍스트 DB 도엽을 확인하세요")
-    nearest = _NearestXYZ(list(pts.values()), constants.CLASSIFY_GRID)
+    nearest = NearestXYZ(list(pts.values()), constants.CLASSIFY_GRID)
     for x, y in prepared.extent_ring:
         add(x, y, nearest.nearest_z(x, y))
     # 분류 폴리곤 경계 조밀화 — 수면 WATER_EDGE_STEP, 도로·철도·녹지 TERRAIN_RESAMPLE. 성수 fixture는 등고선·표고점이 689점뿐이라
     # (평지) 이 점이 없으면 범위 안 면 1,488개·도로면 124개로 분류가 무의미했다(job 1007-221623-027d).
     # 간격은 반경에 비례(R=500 4 m, R=1 km 8 m) — 폴리곤 수가 R²로 늘어 R=1 km에서 74,014점·148k면·분류 6.3 s였다(job 1007-225058)
     # ponytail: 그래도 점 수 ∝ R. 1 km 분류가 거슬리면 step ∝ R² 또는 범위 링 안(is_point_in_ring)만 넣기
-    polys = _get_class_polygons(prepared)
+    polys = get_class_polygons(prepared)
     water_polys = [p for p in polys if p[0] == "water"]
     step_factor = max(1.0, float(prepared.radius) / constants.CONTEXT_RADIUS)
     for cls, _name, parts in polys:
@@ -298,7 +303,7 @@ def _drape(meshes, tin):
             zs[i] = pt.Z
     missing = [i for i, z in enumerate(zs) if z is None]
     if missing:
-        nearest = _NearestXYZ([(v.X, v.Y, v.Z) for v in tin.Vertices.ToPoint3dArray()], constants.CLASSIFY_GRID)
+        nearest = NearestXYZ([(v.X, v.Y, v.Z) for v in tin.Vertices.ToPoint3dArray()], constants.CLASSIFY_GRID)
         for i in missing:
             zs[i] = nearest.nearest_z(pts[i].X, pts[i].Y) or 0.0
     for (m_index, k), p, z in zip(owners, pts, zs):
@@ -436,7 +441,7 @@ def build_terrain(prepared):
                      (verts[c][0] + ox, verts[c][1] + oy, verts[c][2]), "terrain" if inside else "outside"))
 
     # 경계 커브 — 범위와 겹치는 분류 폴리곤 링 전부 + 대상지 링
-    polys = _get_class_polygons(prepared)
+    polys = get_class_polygons(prepared)
     index_grid = non_rhino_utils.GridIndex(constants.CLASSIFY_GRID)
     cut_rings = []
     for index, (cls, _name, parts) in enumerate(polys):
@@ -568,7 +573,7 @@ def _get_terrain_items(prepared, meshes, counts):
         if cls == "site_ground":   # 바닥 메시 출력이면 대상지 색(CTX::Site::ground), 평탄화만이면 지형 색
             layer = "Site::ground" if counts.get("site_output") == "mesh" else "Terrain::site_flat"
         else:
-            layer = _SITE_LAYERS.get(cls) or _CLASS_LAYERS[cls]
+            layer = SITE_LAYERS.get(cls) or CLASS_LAYERS[cls]
         items.append(BakeItem(_layer(layer), mesh, attrs))
     min_x, min_y, max_x, max_y = counts["tin_bounds"]
     for f in prepared.context.get_features("terrain", "spot_struct"):
@@ -597,7 +602,7 @@ def _project_to_mesh(mesh, pts):
     return list(out or []), list(indices or [])
 
 
-def _get_building_attrs(b, height_src):
+def get_building_attrs(b, height_src):
     # type: (object, str) -> dict
     """CTX::Buildings UserString 14키(code_map §7.1). DEMOL_DAY는 v1 빈 값."""
     return {"BLD_ID": str(b.building_id), "PNU": b.pnu, "PNU_SRC": b.src_key.split(":")[0],
@@ -620,7 +625,7 @@ def build_buildings(prepared, tin_mesh):
     top_z = tin_mesh.GetBoundingBox(True).Max.Z + 1.0
     pts, owner, parts_by_building = [], [], []
     for bi, b in enumerate(buildings):
-        parts = _get_parts(b.geometry)
+        parts = get_parts(b.geometry)
         parts_by_building.append(parts)
         for part in parts:
             for ring in part:
@@ -650,7 +655,7 @@ def build_buildings(prepared, tin_mesh):
         else:
             # 폴백 ① — 큰 단지·TIN 가장자리 발자국이 투영에 빗나간 동(벤치 527점 소실): 최근접 TIN 정점 Z
             if nearest is None:
-                nearest = _NearestXYZ([(p.X, p.Y, p.Z) for p in tin_mesh.Vertices.ToPoint3dArray()], constants.CLASSIFY_GRID)
+                nearest = NearestXYZ([(p.X, p.Y, p.Z) for p in tin_mesh.Vertices.ToPoint3dArray()], constants.CLASSIFY_GRID)
             center_pt = get_local_pts([((b.min_x + b.max_x) * 0.5, (b.min_y + b.max_y) * 0.5)], origin)[0]
             base_z = nearest.nearest_z(center_pt.X, center_pt.Y)
             if base_z is None:
@@ -660,7 +665,7 @@ def build_buildings(prepared, tin_mesh):
             top = base_z
             counts["fallback_nearest"] += 1
         height_src = b.height_src + ("~slope" if top - base_z > constants.BUILDING_SLOPE_FLAG else "")
-        attrs = _get_building_attrs(b, height_src)
+        attrs = get_building_attrs(b, height_src)
         building_mesh = rg.Mesh()          # 멀티폴리곤 파트도 한 동 = 한 객체(UserText 한 벌)
         made = 0
         for part in parts:
@@ -702,7 +707,7 @@ def build_curves(prepared):
     if mode == "lots":   # 필지 방식 — 대상 필지마다 Site 커브(가장 넓은 조각 외곽)
         for lot in prepared.target_lots:
             targets.add(lot.pnu)
-            parts = _get_parts(lot.geometry)
+            parts = get_parts(lot.geometry)
             outer = max((part[0] for part in parts if part), key=non_rhino_utils.get_ring_area)
             items.append(BakeItem(_layer("Site"), _get_ring_crv(outer, origin, 0.0), {"PNU": lot.pnu}, lot.lot_number))
     for ring in (prepared.site_rings or []) if mode == "area" else []:   # 구역 방식 — 구역 링 하나, 안의 필지는 Parcels에 IN_SITE=1
@@ -715,7 +720,7 @@ def build_curves(prepared):
         attrs = {"PNU": lot.pnu, "JIMOK": lot.land_category or "", "ZONE": lot.zone_name or ""}
         if lot.pnu in in_site:
             attrs["IN_SITE"] = "1"
-        for part in _get_parts(lot.geometry):
+        for part in get_parts(lot.geometry):
             for ring in part:
                 items.append(BakeItem(_layer("Parcels"), _get_ring_crv(ring, origin, 0.0), attrs))
     ex0, ey0, ex1, ey1 = non_rhino_utils.get_bbox(prepared.extent_ring)
@@ -735,7 +740,7 @@ def build_curves(prepared):
             if o.theme != constants.OVERLAY_THEME_ZONE:
                 continue
             attrs = {"THEME": o.theme, "KIND": o.kind or "", "NAME": o.name or "", "NOTICE_NO": o.notice_number or ""}
-            for part in _get_parts(o.geometry):
+            for part in get_parts(o.geometry):
                 for ring in part:
                     items.append(BakeItem(_layer("Zoning"), _get_ring_crv(ring, origin, 0.0), attrs, o.name or ""))
     return items

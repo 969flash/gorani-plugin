@@ -65,7 +65,7 @@ assert worst <= 0.001, "정점 Z − TIN %.4f m" % worst
 # 압출 방향 — 샘플 발자국 10동, 평면 오버로드 Extrusion.Create → Max.Z ≈ base_z + h
 checked = 0
 for b in context_report.get_buildings_in_extent(prepared)[:10]:
-    parts = context_geometry._get_parts(b.geometry)
+    parts = context_geometry.get_parts(b.geometry)
     base_z, h = 12.0, float(b.height_m)
     crv = context_geometry._get_ring_crv(parts[0][0], prepared.origin, base_z)
     ext = rg.Extrusion.Create(crv, rg.Plane(rg.Point3d(0, 0, base_z), rg.Vector3d.ZAxis), h, True)

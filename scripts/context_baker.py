@@ -17,10 +17,13 @@ import re
 import time
 import types
 
-import Rhino
-import System
-from System.Collections.Generic import List
-from System.Drawing import Color
+try:
+    import Rhino
+    import System
+    from System.Collections.Generic import List
+    from System.Drawing import Color
+except ImportError:   # Blender — blender_baker가 순수 파이썬 도우미(get_lot_key·get_ref_attrs·read_meta)만 쓴다
+    Rhino = System = List = Color = None
 
 import constants
 import non_rhino_utils
@@ -52,7 +55,7 @@ def get_model_unit_scale(doc):
 
 def get_doc_origin(doc):
     # type: (object) -> tuple
-    """doc.Strings UDT_ORIGIN_E/N → (E, N). 없거나 좌표계가 지금과 다르면(국내 문서에 해외 대상지 등) None.
+    """doc.Strings URBANSITE_ORIGIN_E/N → (E, N). 없거나 좌표계가 지금과 다르면(국내 문서에 해외 대상지 등) None.
     context_builder.run이 request['doc_origin']에 넣는다."""
     e, n, crs = (doc.Strings.GetValue(key) for key in constants.DOC_ORIGIN_KEYS)
     if crs and crs != non_rhino_utils.get_crs_label():
@@ -88,7 +91,7 @@ def _get_bm_leaf(full_path):
     return parts[1].split(" ")[0] if len(parts) > 1 and parts[0] == constants.BM_ROOT_LAYER else ""
 
 
-def _get_layer_rgb(full_path):
+def get_layer_rgb(full_path):
     # type: (str) -> tuple
     """레이어 FullPath → RGB. CTX는 constants.CTX_LAYERS(하위 레이어는 부모 색), BM은 K톤 → 회색(서브레이어는 부모 톤)."""
     root, _, rest = full_path.partition("::")
@@ -220,7 +223,7 @@ def clear_previous(doc, lot_key=None):
 
 def _get_dim_style_id(doc, height, style_cache):
     # type: (object, float, dict) -> object
-    """문자 높이(문서 단위)에 맞는 치수 스타일 'UDT_<높이>'를 찾거나 만들어 Id. 객체 TextHeight 오버라이드는 Objects.Add에서 사라진다(job 1007-233219-dff6) —
+    """문자 높이(문서 단위)에 맞는 치수 스타일 'UrbanSite_<높이>'를 찾거나 만들어 Id. 객체 TextHeight 오버라이드는 Objects.Add에서 사라진다(job 1007-233219-dff6) —
     높이를 스타일에 두는 방식."""
     name = constants.BM_DIM_STYLE_FORMAT % height
     if name not in style_cache:
@@ -272,7 +275,7 @@ def bake(doc, items, prepared, lot_key=None):
                 geometry.TextHeight = height
                 geometry.Justification = justification
             attributes = doc.CreateDefaultAttributes()
-            attributes.LayerIndex = _ensure_layer(doc, item.layer, _get_layer_rgb(item.layer), layer_cache)
+            attributes.LayerIndex = _ensure_layer(doc, item.layer, get_layer_rgb(item.layer), layer_cache)
             if getattr(item, "name", ""):
                 attributes.Name = str(item.name)
             for key, value in (item.attrs or {}).items():
@@ -426,7 +429,7 @@ def _set_file_layer_states(doc, path, indexes):
 
 # ── 재삽입·줌 ────────────────────────────────────────────────
 
-def _read_meta(result_dir):
+def read_meta(result_dir):
     # type: (str) -> dict
     try:
         with open(os.path.join(result_dir, constants.CONTEXT_META_FILE_NAME), encoding="utf-8") as f:
@@ -445,7 +448,7 @@ def import_3dm(doc, result_dir, lot_key=None):
     if not os.path.exists(path):
         result["text"] = "파일이 없습니다: %s" % path
         return result
-    meta = _read_meta(result_dir)
+    meta = read_meta(result_dir)
     file_origin = tuple(float(v) for v in (meta.get("doc_origin") or meta.get("origin") or [])) or None   # 파일 좌표의 원점(world면 0,0)
     doc_origin = get_doc_origin(doc)
     if file_origin and doc_origin and (file_origin == (0.0, 0.0)) != (doc_origin == (0.0, 0.0)):
@@ -488,7 +491,7 @@ def zoom_to_site(doc, result_dir, center_lng_lat=None):
     if view is None:
         return False
     scale = get_model_unit_scale(doc)
-    meta = _read_meta(result_dir)
+    meta = read_meta(result_dir)
     index = doc.Layers.FindByFullPath(constants.CTX_ROOT_LAYER + "::Site", -1)
     objects = None if center_lng_lat or index < 0 else doc.Objects.FindByLayer(doc.Layers[index])
     if objects and meta.get("lot_key"):   # 같은 문서의 다른 대상지 Site는 빼고 이번 결과만

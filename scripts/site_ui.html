@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>대지검토</title>
+<title>UrbanSite</title>
 <!--VENDOR_CSS-->
 <style>
 /* 번들 폰트 — 호스트가 base64 data URI로 치환 */
@@ -78,6 +78,7 @@ header { flex: none; padding: 8px 16px 12px; background: var(--surface); border-
 .band.lv-danger { border-color: var(--danger); background: var(--danger-bg); color: var(--danger); }
 .band.lv-info { color: var(--sub); }
 .band .btn { margin-left: auto; flex: none; }
+.band .btn + .btn { margin-left: 0; }
 #blocker { position: absolute; inset: 0; background: var(--bg); padding: 24px 16px; z-index: 1000; overflow: auto; }
 #blocker h2 { margin-bottom: 16px; }
 .check-list { display: grid; grid-template-columns: 1.4em 7em 1fr; gap: 4px 8px; margin-bottom: 16px; }
@@ -167,6 +168,9 @@ label.chk { display: flex; align-items: center; min-height: 32px; }
 .chip.lv-danger { color: var(--danger); }
 .leaflet-container { font: inherit; }
 .leaflet-bar a { border-radius: 0 !important; }
+.aerial-ctl a { font-size: 11px; color: var(--sub); }
+.aerial-ctl a[aria-pressed="true"] { color: var(--accent-ink); box-shadow: inset 0 0 0 2px var(--accent); font-weight: 600; }
+.leaflet-container.aerial .map-label { color: #fff; text-shadow: 0 0 3px rgba(0,0,0,.85); }
 .map-label { background: none; border: 0; box-shadow: none; color: #5c5c58; font-size: 11px; padding: 0; }
 .map-label.extent { color: var(--ink); font-weight: 600; }
 .map-label.frame { color: var(--accent-ink); }
@@ -354,7 +358,7 @@ footer .busy-label { color: var(--sub); font-size: 12px; }
 <body data-step="1" data-run="idle">
 <header>
   <div class="titlebar">
-    <h1>대지검토</h1>
+    <h1>UrbanSite</h1>
     <button id="menu_btn" type="button" data-act="menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu" title="최근 대상지 · 자료 · 키 · 폴더"><span id="badges">확인 중…</span><span class="bar" aria-hidden="true"></span><svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg><span class="sr-only">더보기</span></button>
   </div>
   <ol class="stepper" id="stepper">
@@ -405,7 +409,11 @@ footer .busy-label { color: var(--sub); font-size: 12px; }
 "use strict";
 // ── 브리지 (docs/panel_ui.md) ──
 window.__outbox = []; window.__seq = 0;
+// 브라우저 패널(Blender — cmd_blender가 127.0.0.1에 띄운 서버): 명령은 POST cmd, 상태는 SSE events. 토큰이 없으면 웹뷰(Rhino)
+var BRIDGE_TOKEN = (location.search.match(/[?&]token=([\w-]+)/) || [])[1];
+var HOST = { id: "rhino", name: "Rhino", doc: "Rhino 문서", model: "context.3dm", dwg: true };   // init_state.host로 바뀐다
 function send(msg) {
+  if (BRIDGE_TOKEN) { fetch("cmd?token=" + BRIDGE_TOKEN, { method: "POST", body: JSON.stringify(msg) }); return; }
   window.__outbox.push(msg);
   document.title = "bridge" + (++window.__seq);  // Windows WebView2 — title 이벤트
   location.href = "bridge:flush";                // mac WKWebView — DocumentLoading에서 가로챈다
@@ -415,14 +423,14 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 // ── 상수 (constants.py와 같은 값) ──
 var PHASES = ["query", "terrain", "write_3dm", "basemap", "sheets", "tables"];   // 보이는 단계만 — refresh·import는 엔진이 늘 건너뛴다(사용자가 알 필요 없음)
 var PHASE_LABELS = { query: "필지·건물·지형 조회", refresh: "건물 최신화(VWorld·건축HUB)", terrain: "지형 TIN·면 분류·정합 측정",
-  write_3dm: "3dm 쓰기(베이크)", basemap: "베이스맵 레이어", sheets: "현황도 시트", tables: "조서 CSV", import: "문서에 넣기(Import)" };
+  write_3dm: "모델 쓰기(베이크)", basemap: "베이스맵 레이어", sheets: "현황도 시트", tables: "조서 CSV", import: "문서에 넣기(Import)" };
 var PHASE_ICON = { done: "check", running: "dot", pending: "ring", skipped: "dash", failed: "x" };
 var SHAPE_LABEL = { buffer: "경계 버퍼", circle: "중심 원", rect: "사각형", frame: "용지 프레임", site: "그린 경계 그대로" };
 var SHAPE_SHORT = { buffer: "버퍼", circle: "원", rect: "사각형", frame: "용지", site: "경계" };
 var MODE_LABEL = { lots: "필지로 고르기", area: "구역 그리기", point: "위치만 찍기" };
 var MODE_SHORT = { lots: "필지", area: "구역", point: "위치" };
-var PLACEMENT_HINT = { origin: "대상지 중심(100 m 단위)을 Rhino (0,0)으로 옮깁니다 — 작업이 편합니다",
-  world: "EPSG:5186 좌표 그대로 — GIS·다른 도면과 겹칠 때. Rhino 문서 단위를 m로 쓰세요(mm면 좌표가 수억)" };
+var PLACEMENT_HINT = { origin: "대상지 중심(100 m 단위)을 (0,0)으로 옮깁니다 — 작업이 편합니다",
+  world: "EPSG:5186 좌표 그대로 — GIS·다른 도면과 겹칠 때. 문서 단위를 m로 쓰세요(mm면 좌표가 수억)" };
 var PAPERS = { A3: [420, 297], A1: [841, 594], A0: [1189, 841] };
 var SCALES = [1000, 3000, 5000];
 var LAYER_OPTS = [["02b_landuse", "토지이용(02b)"], ["05_road_center", "도로 중심선(05)"], ["11_zoning", "용도지역(11)"]];
@@ -443,6 +451,11 @@ var MAP_STYLE = {   // 패널 지도 — 대상지·선택은 패널 블루 하�
   draw: { color: "#0057ff", weight: 2, interactive: false },
   point: { radius: 7, color: "#fff", weight: 2, fillColor: "#0057ff", fillOpacity: 1 }
 };
+var AERIAL_STYLE = {   // 위성 배경 — 어두운 영상 위에서 읽히게 필지선·범위선만 흰색
+  lot: { color: "#fff", weight: 1, opacity: .5, fillOpacity: .01 },
+  extent: { color: "#fff", weight: 1.5, dashArray: "6 4", fillColor: "#fff", fillOpacity: .04 }
+};
+function mapStyle(k) { return (aerial && AERIAL_STYLE[k]) || MAP_STYLE[k]; }
 
 // ── 상태 ──
 var state = { step: 1, run: "idle", blocked: false, dirty: false, maxReached: 1,
@@ -450,7 +463,7 @@ var state = { step: 1, run: "idle", blocked: false, dirty: false, maxReached: 1,
   init: null, busy: false, logLines: [], startedAt: 0, flyOnLot: false, seq: { map: 0, preflight: 0, packs: 0, style: 0 }, areaPacks: null,
   styleOpen: false, styleSheet: 0, styleEdit: null, appliedStyle: null, openEl: null, styleSaving: false, menuOpen: false };
 var map = null, tiles = null, lotsLayer = null, targetLayer = null, extentLayer = null, topoLayer = null, frameLayer = null, qaLayer = null, svgRenderer = null;
-var tileErrors = 0, tileFallback = false, tileDead = false;
+var tileErrors = 0, tileFallback = false, tileDead = false, aerial = false;
 var pointLayer = null, draw = { on: false, pts: [], layer: null, rubber: null }, stamp = { on: false, offsets: null, layer: null };
 var timers = { pf: 0, prefs: 0, move: 0, elapsed: 0, toast: 0, est: 0, style: 0 };
 var listItems = [], listIndex = -1;
@@ -510,7 +523,7 @@ function warningsHtml(list, mode) {
     var centerBtn = "";
     if (w.center) {
       centerBtn = mode === "rhino"
-        ? '<button type="button" class="btn sm" data-act="rhino" data-center="' + esc(JSON.stringify(w.center)) + '"' + (state.result && state.result.context && state.result.context.imported ? "" : ' disabled title="먼저 문서에 넣기"') + ">Rhino</button>"
+        ? '<button type="button" class="btn sm" data-act="rhino" data-center="' + esc(JSON.stringify(w.center)) + '"' + (state.result && state.result.context && state.result.context.imported ? "" : ' disabled title="먼저 문서에 넣기"') + ">" + esc(HOST.name) + "</button>"
         : '<button type="button" class="link" data-act="fly" data-center="' + esc(JSON.stringify(w.center)) + '">지도' + ico("next") + '</button>';
     }
     var act = w.action && w.action.path ? '<button type="button" class="btn sm" data-act="open" data-path="' + esc(w.action.path) + '">' + esc(w.action.label || "열기") + "</button>" : "";
@@ -649,7 +662,7 @@ function renderAreaInfo() {
       '<span class="acts"><button type="button" class="btn sm primary" data-act="stamp_place">여기에 놓기</button><button type="button" class="btn sm" data-act="stamp_cancel">취소</button></span></div>';
   } else {
     html = '<div class="area-tools"><button type="button" class="btn sm" data-act="draw_start">지도에 그리기</button>' +
-      '<button type="button" class="btn sm" data-act="pick_curve" title="Rhino에서 닫힌 평면 커브 하나를 먼저 선택해 두면 바로 가져옵니다">Rhino 커브 가져오기</button>' +
+      '<button type="button" class="btn sm" data-act="pick_curve" title="' + esc(HOST.name) + '에서 닫힌 평면 커브 하나를 먼저 선택해 두면 바로 가져옵니다">' + esc(HOST.name) + ' 커브 가져오기</button>' +
       (a ? '<button type="button" class="btn sm" data-act="snap" title="구역 안 필지(면적 50 % 이상)의 바깥 경계로 구역을 바꿉니다">필지 경계에 맞추기</button>' +
         '<button type="button" class="btn sm" data-act="area_move">옮기기</button><button type="button" class="link danger-text" data-act="area_clear">지우기</button>' : "") + "</div>";
   }
@@ -794,14 +807,26 @@ function doSearch() {
 }
 
 // ── 지도 ──
-function updateTileSource() {   // 화면 중심이 한국 밖이면 해외 배경(VWorld는 국내만), 돌아오면 원래 배경
-  var t = state.init && state.init.tile, b = state.init && state.init.map.korea_bounds, c = map && map.getCenter();
-  if (!t || !b || !c || !t.abroad_url) return;
-  var abroad = c.lng < b[0] || c.lng > b[2] || c.lat < b[1] || c.lat > b[3];
-  var url = abroad ? t.abroad_url : (tileFallback ? t.fallback_url : t.url);
-  if (tiles._url === url) return;
-  tiles.options.attribution = abroad ? t.abroad_attribution : t.attribution; tileErrors = 0; tileDead = false; $("chip_offline").hidden = true;
-  tiles.setUrl(url); map.attributionControl.setPrefix("");
+function getTileSource() {   // [url, 출처] — 화면 중심이 한국 밖이면 해외 배경(VWorld는 국내만), 폴백 뒤면 폴백, 위성이면 영상(폴백·해외 = Esri)
+  var t = state.init.tile, b = state.init.map.korea_bounds, c = map.getCenter();
+  var abroad = !!b && (c.lng < b[0] || c.lng > b[2] || c.lat < b[1] || c.lat > b[3]);
+  if (aerial) return abroad || tileFallback ? [t.abroad_aerial_url, t.abroad_aerial_attribution] : [t.aerial_url, t.aerial_attribution];
+  if (abroad) return [t.abroad_url, t.abroad_attribution];
+  return tileFallback ? [t.fallback_url, "© OpenStreetMap contributors"] : [t.url, t.attribution];
+}
+function updateTileSource() {
+  if (!tiles || !state.init) return;
+  var src = getTileSource();
+  if (!src[0] || tiles._url === src[0]) return;
+  map.attributionControl.removeAttribution(tiles.options.attribution).addAttribution(src[1]);
+  tiles.options.attribution = src[1]; tileErrors = 0; tileDead = false; $("chip_offline").hidden = true;
+  tiles.setUrl(src[0]);
+}
+function setAerial(on) {   // 지도 ↔ 위성 배경
+  aerial = on; $("aerial_btn").setAttribute("aria-pressed", String(on)); map.getContainer().classList.toggle("aerial", on);
+  if (lotsLayer) lotsLayer.setStyle(mapStyle("lot"));
+  if (extentLayer) extentLayer.setStyle(mapStyle("extent"));
+  updateTileSource();
 }
 function initMap(init) {
   var el = $("map");
@@ -812,16 +837,25 @@ function initMap(init) {
   map = L.map(el, { preferCanvas: true, zoomControl: false, attributionControl: true }).setView(ll(init.map.center), init.map.zoom);
   el.tabIndex = -1;
   L.control.zoom({ position: "bottomright" }).addTo(map);
+  var aerialCtl = L.control({ position: "bottomright" });   // 아래 모서리는 나중에 넣은 것이 위 — 확대·축소 위
+  aerialCtl.onAdd = function () {
+    var bar = L.DomUtil.create("div", "leaflet-bar aerial-ctl");
+    bar.innerHTML = '<a href="#" role="button" id="aerial_btn" aria-pressed="false" title="위성 영상 배경">위성</a>';
+    L.DomEvent.disableClickPropagation(bar);
+    L.DomEvent.on(bar.firstChild, "click", function (e) { L.DomEvent.preventDefault(e); setAerial(!aerial); });
+    return bar;
+  };
+  aerialCtl.addTo(map);
   svgRenderer = L.svg();
   tiles = L.tileLayer(init.tile.url, { attribution: init.tile.attribution, maxZoom: 19 }).addTo(map);
+  map.attributionControl.setPrefix("");
   tiles.on("tileerror", function () {
     if (tileDead) return;
     tileErrors += 1;
     if (tileErrors < 3) return;
-    if (!tileFallback && init.tile.fallback_url && init.tile.fallback_url !== init.tile.url) {
-      tileFallback = true; tileErrors = 0; tiles.setUrl(init.tile.fallback_url);
-      tiles.options.attribution = "© OpenStreetMap contributors"; map.attributionControl.setPrefix("");
-    } else { tileDead = true; $("chip_offline").hidden = false; }
+    var before = tiles._url;
+    tileFallback = true; updateTileSource();
+    if (tiles._url === before) { tileDead = true; $("chip_offline").hidden = false; }   // 폴백도 같은 주소(이미 폴백) — 더 전환하지 않는다
   });
   tiles.on("load", function () { tileErrors = 0; });
   map.on("moveend zoomend", function () { updateTileSource(); if (state.step === 1) { debounce("move", 250, requestLots); debounce("packs", 600, requestAreaPacks); } });
@@ -860,7 +894,7 @@ function requestLots() {
 function setLotsLayer(fc) {
   if (lotsLayer) map.removeLayer(lotsLayer);
   lotsLayer = L.geoJSON(fc, {
-    style: function () { return MAP_STYLE.lot; },
+    style: function () { return mapStyle("lot"); },
     onEachFeature: function (f, layer) {
       var p = f.properties || {};
       layer.bindTooltip(esc(p.address || "") + "<br>" + esc(p.land_category || "") + " · " + esc(fmtArea(p.area)), { sticky: true, direction: "top" });
@@ -894,10 +928,10 @@ function drawLocalExtent() {
   var o = state.options;
   if (extentLayer) { map.removeLayer(extentLayer); extentLayer = null; }
   if (state.step !== 2 || o.shape === "frame" || o.shape === "site") return;   // 용지 프레임·경계 그대로는 preflight 응답을 기다린다
-  if (o.shape === "circle") extentLayer = L.circle(ll(c), Object.assign({ radius: o.radius, interactive: false }, MAP_STYLE.extent)).addTo(map);
+  if (o.shape === "circle") extentLayer = L.circle(ll(c), Object.assign({ radius: o.radius, interactive: false }, mapStyle("extent"))).addTo(map);
   else if (o.shape === "rect") {
     var dl = o.radius / 88000, dp = o.radius / 111000;   // 서울 위도 근사
-    extentLayer = L.rectangle([[c[1] - dp, c[0] - dl], [c[1] + dp, c[0] + dl]], Object.assign({ interactive: false }, MAP_STYLE.extent)).addTo(map);
+    extentLayer = L.rectangle([[c[1] - dp, c[0] - dl], [c[1] + dp, c[0] + dl]], Object.assign({ interactive: false }, mapStyle("extent"))).addTo(map);
   }
   if (extentLayer) extentLayer.bindTooltip(o.radius + " m", { permanent: true, direction: "top", className: "map-label extent" });
 }
@@ -909,7 +943,7 @@ function drawPreflightLayers(pf) {
   var byRole = function (r) { return { type: "FeatureCollection", features: feats.filter(function (f) { return f.properties && f.properties.role === r; }) }; };
   var ext = byRole("extent");
   if (ext.features.length) {
-    extentLayer = L.geoJSON(ext, { interactive: false, style: function () { return MAP_STYLE.extent; } });
+    extentLayer = L.geoJSON(ext, { interactive: false, style: function () { return mapStyle("extent"); } });
     extentLayer.eachLayer(function (l) { if (l.feature.properties.shape !== "frame" && l.feature.properties.shape !== "site") l.bindTooltip((l.feature.properties.radius || state.options.radius) + " m", { permanent: true, direction: "top", className: "map-label extent" }); });
   }
   var topo = byRole("topo_sheet");
@@ -1007,7 +1041,7 @@ function renderOptions() {
       '<div class="hint">대상지 경계에서 지형을 정확히 잘라 평탄면 + 경계 벽(옹벽 자리)으로 만듭니다. 평탄면은 바닥 메시를 고르면 CTX::Site::ground, 아니면 CTX::Terrain::site_flat. 평탄화 전 지형은 꺼진 레이어 CTX::Terrain::site_original로 남습니다.</div>' : "") +
     '<h3>지형</h3>' +
     '<div class="seg" role="radiogroup" aria-label="지형 표현">' + [[0, "매끈"], [1, "계단 1 m"], [2, "계단 2 m"], [5, "계단 5 m"]].map(function (x) { return seg("terrain_step", x[0], x[1], +(o.terrain_step || 0) === x[0] ? " checked" : ""); }).join("") + "</div>" +
-    '<h3>산출물 <span class="sub">context.3dm은 항상</span></h3>' +
+    '<h3>산출물 <span class="sub">' + esc(HOST.model) + '은 항상</span></h3>' +
     '<label class="chk"><input type="checkbox" name="import_after"' + (o.import_after ? " checked" : "") + ">생성 뒤 현재 문서에 넣기</label>" +
     '<div class="drow"><label class="chk"><input type="checkbox" name="make_basemap"' + (o.make_basemap ? " checked" : "") + '>베이스맵 .ai</label><span class="sum" id="basemap_summary"></span><button type="button" class="disc" data-act="disc" aria-expanded="false" aria-controls="basemap_disc">레이어' + ico("down") + '</button></div>' +
     '<div id="basemap_disc" class="disc-body" hidden>' +
@@ -1030,9 +1064,9 @@ function renderOptions() {
       '<div class="grp">건물</div>' +
       '<label class="chk"><input type="checkbox" name="include_minor_buildings"' + (o.include_minor_buildings ? " checked" : "") + ">무벽건물·가건물 포함</label>" +
       '<div class="row"><label class="chk" for="demolished">철거 건물</label><select class="sm" id="demolished" name="demolished"><option value="dashed"' + (o.demolished === "dashed" ? " selected" : "") + '>점선·회색으로 표시</option><option value="exclude"' + (o.demolished === "exclude" ? " selected" : "") + ">제외</option></select></div>" +
-      '<div class="grp">3dm</div>' +
+      '<div class="grp">모델</div>' +
       '<label class="chk"><input type="checkbox" name="include_zoning"' + (o.include_zoning ? " checked" : "") + '>용도지역 경계선 넣기 <span class="sub">CTX::Zoning</span></label>' +
-      '<label class="chk"><input type="checkbox" name="make_dwg"' + (o.make_dwg ? " checked" : "") + '>2D 도면 DWG로도 저장 <span class="sub">BM:: 레이어 → basemap_축척.dwg</span></label>' +
+      (HOST.dwg ? '<label class="chk"><input type="checkbox" name="make_dwg"' + (o.make_dwg ? " checked" : "") + '>2D 도면 DWG로도 저장 <span class="sub">BM:: 레이어 → basemap_축척.dwg</span></label>' : "") +
       '<div class="grp">문서</div>' +
       '<label class="chk"><input type="checkbox" name="zoom_after_import"' + (o.zoom_after_import ? " checked" : "") + ">넣은 뒤 대상지로 줌</label>" +
     "</details></fieldset>";
@@ -1066,7 +1100,7 @@ function updateSummaries() {
   if (as) {
     var a = [];
     if (o.include_minor_buildings) a.push("무벽건물 포함"); if (o.demolished === "exclude") a.push("철거 제외");
-    if (o.include_zoning) a.push("용도지역 경계선"); if (o.make_dwg) a.push("DWG"); if (!o.zoom_after_import) a.push("줌 안 함");
+    if (o.include_zoning) a.push("용도지역 경계선"); if (o.make_dwg && HOST.dwg) a.push("DWG"); if (!o.zoom_after_import) a.push("줌 안 함");
     as.textContent = a.join(" · ");
   }
   var rh = $("radius_hint"); if (rh) rh.hidden = !(o.radius > 1000);
@@ -1156,7 +1190,7 @@ function renderResult() {
     '<ul class="phase-list" id="phase_list"></ul>' +
     '<div id="error_card"></div>' +
     '<div class="log"><details><summary>로그 (<span id="log_count">' + state.logLines.length + '</span>줄)</summary><pre id="log_pre">' + state.logLines.map(logLineHtml).join("\n") + "</pre></details></div>" +
-    (state.run === "running" ? '<p class="hint" style="margin-top:16px">생성은 Rhino 안에서 돌아 화면이 잠깐씩 멈출 수 있습니다.</p>' : "");
+    (state.run === "running" ? '<p class="hint" style="margin-top:16px">생성은 ' + esc(HOST.name) + ' 안에서 돌아 ' + esc(HOST.name) + ' 화면이 잠깐씩 멈출 수 있습니다.</p>' : "");
   renderPhaseList(); renderErrorCard();
 }
 function runTitle() {
@@ -1211,7 +1245,7 @@ function doneHtml() {
   var html = '<h2 class="done-line" tabindex="-1"><span class="ok">' + ico("check") + '생성 완료</span><span class="num sub">' + fmtTime(r.elapsed_s) + '</span><button type="button" class="link" data-act="open" data-path="' + esc(r.dir) + '" title="' + esc(r.dir) + '">' + esc(shortDir(r.dir)) + ico("ext") + "</button></h2>";
   if (state.dirty) html += '<div class="dirty">이전 결과 — 설정이 바뀜(옵션 그대로 다시 생성하려면 ③ [생성 시작])</div>';
   // 문서 카드
-  html += '<div class="card" id="doc_card"><div class="top"><h4>Rhino 문서</h4><div class="num">CTX 레이어 ' + fmtNum(c.layers) + " · 건물 " + fmtNum(c.buildings) + " · 필지 " + fmtNum(c.lots) + (c.demolished ? " · 철거 " + fmtNum(c.demolished) : "") + "</div>" +
+  html += '<div class="card" id="doc_card"><div class="top"><h4>' + esc(HOST.doc) + '</h4><div class="num">CTX 레이어 ' + fmtNum(c.layers) + " · 건물 " + fmtNum(c.buildings) + " · 필지 " + fmtNum(c.lots) + (c.demolished ? " · 철거 " + fmtNum(c.demolished) : "") + "</div>" +
     '<div id="doc_status">' + docStatusHtml(imported, c.import_text, c.path) + "</div></div>" +
     '<div class="acts">' + (imported ? '<span class="ok-line">' + ico("check") + "문서에 넣음</span>" : "") +
     '<button type="button" class="btn sm" data-act="zoom" id="zoom_btn"' + (imported ? "" : " disabled") + ">대상지로 줌</button>" +
@@ -1252,11 +1286,16 @@ function doneHtml() {
   return html;
 }
 // ── 도면 스타일 (DESIGN.md · docs/panel_ui.md style_*) — 스타일은 키 전부를 가진 dict로 들고 다닌다 ──
-var STYLE_KEYS = ["paper", "block", "road", "green", "water", "building", "rail", "site", "extent", "ink", "ramp", "layout", "line_scale", "text_scale", "font", "fade_outside", "labels", "subtitle_en", "project"];
+var STYLE_KEYS = ["paper", "block", "road", "green", "water", "building", "rail", "site", "extent", "ink", "ramp", "layout", "line_scale", "text_scale", "font", "fade_outside", "labels", "subtitle_en", "project", "axo_view"];
 var STYLE_ELEMENTS = [["paper", "종이", "면"], ["block", "가구(블록)", "면"], ["road", "도로", "면"], ["green", "녹지·공원", "면"], ["water", "수계", "면"], ["building", "건물", "면"],
   ["rail", "철도", "선·글자", 1], ["site", "대상지", "선·글자", 1], ["extent", "분석 범위", "선·글자", 1], ["ink", "글자·선", "선·글자", 1]];
 var STYLE_SWATCHES = ["#FFFFFF", "#F2F2EF", "#E6E6E1", "#CFCFC8", "#A9A9A2", "#6E6E68", "#3A3A37", "#111111", "#DDE6D3", "#C4DCB0", "#D2DEE7", "#B3CDE6", "#F6C7C0", "#E2412F", "#FF7A1A", "#0057FF"];
-var STYLE_CHOICES = { layout: [["side", "정보 오른쪽"], ["bottom", "정보 아래"], ["map", "지도만"]], line_scale: [0.5, 0.75, 1, 1.5, 2], fade_outside: [[0, "끔"], [0.3, "약"], [0.55, "중"], [0.8, "강"]] };
+var STYLE_CHOICES = { layout: [["side", "정보 오른쪽"], ["bottom", "정보 아래"], ["map", "지도만"]], line_scale: [0.5, 0.75, 1, 1.5, 2], fade_outside: [[0, "끔"], [0.3, "약"], [0.55, "중"], [0.8, "강"]],
+  axo_view: [["nw", "북서", 315], ["ne", "북동", 45], ["sw", "남서", 225], ["se", "남동", 135]] };   // 입체 매스도 시점 — Rhino 등각(Isometric) 넷, 2×2 = 나침반 배치, 숫자 = 카메라 방위각
+function axoIcon(az) {   // 등각 정육면체 + 카메라 쪽 방위 점 — 위가 북
+  var a = az * Math.PI / 180, x = 20 + 13 * Math.sin(a), y = 14 - 10 * Math.cos(a);
+  return '<svg width="40" height="28" viewBox="0 0 40 28" aria-hidden="true"><path d="M20 7l6 3.5v7L20 21l-6-3.5v-7zM14 10.5l6 3.5 6-3.5M20 14v7" fill="none" stroke="currentColor"/><circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="2.2" fill="currentColor"/></svg>';
+}
 var RAMP_NAMES = { warm: "웜", cool: "쿨", green: "그린", mono: "모노" };
 var LAYOUT_ICONS = { side: '<rect x="3" y="3" width="22" height="22" fill="currentColor" opacity=".25"/><path d="M28 5h9M28 9h7M28 13h8" stroke="currentColor"/>',
   bottom: '<rect x="3" y="3" width="34" height="15" fill="currentColor" opacity=".25"/><path d="M4 22h10M18 22h8M29 22h7" stroke="currentColor"/>', map: '<rect x="1" y="1" width="38" height="26" fill="currentColor" opacity=".25"/>' };
@@ -1316,6 +1355,7 @@ function renderStyle(sec) {
     '<div style="height:8px"></div>' + cellsHtml(5, [[0.85, "작게", 11], [1, "보통", 14], [1.2, "크게", 17]].map(function (x) { return stCell("st_set", ' data-k="text_scale" data-v="' + x[0] + '"', +st.text_scale === x[0], '<span style="font-size:' + x[2] + 'px;line-height:1">가</span>' + x[1], true); })
       .concat([["sans", "고딕", ""], ["serif", "명조", "font-family:serif;"]].map(function (x) { return stCell("st_set", ' data-k="font" data-v="' + x[0] + '"', st.font === x[0], '<span style="' + x[2] + 'font-size:14px;line-height:1;font-weight:700">가</span>' + x[1], true); }))) +
     "<h3>범위 밖 흐리기</h3>" + cellsHtml(4, STYLE_CHOICES.fade_outside.map(function (x) { return stCell("st_set", ' data-k="fade_outside" data-v="' + x[0] + '"', +st.fade_outside === x[0], x[1], true); })) +
+    '<h3>입체 매스도 시점 <span class="sub">카메라 방위 · 등각</span></h3>' + cellsHtml(2, STYLE_CHOICES.axo_view.map(function (x) { return stCell("st_set", ' data-k="axo_view" data-v="' + x[0] + '"', st.axo_view === x[0], axoIcon(x[2]) + "<span>" + x[1] + ' <span class="sub">' + x[0].toUpperCase() + "</span></span>"); })) +
     "<h3>표제</h3>" + '<input type="text" id="st_project" style="width:100%" maxlength="60" placeholder="프로젝트명 · 사무소" aria-label="프로젝트명" value="' + esc(st.project || "") + '">' +
     '<div style="display:flex;gap:16px;flex-wrap:wrap"><label class="chk"><input type="checkbox" id="st_labels"' + (st.labels ? " checked" : "") + ">지명·역명</label>" +
     '<label class="chk"><input type="checkbox" id="st_subtitle"' + (st.subtitle_en ? " checked" : "") + ">영문 부제</label></div>";
@@ -1341,7 +1381,7 @@ function openStyle() {
 }
 function closeStyle() { state.styleOpen = false; state.styleSaving = false; render(); }
 function docStatusHtml(ok, text, path) {
-  return ok ? "" : '<div class="red">' + esc(text || "문서에 넣지 못했습니다") + '<br><span class="mono">' + esc(path || "") + "</span> — Rhino에서 직접 Import할 수 있습니다</div>";
+  return ok ? "" : '<div class="red">' + esc(text || "문서에 넣지 못했습니다") + '<br><span class="mono">' + esc(path || "") + "</span> — " + esc(HOST.name) + "에서 직접 가져올 수 있습니다</div>";
 }
 function renderExportedList() {
   var el = $("exported_list"); if (!el || !state.result) return;
@@ -1368,10 +1408,10 @@ function renderBlocker() {
   var g = init.generator || {}, p = init.paths || {};
   var row = function (ok, label, text, cls) { return '<span class="' + (cls || (ok ? "ok" : "bad")) + '">' + ico(cls === "opt" ? "ring" : ok ? "check" : "x") + "</span><span>" + esc(label) + "</span><span>" + esc(text) + "</span>"; };
   var lotOk = src.lot && src.lot.level !== "missing", ctxOk = src.terrain && src.terrain.level !== "missing";
-  el.innerHTML = "<h2 tabindex=\"-1\">대지검토를 쓰려면 데이터가 필요합니다</h2><div class=\"check-list\">" +
+  el.innerHTML = "<h2 tabindex=\"-1\">UrbanSite를 쓰려면 데이터가 필요합니다</h2><div class=\"check-list\">" +
     row(lotOk, "필지 DB", (p.lot_db || "data/seoul_site.db") + (lotOk ? " (" + mmdd(src.lot.date) + ")" : " 없음")) +
     row(ctxOk, "컨텍스트 DB", (p.context_db || "data/seoul_context.db") + (ctxOk ? " (" + mmdd(src.building ? src.building.date : "") + ")" : " 없음"), ctxOk ? "ok" : "opt") +
-    row(true, "생성기", g.text || "Rhino 내장") + "</div>" +
+    row(true, "생성기", g.text || HOST.name + " 내장") + "</div>" +
     (lotOk ? "" : init.can_download ? "<p>DB는 시군구 단위로 받습니다(구 하나에 수십 MB). [지도에서 지역 골라 받기]를 누르고 지도를 대상지로 옮긴 뒤 지도 왼쪽 아래 [받기]를 누르세요.</p>"
       : "<p>필지 DB <span class=\"mono\">data/seoul_site.db</span> 를 data 폴더에 넣으세요.<br>절차: <span class=\"mono\">docs/data_sources.md §0</span></p>") +
     '<div class="acts" style="display:flex;gap:8px;flex-wrap:wrap">' + (init.can_download && !lotOk ? '<button type="button" class="btn primary" data-act="data_later">지도에서 지역 골라 받기</button>' : "") + '<button type="button" class="btn" data-act="open" data-path="data">data 폴더 열기</button><button type="button" class="btn" data-act="open" data-path="' + esc(p.install_doc || "docs/install.md") + '">문서 열기</button><button type="button" class="btn primary" data-act="init">다시 확인</button></div>' +
@@ -1401,8 +1441,9 @@ function renderMenu() {
     '<div class="mlist">' +
       '<div class="mrow"><span class="k">작업 폴더</span><span class="v mono" title="' + esc(p.root || "") + '">' + esc(p.root || "") + "</span>" + openBtn(p.root || "data") + "</div>" +
       '<div class="mrow"><span class="k">안내</span><span class="v">설치·데이터·사용법</span>' + openBtn(p.install_doc || "docs/install.md") + "</div>" +
+      (HOST.ask_stats ? '<div class="mrow"><span class="k">사용 통계</span><span class="v" title="' + esc(STATS_TEXT) + '">' + (init.stats_consent ? "보냄" : "보내지 않음") + '</span><button type="button" class="btn sm" data-act="stats" data-on="' + (init.stats_consent ? "0" : "1") + '">' + (init.stats_consent ? "끄기" : "켜기") + "</button></div>" : "") +
     "</div>" +
-    '<p class="menu-ver">UrbanDesignTool ' + esc(init.version || "") + "</p>";
+    '<p class="menu-ver">UrbanSite ' + esc(init.version || "") + "</p>";
 }
 function openMenu() {
   state.menuOpen = true; renderMenu(); $("menu").hidden = false;
@@ -1418,6 +1459,20 @@ function loadRecent(i) {   // 최근 대상지는 필지 방식 기록이다(sit
   var r = ((state.init && state.init.recent) || [])[i]; if (!r || state.run === "running") return;
   closeMenu(); state.flyOnLot = true;
   resetLots("lots", r.pnus.slice());
+}
+// 사용 통계 동의(Blender — 확장 약관). 답하기 전까지 한 번 묻고, 바꾸기는 더보기 메뉴 설정
+var STATS_TEXT = "대상지 위치·결과·오류 종류만 보내고 이름·파일은 보내지 않습니다";
+function renderStatsBand() {
+  var init = state.init, old = $("stats_band");
+  if (old) old.parentNode.removeChild(old);
+  if (!init || !HOST.ask_stats || init.stats_consent !== null) return;
+  var d = document.createElement("div"); d.className = "band lv-info"; d.id = "stats_band";
+  d.innerHTML = "<span>도구를 고치는 데 쓸 사용 통계를 보낼까요? " + esc(STATS_TEXT) + '</span><button type="button" class="btn sm" data-act="stats" data-on="1">보내기</button><button type="button" class="btn sm" data-act="stats" data-on="0">보내지 않음</button>';
+  $("init_warnings").appendChild(d);
+}
+function setStats(on) {
+  send({ cmd: "stats_consent", on: on }); state.init.stats_consent = on;
+  renderStatsBand(); renderMenu(); toast(on ? "사용 통계를 보냅니다" : "사용 통계를 보내지 않습니다");
 }
 function showErrorBand(text) {
   var d = document.createElement("div"); d.className = "band lv-danger"; d.setAttribute("role", "alert");
@@ -1469,7 +1524,7 @@ var ACTIONS = {
   draw_start: startDraw,
   draw_done: finishDraw,
   draw_cancel: cancelDraw,
-  pick_curve: function () { $("area_err").innerHTML = ""; toast("Rhino에서 닫힌 커브를 고르세요"); send({ cmd: "pick_curve" }); },
+  pick_curve: function () { $("area_err").innerHTML = ""; toast(HOST.name + "에서 닫힌 커브를 고르세요"); send({ cmd: "pick_curve" }); },
   snap: function () { if (state.area) send({ cmd: "snap_area", ring_tm: state.area.ring_tm }); },
   area_move: function () { if (state.area && map) { map.setView(ll(state.area.center), map.getZoom(), { animate: false }); startStamp(state.area.offsets, false); } },
   area_clear: function () { send({ cmd: "set_area" }); },
@@ -1500,17 +1555,25 @@ var ACTIONS = {
     try { document.execCommand("copy"); b.textContent = "복사됨"; } catch (e) { b.textContent = "복사 실패"; }
     document.body.removeChild(ta);
   },
+  stats: function (b) { setStats(b.dataset.on === "1"); },
   dismiss: function (b) { b.parentNode.parentNode.removeChild(b.parentNode); },
   sheet_ai: function (b) { if (state.result) send({ cmd: "sheet_ai", dir: state.result.dir, path: b.dataset.path }); },
   sheet_ai_all: function () { if (state.result) send({ cmd: "sheet_ai", dir: state.result.dir, all: true }); },
   style_open: openStyle,
   style_back: closeStyle,
   st_preset: function (b) {   // 프리셋은 색·단계색만 바꾼다 — 레이아웃·선·글자·표제는 그대로
-    var keep = {}; ["layout", "line_scale", "text_scale", "font", "fade_outside", "labels", "subtitle_en", "project"].forEach(function (k) { keep[k] = state.styleEdit[k]; });
+    var keep = {}; ["layout", "line_scale", "text_scale", "font", "fade_outside", "labels", "subtitle_en", "project", "axo_view"].forEach(function (k) { keep[k] = state.styleEdit[k]; });
     state.styleEdit = Object.assign(fullStyle({ preset: b.dataset.key }), keep); state.openEl = null; afterStyleChange();
   },
   st_saved: function (b) { state.styleEdit = Object.assign(fullStyle(savedStyle(b.dataset.name)), { name: b.dataset.name }); state.openEl = null; afterStyleChange(); },
-  st_set: function (b) { var k = b.dataset.k; state.styleEdit[k] = /scale|fade/.test(k) ? +b.dataset.v : b.dataset.v; afterStyleChange(); },
+  st_set: function (b) {
+    var k = b.dataset.k; state.styleEdit[k] = /scale|fade/.test(k) ? +b.dataset.v : b.dataset.v;
+    if (k === "axo_view") {   // 시점을 바꾸면 미리보기를 입체 매스도로 — 다른 도면에서는 달라지는 게 없다
+      var axo = ((state.init && state.init.sheet_catalog) || []).filter(function (c) { return c.key === "axo"; })[0];
+      if (axo && (state.result.sheets || []).some(function (x) { return x.id === axo.id && !x.empty; })) { state.styleSheet = axo.id; var sel = $("st_sheet"); if (sel) sel.value = String(axo.id); }
+    }
+    afterStyleChange();
+  },
   st_el: function (b) { state.openEl = state.openEl === b.dataset.k ? null : b.dataset.k; renderStyle(document.querySelector('section[data-step="4"]')); },
   st_sw: function (b) { if (state.openEl) { state.styleEdit[state.openEl] = b.dataset.c; afterStyleChange(); } },
   st_revert: function () { state.styleEdit = JSON.parse(JSON.stringify(state.appliedStyle)); state.openEl = null; afterStyleChange(); },
@@ -1596,6 +1659,7 @@ window.addEventListener("resize", function () { if (map) map.invalidateSize(); }
 var handlers = {
   init_state: function (m) {
     var first = !state.init;
+    if (m.host) HOST = m.host;
     state.init = m; state.blocked = !!m.blocked && !m.can_download && !state.abroadOnly && !state.dataLater;
     if (first) {
       Object.keys(DEFAULTS).forEach(function (k) { state.options[k] = (m.options && k in m.options) ? m.options[k] : JSON.parse(JSON.stringify(DEFAULTS[k])); });
@@ -1603,12 +1667,12 @@ var handlers = {
       initMap(m);
       render();
     } else {
-      if (tiles && m.tile && m.tile.url !== tiles._url && !tileFallback) tiles.setUrl(m.tile.url);
+      updateTileSource();   // 키를 넣거나 뺐으면 배경 주소가 바뀐다
       renderHeader();
       if (state.downloading) { state.downloading = false; state.areaPacks = null; requestLots(); requestAreaPacks(); }
       if (state.step === 2 || state.step === 3) { state.preflight = null; renderDataStatus(); sendPreflight(0); }
     }
-    renderMenu(); renderBlocker();
+    renderMenu(); renderBlocker(); renderStatsBand();
   },
   search_result: function (m) {
     var msg = $("search_msg"); if (!msg) return;
@@ -1790,6 +1854,10 @@ if (MOCK) {
   };
   var css = document.createElement("link"); css.rel = "stylesheet"; css.href = "./vendor/leaflet.css"; document.head.appendChild(css);
   var js = document.createElement("script"); js.src = "./vendor/leaflet.js"; js.onload = loadMock; document.body.appendChild(js);
+} else if (BRIDGE_TOKEN) {   // 브라우저 패널 — 이벤트 줄이 열린 뒤 init(먼저 보내면 답을 놓친다). 다시 연결돼도 init으로 전부 다시 받는다
+  var events = new EventSource("events?token=" + BRIDGE_TOKEN);
+  events.onmessage = function (e) { window.app.receive(JSON.parse(e.data)); };
+  events.onopen = function () { send({ cmd: "init" }); };
 } else {
   send({ cmd: "init" });
 }

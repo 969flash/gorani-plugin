@@ -5,7 +5,7 @@ primary_target: "scripts/site_ui.html"
 related_targets: []
 ---
 
-# 대지검토 패널 (scripts/site_ui.html) — 스타일 화면 포함
+# UrbanSite 패널 (scripts/site_ui.html) — 스타일 화면 포함
 
 Mode: Operate. 480 px Eto WebView docked in Rhino. Steps ① 대상지 ② 범위·출력 ③ 결과, plus ③ → 도면 스타일 sub-screen.
 Job: pick a site, get 3D + basemap + analysis maps; set one drawing style for every map (preset, per-element color, line/text scale, layout) and save it as JSON.

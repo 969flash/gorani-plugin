@@ -1,11 +1,11 @@
 #! python 3
-"""대지검토 패널 진입 스크립트 + 컨트롤러 — Rhino에서 직접 실행한다.
+"""UrbanSite 패널 진입 스크립트 + 컨트롤러 — Rhino에서 직접 실행한다.
 
     ! _-ScriptEditor _Run "<저장소 경로>/scripts/cmd_site.py"
 
 panel_host.PanelHost(Eto WebView)와 로직 모듈을 잇는다. JS 명령(dict)을 받아 로직 함수를 부르고 host.push()로
 상태를 보낸다. 메시지 계약은 docs/panel_ui.md('아키텍처 정합' 절 우선). 생성은 context_builder.run을 UI 스레드에서
-동기 호출하고, 진행률은 콜백 안에서 push + Rhino.RhinoApp.Wait()로 펌핑한다(서브프로세스 없음).
+동기 호출하고, 진행률은 콜백 안에서 push + _pump(Rhino.RhinoApp.Wait)로 펌핑한다(서브프로세스 없음).
 
 명령 → 로직 (21개)
     init            → get_init_state (DB 존재·원천 상태·타일·지도·prefs·recent·시트 카탈로그). preflight 메모이즈 비움
@@ -28,10 +28,12 @@ panel_host.PanelHost(Eto WebView)와 로직 모듈을 잇는다. JS 명령(dict)
     apply_style     → context_builder.apply_style (시트 전부 + 쓴 .ai 다시 쓰기, busy·style_applied)
     save_style      → site_prefs.save_style (HOME_DIR/styles/<이름>.json → styles)
     sheet_ai        → sheet_svg.get_sheet_ai (도면 SVG → 레이어 .ai, 누를 때 · all이면 결과 폴더 전부, busy·sheet_ai) → 하나면 OS로 연다
+    stats_consent   → site_prefs.save_stats_consent (Blender — 사용 통계 동의/거절, 응답 없음)
     download_data   → data_pack (매니페스트 → 바뀐 팩만 받기, 콜백 = data_progress 푸시 + Wait + 취소 플래그) → init_state
 
 조립 함수(get_*·resolve_open_path)는 Rhino 없이 돈다 — tests/test_site_ui_contract.py가 fixture DB로 키 집합을 확인한다.
-Rhino 모듈이 없으면(python3) 패널을 띄우지 않는다.
+Rhino 모듈이 없으면(python3·Blender) 패널을 띄우지 않는다. Blender판은 cmd_blender.py가 _SiteController를 상속해 호스트 연결(_get_doc·_pump·
+_defer·_redraw·_get_host_stats)과 Rhino 전용 명령(pick_curve·import_context)만 바꿔 단다.
 """
 
 import datetime
@@ -51,17 +53,19 @@ try:
 except ImportError:   # python3 테스트 — 조립 함수만 쓴다
     Rhino = scriptcontext = System = forms = None
 
-# cmd_install.py와 같은 방식 — 고유 모듈명으로 로더를 읽어 Rhino 공유 인터프리터의 이름 충돌을 막는다
-_spec = importlib.util.spec_from_file_location(
-    "urban_design_tool_loader",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "loader.py"),
-)
-loader = importlib.util.module_from_spec(_spec)
-sys.modules[_spec.name] = loader
-_spec.loader.exec_module(loader)
+if __package__:   # Blender 확장 — scripts/가 패키지(최상위 모듈 금지 정책)
+    from . import loader
+else:   # cmd_install.py와 같은 방식 — 고유 모듈명으로 로더를 읽어 Rhino 공유 인터프리터의 이름 충돌을 막는다
+    _spec = importlib.util.spec_from_file_location(
+        "urbansite_loader",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "loader.py"),
+    )
+    loader = importlib.util.module_from_spec(_spec)
+    sys.modules[_spec.name] = loader
+    _spec.loader.exec_module(loader)
 
 ROOT_DIR = loader.ROOT_DIR
-PANEL_STICKY_KEY = "urban_design_tool_site_panel"
+PANEL_STICKY_KEY = "urbansite_site_panel"
 ENV_TEMPLATE = "VWORLD_API_KEY=\nDATA_GO_KR_KEY=\n"
 # 콜백이 오지 않는 phase의 행 오른쪽 글(panel_ui.md 진행률 규약)
 SKIPPED_DETAILS = {"refresh": "건너뜀 — v1 미구현", "import": "건너뜀 — 베이크로 대체"}
@@ -86,7 +90,7 @@ def get_init_state(site_db=None, context_db=None, today=None):
     입력: DB 경로 override 2개(테스트가 fixture를 꽂는다. None = constants 경로), today(테스트용).
     처리: 필지 DB 존재 → blocked, context_builder.get_sources/get_source_warnings, review_map 타일·지도, site_prefs 옵션·recent,
           SHEET_CATALOG. 네트워크 접근 없음. generator는 항상 ok(서브프로세스 없음 — UI 호환 키).
-    출력: {"type": "init_state", version, blocked, paths, generator, sources, warnings, tile, map, options, modes, recent, sheet_catalog,
+    출력: {"type": "init_state", version, blocked, paths, generator, host, stats_consent, sources, warnings, tile, map, options, modes, recent, sheet_catalog,
           style_presets, style_defaults, style_ramps, styles}.
     """
     constants = loader.load("constants")
@@ -95,13 +99,17 @@ def get_init_state(site_db=None, context_db=None, today=None):
     site_prefs = loader.load("site_prefs")
     has_lot_db = os.path.exists(site_db) if site_db else bool(loader.load("data_pack").get_local_paths("site"))
     sources = context_builder.mark_downloadable(context_builder.get_sources(site_db, context_db, today), not site_db)
+    host = dict(constants.HOST_LABELS[context_builder.get_host()])
+    host["ask_stats"] = host["ask_stats"] and loader.load("usage_stats").is_configured()   # 보낼 곳이 없으면 묻지 않는다
     return {
         "type": "init_state",
         "version": constants.PANEL_VERSION,
         "blocked": not has_lot_db,
         "paths": {"root": constants.HOME_DIR, "lot_db": constants.DATABASE_PATH, "context_db": constants.CONTEXT_DATABASE_PATH,
                   "env": ".env", "install_doc": constants.INSTALL_DOC},
-        "generator": {"ok": True, "python": "Rhino CPython", "text": "Rhino 내장"},
+        "generator": {"ok": True, "python": host["name"] + " Python", "text": host["name"] + " 내장"},
+        "host": host,
+        "stats_consent": site_prefs.get_stats_consent(),
         "can_download": bool(constants.DATA_MANIFEST_URL),
         "sources": sources,
         "warnings": context_builder.get_source_warnings(sources),
@@ -372,6 +380,34 @@ def resolve_open_path(path, root=None):
     return full
 
 
+def get_curve_shape(ring, problem, doc_origin):
+    # type: (list, str, tuple) -> dict
+    """curve_shape 페이로드 — 문서 커브 링(문서 좌표 m) → 실제 위치면 located + ring_tm, 아니면 모양만(offsets).
+
+    입력: ring [(x, y)] m 또는 None(problem = 사용자용 이유), doc_origin = 문서 원점(이 도구가 만든 문서) 또는 None.
+    처리: 문서 원점이 있으면 링 + 원점이 세계좌표, 없으면 링 중심이 서울 EPSG:5186 범위면 링 그대로, 아니면 위치 없음
+          — 패널이 지도 가운데에 얹고 사용자가 지도를 움직여 놓는다.
+    출력: {"type": "curve_shape", ok, text, located, ring_tm, offsets, area, vertices}.
+    """
+    if ring is None:
+        return {"type": "curve_shape", "ok": False, "text": problem}
+    constants = loader.load("constants")
+    non_rhino_utils = loader.load("non_rhino_utils")
+    min_x, min_y, max_x, max_y = non_rhino_utils.get_bbox(ring)
+    cx, cy = (min_x + max_x) * 0.5, (min_y + max_y) * 0.5
+    b = constants.SEOUL_TM_BOUNDS
+    if doc_origin is not None:
+        world = [(x + doc_origin[0], y + doc_origin[1]) for x, y in ring]
+    elif b[0] <= cx <= b[2] and b[1] <= cy <= b[3]:
+        world = ring
+    else:
+        world = None
+    return {"type": "curve_shape", "ok": True, "text": "", "located": world is not None,
+            "ring_tm": [list(p) for p in world] if world else [],
+            "offsets": [[round(x - cx, 3), round(y - cy, 3)] for x, y in ring],
+            "area": round(non_rhino_utils.get_ring_area(ring), 1), "vertices": len(ring)}
+
+
 def _open_with_os(path):
     # type: (str) -> None
     """폴더는 탐색기, 파일은 OS 기본 앱으로 연다."""
@@ -422,7 +458,7 @@ class _SiteController:
             "import_context": self._import_context, "export_basemap": self._export_basemap, "zoom_view": self._zoom_view,
             "open_path": self._open_path, "save_prefs": self._save_prefs, "download_data": self._download_data,
             "style_preview": self._style_preview, "apply_style": self._apply_style, "save_style": self._save_style, "sheet_ai": self._sheet_ai,
-            "area_packs": self._area_packs,
+            "area_packs": self._area_packs, "stats_consent": self._stats_consent,
         }
         handler = handlers.get(cmd)
         if handler is None:
@@ -443,6 +479,27 @@ class _SiteController:
             self.push({"type": "error", "context": context, "text": "예상 밖 오류", "detail": traceback.format_exc()})
             self._send_stats("error", {"context": context, "error": type(sys.exc_info()[1]).__name__})
 
+    # ── 호스트 연결 (Rhino) — cmd_blender가 같은 이름으로 바꿔 단다 ──
+
+    def _get_doc(self):
+        return Rhino.RhinoDoc.ActiveDoc
+
+    def _pump(self):
+        """긴 작업 중 UI 이벤트를 돌린다 — WebView 이벤트·cancel 명령이 여기서 처리된다."""
+        Rhino.RhinoApp.Wait()
+
+    def _defer(self, work):
+        """작업을 UI 스레드 큐로 미룬다 — 먼저 보낸 busy가 그려진 뒤 돈다."""
+        forms.Application.Instance.AsyncInvoke(System.Action(work))
+
+    def _redraw(self, doc):
+        doc.Views.Redraw()
+
+    def _get_host_stats(self):
+        # type: () -> dict
+        """panel_open 통계의 호스트 버전 키."""
+        return {"rhino": str(Rhino.RhinoApp.Version)}
+
     def on_close(self):
         # type: () -> None
         """창 닫힘 — 생성 중이면 cancel과 같은 경로."""
@@ -457,8 +514,8 @@ class _SiteController:
         self.push(state)
         if not self._opened:   # init은 배지 [다시 확인]에도 온다 — 패널 열기는 한 번만
             self._opened = True
-            self._send_stats("panel_open", {"version": state["version"], "rhino": str(Rhino.RhinoApp.Version), "has_lot_db": not state["blocked"],
-                                            "packs": len(loader.load("data_pack").get_local_paths("site"))})
+            self._send_stats("panel_open", dict(self._get_host_stats(), version=state["version"], has_lot_db=not state["blocked"],
+                                                packs=len(loader.load("data_pack").get_local_paths("site"))))
 
     def _search(self, msg):
         query = (msg.get("query") or "").strip()
@@ -484,8 +541,6 @@ class _SiteController:
         아니면 모양만(offsets) — 패널이 지도 가운데에 얹고 사용자가 지도를 움직여 놓는다."""
         context_geometry = loader.load("context_geometry")
         context_baker = loader.load("context_baker")
-        constants = loader.load("constants")
-        non_rhino_utils = loader.load("non_rhino_utils")
         doc = Rhino.RhinoDoc.ActiveDoc
         curve = None
         selected = [o for o in doc.Objects.GetSelectedObjects(False, False)]
@@ -509,28 +564,12 @@ class _SiteController:
             doc.Views.Redraw()
         unit_scale = 1.0 / context_baker.get_model_unit_scale(doc)   # 문서 단위 → m
         ring, problem = context_geometry.get_curve_ring(curve, unit_scale, doc.ModelAbsoluteTolerance)
-        if ring is None:
-            self.push({"type": "curve_shape", "ok": False, "text": problem})
-            return
-        min_x, min_y, max_x, max_y = non_rhino_utils.get_bbox(ring)
-        cx, cy = (min_x + max_x) * 0.5, (min_y + max_y) * 0.5
-        doc_origin = context_baker.get_doc_origin(doc)
-        b = constants.SEOUL_TM_BOUNDS
-        if doc_origin is not None:
-            world = [(x + doc_origin[0], y + doc_origin[1]) for x, y in ring]
-        elif b[0] <= cx <= b[2] and b[1] <= cy <= b[3]:
-            world = ring
-        else:
-            world = None
-        self.push({"type": "curve_shape", "ok": True, "text": "", "located": world is not None,
-                   "ring_tm": [list(p) for p in world] if world else [],
-                   "offsets": [[round(x - cx, 3), round(y - cy, 3)] for x, y in ring],
-                   "area": round(non_rhino_utils.get_ring_area(ring), 1), "vertices": len(ring)})
+        self.push(get_curve_shape(ring, problem, context_baker.get_doc_origin(doc)))
 
     def _snap_area(self, msg):
         """구역계를 필지 경계에 맞춘다 — 걸친 일반 필지는 50 % 규칙대로 넣거나 빼고, 도로·하천은 그린 선대로 가로지른다."""
         context_builder = loader.load("context_builder")
-        context_geometry = loader.load("context_geometry")
+        context_geometry = context_builder.get_host_modules()[0]
         constants = loader.load("constants")
         current = get_area_state({"ring_tm": msg.get("ring_tm")})
         if not current["ok"]:
@@ -555,10 +594,10 @@ class _SiteController:
 
     def _progress(self, phase, fraction, text):
         # type: (str, float, str) -> bool
-        """엔진 콜백 — push → RhinoApp.Wait()(WebView 이벤트·cancel 명령 펌핑) → 취소 플래그."""
+        """엔진 콜백 — push → _pump(WebView 이벤트·cancel 명령 펌핑) → 취소 플래그."""
         self._last_phase = phase
         self.push(self._context_builder.get_progress_message(phase, fraction, text, self._skipped, self._phase_detail))
-        Rhino.RhinoApp.Wait()
+        self._pump()
         return not self._cancel_requested
 
     def _generate(self, msg):
@@ -567,7 +606,7 @@ class _SiteController:
             self.push({"type": "error", "context": "generate", "text": "이미 생성 중입니다", "detail": ""})
             return
         context_builder = loader.load("context_builder")
-        context_baker = loader.load("context_baker")
+        context_baker = context_builder.get_host_modules()[1]
         site_prefs = loader.load("site_prefs")
         lot_db = loader.load("lot_db")
         request = {"target": get_target_from_msg(msg), "options": dict(msg.get("options") or {})}
@@ -575,13 +614,13 @@ class _SiteController:
         self._skipped, self._phase_detail = get_skipped_details(request["options"])
         self._last_phase = "query"
         self._running, self._cancel_requested = True, False
-        doc = Rhino.RhinoDoc.ActiveDoc
+        doc = self._get_doc()
         try:
             self._download_for_generate(request)
             response = context_builder.run(request, self._progress, doc, self._keep)
         finally:
             self._running = False
-        doc.Views.Redraw()
+        self._redraw(doc)
         target = request["target"]
         if not response["ok"]:
             self._send_build_stats(target, [], response)   # 실패는 필지 DB 자체가 원인일 수 있어 다시 읽지 않는다(PNU만)
@@ -639,7 +678,7 @@ class _SiteController:
                     last[0] = int(fraction * 100)
                     self.push({"type": "data_progress", "text": "%s 지역 데이터 받는 중 %d%%" % (region, last[0]),
                                "fraction": round(fraction, 3), "in_generate": in_generate})
-                Rhino.RhinoApp.Wait()
+                self._pump()
                 return not self._cancel_requested
 
             try:
@@ -694,7 +733,7 @@ class _SiteController:
 
     def _run_busy(self, label, context, work):
         # type: (str, str, object) -> None
-        """busy{on} 푸시 → AsyncInvoke로 작업 예약(busy가 먼저 그려진다) → 작업 → busy{off}. Import·Export처럼 UI 스레드가 멈추는 짧은 작업용."""
+        """busy{on} 푸시 → _defer로 작업 예약(busy가 먼저 그려진다) → 작업 → busy{off}. Import·Export처럼 UI 스레드가 멈추는 짧은 작업용."""
         self.push({"type": "busy", "on": True, "label": label})
 
         def run_work():
@@ -703,7 +742,7 @@ class _SiteController:
             finally:
                 self.push({"type": "busy", "on": False, "label": ""})
 
-        forms.Application.Instance.AsyncInvoke(System.Action(run_work))
+        self._defer(run_work)
 
     def _import_context(self, msg):
         result_dir = str(msg.get("dir") or "")
@@ -713,7 +752,7 @@ class _SiteController:
         site_prefs = loader.load("site_prefs")
 
         def work():
-            doc = Rhino.RhinoDoc.ActiveDoc
+            doc = self._get_doc()
             result = context_baker.import_3dm(doc, result_dir)
             self.push({"type": "imported", "ok": result["ok"], "dir": result_dir, "layers": result["layers"], "objects": result["objects"],
                        "replaced": result["replaced"], "text": result["text"]})
@@ -740,12 +779,15 @@ class _SiteController:
         self._run_busy("내보내는 중", "export", work)
 
     def _zoom_view(self, msg):
-        context_baker = loader.load("context_baker")
-        if not context_baker.zoom_to_site(Rhino.RhinoDoc.ActiveDoc, str(msg.get("dir") or ""), msg.get("center")):
+        context_baker = loader.load("context_builder").get_host_modules()[1]
+        if not context_baker.zoom_to_site(self._get_doc(), str(msg.get("dir") or ""), msg.get("center")):
             raise ValueError("CTX::Site 객체가 없습니다 — 먼저 [문서에 넣기]")
 
     def _open_path(self, msg):
         _open_with_os(resolve_open_path(msg.get("path")))
+
+    def _stats_consent(self, msg):
+        loader.load("site_prefs").save_stats_consent(bool(msg.get("on")))
 
     def _save_prefs(self, msg):
         loader.load("site_prefs").save_options(msg.get("options") or {})
@@ -800,7 +842,7 @@ class _SiteController:
 # error.context — JS가 표시 자리를 고른다(panel_ui.md 오류 규약)
 _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "select", "set_point": "select", "pick_curve": "select",
                    "snap_area": "select", "import_context": "import", "export_basemap": "export",
-                   "zoom_view": "open", "open_path": "open", "save_prefs": "init", "cancel": "generate", "download_data": "init",
+                   "zoom_view": "open", "open_path": "open", "save_prefs": "init", "stats_consent": "init", "cancel": "generate", "download_data": "init",
                    "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style"}
 
 
@@ -810,7 +852,7 @@ def _show_panel():
     if existing is not None:
         try:
             existing.bring_to_front()
-            print("[대지검토] 이미 열린 패널을 앞으로 가져왔습니다")
+            print("[UrbanSite] 이미 열린 패널을 앞으로 가져왔습니다")
             return
         except Exception:
             scriptcontext.sticky.pop(PANEL_STICKY_KEY, None)   # 이미 닫혔거나 못 쓰는 패널 — 새로 연다

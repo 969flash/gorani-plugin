@@ -1,4 +1,4 @@
-# 「대지검토」 패널 UX/UI 스펙 — 최종
+# 「UrbanSite」 패널 UX/UI 스펙 — 최종
 
 - 작성 2026-10-07. 근거: `docs/deliverables.md`(요약·A.2·A.4·B·C 공통·E), `docs/data_sources.md` §0·§2.4, `CLAUDE.md`. 제안 3안(`docs/ui_proposals/wizard.md`·`map.md`·`single.md`)과 심사 3건(user·dev·craft)을 종합했다.
 - 구현 계약(명령·푸시·상태 머신·파일 구성)은 `docs/panel_ui.md`가 원본이다. 이 문서는 화면·행동·문안을 정한다.
@@ -52,7 +52,7 @@
 | 대안 | 출처 | 버린 이유 |
 |---|---|---|
 | 하단 3단 드래그 드로어(64/360/820) | map | 480×900에서 결과 상태가 되면 지도가 80 px 띠가 돼 '지도 중심'이 무색해진다. 비개발자에게 설명 없는 상호작용 축이 하나 는다 |
-| 옵션 `localStorage` 저장 | map | 인라인 HTML을 임시 파일 file:// 출처로 여는 WKWebView/WebView2에서 보장되지 않는다 → Python `~/.urbandesigntool/prefs.json` |
+| 옵션 `localStorage` 저장 | map | 인라인 HTML을 임시 파일 file:// 출처로 여는 WKWebView/WebView2에서 보장되지 않는다 → Python `~/.urbansite/prefs.json` |
 | 컨텍스트 DB 없음 → 전체 차단 | map | deliverables·CLAUDE.md("예외는 경고로")대로 필지만으로 생성 허용 |
 | .ai 내보내기를 Import 전에 누르면 몰래 Import→Export→정리 | map | Undo 스택 오염. .ai 버튼은 Import 완료 전 비활성 |
 | 원·사각형 드래그 리사이즈, 지도 레이어 토글 팝오버(⊞) | map | 세그먼트+직접 입력으로 전부 가능. 자체 드래그 구현은 버그 표면만 는다 |
@@ -104,7 +104,7 @@
 ### 3.1 IA
 
 ```
-대지검토 (창 1개, 480×900)
+UrbanSite (창 1개, 480×900)
 ├─ 헤더 56: 제목 + 배지(필지·건물·키) / 스텝퍼 [① 대상지] [② 범위·옵션] [③ 결과]
 ├─ 경고 띠(있을 때만): init_state.warnings — 컨텍스트 DB 없음 등
 ├─ 본문 780 스크롤(②는 스크롤 전제): section[data-step] 셋 중 하나만 표시
@@ -159,7 +159,7 @@
 
 ```
 ┌────────────────────────────────────────────────┐
-│ 대지검토      필지 05-13 · 건물 05-09 ● · 키 2/2 │  ← 배지: §2.4 색(회/노/빨), 키 2/2·브이월드만·없음. 클릭 = init
+│ UrbanSite     필지 05-13 · 건물 05-09 ● · 키 2/2 │  ← 배지: §2.4 색(회/노/빨), 키 2/2·브이월드만·없음. 클릭 = init
 │ ● 대상지 ━━━━━━ ○ 범위·옵션 ━━━━━━ ○ 결과        │  ← 현재 = 채운 원+굵게, 완료 = ✓(클릭), 미도달 = 빈 원 회색
 └────────────────────────────────────────────────┘
 ```
@@ -179,7 +179,7 @@
 
 ```
 ┌────────────────────────────────────────────────┐
-│ 대지검토      필지 05-13 · 건물 05-09 ● · 키 2/2 │
+│ UrbanSite     필지 05-13 · 건물 05-09 ● · 키 2/2 │
 │ ● 대상지 ━━━━━━ ○ 범위·옵션 ━━━━━━ ○ 결과        │
 ├────────────────────────────────────────────────┤
 │ ┌──────────────────────────────────┐ ┌───────┐ │
@@ -213,7 +213,7 @@
 
 ```
 ┌────────────────────────────────────────────────┐
-│ 대지검토      필지 05-13 · 건물 05-09 ● · 키 2/2 │
+│ UrbanSite     필지 05-13 · 건물 05-09 ● · 키 2/2 │
 │ ✓ 대상지 ━━━━━━ ● 범위·옵션 ━━━━━━ ○ 결과        │
 ├────────────────────────────────────────────────┤
 │ 성수동2가 277-17 외 1 · 1,234.5 ㎡          [변경]│
@@ -332,9 +332,9 @@
 
 ```
 ┌────────────────────────────────────────────────┐
-│ 대지검토                                        │
+│ UrbanSite                                       │
 ├────────────────────────────────────────────────┤
-│   대지검토를 쓰려면 데이터가 필요합니다           │
+│   UrbanSite를 쓰려면 데이터가 필요합니다          │
 │                                                │
 │   ✗ 필지 DB      data/seoul_site.db 없음        │
 │   ✓ 컨텍스트 DB  data/seoul_context.db (05-09)  │
@@ -405,7 +405,7 @@
 
 ## 6. 설정·옵션
 
-② 화면에 드러나는 것은 **반경·형태·산출물 4체크**뿐. 나머지는 각 행의 인라인 디스클로저 또는 고급. 모든 값은 바뀔 때마다 `save_prefs`(500 ms 디바운스)로 Python이 `~/.urbandesigntool/prefs.json`에 저장하고 `init_state.options`로 돌려준다.
+② 화면에 드러나는 것은 **반경·형태·산출물 4체크**뿐. 나머지는 각 행의 인라인 디스클로저 또는 고급. 모든 값은 바뀔 때마다 `save_prefs`(500 ms 디바운스)로 Python이 `~/.urbansite/prefs.json`에 저장하고 `init_state.options`로 돌려준다.
 
 ### 6.1 기본 노출
 
@@ -630,7 +630,7 @@ window.app = { receive(msg) { handlers[msg.type]?.(msg); } };
 - 도엽 교차: 컨텍스트 DB의 도엽 목록(도엽번호·bbox·제작연도, `data_sources.md`의 `sheets.csv` 적재분)과 범위 bbox 교차(stdlib). 보유/미보유 + 빠진 방향(범위 중심 기준 8방위).
 - 예상치: 범위 bbox로 `buildings` COUNT(인덱스 컬럼 `min_x/max_x/min_y/max_y`), 초 = `3 + buildings/60`, MB = `buildings/230`(07 §8 규모 감에서 역산, constants).
 - 빈 시트: 범위 bbox에 해당 테이블 행이 0이면 그 시트 id.
-- 기준일: `data_sources`·컨텍스트 DB `source_files`에서 기준일 → 경과 개월 → §2.4 임계. 새 판은 `~/.urbandesigntool/source_news.json`(init이 띄운 비차단 체크 서브프로세스가 쓴 캐시, 1일 유효)에서 읽는다.
+- 기준일: `data_sources`·컨텍스트 DB `source_files`에서 기준일 → 경과 개월 → §2.4 임계. 새 판은 `~/.urbansite/source_news.json`(init이 띄운 비차단 체크 서브프로세스가 쓴 캐시, 1일 유효)에서 읽는다.
 - 결과를 `(tuple(pnus), radius, shape, paper, tuple(paper_mm), tuple(scales))` 키로 메모이즈(`paper_mm`이 빠지면 용지 '직접'에서 가로·세로를 바꿔도 프레임·frame_over가 안 바뀐다). `init`마다 비운다(키 유무·새 판 캐시는 키에 없으므로). `seq` 에코.
 - 새 판 캐시 `source_news.json`은 체크 서브프로세스(stdlib urllib, Rhino CPython으로 실행)가 tmp에 쓰고 `os.replace`하므로 읽는 중 깨진 JSON이 없다.
 
@@ -639,7 +639,7 @@ window.app = { receive(msg) { handlers[msg.type]?.(msg); } };
 - `map_lots` GeoJSON 소수 7자리·최대 5,000건(기존 `review_map.get_parcels_in_bbox`). 줌 17 조건으로 실측 1~2천 건.
 - `preflight_result.extent_geojson`은 수 KB. 썸네일·SVG 푸시 없음.
 - 로그 400줄 상한.
-- `prefs.json`은 사용자 홈(`~/.urbandesigntool/`) — 저장소를 더럽히지 않고 WebView `localStorage`에 의존하지 않는다.
+- `prefs.json`은 사용자 홈(`~/.urbansite/`) — 저장소를 더럽히지 않고 WebView `localStorage`에 의존하지 않는다.
 
 ### 11.6 개발 보조
 

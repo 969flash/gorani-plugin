@@ -1,28 +1,29 @@
 # 설치
 
-Rhino 8 전용. 파이썬·pip 패키지가 필요 없다(Rhino 내장 CPython + 표준 라이브러리만 쓴다).
+Rhino 8과 Blender 4.2 이상. 파이썬·pip 패키지가 필요 없다(프로그램 내장 파이썬 + 표준 라이브러리만 쓴다).
+Blender는 아래 [Blender](#blender) 절.
 
 ## 1. 플러그인 설치
 
-Rhino 8 명령창에 `PackageManager` → `UrbanDesignTool` 검색 → 설치 → Rhino를 다시 켠다.
+Rhino 8 명령창에 `PackageManager` → `UrbanSite` 검색 → 설치 → Rhino를 다시 켠다.
 
 ## 2. 데이터 받기 (지역마다 처음 한 번)
 
-명령창에 `UrbanSite`(또는 `대지검토`)를 입력하면 패널이 열린다.
+명령창에 `UrbanSite`를 입력하면 패널이 열린다.
 
-- **국내**: DB는 시군구 단위로 받는다(구 하나에 수십 MB). 처음이면 패널의 [지도에서 지역 골라 받기]를 누르고, 지도를 대상지로 옮긴 뒤 지도 왼쪽 아래 [받기]를 누른다. 받은 지역은 `~/UrbanDesignTool/data/`에 남는다. 새 판이 나오면 같은 자리에 '새 판 있음'이 뜬다.
+- **국내**: DB는 시군구 단위로 받는다(구 하나에 수십 MB). 처음이면 패널의 [지도에서 지역 골라 받기]를 누르고, 지도를 대상지로 옮긴 뒤 지도 왼쪽 아래 [받기]를 누른다. 받은 지역은 `~/UrbanSite/data/`에 남는다. 새 판이 나오면 같은 자리에 '새 판 있음'이 뜬다.
 - **해외**: [DB 없이 해외 대상지로 계속] — 건물·도로·지형은 생성할 때 OpenStreetMap·지형 타일에서 받는다(인터넷 필요). 필지·용도지역 시트는 비고, 건물 높이는 OSM 태그(없으면 기본값)다.
 
-| 파일(`~/UrbanDesignTool/`) | 내용 |
+| 파일(`~/UrbanSite/`) | 내용 |
 |---|---|
 | `data/<시군구코드>_site.db` | 필지·토지이용계획·계획 도형 |
 | `data/<시군구코드>_context.db` | 건물·도로·수계·철도·녹지 |
 | `data/<시군구코드>_terrain.db` | 등고선·표고점 |
-| `.env` | `VWORLD_API_KEY=…`(건물 최신화·주소 보조검색), `DATA_GO_KR_KEY=…`(선택). 없어도 동작. 패널 [.env 열기]가 템플릿을 만든다. `=` 뒤에 공백을 두지 말 것 |
+| `.env` | `VWORLD_API_KEY=…`(본인 키 — 건물 최신화·주소 보조검색·지도/위성 배경·항공사진 시트), `DATA_GO_KR_KEY=…`(선택). 없어도 동작(지도는 OSM, 위성·항공사진은 Esri). 패널 [.env 열기]가 템플릿을 만든다. `=` 뒤에 공백을 두지 말 것 |
 
 ## 3. 사용
 
-- 결과는 `~/UrbanDesignTool/result/<날짜>/<대상지>/`에 쌓인다(`context.3dm`, `basemap_<축척>.ai`, `sheets/*.svg`, `tables/*.csv`, `log.txt`).
+- 결과는 `~/UrbanSite/result/<날짜>/<대상지>/`에 쌓인다(`context.3dm`, `basemap_<축척>.ai`, `sheets/*.svg`, `tables/*.csv`, `log.txt`).
 - 문서 단위는 mm·cm·m 아무거나 된다. 내부 계산은 m이고 베이크 때 문서 단위로 환산한다.
 - 등고선·표고값·3D 컨텍스트는 온라인에 올리지 않는다(국토지리정보원 보안관리규정 별표1). 파일 납품만.
 
@@ -32,13 +33,34 @@ Rhino 8 명령창에 `PackageManager` → `UrbanDesignTool` 검색 → 설치 �
 - [받기]가 멈췄다: 다시 누르면 남은 팩만 받는다.
 - 해외 생성이 실패: OSM 서버(Overpass)가 붐빌 때가 있다 — 잠시 뒤 다시.
 - .ai를 열 때 '레거시 텍스트 업데이트'를 묻는다: 업데이트하지 않아도 한글은 보인다.
-- 로그: 결과 폴더 `log.txt`, 패널 진단 `임시폴더/urban_design_tool_panel_debug.log`.
+- 로그: 결과 폴더 `log.txt`, 패널 진단 `임시폴더/urbansite_panel_debug.log`.
+
+## Blender
+
+1. 설치 — Blender 환경 설정 > Get Extensions > 오른쪽 위 ⌄ > Repositories > [+] Add Remote Repository에
+   `https://969flash.github.io/urbansite/blender/index.json` → 목록에서 UrbanSite [Install]. 새 판도 여기서 받는다.
+   zip 파일을 받았으면 Get Extensions > ⌄ > Install from Disk.
+2. 명령줄·AI 에이전트:
+   ```
+   blender -c extension repo-add --name UrbanSite --url https://969flash.github.io/urbansite/blender/index.json urbansite
+   blender -c extension install -s -e urbansite
+   ```
+   zip이면 `blender -c extension install-file -r user_default -e urbansite-<버전>.zip`.
+3. 환경 설정 > 시스템 > 네트워크 > **온라인 접근 허용**을 켠다(지도·지역 데이터를 받는다).
+4. 3D 뷰 사이드바(N) > UrbanSite > [패널 열기] — 패널이 기본 브라우저 탭으로 열린다(Blender 안에는 웹 창이 없다). 쓰는 법은 Rhino와 같다.
+   생성 중에는 Blender 화면이 멈추고 진행률은 브라우저에 보인다. 탭을 닫았으면 [패널 열기]를 다시 누른다.
+
+- 데이터·결과 폴더는 Rhino와 같다(`~/UrbanSite`) — 한쪽에서 받은 지역은 다른 쪽도 쓴다.
+- 3D는 장면의 컬렉션 `CTX::…`와 사본 `context.blend`(열면 'UrbanSite' 장면). 건물은 메시 하나이고 면 속성 `height`·`floors`·`building_id`가 있다(지오메트리 노드로 색칠). 필지는 레이어마다 커브 하나로 묶여 PNU 속성이 없다(대상 필지 `CTX::Site`만 필지마다).
+- 장면 단위는 m로 둔다(Blender 기본). Rhino판의 2D 도면 레이어(BM::)·DWG 저장은 없다 — `basemap_<축척>.ai`·`sheets/*.svg`를 쓴다.
+- Rhino 커브 가져오기 대신 닫힌 커브 객체 하나를 선택하고 [Blender 커브 가져오기].
 
 ## 5. 사용 통계
 
 도구를 고치고 어디서 얼마나 쓰이는지 알기 위해 Google Analytics로 아래를 보낸다. 이름·파일 경로·도면 내용은 보내지 않는다.
+Blender판은 패널에서 [보내기]를 고른 사람만 보낸다(처음 한 번 묻고, 더보기 메뉴 > 설정 > 사용 통계에서 바꾼다).
 
-- 설치마다 만든 무작위 ID, 패널·Rhino 버전, OS·언어
+- 설치마다 만든 무작위 ID, 패널·Rhino(또는 Blender) 버전, OS·언어
 - 생성한 대상지 — 필지 PNU·중심 좌표, 구역은 중심·면적·크기, 위치는 그 좌표
 - 범위·결과·걸린 시간·건물 수, 받은 데이터 팩 지역, 예상 밖 오류 종류
 

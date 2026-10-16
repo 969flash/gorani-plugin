@@ -7,6 +7,7 @@ import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
@@ -16,6 +17,16 @@ import constants
 import sheet_svg
 
 SVG = "{http://www.w3.org/2000/svg}"
+FAKE_TILE = b"\xff\xd8\xff\xe0fake"
+_NO_NETWORK = patch.object(sheet_svg, "_fetch_tile", lambda url: FAKE_TILE)   # 테스트는 영상 타일을 받지 않는다(항공사진 시트)
+
+
+def setUpModule():
+    _NO_NETWORK.start()   # 모듈 import 때 바꾸면 test_loader의 reload가 되돌린다 — 이 모듈 테스트 직전에 건다
+
+
+def tearDownModule():
+    _NO_NETWORK.stop()
 CENTER = (204764.0, 549052.0)   # 성수동2가 333-139 중심
 ID = constants.SHEET_IDS
 
@@ -181,7 +192,7 @@ class SvgTest(unittest.TestCase):
         for result in self.results.values():
             self.assertTrue(os.path.exists(result["path"]), result)
 
-            self.assertTrue(result["thumb"].startswith("data:image/png;base64,"))    # 패널 도면 칸 썸네일
+            self.assertTrue(result["thumb"].startswith("data:image/svg+xml;base64," if result["id"] == ID["aerial"] else "data:image/png;base64,"))    # 패널 도면 칸 썸네일
             self.assertEqual(result["name"], sheet_svg.SHEET_NAMES[result["id"]])
         self.assertTrue(self.results[0]["path"].endswith("00_베이스맵.svg"))
         self.assertEqual({r["id"] for r in self.results.values() if r["empty"]}, {ID["density"], ID["public"]})   # 시험 데이터에 도로 도넛·공공 용도가 없다
@@ -402,6 +413,109 @@ class ClassifyTest(unittest.TestCase):
         self.assertEqual(set(keys), set(constants.SHEET_LEGENDS))
         for key, (subject, _entries) in constants.SHEET_LEGENDS.items():
             self.assertIn(subject, ("target_lot", "lot", "overlay", "building", "road", "terrain", "station", "green", "block", "walk", "public", "none"), key)
+
+
+class AerialSheetTest(unittest.TestCase):
+    """항공사진 — 타일 줌·배치(웹 메르카토르 → TM 아핀), 소스 폴백, 캐시, 빈 시트."""
+
+    def test_zoom_and_tile_placement(self):
+        frame = sheet_svg.Frame((273.0, 273.0), 5000, CENTER)
+        zoom, tiles, m_per_px = sheet_svg.get_aerial_tiles(frame, (0.0, 0.0, 273.0, 273.0), constants.AERIAL_DPI / 25.4)
+        self.assertEqual(zoom, 18)   # 1:5000 · 150 dpi = 0.85 m/px → 줌 18 (0.47 m/px, 위도 37.5°)
+        self.assertAlmostEqual(m_per_px, 0.474, places=2)
+        self.assertTrue(100 < len(tiles) <= constants.AERIAL_MAX_TILES)
+        data = make_data()
+        lines, _attribution, _m = sheet_svg._get_aerial_images(data, frame, (0.0, 0.0, 273.0, 273.0), constants.AERIAL_DPI / 25.4)
+        self.assertEqual(len(lines), len(tiles))
+        a, b, c, d = (float(v) for v in lines[0].split('matrix(')[1].split(")")[0].split()[:4])
+        tile_mm = 256 * m_per_px * 1000.0 / 5000
+        self.assertAlmostEqual(a, tile_mm, delta=tile_mm * 0.01)   # 타일 한 변 = 지상 길이 / 축척
+        self.assertAlmostEqual(d, tile_mm, delta=tile_mm * 0.01)
+        self.assertLess(abs(b) / a, 0.01)   # 서울(127° 근처) 자오선수차는 1/100 rad 아래
+        self.assertLess(abs(c) / d, 0.01)
+
+    def test_sheet_images_card_and_cache(self):
+        data = make_data()
+        calls = []
+        with patch.object(sheet_svg, "_fetch_tile", lambda url: calls.append(url) or FAKE_TILE):
+            result = sheet_svg.write_sheets(data, tempfile.mkdtemp(), [ID["aerial"]])[0]
+            first = len(calls)
+            sheet_svg.write_sheets(data, tempfile.mkdtemp(), [ID["aerial"]])
+        self.assertEqual(len(calls), first)   # 다시 그려도(스타일 적용) 받은 타일을 쓴다
+        self.assertFalse(result["empty"])
+        root = ET.parse(result["path"]).getroot()
+        self.assertEqual(len(list(root.iter(SVG + "image"))), len([u for u in calls if "/18/" in u]))
+        self.assertTrue(any(t.startswith("영상 ") for t in _texts(root, "card")))
+        self.assertIsNone(root.find(".//*[@id='mask']"))   # 범위 밖을 흐리지 않는다
+        self.assertIsNotNone(root.find(".//*[@id='extent_halo']"))
+        self.assertEqual(sheet_svg.get_sheet_ai(result["path"]), result["path"])   # 레거시 .ai는 영상을 못 담는다 — SVG 그대로
+
+    def test_vworld_falls_back_to_esri_and_offline_is_empty(self):
+        import review_map
+        calls = []
+        with patch.dict(os.environ, {"VWORLD_API_KEY": "TESTKEY"}), \
+                patch.object(sheet_svg, "_fetch_tile", lambda url: calls.append(url) or (b"" if "vworld" in url else FAKE_TILE)):
+            result = sheet_svg.write_sheets(make_data(), tempfile.mkdtemp(), [ID["aerial"]])[0]
+        self.assertFalse(result["empty"])
+        self.assertTrue(any("vworld" in u for u in calls) and any("arcgisonline" in u for u in calls))
+        self.assertIn("Esri", open(result["path"], encoding="utf-8").read())   # 카드 출처도 받은 소스
+        with patch.object(sheet_svg, "_fetch_tile", lambda url: b""):
+            result = sheet_svg.write_sheets(make_data(), tempfile.mkdtemp(), [ID["aerial"]])[0]
+        self.assertEqual((result["empty"], result["reason"]), (True, "영상 못 받음"))
+        calls = []
+        with patch.object(sheet_svg, "_fetch_tile", lambda url: calls.append(url) or b""):
+            sheet_svg.write_sheets(make_data(), tempfile.mkdtemp(), [ID["aerial"]])
+        self.assertLessEqual(len(calls), 2)   # 막힌 망 — 소스마다 한 장만 시도하고(시트·썸네일 공통) 타일마다 시간 초과를 기다리지 않는다
+        self.assertIn(review_map.ESRI_AERIAL_URL.split("/")[2], review_map.get_tile_config()["abroad_aerial_url"])
+
+
+class AxoSheetTest(unittest.TestCase):
+    """입체 매스도 — 시점 축, 볼록 자르기, 벽 보임·그리는 순서, 시트·썸네일."""
+
+    def test_axes_are_orthonormal_and_se_camera_is_southeast(self):
+        right, up, toward = sheet_svg.get_axo_axes("se")
+        dot = lambda a, b: sum(x * y for x, y in zip(a, b))
+        for a, b in ((right, up), (right, toward), (up, toward)):
+            self.assertAlmostEqual(dot(a, b), 0.0)
+        for v in (right, up, toward):
+            self.assertAlmostEqual(dot(v, v), 1.0)
+        self.assertTrue(toward[0] > 0 > toward[1])   # 카메라가 남동쪽에서 북서쪽을 본다
+        self.assertTrue(right[0] > 0 and right[1] > 0)   # 화면 오른쪽 = 북동
+
+    def test_convex_clip(self):
+        square = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)]
+        clipped = sheet_svg.get_convex_clipped_ring([(5.0, 5.0), (20.0, 5.0), (20.0, 8.0), (5.0, 8.0)], square)
+        self.assertAlmostEqual(max(p[0] for p in clipped), 10.0)
+        self.assertAlmostEqual(sheet_svg.get_ring_area(clipped), 15.0)
+        self.assertEqual(sheet_svg.get_convex_clipped_ring([(20.0, 20.0), (30.0, 20.0), (30.0, 30.0)], square), [])
+
+    def test_scene_walls_roof_and_painter_order(self):
+        cx, cy = CENTER
+        data = make_data()
+        data.features, data.overlays, data.near_lots = [], [], []
+        data.buildings = [_building(1, cx, cy - 100, height_m=10.0), _building(2, cx, cy + 100, height_m=20.0)]   # 남동 시점에서 북쪽(2)이 멀다
+        scene = sheet_svg.get_axo_scene(data, "se", (273.0, 273.0))
+        kinds = [kind for kind, _rings, _site in scene["faces"]]
+        self.assertEqual((kinds[2], kinds[5], len(kinds)), ("roof", "roof", 6))   # 동마다 보이는 벽 둘(남·동) → 지붕
+        self.assertEqual(set(kinds[:2]), {"wall_a", "wall_b"})   # 화면 오른쪽·왼쪽을 향한 벽은 다른 색
+        far_roof, near_roof = scene["faces"][2][1][0], scene["faces"][5][1][0]
+        self.assertLess(max(p[1] for p in far_roof), min(p[1] for p in near_roof))   # 먼(북쪽) 동을 먼저 — 종이에서 위
+        self.assertEqual((scene["count"], sorted(scene["heights"])), (2, [10.0, 20.0]))
+        self.assertTrue(scene["north"][0] > 0 > scene["north"][1])   # 남동 시점의 북쪽 = 화면 오른쪽 위
+
+    def test_sheet_render_views_and_thumbnail(self):
+        result = sheet_svg.write_sheets(make_data(style={"axo_view": "nw"}), tempfile.mkdtemp(), [ID["axo"]])[0]
+        self.assertFalse(result["empty"])
+        root = ET.parse(result["path"]).getroot()
+        ids = _groups(root)
+        self.assertTrue({"axo_ground", "theme", "labels", "scale_north"} <= set(ids), ids)
+        self.assertNotIn("base_parcels", ids)   # 평면 지적·범위 밖 흐리기는 그리지 않는다
+        self.assertIsNone(root.find(".//*[@id='mask']"))
+        self.assertIn("평행 투상(축척 없음) · A3 · EPSG:5186", _texts(root, "info"))
+        self.assertTrue(any(t.startswith("북서 등각 시점") for t in _texts(root, "card")))
+        self.assertTrue(result["thumb"].startswith("data:image/png;base64,"))
+        se_svg = sheet_svg.render_sheet(ID["axo"], make_data(style={"axo_view": "se"}))[0]
+        self.assertNotEqual(open(result["path"], encoding="utf-8").read(), se_svg)   # 시점(도면 스타일)이 그림을 바꾼다
 
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"

@@ -12,7 +12,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
 def _load_loader():
     """진입 스크립트(cmd_*.py)와 같은 방식으로 loader를 읽는다."""
     spec = importlib.util.spec_from_file_location(
-        "urban_design_tool_loader_test",
+        "urbansite_loader_test",
         SCRIPTS_DIR / "loader.py",
     )
     module = importlib.util.module_from_spec(spec)

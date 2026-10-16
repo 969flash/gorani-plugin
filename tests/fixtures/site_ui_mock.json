@@ -65,7 +65,11 @@
   "tile": {
    "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
    "fallback_url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-   "attribution": "© OpenStreetMap contributors"
+   "attribution": "© OpenStreetMap contributors",
+   "aerial_url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+   "aerial_attribution": "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+   "abroad_aerial_url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+   "abroad_aerial_attribution": "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community"
   },
   "map": {
    "center": [
@@ -386,7 +390,8 @@
    "fade_outside": 0.55,
    "labels": true,
    "subtitle_en": true,
-   "project": ""
+   "project": "",
+   "axo_view": "se"
   },
   "style_ramps": {
    "warm": [

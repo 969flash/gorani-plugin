@@ -1,5 +1,5 @@
 ---
-name: 대지검토 패널
+name: UrbanSite 패널
 description: 방안지 위의 구성 격자 — Rhino에 붙는 480 px 패널
 colors:
   paper: "#F5F7FA"
@@ -108,7 +108,7 @@ components:
     height: "32px"
 ---
 
-# Design System: 대지검토 패널
+# Design System: UrbanSite 패널
 
 ## Overview
 

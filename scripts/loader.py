@@ -5,6 +5,8 @@ Rhino 8은 여러 스크립트·플러그인이 파이썬 인터프리터 하나
 다음 계산에 반영되지 않을 수 있다. 두 문제를 이 파일 한 곳에서 처리한다.
 
 진입 스크립트는 이 파일만 직접 읽고, 나머지 로직 모듈은 `load()`로 가져온다.
+Blender 확장에서는 scripts/가 패키지의 하위 패키지다(확장 정책: 최상위 모듈·sys.path 변경 금지) — 그때는 패키지 이름을 붙여
+불러오고 sys.path·외부 모듈은 건드리지 않는다. 로직 모듈의 `import constants`는 빌드가 상대 import로 바꿔 둔다(dev_deploy.py blender).
 """
 
 import importlib
@@ -13,6 +15,7 @@ import sys
 
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SCRIPTS_DIR)
+_PREFIX = __package__ + "." if __package__ else ""   # Blender 확장 = 'bl_ext.<저장소>.urbansite.scripts.'
 
 
 def load(module_name):
@@ -30,17 +33,18 @@ def load(module_name):
     출력:
         불러온 모듈. 파일이 없으면 ImportError를 발생시킨다.
     """
-    if SCRIPTS_DIR not in sys.path:
+    if not _PREFIX and SCRIPTS_DIR not in sys.path:
         sys.path.insert(0, SCRIPTS_DIR)
     importlib.invalidate_caches()
-    _drop_foreign_modules()
+    if not _PREFIX:
+        _drop_foreign_modules()
     loaded_before = _get_project_modules()
-    importlib.import_module(module_name)
+    importlib.import_module(_PREFIX + module_name)
     for module in loaded_before:
         importlib.reload(module)
-    module = sys.modules.get(module_name)
+    module = sys.modules.get(_PREFIX + module_name)
     if module is None:
-        module = importlib.import_module(module_name)
+        module = importlib.import_module(_PREFIX + module_name)
     return module
 
 
@@ -97,7 +101,7 @@ def _get_project_modules():
     출력:
         모듈 목록.
     """
-    names = set(_get_project_module_names())
+    names = {_PREFIX + name for name in _get_project_module_names()}
     return [
         module
         for name, module in list(sys.modules.items())
@@ -138,7 +142,7 @@ def _get_project_module_names():
     loader_name = os.path.basename(__file__)[:-3]
     names = []
     for file_name in os.listdir(SCRIPTS_DIR):
-        if file_name.startswith("cmd_"):
+        if file_name.startswith("cmd_") or file_name.startswith("__init__"):
             continue
         if file_name.endswith(".py"):
             name = file_name[:-3]
@@ -166,10 +170,10 @@ def reload_project_modules(exclude=()):
     출력:
         없음.
     """
-    if SCRIPTS_DIR not in sys.path:
+    if not _PREFIX and SCRIPTS_DIR not in sys.path:
         sys.path.insert(0, SCRIPTS_DIR)
     importlib.invalidate_caches()
     for module in _get_project_modules():
-        if module.__name__ in exclude:
+        if module.__name__[len(_PREFIX):] in exclude:
             continue
         importlib.reload(module)

@@ -2,12 +2,13 @@
 
     resolve_target(request)           Rhino 금지. 대상지 방식(lots·area·point) → 경계 링·안의 필지·중심·이름·키.
     prepare(request, progress)        Rhino 금지. 입력 검증 → 필지·컨텍스트 질의 → 원점·범위 → 통계·경고·메타.
-    run(request, progress, doc)       Rhino 안. prepare → context_geometry.build → context_baker.bake/.. → 시트·조서.
+    run(request, progress, doc)       Rhino·Blender 안. prepare → (호스트) 지오메트리.build → 베이커.bake/.. → 시트·조서.
+    get_host_modules()                (지오메트리, 베이커) — Rhino는 context_*, Blender는 blender_*. 둘은 같은 함수 이름을 쓴다.
     preflight(request)                Rhino 금지, 100 ms급. COUNT 질의만으로 사전 점검(panel_ui.md preflight_result).
     get_sources / get_source_warnings 원천 상태 4건·stale_* 경고 — 패널 init_state도 쓴다.
     get_progress_message(...)         순수 함수. progress 페이로드 조립. skipped 집합은 get_skipped_phases(options).
 
-이 파일은 Rhino를 모듈 수준에서 import하지 않는다. run()만 함수 안에서 Rhino 모듈을 불러온다.
+이 파일은 Rhino·bpy를 모듈 수준에서 import하지 않는다. run()만 함수 안에서 호스트 모듈을 불러온다.
 요청·응답 dict 모양은 docs/code_map.md §4.2·§4.3, 패널 메시지는 docs/panel_ui.md.
 좌표는 전부 EPSG:5186 세계좌표 m — 원점은 여기서 정하기만 하고 적용은 context_geometry.get_local_pts가 한다.
 """
@@ -793,7 +794,8 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
 
 RESPONSE_KEYS = ("ok", "cancelled", "dir", "lot_name", "elapsed_s", "options", "context", "basemap", "sheets", "tables", "files",
                  "warnings", "quality", "qa_geojson", "error")
-_RESET_NAMES = (constants.RESULT_SHEETS_DIRNAME, constants.RESULT_TABLES_DIRNAME, constants.CONTEXT_MODEL_FILE_NAME, constants.CONTEXT_META_FILE_NAME)
+_RESET_NAMES = (constants.RESULT_SHEETS_DIRNAME, constants.RESULT_TABLES_DIRNAME, constants.CONTEXT_MODEL_FILE_NAME, constants.BLENDER_MODEL_FILE_NAME,
+                constants.CONTEXT_META_FILE_NAME)
 
 
 def _get_error(exc, detail=""):
@@ -864,12 +866,35 @@ def get_sheet_ids(options):
     return [sheet_id for sheet_id in valid if sheet_id in wanted] or valid
 
 
+def get_host():
+    # type: () -> str
+    """지금 도는 프로그램 — Blender 안이면 'blender', 아니면 'rhino'(python3 테스트 포함). constants.HOST_LABELS의 키."""
+    try:
+        import bpy  # noqa: F401
+    except ImportError:
+        return "rhino"
+    return "blender"
+
+
+def get_host_modules():
+    # type: () -> tuple
+    """(지오메트리, 베이커) 모듈. Rhino = context_geometry·context_baker, Blender = blender_geometry·blender_baker.
+    베이커 함수(get_doc_origin·clear_previous·bake·write_ref_and_origin·save_copy·zoom_to_site)와 build·get_snapped_ring은 이름이 같다."""
+    if get_host() == "blender":
+        import blender_baker
+        import blender_geometry
+        return blender_geometry, blender_baker
+    import context_baker
+    import context_geometry
+    return context_geometry, context_baker
+
+
 def run(request, progress=None, doc=None, keep=None):
     # type: (dict, object, object, dict) -> dict
     """Rhino 안. prepare → context_geometry.build → context_baker.bake/write_ref_and_origin/save_copy → (basemap) basemap_ai.write_basemap
     → (sheets) sheet_svg.write_sheets → (tables) context_report.write_tables → context.json·log.txt → 응답 dict(code_map §4.3).
 
-    입력: 요청 dict(§4.2), progress(phase, fraction, text) -> bool(False = 취소), doc(RhinoDoc; None이면 doc.Strings 원점을 읽지 않는다 — python3 테스트),
+    입력: 요청 dict(§4.2), progress(phase, fraction, text) -> bool(False = 취소), doc(RhinoDoc·Blender 장면; None이면 문서 원점을 읽지 않는다 — python3 테스트),
           keep(dict, 선택 — 시트를 썼으면 {dir, data, prepared}를 담아 준다. 패널 '도면 스타일'이 지형까지 다시 그릴 때 쓴다).
     처리: phase는 constants.PHASES 순서(refresh·import는 항상 skipped, 옵션으로 끈 basemap·sheets·tables도 skipped — 콜백 없음).
           Cancelled → 이번 베이크 객체(UDT_LOT_KEY) 삭제 → ok=false·cancelled=true. 도메인 예외 → error{code,title,detail}, 그 외 → exception+traceback.
@@ -879,8 +904,7 @@ def run(request, progress=None, doc=None, keep=None):
     started = time.time()
     request = get_request_with_defaults(request)
     if doc is not None and not request.get("doc_origin"):
-        import context_baker
-        request["doc_origin"] = context_baker.get_doc_origin(doc)
+        request["doc_origin"] = get_host_modules()[1].get_doc_origin(doc)
     response = _get_empty_response(request["options"])
     state = {"phase": "query", "prepared": None, "lot_key": None, "baked": False, "geo": None, "save_timing": {}}
     try:
@@ -890,8 +914,7 @@ def run(request, progress=None, doc=None, keep=None):
         response["cancelled"] = True
         response["error"] = {"code": "cancelled", "title": "취소됨", "detail": str(exc)}
         if doc is not None and state["baked"]:
-            import context_baker
-            context_baker.clear_previous(doc, state["lot_key"])
+            get_host_modules()[1].clear_previous(doc, state["lot_key"])
     except (ValueError, KeyError, FileNotFoundError, RuntimeError) as exc:
         response["error"] = _get_error(exc)
     except Exception as exc:   # noqa: BLE001 — 패널에 traceback을 전한다
@@ -925,7 +948,8 @@ def _get_log_lines(response, state):
         lines += ["건너뜀: " + s for s in geo.skipped]
     if state.get("save_timing"):
         t = state["save_timing"]
-        lines.append("context.3dm 저장 — 선택 %s s · 쓰기 %s s · 객체 %s · %s bytes" % (t.get("select_s"), t.get("write_s"), t.get("objects"), t.get("bytes")))
+        lines.append("%s 저장 — 선택 %s s · 쓰기 %s s · 객체 %s · %s bytes" % (os.path.basename(response["context"]["path"] or constants.CONTEXT_MODEL_FILE_NAME),
+                                                                    t.get("select_s"), t.get("write_s"), t.get("objects"), t.get("bytes")))
     for scale, r in sorted((state.get("ai_results") or {}).items()):
         lines.append("basemap_%d.ai — 레이어 %d · %s bytes · %s" % (scale, r["layers"], r["bytes"], " ".join("%s=%d" % kv for kv in sorted(r["counts"].items()))))
     lines += ["경고 %s: %s" % (w["code"], w["text"]) for w in response["warnings"]]
@@ -944,8 +968,7 @@ def _run_phases(request, progress, doc, response, state):
     response["quality"].update(height_src=prepared.stats["height_src"], align=prepared.stats["align"], dates=prepared.meta["dates"])
     skipped = prepared.skipped_phases
 
-    import context_baker      # Rhino 모듈은 여기서부터 (prepare까지는 python3로 돈다)
-    import context_geometry
+    context_geometry, context_baker = get_host_modules()   # 호스트 모듈은 여기서부터 (prepare까지는 python3로 돈다)
     import sheet_svg
 
     # terrain — TIN·분류·투영·압출·커브 전부 (문서 변경 없음)
@@ -973,13 +996,14 @@ def _run_phases(request, progress, doc, response, state):
     if len(ids) < len(items) + 2:
         response["warnings"].append(_warning("warn", "skipped", "베이크 실패 %d건" % (len(items) + 2 - len(ids)), ""))
     layers = {item.layer for item in items} | {constants.CTX_ROOT_LAYER + "::Ref"}
-    _report(progress, "write_3dm", 0.85, "context.3dm 저장")
+    _report(progress, "write_3dm", 0.85, "%s 저장" % constants.HOST_LABELS[get_host()]["model"])
     state["save_timing"] = {}
     path = context_baker.save_copy(doc, os.path.join(prepared.result_dir, constants.CONTEXT_MODEL_FILE_NAME), ids, state["save_timing"])
     response["context"].update(path=path, layers=len(layers), buildings=geo.counts["buildings"], lots=prepared.stats["lots"],
                                demolished=geo.counts.get("demolished", 0), tin_points=geo.counts["tin_points"], origin=list(prepared.origin),
-                               origin_reused=prepared.origin_reused, placement=prepared.placement, doc_origin=list(prepared.doc_origin), model_unit=str(doc.ModelUnitSystem), imported=True, import_text="")
-    if options.get("make_dwg") and constants.DWG_EXPORT_ENABLED:   # 2D 도면(BM::)만 .dwg로 — 실패해도 3dm은 남긴다
+                               origin_reused=prepared.origin_reused, placement=prepared.placement, doc_origin=list(prepared.doc_origin),
+                               model_unit=str(getattr(doc, "ModelUnitSystem", "Meters")), imported=True, import_text="")   # Blender 장면은 m 고정
+    if options.get("make_dwg") and constants.DWG_EXPORT_ENABLED and hasattr(context_baker, "save_dwg_from_3dm"):   # DWG는 Rhino만   # 2D 도면(BM::)만 .dwg로 — 실패해도 3dm은 남긴다
         _report(progress, "write_3dm", 0.95, ".dwg 저장")
         try:   # 방금 쓴 3dm을 헤드리스로 열어 쓴다 — 활성 문서에서 쓰면 Mac에서 멈춘다(context_baker.save_dwg_from_3dm)
             dwg_path = os.path.join(prepared.result_dir, constants.DWG_FILE_FORMAT % min(prepared.scales))
@@ -1118,7 +1142,7 @@ def preflight(request, today=None):
                 "seconds": int(round(constants.ESTIMATE_SECONDS_BASE + buildings * constants.ESTIMATE_SECONDS_PER_BUILDING)),
                 "mb": max(1, int(round(buildings * constants.ESTIMATE_MB_PER_BUILDING))), "note": "",
                 "pending_mb": round(sum(p.get("xz_size", 0) for p in pending) / 1048576.0) if pending else 0}   # 받기 전 — 건물 수·도엽은 모른다
-    available = {"lot": lot_count > 0, "building": buildings > 0 or bool(pending),
+    available = {"lot": lot_count > 0, "building": buildings > 0 or bool(pending), "image": True,
                  "terrain": counts["themes"].get("terrain", 0) > 0 or bool(pending), "road": counts["themes"].get("road", 0) > 0 or bool(pending)}
     empty_sheets = [sheet_id for sheet_id, _key, _name, _en, needs in constants.SHEET_CATALOG if not available[needs]]
 
@@ -1254,7 +1278,11 @@ def preview_sheet(result_dir, sheet_id, style, keep=None):
     import sheet_svg
     data, _prepared = get_sheet_data(result_dir, keep)
     data.options["style"] = dict(style or {})
-    svg, empty, reason = sheet_svg.render_sheet(int(sheet_id), data)
+    data.options["_aerial_dpi"] = constants.AERIAL_PREVIEW_DPI
+    try:
+        svg, empty, reason = sheet_svg.render_sheet(int(sheet_id), data)
+    finally:
+        data.options.pop("_aerial_dpi", None)
     # 패널 DOM에 그대로 넣는다 — 시트 id(map·legend·info…)가 패널 id(#map = Leaflet)와 겹치지 않게 접두어
     svg = svg.replace(' id="', ' id="pv_').replace("url(#", "url(#pv_")
     return {"svg": svg, "empty": empty, "reason": reason}

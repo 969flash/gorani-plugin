@@ -391,7 +391,7 @@ class CancelTest(unittest.TestCase):
 
 @unittest.skipUnless(HAS_FIXTURES, "tests/fixtures/seongsu_*.db가 없다 (python3 scripts/dev_make_fixture.py)")
 class ResponseSchemaTest(unittest.TestCase):
-    """run 응답 dict 키 집합(code_map §4.3) — ok=false 경로도 키 전부. Rhino 없이는 prepare 뒤 Rhino import에서 exception으로 끝난다."""
+    """run 응답 dict 키 집합(code_map §4.3) — ok=false 경로도 키 전부. Rhino 없이는 prepare 뒤 RhinoCommon 지형 단계에서 exception으로 끝난다."""
 
     def test_keys_after_prepare_and_log(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -399,8 +399,8 @@ class ResponseSchemaTest(unittest.TestCase):
             self.assertEqual(set(response), set(context_builder.RESPONSE_KEYS))
             self.assertFalse(response["ok"])
             self.assertFalse(response["cancelled"])
-            self.assertEqual(response["error"]["code"], "exception")           # Rhino 모듈 없음
-            self.assertIn("Rhino", response["error"]["detail"])
+            self.assertEqual(response["error"]["code"], "exception")           # Rhino 모듈 없음 — RhinoCommon 지형 단계에서 멈춘다
+            self.assertIn("context_geometry", response["error"]["detail"])
             self.assertEqual(response["lot_name"], "성수동2가_333-139")
             self.assertTrue(response["dir"].startswith(tmp))
             self.assertEqual(set(response["context"]), {"path", "layers", "buildings", "lots", "demolished", "tin_points", "origin",

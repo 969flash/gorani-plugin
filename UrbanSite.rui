@@ -5,11 +5,11 @@
   <tool_bar_groups>
     <tool_bar_group guid="7a54dc38-f4e3-477c-91a8-67b722f8e41f" dock_bar_guid64="ab1c8211-1543-4c29-8100-d7a1c0bfb8f3" active_tool_bar_group="16134537-3836-4aca-9212-a8827523cab4" single_file="False" hide_single_tab="False" point_floating="300,200">
       <text>
-        <locale_1033>대지검토</locale_1033>
+        <locale_1033>UrbanSite</locale_1033>
       </text>
       <tool_bar_group_item guid="5c699415-5af9-496f-8b57-ccf7565515e2" major_version="1" minor_version="1">
         <text>
-          <locale_1033>대지검토</locale_1033>
+          <locale_1033>UrbanSite</locale_1033>
         </text>
         <tool_bar_id>16134537-3836-4aca-9212-a8827523cab4</tool_bar_id>
       </tool_bar_group_item>
@@ -19,11 +19,11 @@
   <tool_bars>
     <tool_bar guid="16134537-3836-4aca-9212-a8827523cab4">
       <text>
-        <locale_1033>대지검토</locale_1033>
+        <locale_1033>UrbanSite</locale_1033>
       </text>
       <tool_bar_item guid="5534ca37-4808-46d8-9077-831ecb18a426" button_display_mode="text_only">
         <text>
-          <locale_1033>대지검토 패널 열기</locale_1033>
+          <locale_1033>UrbanSite 패널 열기</locale_1033>
         </text>
         <left_macro_id>9d2a6b1e-3c7f-4e58-a1b2-6f0d8e4c2a91</left_macro_id>
       </tool_bar_item>
@@ -32,13 +32,13 @@
   <macros>
     <macro_item guid="9d2a6b1e-3c7f-4e58-a1b2-6f0d8e4c2a91">
       <text>
-        <locale_1033>대지검토 패널 열기</locale_1033>
+        <locale_1033>UrbanSite 패널 열기</locale_1033>
       </text>
       <button_text>
-        <locale_1033>대지검토</locale_1033>
+        <locale_1033>UrbanSite</locale_1033>
       </button_text>
       <tooltip>
-        <locale_1033>대지검토 패널을 엽니다 (명령: UrbanSite)</locale_1033>
+        <locale_1033>UrbanSite 패널을 엽니다</locale_1033>
       </tooltip>
       <help_text>
         <locale_1033>cmd_install.py로 등록한 UrbanSite 앨리어스를 부릅니다. 앨리어스가 없으면 먼저 설치하세요.</locale_1033>
