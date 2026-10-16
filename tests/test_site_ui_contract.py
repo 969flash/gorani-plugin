@@ -22,7 +22,7 @@ TODAY = datetime.date(2026, 10, 7)
 HOLE_PNU = "1120011400100130219"   # 성수동1가 13-219 — 구멍 3개(test_context_builder와 같은 필지)
 
 # docs/panel_ui.md 푸시 정의의 키 집합
-INIT_KEYS = {"type", "version", "blocked", "paths", "generator", "can_download", "sources", "warnings", "tile", "map", "options", "modes", "recent", "sheet_catalog",
+INIT_KEYS = {"type", "version", "blocked", "paths", "generator", "host", "stats_consent", "can_download", "sources", "warnings", "tile", "map", "options", "modes", "recent", "sheet_catalog",
              "style_presets", "style_defaults", "style_ramps", "styles"}
 SOURCE_KEYS = {"id", "label", "name", "date", "age_months", "level", "newer_date", "text"}
 SEARCH_KEYS = {"type", "query", "seq", "matches", "message"}
@@ -54,7 +54,8 @@ class InitStateTest(unittest.TestCase):
         state = cmd_site.get_init_state(SITE_DB, CONTEXT_DB, TODAY)
         self.assertEqual(set(state), INIT_KEYS)
         self.assertFalse(state["blocked"])
-        self.assertEqual(state["generator"], {"ok": True, "python": "Rhino CPython", "text": "Rhino 내장"})
+        self.assertEqual(state["generator"], {"ok": True, "python": "Rhino Python", "text": "Rhino 내장"})
+        self.assertEqual(state["host"], constants.HOST_LABELS["rhino"])   # python3 = Rhino 쪽(bpy 없음)
         self.assertEqual([s["id"] for s in state["sources"]], ["lot", "building", "terrain", "api"])
         for source in state["sources"]:
             self.assertTrue(SOURCE_KEYS <= set(source), source)
@@ -64,7 +65,8 @@ class InitStateTest(unittest.TestCase):
         self.assertEqual([c["id"] for c in state["sheet_catalog"]], list(range(len(constants.SHEET_CATALOG))))
         self.assertEqual(state["sheet_catalog"][constants.SHEET_IDS["elev"]]["needs"], "terrain")
         self.assertEqual(set(state["sheet_catalog"][0]), {"id", "key", "name", "subtitle", "needs"})
-        self.assertEqual(set(state["tile"]), {"url", "fallback_url", "attribution", "abroad_url", "abroad_attribution"})
+        self.assertEqual(set(state["tile"]), {"url", "fallback_url", "attribution", "abroad_url", "abroad_attribution",
+                                              "aerial_url", "aerial_attribution", "abroad_aerial_url", "abroad_aerial_attribution"})
         for warning in state["warnings"]:
             self.assertEqual(set(warning), WARNING_KEYS)
 

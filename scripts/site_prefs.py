@@ -1,4 +1,4 @@
-"""패널 설정과 최근 대상지를 사용자 홈(~/.urbandesigntool/)에 읽고 쓴다.
+"""패널 설정과 최근 대상지를 사용자 홈(~/.urbansite/)에 읽고 쓴다.
 
 WebView는 임시 파일 file:// 출처라 localStorage를 믿을 수 없어 Python이 저장한다(docs/panel_ui.md 설정 저장 위치).
 표준 라이브러리만 쓴다. 파일이 깨져 있으면 기본값으로 돌아가고 덮어쓴다.
@@ -11,7 +11,7 @@ import tempfile
 
 import constants
 
-PREFS_DIR = os.path.join(os.path.expanduser("~"), ".urbandesigntool")
+PREFS_DIR = os.path.join(os.path.expanduser("~"), ".urbansite")
 PREFS_PATH = os.path.join(PREFS_DIR, "prefs.json")
 SOURCE_NEWS_PATH = os.path.join(PREFS_DIR, "source_news.json")
 RECENT_MAX = 5
@@ -77,6 +77,21 @@ def add_recent(pnus, label, total_area, date, path=PREFS_PATH):
     data["recent"] = recent[:RECENT_MAX]
     _write_json(path, data)
     return data["recent"]
+
+
+def get_stats_consent(path=PREFS_PATH):
+    # type: (str) -> object
+    """사용 통계 동의 — True(보냄)·False(안 보냄)·None(아직 안 물음). 동의를 묻는 호스트(constants.HOST_LABELS ask_stats)만 쓴다."""
+    value = _read_json(path).get("stats_consent")
+    return value if isinstance(value, bool) else None
+
+
+def save_stats_consent(on, path=PREFS_PATH):
+    # type: (bool, str) -> bool
+    data = _read_json(path)
+    data["stats_consent"] = bool(on)
+    _write_json(path, data)
+    return data["stats_consent"]
 
 
 def get_source_news(path=SOURCE_NEWS_PATH):

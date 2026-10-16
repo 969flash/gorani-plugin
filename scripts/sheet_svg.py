@@ -19,12 +19,15 @@ import os
 import re
 import statistics
 import struct
+import urllib.request
 import zlib
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from xml.sax.saxutils import escape
 
 import constants
-from non_rhino_utils import get_polygon_parts_from_geojson, get_ring_area, get_text_width_em, is_point_in_ring
+from non_rhino_utils import (get_lnglat_from_tile, get_polygon_parts_from_geojson, get_ring_area, get_ring_orientation, get_text_width_em, get_tile_m_per_px,
+                             get_tile_xy, get_tm_from_wgs84, get_wgs84_from_tm, is_local_projection, is_point_in_ring)
 
 SHEET_NAMES = {sheet_id: name for sheet_id, _key, name, _en, _needs in constants.SHEET_CATALOG}
 SHEET_KEYS = {sheet_id: key for sheet_id, key, _name, _en, _needs in constants.SHEET_CATALOG}
@@ -448,7 +451,8 @@ def get_slope_deg(tri):
     return math.degrees(math.acos(max(-1.0, min(1.0, abs(nz) / length))))
 
 
-# 시트 키 → (분류 함수, 바탕 방식). 바탕 full = 스타일 색 그대로, faded = 종이 쪽으로 흐림, figure = 종이 + 옅은 수계만. 틀은 분류 없음
+# 시트 키 → (분류 함수, 바탕 방식). 바탕 full = 스타일 색 그대로, faded = 종이 쪽으로 흐림, figure = 종이 + 옅은 수계만, image = 바탕 없이 영상,
+# axo = 평면 바탕 없이 입체 매스도가 바닥까지 그린다. 틀은 분류 없음
 SHEETS = {
     "base": (classify_target, "full"), "figure": (classify_figure, "figure"), "transit": (classify_station, "faded"),
     "lot_size": (classify_lot_size, "faded"), "density": (classify_density, "faded"), "walk": (classify_walk, "faded"),
@@ -457,6 +461,7 @@ SHEETS = {
     "land_category": (classify_land_category, "faded"), "zone": (classify_zone, "faded"), "district": (classify_district, "faded"),
     "facility": (classify_facility, "faded"), "use": (classify_use, "faded"), "floor": (classify_floor, "faded"),
     "age": (classify_age, "faded"), "price": (classify_price, "faded"), "elev": (classify_elev, "faded"), "slope": (classify_slope, "faded"),
+    "aerial": (None, "image"), "axo": (None, "axo"),
 }
 
 
@@ -708,6 +713,11 @@ def _get_ring_bounds(points):
     return (min(xs), min(ys), max(xs), max(ys))
 
 
+def _get_ring_center(points):
+    b = _get_ring_bounds(points)
+    return ((b[0] + b[2]) * 0.5, (b[1] + b[3]) * 0.5)
+
+
 def _get_item_bounds(item):
     # type: (object) -> tuple
     """(min_x, min_y, max_x, max_y). DB 데이터클래스는 bbox 컬럼을, 그 외(overlay·합성 객체)는 형상에서."""
@@ -803,6 +813,12 @@ def _get_sheet_context(key, data, style, items):
         extras = [("분석 범위", extent), ("건축물", {"fill": style["building"], "stroke": get_mixed_color(style["building"], style["ink"], 0.3)}),
                   ("도로", {"fill": style["road"], "stroke": muted}), ("녹지·공원", {"fill": style["green"]}), ("수계", {"fill": style["water"]}),
                   ("철도", {"fill": "none", "stroke": style["rail"], "stroke-width": constants.SHEET_LINE_MM["rail"]})]
+    elif key == "aerial":
+        extras = [("대상지", site), ("분석 범위", extent)]
+    elif key == "axo":
+        entries = [("bld", "건축물", {"fill": style["building"], "stroke": get_mixed_color(style["building"], style["ink"], constants.AXO_EDGE_SHADE)})]
+        extras = [("대상지", {"fill": style["site"], "fill-opacity": "0.35", "stroke": style["site"]}), ("분석 범위", extent),
+                  ("도로", {"fill": style["road"], "stroke": muted}), ("녹지·공원", {"fill": style["green"]}), ("수계", {"fill": style["water"]})]
     elif key == "figure":
         entries = [("bld", "건축물", {"fill": style["ink"]})]
         extras = [("외부공간", {"fill": style["paper"], "stroke": muted}), ("대상지", site), ("분석 범위", extent)]
@@ -946,20 +962,29 @@ def _get_base_colors(style, base_mode):
     return colors
 
 
+def _get_ground_items(data):
+    # type: (SheetData) -> dict
+    """바닥 면 요소 {road, water, green}. 도로면 = 지목 도로 필지 ∪ 수치지형도 도로면. 평면 바탕과 입체 매스도가 같이 쓴다."""
+    lots = _get_subject_items("lot", data)
+    return {"road": [f for f in data.features if f.theme == "road" and f.kind == "surface"] + [lot for lot in lots if lot.land_category == constants.LAND_CATEGORY_ROAD],
+            "water": [f for f in data.features if f.theme == "water" and f.kind in constants.WATER_SURFACE_KINDS] +
+                     [lot for lot in lots if lot.land_category in constants.LAND_CATEGORIES_WATER],
+            "green": [f for f in data.features if f.theme == "green"] +
+                     [lot for lot in lots if constants.SHEET_LAND_CATEGORY_KEYS.get(lot.land_category) in ("park", "forest")] +
+                     [o for o in data.overlays if o.theme == constants.OVERLAY_THEME_FACILITY and o.kind in constants.BM_GREEN_FACILITY_KINDS]}
+
+
 def _draw_base(data, style, base_mode, frame, frame_bounds, skip_buildings):
     # type: (SheetData, dict, str, Frame, tuple, bool) -> list
     """바탕(배경 사각형 다음): 도로면 → 수계 → 녹지 → 철도 → 건물. 도로면은 지목 도로 필지 ∪ 수치지형도 도로면.
-    건물이 주제면 base_buildings는 빈 그룹 — 주제 path가 윤곽선까지 맡는다."""
+    건물이 주제면 base_buildings는 빈 그룹 — 주제 path가 윤곽선까지 맡는다. image(항공사진)·axo(입체 매스도)는 바탕을 그리지 않는다."""
+    if base_mode in ("image", "axo"):
+        return []
     colors = _get_base_colors(style, base_mode)
-    lots = _get_subject_items("lot", data)
-    water = [f for f in data.features if f.theme == "water" and f.kind in constants.WATER_SURFACE_KINDS] + \
-            [lot for lot in lots if lot.land_category in constants.LAND_CATEGORIES_WATER]
-    road = [f for f in data.features if f.theme == "road" and f.kind == "surface"] + [lot for lot in lots if lot.land_category == constants.LAND_CATEGORY_ROAD]
-    green, rail = [], []
+    ground = _get_ground_items(data)
+    road, water, green, rail = ground["road"], ground["water"], [], []
     if base_mode != "figure":
-        green = [f for f in data.features if f.theme == "green"] + \
-                [lot for lot in lots if constants.SHEET_LAND_CATEGORY_KEYS.get(lot.land_category) in ("park", "forest")] + \
-                [o for o in data.overlays if o.theme == constants.OVERLAY_THEME_FACILITY and o.kind in constants.BM_GREEN_FACILITY_KINDS]
+        green = ground["green"]
         rail = [f for f in data.features if f.theme == "rail" and f.kind in ("line", "centerline")]
     ls, cache = style["line_scale"], data.path_cache
     lines = []
@@ -1053,7 +1078,288 @@ def _draw_template(key, subject, classify_fn, entries, items, data, style, frame
     return lines, {k: 0 for k, _, _ in entries}, {k: 0.0 for k, _, _ in entries}, []
 
 
-THEME_DRAWERS = {"transit": _draw_transit, "view": _draw_template, "image": _draw_template, "synthesis": _draw_template}
+def _fetch_tile(url):
+    # type: (str) -> bytes
+    """영상 타일 한 장. 못 받으면 b"" — 한 장 실패(오프라인·404)로 도면 쓰기가 멈추지 않는다."""
+    try:
+        request = urllib.request.Request(url, headers={"User-Agent": constants.OSM_USER_AGENT})
+        with urllib.request.urlopen(request, timeout=constants.AERIAL_TIMEOUT_SECONDS) as response:
+            return response.read()
+    except Exception:
+        return b""
+
+
+def get_aerial_tiles(frame, rect, px_per_mm):
+    # type: (Frame, tuple, float) -> tuple
+    """rect(지도 칸 mm (x0, y0, x1, y1))를 덮는 타일 → (줌, [(tx, ty)], 지상 m/px).
+    줌 = 지상 해상도가 px_per_mm에 닿는 가장 작은 줌(최대 AERIAL_MAX_ZOOM), 장수가 AERIAL_MAX_TILES를 넘으면 한 단계씩 낮춘다."""
+    corners = [get_wgs84_from_tm(*frame.to_world(x, y)) for x in (rect[0], rect[2]) for y in (rect[1], rect[3])]
+    lat = sum(c[1] for c in corners) / 4.0
+    target = frame.scale / 1000.0 / px_per_mm
+    zoom = next((z for z in range(constants.AERIAL_MAX_ZOOM + 1) if get_tile_m_per_px(lat, z) <= target), constants.AERIAL_MAX_ZOOM)
+    while True:
+        xs, ys = zip(*(get_tile_xy(lng, lat_, zoom) for lng, lat_ in corners))
+        tiles = [(tx, ty) for tx in range(int(min(xs)), int(max(xs)) + 1) for ty in range(int(min(ys)), int(max(ys)) + 1)]
+        if len(tiles) <= constants.AERIAL_MAX_TILES or zoom == 0:
+            return zoom, tiles, get_tile_m_per_px(lat, zoom)
+        zoom -= 1
+
+
+def _get_aerial_images(data, frame, rect, px_per_mm):
+    # type: (SheetData, Frame, tuple, float) -> tuple
+    """rect를 덮는 영상 타일 → (<image> 줄, 출처, 지상 m/px). 받은 타일은 data.cache — 스타일을 바꿔 다시 그려도 다시 받지 않는다.
+    소스는 패널 지도와 같다(review_map.get_tile_config): 국내 + VWorld 키면 VWorld 영상, 절반 넘게 못 받으면(키 제한·장애) Esri.
+    타일마다 세 모서리를 지도 칸 mm로 옮긴 아핀 행렬로 놓는다 — 웹 메르카토르 ↔ TM의 회전(자오선수차)·축척 차를 타일 단위로 흡수한다."""
+    import review_map   # .env(VWorld 키)를 읽는다 — 이 시트에서만
+    config = review_map.get_tile_config()
+    sources = [(config["abroad_aerial_url"], config["abroad_aerial_attribution"])]
+    if not is_local_projection() and config["aerial_url"] != config["abroad_aerial_url"]:
+        sources.insert(0, (config["aerial_url"], config["aerial_attribution"]))
+    zoom, tiles, m_per_px = get_aerial_tiles(frame, rect, px_per_mm)
+    fetch = lambda key: _fetch_tile(key[1].format(z=key[2], x=key[3], y=key[4]))
+    for url, attribution in sources:
+        keys = [("aerial", url, zoom, tx, ty) for tx, ty in tiles]
+        missing = [key for key in keys if key not in data.cache]
+        if ("aerial_dead", url) in data.cache:
+            continue
+        if missing and len(missing) == len(keys):   # 이 줌 첫 요청 — 가운데 한 장 먼저. 막힌 망에서 타일마다 시간 초과(10 s)를 기다리지 않는다
+            probe = missing.pop(len(missing) // 2)
+            body = fetch(probe)
+            if not body:
+                data.cache[("aerial_dead", url)] = True
+                continue
+            data.cache[probe] = body
+        with ThreadPoolExecutor(constants.AERIAL_WORKERS) as pool:
+            for key, body in zip(missing, pool.map(fetch, missing)):
+                if body:
+                    data.cache[key] = body
+        if sum(1 for key in keys if key in data.cache) * 2 > len(keys):
+            break
+    lines = []
+    for key in keys:
+        body = data.cache.get(key)
+        if not body:
+            continue
+        tx, ty = key[3], key[4]
+        nw, ne, sw = (frame.to_paper(*get_tm_from_wgs84(*get_lnglat_from_tile(x, y, zoom))) for x, y in ((tx, ty), (tx + 1, ty), (tx, ty + 1)))
+        matrix = " ".join("%.4f" % v for v in (ne[0] - nw[0], ne[1] - nw[1], sw[0] - nw[0], sw[1] - nw[1], nw[0], nw[1]))
+        lines.append('<image width="%s" height="%s" preserveAspectRatio="none" transform="matrix(%s)" xlink:href="data:image/%s;base64,%s"/>'
+                     % ("%.4f" % constants.AERIAL_TILE_OVERLAP, "%.4f" % constants.AERIAL_TILE_OVERLAP, matrix,
+                        "png" if body[:4] == b"\x89PNG" else "jpeg", base64.b64encode(body).decode("ascii")))
+    return lines, attribution, m_per_px
+
+
+def _draw_aerial(key, subject, classify_fn, entries, items, data, style, frame, frame_bounds):
+    # type: (str, str, object, list, list, SheetData, dict, Frame, tuple) -> tuple
+    """항공사진 — 지도 칸을 덮는 영상 타일. 개수 = 받은 타일 수(0이면 빈 시트). 출처·해상도는 ctx로 카드에 넘긴다."""
+    dpi = data.options.get("_aerial_dpi") or constants.AERIAL_DPI
+    images, attribution, m_per_px = _get_aerial_images(data, frame, (0.0, 0.0) + frame.paper_mm, dpi / 25.4)
+    (data.options.get("_ctx") or {}).update(aerial_attribution=attribution, aerial_m_per_px=m_per_px)
+    return ['<g id="theme">'] + images + ["</g>"], {"tile": len(images)}, {"tile": float(len(images))}, []
+
+
+# ─────────────────────────────────────────────
+# 입체 매스도 — 범위 안 건물(발자국 × height_m)을 평행 투상(등각). 지형은 평탄 가정, 그리기는 화가 알고리즘(먼 것부터)
+# ─────────────────────────────────────────────
+
+class AxoFrame(Frame):
+    """입체 매스도 정보 열용 Frame — 축척이 없고, 화면 위 북쪽 방향 north(종이 mm 단위 벡터, y 아래)를 든다."""
+
+    def __init__(self, frame, north):
+        Frame.__init__(self, frame.paper_mm, frame.scale, frame.center)
+        self.north = north
+
+
+def get_axo_axes(view):
+    # type: (str) -> tuple
+    """시점 키(se·sw·ne·nw) → (오른쪽, 위, 카메라 쪽) 세계 단위 벡터. 카메라 방위각 az(북 0°, 시계)·고도각 AXO_ELEVATION_DEG.
+    오른쪽 = 수평 카메라 방향을 반시계 90° — 남쪽에서 북쪽을 보면 오른쪽 = 동, 위 = 북쪽으로 기운 연직."""
+    az = math.radians((constants.AXO_VIEWS.get(view) or constants.AXO_VIEWS[constants.STYLE_DEFAULTS["axo_view"]])[1])
+    el = math.radians(constants.AXO_ELEVATION_DEG)
+    hx, hy = math.sin(az), math.cos(az)
+    return (-hy, hx, 0.0), (-math.sin(el) * hx, -math.sin(el) * hy, math.cos(el)), (math.cos(el) * hx, math.cos(el) * hy, math.sin(el))
+
+
+def get_convex_clipped_ring(ring, clip):
+    # type: (list, list) -> list
+    """링을 볼록 링 clip(반시계, 닫힘 점 없음)으로 자른다 — Sutherland–Hodgman. 출력: 새 링(비면 []).
+    ponytail: 분석 범위가 원·사각형(볼록)이라는 가정. 필지 버퍼처럼 오목한 범위는 오목한 쪽이 조금 덜 잘린다 — 문제가 되면 다각형 불리언으로."""
+    output = [tuple(p[:2]) for p in ring]
+    for (ax, ay), (bx, by) in zip(clip, clip[1:] + clip[:1]):
+        if not output:
+            break
+        inputs, output = output, []
+        side = lambda p: (bx - ax) * (p[1] - ay) - (by - ay) * (p[0] - ax)   # ≥ 0 = 변의 왼쪽(안쪽)
+        prev = inputs[-1]
+        prev_side = side(prev)
+        for cur in inputs:
+            cur_side = side(cur)
+            if (cur_side >= 0) != (prev_side >= 0):
+                t = prev_side / (prev_side - cur_side)
+                output.append((prev[0] + (cur[0] - prev[0]) * t, prev[1] + (cur[1] - prev[1]) * t))
+            if cur_side >= 0:
+                output.append(cur)
+            prev, prev_side = cur, cur_side
+    return output
+
+
+def _get_open_ring(ring, orientation):
+    # type: (list, int) -> list
+    """닫힘 점을 뺀 (x, y) 링을 orientation(+1 반시계, −1 시계) 방향으로."""
+    ring = [tuple(p[:2]) for p in ring]
+    if len(ring) > 1 and ring[0] == ring[-1]:
+        ring = ring[:-1]
+    return ring if get_ring_orientation(ring) == orientation else ring[::-1]
+
+
+def get_axo_scene(data, view, box):
+    # type: (SheetData, str, tuple) -> dict
+    """입체 매스도 형상(색 없음, 종이 mm — 지도 칸 좌상단 원점). 범위 링 + 범위 안 건물이 지도 칸에 꽉 차게 맞춘다.
+    반환 {ground: {road|water|green: [[링]]}, site: [링], extent: 링, faces: [(road|wall_a|wall_b|roof, [링], 대상지 안)], site_pt, extent_bottom,
+    north, heights, count}. data.cache에 시점·칸별로 둔다 — 스타일 미리보기를 다시 그려도 재계산하지 않는다.
+    ponytail: 건물 순서는 발자국 bbox 중심 깊이 — 긴 건물과 붙은 작은 건물은 가끔 앞뒤가 틀린다. 문제가 되면 면 단위 깊이 정렬(BSP)로."""
+    cache_key = ("axo", view, tuple(box), tuple(data.paper_mm))
+    if cache_key in data.cache:
+        return data.cache[cache_key]
+    right, up, toward = get_axo_axes(view)
+    cx, cy = data.center
+    if data.extent_ring:
+        extent = _get_open_ring(data.extent_ring, 1)
+    else:   # 범위가 없으면(예전 데이터) 지도 칸이 덮는 사각형
+        b = data.frame.world_bounds() if data.frame else (cx - 500.0, cy - 500.0, cx + 500.0, cy + 500.0)
+        extent = [(b[0], b[1]), (b[2], b[1]), (b[2], b[3]), (b[0], b[3])]
+    ext_bounds = _get_ring_bounds(extent)
+    site_rings = data.site_rings or [part[0] for lot in data.target_lots for part in get_polygon_parts_from_geojson(lot.geometry)]
+    pieces, count = [], 0   # (링들 — 외곽 반시계·구멍 시계, 높이, 대상지 안)
+    for building in data.buildings:
+        bx, by = _get_item_center(building)
+        if not (ext_bounds[0] <= bx <= ext_bounds[2] and ext_bounds[1] <= by <= ext_bounds[3] and is_point_in_ring(bx, by, extent)):
+            continue
+        count += 1
+        height = float(getattr(building, "height_m", 0.0) or constants.DEFAULT_BUILDING_HEIGHT_M)
+        on_site = any(is_point_in_ring(bx, by, ring) for ring in site_rings)
+        for part in get_polygon_parts_from_geojson(building.geometry):
+            rings = [_get_open_ring(ring, 1 if i == 0 else -1) for i, ring in enumerate(part) if len(ring) >= 4]
+            if rings and len(rings[0]) >= 3:
+                pieces.append((rings, height, on_site))
+
+    def screen(x, y, z):
+        dx, dy = x - cx, y - cy
+        return dx * right[0] + dy * right[1], dx * up[0] + dy * up[1] + z * up[2]
+
+    points = [screen(x, y, 0.0) for x, y in extent] + [screen(x, y, h) for rings, h, _ in pieces for x, y in rings[0]]
+    xs, ys = [p[0] for p in points], [p[1] for p in points]
+    w, h = float(box[0]), float(box[1])
+    margin = constants.AXO_MARGIN_MM * get_template_scale(data.paper_mm)
+    s = min((w - 2 * margin) / max(max(xs) - min(xs), 1e-6), (h - 2 * margin) / max(max(ys) - min(ys), 1e-6))
+    ox, oy = w * 0.5 - (max(xs) + min(xs)) * 0.5 * s, h * 0.5 + (max(ys) + min(ys)) * 0.5 * s
+
+    def paper(x, y, z=0.0):
+        sx, sy = screen(x, y, z)
+        return ox + sx * s, oy - sy * s
+
+    def depth(x, y):
+        return (x - cx) * toward[0] + (y - cy) * toward[1]
+
+    ground = {}
+    for layer, items in _get_ground_items(data).items():
+        ground[layer] = []
+        for item in items:
+            if not _intersects(_get_item_bounds(item), ext_bounds) or (item.geometry or {}).get("type") not in ("Polygon", "MultiPolygon"):
+                continue
+            for part in get_polygon_parts_from_geojson(item.geometry):
+                rings = [[paper(x, y) for x, y in clipped] for clipped in (get_convex_clipped_ring(r, extent) for r in part) if len(clipped) >= 3]
+                if rings:
+                    ground[layer].append(rings)
+    faces = []
+    for rings, height, on_site in sorted(pieces, key=lambda piece: depth(*_get_ring_center(piece[0][0]))):
+        walls = []
+        for ring in rings:
+            for (ax, ay), (bx, by) in zip(ring, ring[1:] + ring[:1]):
+                nx, ny = by - ay, ax - bx   # 바깥 법선 — 외곽 반시계·구멍 시계라 늘 오른쪽이 바깥
+                if nx * toward[0] + ny * toward[1] <= 0:
+                    continue   # 카메라 반대쪽 벽
+                kind = "wall_a" if nx * right[0] + ny * right[1] >= 0 else "wall_b"
+                walls.append((depth((ax + bx) * 0.5, (ay + by) * 0.5), kind, [paper(ax, ay), paper(bx, by), paper(bx, by, height), paper(ax, ay, height)]))
+        walls.sort(key=lambda wall: wall[0])
+        faces += [(kind, [quad], on_site) for _depth, kind, quad in walls]
+        faces.append(("roof", [[paper(x, y, height) for x, y in ring] for ring in rings], on_site))
+    site_xy = _get_ring_center([p for ring in site_rings for p in ring]) if site_rings else (cx, cy)
+    site_top = max([h_ for _, h_, inside in pieces if inside] or [0.0])
+    north_a, north_b = paper(cx, cy), paper(cx, cy + 1.0)
+    north = (north_b[0] - north_a[0], north_b[1] - north_a[1])
+    norm = math.hypot(*north) or 1.0
+    extent_mm = [paper(x, y) for x, y in extent]
+    scene = {"ground": ground, "site": [[paper(x, y) for x, y in _get_open_ring(ring, 1)] for ring in site_rings], "extent": extent_mm, "faces": faces,
+             "site_pt": paper(site_xy[0], site_xy[1], site_top), "extent_bottom": (sum(p[0] for p in extent_mm) / len(extent_mm), max(p[1] for p in extent_mm)),
+             "north": (north[0] / norm, north[1] / norm), "heights": [h_ for _, h_, _ in pieces], "count": count}
+    data.cache[cache_key] = scene
+    return scene
+
+
+def _get_axo_colors(style):
+    # type: (dict) -> dict
+    """(면 종류, 대상지 안) → 칠 색. 지붕 = 건물색, 벽 두 방향은 글자색 쪽으로 AXO_WALL_SHADE만큼, 대상지 안은 대상지 색 쪽으로 AXO_SITE_TINT."""
+    building, ink, site = style["building"], style["ink"], style["site"]
+    base = {"roof": building, "wall_a": get_mixed_color(building, ink, constants.AXO_WALL_SHADE[0]),
+            "wall_b": get_mixed_color(building, ink, constants.AXO_WALL_SHADE[1])}
+    colors = {(kind, False): color for kind, color in base.items()}
+    colors.update({(kind, True): get_mixed_color(color, site, constants.AXO_SITE_TINT) for kind, color in base.items()})
+    colors["edge"] = get_mixed_color(building, ink, constants.AXO_EDGE_SHADE)
+    return colors
+
+
+def _poly_d(rings):
+    # type: (list) -> str
+    return "".join("M" + "L".join("%s %s" % (_fmt(x), _fmt(y)) for x, y in ring) + "Z" for ring in rings if len(ring) >= 3)
+
+
+def _draw_axo(key, subject, classify_fn, entries, items, data, style, frame, frame_bounds):
+    # type: (str, str, object, list, list, SheetData, dict, Frame, tuple) -> tuple
+    """입체 매스도 — 지도 칸 전체: 바닥(범위·도로·수계·녹지·대상지) → 건물 면(먼 것부터) → 대상지 지시선·범위 라벨.
+    평면용 바탕·지적·범위 밖 흐리기·지명 라벨은 render_sheet가 건너뛴다. 북쪽 방향·높이는 ctx로 정보 열·카드에 넘긴다."""
+    k = get_template_scale(data.paper_mm)
+    scene = get_axo_scene(data, style["axo_view"], frame.paper_mm)
+    colors = _get_axo_colors(style)
+    ls, paper, site = style["line_scale"], style["paper"], style["site"]
+    lines = ['<g id="axo_ground" fill-rule="evenodd">',
+             '<path id="ground" fill="%s" d="%s"/>' % (style["block"], _poly_d([scene["extent"]]))]
+    for layer in ("road", "water", "green"):
+        lines.append('<g id="ground_%s" fill="%s">' % (layer, style[layer]))
+        lines += ['<path d="%s"/>' % _poly_d(polygon) for polygon in scene["ground"][layer]]
+        lines.append("</g>")
+    lines.append('<g id="site" fill="%s" fill-opacity="0.35" stroke="%s" stroke-width="%s" stroke-linejoin="round">'
+                 % (site, site, _fmt(constants.SHEET_LINE_MM["site"] * ls * 0.6)))
+    lines += ['<path d="%s"/>' % _poly_d([ring]) for ring in scene["site"]]
+    lines.append("</g>")
+    lines.append('<path id="extent" fill="none" stroke="%s" stroke-width="%s" stroke-dasharray="2 1.2" d="%s"/>'
+                 % (style["extent"], _fmt(constants.SHEET_LINE_MM["extent"] * ls * 1.5), _poly_d([scene["extent"]])))
+    lines.append("</g>")
+    lines.append('<g id="theme" stroke="%s" stroke-width="%s" stroke-linejoin="round" fill-rule="evenodd">'
+                 % (colors["edge"], _fmt(constants.AXO_LINE_MM * ls)))
+    lines += ['<path fill="%s" d="%s"/>' % (colors[(kind, on_site)], _poly_d(rings)) for kind, rings, on_site in scene["faces"]]
+    lines.append("</g>")
+    size = constants.SHEET_FONT_MM["label"] * k * style["text_scale"] * 1.3
+    halo = {"paint-order": "stroke", "stroke": paper, "stroke-width": _fmt(0.6 * k), "stroke-linejoin": "round", "font-weight": "700"}
+    sx, sy = scene["site_pt"]
+    lx, ly = min(frame.paper_mm[0] - 22.0 * k, sx + 14.0 * k), max(10.0 * k, sy - 24.0 * k)
+    lines += ['<g id="labels">',
+              '<path d="M%s %sL%s %sH%s" fill="none" stroke="%s" stroke-width="%s"/>' % (_fmt(sx), _fmt(sy), _fmt(lx), _fmt(ly), _fmt(lx + 3.0 * k), site, _fmt(0.3 * ls)),
+              '<circle cx="%s" cy="%s" r="%s" fill="%s"/>' % (_fmt(sx), _fmt(sy), _fmt(0.9 * k), site),
+              _text(lx + 4.0 * k, ly + size * 0.35, "대상지", size, fill=site, **halo)]
+    if data.extent_ring and data.options.get("shape") != "frame":
+        bx, by = scene["extent_bottom"]
+        lines.append(_text(bx, min(by + 6.0 * k, frame.paper_mm[1] - 2.0 * k), _get_range_label(data), size * 0.8, fill=style["extent"],
+                           **dict(halo, **{"text-anchor": "middle", "font-weight": "600"})))
+    lines.append("</g>")
+    ctx = data.options.get("_ctx")
+    if ctx is not None:
+        ctx.update(axo_north=scene["north"], axo_heights=scene["heights"], axo_view=style["axo_view"])
+    return lines, {"bld": scene["count"]}, {"bld": float(scene["count"])}, []
+
+
+THEME_DRAWERS = {"transit": _draw_transit, "view": _draw_template, "image": _draw_template, "synthesis": _draw_template, "aerial": _draw_aerial,
+                 "axo": _draw_axo}
 
 
 def _draw_mask(frame, extent_ring, style):
@@ -1086,6 +1392,9 @@ def _draw_overlay_lines(data, style, frame, frame_bounds, subject, key, k):
     lines += _draw_items(data.near_lots if show_parcels else [], frame,
                          {"fill": "none", "stroke": get_mixed_color(ink, paper, 0.6), "stroke-width": _fmt(constants.SHEET_LINE_MM["parcel"] * ls)},
                          "base_parcels", frame_bounds, data.path_cache)
+    if key == "aerial" and data.extent_ring:   # 어두운 영상 위에서도 범위 파선이 읽히게 종이색 바탕선
+        lines.append('<path id="extent_halo" fill="none" stroke="%s" stroke-opacity="0.7" stroke-width="%s" d="%s"/>'
+                     % (paper, _fmt(constants.SHEET_LINE_MM["extent"] * ls * 3), _ring_d(data.extent_ring, frame, True)))
     lines.append('<g id="extent" fill="none" stroke="%s" stroke-width="%s" stroke-dasharray="2 1.2">'
                  % (style["extent"], _fmt(constants.SHEET_LINE_MM["extent"] * ls)))
     if data.extent_ring:
@@ -1241,6 +1550,17 @@ def _get_card_lines(key, data, items, counts, measures, ctx=None):
         lines = ["교육 %d · 의료·노유자 %d · 문화·체육 %d동" % (counts.get("education", 0), counts.get("welfare", 0), counts.get("culture", 0)),
                  "학교 부지 %d · 광장·공공공지 %d" % (counts.get("school_lot", 0), counts.get("plaza", 0)),
                  "건축물대장 용도 기준 — 공공청사는 업무시설과 섞여 따로 구분하지 않는다"]
+    elif key == "axo":
+        heights = ctx.get("axo_heights") or []
+        lines = ["%s 시점 · 범위 안 건물 %s동" % (constants.AXO_VIEWS[ctx.get("axo_view", "se")][0], fmt0(total_count))]
+        if heights:
+            lines.append("최고 %.0f m · 평균 %.1f m" % (max(heights), sum(heights) / len(heights)))
+        lines.append("평행 투상(축척 없음) · 지형은 평탄 가정 · 시점은 도면 스타일에서")
+    elif key == "aerial":
+        if total_count:
+            lines = ["영상 %s" % ctx.get("aerial_attribution", ""), "지상 해상도 약 %.2f m/px · 촬영 시기 확인 필요" % ctx.get("aerial_m_per_px", 0.0)]
+        else:
+            lines = ["영상 타일을 받지 못함 — 인터넷 연결 확인 뒤 다시 생성"]
     elif key in constants.SHEET_TEMPLATE_KEYS:
         lines = ["직접 그리는 틀 — 범례 레이어마다 Illustrator에서 그린다",
                  {"view": "조망점: 근경 250 m · 중경 500 m · 원경, 눈높이 1.5 m", "image": "케빈 린치 도시 이미지 5요소",
@@ -1311,10 +1631,24 @@ def _draw_swatch(x, y, w, h, swatch):
     return '<rect x="%s" y="%s" width="%s" height="%s"%s/>' % (_fmt(x), _fmt(y), _fmt(w), _fmt(h), _attrs(rect))
 
 
+def _get_scale_text(frame):
+    # type: (Frame) -> str
+    """'1:5,000' — 입체 매스도(AxoFrame)는 평행 투상이라 축척이 없다."""
+    return "평행 투상(축척 없음)" if getattr(frame, "north", None) else "1:%s" % "{:,}".format(int(frame.scale))
+
+
 def _draw_scale_north(x, y, frame, style, k):
     # type: (float, float, Frame, dict, float) -> list
-    """축척 막대(0·¼·½·1, 3칸) + 방위표. (x, y) = 막대 왼쪽 위."""
+    """축척 막대(0·¼·½·1, 3칸) + 방위표. (x, y) = 막대 왼쪽 위. 입체 매스도(AxoFrame)는 화면 위 북쪽으로 돌린 방위표만."""
     ink, paper, ts = style["ink"], style["paper"], style["text_scale"]
+    north = getattr(frame, "north", None)
+    if north:   # 위(0, −1)를 향한 화살을 north로 돌린다 — 점을 직접 돌려 쓴다(.ai는 transform을 읽지 않는다)
+        nx, ny, size = x + 6.0 * k, y - 3.0 * k, 2.0 * k * ts
+        cos, sin = -north[1], north[0]
+        arrow = [(nx + (px * cos - py * sin) * k, ny + (px * sin + py * cos) * k) for px, py in ((0.0, -5.0), (2.6, 3.0), (0.0, 1.6), (-2.6, 3.0))]
+        return ['<g id="scale_north" fill="%s">' % ink, '<path d="%s"/>' % _poly_d([arrow]),
+                _text(nx + north[0] * 8.5 * k, ny + north[1] * 8.5 * k + size * 0.4, "N", size * 1.2, **{"text-anchor": "middle", "font-weight": "700"}),
+                "</g>"]
     bar_m = constants.SHEET_SCALE_BAR_M.get(int(frame.scale), round(frame.scale / 10.0, -1))
     unit = bar_m * 1000.0 / frame.scale
     size = 2.0 * k * ts
@@ -1436,7 +1770,7 @@ def _draw_info_side(data, style, sheet_id, name, frame, box, legend_rows, card_r
         yy -= meta_size * 1.45
     lines.append("</g>")
     yy -= 2.0 * k
-    lines.append(_text(x, yy, "1:%s · %s · EPSG:5186" % ("{:,}".format(int(frame.scale)), _get_paper_label(data.paper_mm)),
+    lines.append(_text(x, yy, "%s · %s · EPSG:5186" % (_get_scale_text(frame), _get_paper_label(data.paper_mm)),
                        fonts["small"] * k * ts, **{"font-weight": "600", "id": "scale_text"}))
     lines += _draw_scale_north(x + 1.0 * k, yy - 9.0 * k, frame, style, k)
     lines.append("</g>")
@@ -1485,7 +1819,7 @@ def _draw_info_bottom(data, style, sheet_id, name, frame, box, legend_rows, card
     meta = []
     for text in _get_meta_lines(data)[:2]:
         meta += get_wrapped_lines(text, side_w, meta_size)
-    meta.append("%s · 정보제공용, 법적 효력 없음 · 1:%s %s" % (constants.TOOL_NAME, "{:,}".format(int(frame.scale)), _get_paper_label(data.paper_mm)))
+    meta.append("%s · 정보제공용, 법적 효력 없음 · %s %s" % (constants.TOOL_NAME, _get_scale_text(frame), _get_paper_label(data.paper_mm)))
     yb = data.paper_mm[1] - t["margin"] * k
     lines.append('<g id="meta" fill="%s">' % muted)
     for text in reversed(meta[-4:]):
@@ -1503,7 +1837,7 @@ def _draw_info_map_only(data, style, frame):
     k = get_template_scale(data.paper_mm)
     meta_size = constants.SHEET_FONT_MM["meta"] * k * style["text_scale"]
     source = (_get_meta_lines(data)[1:2] or _get_meta_lines(data))[0]
-    text = get_wrapped_lines("%s · %s · 1:%s" % (source, constants.TOOL_NAME, "{:,}".format(int(frame.scale))), 150.0 * k, meta_size)[:2]
+    text = get_wrapped_lines("%s · %s · %s" % (source, constants.TOOL_NAME, _get_scale_text(frame)), 150.0 * k, meta_size)[:2]
     band_h = 14.0 * k + meta_size * 1.45 * len(text)
     x, y = 4.0 * k, data.paper_mm[1] - 4.0 * k - band_h
     lines = ['<g id="info" fill="%s">' % style["ink"],
@@ -1553,11 +1887,11 @@ def render_sheet(sheet_id, data):
     finally:
         data.options.pop("_ctx", None)
     empty = sum(counts.values()) == 0 and not (key == "base" and data.mode == "point") and key not in constants.SHEET_TEMPLATE_KEYS   # 위치 방식 베이스맵은 범위만으로 쓴다
-    reason = ("지형 없음" if subject == "terrain" else "데이터 없음") if empty else ""
+    reason = ("영상 못 받음" if key == "aerial" else "지형 없음" if subject == "terrain" else "데이터 없음") if empty else ""
 
-    background = style["paper"] if base_mode == "figure" else _get_base_colors(style, base_mode)["block"]
+    background = style["paper"] if base_mode in ("figure", "image", "axo") else _get_base_colors(style, base_mode)["block"]
     base_lines = _draw_base(data, style, base_mode, frame, frame_bounds, skip_buildings=subject == "building")
-    body = ['<svg xmlns="http://www.w3.org/2000/svg" width="%smm" height="%smm" viewBox="0 0 %s %s" font-family="%s">'
+    body = ['<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="%smm" height="%smm" viewBox="0 0 %s %s" font-family="%s">'
             % (_fmt(width), _fmt(height), _fmt(width), _fmt(height), escape(constants.STYLE_FONTS[style["font"]], {'"': "&quot;"})),
             "<!-- %02d %s | 1:%d | center E %.1f N %.1f | EPSG:5186 | style %s -->" % (sheet_id, name, frame.scale, frame.center[0], frame.center[1], style["preset"]),
             '<defs><clipPath id="map_clip"><rect x="0" y="0" width="%s" height="%s"/></clipPath>%s</defs>' % (_fmt(box[2]), _fmt(box[3]), _hatch_defs()),
@@ -1565,13 +1899,16 @@ def render_sheet(sheet_id, data):
             '<g id="map" transform="translate(%s %s)" clip-path="url(#map_clip)">' % (_fmt(box[0]), _fmt(box[1])),
             '<rect id="map_background" x="0" y="0" width="%s" height="%s" fill="%s"/>' % (_fmt(box[2]), _fmt(box[3]), background)]
     body += (theme_lines + base_lines) if subject in ("terrain", "block") else (base_lines + theme_lines)   # 지형·블록 채색은 도로·건물 아래
-    if key not in constants.SHEET_NO_MASK:
-        body += _draw_mask(frame, data.extent_ring, style)
-    body += _draw_overlay_lines(data, style, frame, frame_bounds, subject, key, k)
-    body += _draw_labels(data, style, frame, labels, key, k)
+    if base_mode != "axo":   # 범위 밖 흐리기·지적·범위선·지명은 평면 좌표 — 입체 매스도는 _draw_axo가 제 것을 그린다
+        if key not in constants.SHEET_NO_MASK:
+            body += _draw_mask(frame, data.extent_ring, style)
+        body += _draw_overlay_lines(data, style, frame, frame_bounds, subject, key, k)
+        body += _draw_labels(data, style, frame, labels, key, k)
     body.append("</g>")
     legend_rows = _get_legend_rows(entries, extras, counts, measures)
     card_rows = _get_card_lines(key, data, items, counts, measures, ctx)
+    if "axo_north" in ctx:   # 정보 열 — 축척 막대 대신 화면 위 북쪽
+        frame = AxoFrame(frame, ctx["axo_north"])
     if style["layout"] == "side":
         body += _draw_info_side(data, style, sheet_id, name, frame, box, legend_rows, card_rows)
     elif style["layout"] == "bottom":
@@ -1665,13 +2002,17 @@ def _get_png_uri(pixels, size):
 def render_thumbnail(sheet_id, data):
     # type: (int, SheetData) -> str
     """도면 한 장의 썸네일 PNG data URI — 지도 칸 가운데 정사각, SHEET_THUMB_PX. 바탕(도로·수계·녹지·건물) + 주제 색 + 범위 밖 흐림 + 범위·대상지 선.
-    같은 형상 격자는 data.cache에 두고 시트마다 색만 바꾼다(23장 ≈ 1~2 s)."""
+    같은 형상 격자는 data.cache에 두고 시트마다 색만 바꾼다(23장 ≈ 1~2 s). 항공사진은 JPEG을 풀 수 없어 낮은 줌 타일을 담은 SVG data URI."""
     key = SHEET_KEYS[sheet_id]
     style = get_style(data.options)
     frame = data.get_frame(style["layout"])
     w, h = frame.paper_mm
     size, px = min(w, h), constants.SHEET_THUMB_PX
     rect = ((w - size) * 0.5, (h - size) * 0.5, size)
+    if key == "aerial":
+        return _get_aerial_thumbnail(data, style, frame, rect)
+    if key == "axo":
+        return _get_axo_thumbnail(data, style, frame, rect, px)
     frame_bounds = frame.world_bounds()
     classify_fn, base_mode = SHEETS[key]
     subject = constants.SHEET_LEGENDS[key][0]
@@ -1746,6 +2087,47 @@ def render_thumbnail(sheet_id, data):
     return _get_png_uri(pixels, px)
 
 
+def _get_aerial_thumbnail(data, style, frame, rect):
+    # type: (SheetData, dict, Frame, tuple) -> str
+    """항공사진 썸네일 — 썸네일 해상도 줌의 타일 + 범위·대상지 선을 담은 SVG data URI(타일 1~4장, ≈50~150 KB)."""
+    x0, y0, size = rect
+    images, _attribution, _m_per_px = _get_aerial_images(data, frame, (x0, y0, x0 + size, y0 + size), constants.SHEET_THUMB_PX / size)
+    rings = [(style["extent"], data.extent_ring)] if data.extent_ring else []
+    rings += [(style["site"], ring) for ring in data.site_rings or [part[0] for lot in data.target_lots for part in get_polygon_parts_from_geojson(lot.geometry)]]
+    svg = ['<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="%d" height="%d" viewBox="%s %s %s %s">'
+           % (constants.SHEET_THUMB_PX, constants.SHEET_THUMB_PX, _fmt(x0), _fmt(y0), _fmt(size), _fmt(size)),
+           '<rect x="%s" y="%s" width="%s" height="%s" fill="%s"/>' % (_fmt(x0), _fmt(y0), _fmt(size), _fmt(size), style["paper"])] + images
+    svg += ['<path d="%s" fill="none" stroke="%s" stroke-width="1.5" vector-effect="non-scaling-stroke"/>' % (_ring_d(ring, frame, True), color)
+            for color, ring in rings]
+    svg.append("</svg>")
+    return "data:image/svg+xml;base64," + base64.b64encode("".join(svg).encode("utf-8")).decode("ascii")
+
+
+def _get_axo_thumbnail(data, style, frame, rect, px):
+    # type: (SheetData, dict, Frame, tuple, int) -> str
+    """입체 매스도 썸네일 — 장면 면(종이 mm)을 같은 격자 채우기로. 종이 mm (x, y)를 세계 (x, −y)로 두면 축척 1000 Frame이 항등 변환이다."""
+    scene = get_axo_scene(data, style["axo_view"], frame.paper_mm)
+    colors = _get_axo_colors(style)
+    shapes, fills = [], []
+
+    def add(rings, color):
+        shapes.append(SimpleShape({"type": "Polygon", "coordinates": [[(x, -y) for x, y in ring] for ring in rings]}))
+        fills.append(color)
+
+    add([scene["extent"]], style["block"])
+    for layer in ("road", "water", "green"):
+        for polygon in scene["ground"][layer]:
+            add(polygon, style[layer])
+    for ring in scene["site"]:
+        add([ring], get_mixed_color(style["block"], style["site"], 0.35))
+    for kind, rings, on_site in scene["faces"]:
+        add(rings, colors[(kind, on_site)])
+    grid = _rasterize(shapes, Frame(frame.paper_mm, 1000.0, (frame.paper_mm[0] * 0.5, -frame.paper_mm[1] * 0.5)), rect, px)
+    rgbs = [_get_rgb(color) for color in fills]
+    paper = _get_rgb(style["paper"])
+    return _get_png_uri([rgbs[i] if i >= 0 else paper for i in grid], px)
+
+
 def _entry_color(entry):
     # type: (dict) -> str
     """범례 스타일 → 썸네일 한 색(칠, 없으면 선; 해치는 해치 선 색)."""
@@ -1762,12 +2144,16 @@ class SimpleShape(object):
 
 def get_sheet_ai(svg_path):
     # type: (str) -> str
-    """도면 SVG 옆 레이어 .ai 경로 — 없거나 SVG보다 오래됐으면(스타일 적용 뒤) basemap_ai.write_svg_ai로 새로 쓴다."""
+    """도면 SVG 옆 레이어 .ai 경로 — 없거나 SVG보다 오래됐으면(스타일 적용 뒤) basemap_ai.write_svg_ai로 새로 쓴다.
+    영상이 든 SVG(항공사진)는 SVG 경로 그대로 — 레거시 .ai는 래스터를 못 담는다(Illustrator로 SVG를 열면 영상째 열린다)."""
     import basemap_ai   # basemap_ai가 이 모듈을 import한다 — 순환을 피해 여기서
     ai_path = os.path.splitext(svg_path)[0] + ".ai"
     if not os.path.exists(ai_path) or os.path.getmtime(ai_path) < os.path.getmtime(svg_path):
         with open(svg_path, encoding="utf-8") as handle:
-            basemap_ai.write_svg_ai(handle.read(), ai_path, os.path.splitext(os.path.basename(svg_path))[0])
+            text = handle.read()
+        if "<image " in text:
+            return svg_path
+        basemap_ai.write_svg_ai(text, ai_path, os.path.splitext(os.path.basename(svg_path))[0])
     return ai_path
 
 

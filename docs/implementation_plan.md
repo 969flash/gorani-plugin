@@ -110,7 +110,7 @@
 |---|---|---|---|
 | 서울 전역 확인 | 전체 DB로 임의 서울 PNU 3곳(강남·구도심·산지) | 각 `run` 성공, 소요 기록 | `driver_full_run` ×3 |
 | 등고선 없는 도엽 | `prepare` 경고 `coverage`(`SRC_SHEETS`에 없는 도엽·범위 안 등고선 0) | 37709006 대상지에서 경고 뜸(37608050·37608073은 적재됨 — 누락 시나리오 무효) | python3 |
-| 배포 빌더 | `scripts/dev_deploy.py` — DB 2개·`strip_spatial_index`·`.pyc` optimize=2·`설치방법.txt`·`UrbanDesignTool.rui` | 배포 폴더 **≈3.6 GB**(2.1 + 1.5). 줄여야 할 실제 제약(USB 한도 등)이 생길 때만 등고선 `set_precision` 등 검토 — zlib BLOB은 하지 않는다(실측 1.8~2.2배, §4) | Mac 다른 폴더에 복사 → `cmd_install.py` → 실행 |
+| 배포 빌더 | `scripts/dev_deploy.py` — DB 2개·`strip_spatial_index`·`.pyc` optimize=2·`설치방법.txt`·`UrbanSite.rui` | 배포 폴더 **≈3.6 GB**(2.1 + 1.5). 줄여야 할 실제 제약(USB 한도 등)이 생길 때만 등고선 `set_precision` 등 검토 — zlib BLOB은 하지 않는다(실측 1.8~2.2배, §4) | Mac 다른 폴더에 복사 → `cmd_install.py` → 실행 |
 | Windows 설치 | 사용자 노트북: 폴더 복사 → `cmd_install.py` → `UrbanSite` → 333-139 생성 | 20 s 안쪽, `.ai`·SVG·CSV 생성, 인터넷 끊고도 동작 | 수동 |
 
 ### M8 — P1 (이후, 데이터·요청 있을 때)

@@ -1,7 +1,8 @@
 """배포 빌더 — Yak 패키지와 데이터 팩을 만든다 (Rhino 밖 전용, macOS).
 
     python3 scripts/dev_deploy.py            # 둘 다
-    python3 scripts/dev_deploy.py yak        # build/UrbanDesignTool-<버전>-rh8_0-any.yak
+    python3 scripts/dev_deploy.py yak        # build/UrbanSite-<버전>-rh8_0-any.yak
+    python3 scripts/dev_deploy.py blender    # build/blender_repo/urbansite-<버전>.zip + index.json(정적 확장 저장소)
     python3 scripts/dev_deploy.py packs      # build/packs/*.db.xz + manifest.json
     python3 scripts/dev_deploy.py packs --sido 43 --drop   # 시도 하나만 압축하고 원본 DB를 지운다(전국 빌드 흐름)
     python3 scripts/dev_deploy.py repack     # 시도 팩 압축본을 풀어 (줄이고) 시군구 팩으로 나눠 다시 압축
@@ -11,6 +12,9 @@
 yak: 진입 명령 UrbanSite 하나짜리 .rhp를 rhinocode로 빌드하고(떠 있는 Rhino 8 필요), 그 옆에 scripts/(평문 진입 스크립트 +
      로직 .pyc + 패널 HTML·vendor)를 두고 yak CLI로 묶는다. rhinocode의 Shared 리소스는 폴더 구조를 펴 버려서 쓰지 않는다
      (2026-10-12 실측: scripts/vendor/b.txt → shared/b.txt). UrbanSite는 .rhp 옆 scripts/cmd_site.py를 그대로 실행한다.
+blender: Blender 확장(4.2+) — urbansite/__init__.py(scripts/cmd_blender.py로 넘김) + blender_manifest.toml + scripts/ 원본 .py·UI 에셋을
+     Blender CLI(extension build)로 zip, 그 폴더에 server-generate로 index.json·index.html. 로직은 .pyc가 아니라 원본이다 — Blender 4.2~4.5는
+     파이썬 3.11, 5.x는 3.13이라 .pyc 하나로 못 덮고, Blender 확장은 GPL이다. Rhino 전용(panel_host·cmd_install)과 dev_·server_는 뺀다.
 packs: data/의 시도별 `<시도>_site.db`·`<시도>_context.db`마다 필지(rtree 제거)·컨텍스트(등고선 제외)·등고선 팩을
        xz로 압축하고 sha256·범위를 매니페스트에 적는다. 컨텍스트·등고선 팩은 국내 서버에 올린다(constants.DATA_DOMESTIC_BASE_URL 주석).
 
@@ -23,6 +27,7 @@ import hashlib
 import json
 import os
 import py_compile
+import re
 import shutil
 import sqlite3
 import statistics
@@ -50,11 +55,11 @@ PLAIN_SCRIPT_NAMES = ("loader.py", "cmd_site.py")         # 입출력 연결뿐�
 UI_FILE_NAMES = ("site_ui.html",)
 UI_DIR_NAMES = ("vendor",)
 DOC_FILE_NAMES = ("docs/install.md",)
-EXCLUDED_MODULE_PREFIXES = ("dev_", "cmd_", "probe_", "server_")     # 개발·실측 전용, 진입 스크립트, 국내 서버(VM) 전용
+EXCLUDED_MODULE_PREFIXES = ("dev_", "cmd_", "probe_", "server_", "blender_")     # 개발·실측 전용, 진입 스크립트, 국내 서버(VM) 전용, Blender판
 
-# UrbanSite 명령 본문 — rhinocode가 .rhp에 넣는다. 한글 앨리어스는 명령 이름에 못 써서 처음 실행 때 등록한다.
+# UrbanSite 명령 본문 — rhinocode가 .rhp에 넣는다.
 COMMAND_SOURCE = '''#! python 3
-"""UrbanSite — 대지검토 패널을 연다. Yak 설치 폴더(.rhp 옆)의 scripts/cmd_site.py를 그대로 실행한다."""
+"""UrbanSite — 패널을 연다. Yak 설치 폴더(.rhp 옆)의 scripts/cmd_site.py를 그대로 실행한다."""
 import os
 import runpy
 
@@ -62,10 +67,43 @@ import Rhino
 import System
 
 folder = os.path.dirname(Rhino.PlugIns.PlugIn.PathFromId(System.Guid("%(plugin_id)s")))
-aliases = Rhino.ApplicationSettings.CommandAliasList
-if not aliases.IsAlias("%(alias)s"):
-    aliases.Add("%(alias)s", "%(command)s")
 runpy.run_path(os.path.join(folder, "scripts", "cmd_site.py"), run_name="__main__")
+'''
+
+BLENDER_APP = "/Applications/Blender.app/Contents/MacOS/Blender"
+BLENDER_PACKAGE_ID = "urbansite"
+BLENDER_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py")    # Rhino 전용(Eto·RhinoCommon)
+# 확장 약관 1.2 — 함께 넣는 글꼴·이미지는 CC0만. Pretendard(OFL)는 빼고 패널은 시스템 글꼴(Apple SD Gothic Neo·맑은 고딕)로 그린다
+BLENDER_EXCLUDED_ASSETS = ("PretendardVariable.woff2",)
+BLENDER_LICENSE_PATH = os.path.join(ROOT_DIR, "docs", "licenses", "GPL-3.0.txt")   # 확장 약관 1.1 — 애드온은 GPL-3.0-or-later
+BLENDER_INIT_SOURCE = '''"""UrbanSite Blender 확장 — 본문은 scripts/cmd_blender.py(등록만 넘긴다)."""
+from .scripts import cmd_blender
+
+
+def register():
+    cmd_blender.register()
+
+
+def unregister():
+    cmd_blender.unregister()
+'''
+# 확장 매니페스트 — 칸 규칙은 Blender 매뉴얼 Extensions > Getting started(tagline·permissions 사유 64자 이하, 끝 마침표 없음)
+BLENDER_MANIFEST = '''schema_version = "1.0.0"
+id = "%(id)s"
+version = "%(version)s"
+name = "%(name)s"
+tagline = "Site context for urban design: buildings, roads, terrain"
+maintainer = "%(maintainer)s"
+type = "add-on"
+website = "https://969flash.github.io/urbansite/"
+tags = ["Import-Export", "3D View"]
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-3.0-or-later"]
+copyright = ["2026 sanghoon", "2010-2023 Volodymyr Agafonkin (Leaflet)", "2010-2011 CloudMade (Leaflet)"]
+
+[permissions]
+network = "Map tiles, regional data packs and OpenStreetMap context"
+files = "Write results and data packs to the UrbanSite home folder"
 '''
 
 PACK_KINDS = (   # (종류, 표시 이름 꼬리, 원본 DB 종류) — 등고선 팩은 컨텍스트 DB에서 terrain만 떼어 낸다
@@ -168,14 +206,14 @@ def _build_plugin(project_dir):
     """UrbanSite 명령 하나짜리 rhproj를 쓰고 rhinocode로 빌드한다. 빌드 결과 폴더(rhp·rui·manifest.yml)를 돌려준다."""
     os.makedirs(os.path.join(project_dir, "commands"))
     with open(os.path.join(project_dir, "commands", COMMAND_NAME + ".py"), "w", encoding="utf-8") as f:
-        f.write(COMMAND_SOURCE % {"plugin_id": PLUGIN_ID, "alias": constants.PANEL_CAPTION, "command": COMMAND_NAME})
+        f.write(COMMAND_SOURCE % {"plugin_id": PLUGIN_ID})
     project = {
         # rhinocode가 host를 보고 8.11 미만에서 저장한 프로젝트로 판정하면 거부한다 — os·arch까지 있어야 통과(2026-10-12 실측)
         "host": {"name": "Rhino3D", "version": "8.35", "os": "macOS", "arch": "arm64"},
         "id": PLUGIN_ID,
         "identity": {
             "name": PACKAGE_NAME, "version": PACKAGE_VERSION, "publisher": PUBLISHER, "license": "MIT",
-            "description": "도시설계 착수용 대지 컨텍스트(건물·도로·지형·수계 3D, 베이스맵, 현황도). 명령: UrbanSite / 대지검토",
+            "description": "도시설계 착수용 대지 컨텍스트(건물·도로·지형·수계 3D, 베이스맵, 현황도). 명령: UrbanSite",
         },
         "settings": {
             "buildPath": "build/",
@@ -215,6 +253,63 @@ def build_yak():
     target = os.path.join(BUILD_DIR, packages[0])
     shutil.move(os.path.join(package_dir, packages[0]), target)
     return target
+
+
+# ── blender ─────────────────────────────────────────────
+
+def get_package_source(source, module_names):
+    # type: (str, list) -> str
+    """프로젝트 모듈 import를 패키지 상대 import로 바꾼 소스(`import constants` → `from . import constants`,
+    `from context_builder import X` → `from .context_builder import X`). Blender 확장 정책이 최상위 모듈·sys.path 변경을 막는다 —
+    Rhino판은 scripts/를 sys.path에 넣는 평범한 import 그대로 둔다."""
+    pattern = re.compile(r"^(\s*)(import|from) (%s)\b" % "|".join(sorted(module_names, key=len, reverse=True)), re.M)
+    return pattern.sub(lambda m: "%sfrom . import %s" % (m.group(1), m.group(3)) if m.group(2) == "import" else "%sfrom .%s" % (m.group(1), m.group(3)), source)
+
+
+def _run_blender(*args):
+    # type: (str) -> None
+    result = subprocess.run([BLENDER_APP, "-b", "--factory-startup", "-c", "extension"] + list(args), capture_output=True, text=True)
+    if result.returncode != 0:
+        sys.exit("Blender %s 실패\n%s%s" % (args[0], result.stdout, result.stderr))
+
+
+def build_blender():
+    # type: () -> str
+    """build/blender/urbansite/에 확장 폴더를 모아 zip으로 묶고, build/blender_repo/에 zip과 정적 저장소 색인을 만든다. zip 경로를 돌려준다."""
+    work_dir = os.path.join(BUILD_DIR, "blender")
+    repo_dir = os.path.join(BUILD_DIR, "blender_repo")
+    shutil.rmtree(work_dir, ignore_errors=True)
+    shutil.rmtree(repo_dir, ignore_errors=True)
+    package_dir = os.path.join(work_dir, BLENDER_PACKAGE_ID)
+    target = os.path.join(package_dir, "scripts")
+    os.makedirs(target)
+    names = [n for n in sorted(os.listdir(SCRIPTS_DIR)) if n.endswith(".py") and n not in BLENDER_EXCLUDED_NAMES
+             and not n.startswith(("dev_", "probe_", "server_"))]
+    for name in names:
+        with open(os.path.join(SCRIPTS_DIR, name), encoding="utf-8") as f:
+            source = get_package_source(f.read(), [n[:-3] for n in names])
+        with open(os.path.join(target, name), "w", encoding="utf-8") as f:
+            f.write(source)
+    with open(os.path.join(target, "__init__.py"), "w", encoding="utf-8") as f:
+        f.write('"""UrbanSite 로직 모듈 — Blender 확장에서는 하위 패키지."""\n')
+    for name in UI_FILE_NAMES:
+        shutil.copyfile(os.path.join(SCRIPTS_DIR, name), os.path.join(target, name))
+    for dir_name in UI_DIR_NAMES:
+        shutil.copytree(os.path.join(SCRIPTS_DIR, dir_name), os.path.join(target, dir_name), ignore=shutil.ignore_patterns(*BLENDER_EXCLUDED_ASSETS))
+    for path in DOC_FILE_NAMES:
+        os.makedirs(os.path.join(package_dir, os.path.dirname(path)), exist_ok=True)
+        shutil.copyfile(os.path.join(ROOT_DIR, path), os.path.join(package_dir, path))
+    shutil.copyfile(BLENDER_LICENSE_PATH, os.path.join(package_dir, "LICENSE"))
+    with open(os.path.join(package_dir, "__init__.py"), "w", encoding="utf-8") as f:
+        f.write(BLENDER_INIT_SOURCE)
+    with open(os.path.join(package_dir, "blender_manifest.toml"), "w", encoding="utf-8") as f:
+        f.write(BLENDER_MANIFEST % {"id": BLENDER_PACKAGE_ID, "version": PACKAGE_VERSION, "name": PACKAGE_NAME,
+                                    "maintainer": "%s <%s>" % (PUBLISHER["name"], PUBLISHER["email"])})
+    print("  모듈 %d개" % len(names))
+    os.makedirs(repo_dir)
+    _run_blender("build", "--source-dir", package_dir, "--output-dir", repo_dir)
+    _run_blender("server-generate", "--repo-dir", repo_dir, "--html")
+    return os.path.join(repo_dir, "%s-%s.zip" % (BLENDER_PACKAGE_ID, PACKAGE_VERSION))
 
 
 # ── packs ───────────────────────────────────────────────
@@ -645,13 +740,13 @@ def _fill_manifest(pack_dir):
 DATASET_CARD = """---
 license: other
 license_name: kogl-type1-cc-by
-pretty_name: UrbanDesignTool 시군구 데이터 팩
+pretty_name: UrbanSite 시군구 데이터 팩
 language: [ko]
 tags: [geospatial, korea, cadastral, buildings, rhino]
 ---
-# UrbanDesignTool 데이터 팩
+# UrbanSite 데이터 팩
 
-Rhino 플러그인 UrbanDesignTool(대지검토)이 대상지 주변만 받아 쓰는 시군구 단위 SQLite 팩(xz 압축). 좌표계 EPSG:5186.
+Rhino 플러그인 UrbanSite가 대상지 주변만 받아 쓰는 시군구 단위 SQLite 팩(xz 압축). 좌표계 EPSG:5186.
 
 - `<시군구코드>_site.db.xz` — 필지(토지특성정보 도형·속성), 토지이용계획 지정 현황, 계획 도형(서울 UPIS / 그 외 지정 코드로 필지를 합친 것)
 - `manifest.json` — 팩 목록·sha256·범위. 플러그인이 읽는다.
@@ -740,13 +835,17 @@ def rebounds():
 
 
 def main():
-    if sys.version_info[:2] != (3, 9):
-        sys.exit("Rhino 8의 CPython(3.9)과 같은 Python 3.9로 실행해야 .pyc가 호환됩니다. 현재: %d.%d" % sys.version_info[:2])
-    parser = argparse.ArgumentParser(description="Yak 패키지·데이터 팩 빌드")
-    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "packs", "repack", "upload", "rebounds"))
+    parser = argparse.ArgumentParser(description="Yak 패키지·Blender 확장·데이터 팩 빌드")
+    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "blender", "packs", "repack", "upload", "rebounds"))
     parser.add_argument("--sido", help="packs: 쉼표로 구분한 시도 코드만 (기본 data/에 있는 전부)")
     parser.add_argument("--drop", action="store_true", help="packs: 압축 뒤 원본 시도 DB를 지운다(서울 제외)")
     args = parser.parse_args()
+    if args.what in ("all", "yak") and sys.version_info[:2] != (3, 9):
+        sys.exit("Rhino 8의 CPython(3.9)과 같은 Python 3.9로 실행해야 .pyc가 호환됩니다. 현재: %d.%d" % sys.version_info[:2])
+    if args.what == "blender":
+        print("blender: %s" % build_blender())
+        print("  설치: Blender 4.2+ 환경 설정 > Get Extensions > Install from Disk, 또는 Blender -c extension install-file -r user_default -e <zip>")
+        return
     if args.what == "upload":
         print("manifest: %s" % upload())
         return

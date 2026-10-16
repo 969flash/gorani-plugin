@@ -1,4 +1,4 @@
-"""대지검토 패널의 Eto WebView 호스트. 창 띄우기와 JS↔Python 브리지만 담당한다.
+"""UrbanSite 패널의 Eto WebView 호스트. 창 띄우기와 JS↔Python 브리지만 담당한다.
 
 로직 모듈을 import하지 않는다. 명령이 오면 무엇을 할지는 `cmd_site.py`가
 `on_command` 콜백으로 넣어 주고, 상태는 `push()`로 JS에 보낸다.
@@ -21,12 +21,12 @@ import System
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-PANEL_CAPTION = "대지검토"
+PANEL_CAPTION = "UrbanSite"
 UI_FILE_NAME = "site_ui.html"  # 프런트엔드 전부 (마크업·스타일·JS)
 
 # 브리지 진단 로그 — Rhino 이벤트 핸들러의 print는 화면에 안 보일 수 있어
 # 파일로 남긴다. 패널을 열 때마다 새로 쓴다.
-DEBUG_LOG_PATH = os.path.join(tempfile.gettempdir(), "urban_design_tool_panel_debug.log")
+DEBUG_LOG_PATH = os.path.join(tempfile.gettempdir(), "urbansite_panel_debug.log")
 
 
 def _debug(text):
@@ -105,7 +105,7 @@ def _get_ui_file_uri():
     ) as f:
         font_b64 = base64.b64encode(f.read()).decode("ascii")
     html = html.replace("<!--FONT_WOFF2-->", "data:font/woff2;base64," + font_b64)
-    ui_path = os.path.join(tempfile.gettempdir(), "urban_design_tool_site_ui.html")
+    ui_path = os.path.join(tempfile.gettempdir(), "urbansite_site_ui.html")
     with open(ui_path, "w", encoding="utf-8") as f:
         f.write(html)
     return System.Uri("file://" + ui_path)
@@ -174,7 +174,7 @@ class PanelHost:
             self._schedule_flush()
         except Exception:
             _debug("nav 처리 실패\n%s" % traceback.format_exc())
-            print("[대지검토] 명령 회수 실패\n%s" % traceback.format_exc())
+            print("[UrbanSite] 명령 회수 실패\n%s" % traceback.format_exc())
 
     def _handle_title_changed(self, sender, e):
         """JS의 `document.title = "bridge<n>"` 신호로 명령을 회수한다."""
@@ -186,7 +186,7 @@ class PanelHost:
             self._schedule_flush()
         except Exception:
             _debug("title 처리 실패\n%s" % traceback.format_exc())
-            print("[대지검토] 명령 회수 실패\n%s" % traceback.format_exc())
+            print("[UrbanSite] 명령 회수 실패\n%s" % traceback.format_exc())
 
     def _schedule_flush(self):
         # type: () -> None
@@ -225,7 +225,7 @@ class PanelHost:
                 )
         except Exception:
             _debug("flush 실패\n%s" % traceback.format_exc())
-            print("[대지검토] 명령 회수 실패\n%s" % traceback.format_exc())
+            print("[UrbanSite] 명령 회수 실패\n%s" % traceback.format_exc())
 
     def _run_command(self, message):
         # type: (dict) -> None
@@ -245,7 +245,7 @@ class PanelHost:
         except Exception:
             text = traceback.format_exc()
             _debug("명령 처리 실패\n%s" % text)
-            print("[대지검토] 명령 처리 실패\n%s" % text)
+            print("[UrbanSite] 명령 처리 실패\n%s" % text)
             self.push(
                 {"type": "error", "context": message.get("cmd", "명령"),
                  "text": "예상 밖 오류\n%s" % text}
@@ -271,14 +271,14 @@ class PanelHost:
                     pass  # 미지원 플랫폼 — 동기 실행으로 넘어간다
             self.webview.ExecuteScript(script)
         except Exception as error:
-            print("[대지검토] 푸시 실패: %s" % error)
+            print("[UrbanSite] 푸시 실패: %s" % error)
 
     # ── 표시 ─────────────────────────────────────────────────
 
     def show(self):
         """떠 있는 창을 띄운다."""
         self._show_form()
-        print("[대지검토] 패널 창을 열었습니다")
+        print("[UrbanSite] 패널 창을 열었습니다")
 
     def bring_to_front(self):
         """이미 떠 있는 창을 앞으로 가져온다."""

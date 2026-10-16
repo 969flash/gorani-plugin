@@ -98,7 +98,7 @@ class ReadbackTest(unittest.TestCase):
             self.assertEqual(list(origin), self.response["context"]["origin"])
 
     def test_doc_strings_origin(self):
-        """doc.Strings UDT_ORIGIN_E/N이 사본에 있으면 Ref 원점과 같아야 한다.
+        """doc.Strings URBANSITE_ORIGIN_E/N이 사본에 있으면 Ref 원점과 같아야 한다.
         실측(job 1007-223545-f01e): WriteSelectedObjectsOnly 사본에는 문서 문자열이 안 들어온다 → context_baker.save_copy 과제(open point)."""
         strings = self.model.Strings
         if not len(strings):

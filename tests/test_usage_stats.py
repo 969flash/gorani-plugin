@@ -46,8 +46,31 @@ class UsageStatsTest(unittest.TestCase):
         self.assertNotIn("ring", params)
 
     def test_disabled_without_ids(self):
-        with mock.patch.object(constants, "GA_MEASUREMENT_ID", ""):
+        with mock.patch.object(constants, "GA_STREAMS", {"rhino": ("", "")}):
             self.assertFalse(usage_stats.send_event("panel_open", {}))
+
+    def test_stream_per_host(self):   # Rhino·Blender 통계가 한 속성에 섞이지 않는다
+        streams = {"rhino": ("G-R", "r"), "blender": ("G-B", "b")}
+        with mock.patch.object(constants, "GA_STREAMS", streams), mock.patch.object(usage_stats.context_builder, "get_host", return_value="blender"):
+            self.assertEqual(usage_stats.get_stream(), ("G-B", "b"))
+        with mock.patch.object(constants, "GA_STREAMS", {"rhino": ("G-R", "r")}), mock.patch.object(usage_stats.context_builder, "get_host", return_value="blender"):
+            self.assertFalse(usage_stats.is_enabled())
+
+    def test_blender_needs_consent(self):   # Blender 확장 약관 4.5 — 동의한 사람만, Rhino는 묻지 않는다
+        streams = {"rhino": ("G-R", "r"), "blender": ("G-B", "b")}
+        with mock.patch.object(constants, "GA_STREAMS", streams), mock.patch.object(usage_stats.context_builder, "get_host", return_value="blender"):
+            for consent, enabled in ((None, False), (False, False), (True, True)):
+                with mock.patch.object(usage_stats.site_prefs, "get_stats_consent", return_value=consent):
+                    self.assertEqual(usage_stats.is_enabled(), enabled)
+        with mock.patch.object(constants, "GA_STREAMS", streams), mock.patch.object(usage_stats.site_prefs, "get_stats_consent", return_value=None):
+            self.assertTrue(usage_stats.is_enabled())   # rhino
+
+    def test_consent_saved(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "prefs.json")
+            self.assertIsNone(usage_stats.site_prefs.get_stats_consent(path))
+            usage_stats.site_prefs.save_stats_consent(True, path)
+            self.assertTrue(usage_stats.site_prefs.get_stats_consent(path))
 
     def test_client_id_persists(self):
         with tempfile.TemporaryDirectory() as tmp:

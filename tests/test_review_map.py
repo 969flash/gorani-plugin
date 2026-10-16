@@ -45,6 +45,8 @@ class TileConfigTest(unittest.TestCase):
         self.assertIn("api.vworld.kr", config["url"])
         self.assertIn("TESTKEY", config["url"])
         self.assertIn("openstreetmap", config["fallback_url"])
+        self.assertIn("TESTKEY/Satellite", config["aerial_url"])   # 위성 배경·항공사진 시트
+        self.assertIn("arcgisonline", config["abroad_aerial_url"])   # 해외·VWorld 영상 폴백
 
     def test_without_vworld_key(self):
         # 개발 PC의 .env를 안 보도록 pnu_loader.HOME_DIR을 빈 임시 폴더로 바꾼다
@@ -56,6 +58,7 @@ class TileConfigTest(unittest.TestCase):
                 config = review_map.get_tile_config()
         self.assertIn("openstreetmap", config["url"])
         self.assertEqual(config["url"], config["fallback_url"])
+        self.assertIn("arcgisonline", config["aerial_url"])   # 키 없으면 영상은 Esri
 
 
 class GeojsonConversionTest(unittest.TestCase):

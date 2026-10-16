@@ -288,20 +288,13 @@ def decode_png(data):
     return width, height, channels, rows
 
 
-def _get_tile_xy(lng, lat, zoom):
-    # type: (float, float, int) -> tuple
-    """경위도 → 웹 메르카토르 타일 좌표(실수)."""
-    n = 2 ** zoom
-    return (lng + 180.0) / 360.0 * n, (1.0 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2.0 * n
-
-
 def get_terrain_spots(bounds, reference_date):
     # type: (tuple, str) -> list
     """bounds를 덮는 지형 타일을 받아 표고점(theme terrain, kind spot)으로. 간격 = 타일 픽셀 × OSM_TERRAIN_STEP."""
     south, west, north, east = _get_lnglat_bbox(bounds)
     zoom = constants.OSM_TERRAIN_ZOOM
-    x0, y0 = _get_tile_xy(west, north, zoom)
-    x1, y1 = _get_tile_xy(east, south, zoom)
+    x0, y0 = non_rhino_utils.get_tile_xy(west, north, zoom)
+    x1, y1 = non_rhino_utils.get_tile_xy(east, south, zoom)
     spots = []
     for tx in range(int(x0), int(x1) + 1):
         for ty in range(int(y0), int(y1) + 1):

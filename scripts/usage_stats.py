@@ -1,6 +1,7 @@
 """사용 통계 — GA4 Measurement Protocol로 이벤트를 보낸다(서버 없음, 표준 라이브러리만).
 
-끄는 설정은 두지 않는다(무료 도구 — 쓰면 보낸다). 보내는 항목 고지는 docs/install.md. 측정 ID·API secret이 비어 있으면(constants) 아무것도 보내지 않는다.
+Rhino는 끄는 설정을 두지 않는다(무료 도구 — 쓰면 보낸다). Blender는 패널에서 동의한 사람만 보낸다(확장 약관 4.5). 보내는 항목 고지는 docs/install.md. 호스트(Rhino·Blender)마다 GA4 속성이 따로이고(constants.GA_STREAMS),
+그 호스트의 측정 ID·API secret이 비어 있으면 아무것도 보내지 않는다.
 보내는 것: 설치마다 무작위 client_id, 패널 버전·OS, 생성 대상지(필지 PNU·중심 경위도, 구역은 중심·면적·크기만), 결과·소요 시간.
 보내기는 데몬 스레드에서 하고 실패는 버린다 — 통계 때문에 패널이 멈추거나 죽으면 안 된다.
 """
@@ -97,9 +98,24 @@ def get_target_params(target, lots=None):
     return params
 
 
+def get_stream():
+    # type: () -> tuple
+    """지금 호스트(rhino|blender)의 GA4 (측정 ID, API secret). 호스트마다 속성이 따로다 — 없으면 ("", "")."""
+    return constants.GA_STREAMS.get(context_builder.get_host(), ("", ""))
+
+
+def is_configured():
+    # type: () -> bool
+    """이 호스트의 측정 ID·secret이 있는지 — 없으면 동의도 묻지 않는다."""
+    return all(get_stream())
+
+
 def is_enabled():
     # type: () -> bool
-    return bool(constants.GA_MEASUREMENT_ID and constants.GA_API_SECRET)
+    """측정 ID·secret이 있고, 동의를 묻는 호스트(Blender)면 사용자가 [보내기]를 골랐을 때만."""
+    if not is_configured():
+        return False
+    return not constants.HOST_LABELS[context_builder.get_host()]["ask_stats"] or site_prefs.get_stats_consent() is True
 
 
 def send_event(name, params=None):
@@ -111,7 +127,7 @@ def send_event(name, params=None):
         body = json.dumps(get_payload(name, params, get_client_id())).encode("utf-8")
     except Exception:
         return False
-    url = "%s?measurement_id=%s&api_secret=%s" % (constants.GA_ENDPOINT, constants.GA_MEASUREMENT_ID, constants.GA_API_SECRET)
+    url = "%s?measurement_id=%s&api_secret=%s" % ((constants.GA_ENDPOINT,) + tuple(get_stream()))
 
     def post():
         try:

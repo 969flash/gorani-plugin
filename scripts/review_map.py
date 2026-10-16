@@ -1,4 +1,4 @@
-"""대지검토 패널의 지도 데이터 제공자.
+"""UrbanSite 패널의 지도 데이터 제공자.
 
 로컬 DB의 필지(EPSG:5186)를 WGS84 GeoJSON으로 바꾸고 타일·초기 뷰 설정을 준다.
 Rhino를 import하지 않아 python3로 바로 테스트할 수 있다.
@@ -9,7 +9,7 @@ import lot_db
 import non_rhino_utils
 import pnu_loader
 
-# 지도 전용 상수 — 패널 지도에서만 쓰므로 constants.py가 아니라 여기 둔다.
+# 지도 전용 상수 — 패널 지도와 항공사진 시트(sheet_svg가 get_tile_config를 부른다)만 쓰므로 constants.py가 아니라 여기 둔다.
 VWORLD_TILE_URL_TEMPLATE = (
     "https://api.vworld.kr/req/wmts/1.0.0/%s/Base/{z}/{y}/{x}.png"
 )
@@ -19,6 +19,12 @@ OSM_ATTRIBUTION = "© OpenStreetMap contributors"
 # 해외 배경(VWorld는 국내만) — OSM 표준 타일. 소량 사용·출처 표기 조건(타일 이용 정책). CARTO는 2026-10 기준 키가 필요해 쓰지 않는다
 ABROAD_TILE_URL = OSM_TILE_URL
 ABROAD_ATTRIBUTION = OSM_ATTRIBUTION
+# 위성·항공 영상 — 국내는 VWorld 영상지도(국토지리정보원 정사영상, 줌 19까지, 2026-10-14 키로 받아짐 확인)
+VWORLD_AERIAL_URL_TEMPLATE = "https://api.vworld.kr/req/wmts/1.0.0/%s/Satellite/{z}/{y}/{x}.jpeg"
+VWORLD_AERIAL_ATTRIBUTION = "© VWorld 영상지도"
+# 키가 없거나 해외면 Esri World Imagery(키 없이 받아짐). 이용 조건은 Esri 약관 — 확인 필요(소량·출처 표기로만 쓴다)
+ESRI_AERIAL_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+ESRI_AERIAL_ATTRIBUTION = "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community"
 MAP_CENTER = [126.9784, 37.5665]  # 서울시청 (WGS84 lng, lat)
 MAP_ZOOM = 16
 COORDINATE_DECIMALS = 7  # GeoJSON 좌표 반올림 자리수 (약 1cm)
@@ -31,24 +37,23 @@ def get_tile_config():
     입력:
         없음. VWORLD_API_KEY 환경변수 또는 프로젝트 .env를 읽는다.
     처리:
-        키가 있으면 VWorld WMTS를 기본으로, 없으면 OSM만 쓴다.
+        키가 있으면 VWorld WMTS(지도·영상)를 기본으로, 없으면 OSM 지도 + Esri 영상.
     출력:
-        ``{"url", "fallback_url", "attribution"}`` 딕셔너리.
+        ``{"url", "fallback_url", "attribution", "abroad_url", "abroad_attribution",
+        "aerial_url", "aerial_attribution", "abroad_aerial_url", "abroad_aerial_attribution"}``.
+        abroad_aerial_url(Esri)은 국내 영상을 못 받을 때의 폴백도 겸한다.
     """
+    config = {
+        "url": OSM_TILE_URL, "fallback_url": OSM_TILE_URL, "attribution": OSM_ATTRIBUTION,
+        "abroad_url": ABROAD_TILE_URL, "abroad_attribution": ABROAD_ATTRIBUTION,
+        "aerial_url": ESRI_AERIAL_URL, "aerial_attribution": ESRI_AERIAL_ATTRIBUTION,
+        "abroad_aerial_url": ESRI_AERIAL_URL, "abroad_aerial_attribution": ESRI_AERIAL_ATTRIBUTION,
+    }
     api_key = pnu_loader.get_local_env_value(constants.VWORLD_API_KEY_ENV)
     if api_key:
-        return {
-            "url": VWORLD_TILE_URL_TEMPLATE % api_key,
-            "fallback_url": OSM_TILE_URL,
-            "attribution": VWORLD_ATTRIBUTION,
-            "abroad_url": ABROAD_TILE_URL, "abroad_attribution": ABROAD_ATTRIBUTION,
-        }
-    return {
-        "url": OSM_TILE_URL,
-        "fallback_url": OSM_TILE_URL,
-        "attribution": OSM_ATTRIBUTION,
-        "abroad_url": ABROAD_TILE_URL, "abroad_attribution": ABROAD_ATTRIBUTION,
-    }
+        config.update(url=VWORLD_TILE_URL_TEMPLATE % api_key, attribution=VWORLD_ATTRIBUTION,
+                      aerial_url=VWORLD_AERIAL_URL_TEMPLATE % api_key, aerial_attribution=VWORLD_AERIAL_ATTRIBUTION)
+    return config
 
 
 def get_map_init():

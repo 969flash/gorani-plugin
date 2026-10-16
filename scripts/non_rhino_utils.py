@@ -230,6 +230,26 @@ def get_wgs84_from_tm(x, y):
     return lng_out, lat_out
 
 
+def get_tile_xy(lng, lat, zoom):
+    # type: (float, float, int) -> tuple
+    """경위도 → 웹 메르카토르 타일 좌표(실수). 정수부가 타일 번호."""
+    n = 2 ** zoom
+    return (lng + 180.0) / 360.0 * n, (1.0 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2.0 * n
+
+
+def get_lnglat_from_tile(x, y, zoom):
+    # type: (float, float, int) -> tuple
+    """웹 메르카토르 타일 좌표(실수) → 경위도 (get_tile_xy 역변환)."""
+    n = 2 ** zoom
+    return x / n * 360.0 - 180.0, math.degrees(math.atan(math.sinh(math.pi * (1.0 - 2.0 * y / n))))
+
+
+def get_tile_m_per_px(lat, zoom):
+    # type: (float, int) -> float
+    """위도 lat에서 줌 zoom 타일(256 px) 한 픽셀의 지상 길이 m. 웹 메르카토르 구 반지름 = WGS84 장반경(GRS80과 같은 값)."""
+    return 2.0 * math.pi * A_GRS80 * math.cos(math.radians(lat)) / (256.0 * 2 ** zoom)
+
+
 def is_korea(lng, lat):
     # type: (float, float) -> bool
     """경위도가 한국(국내 DB·EPSG:5186 범위) 안인지. 대략의 경위도 사각형으로만 본다."""
