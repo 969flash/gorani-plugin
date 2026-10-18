@@ -3,12 +3,12 @@
     build(prepared) -> ContextGeo                 지형·건물·커브 전부
     build_terrain(prepared) -> (meshes, tris, counts)   TIN → 면 분류 → 수면 평탄 → 분류별 Mesh
     build_buildings(prepared, tin_mesh) -> (items, counts, skipped, warnings)
-    build_curves(prepared) -> items               Site·Parcels·Roads::centerline·Ref 범위·도엽 경계·(옵션) Zoning
+    build_curves(prepared) -> items               Site·Parcels·Roads::centerline·Ref 범위·도엽 경계·(옵션) Zoning::<구분>::<종류>
 
 RhinoDoc은 쓰지 않는다 — 객체를 만들어 돌려줄 뿐 문서는 context_baker가 만진다.
 원점 적용(세계 → 로컬)은 get_local_pts 한 함수에서만 한다. sheet_svg용 삼각형은 세계좌표로 되돌려 준다.
-Rhino가 없으면(Blender·python3) 순수 파이썬 도우미(get_tin_points·get_parts·NearestXYZ·get_class_polygons·get_building_attrs)만 쓴다 —
-blender_geometry가 같은 규칙으로 지형을 만든다.
+Rhino가 없으면(Blender·python3) 순수 파이썬 도우미(get_tin_points·get_parts·NearestXYZ·get_class_polygons·get_building_attrs·get_zoning_rings)만 쓴다 —
+mesh_geometry(Blender·SketchUp판)가 같은 규칙으로 지형을 만든다.
 """
 
 import math
@@ -102,6 +102,36 @@ def get_parts(geometry):
     if not geometry or geometry.get("type") not in ("Polygon", "MultiPolygon"):
         return []
     return [[_strip_ring(ring) for ring in part if len(ring) >= 3] for part in non_rhino_utils.get_polygon_parts_from_geojson(geometry)]
+
+
+def get_zoning_layer(overlay):
+    # type: (object) -> str
+    """계획 오버레이 → 'Zoning::<구분>::<종류>'(constants.ZONING_LAYERS). 용도지역은 현황도 11 범례 이름, 나머지는 kind. 현황도에 없는 theme은 None."""
+    group = constants.ZONING_LAYERS.get(overlay.theme)
+    if group is None:
+        return None
+    if overlay.theme == constants.OVERLAY_THEME_ZONE:
+        key = sheet_svg.get_zone_key(overlay.name)
+        leaf = next(label for entry_key, label, _ in constants.SHEET_LEGENDS["zone"][1] if entry_key == key)
+    else:
+        leaf = overlay.kind or group
+    return "Zoning::%s::%s" % (group, leaf)
+
+
+def get_zoning_rings(prepared):
+    # type: (object) -> list
+    """CTX::Zoning에 넣을 [(레이어, 오버레이, 링)]. 링은 범위 bbox로 자른다 — 서울 도로 결정 도형은 가로망 전체라 몇 km씩 뻗는다
+    (성수 333-139 반경 500 m: 자르기 전 24만 점, 필지 3.2만 점의 7배). 자른 자리는 bbox 변 위의 선으로 남는다."""
+    bbox = non_rhino_utils.get_bbox(prepared.extent_ring)
+    rings = []
+    for o in prepared.overlays:
+        layer = get_zoning_layer(o)
+        for part in get_parts(o.geometry) if layer else []:
+            for ring in part:
+                clipped = sheet_svg.get_clipped_ring(ring, bbox)
+                if len(clipped) >= 3:
+                    rings.append((layer, o, clipped))
+    return rings
 
 
 def _get_ring_crv(ring, origin, z):
@@ -697,7 +727,8 @@ def build_curves(prepared):
 
     입력: Prepared. 처리: 대상 필지는 가장 넓은 조각 외곽선 하나(CLAUDE.md), 주변 필지는 범위 bbox와 겹치는 것 전부 링마다 커브,
           도로중심선 = features road/centerline LineString(범위 bbox와 겹치는 것) → 열린 PolylineCurve, UserString WIDTH_M·LANES·NAME,
-          Ref = extent_ring + prepared.stats['sheets'] 도엽 사각형(경위도 → TM), Zoning = options.include_zoning일 때 overlays theme zone.
+          Ref = extent_ring + prepared.stats['sheets'] 도엽 사각형(경위도 → TM),
+          Zoning = options.include_zoning일 때 overlays(용도지역·지구·구역·시설·지구단위) → 'CTX::Zoning::<구분>::<종류>', 범위 bbox로 자름(get_zoning_rings).
     출력: BakeItem 목록.
     """
     origin = prepared.origin
@@ -736,13 +767,9 @@ def build_curves(prepared):
         ring = [non_rhino_utils.get_tm_from_wgs84(lng, lat) for lng, lat in ((left, bottom), (right, bottom), (right, top), (left, top))]
         items.append(BakeItem(_layer("Ref"), _get_ring_crv(ring, origin, 0.0), {"KIND": "topo_sheet", "SHEET": code}, code))
     if (prepared.request.get("options") or {}).get("include_zoning"):
-        for o in prepared.overlays:
-            if o.theme != constants.OVERLAY_THEME_ZONE:
-                continue
+        for layer, o, ring in get_zoning_rings(prepared):
             attrs = {"THEME": o.theme, "KIND": o.kind or "", "NAME": o.name or "", "NOTICE_NO": o.notice_number or ""}
-            for part in get_parts(o.geometry):
-                for ring in part:
-                    items.append(BakeItem(_layer("Zoning"), _get_ring_crv(ring, origin, 0.0), attrs, o.name or ""))
+            items.append(BakeItem(_layer(layer), _get_ring_crv(ring, origin, 0.0), attrs, o.name or ""))
     return items
 
 

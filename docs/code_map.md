@@ -194,7 +194,7 @@ def get_progress_message(phase, fraction, text, skipped, details):
     "include_minor_buildings": false,        // 보충(src_key 'ngii:%') 행의 무벽·가건물·공사중 — SQL에서 제외(TOPO_MINOR_KINDS)
     "demolished": "dashed",                  // P1. v1은 status가 전부 'active'(995,026/995,026)라 항상 0 — 받기만 하고 무시
     "refresh_buildings": false,              // P1. v1은 항상 phase refresh=skipped
-    "include_zoning": false, "terrain_vertex_color": false,
+    "include_zoning": true, "terrain_vertex_color": false,
     "terrain_step": 0                        // m. 0 = 매끈, > 0 = 계단 지형(§5 5.2d)
   },
   "result_root": null,                       // null = <루트>/result
@@ -261,7 +261,7 @@ def get_progress_message(phase, fraction, text, skipped, details):
 | 5.3 면 분류 | 면 중심 → `GridIndex`(50 m) 후보 → `is_point_in_ring`(외곽 in AND 구멍 out). 우선순위 water > rail > road > green > terrain, 범위 밖 `outside`. `Mesh.CreateFromFilteredFaceList`로 분류별 메시 | 순수 python 0.69 s vs `Curve.Contains` 0.82 s(2,549 vs 2,546면). 1 km는 bbox 전수 16 s → 격자로 **1 s 안쪽 목표(M2 확인)** |
 | 5.4 수면 | 수면 폴리곤(features water ∪ 지목 하천·구거·유지) 경계 샘플을 `ProjectPointsToMeshes`로 투영 → 최저 Z = 수위 → 내부 정점 Z 고정 → `CTX::Water` 평면 메시(+0.02 m). UserString `NAME`·`LEVEL_M`·`LEVEL_SRC=terrain_min` | — |
 | 5.5 건물 | 발자국 정점 전체를 **`Intersection.ProjectPointsToMeshesEx([terrain], pts, (0,0,-1), tol, out indices)`** 1회 → `indices`로 동 복원(출력은 입력과 1:1이 아니다 — 빗나간 점 소실·다중 적중 중복) → 동별 최저 Z(`base_z`); 투영점 0인 동은 ① 최근접 TIN 정점 Z(`GridIndex`) ② 없으면 건너뛰고 `warnings[code=skipped]`+log; 고저차 >3 m면 `HEIGHT_SRC`에 `~slope` → 외곽 링 `PolylineCurve`(Z=base_z) → `Extrusion.Create(crv, Plane(Point3d(0,0,base_z), ZAxis), height_m, True)` + 구멍 `AddInnerProfile` → **`Mesh.CreateFromExtrusion(ext, MeshingParameters.Minimal)`**, 멀티폴리곤 파트는 한 메시로 `Append` → 동당 Mesh 1개 베이크. None이면 건너뛰고 경고 | Extrusion 그대로 구우면 첫 음영 표시 때 Rhino가 3천여 동의 렌더 메시를 만들어 **18.7 s** 멈췄다 → Mesh로 **0.9 s**. 생성 비용은 같다 |
-| 5.6 커브 | Site·Parcels(구멍 보존)·Zoning(옵션)·Ref 범위 원·도엽 경계 = `PolylineCurve` Z=0(주변 필지 드레이프는 P1 — 같은 `ProjectPointsToMeshes` 1줄) | — |
+| 5.6 커브 | Site·Parcels(구멍 보존)·Zoning(옵션, `CTX::Zoning::<구분>::<종류>` — 범위 bbox로 자름)·Ref 범위 원·도엽 경계 = `PolylineCurve` Z=0(주변 필지 드레이프는 P1 — 같은 `ProjectPointsToMeshes` 1줄) | — |
 | 5.7 베이스맵 | `basemap_ai.write_basemap(prepared, scale, out_dir)` — `Prepared`(세계좌표)를 `sheet_svg.Frame`으로 용지 pt에 옮겨 AI5 PostScript를 쓴다. 프레임 밖은 버리고 선은 `get_clipped_lines`로 자른다. 레이어는 `get_basemap_layers(options, scale)`(축척별 on/off = `BASEMAP_SCALE_LAYERS`), 파일 순서 = `BM_LAYERS` 순(파일 뒤쪽 = Illustrator 위). 색은 K만(`0 0 0 k K/k`), 구멍 있는 면은 compound path(`*u`…`*U`), 라벨은 CP949 8진 이스케이프 + `AI_FONT_CMAP`(mac AppleSDGothicNeo / Windows MalgunGothic, `-KSCms-UHC-H`). 파일은 ASCII + CRLF | 성수 R=500 1:3000: 0.38 s · 6.3 MB · 레이어 15 |
 | 5.8 실측(반경 500 m + A1 1:3000, 전체 서울 DB, 2026-10-08) | query 1.8 · terrain 1.6 · write_3dm 2.9(저장 0.7) · basemap 0.4 · sheets 1.4 · tables 0.1 → **8.3 s**, context.3dm **16.8 MB**(객체 8,672), basemap_3000.ai 6.3 MB. 이전 구현(BM 베이크 + Rhino export)은 51~63 s / 73~86 MB | 이번에 고친 병목: BM 베이크·export 제거(−35 s), 건물 Mesh(뷰 18.7→0.9 s), DB bbox 질의 창 `min_x BETWEEN`(건물 0.84→0.02 s), 시트 경로 캐시(5.1→0.85 s), `clear_previous` = `FindByUserString`(9.8→2.7 s, 17만 객체 문서) |
 
@@ -269,9 +269,9 @@ def get_progress_message(phase, fraction, text, skipped, details):
 
 `ponytail:` 폴리곤 불린·클리핑 없음 — 건물·필지·도로면·수면은 bbox가 범위와 겹치면 통째로, 3D 범위 경계는 TIN 면 제거로만. 옹벽·제방 단차가 거슬리면 `Mesh.CreatePatch` 브레이크라인을 성수 옹벽(F0040000 448건)으로 시험.
 
-### 5.x Blender판 (`blender_geometry`·`blender_baker`, 2026-10-15)
+### 5.x Blender판 (`mesh_geometry`·`blender_baker`, 2026-10-15 — 2026-10-18 `blender_geometry` → `mesh_geometry`로 이름을 바꿔 SketchUp판과 함께 쓴다)
 
-`context_builder.run`은 `get_host_modules()`로 지오메트리·베이커 쌍을 고른다(bpy가 있으면 Blender). 규칙은 위와 같고 방법만 다르다.
+`context_builder.run`은 `get_host_modules()`로 지오메트리·베이커 쌍을 고른다(bpy가 있으면 Blender, 환경변수 `URBANSITE_HOST=sketchup`이면 SketchUp). 규칙은 위와 같고 방법만 다르다.
 
 - 지형: TIN = `mathutils.geometry.delaunay_2d_cdt`(볼록 껍질). 면 분할 대신 범위 링·분류 폴리곤 링(외곽·구멍)·대상지 링을 **제약 면**으로, TIN 점을 내부 정점으로 CDT 한 번 → 삼각형마다 품은 링 목록(`orig_faces`)으로 분류(외곽 안 + 같은 파트 구멍 밖, 우선순위 앞이 이김) → 정점 Z = TIN `BVHTree.ray_cast`(빗나가면 최근접 정점). 쿼드 격자가 아니라 TIN 점 + 경계 정점 삼각형이다. 성수 R=500 TIN 0.04 s·분류 CDT 0.06 s.
 - 건물: 발자국 정점 수직 투영 최저 Z, 뚜껑은 `tessellate_polygon`(구멍 포함). 동마다 객체 대신 **메시 하나 + 면 속성** `building_id`·`height`·`floors`(수천 객체는 Blender가 느리다).
@@ -279,6 +279,25 @@ def get_progress_message(phase, fraction, text, skipped, details):
 - 베이커: 레이어 = 컬렉션 `CTX::…`(CTX 아래 한 단), 색 = 레이어 이름 재질. 원점은 장면 사용자 속성, 실제 좌표 방식은 객체 위치로 옮긴다(메시는 단정밀도라 로컬). 사본은 임시 장면에 CTX를 걸어 `bpy.data.libraries.write` → `context.blend`(새 장면 view layer를 update하지 않으면 5.2.2가 죽는다).
 - 필지 경계에 맞추기: 링 전부를 제약 면으로 CDT → (구역·더할 필지 안, 뺄 필지 밖) 삼각형의 바깥 변 고리 중 가장 넓은 것.
 - 성수 fixture R=500 전체(시트 25장 포함) 3.8 s, 건물 3,454동·지형 면 27,594(job 없음 — `tests/test_blender.py`).
+
+### 5.y SketchUp판 (`cmd_sketchup`·`mesh_geometry`·`sketchup_baker`·`sketchup_ext.rb`, 2026-10-18)
+
+SketchUp에는 파이썬이 없다(Ruby만, sqlite3 gem도 없음). 확장(.rbz)에 **python-build-standalone 3.12 + numpy·shapely**를 플랫폼마다(mac-arm64·mac-x64·win-x64) 넣고, Ruby가 그 파이썬으로 **사이드카**를 띄운다.
+
+```
+SketchUp(Ruby, sketchup_ext.rb = bsh_urbansite/main.rb)            사이드카(번들 파이썬, cmd_sketchup.py)
+  [UrbanSite] → IO.popen(python -I -B -X utf8 cmd_sketchup.py) ──► panel_server.Bridge 첫 줄로 127.0.0.1 주소
+  UI::HtmlDialog.set_url(주소) ◄──── 패널 HTML·SSE·POST cmd ────► _SketchUpController(cmd_site 상속) → context_builder.run(doc = _Host)
+  sketchup.host_call(json) ◄── SSE host_call{id, method, args} ─── sketchup_baker(blender_baker와 같은 함수 이름) → _Host.call
+  rpc_<method> → 모델 변경 → execute_script("send({cmd:'host_reply'…})") ──► 서버 스레드가 바로 응답 큐로(DIRECT_CMDS)
+```
+
+- 지형: `mesh_geometry`의 shapely판 — 범위·분류·대상지 링 테두리를 0.1 mm 격자로 이어(교점 포함) `polygonize` → 면마다 품은 링(대표점 within) → 떨어진 점의 GEOS 들로네 TIN과 겹쳐 조각 → `constrained_delaunay_triangles`. 출력 모양은 mathutils `_get_cdt`와 같아 분류·수면·평탄화·계단 코드를 그대로 쓴다. 성수 R=500 분류별 넓이가 Blender판과 소수 첫째 자리까지 같다(면 39,287 — CDT 한 번보다 1.4배). 지반 높이는 5 m 격자 칸 삼각형 무게중심 좌표. Shewchuk `triangle`은 상업 사용 제한 약관이라 쓰지 않는다.
+- 건물: 면 채우기가 없어 동마다 각기둥(`BakeItem.prisms` = 파트 링·바닥 Z·높이·Rhino판과 같은 14키 속성) → Ruby가 `Entities#build`(EntitiesBuilder, 2022+)로 구멍 있는 바닥·지붕·옆면 = 동마다 솔리드 그룹.
+- 모델 모양: 대상지마다 최상위 그룹 `UrbanSite <대상지명>`(속성 사전 `UrbanSite`의 `URBANSITE_LOT_KEY`) 안에 태그 `CTX::…`(태그 폴더 CTX)마다 그룹, 색 = 태그 색 + 같은 이름 재질. 지형은 `PolygonMesh` → `fill_from_mesh`(자동 부드럽게), 커브는 `add_edges`. 원점은 모델 속성, 실제 좌표 방식은 대상지 그룹을 옮긴다. 한 번의 생성 = Undo 한 번(clear가 작업을 열고 뒤 호출은 투명 작업).
+- 사본: 대상지 그룹 정의 `save_copy` → `context.skp`(로컬 좌표, 원점 = context.json `origin`). 다시 넣기는 `definitions.load` + 원점 차이만큼 옮긴 인스턴스.
+- 사이드카는 `-B`(확장 폴더에 `__pycache__`를 쓰면 서명 파일 목록이 바뀐다), stdout 첫 줄만 주소·그 뒤는 stderr = `~/UrbanSite/sketchup_sidecar.log`, stdin EOF(SketchUp 종료)에 끝난다. 패널을 닫으면 진행 중인 host_call은 `SKETCHUP_HOST_TIMEOUT` 뒤 실패.
+- 배포: `dev_deploy.py sketchup` → `build/bsh_urbansite-<버전>.rbz`(약 90 MB — 런타임 셋, numpy OpenBLAS가 절반). 올리기는 `docs/sketchup_store.md`.
 
 ---
 
@@ -314,7 +333,7 @@ def get_progress_message(phase, fraction, text, skipped, details):
 | `CTX::Green` | Mesh | 228,235,226 | `KIND` | P0 |
 | `CTX::Rail` | Mesh(지상) / Curve(지하) | 110,110,110 | `KIND`·`SRC` | P1 |
 | `CTX::Bridges` | Extrusion(슬래브 1.5 m) | 150,150,150 | `KIND`·`DECK_Z_SRC` | P1 |
-| `CTX::Zoning` | PolylineCurve(기본 off) | 200,120,40 | `THEME`·`KIND`·`NAME`·`NOTICE_NO` | P1 |
+| `CTX::Zoning::<구분>::<종류>` | PolylineCurve(기본 on) | 현황도 11~13 범례 색 | `THEME`·`KIND`·`NAME`·`NOTICE_NO` | P1 |
 | `CTX::QA::cadastre_mismatch` | Curve(잠금·비표시) | 255,0,255 | `REASON`·`DIST_M` | P1 |
 | `CTX::Ref` | Point·TextDot·Curve | 0,0,0 | `CRS=EPSG:5186`·`ORIGIN_E`·`ORIGIN_N`·`RADIUS_M`·`SHAPE`·`SRC_SHEETS`·`BUILT_AT`·`TOOL_VERSION`·`ALIGN_MEDIAN_M`·`ALIGN_P90_M`·`ALIGN_N`·`ALIGN_DX_DY`·`TOPO_YEAR`·`TRANSFORM`·`VDATUM`·`DATE_LOT`·`DATE_BUILDING`·`DATE_TERRAIN`·`DATE_UPIS`·`META_LINES`(get_meta_lines 5줄 `\n` 결합)·`URBANSITE_LOT_KEY` | P0 |
 

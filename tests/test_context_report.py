@@ -16,6 +16,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 import constants
 import context_report
+import lot_db
 
 TODAY = datetime.date(2026, 10, 7)
 
@@ -118,6 +119,19 @@ class TablesTest(unittest.TestCase):
             self.assertEqual(rows["parcels.csv"][0]["is_target"], "1")
             self.assertEqual([r["building_id"] for r in rows["buildings.csv"]], ["1", "2", "3"])
             self.assertEqual(rows["alignment.csv"][0]["dist_m"], "1.2")
+
+    def test_parcel_zone_designation_columns(self):
+        designations = [lot_db.DesignationInfo(constants.TEST_CONTEXT_PNU, "UQA330", "준공업지역", "포함"),   # 용도지역 열과 겹쳐 뺀다
+                        lot_db.DesignationInfo(constants.TEST_CONTEXT_PNU, "UOA100", "교육환경보호구역", "저촉"),
+                        lot_db.DesignationInfo(constants.TEST_CONTEXT_PNU, "UQQ310", "제1종지구단위계획구역", "접함")]
+        with tempfile.TemporaryDirectory() as tmp:
+            tables = context_report.write_tables(_prepared(designations=designations), tmp, today=TODAY)
+            target, near = _read_csv(tables[0]["path"])
+        self.assertEqual((target["legal_bcr"], target["legal_far"]), ("70", "150~400"))
+        self.assertEqual(target["designations"], "교육환경보호구역(저촉)")
+        self.assertEqual(near["designations"], "")
+        self.assertEqual(target["area_gap_sqm"], "-1.0")
+        self.assertTrue(target["eum_url"].endswith("pnu=%s&mode=search&isNoScr=script" % constants.TEST_CONTEXT_PNU))
 
     def test_sheet_stats_bands(self):
         with tempfile.TemporaryDirectory() as tmp:

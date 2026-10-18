@@ -3,7 +3,7 @@
     resolve_target(request)           Rhino 금지. 대상지 방식(lots·area·point) → 경계 링·안의 필지·중심·이름·키.
     prepare(request, progress)        Rhino 금지. 입력 검증 → 필지·컨텍스트 질의 → 원점·범위 → 통계·경고·메타.
     run(request, progress, doc)       Rhino·Blender 안. prepare → (호스트) 지오메트리.build → 베이커.bake/.. → 시트·조서.
-    get_host_modules()                (지오메트리, 베이커) — Rhino는 context_*, Blender는 blender_*. 둘은 같은 함수 이름을 쓴다.
+    get_host_modules()                (지오메트리, 베이커) — Rhino는 context_*, Blender·SketchUp은 mesh_geometry + 호스트 베이커. 같은 함수 이름을 쓴다.
     preflight(request)                Rhino 금지, 100 ms급. COUNT 질의만으로 사전 점검(panel_ui.md preflight_result).
     get_sources / get_source_warnings 원천 상태 4건·stale_* 경고 — 패널 init_state도 쓴다.
     get_progress_message(...)         순수 함수. progress 페이로드 조립. skipped 집합은 get_skipped_phases(options).
@@ -82,6 +82,7 @@ class Prepared:
     context: object
     align_samples: list = field(default_factory=list)
     overlays: list = field(default_factory=list)
+    designations: list = field(default_factory=list)   # 대상 필지의 지역지구등(lot_db.DesignationInfo) — parcels.csv
     sources: list = field(default_factory=list)
     meta: dict = field(default_factory=dict)
     stats: dict = field(default_factory=dict)
@@ -127,6 +128,13 @@ def get_request_with_defaults(request):
 
 
 # ── 작은 헬퍼 ──────────────────────────────────────────────
+
+def is_global(request):
+    # type: (dict) -> bool
+    """OSM·지형 타일로 만들지 — Global 모드이거나 대상지가 한국 밖(지역 TM 원점)이면. Korea 모드는 국가 DB만 쓴다.
+    좌표계는 모드와 무관하게 위치로 정한다(한국 = EPSG:5186, 해외 = 지역 TM) — 한국에서 Global이어도 EPSG:5186."""
+    return (request.get("options") or {}).get("region") == "global" or non_rhino_utils.is_local_projection()
+
 
 def get_skipped_phases(options):
     # type: (dict) -> set
@@ -375,7 +383,7 @@ def resolve_target(request, with_lots=True):
     spec = dict(request["target"])
     mode = spec["mode"]
     site_db = request.get("site_db")
-    abroad = non_rhino_utils.is_local_projection()   # 해외 대상지 — 필지 DB를 보지 않는다(osm_context)
+    abroad = is_global(request)   # Global·해외 — 필지 DB를 보지 않는다(osm_context)
     if mode == "lots":
         non_rhino_utils.set_projection()   # 필지는 국내뿐 — 앞서 해외 대상지를 다뤘어도 EPSG:5186으로 되돌린다
         lot_data = _load_lots(spec.get("pnus"), site_db)
@@ -568,13 +576,10 @@ def get_sources(lot_database_path=None, context_database_path=None, today=None):
     except (FileNotFoundError, RuntimeError):
         pass
     sources += [building, terrain]
-    # 키
+    # 키 — VWorld 하나(지도·위성 배경, 항공사진, 주소 보조 검색). 없으면 OSM 지도·Esri 영상·지명 검색으로 같은 일을 한다
     vworld = bool(pnu_loader.get_local_env_value(constants.VWORLD_API_KEY_ENV))
-    data_go = bool(pnu_loader.get_local_env_value("DATA_GO_KR_KEY"))
-    text = "키 2/2" if vworld and data_go else ("브이월드만" if vworld else ("포털만" if data_go else "없음"))
-    sources.append({"id": "api", "label": constants.SOURCE_LABELS["api"], "name": "VWorld · 공공데이터포털", "date": "", "age_months": None,
-                    "level": "ok" if vworld and data_go else ("missing" if not (vworld or data_go) else "warn"),
-                    "newer_date": None, "keys": {"vworld": vworld, "data_go_kr": data_go}, "text": text})
+    sources.append({"id": "api", "label": constants.SOURCE_LABELS["api"], "name": "VWorld", "date": "", "age_months": None,
+                    "level": "ok" if vworld else "missing", "newer_date": None, "keys": {"vworld": vworld}, "text": "있음" if vworld else "없음"})
     return sources
 
 
@@ -615,7 +620,7 @@ def get_source_warnings(sources):
     """원천 상태 → 경고 목록(stale_*·no_api_key·no_context_db). deliverables §C ⑤ 문안."""
     warnings = []
     for src in sources:
-        if src["id"] == "api":   # 키는 선택 — 있으면 건물 최신화, 없으면 조용히 건너뛴다(사용자에게 묻지 않는다)
+        if src["id"] == "api":   # 키는 선택 — 없어도 OSM·Esri로 같은 일을 한다(사용자에게 묻지 않는다)
             continue
         if src["level"] == "missing" and src["id"] in ("building", "terrain"):
             if not any(w["code"] == "no_context_db" for w in warnings):
@@ -658,7 +663,7 @@ def get_query_bounds(request):
     options = request["options"]
     paper_mm, scales = _get_paper_and_scales(options)
     target = resolve_target(request, with_lots=False)
-    if non_rhino_utils.is_local_projection():
+    if is_global(request):
         return None
     radius = float(options.get("radius") or constants.CONTEXT_RADIUS)
     return _get_query_extent(target, radius, options.get("shape") or "circle", paper_mm, scales)[3]
@@ -698,7 +703,7 @@ def prepare(request, progress=None, today=None):
 
     extent_ring, extent_bounds, frame_bounds, bounds = _get_query_extent(target, radius, shape, paper_mm, scales)
 
-    if non_rhino_utils.is_local_projection():
+    if is_global(request):
         return _prepare_abroad(request, options, today, target, lot_name, warnings, origin, origin_reused, doc_origin, radius, shape,
                                extent_ring, extent_bounds, scales, bounds, frame_bounds, center, placement, progress)
 
@@ -728,7 +733,8 @@ def prepare(request, progress=None, today=None):
     prepared = Prepared(
         request=request, lot_name=lot_name, target_lots=target_lots, near_lots=near_lots, origin=origin, origin_reused=origin_reused,
         radius=radius, shape=shape, extent_ring=extent_ring, scales=scales, bounds=bounds, frame_bounds=frame_bounds, context=context,
-        align_samples=align_samples, overlays=overlays, sources=sources, warnings=warnings, skipped_phases=skipped,
+        align_samples=align_samples, overlays=overlays, designations=list(lot_data.designations) if lot_data else [],
+        sources=sources, warnings=warnings, skipped_phases=skipped,
         result_dir=os.path.join(result_root, today.strftime(constants.RESULT_DATE_FORMAT), lot_name), lots_truncated=bool(truncated),
         mode=target.mode, site_rings=target.site_rings, center=center, target_key=target.key, placement=placement, doc_origin=doc_origin,
     )
@@ -778,8 +784,8 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
     grade_ab = height["height_grade"].get("A", 0.0) + height["height_grade"].get("B", 0.0)
     prepared.stats = {"height_src": height["height_src"], "height_grade": height["height_grade"], "grade_ab": round(grade_ab, 4),
                       "buildings": height["n"], "lots": 0, "sheets": [], "sheets_needed": [], "align": _get_align_stats([]), "mismatch_count": 0}
-    warnings.append(_warning("info", "abroad", "해외 대상지 — OpenStreetMap 건물 %d동·지형 타일" % height["n"],
-                             "필지·용도지역 자료가 없어 그 시트는 비고, 높이 태그가 있는 건물은 %d %%입니다(나머지 %.1f m 또는 층수 추정)."
+    warnings.append(_warning("info", "abroad", "Global — OpenStreetMap 건물 %d동·지형 타일" % height["n"],
+                             "필지·용도지역 도면은 Korea 모드에만 있고, 높이 태그가 있는 건물은 %d %%입니다(나머지 %.1f m 또는 층수 추정)."
                              % (round(grade_ab * 100), constants.DEFAULT_BUILDING_HEIGHT_M)))
     if not height["n"]:
         warnings.append(_warning("warn", "empty_buildings", "범위 안 OSM 건물 0동 — 지도에 건물이 그려진 곳인지 확인", ""))
@@ -855,8 +861,10 @@ def _phase_failed(response, phase, exc):
 
 def get_sheet_ids(options):
     # type: (dict) -> list
-    """options.sheet_ids → 카탈로그에 있는 id만 카탈로그 순서로(옛 prefs의 다른 번호가 섞여도 깨지지 않게). 비면 전부."""
-    valid = [sheet_id for sheet_id, *_ in constants.SHEET_CATALOG]
+    """options.sheet_ids → 카탈로그에 있는 id만 카탈로그 순서로(옛 prefs의 다른 번호가 섞여도 깨지지 않게). 비면 전부.
+    Global 모드는 Korea 전용 도면(SHEET_KOREA_ONLY)을 뺀다."""
+    korea_only = (options or {}).get("region") == "global"
+    valid = [sheet_id for sheet_id, key, *_ in constants.SHEET_CATALOG if not (korea_only and key in constants.SHEET_KOREA_ONLY)]
     wanted = set()
     for value in (options or {}).get("sheet_ids") or []:
         try:
@@ -868,7 +876,10 @@ def get_sheet_ids(options):
 
 def get_host():
     # type: () -> str
-    """지금 도는 프로그램 — Blender 안이면 'blender', 아니면 'rhino'(python3 테스트 포함). constants.HOST_LABELS의 키."""
+    """지금 도는 프로그램 — SketchUp 사이드카·웹판 워커(cmd_sketchup·cmd_web이 환경변수를 둔다)면 'sketchup'·'web', Blender 안이면 'blender',
+    아니면 'rhino'(python3 테스트 포함). constants.HOST_LABELS의 키."""
+    if os.environ.get(constants.HOST_ENV) in ("sketchup", "web"):
+        return os.environ[constants.HOST_ENV]
     try:
         import bpy  # noqa: F401
     except ImportError:
@@ -878,12 +889,22 @@ def get_host():
 
 def get_host_modules():
     # type: () -> tuple
-    """(지오메트리, 베이커) 모듈. Rhino = context_geometry·context_baker, Blender = blender_geometry·blender_baker.
-    베이커 함수(get_doc_origin·clear_previous·bake·write_ref_and_origin·save_copy·zoom_to_site)와 build·get_snapped_ring은 이름이 같다."""
-    if get_host() == "blender":
+    """(지오메트리, 베이커) 모듈. Rhino = context_geometry·context_baker, Blender = mesh_geometry·blender_baker,
+    SketchUp = mesh_geometry·sketchup_baker(사이드카 → SketchUp 호출), 웹 = mesh_geometry·web_baker(context.glb). 베이커 함수(get_doc_origin·clear_previous·bake·write_ref_and_origin·
+    save_copy·zoom_to_site)와 build·get_snapped_ring은 이름이 같다."""
+    host = get_host()
+    if host == "blender":
         import blender_baker
-        import blender_geometry
-        return blender_geometry, blender_baker
+        import mesh_geometry
+        return mesh_geometry, blender_baker
+    if host == "sketchup":
+        import mesh_geometry
+        import sketchup_baker
+        return mesh_geometry, sketchup_baker
+    if host == "web":
+        import mesh_geometry
+        import web_baker
+        return mesh_geometry, web_baker
     import context_baker
     import context_geometry
     return context_geometry, context_baker
@@ -1071,10 +1092,10 @@ def _get_abroad_preflight(sources, features, warnings, scales, paper_mm, paper, 
         f_min_x, f_min_y, f_max_x, f_max_y = Frame(paper_mm, scale, center).world_bounds()
         features.append(_ring_feature([(f_min_x, f_min_y), (f_max_x, f_min_y), (f_max_x, f_max_y), (f_min_x, f_max_y)],
                                       {"role": "frame", "scale": scale, "paper": paper, "over": False}))
-    warnings.append(_warning("info", "abroad", "해외 대상지 — OpenStreetMap·지형 타일을 생성 때 받습니다",
-                             "필지·용도지역 자료가 없어 그 시트는 비고, 건물 높이는 OSM 태그(없으면 %.1f m)입니다. 인터넷 연결이 필요합니다."
+    warnings.append(_warning("info", "abroad", "Global — OpenStreetMap·지형 타일을 생성 때 받습니다",
+                             "필지·용도지역 도면은 Korea 모드에만 있고, 건물 높이는 OSM 태그(없으면 %.1f m)입니다. 인터넷 연결이 필요합니다."
                              % constants.DEFAULT_BUILDING_HEIGHT_M))
-    empty_sheets = [sheet_id for sheet_id, _key, _name, _en, needs in constants.SHEET_CATALOG if needs == "lot"]
+    empty_sheets = [sheet_id for sheet_id, key, _name, _en, _needs in constants.SHEET_CATALOG if key in constants.SHEET_KOREA_ONLY]
     estimate = {"buildings": 0, "lots": 0, "topo_have": 0, "topo_total": 0, "seconds": int(constants.ESTIMATE_SECONDS_BASE) + 20,
                 "mb": 1, "note": "건물 수는 OSM에서 받은 뒤 알 수 있습니다"}
     return {"sources": sources, "extent_geojson": {"type": "FeatureCollection", "features": features}, "estimate": estimate,
@@ -1100,7 +1121,7 @@ def preflight(request, today=None):
     ring = get_target_extent_ring(target, radius, shape, paper_mm, scales)
     min_x, min_y, max_x, max_y = non_rhino_utils.get_bbox(ring)
     center = target.center
-    abroad = non_rhino_utils.is_local_projection()
+    abroad = is_global(request)
     sources = get_abroad_sources(today) if abroad else get_sources(request["site_db"], request["context_db"], today)
     pending = []   # DB 파일을 지정한 요청(fixture·개발 DB)과 해외는 받지 않는다
     if not abroad and not request["context_db"]:

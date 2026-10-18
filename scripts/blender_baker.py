@@ -1,6 +1,6 @@
 """Blender 장면을 만지는 유일한 모듈 — 베이크·원점 기록·사본(.blend) 저장·다시 넣기·줌. context_baker의 Blender판.
 
-blender_geometry의 BakeItem(로컬 m 정점·면·폴리라인)을 객체로 만든다. 레이어 = 컬렉션('CTX' 아래 'CTX::Buildings'처럼 전체 경로 이름),
+mesh_geometry의 BakeItem(로컬 m 정점·면·폴리라인)을 객체로 만든다. 레이어 = 컬렉션('CTX' 아래 'CTX::Buildings'처럼 전체 경로 이름),
 색 = 레이어마다 재질 하나(constants.CTX_LAYERS). 모든 객체에 URBANSITE_MANAGED·URBANSITE_LOT_KEY·URBANSITE_LAYER 사용자 속성을 붙여
 clear_previous가 같은 키의 객체만 지운다(사용자 객체 보존). 문서 원점은 장면 사용자 속성(constants.DOC_ORIGIN_KEYS)에 둔다.
 장면 단위는 m로 가정한다(Blender 기본) — 실제 좌표 방식은 객체 위치로 옮긴다(메시 정점은 단정밀도라 로컬로 둔다).

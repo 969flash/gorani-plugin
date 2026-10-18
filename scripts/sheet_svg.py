@@ -19,6 +19,7 @@ import os
 import re
 import statistics
 import struct
+import sys
 import urllib.request
 import zlib
 from concurrent.futures import ThreadPoolExecutor
@@ -323,7 +324,9 @@ def classify_walk(edge, ctx):
 
 def classify_public(item, ctx):
     # type: (object, dict) -> str
-    """건물(대장 용도 → 수치지형도 용도) · 필지(학교용지) · UPIS 시설(광장·공공공지·정류장)."""
+    """건물(대장 용도 → 수치지형도 용도) · 필지(학교용지) · UPIS 시설(광장·공공공지·정류장) · OSM 면(학교 부지·광장 — osm_context)."""
+    if getattr(item, "theme", "") == "public":
+        return item.kind
     if hasattr(item, "usability"):
         return constants.SHEET_PUBLIC_USE.get((item.usability or "")[:2]) or constants.SHEET_PUBLIC_NGII.get(getattr(item, "ngii_use", "") or "")
     if hasattr(item, "land_category"):
@@ -343,13 +346,15 @@ def classify_land_category(lot, ctx):
     return constants.SHEET_LAND_CATEGORY_KEYS.get(lot.land_category or "", "etc")
 
 
+def get_zone_key(name):
+    # type: (str) -> str
+    """용도지역명 → #4 범례 키. '제2종일반주거지역(7층이하)'처럼 꼬리가 붙어도 같은 키, 모르면 etc."""
+    return next((key for pattern, key in constants.SHEET_ZONE_KEYS.items() if pattern in (name or "")), "etc")
+
+
 def classify_zone(lot, ctx):
     # type: (object, dict) -> str
-    name = lot.zone_name or ""
-    for pattern, key in constants.SHEET_ZONE_KEYS.items():
-        if pattern in name:
-            return key
-    return "etc"
+    return get_zone_key(lot.zone_name)
 
 
 def classify_district(overlay, ctx):
@@ -824,7 +829,7 @@ def _get_sheet_context(key, data, style, items):
         extras = [("외부공간", {"fill": style["paper"], "stroke": muted}), ("대상지", site), ("분석 범위", extent)]
     elif key == "transit":
         color = constants.SHEET_TRANSIT_COLOR
-        entries = [("station", "지하철역", {"shape": "circle", "fill": style["paper"], "stroke": style["ink"], "stroke-width": constants.SHEET_LINE_MM["station"]})]
+        entries = [("station", "역(철도·지하철)", {"shape": "circle", "fill": style["paper"], "stroke": style["ink"], "stroke-width": constants.SHEET_LINE_MM["station"]})]
         r1, r2 = constants.SHEET_TRANSIT_RADII_M
         extras = [("철도 노선", {"fill": "none", "stroke": color, "stroke-width": 0.7}),
                   ("1차 역세권 (%d m)" % r1, {"fill": color, "fill-opacity": "0.16", "stroke": color, "stroke-width": 0.3}),
@@ -911,8 +916,8 @@ def _get_subject_items(subject, data):
         return get_blocks(data)
     if subject == "walk":
         return get_walk(data)["edges"]
-    if subject == "public":
-        return _get_subject_items("lot", data) + list(data.overlays) + list(data.buildings)
+    if subject == "public":   # 부지 면이 먼저, 건물이 위
+        return [f for f in data.features if f.theme == "public"] + _get_subject_items("lot", data) + list(data.overlays) + list(data.buildings)
     return []
 
 
@@ -1129,10 +1134,14 @@ def _get_aerial_images(data, frame, rect, px_per_mm):
                 data.cache[("aerial_dead", url)] = True
                 continue
             data.cache[probe] = body
-        with ThreadPoolExecutor(constants.AERIAL_WORKERS) as pool:
-            for key, body in zip(missing, pool.map(fetch, missing)):
-                if body:
-                    data.cache[key] = body
+        if sys.platform == "emscripten":   # 웹판(Pyodide)은 스레드를 못 띄운다 — 차례로 받는다
+            bodies = list(map(fetch, missing))
+        else:
+            with ThreadPoolExecutor(constants.AERIAL_WORKERS) as pool:
+                bodies = list(pool.map(fetch, missing))
+        for key, body in zip(missing, bodies):
+            if body:
+                data.cache[key] = body
         if sum(1 for key in keys if key in data.cache) * 2 > len(keys):
             break
     lines = []
@@ -1478,6 +1487,12 @@ def _get_inside(items, ring):
     return inside
 
 
+def _is_osm(data):
+    # type: (SheetData) -> bool
+    """Global(OSM) 데이터인지 — 필지·대장 문구를 빼고 OSM 기준으로 적는다."""
+    return any(getattr(s, "source_id", "") == "osm" for s in data.sources)
+
+
 def _get_card_lines(key, data, items, counts, measures, ctx=None):
     # type: (str, SheetData, list, dict, dict, dict) -> list
     """수치 카드 — 시트마다 쓸모 있는 요약 몇 줄. 비율은 분류된 항목 기준."""
@@ -1489,7 +1504,7 @@ def _get_card_lines(key, data, items, counts, measures, ctx=None):
     if key == "base":
         lot_area = sum(_get_geometry_measure(lot.geometry) for lot in data.target_lots)
         if data.mode == "area":
-            lines = ["구역 %s ㎡ · 안의 필지 %d" % (fmt0(sum(get_ring_area(r) for r in data.site_rings)), len(data.target_lots))]
+            lines = ["구역 %s ㎡" % fmt0(sum(get_ring_area(r) for r in data.site_rings)) + ("" if _is_osm(data) else " · 안의 필지 %d" % len(data.target_lots))]
         elif data.mode == "point":
             lines = ["위치 중심 범위(대상지 경계 없음)"]
         else:
@@ -1513,7 +1528,7 @@ def _get_card_lines(key, data, items, counts, measures, ctx=None):
             lines = ["가장 가까운 역 %s %s m" % (distances[0][1], fmt0(distances[0][0])),
                      "%d m 안 역 %d · %d m 안 역 %d" % (r1, sum(1 for d, _ in distances if d <= r1), r2, sum(1 for d, _ in distances if d <= r2))]
         else:
-            lines = ["도면 안 지하철역 없음"]
+            lines = ["도면 안 역 없음"]
         lines.append("대상지 중심 기준 직선거리")
     elif key == "green":
         lines = ["도면 안 공원 %d · 녹지 %d · 수계 %d" % (counts.get("park", 0), counts.get("green", 0), counts.get("water", 0))]
@@ -1549,7 +1564,7 @@ def _get_card_lines(key, data, items, counts, measures, ctx=None):
     elif key == "public":
         lines = ["교육 %d · 의료·노유자 %d · 문화·체육 %d동" % (counts.get("education", 0), counts.get("welfare", 0), counts.get("culture", 0)),
                  "학교 부지 %d · 광장·공공공지 %d" % (counts.get("school_lot", 0), counts.get("plaza", 0)),
-                 "건축물대장 용도 기준 — 공공청사는 업무시설과 섞여 따로 구분하지 않는다"]
+                 "OSM 건물·시설(amenity) 태그 기준 — 태그 없는 시설은 빠진다" if _is_osm(data) else "건축물대장 용도 기준 — 공공청사는 업무시설과 섞여 따로 구분하지 않는다"]
     elif key == "axo":
         heights = ctx.get("axo_heights") or []
         lines = ["%s 시점 · 범위 안 건물 %s동" % (constants.AXO_VIEWS[ctx.get("axo_view", "se")][0], fmt0(total_count))]
@@ -1886,7 +1901,7 @@ def render_sheet(sheet_id, data):
         theme_lines, counts, measures, labels = drawer(key, subject, classify_fn, entries, items, data, style, frame, frame_bounds)
     finally:
         data.options.pop("_ctx", None)
-    empty = sum(counts.values()) == 0 and not (key == "base" and data.mode == "point") and key not in constants.SHEET_TEMPLATE_KEYS   # 위치 방식 베이스맵은 범위만으로 쓴다
+    empty = sum(counts.values()) == 0 and not (key == "base" and data.mode != "lots") and key not in constants.SHEET_TEMPLATE_KEYS   # 구역·위치 방식 베이스맵은 경계·범위만으로 쓴다(Global은 필지가 없다)
     reason = ("영상 못 받음" if key == "aerial" else "지형 없음" if subject == "terrain" else "데이터 없음") if empty else ""
 
     background = style["paper"] if base_mode in ("figure", "image", "axo") else _get_base_colors(style, base_mode)["block"]

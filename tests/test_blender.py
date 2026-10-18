@@ -100,7 +100,7 @@ class SteppedTerrainTest(unittest.TestCase):
         request = {"target": {"mode": "lots", "pnus": [constants.TEST_CONTEXT_PNU]}, "site_db": SITE_DB, "context_db": CONTEXT_DB,
                    "options": {"radius": 300, "shape": "circle", "flatten_site": True, "terrain_step": 1}}
         prepared = loader.load("context_builder").prepare(request)
-        meshes, _tris, counts = loader.load("blender_geometry").build_terrain(prepared)
+        meshes, _tris, counts = loader.load("mesh_geometry").build_terrain(prepared)
         self.assertEqual(counts["terrain_step"], 1)
         zs = {v[2] for v in meshes["terrain"][0]}
         self.assertGreater(len(zs), 1)
@@ -112,7 +112,7 @@ class SteppedTerrainTest(unittest.TestCase):
 @unittest.skipUnless(bpy is not None, "Blender 안에서만")
 class SnapTest(unittest.TestCase):
     def test_union_minus_cut(self):
-        geometry = loader.load("blender_geometry")
+        geometry = loader.load("mesh_geometry")
         area = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)]
         add = [[(10.0, 0.0), (20.0, 0.0), (20.0, 10.0), (10.0, 10.0)]]
         cut = [[(0.0, 0.0), (5.0, 0.0), (5.0, 5.0), (0.0, 5.0)]]

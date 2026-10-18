@@ -51,12 +51,12 @@ h3 { font-size: 13px; font-weight: 600; line-height: 16px; margin: 16px 0 8px; p
 header { flex: none; padding: 8px 16px 12px; background: var(--surface); border-bottom: 1px solid var(--rule); }
 .titlebar { height: 32px; display: flex; align-items: center; justify-content: space-between; }
 .titlebar h1 { font-size: 16px; font-weight: 700; margin: 0; line-height: 32px; }
-/* 자료 날짜 + 더보기 — 누르면 메뉴 */
-#menu_btn { display: flex; gap: 8px; align-items: center; height: 32px; padding: 0 8px; font-size: 12px; color: var(--sub); background: none; border: 1px solid transparent; }
+/* 데이터 모드(Korea·Global) + 더보기 — 누르면 메뉴. 자료 경고는 메뉴 버튼의 점 */
+.head-r { display: flex; gap: 8px; align-items: center; }
+.modes.region { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 136px; }
+#menu_btn { display: flex; gap: 6px; align-items: center; height: 32px; padding: 0 8px; font-size: 12px; color: var(--sub); background: none; border: 1px solid transparent; }
 #menu_btn:hover { border-color: var(--border); color: var(--ink); }
 #menu_btn[aria-expanded="true"] { border-color: var(--accent); color: var(--accent-ink); }
-#badges { display: flex; gap: 6px; align-items: center; }
-#menu_btn .bar { width: 1px; height: 16px; background: var(--border); }
 .dot { display: inline-block; width: 8px; height: 8px; vertical-align: middle; }
 .dot.lv-ok { background: var(--ok); } .dot.lv-warn { background: var(--warn); } .dot.lv-danger { background: var(--danger); } .dot.lv-missing { background: var(--muted); }
 .stepper { margin: 4px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--rule); }
@@ -192,6 +192,17 @@ label.chk { display: flex; align-items: center; min-height: 32px; }
 .chip-row:hover, .chip-row:focus-visible { background: var(--accent-bg); }
 .chip-row .x { margin-left: auto; background: none; border: 0; color: var(--sub); width: 28px; height: 28px; display: grid; place-content: center; }
 .chip-row .x:hover { color: var(--danger); }
+.lot-info > summary { min-height: 28px; display: flex; align-items: center; gap: 2px; font-size: 12px; color: var(--accent-ink); cursor: pointer; list-style: none; }
+.lot-info > summary::-webkit-details-marker { display: none; }
+.lot-info[open] > summary .ico { transform: rotate(180deg); }
+.lot-info .body { max-height: 240px; overflow: auto; border: 1px solid var(--border); background: var(--surface); padding: 4px 8px 8px; font-size: 12px; }
+.li-head { display: flex; align-items: center; min-height: 28px; border-top: 1px solid var(--border); margin-top: 4px; }
+.li-head:first-child { border-top: 0; margin-top: 0; }
+.li-head .link { margin-left: auto; }
+.li-row { display: grid; grid-template-columns: 56px 1fr; gap: 8px; min-height: 20px; }
+.li-row > :first-child { color: var(--sub); }
+.li-row .flag { color: var(--warn); }
+.lot-info .hint { margin: 8px 0 0; }
 .badge-warn { font-size: 11px; color: var(--warn); background: var(--warn-bg); padding: 0 4px; display: inline-flex; align-items: center; gap: 2px; }
 
 /* ── ② 범위·옵션 ── */
@@ -346,7 +357,6 @@ footer .busy-label { color: var(--sub); font-size: 12px; }
 #dl button { font: inherit; color: var(--sub); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
 
 @media (max-width: 419px) {
-  .badge-date { display: none; }
   .stepper button .t { display: none; }
   .modes { width: 120px; }
   .modes .t { display: none; }
@@ -359,7 +369,13 @@ footer .busy-label { color: var(--sub); font-size: 12px; }
 <header>
   <div class="titlebar">
     <h1>UrbanSite</h1>
-    <button id="menu_btn" type="button" data-act="menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu" title="최근 대상지 · 자료 · 키 · 폴더"><span id="badges">확인 중…</span><span class="bar" aria-hidden="true"></span><svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg><span class="sr-only">더보기</span></button>
+    <div class="head-r">
+      <div class="modes region" id="region" role="group" aria-label="데이터 모드">
+        <button type="button" data-act="region" data-region="kr" aria-pressed="false" title="Korea — 국가 DB(필지·건축물대장·용도지역). 한국 대상지만">Korea</button>
+        <button type="button" data-act="region" data-region="global" aria-pressed="false" title="Global — OpenStreetMap·지형 타일. 어디서나, 필지·용도지역 도면 없음">Global</button>
+      </div>
+      <button id="menu_btn" type="button" data-act="menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu" title="최근 대상지 · 자료 · 키 · 폴더"><span id="menu_dot"></span><svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg><span class="sr-only">더보기</span></button>
+    </div>
   </div>
   <ol class="stepper" id="stepper">
     <li><button type="button" data-go="1"><span class="o"></span><span class="t">대상지</span></button></li>
@@ -409,11 +425,16 @@ footer .busy-label { color: var(--sub); font-size: 12px; }
 "use strict";
 // ── 브리지 (docs/panel_ui.md) ──
 window.__outbox = []; window.__seq = 0;
-// 브라우저 패널(Blender — cmd_blender가 127.0.0.1에 띄운 서버): 명령은 POST cmd, 상태는 SSE events. 토큰이 없으면 웹뷰(Rhino)
+// 브라우저 패널(Blender·SketchUp — panel_server가 127.0.0.1에 띄운 서버): 명령은 POST cmd, 상태는 SSE events. 토큰이 없으면 웹뷰(Rhino)
 var BRIDGE_TOKEN = (location.search.match(/[?&]token=([\w-]+)/) || [])[1];
+// 웹판(web_app.html이 iframe으로 띄운다): 명령은 부모 창으로, 푸시는 부모가 app.receive로 넘긴다
+var WEB = /[?&]web=1/.test(location.search) && window.parent !== window;
 var HOST = { id: "rhino", name: "Rhino", doc: "Rhino 문서", model: "context.3dm", dwg: true };   // init_state.host로 바뀐다
+var REGION_CMDS = { search: 1, set_area: 1, set_point: 1, preflight: 1 };   // 데이터 모드(region)를 붙여 보내는 명령 — 필지 DB를 볼지 OSM을 쓸지
 function send(msg) {
+  if (REGION_CMDS[msg.cmd]) msg.region = region();
   if (BRIDGE_TOKEN) { fetch("cmd?token=" + BRIDGE_TOKEN, { method: "POST", body: JSON.stringify(msg) }); return; }
+  if (WEB) { window.parent.postMessage({ urbansite: msg }, location.origin); return; }
   window.__outbox.push(msg);
   document.title = "bridge" + (++window.__seq);  // Windows WebView2 — title 이벤트
   location.href = "bridge:flush";                // mac WKWebView — DocumentLoading에서 가로챈다
@@ -433,11 +454,11 @@ var PLACEMENT_HINT = { origin: "대상지 중심(100 m 단위)을 (0,0)으로 �
   world: "EPSG:5186 좌표 그대로 — GIS·다른 도면과 겹칠 때. 문서 단위를 m로 쓰세요(mm면 좌표가 수억)" };
 var PAPERS = { A3: [420, 297], A1: [841, 594], A0: [1189, 841] };
 var SCALES = [1000, 3000, 5000];
-var LAYER_OPTS = [["02b_landuse", "토지이용(02b)"], ["05_road_center", "도로 중심선(05)"], ["11_zoning", "용도지역(11)"]];
-var DEFAULTS = { mode: "lots", placement: "origin", flatten_site: false, flatten_level: "mean", site_output: "curve", radius: 500, shape: "circle", import_after: true, make_basemap: true, paper: "A3", paper_mm: [420, 297], scales: [5000],
+var LAYER_OPTS = [["02b_landuse", "토지이용(02b)"], ["05_road_center", "도로 중심선(05)", true], ["11_zoning", "용도지역(11)"]];   // 셋째 = Global(OSM)에서도 그려진다
+var DEFAULTS = { region: null, mode: "lots", placement: "origin", flatten_site: false, flatten_level: "mean", site_output: "curve", radius: 500, shape: "circle", import_after: true, make_basemap: true, paper: "A3", paper_mm: [420, 297], scales: [5000],
   basemap_layers_on: [], make_sheets: true, sheet_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], floor_breaks: [12, 20], elev_preset: "20m",
-  make_tables: true, include_minor_buildings: false, demolished: "dashed", refresh_buildings: true, include_api_objects: false,
-  include_zoning: false, terrain_vertex_color: false, terrain_step: 0, make_dwg: false, zoom_after_import: true, style: { preset: "std" } };
+  make_tables: true, include_minor_buildings: false,
+  include_zoning: true, terrain_vertex_color: false, terrain_step: 0, make_dwg: false, zoom_after_import: true, style: { preset: "std" } };
 var MAP_STYLE = {   // 패널 지도 — 대상지·선택은 패널 블루 하나(DESIGN.md). 도면 안 대상지 색은 도면 스타일이 정한다
   lot: { color: "#465061", weight: 1, opacity: .4, fillOpacity: .01 },
   target: { color: "#0057ff", weight: 2, fillColor: "#0057ff", fillOpacity: .28 },
@@ -477,6 +498,7 @@ function fmtArea(n) { return fmtNum(n, 1) + " ㎡"; }
 function mmdd(d) { return d && d.length >= 10 ? d.slice(5, 10) : (d || "–"); }
 function fmtTime(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2); }
 function fmtBytes(b) { if (b == null) return ""; return b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : b >= 1024 ? Math.round(b / 1024) + " KB" : b + " B"; }
+function dirLabel() { return HOST.id === "web" ? "zip 받기" : "폴더 열기"; }   // 웹판은 결과 폴더를 zip으로 받는다
 function shortDir(d) { var i = (d || "").indexOf("/result/"); return i >= 0 ? d.slice(i + 1) : d; }
 function dongJibun(lot) { var t = (lot.address || "").split(" "); return (t.length >= 2 ? t[t.length - 2] + " " : "") + (lot.jibun || t[t.length - 1] || ""); }
 function lotLabel() { var ls = state.lotState ? state.lotState.lots : []; if (!ls.length) return ""; return dongJibun(ls[0]) + (ls.length > 1 ? " 외 " + (ls.length - 1) : ""); }
@@ -501,13 +523,41 @@ function targetMsg() {
   if (state.mode === "point") return { mode: "point", center: state.point.center_tm };
   return { mode: "lots", pnus: state.lots.slice() };
 }
+// ── 데이터 모드 — Korea(국가 DB, 한국만) · Global(OSM·지형 타일, 어디서나). 좌표계는 위치로 정한다(엔진 context_builder.is_global) ──
+function region() { return state.options.region === "global" ? "global" : "kr"; }
+function isGlobal() { return region() === "global"; }
+function isAbroad(c) { var b = state.init && state.init.map.korea_bounds; return !!(b && c) && (c[0] < b[0] || c[0] > b[2] || c[1] < b[1] || c[1] > b[3]); }
+function detectRegion(init) {   // 첫 실행 한 번 — 국내 DB가 있거나, 시간대가 서울이거나, 언어가 한국어면 Korea. 망 접속 없음, Mac·Windows 웹뷰·브라우저 공통
+  var tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) { tz = ""; }
+  var langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""];
+  var hasDb = (init.sources || []).some(function (s) { return s.id === "lot" && s.level !== "missing"; });
+  return hasDb || tz === "Asia/Seoul" || langs.some(function (l) { return /^ko\b/i.test(l); }) ? "kr" : "global";
+}
+function sheetCatalog() {   // 이 모드에서 만들 수 있는 도면 — Global은 Korea 전용(필지·대장·UPIS)을 뺀다
+  return ((state.init && state.init.sheet_catalog) || []).filter(function (c) { return !(isGlobal() && c.korea_only); });
+}
+function setRegion(r, note) {   // 헤더 토글. Global은 필지 방식이 없고, Korea는 한국 안 대상지만
+  if (r === region() || state.run === "running") return;
+  if (r === "kr" && isAbroad(targetCenter())) { toast("한국 밖 대상지는 Global로만 만들 수 있습니다"); return; }
+  state.options.region = r; send({ cmd: "save_prefs", options: state.options });
+  state.blocked = !!(state.init && state.init.blocked && !state.init.can_download) && r === "kr" && !state.dataLater;
+  state.preflight = null;
+  if (r === "global" && state.mode === "lots") resetLots("point");
+  else {
+    if (r === "kr" && state.area) send({ cmd: "set_area", ring_tm: state.area.ring_tm });   // 안의 필지를 다시 센다
+    render();
+    if (hasTarget()) sendPreflight(0);
+  }
+  renderBlocker(); requestLots(); requestAreaPacks();
+  toast(note || (r === "global" ? "Global — OpenStreetMap·지형 타일(필지·용도지역 도면 없음)" : "Korea — 국가 DB(필지·건축물대장·용도지역)"));
+}
 function targetCenter() {   // [lng, lat]
   if (state.mode === "area") return state.area && state.area.center;
   if (state.mode === "point") return state.point && state.point.center;
   return state.lotState && state.lotState.center;
 }
 function targetLabel() {
-  if (state.mode === "area") return state.area ? "구역 " + fmtNum(state.area.area, 0) + " ㎡ · 안의 필지 " + state.area.lots : "";
+  if (state.mode === "area") return state.area ? "구역 " + fmtNum(state.area.area, 0) + " ㎡" + (isGlobal() ? "" : " · 안의 필지 " + state.area.lots) : "";
   if (state.mode === "point") return state.point ? (state.point.lot_name || "").replace(/_/g, " ") : "";
   return lotLabel() + (state.lotState ? " · " + fmtArea(state.lotState.total_area) : "");
 }
@@ -555,19 +605,17 @@ function lockSteps() {
   if (f1) f1.disabled = dis; if (f2) f2.disabled = dis; if (f3) f3.disabled = dis;
 }
 
-// 헤더: 자료 날짜(+ 경고 점) + 더보기 · 스텝퍼
+// 헤더: 데이터 모드 토글 + 더보기(자료 경고 점) · 스텝퍼
 function renderHeader() {
-  var init = state.init, src = {}; if (init) init.sources.forEach(function (s) { src[s.id] = s; });
-  var b = $("badges");
-  if (init) {
-    var parts = ["lot", "building"].map(function (id) {
-      var s = src[id]; if (!s) return "";
-      return '<span title="' + esc(s.name + " " + s.date) + '">' + esc(s.label) + ' <span class="badge-date num">' + esc(mmdd(s.date)) + "</span>" + (s.level !== "ok" ? ' <span class="dot lv-' + s.level + '"></span>' : "") + "</span>";
-    });
-    // 띠 대신 점 — 자료 경고(경과·DB 없음)는 메뉴 안에 있다
-    var bad = (init.warnings || []).filter(function (w) { return (w.level === "danger" || w.level === "warn") && w.code !== "stale_lot" && w.code !== "stale_building"; })[0];   // 필지·건물은 날짜 옆 점이 이미 있다
-    if (bad) parts.push('<span class="dot lv-' + bad.level + '" title="' + esc(bad.text) + '"></span>');
-    b.innerHTML = parts.filter(Boolean).join('<span class="sub">·</span>');
+  var init = state.init;
+  document.querySelectorAll("#region button").forEach(function (btn) {
+    btn.setAttribute("aria-pressed", String(btn.dataset.region === region())); btn.disabled = state.run === "running";
+  });
+  var dot = $("menu_dot");
+  if (dot && init) {   // 국가 DB 자료 경고(경과·없음) — Korea 모드에서만. 날짜는 메뉴 '자료'에
+    var bad = isGlobal() ? null : init.sources.filter(function (s) { return (s.id === "lot" || s.id === "building") && (s.level === "warn" || s.level === "danger"); })[0] ||
+      (init.warnings || []).filter(function (w) { return w.level === "danger" || w.level === "warn"; })[0];
+    dot.className = bad ? "dot lv-" + bad.level : ""; dot.title = bad ? (bad.text || bad.name || "") : "";
   }
   document.querySelectorAll("#stepper button").forEach(function (btn) {
     var s = +btn.dataset.go, cur = s === state.step;
@@ -577,14 +625,6 @@ function renderHeader() {
     btn.classList.toggle("done", done);
     btn.querySelector(".o").textContent = s;
   });
-}
-// 키 행 문구. short = 배지용
-function keyText(api, short) {
-  var k = api && api.keys ? api.keys : { vworld: false, data_go_kr: false };
-  if (k.vworld && k.data_go_kr) return "키 2/2";
-  if (k.vworld) return short ? "브이월드만" : "브이월드만 → 철거·말소 반영 생략";
-  if (k.data_go_kr) return short ? "포털만" : "포털만 → 건물 최신화 생략";
-  return short ? "키 없음" : "키 없음 → 건물 최신화·철거 반영 생략";
 }
 function pfHasWarn() { var pf = state.preflight; return !!(pf && pf.warnings && pf.warnings.some(function (w) { return w.level === "warn" || w.level === "danger"; })); }
 function quickSummary() {
@@ -628,13 +668,14 @@ function updateCancelBtn() {
 // ── ① 대상지 ──
 function renderLots() {
   var sec = document.querySelector('section[data-step="1"]'), m = state.mode;
-  var ph = { lots: "주소·지번·PNU", area: "주소·지번으로 지도 이동", point: "주소·지명으로 위치 찍기" }[m];
+  var ph = isGlobal() ? { lots: "", area: "지명·주소로 지도 이동 (OpenStreetMap)", point: "지명·주소로 위치 찍기 (OpenStreetMap)" }[m]
+    : { lots: "주소·지번·PNU", area: "주소·지번으로 지도 이동", point: "주소·지명으로 위치 찍기" }[m];
   var modeBtn = function (k) {
-    var off = k === "lots" && state.abroadOnly;
-    return '<button type="button" data-act="mode" data-mode="' + k + '" aria-pressed="' + (k === m) + '" title="' + esc(MODE_LABEL[k]) + (off ? " — 국내 필지 DB가 필요합니다" : "") + '"' + (off ? " disabled" : "") + ">" + ico(k) + '<span class="t">' + MODE_SHORT[k] + "</span></button>";
+    return '<button type="button" data-act="mode" data-mode="' + k + '" aria-pressed="' + (k === m) + '" title="' + esc(MODE_LABEL[k]) + '">' + ico(k) + '<span class="t">' + MODE_SHORT[k] + "</span></button>";
   };
   sec.innerHTML = '<h2 class="sr-only" tabindex="-1">대상지</h2><fieldset>' +
-    '<div class="toolrow"><div class="modes" role="group" aria-label="대상지 방식">' + ["lots", "area", "point"].map(modeBtn).join("") + "</div>" +
+    '<div class="toolrow"><div class="modes" role="group" aria-label="대상지 방식"' + (isGlobal() ? ' style="grid-template-columns:repeat(2,minmax(0,1fr))"' : "") + ">" +
+      (isGlobal() ? ["area", "point"] : ["lots", "area", "point"]).map(modeBtn).join("") + "</div>" +
     '<div class="search"><input type="text" id="search_input" role="combobox" aria-expanded="false" aria-controls="search_list" aria-autocomplete="list" placeholder="' + ph + '" aria-label="검색" autocomplete="off">' +
     '<button type="button" class="btn" data-act="search" aria-label="검색">' + ico("search") + "</button>" +
     '<ul id="search_list" role="listbox" hidden></ul></div></div>' +
@@ -662,13 +703,14 @@ function renderAreaInfo() {
       '<span class="acts"><button type="button" class="btn sm primary" data-act="stamp_place">여기에 놓기</button><button type="button" class="btn sm" data-act="stamp_cancel">취소</button></span></div>';
   } else {
     html = '<div class="area-tools"><button type="button" class="btn sm" data-act="draw_start">지도에 그리기</button>' +
-      '<button type="button" class="btn sm" data-act="pick_curve" title="' + esc(HOST.name) + '에서 닫힌 평면 커브 하나를 먼저 선택해 두면 바로 가져옵니다">' + esc(HOST.name) + ' 커브 가져오기</button>' +
-      (a ? '<button type="button" class="btn sm" data-act="snap" title="구역 안 필지(면적 50 % 이상)의 바깥 경계로 구역을 바꿉니다">필지 경계에 맞추기</button>' +
+      (HOST.id === "web" ? "" : '<button type="button" class="btn sm" data-act="pick_curve" title="' + esc(HOST.name) + '에서 닫힌 평면 커브 하나를 먼저 선택해 두면 바로 가져옵니다">' + esc(HOST.name) + ' 커브 가져오기</button>') +
+      (a ? (isGlobal() ? "" : '<button type="button" class="btn sm" data-act="snap" title="구역 안 필지(면적 50 % 이상)의 바깥 경계로 구역을 바꿉니다">필지 경계에 맞추기</button>') +
         '<button type="button" class="btn sm" data-act="area_move">옮기기</button><button type="button" class="link danger-text" data-act="area_clear">지우기</button>' : "") + "</div>";
   }
-  html += a && !draw.on && !stamp.on ? '<div class="target-line"><span>구역 <b class="num">' + esc(fmtNum(a.area, 0)) + ' ㎡</b></span><span class="sub">· 안의 필지 ' + a.lots + " · " + esc(fmtArea(a.lots_area)) + "</span>" +
+  html += a && !draw.on && !stamp.on ? '<div class="target-line"><span>구역 <b class="num">' + esc(fmtNum(a.area, 0)) + ' ㎡</b></span>' +
+      (isGlobal() ? "" : '<span class="sub">· 안의 필지 ' + a.lots + " · " + esc(fmtArea(a.lots_area)) + "</span>") +
       (a.snapped ? '<span class="sub">· 필지 경계에 맞춤</span>' : "") + "</div>"
-    : (draw.on || stamp.on ? "" : '<div class="hint">안의 필지 = 면적 50 % 이상이 구역 안에 있는 필지</div>');
+    : (draw.on || stamp.on || isGlobal() ? "" : '<div class="hint">안의 필지 = 면적 50 % 이상이 구역 안에 있는 필지</div>');
   html += '<div id="area_err"></div>';
   slot.innerHTML = html;
 }
@@ -758,9 +800,31 @@ function setPointLayer() {
   pointLayer = L.circleMarker(ll(p.center), Object.assign({ interactive: false }, MAP_STYLE.point)).addTo(map);
   pointLayer.bindTooltip(esc((p.lot_name || "").replace(/_/g, " ")), { permanent: true, direction: "top", className: "map-label extent" });
 }
+// 필지 정보 — 용도지역(법정 건폐·용적)·지역지구등·대장/도형 면적. 조례값은 토지이음에서 본다
+function lotInfoHtml(ls, open) {
+  var none = '<span class="sub">–</span>';
+  var body = ls.lots.map(function (l) {
+    var zones = (l.zones || []).map(function (z) {
+      return esc(z.name) + (z.limits ? ' <span class="sub">· 법정 건폐 ' + z.limits[0] + " % 이하 · 용적 " + z.limits[1] + "~" + z.limits[2] + " %</span>" : "");
+    }).join("<br>") || none;
+    var des = (l.designations || []).map(function (d) { return esc(d.name) + (d.conflict === "저촉" ? '<span class="sub">(저촉)</span>' : ""); }).join(", ") || none;
+    var gap = l.area_gap == null ? '<span class="sub">대장 면적 없음 · 도형 ' + esc(fmtArea(l.geometry_area)) + "</span>" :
+      "대장 " + esc(fmtArea(l.registered_area)) + " · 도형 " + esc(fmtArea(l.geometry_area)) + " · " +
+      "<span" + (l.area_gap_flag ? ' class="flag" title="지적불부합 의심 — 도형은 연속지적도(참고도)라 대장 면적이 기준입니다"' : "") + ">차이 " +
+      (l.area_gap > 0 ? "+" : "") + esc(fmtArea(l.area_gap)) + " (" + (l.area_gap > 0 ? "+" : "") + esc(fmtNum(100 * l.area_gap / l.registered_area, 1)) + " %)" + (l.area_gap_flag ? " " + ico("warn") : "") + "</span>";
+    return '<div class="li-head"><b>' + esc(dongJibun(l)) + '</b><button type="button" class="link" data-act="eum" data-pnu="' + esc(l.pnu) + '">토지이음' + ico("ext") + "</button></div>" +
+      '<div class="li-row"><span>용도지역</span><span>' + zones + "</span></div>" +
+      '<div class="li-row"><span>지역지구</span><span>' + des + "</span></div>" +
+      '<div class="li-row"><span>면적</span><span class="num">' + gap + "</span></div>";
+  }).join("");
+  var dates = [ls.lots[0].reference_date ? "토지특성 " + ls.lots[0].reference_date : "", ls.land_use_date ? "토지이용계획 " + ls.land_use_date : ""].filter(Boolean).join(" · ");
+  return '<details class="lot-info" id="lot_info"' + (open ? " open" : "") + "><summary>필지 정보 — 용도지역·지역지구·면적" + ico("down") + '</summary><div class="body">' + body +
+    '<p class="hint">건폐·용적은 국토계획법 시행령의 법정 범위입니다. 실제 한도는 시·군 조례와 지구단위계획이 정하니 토지이음에서 확인하세요. 도형 면적은 연속지적도(참고도) 계산값입니다.' +
+    (dates ? " 기준 " + esc(dates) + "." : "") + "</p></div></details>";
+}
 function renderLotChips() {
   var slot = $("lot_chips"); if (!slot) return;
-  var ls = state.lotState;
+  var ls = state.lotState, infoOpen = !!($("lot_info") && $("lot_info").open);
   if (!ls || !ls.lots.length) { slot.innerHTML = '<div class="lot-head"><span class="hint">지도에서 필지를 누르거나 주소를 검색하세요</span></div>'; return; }
   var warnMap = {}; (ls.warnings || []).forEach(function (w) { if (w.code === "multipart" || w.code === "hole") warnMap[w.code] = w.text; });
   slot.innerHTML = '<div class="lot-head"><span>대상 필지 <b class="num">' + ls.lots.length + '</b></span><span class="sub">·</span><span class="sub">합계</span><span class="total num">' + esc(fmtArea(ls.total_area)) + "</span>" +
@@ -769,7 +833,7 @@ function renderLotChips() {
       return '<div class="chip-row" tabindex="0" data-pnu="' + esc(l.pnu) + '" title="' + esc(l.address) + '"><span>' + esc(dongJibun(l)) + '</span><span class="sub">' + esc(l.land_category || "") + " · " + esc(fmtArea(l.area)) + "</span>" +
         (l.warn ? '<span class="badge-warn" title="가장 넓은 조각의 바깥 경계만 씁니다">' + ico("warn") + (l.warn === "hole" ? "구멍" : "다조각") + "</span>" : "") +
         '<button type="button" class="x" data-act="remove" data-pnu="' + esc(l.pnu) + '" aria-label="' + esc(l.jibun) + ' 제외">' + ico("x") + '</button></div>';
-    }).join("") + "</div>";
+    }).join("") + "</div>" + lotInfoHtml(ls, infoOpen);
 }
 function showList(items, kind) {   // kind: "match" | "recent"
   var ul = $("search_list"), inp = $("search_input"); if (!ul) return;
@@ -880,12 +944,13 @@ function showDl(text, fraction, stoppable, retry) {   // 지도 밖 한 줄 진�
 }
 function hideDl() { $("dl").hidden = true; }
 function requestAreaPacks() {   // 지도 화면에 걸리는데 아직 안 받은 시군구 팩(시군구 팩 배포, panel_ui.md area_packs)
-  if (!map || !state.init || !state.init.can_download || state.downloading) return;
+  if (!map || !state.init || !state.init.can_download || state.downloading || isGlobal()) return;
   var b = map.getBounds();
   send({ cmd: "area_packs", bbox: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], seq: ++state.seq.packs });
 }
 function requestLots() {
   if (!map || state.step !== 1) return;
+  if (isGlobal()) { if (lotsLayer) { map.removeLayer(lotsLayer); lotsLayer = null; } $("chip_zoom").hidden = true; $("chip_trunc").hidden = true; return; }
   var z = map.getZoom(); $("chip_zoom").hidden = z >= 17;
   if (z < 17) { if (lotsLayer) { map.removeLayer(lotsLayer); lotsLayer = null; } $("chip_trunc").hidden = true; return; }
   var b = map.getBounds();
@@ -1023,14 +1088,14 @@ function renderRange() {
 // ── ③ 옵션 — 지도와 무관한 것(좌표·평탄화·지형·산출물·자료 상태·고급) ──
 function renderOptions() {
   var o = state.options, sec = document.querySelector('section[data-step="3"]'), seg = SEG;
-  var catalog = (state.init && state.init.sheet_catalog) || [];
+  var catalog = sheetCatalog();
   var noCtx = state.init && state.init.sources.some(function (s) { return s.id === "terrain" && s.level === "missing"; });
   var canFlatten = state.mode === "lots" || state.mode === "area";
   sec.innerHTML = '<h2 class="sr-only" tabindex="-1">옵션</h2><fieldset>' +
     '<div class="lot-summary"><span><span class="sub">' + esc(MODE_LABEL[state.mode] || "") + " ·</span> " + esc(targetLabel()) + ' <span class="sub">· ' + esc(rangeLabel()) + '</span></span><button type="button" class="link" data-act="goto2">범위 변경</button></div>' +
-    '<h3>좌표</h3>' +
-    '<div class="seg" role="radiogroup" aria-label="결과 좌표">' + seg("placement", "origin", "원점으로 옮김", o.placement !== "world" ? " checked" : "") + seg("placement", "world", "실제 좌표", o.placement === "world" ? " checked" : "") + "</div>" +
-    '<div id="placement_hint" class="hint" style="margin-top:4px"></div>' +
+    (isAbroad(targetCenter()) ? "" : '<h3>좌표</h3>' +   // 한국 밖은 실제 좌표가 대상지 중심 지역 TM이라 GIS와 겹칠 수 없다 — 늘 원점으로
+      '<div class="seg" role="radiogroup" aria-label="결과 좌표">' + seg("placement", "origin", "원점으로 옮김", o.placement !== "world" ? " checked" : "") + seg("placement", "world", "실제 좌표", o.placement === "world" ? " checked" : "") + "</div>" +
+      '<div id="placement_hint" class="hint" style="margin-top:4px"></div>') +
     (canFlatten ? '<h3>대상지</h3>' +
       '<div class="seg" role="radiogroup" aria-label="대상지 표시">' + seg("site_output", "curve", "경계 커브만", o.site_output !== "mesh" ? " checked" : "") +
         seg("site_output", "mesh", "바닥 메시도", o.site_output === "mesh" ? " checked" : "") + "</div>" +
@@ -1045,7 +1110,7 @@ function renderOptions() {
     '<label class="chk"><input type="checkbox" name="import_after"' + (o.import_after ? " checked" : "") + ">생성 뒤 현재 문서에 넣기</label>" +
     '<div class="drow"><label class="chk"><input type="checkbox" name="make_basemap"' + (o.make_basemap ? " checked" : "") + '>베이스맵 .ai</label><span class="sum" id="basemap_summary"></span><button type="button" class="disc" data-act="disc" aria-expanded="false" aria-controls="basemap_disc">레이어' + ico("down") + '</button></div>' +
     '<div id="basemap_disc" class="disc-body" hidden>' +
-      '<div class="row"><span class="lbl">켜기</span><div>' + LAYER_OPTS.map(function (l) { return '<label class="chk"><input type="checkbox" name="basemap_layers_on" value="' + l[0] + '"' + ((o.basemap_layers_on || []).indexOf(l[0]) >= 0 ? " checked" : "") + ">" + l[1] + ' <span class="sub">기본 off</span></label>'; }).join("") + "</div></div></div>" +
+      '<div class="row"><span class="lbl">켜기</span><div>' + LAYER_OPTS.filter(function (l) { return !isGlobal() || l[2]; }).map(function (l) { return '<label class="chk"><input type="checkbox" name="basemap_layers_on" value="' + l[0] + '"' + ((o.basemap_layers_on || []).indexOf(l[0]) >= 0 ? " checked" : "") + ">" + l[1] + ' <span class="sub">기본 off</span></label>'; }).join("") + "</div></div></div>" +
     '<div class="drow"><label class="chk"><input type="checkbox" name="make_sheets"' + (o.make_sheets ? " checked" : "") + '>현황도 시트</label><span class="sum" id="sheets_summary"></span><button type="button" class="disc" data-act="disc" aria-expanded="false" aria-controls="sheets_disc">고르기' + ico("down") + '</button></div>' +
     '<div id="sheets_disc" class="disc-body" hidden>' +
       '<div class="row"><button type="button" class="btn sm" data-act="sheets_all">전체</button><button type="button" class="btn sm" data-act="sheets_none">없음</button></div>' +
@@ -1061,11 +1126,10 @@ function renderOptions() {
     '<h3>자료 상태 <button type="button" class="link" data-act="init">다시 확인</button></h3>' +
     '<div id="data_status_err"></div><div id="data_status"></div>' +
     '<details class="adv"><summary>고급 <span class="sum" id="adv_summary"></span></summary>' +
-      '<div class="grp">건물</div>' +
-      '<label class="chk"><input type="checkbox" name="include_minor_buildings"' + (o.include_minor_buildings ? " checked" : "") + ">무벽건물·가건물 포함</label>" +
-      '<div class="row"><label class="chk" for="demolished">철거 건물</label><select class="sm" id="demolished" name="demolished"><option value="dashed"' + (o.demolished === "dashed" ? " selected" : "") + '>점선·회색으로 표시</option><option value="exclude"' + (o.demolished === "exclude" ? " selected" : "") + ">제외</option></select></div>" +
-      '<div class="grp">모델</div>' +
-      '<label class="chk"><input type="checkbox" name="include_zoning"' + (o.include_zoning ? " checked" : "") + '>용도지역 경계선 넣기 <span class="sub">CTX::Zoning</span></label>' +
+      (isGlobal() ? "" : '<div class="grp">건물</div>' +
+        '<label class="chk"><input type="checkbox" name="include_minor_buildings"' + (o.include_minor_buildings ? " checked" : "") + ">무벽건물·가건물 포함</label>") +
+      (isGlobal() && !HOST.dwg ? "" : '<div class="grp">모델</div>') +
+      (isGlobal() ? "" : '<label class="chk"><input type="checkbox" name="include_zoning"' + (o.include_zoning ? " checked" : "") + '>도시계획 경계선 넣기 <span class="sub">용도지역·지구·구역·시설·지구단위 → CTX::Zoning</span></label>') +
       (HOST.dwg ? '<label class="chk"><input type="checkbox" name="make_dwg"' + (o.make_dwg ? " checked" : "") + '>2D 도면 DWG로도 저장 <span class="sub">BM:: 레이어 → basemap_축척.dwg</span></label>' : "") +
       '<div class="grp">문서</div>' +
       '<label class="chk"><input type="checkbox" name="zoom_after_import"' + (o.zoom_after_import ? " checked" : "") + ">넣은 뒤 대상지로 줌</label>" +
@@ -1092,15 +1156,16 @@ function updateSummaries() {
     bs.textContent = p.join(" · ");
   }
   if (ss) {
-    var total = ((state.init && state.init.sheet_catalog) || []).length, n = (o.sheet_ids || []).length, s = [n === total ? total + "장 전체" : n + "장"];
+    var ids = sheetCatalog().map(function (c) { return c.id; }), total = ids.length;
+    var n = (o.sheet_ids || []).filter(function (id) { return ids.indexOf(id) >= 0; }).length, s = [n === total ? total + "장 전체" : n + "장"];
     if (o.elev_preset === "50m") s.push("표고 50 m");
     if (JSON.stringify(o.floor_breaks) !== JSON.stringify(DEFAULTS.floor_breaks)) s.push("층수 " + (o.floor_breaks || []).join("/"));
     ss.textContent = s.join(" · ");
   }
   if (as) {
     var a = [];
-    if (o.include_minor_buildings) a.push("무벽건물 포함"); if (o.demolished === "exclude") a.push("철거 제외");
-    if (o.include_zoning) a.push("용도지역 경계선"); if (o.make_dwg && HOST.dwg) a.push("DWG"); if (!o.zoom_after_import) a.push("줌 안 함");
+    if (o.include_minor_buildings && !isGlobal()) a.push("무벽건물 포함");
+    if (!o.include_zoning && !isGlobal()) a.push("도시계획 경계선 뺌"); if (o.make_dwg && HOST.dwg) a.push("DWG"); if (!o.zoom_after_import) a.push("줌 안 함");
     as.textContent = a.join(" · ");
   }
   var rh = $("radius_hint"); if (rh) rh.hidden = !(o.radius > 1000);
@@ -1190,7 +1255,7 @@ function renderResult() {
     '<ul class="phase-list" id="phase_list"></ul>' +
     '<div id="error_card"></div>' +
     '<div class="log"><details><summary>로그 (<span id="log_count">' + state.logLines.length + '</span>줄)</summary><pre id="log_pre">' + state.logLines.map(logLineHtml).join("\n") + "</pre></details></div>" +
-    (state.run === "running" ? '<p class="hint" style="margin-top:16px">생성은 ' + esc(HOST.name) + ' 안에서 돌아 ' + esc(HOST.name) + ' 화면이 잠깐씩 멈출 수 있습니다.</p>' : "");
+    (state.run === "running" ? '<p class="hint" style="margin-top:16px">' + (HOST.id === "web" ? "생성은 이 탭 안에서 돕니다. 탭을 닫으면 멈춥니다." : "생성은 " + esc(HOST.name) + " 안에서 돌아 " + esc(HOST.name) + " 화면이 잠깐씩 멈출 수 있습니다.") + "</p>" : "");
   renderPhaseList(); renderErrorCard();
 }
 function runTitle() {
@@ -1219,7 +1284,7 @@ function renderErrorCard() {
   var dir = state.result && state.result.dir;
   slot.innerHTML = '<div class="err-card" role="alert"><h4>' + esc(title) + "</h4>" +
     (e && e.detail ? '<details><summary class="hint">상세</summary><pre id="err_detail">' + esc(e.detail) + "</pre></details>" : "") +
-    '<div class="acts"><button type="button" class="btn sm" data-act="copylog">로그 복사</button>' + (dir ? '<button type="button" class="btn sm" data-act="open" data-path="' + esc(dir) + '">폴더 열기</button>' : "") + "</div></div>";
+    '<div class="acts"><button type="button" class="btn sm" data-act="copylog">로그 복사</button>' + (dir ? '<button type="button" class="btn sm" data-act="open" data-path="' + esc(dir) + '">' + dirLabel() + "</button>" : "") + "</div></div>";
 }
 function logLineHtml(l) { return '<span class="' + (l.level === "error" ? "le" : l.level === "warn" ? "lw" : "") + '">' + esc(l.text) + "</span>"; }
 function appendLog(text, level) {
@@ -1242,14 +1307,15 @@ function startTimer() {
 function doneHtml() {
   var r = state.result, o = r.options || {}, c = r.context || {}, bm = r.basemap || {}, q = r.quality || {};
   var imported = !!c.imported;
-  var html = '<h2 class="done-line" tabindex="-1"><span class="ok">' + ico("check") + '생성 완료</span><span class="num sub">' + fmtTime(r.elapsed_s) + '</span><button type="button" class="link" data-act="open" data-path="' + esc(r.dir) + '" title="' + esc(r.dir) + '">' + esc(shortDir(r.dir)) + ico("ext") + "</button></h2>";
+  var html = '<h2 class="done-line" tabindex="-1"><span class="ok">' + ico("check") + '생성 완료</span><span class="num sub">' + fmtTime(r.elapsed_s) + '</span><button type="button" class="link" data-act="open" data-path="' + esc(r.dir) + '" title="' + esc(r.dir) + '">' + esc(HOST.id === "web" ? "결과 " + dirLabel() : shortDir(r.dir)) + ico("ext") + "</button></h2>";
   if (state.dirty) html += '<div class="dirty">이전 결과 — 설정이 바뀜(옵션 그대로 다시 생성하려면 ③ [생성 시작])</div>';
   // 문서 카드
-  html += '<div class="card" id="doc_card"><div class="top"><h4>' + esc(HOST.doc) + '</h4><div class="num">CTX 레이어 ' + fmtNum(c.layers) + " · 건물 " + fmtNum(c.buildings) + " · 필지 " + fmtNum(c.lots) + (c.demolished ? " · 철거 " + fmtNum(c.demolished) : "") + "</div>" +
+  html += '<div class="card" id="doc_card"><div class="top"><h4>' + esc(HOST.doc) + '</h4><div class="num">CTX 레이어 ' + fmtNum(c.layers) + " · 건물 " + fmtNum(c.buildings) + (c.lots ? " · 필지 " + fmtNum(c.lots) : "") + (c.demolished ? " · 철거 " + fmtNum(c.demolished) : "") + "</div>" +
     '<div id="doc_status">' + docStatusHtml(imported, c.import_text, c.path) + "</div></div>" +
+    (HOST.id === "web" ? '<div class="acts"><button type="button" class="btn sm" data-act="import">3D 보기</button><button type="button" class="btn sm" data-act="open" data-path="' + esc(c.path) + '">' + esc(HOST.model) + ' 받기</button></div></div>' :
     '<div class="acts">' + (imported ? '<span class="ok-line">' + ico("check") + "문서에 넣음</span>" : "") +
     '<button type="button" class="btn sm" data-act="zoom" id="zoom_btn"' + (imported ? "" : " disabled") + ">대상지로 줌</button>" +
-    '<button type="button" class="btn sm' + (imported ? "" : " primary") + '" data-act="import" title="기존 CTX 레이어를 지우고 다시 넣습니다">' + (imported ? "다시 넣기" : "문서에 넣기") + "</button></div></div>";
+    '<button type="button" class="btn sm' + (imported ? "" : " primary") + '" data-act="import" title="기존 CTX 레이어를 지우고 다시 넣습니다">' + (imported ? "다시 넣기" : "문서에 넣기") + "</button></div></div>");
   // 도면 카드 — 16장 칸(누르면 파일), 스타일, 베이스맵 .ai
   if (o.make_sheets !== false || o.make_basemap !== false) {
     var sheets = r.sheets || [], emptyN = sheets.filter(function (x) { return x.empty; }).length;
@@ -1258,7 +1324,7 @@ function doneHtml() {
       '<span class="hint">' + (emptyN ? "빈 도면 " + emptyN + "장 · " : "") + "조서 CSV " + (r.tables || []).length + "개</span></div>" +
       (sheets.length ? '<div class="sheet-grid">' + sheets.map(sheetCellHtml).join("") + "</div>" : "") +
       '<div class="acts">' + (sheets.length ? '<button type="button" class="btn go" data-act="style_open">스타일</button><span class="style-dirty" id="style_dirty"' + (styleDirty() ? "" : " hidden") + ">적용 안 한 변경 있음</span>" : "") +
-      '<span style="flex:1"></span><button type="button" class="btn sm" data-act="sheet_ai_all" title="도면 SVG를 레이어 .ai로 모두 씁니다">.ai 모두</button><button type="button" class="btn sm" data-act="open" data-path="' + esc(r.dir) + '">' + "폴더 열기</button></div>" +
+      '<span style="flex:1"></span><button type="button" class="btn sm" data-act="sheet_ai_all" title="도면 SVG를 레이어 .ai로 모두 씁니다">.ai 모두</button><button type="button" class="btn sm" data-act="open" data-path="' + esc(r.dir) + '">' + dirLabel() + "</button></div>" +
       (o.make_basemap !== false ? '<div class="acts"><span>베이스맵 .ai</span>' + (bm.ready ? "" : '<span class="red">생성 실패 — <button type="button" class="link" data-act="open" data-path="' + esc(r.dir + "/log.txt") + '">log.txt</button></span>') +
         '<span style="flex:1"></span><select class="sm" id="export_scale" aria-label="축척">' + SCALES.map(function (x) { return '<option value="' + x + '"' + (x === defScale ? " selected" : "") + ">1:" + fmtNum(x) + "</option>"; }).join("") + "</select>" +
         '<button type="button" class="btn sm" data-act="export" id="export_btn"' + (bm.ready ? "" : ' disabled title="베이스맵 생성 실패"') + ">.ai 내보내기</button></div>" +
@@ -1271,11 +1337,14 @@ function doneHtml() {
   if (q.height_src || q.align) {
     var hs = q.height_src || {}, al = q.align || {}, sk = q.skipped || {}, d = q.dates || {};
     var pct = function (v) { return Math.round((v || 0) * 100); };
+    var osm = o.region === "global" || hs.osm_height !== undefined || hs.osm_levels !== undefined;   // Global(OSM) — 대장·지형도·정합·국가 DB 기준일이 없다
+    var hparts = osm ? [["OSM 높이", hs.osm_height], ["OSM 층수", hs.osm_levels], ["기본", hs.default]] : [["대장", hs.height], ["층수", hs.grnd_flr], ["지형도", hs.topo_flr], ["기본", hs.default]];
     html += "<h3>신뢰도</h3>" +
-      '<div class="q-row"><span class="k">높이 출처</span><div><div class="hbar" aria-hidden="true"><span style="width:' + pct(hs.height) + '%"></span><span style="width:' + pct(hs.grnd_flr) + '%"></span><span style="width:' + pct(hs.topo_flr) + '%"></span><span style="width:' + pct(hs.default) + '%"></span></div><span class="num hint">대장 ' + pct(hs.height) + " · 층수 " + pct(hs.grnd_flr) + " · 지형도 " + pct(hs.topo_flr) + " · 기본 " + pct(hs.default) + " %</span></div></div>" +
-      '<div class="q-row"><span class="k">정합 오차</span><span class="num">중앙값 ' + fmtNum(al.median, 1) + " m · p90 " + fmtNum(al.p90, 1) + " m (n=" + fmtNum(al.n) + ")" + (al.low_sample ? ' <span class="danger-text">표본 부족</span>' : "") + "</span></div>" +
-      '<div class="q-row"><span class="k">건너뜀</span><span>건물 ' + fmtNum(sk.buildings) + "동 · 필지 " + fmtNum(sk.lots) + ' <button type="button" class="link" data-act="open" data-path="' + esc(r.dir + "/log.txt") + '">log.txt</button></span></div>' +
-      '<div class="q-row"><span class="k">자료기준</span><span class="num">필지 ' + esc(mmdd(d.lot)) + " · 건물 " + esc(mmdd(d.building)) + " · 지형 " + esc((d.terrain || "").replace(/20(\d\d)/g, "$1")) + "</span></div>";
+      '<div class="q-row"><span class="k">높이 출처</span><div><div class="hbar" aria-hidden="true">' + hparts.map(function (x) { return '<span style="width:' + pct(x[1]) + '%"></span>'; }).join("") +
+        '</div><span class="num hint">' + hparts.map(function (x) { return x[0] + " " + pct(x[1]); }).join(" · ") + " %</span></div></div>" +
+      (osm ? "" : '<div class="q-row"><span class="k">정합 오차</span><span class="num">중앙값 ' + fmtNum(al.median, 1) + " m · p90 " + fmtNum(al.p90, 1) + " m (n=" + fmtNum(al.n) + ")" + (al.low_sample ? ' <span class="danger-text">표본 부족</span>' : "") + "</span></div>") +
+      '<div class="q-row"><span class="k">건너뜀</span><span>건물 ' + fmtNum(sk.buildings) + "동" + (osm ? "" : " · 필지 " + fmtNum(sk.lots)) + ' <button type="button" class="link" data-act="open" data-path="' + esc(r.dir + "/log.txt") + '">log.txt</button></span></div>' +
+      (osm ? "" : '<div class="q-row"><span class="k">자료기준</span><span class="num">필지 ' + esc(mmdd(d.lot)) + " · 건물 " + esc(mmdd(d.building)) + " · 지형 " + esc((d.terrain || "").replace(/20(\d\d)/g, "$1")) + "</span></div>");
   }
   // 산출물 목록
   if (r.files && r.files.length) {
@@ -1403,7 +1472,7 @@ function applyImported(ok, text, layers, objects) {
 // ── 블로커·헤더 띠 ──
 function renderBlocker() {
   var init = state.init, el = $("blocker");
-  if (!init || !init.blocked || init.can_download || state.abroadOnly || state.dataLater) { el.hidden = true; return; }   // 받을 수 있으면 막지 않는다 — 지도를 확대하면 그 지역을 받는다
+  if (!init || !init.blocked || init.can_download || isGlobal() || state.dataLater) { el.hidden = true; return; }   // 받을 수 있으면 막지 않는다 — 지도를 확대하면 그 지역을 받는다
   var src = {}; init.sources.forEach(function (s) { src[s.id] = s; });
   var g = init.generator || {}, p = init.paths || {};
   var row = function (ok, label, text, cls) { return '<span class="' + (cls || (ok ? "ok" : "bad")) + '">' + ico(cls === "opt" ? "ring" : ok ? "check" : "x") + "</span><span>" + esc(label) + "</span><span>" + esc(text) + "</span>"; };
@@ -1414,16 +1483,16 @@ function renderBlocker() {
     row(true, "생성기", g.text || HOST.name + " 내장") + "</div>" +
     (lotOk ? "" : init.can_download ? "<p>DB는 시군구 단위로 받습니다(구 하나에 수십 MB). [지도에서 지역 골라 받기]를 누르고 지도를 대상지로 옮긴 뒤 지도 왼쪽 아래 [받기]를 누르세요.</p>"
       : "<p>필지 DB <span class=\"mono\">data/seoul_site.db</span> 를 data 폴더에 넣으세요.<br>절차: <span class=\"mono\">docs/data_sources.md §0</span></p>") +
-    '<div class="acts" style="display:flex;gap:8px;flex-wrap:wrap">' + (init.can_download && !lotOk ? '<button type="button" class="btn primary" data-act="data_later">지도에서 지역 골라 받기</button>' : "") + '<button type="button" class="btn" data-act="open" data-path="data">data 폴더 열기</button><button type="button" class="btn" data-act="open" data-path="' + esc(p.install_doc || "docs/install.md") + '">문서 열기</button><button type="button" class="btn primary" data-act="init">다시 확인</button></div>' +
-    '<p class="hint" style="margin-top:12px">해외 대상지만 쓴다면 DB 없이 시작할 수 있습니다 — 건물·도로·지형은 OpenStreetMap·지형 타일에서 받습니다.</p>' +
-    '<div class="acts"><button type="button" class="btn" data-act="abroad">DB 없이 해외 대상지로 계속</button></div>';
+    '<div class="acts" style="display:flex;gap:8px;flex-wrap:wrap">' + (init.can_download && !lotOk ? '<button type="button" class="btn primary" data-act="data_later">지도에서 지역 골라 받기</button>' : "") + (HOST.id === "web" ? "" : '<button type="button" class="btn" data-act="open" data-path="data">data 폴더 열기</button><button type="button" class="btn" data-act="open" data-path="' + esc(p.install_doc || "docs/install.md") + '">문서 열기</button>') + '<button type="button" class="btn primary" data-act="init">다시 확인</button></div>' +
+    '<p class="hint" style="margin-top:12px">DB 없이 시작하려면 Global 모드 — 건물·도로·지형을 OpenStreetMap·지형 타일에서 받습니다(필지·용도지역 도면 없음).</p>' +
+    '<div class="acts"><button type="button" class="btn" data-act="abroad">Global로 쓰기</button></div>';
   el.hidden = false;
 }
 // ── 더보기 메뉴 — 최근 대상지 · 자료 · 설정(키·폴더·안내) ──
 function renderMenu() {
   var init = state.init, el = $("menu"); if (!init || !state.menuOpen) return;
   var src = {}; init.sources.forEach(function (s) { src[s.id] = s; });
-  var recent = init.recent || [], lock = state.run === "running" || state.abroadOnly;
+  var recent = init.recent || [], lock = state.run === "running";
   var openBtn = function (path, label) { return '<button type="button" class="btn sm" data-act="open" data-path="' + esc(path) + '">' + esc(label || "열기") + "</button>"; };
   var srcRow = function (s) {
     return '<div class="mrow"><span class="k"><span class="dot lv-' + esc(s.level) + '" aria-hidden="true"></span>' + esc(s.label) + '</span><span class="v">' + esc(s.name) + (s.date ? ' <span class="num sub">' + esc(s.date) + "</span>" : "") + '</span><span class="sub num">' + esc(s.text || "") + "</span></div>";
@@ -1440,6 +1509,7 @@ function renderMenu() {
     "<h3>설정</h3>" +
     '<div class="mlist">' +
       '<div class="mrow"><span class="k">작업 폴더</span><span class="v mono" title="' + esc(p.root || "") + '">' + esc(p.root || "") + "</span>" + openBtn(p.root || "data") + "</div>" +
+      '<div class="mrow"><span class="k">VWorld 키</span><span class="v" title="선택 — 키를 넣은 뒤 [다시 확인]">' + (api.keys && api.keys.vworld ? "있음 · 지도·위성 VWorld" : "없음 · 지도 OSM·위성 Esri") + "</span>" + openBtn(".env", ".env 열기") + "</div>" +
       '<div class="mrow"><span class="k">안내</span><span class="v">설치·데이터·사용법</span>' + openBtn(p.install_doc || "docs/install.md") + "</div>" +
       (HOST.ask_stats ? '<div class="mrow"><span class="k">사용 통계</span><span class="v" title="' + esc(STATS_TEXT) + '">' + (init.stats_consent ? "보냄" : "보내지 않음") + '</span><button type="button" class="btn sm" data-act="stats" data-on="' + (init.stats_consent ? "0" : "1") + '">' + (init.stats_consent ? "끄기" : "켜기") + "</button></div>" : "") +
     "</div>" +
@@ -1458,6 +1528,7 @@ function closeMenu(refocus) {
 function loadRecent(i) {   // 최근 대상지는 필지 방식 기록이다(site_prefs.add_recent)
   var r = ((state.init && state.init.recent) || [])[i]; if (!r || state.run === "running") return;
   closeMenu(); state.flyOnLot = true;
+  if (isGlobal()) setRegion("kr", "최근 대상지는 필지라 Korea로 바꿨습니다");
   resetLots("lots", r.pnus.slice());
 }
 // 사용 통계 동의(Blender — 확장 약관). 답하기 전까지 한 번 묻고, 바꾸기는 더보기 메뉴 설정
@@ -1484,7 +1555,7 @@ function slotError(id, text) { var el = $(id); if (el) el.innerHTML = '<div clas
 // ── 동작 ──
 function startGenerate() {
   if (!hasTarget() || busyTarget() || state.run === "running") return;
-  send({ cmd: "generate", target: targetMsg(), options: Object.assign({}, state.options) });   // scales 포함 — 가장 큰 프레임이 DB 질의 범위
+  send({ cmd: "generate", target: targetMsg(), options: Object.assign({}, state.options, isAbroad(targetCenter()) ? { placement: "origin" } : {}) });   // scales 포함 — 가장 큰 프레임이 DB 질의 범위
   state.dirty = false; state.progress = null; state.result = null; state.logLines = []; state.busy = false;
   state.run = "running"; startTimer(); go(4);
 }
@@ -1510,15 +1581,17 @@ function primaryAction() {
 function requestCancel() { var b = $("cancel_btn"); if (state.run === "running" && b && !b.disabled) send({ cmd: "cancel" }); }
 var ACTIONS = {
   init: function () { send({ cmd: "init" }); },
-  abroad: function () { state.abroadOnly = true; state.blocked = false; $("blocker").hidden = true; if (state.mode === "lots") resetLots("point"); else render(); toast("지도를 해외로 옮겨 구역을 그리거나 위치를 찍으세요"); },
+  abroad: function () { setRegion("global", "Global — 지도를 대상지로 옮겨 구역을 그리거나 위치를 찍으세요"); },
+  region: function (b) { setRegion(b.dataset.region); },
   menu: function () { if (state.menuOpen) closeMenu(true); else openMenu(); },
   recent: function (b) { loadRecent(+b.dataset.i); },
   download_stop: function () { state.noAutoDownload = true; send({ cmd: "cancel" }); },
   download_area: function () { var a = state.areaPacks; if (a && a.missing.length) startDownload(a.missing); },
-  data_later: function () { state.abroadOnly = false; state.dataLater = true; state.blocked = false; $("blocker").hidden = true; render(); toast("지도를 대상지로 옮기면 그 지역 DB를 받을 수 있습니다"); requestAreaPacks(); },
+  data_later: function () { state.dataLater = true; state.blocked = false; $("blocker").hidden = true; render(); toast("지도를 대상지로 옮기면 그 지역 DB를 받을 수 있습니다"); requestAreaPacks(); },
   search: doSearch,
   clear: function () { send({ cmd: "select_lots", pnus: [] }); },
   remove: function (b) { toggleLot(b.dataset.pnu); },
+  eum: function (b) { send({ cmd: "open_eum", pnu: b.dataset.pnu }); },
   next: function () { if (hasTarget() && !busyTarget()) go(state.step === 2 ? 3 : 2); },
   mode: function (b) { if (b.dataset.mode !== state.mode) resetLots(b.dataset.mode); },
   draw_start: startDraw,
@@ -1660,11 +1733,16 @@ var handlers = {
   init_state: function (m) {
     var first = !state.init;
     if (m.host) HOST = m.host;
-    state.init = m; state.blocked = !!m.blocked && !m.can_download && !state.abroadOnly && !state.dataLater;
+    state.init = m;
     if (first) {
       Object.keys(DEFAULTS).forEach(function (k) { state.options[k] = (m.options && k in m.options) ? m.options[k] : JSON.parse(JSON.stringify(DEFAULTS[k])); });
+      if (!state.options.region) { state.options.region = detectRegion(m); send({ cmd: "save_prefs", options: state.options }); }
       state.mode = state.mode || (MODE_LABEL[state.options.mode] ? state.options.mode : "lots");   // 첫 화면 = 마지막 방식의 지도
+      if (isGlobal() && state.mode === "lots") state.mode = state.options.mode = "point";
       initMap(m);
+    }
+    state.blocked = !!m.blocked && !m.can_download && !isGlobal() && !state.dataLater;
+    if (first) {
       render();
     } else {
       updateTileSource();   // 키를 넣거나 뺐으면 배경 주소가 바뀐다
@@ -1707,6 +1785,7 @@ var handlers = {
     renderAreaInfo();
     if (state.area && m.warnings && m.warnings.length) $("area_err").innerHTML = warningsHtml(m.warnings, "map");
     var ls = $("lot_summary"); if (ls) ls.textContent = targetLabel();
+    if (state.area && !isGlobal() && isAbroad(m.center)) { setRegion("global", "한국 밖 대상지 — Global(OpenStreetMap)로 바꿨습니다"); return; }
     if (state.area) sendPreflight(0);
     if (state.run === "done" && state.result) state.dirty = true;
     renderFooter();
@@ -1714,6 +1793,7 @@ var handlers = {
   point_state: function (m) {
     state.point = m.center ? m : null; state.preflight = null;
     setPointLayer(); renderPointInfo();
+    if (state.point && !isGlobal() && isAbroad(m.center)) { setRegion("global", "한국 밖 대상지 — Global(OpenStreetMap)로 바꿨습니다"); return; }
     if (state.point) sendPreflight(0);
     if (state.run === "done" && state.result) state.dirty = true;
     renderFooter();
@@ -1756,6 +1836,8 @@ var handlers = {
     }
   },
   busy: function (m) { state.busy = !!m.on; state.busyLabel = m.label || ""; updateCancelBtn(); },
+  // SketchUp판 — 사이드카가 모델 작업을 부탁한다. Ruby(sketchup_ext.rb)가 끝나면 send({cmd: "host_reply"})로 답한다
+  host_call: function (m) { if (window.sketchup) window.sketchup.host_call(JSON.stringify(m)); },
   sheet_ai: function (m) { if (m.ok && m.paths.length > 1) toast("레이어 .ai " + m.paths.length + "장을 썼습니다"); },
   style_preview: function (m) {
     if (m.seq < state.seq.style || !state.styleOpen) return;

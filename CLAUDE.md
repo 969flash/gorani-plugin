@@ -5,7 +5,7 @@
 도시설계용 베이스맵(일러스트레이터)과 공공데이터 기반 현황도·분석자료를 낸다.
 개인이 무료로 공개하는 Rhino 플러그인(Yak)이고, 사용자는 불특정 다수의 건축·도시설계 실무자와 학생이다. 서버 없는 데스크톱 도구다(SaaS 아님).
 
-독립 프로젝트다. 국내는 자체 필지·컨텍스트 DB(시군구 팩, 전국)에서, 해외는 OpenStreetMap·지형 타일에서 불러온다.
+독립 프로젝트다. 패널 헤더 토글로 두 데이터 모드를 쓴다 — Korea(자체 필지·컨텍스트 DB, 시군구 팩, 한국만)·Global(OpenStreetMap·지형 타일, 어디서나). 판정은 `context_builder.is_global`, 첫 실행 기본값은 한국(시간대·언어·국내 DB)이면 Korea.
 배치·법규·일조 로직은 이 프로젝트의 목적이 아니다.
 
 ## Claude의 역할
@@ -39,9 +39,10 @@
 
 - **업무 로직은 전부 로직 모듈에 둔다.** Rhino가 직접 실행하는 `cmd_*.py`는 입출력을 잇고 로직 함수를 부르는 것이 전부다. Grasshopper 경로는 없다.
 - **실행 경로는 패널 하나다.** `cmd_site.py`(컨트롤러) → `panel_host.py`(Eto WebView 호스트) → `site_ui.html`(프런트). 메시지 계약은 `docs/panel_ui.md`가 원본이다. 프레임워크·빌드 도구 없음, 단일 HTML + 바닐라 JS, 지도는 Leaflet(`scripts/vendor/`).
-- **Blender판(4.2+ 확장)은 같은 패널·엔진을 쓴다.** `cmd_blender.py`가 `cmd_site._SiteController`를 상속해 호스트 연결만 바꾸고, 웹뷰 대신 127.0.0.1 HTTP 서버(토큰) + 기본 브라우저로 패널을 연다(명령 POST, 상태 SSE). `context_builder.get_host_modules()`가 Rhino면 `context_geometry`·`context_baker`, Blender면 `blender_geometry`(mathutils CDT·BVH)·`blender_baker`(컬렉션 `CTX::…`, `context.blend`)를 고른다 — 두 쌍은 함수 이름이 같다. 배포는 `dev_deploy.py blender`(원본 .py, 빌드가 import를 패키지 상대로 바꾼다 — 확장 정책상 최상위 모듈·sys.path 금지) + 정적 확장 저장소(index.json). SketchUp판은 미착수.
+- **Blender판(4.2+ 확장)·SketchUp판(2022+ 확장)은 같은 패널·엔진을 쓴다.** `cmd_blender.py`·`cmd_sketchup.py`가 `cmd_site._SiteController`를 상속해 호스트 연결만 바꾸고, 웹뷰 대신 `panel_server`(127.0.0.1 HTTP 서버·토큰, 명령 POST, 상태 SSE)로 패널을 연다 — Blender는 기본 브라우저, SketchUp은 `UI::HtmlDialog`. `context_builder.get_host_modules()`가 Rhino면 `context_geometry`·`context_baker`, Blender면 `mesh_geometry`(mathutils CDT·BVH)·`blender_baker`(컬렉션 `CTX::…`, `context.blend`), SketchUp이면 `mesh_geometry`(shapely 겹치기 CDT)·`sketchup_baker`를 고른다 — 쌍마다 함수 이름이 같다. 배포는 `dev_deploy.py blender`(원본 .py, 빌드가 import를 패키지 상대로 바꾼다 — 확장 정책상 최상위 모듈·sys.path 금지) + 정적 확장 저장소(index.json)·공식 스토어.
+- **SketchUp에는 파이썬이 없다.** 확장(.rbz, `dev_deploy.py sketchup`)에 python-build-standalone 3.12 + numpy·shapely를 플랫폼 셋(mac-arm64·mac-x64·win-x64)으로 넣고, `sketchup_ext.rb`(Ruby, 패키지에서는 `bsh_urbansite/main.rb`)가 그 파이썬으로 사이드카 `cmd_sketchup.py`를 띄운다. 엔진은 전부 사이드카이고, 모델 변경만 호스트 호출(패널 푸시 `host_call` → `sketchup.host_call` → Ruby `rpc_<method>` → `host_reply`)이다. Extension Warehouse 규칙: 뿌리 .rb 하나 + 같은 이름 폴더, Ruby는 `BSH::UrbanSite` 안, 확장 폴더에 쓰기 금지(서명), 사용 통계는 동의제. 올리기 절차는 `docs/sketchup_store.md`.
 - **컨텍스트 생성은 Rhino CPython 안에서 동기 실행한다.** 엔진 API는 `context_builder.run(request, progress, doc)` 하나(진행률·취소는 `progress(phase, fraction, text) -> bool` 콜백 하나). 외부 python 서브프로세스·`# r:` pip 패키지 없음 — 배포는 Yak 패키지(`dev_deploy.py yak`, 진입 명령 `UrbanSite` 하나짜리 .rhp + scripts/)이고 DB는 패널의 [DB 받기]가 데이터 팩(`dev_deploy.py packs`)을 받는다. 3dm은 RhinoCommon 베이크 결과를 `WriteFile` 사본으로 남긴다(rhino3dm은 테스트 전용). 확정 근거는 `docs/code_map.md`.
-- **공공데이터는 DB 구축 시에만 수집하고 Rhino 실행 중에는 로컬 DB만 조회한다.** 수집·정규화·공간교차는 `dev_*.py`(Rhino 밖 python3, geopandas 가능)가 하고, Rhino 쪽 로직 모듈은 SQLite 표준 라이브러리만 쓴다. 예외는 다섯: ① 데이터 팩 받기(`data_pack.py` — 패널 지도 칩 [받기]로 화면 지역 시군구 팩만, 필지 팩·매니페스트는 Hugging Face 공개 데이터셋 `constants.DATA_REPO_ID`) ② 해외 대상지(`osm_context.py` — Overpass·Nominatim·지형 타일) ③ 사용자가 켠 VWorld 주소 보조 검색 ④ 사용 통계(`usage_stats.py` — GA4 Measurement Protocol, 끄는 설정 없음, 고지는 `docs/install.md`) ⑤ 항공사진 시트 영상 타일(`sheet_svg` — VWorld 영상, 키 없음·해외는 Esri, URL은 `review_map.get_tile_config`). 수치지형도에서 나온 컨텍스트·등고선 팩(`*_context|terrain.db`)은 국내 서버(`constants.DATA_DOMESTIC_BASE_URL`, Oracle 춘천 Always Free — 유료 전환 금지)에만 둔다(공간정보관리법 제16조 국외 반출).
+- **공공데이터는 DB 구축 시에만 수집하고 Rhino 실행 중에는 로컬 DB만 조회한다.** 수집·정규화·공간교차는 `dev_*.py`(Rhino 밖 python3, geopandas 가능)가 하고, Rhino 쪽 로직 모듈은 SQLite 표준 라이브러리만 쓴다. 예외는 다섯: ① 데이터 팩 받기(`data_pack.py` — 패널 지도 칩 [받기]로 화면 지역 시군구 팩만, 필지 팩·매니페스트는 Hugging Face 공개 데이터셋 `constants.DATA_REPO_ID`) ② Global 모드·해외 대상지(`osm_context.py` — Overpass·Nominatim·지형 타일) ③ 사용자가 켠 VWorld 주소 보조 검색 ④ 사용 통계(`usage_stats.py` — GA4 Measurement Protocol, 끄는 설정 없음, 고지는 `docs/install.md`) ⑤ 항공사진 시트 영상 타일(`sheet_svg` — VWorld 영상, 키 없음·해외는 Esri, URL은 `review_map.get_tile_config`). 수치지형도에서 나온 컨텍스트·등고선 팩(`*_context|terrain.db`)은 국내 서버(`constants.DATA_DOMESTIC_BASE_URL`, Oracle 춘천 Always Free — 유료 전환 금지)에만 둔다(공간정보관리법 제16조 국외 반출).
 - DB 파일은 지역 단위로 나뉜다: 개발 저장소는 시도 DB `data/<시도>_site.db`·`_context.db`(빌더 출력), 배포·설치본은 시군구 팩 `<시군구코드>_site|context|terrain.db`(dev_deploy가 200 m 격자·PNU로 나눔, 경계 객체는 양쪽 팩에). 런타임(`lot_db`·`context_db`)은 대상지 범위·PNU에 걸리는 파일만 골라 한 연결로 묶고(`data_pack.open_databases`, ATTACH 상한을 넘으면 묶음별) id로 중복을 걷어 낸다. 필지 DB 스키마 v5(`parcels`·`overlays`·`parcel_overlays`·`parcel_land_use`·`data_sources`), 컨텍스트 DB는 같은 관행(EPSG:5186 GeoJSON/수치 + `min_x/max_x/min_y/max_y` 경계상자 인덱스, RTree 미사용 — Rhino 8 Windows CPython SQLite에 rtree 모듈이 없다). 서울 외 시도의 계획 도형은 토지이용계획 코드로 필지를 합친 것이다. 구체 테이블은 `docs/data_sources.md`.
 - **내부 표준 단위는 m, 좌표계는 EPSG:5186이다.** 코드의 좌표·길이·높이와 면적(㎡)은 모두 m 기준. Rhino 문서 단위는 베이커가 베이크 직전에만 변환한다. 원점은 `context_builder.prepare`가 정하고(대상지 중심 100 m 내림), **적용(DB 좌표 → 로컬 좌표)은 `context_geometry.get_local_pts` 한 함수에서만** 한다 — 메시는 생성 전에 로컬 좌표여야 하므로 베이커에서 빼면 늦다. 베이커는 오프셋을 문서에 기록(`CTX::Ref` UserString·`doc.Strings`·`context.json`)만 한다. 예외: 결과 좌표가 '실제 좌표'(`options.placement = world`)면 형상은 그대로 로컬에서 만들고 베이커가 계산 원점만큼 옮겨 굽는다(메시는 배정밀도 정점). 문서 원점 (0,0) = 실제 좌표 문서.
 - Rhino 문서 변경(베이크·저장·내보내기)은 베이커 모듈만 담당한다. 로직 모듈은 지오메트리 객체를 만들어 돌려줄 뿐 문서를 건드리지 않는다.
@@ -70,6 +71,8 @@
   - `cmd_*.py` — 호스트가 직접 실행하는 진입 스크립트(Rhino 설치·패널, `cmd_blender.py` = Blender 확장 본문). 입출력 연결만, 얇게. loader가 다시 읽지 않는다.
   - 접두사 없음 — Rhino 런타임에서 import되어 실행되는 로직 모듈. 표준 라이브러리 + RhinoCommon만. Rhino import는 try로 감싸 Blender·python3에서도 순수 도우미를 쓸 수 있게 한다(`context_geometry`·`context_baker`).
   - `blender_*.py` — Blender 런타임 로직 모듈. 표준 라이브러리 + bpy·mathutils만. Yak 패키지에서 뺀다.
+  - `sketchup_*` — SketchUp판. `sketchup_*.py`는 사이드카(번들 파이썬) 로직 모듈 — 표준 라이브러리 + numpy·shapely만, `sketchup_ext.rb`는 SketchUp Ruby 본문. Yak·Blender 패키지에서 뺀다.
+  - Blender·SketchUp 공용 로직 모듈(`mesh_geometry` — mathutils 또는 shapely, `panel_server` — 표준 라이브러리)은 접두사 없이 두고 Yak에서만 뺀다(`dev_deploy.YAK_EXCLUDED_NAMES`).
   - `dev_*.py` — Rhino 밖 개발용 python3 전용(geopandas·pyogrio·shapely·pyproj·requests·rhino3dm 가능). DB 구축·데이터 수집·QA.
   - `server_*.py` — 국내 서버(춘천 VM)에서 도는 python3 표준 라이브러리 전용. Yak 패키지에서 뺀다. 절차는 `docs/domestic_gate.md`.
 - **로직 모듈은 서로 평범하게 `import`한다.** 모듈 이름 충돌과 편집 반영은 `scripts/loader.py`가 한 곳에서 처리한다. 진입 스크립트만 loader를 파일 경로로 읽는다.
@@ -79,7 +82,7 @@
 - 유틸 함수는 `get_`·`is_`·`has_` 등 역할이 보이는 이름과 단·복수형. 입력 형상은 바꾸지 않고 복제한 결과를 반환. `def` 바로 아래 `# type:`(실제 타입 이름)과 `입력`·`처리`·`출력` docstring.
 - Rhino가 필요 없는 좌표·GeoJSON 연산은 `non_rhino_utils.py`(Rhino import 금지, python3로 테스트), RhinoCommon 범용 연산은 `utils.py`.
 - **폴백·휴리스틱 분기에는 그 분기를 유발한 실제 데이터(PNU·건물 id·도엽)를 주석으로 남긴다.**
-- 테스트는 `tests/`에 unittest. Rhino 없이 도는 모듈(DB·주소·좌표·지도·SVG)은 python3로 바로 돌린다: `python3 -m unittest discover tests`. Blender판은 `Blender -b --factory-startup --python-exit-code 1 --python tests/test_blender.py`.
+- 테스트는 `tests/`에 unittest. Rhino 없이 도는 모듈(DB·주소·좌표·지도·SVG)은 python3로 바로 돌린다: `python3 -m unittest discover tests`. Blender판은 `Blender -b --factory-startup --python-exit-code 1 --python tests/test_blender.py`. SketchUp 사이드카는 번들 파이썬으로 `build/sketchup/bsh_urbansite/python/mac-arm64/bin/python3.12 -m unittest tests/test_sketchup.py`(가짜 SketchUp이 host_call에 답한다 — Ruby 쪽은 SketchUp 안에서만).
 
 ## 폴더 구조
 

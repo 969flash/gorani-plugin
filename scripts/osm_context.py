@@ -154,8 +154,8 @@ def get_building_height(tags):
 
 def get_building_use(tags):
     # type: (dict) -> str
-    """building 태그 → 국내 건축물용도 대분류 코드(시트 색칠용, 대략). 모르면 빈 값."""
-    return constants.OSM_BUILDING_USE.get(tags.get("building", ""), "")
+    """building 태그 → 국내 건축물용도 대분류 코드(시트 색칠용, 대략). 건물에 단 시설 태그(amenity·leisure)도 본다. 모르면 빈 값."""
+    return constants.OSM_BUILDING_USE.get(tags.get("building", ""), "") or constants.OSM_PUBLIC_USE.get(tags.get("amenity") or tags.get("leisure") or "", "")
 
 
 def _get_buildings(elements, reference_date):
@@ -185,10 +185,14 @@ def _get_buildings(elements, reference_date):
 
 def get_feature_kind(tags, is_area):
     # type: (dict, bool) -> tuple
-    """OSM 태그 → (theme, kind). 해당 없으면 None. 면은 수면·녹지, 선은 도로·철도·하천."""
+    """OSM 태그 → (theme, kind). 해당 없으면 None. 면은 수면·학교 부지·광장·녹지, 선은 도로·철도·하천."""
     if is_area:
         if tags.get("natural") == "water" or tags.get("waterway") == "riverbank" or tags.get("landuse") in ("reservoir", "basin"):
             return "water", "river"
+        if tags.get("amenity") in constants.OSM_SCHOOL_AMENITIES:
+            return "public", "school_lot"   # 공공시설 도면 '학교 부지'(국내 지목 학교용지)
+        if tags.get("place") == "square":
+            return "public", "plaza"
         for key, values in constants.OSM_GREEN_TAGS.items():
             if tags.get(key) in values:
                 return "green", "park"
@@ -214,23 +218,32 @@ def get_road_width(tags):
     return constants.OSM_ROAD_WIDTHS.get(tags.get("highway"), 0.0)
 
 
+def _get_feature_geometry(element, tags):
+    # type: (dict, dict) -> tuple
+    """요소 하나 → (geometry, (theme, kind)), 해당 없으면 (None, None). 점 = 이름 있는 역(역세권·보행권 도면), 닫힌 길·관계 = 면, 그 외 길 = 선."""
+    if element["type"] == "node":
+        if tags.get("railway") != "station" or not tags.get("name"):
+            return None, None
+        x, y = non_rhino_utils.get_tm_from_wgs84(float(element["lon"]), float(element["lat"]))
+        return {"type": "Point", "coordinates": [round(x, 3), round(y, 3)]}, ("transit", "station")
+    if element["type"] == "relation" or (element.get("geometry") and element["geometry"][0] == element["geometry"][-1] and get_feature_kind(tags, True)):
+        target = get_feature_kind(tags, True)
+        geometry = _get_polygon(element) if target else None
+        if geometry is not None:
+            return geometry, target
+    target = get_feature_kind(tags, False)
+    line = _get_tm_line(element.get("geometry") or []) if target and element["type"] == "way" else []
+    return ({"type": "LineString", "coordinates": line}, target) if len(line) >= 2 else (None, None)
+
+
 def _get_features(elements, reference_date):
     # type: (list, str) -> list
     features = []
     for element in elements:
         tags = element.get("tags") or {}
-        if "building" in tags or element["type"] not in ("way", "relation"):
+        if "building" in tags or element["type"] not in ("node", "way", "relation"):
             continue
-        geometry = None
-        target = None
-        if element["type"] == "relation" or (element.get("geometry") and element["geometry"][0] == element["geometry"][-1]
-                                             and get_feature_kind(tags, True)):
-            target = get_feature_kind(tags, True)
-            geometry = _get_polygon(element) if target else None
-        if geometry is None:
-            target = get_feature_kind(tags, False)
-            line = _get_tm_line(element.get("geometry") or []) if target and element["type"] == "way" else []
-            geometry = {"type": "LineString", "coordinates": line} if len(line) >= 2 else None
+        geometry, target = _get_feature_geometry(element, tags)
         if geometry is None:
             continue
         theme, kind = target
@@ -345,5 +358,32 @@ def load(bounds, today):
         DataSource("aws_terrain", "Terrain Tiles (AWS Open Data, terrarium)", "https://registry.opendata.aws/terrain-tiles/", "", today,
                    non_rhino_utils.get_crs_label(), "공개(출처 표기)", "SRTM·GMTED 등 혼합 DEM, 해상도 지역별 상이(약 30 m)"),
     ]
-    return ContextData(bounds=tuple(bounds), buildings=_get_buildings(elements, today),
+    buildings = _get_buildings(elements, today)
+    _apply_public_use(buildings, elements)
+    return ContextData(bounds=tuple(bounds), buildings=buildings,
                        features=_get_features(elements, today) + get_terrain_spots(bounds, today), sources=sources)
+
+
+def _apply_public_use(buildings, elements):
+    # type: (list, list) -> int
+    """시설 면(학교·병원·도서관…, OSM_PUBLIC_USE) 안에 중심이 있는 용도 미상 건물에 국내 용도 대분류를 준다 — 공공시설 도면.
+    OSM은 시설을 부지 면에 달고 건물은 building=yes로만 그리는 일이 흔하다. 반환: 바꾼 동 수."""
+    areas = []
+    for element in elements:
+        tags = element.get("tags") or {}
+        use = constants.OSM_PUBLIC_USE.get(tags.get("amenity") or tags.get("leisure") or "")
+        if use and "building" not in tags and element["type"] in ("way", "relation"):
+            polygon = _get_polygon(element)
+            if polygon:
+                areas.append((use, non_rhino_utils.get_polygon_parts_from_geojson(polygon), _get_bounds(polygon)))
+    changed = 0
+    for building in buildings:
+        if building.usability:
+            continue
+        x, y = (building.min_x + building.max_x) * 0.5, (building.min_y + building.max_y) * 0.5
+        for use, parts, (min_x, max_x, min_y, max_y) in areas:
+            if min_x <= x <= max_x and min_y <= y <= max_y and any(non_rhino_utils.is_point_in_polygon(x, y, part) for part in parts):
+                building.usability = use
+                changed += 1
+                break
+    return changed

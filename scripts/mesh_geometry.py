@@ -1,4 +1,4 @@
-"""컨텍스트 지오메트리(Blender판) — Prepared(세계좌표 m) → 로컬 좌표 메시·커브 데이터(BakeItem). context_geometry의 Blender판.
+"""메시 컨텍스트 지오메트리(Blender·SketchUp판 공용) — Prepared(세계좌표 m) → 로컬 좌표 메시·커브 데이터(BakeItem). context_geometry의 메시판.
 
     build(prepared) -> ContextGeo                    지형·건물·커브 전부(context_geometry.ContextGeo와 같은 모양)
     build_terrain(prepared) -> (meshes, tris, counts)
@@ -6,30 +6,42 @@
     build_curves(prepared) -> items
     get_snapped_ring(area_ring, add_rings, cut_rings, tolerance) -> ring   패널 '필지 경계에 맞추기'
 
-bpy는 쓰지 않는다 — mathutils(들로네·BVH·면 채우기)로 정점·면 목록만 만들고 장면은 blender_baker가 만진다.
+호스트 문서는 쓰지 않는다 — 정점·면 목록만 만들고 장면·모델은 blender_baker·sketchup_baker가 만진다.
+CDT·지반 높이 조회 백엔드는 둘이다(같은 입력 → 같은 모양의 출력):
+    Blender            mathutils(delaunay_2d_cdt·BVHTree·tessellate_polygon)
+    SketchUp 사이드카  shapely(GEOS — 겹치기 + 제약 들로네, numpy) + 격자 점 찾기. 면 채우기가 없어 건물은 각기둥(링·바닥·높이)으로 넘기고
+                       SketchUp이 구멍 있는 면을 그대로 만든다(BakeItem.prisms). Shewchuk triangle은 상업 사용 제한 약관이라 쓰지 않는다
 규칙(TIN 입력점·분류 우선순위·수면·대상지 평탄화·건물 바닥 = 발자국 정점의 최저 지반)은 context_geometry와 같고 방법만 다르다 —
-범위 링·분류 폴리곤 링·대상지 링을 제약 면으로 TIN 점과 함께 CDT 한 번 → 삼각형마다 자기를 품은 입력 링(orig_faces)으로 분류
+범위 링·분류 폴리곤 링·대상지 링을 제약 면으로 TIN 점과 함께 CDT 한 번(SketchUp은 겹치기) → 삼각형마다 자기를 품은 입력 링으로 분류
 → 정점 Z = TIN 수직 투영. 원점 적용(세계 → 로컬)은 이 파일의 get_local_pts 한 함수에서만 한다.
 """
 
+import math
 import time
 from dataclasses import dataclass, field
 
-from mathutils import Vector, geometry
-from mathutils.bvhtree import BVHTree
+try:   # Blender
+    from mathutils import Vector, geometry
+    from mathutils.bvhtree import BVHTree
+except ImportError:   # SketchUp 사이드카(번들 파이썬)
+    geometry = None
+    import numpy
+    import shapely
 
 import constants
 import context_report
 import non_rhino_utils
-from context_geometry import CLASS_LAYERS, SITE_LAYERS, TOPO_SOURCE_ID, ContextGeo, NearestXYZ, get_class_polygons, get_parts, get_tin_points
+from context_geometry import (CLASS_LAYERS, SITE_LAYERS, TOPO_SOURCE_ID, ContextGeo, NearestXYZ, get_building_attrs, get_class_polygons, get_parts,
+                              get_tin_points, get_zoning_rings)
 
-_DOWN = Vector((0.0, 0.0, -1.0))
+_DOWN = Vector((0.0, 0.0, -1.0)) if geometry is not None else None
 
 
 @dataclass
 class BakeItem:
-    """베이크 한 건 = Blender 객체 하나. layer = 컬렉션 이름('CTX::Buildings'), 좌표는 로컬 m.
-    메시는 verts [(x, y, z)] + faces [(a, b, c[, d])] (+ face_attrs {이름: 면마다 값}), 커브는 polylines [([(x, y, z)], 닫힘)].
+    """베이크 한 건 = Blender 객체·SketchUp 그룹 하나. layer = 컬렉션·태그 이름('CTX::Buildings'), 좌표는 로컬 m.
+    메시는 verts [(x, y, z)] + faces [(a, b, c[, d])] (+ face_attrs {이름: 면마다 값}), 커브는 polylines [([(x, y, z)], 닫힘)],
+    각기둥(SketchUp 건물)은 prisms [(파트 [[외곽 링, 구멍 링…]…], 바닥 Z, 높이, 속성 dict, 이름)] — 동 하나 = 그룹 하나(Rhino판 동별 객체와 같은 속성).
     attrs는 객체 사용자 속성(키 → str)."""
 
     layer: str
@@ -39,6 +51,7 @@ class BakeItem:
     polylines: list = field(default_factory=list)
     attrs: dict = field(default_factory=dict)
     face_attrs: dict = field(default_factory=dict)
+    prisms: list = field(default_factory=list)
 
 
 def get_local_pts(coords, origin, z=None):
@@ -64,12 +77,32 @@ def _is_ccw(a, b, c):
     return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]) > 0
 
 
+def _get_tin(local_pts, epsilon):
+    # type: (list, float) -> tuple
+    """로컬 (x, y, z) 점 → 들로네 TIN(볼록 껍질). 출력: (정점 [(x, y, z)], 반시계 삼각형 [(a, b, c)]). 같은 자리 점은 하나만 쓴다."""
+    if geometry is not None:
+        out = geometry.delaunay_2d_cdt([Vector(p[:2]) for p in local_pts], [], [], 0, epsilon)
+        return [(v.x, v.y, local_pts[orig[0]][2]) for v, orig in zip(out[0], out[3])], [tuple(f) for f in out[2]]
+    index = {}
+    for i, p in enumerate(local_pts):
+        index.setdefault((float(p[0]), float(p[1])), i)
+    tris = shapely.get_parts(shapely.delaunay_triangles(shapely.multipoints([p[:2] for p in local_pts])))
+    corners = shapely.get_coordinates(shapely.get_exterior_ring(tris)).reshape(-1, 4, 2)[:, :3, :].tolist()
+    faces = []
+    for a, b, c in corners:   # GEOS는 입력 좌표를 그대로 옮긴다 — 좌표로 입력 번호를 찾는다
+        face = (index[tuple(a)], index[tuple(b)], index[tuple(c)])
+        faces.append(face if _is_ccw(a, b, c) else (face[0], face[2], face[1]))
+    return [(float(p[0]), float(p[1]), p[2]) for p in local_pts], faces
+
+
 def _get_cdt(rings, loose_pts, epsilon):
     # type: (list, list, float) -> tuple
     """로컬 2D 링마다 제약 면 하나 + 떨어진 점 → CDT(면 안 삼각형만).
 
     출력: (정점 [(x, y)], 반시계 삼각형 [(a, b, c)], 삼각형마다 자기를 품은 링 번호 집합). 겹친 링은 전부 들어간다.
     """
+    if geometry is None:
+        return _get_overlay_cdt(rings, loose_pts, epsilon)
     verts, faces = [], []
     for ring in rings:
         start = len(verts)
@@ -85,29 +118,90 @@ def _get_cdt(rings, loose_pts, epsilon):
     return xy, tris, [set(o) for o in orig_faces]
 
 
+def _get_overlay_cdt(rings, loose_pts, epsilon):
+    # type: (list, list, float) -> tuple
+    """_get_cdt의 shapely(GEOS)판 — 같은 모양의 출력을 겹치기(overlay)로 만든다.
+    링 테두리를 epsilon 격자로 이어 붙여(교점 포함) 면으로 나누면 면마다 품은 링이 정해진다(대표점 within) → 떨어진 점의 들로네 TIN
+    삼각형과 면을 겹쳐 조각 → 조각을 제약 들로네로 삼각형. TIN 껍질 밖의 면은 그대로 삼각형으로 만든다(높이는 지반 조회 폴백).
+    ponytail: 삼각형이 CDT 한 번보다 많다(TIN 삼각형이 면 경계에서 잘린다) — 성수 500 m 2배 안팎."""
+    polys = numpy.array([shapely.Polygon(ring) for ring in rings], dtype=object)
+    noded = shapely.unary_union(shapely.get_exterior_ring(polys), grid_size=epsilon)
+    cells = shapely.get_parts(shapely.polygonize(shapely.get_parts(noded)))
+    cell_rings = [set() for _ in range(len(cells))]
+    for cell, ring in zip(*shapely.STRtree(polys).query(shapely.point_on_surface(cells), predicate="within").tolist()):
+        cell_rings[cell].add(ring)
+    pieces, owners = cells, numpy.arange(len(cells))
+    if loose_pts:
+        points = shapely.multipoints([p[:2] for p in loose_pts])
+        tin = shapely.get_parts(shapely.delaunay_triangles(points))
+        cell_ids, tin_ids = shapely.STRtree(tin).query(cells, predicate="intersects")
+        outside = shapely.difference(cells, shapely.convex_hull(points), grid_size=epsilon)
+        keep = ~shapely.is_empty(outside)
+        pieces = numpy.concatenate([shapely.intersection(cells[cell_ids], tin[tin_ids], grid_size=epsilon), outside[keep]])
+        owners = numpy.concatenate([cell_ids, numpy.nonzero(keep)[0]])
+    parts, piece_ids = shapely.get_parts(shapely.constrained_delaunay_triangles(pieces), return_index=True)
+    is_tri = shapely.get_type_id(parts) == 3
+    parts, piece_ids = parts[is_tri], piece_ids[is_tri]
+    corners = shapely.get_coordinates(shapely.get_exterior_ring(parts)).reshape(-1, 4, 2)[:, :3, :]
+    keys = numpy.round(corners.reshape(-1, 2) / epsilon).astype(numpy.int64)
+    _keys, first, inverse = numpy.unique(keys, axis=0, return_index=True, return_inverse=True)
+    xy = corners.reshape(-1, 2)[first]
+    tris = inverse.reshape(-1, 3)
+    a, b, c = xy[tris[:, 0]], xy[tris[:, 1]], xy[tris[:, 2]]
+    cross = (b[:, 0] - a[:, 0]) * (c[:, 1] - a[:, 1]) - (b[:, 1] - a[:, 1]) * (c[:, 0] - a[:, 0])
+    tris[cross < 0] = tris[cross < 0][:, [0, 2, 1]]
+    valid = (cross != 0) & (tris[:, 0] != tris[:, 1]) & (tris[:, 1] != tris[:, 2]) & (tris[:, 0] != tris[:, 2])
+    inside = [cell_rings[cell] for cell in owners[piece_ids[valid]].tolist()]
+    return [tuple(p) for p in xy.tolist()], [tuple(t) for t in tris[valid].tolist()], inside
+
+
 class _Ground(object):
-    """지반 메시의 높이 조회 — 위에서 수직으로 쏴 첫 면의 Z, 빗나가면 최근접 정점 Z(context_geometry._drape 폴백과 같다)."""
+    """지반 메시의 높이 조회 — 위에서 수직으로 쏴 첫 면의 Z, 빗나가면 최근접 정점 Z(context_geometry._drape 폴백과 같다).
+    Blender는 BVH 광선, SketchUp 사이드카는 격자 칸에 걸친 삼각형(4각형은 둘로)의 무게중심 좌표 — 수직 면은 건너뛰고 겹치면 가장 높은 면."""
 
     def __init__(self, verts, faces):
         # type: (list, list) -> None
         self.verts = verts
-        self.bvh = BVHTree.FromPolygons([Vector(v) for v in verts], faces)
-        self.top = max(v[2] for v in verts) + 100.0
         self.misses = 0
         self._nearest = None
+        if geometry is not None:
+            self.bvh = BVHTree.FromPolygons([Vector(v) for v in verts], faces)
+            self.top = max(v[2] for v in verts) + 100.0
+            return
+        self.cell = constants.SKETCHUP_GROUND_CELL
+        self.cells = {}
+        for face in faces:
+            for a, b, c in ((face[0], face[k], face[k + 1]) for k in range(1, len(face) - 1)):
+                (x0, y0, z0), (x1, y1, z1), (x2, y2, z2) = verts[a], verts[b], verts[c]
+                det = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)
+                if abs(det) < 1e-9:
+                    continue
+                tri = (x0, y0, z0, x1 - x0, y1 - y0, x2 - x0, y2 - y0, 1.0 / det, z1 - z0, z2 - z0)
+                for i in range(int(math.floor(min(x0, x1, x2) / self.cell)), int(math.floor(max(x0, x1, x2) / self.cell)) + 1):
+                    for j in range(int(math.floor(min(y0, y1, y2) / self.cell)), int(math.floor(max(y0, y1, y2) / self.cell)) + 1):
+                        self.cells.setdefault((i, j), []).append(tri)
 
     def get_z(self, x, y):
         # type: (float, float) -> float
-        hit = self.bvh.ray_cast(Vector((x, y, self.top)), _DOWN)[0]
-        if hit is not None:
-            return hit.z
-        return self.get_nearest_z(x, y)
+        z = self.hit_z(x, y)
+        return self.get_nearest_z(x, y) if z is None else z
 
     def hit_z(self, x, y):
         # type: (float, float) -> float
         """수직 투영 Z, 빗나가면 None."""
-        hit = self.bvh.ray_cast(Vector((x, y, self.top)), _DOWN)[0]
-        return None if hit is None else hit.z
+        if geometry is not None:
+            hit = self.bvh.ray_cast(Vector((x, y, self.top)), _DOWN)[0]
+            return None if hit is None else hit.z
+        best = None
+        for x0, y0, z0, e1x, e1y, e2x, e2y, inv, dz1, dz2 in self.cells.get((int(math.floor(x / self.cell)), int(math.floor(y / self.cell))), ()):
+            dx, dy = x - x0, y - y0
+            u = (dx * e2y - dy * e2x) * inv
+            v = (e1x * dy - e1y * dx) * inv
+            if u >= -1e-9 and v >= -1e-9 and u + v <= 1.0 + 1e-9:
+                z = z0 + u * dz1 + v * dz2
+                if best is None or z > best:
+                    best = z
+        return best
 
     def get_nearest_z(self, x, y):
         # type: (float, float) -> float
@@ -189,14 +283,12 @@ def build_terrain(prepared):
     origin = prepared.origin
     ox, oy = float(origin[0]), float(origin[1])
     options = prepared.request.get("options") or {}
-    eps = constants.BLENDER_CDT_EPSILON
+    eps = constants.CDT_EPSILON
     points, _water_polys, counts = get_tin_points(prepared)
 
     t = time.time()
     local_pts = get_local_pts(points, origin)
-    tin_out = geometry.delaunay_2d_cdt([Vector(p[:2]) for p in local_pts], [], [], 0, eps)
-    tin_verts = [(v.x, v.y, local_pts[orig[0]][2]) for v, orig in zip(tin_out[0], tin_out[3])]
-    tin_faces = [tuple(f) for f in tin_out[2]]
+    tin_verts, tin_faces = _get_tin(local_pts, eps)
     if not tin_faces:
         raise RuntimeError("지형 TIN 생성 실패 — 입력점 %d" % len(points))
     tin = _Ground(tin_verts, tin_faces)
@@ -389,13 +481,14 @@ def build_buildings(prepared, ground):
     입력: Prepared, ground = build_terrain()의 meshes["all"](로컬 (정점, 면)).
     처리: 발자국 정점마다 지반 수직 투영 → 동별 최저 Z(base)·고저차 → 투영이 하나도 안 맞은 동은 ① bbox 중심의 최근접 지반 정점 Z
           ② 없으면 건너뜀 → 파트별 각기둥. 동마다 객체를 만들면 수천 개라 Blender가 느려진다 — 한 메시 + 면 속성으로 묶는다.
+          SketchUp(면 채우기 없음)은 동마다 각기둥 하나(prisms)로 넘긴다 — 구멍 있는 면·옆면은 SketchUp이 만든다.
     출력: ``(items, counts, skipped, warnings)``.
     """
     origin = prepared.origin
     buildings = context_report.get_buildings_in_extent(prepared)
     surface = _Ground(*ground)
     counts = {"buildings_in_extent": len(buildings), "fallback_nearest": 0, "fallback_skipped": 0, "extrude_failed": 0, "parts": 0, "slope_flagged": 0}
-    verts, faces, ids, heights, floors = [], [], [], [], []
+    verts, faces, ids, heights, floors, prisms = [], [], [], [], [], []
     skipped = []
     t = time.time()
     for b in buildings:
@@ -412,8 +505,12 @@ def build_buildings(prepared, ground):
             cx, cy, _z = get_local_pts([((b.min_x + b.max_x) * 0.5, (b.min_y + b.max_y) * 0.5)], origin)[0]
             base_z = top = surface.get_nearest_z(cx, cy)
             counts["fallback_nearest"] += 1
-        if top - base_z > constants.BUILDING_SLOPE_FLAG:
-            counts["slope_flagged"] += 1
+        slope = top - base_z > constants.BUILDING_SLOPE_FLAG
+        counts["slope_flagged"] += slope
+        if geometry is None:
+            prisms.append((parts, base_z, float(b.height_m), get_building_attrs(b, b.height_src + ("~slope" if slope else "")), b.bld_nm))
+            counts["parts"] += len(parts)
+            continue
         made = 0
         for part in parts:
             added = _add_prism(verts, faces, part, base_z, float(b.height_m))
@@ -429,6 +526,8 @@ def build_buildings(prepared, ground):
     counts["extrude_s"] = round(time.time() - t, 3)
     counts["buildings"] = len(buildings) - counts["fallback_skipped"] - counts["extrude_failed"]
     items = []
+    if prisms:
+        items.append(BakeItem(_layer("Buildings"), "buildings", prisms=prisms, attrs={"COUNT": str(counts["buildings"])}))
     if faces:
         items.append(BakeItem(_layer("Buildings"), "buildings", verts=verts, faces=faces,
                               attrs={"COUNT": str(counts["buildings"]), "HEIGHT_SRC": "see tables/buildings.csv"},
@@ -444,7 +543,7 @@ def build_buildings(prepared, ground):
 
 def build_curves(prepared):
     # type: (object) -> list
-    """Site·Parcels·Roads::centerline·Ref(범위·도엽)·(옵션) Zoning 커브 Z=0 (context_geometry.build_curves와 같은 대상).
+    """Site·Parcels·Roads::centerline·Ref(범위·도엽)·(옵션) Zoning::<구분>::<종류> 커브 Z=0 (context_geometry.build_curves와 같은 대상).
     Rhino는 필지마다 커브(PNU 속성)지만 여기는 레이어마다 객체 하나에 폴리라인 여럿 — 대상 필지(Site)만 필지마다 객체."""
     origin = prepared.origin
     mode = getattr(prepared, "mode", "lots")
@@ -487,11 +586,12 @@ def build_curves(prepared):
     if sheets:
         items.append(BakeItem(_layer("Ref"), "topo_sheets", polylines=sheets,
                               attrs={"KIND": "topo_sheet", "SHEETS": ",".join((prepared.stats or {}).get("sheets") or [])}))
-    if (prepared.request.get("options") or {}).get("include_zoning"):
-        zoning = [closed(ring) for o in prepared.overlays if o.theme == constants.OVERLAY_THEME_ZONE
-                  for part in get_parts(o.geometry) for ring in part]
-        if zoning:
-            items.append(BakeItem(_layer("Zoning"), "zoning", polylines=zoning))
+    if (prepared.request.get("options") or {}).get("include_zoning"):   # 레이어(구분·종류)마다 객체 하나
+        zoning = {}
+        for layer, _overlay, ring in get_zoning_rings(prepared):
+            zoning.setdefault(layer, []).append(closed(ring))
+        for layer, rings in zoning.items():
+            items.append(BakeItem(_layer(layer), layer.rpartition("::")[2], polylines=rings))
     return items
 
 
@@ -530,7 +630,7 @@ def get_snapped_ring(area_ring, add_rings, cut_rings, tolerance):
 
 def build(prepared):
     # type: (object) -> ContextGeo
-    """지형 → 건물 → 커브 순으로 전부 만들어 ContextGeo로 묶는다(phase 'terrain' 전체). 2D 도면(BM::)은 .ai·SVG로 충분해 Blender판에서 뺀다."""
+    """지형 → 건물 → 커브 순으로 전부 만들어 ContextGeo로 묶는다(phase 'terrain' 전체). 2D 도면(BM::)은 .ai·SVG로 충분해 메시판에서 뺀다."""
     meshes, tris, counts = build_terrain(prepared)
     items = _get_terrain_items(meshes, counts)
     b_items, b_counts, skipped, warnings = build_buildings(prepared, meshes["all"])

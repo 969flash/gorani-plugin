@@ -3,6 +3,8 @@
     python3 scripts/dev_deploy.py            # 둘 다
     python3 scripts/dev_deploy.py yak        # build/UrbanSite-<버전>-rh8_0-any.yak
     python3 scripts/dev_deploy.py blender    # build/blender_repo/urbansite-<버전>.zip + index.json(정적 확장 저장소)
+    python3 scripts/dev_deploy.py sketchup   # build/bsh_urbansite-<버전>.rbz (Extension Warehouse·확장 관리자 설치)
+    python3 scripts/dev_deploy.py web        # build/web/ (정적 파일 — 웹사이트 app/에 올린다)
     python3 scripts/dev_deploy.py packs      # build/packs/*.db.xz + manifest.json
     python3 scripts/dev_deploy.py packs --sido 43 --drop   # 시도 하나만 압축하고 원본 DB를 지운다(전국 빌드 흐름)
     python3 scripts/dev_deploy.py repack     # 시도 팩 압축본을 풀어 (줄이고) 시군구 팩으로 나눠 다시 압축
@@ -15,6 +17,12 @@ yak: 진입 명령 UrbanSite 하나짜리 .rhp를 rhinocode로 빌드하고(떠 
 blender: Blender 확장(4.2+) — urbansite/__init__.py(scripts/cmd_blender.py로 넘김) + blender_manifest.toml + scripts/ 원본 .py·UI 에셋을
      Blender CLI(extension build)로 zip, 그 폴더에 server-generate로 index.json·index.html. 로직은 .pyc가 아니라 원본이다 — Blender 4.2~4.5는
      파이썬 3.11, 5.x는 3.13이라 .pyc 하나로 못 덮고, Blender 확장은 GPL이다. Rhino 전용(panel_host·cmd_install)과 dev_·server_는 뺀다.
+sketchup: SketchUp 확장(.rbz = zip) — 뿌리 bsh_urbansite.rb(등록) + bsh_urbansite/main.rb(scripts/sketchup_ext.rb) + scripts/(평문 진입 스크립트
+     + 로직 .pyc + 패널 HTML·vendor) + python/<플랫폼>/(python-build-standalone 3.12 + numpy·shapely, 플랫폼 셋: mac-arm64·mac-x64·win-x64).
+     SketchUp에는 파이썬이 없어 확장이 번들 파이썬으로 사이드카(cmd_sketchup)를 띄운다. 런타임 tar는 build/cache/에 받아 둔다.
+     .pyc는 번들 파이썬(3.12)으로 컴파일한다(unchecked-hash — zip이 수정 시각을 2초 단위로 줄여도 다시 컴파일하지 않는다).
+web: 브라우저판 정적 파일 — index.html(scripts/web_app.html) + panel.html(site_ui.html에 vendor 주입, panel_server.get_html) + web_worker.js
+     + scripts.zip(로직 원본 .py — 워커가 Pyodide 가상 파일계에 푼다). Pyodide·numpy·shapely·three.js는 CDN에서 받는다(web_worker.js·web_app.html 맨 위).
 packs: data/의 시도별 `<시도>_site.db`·`<시도>_context.db`마다 필지(rtree 제거)·컨텍스트(등고선 제외)·등고선 팩을
        xz로 압축하고 sha256·범위를 매니페스트에 적는다. 컨텍스트·등고선 팩은 국내 서버에 올린다(constants.DATA_DOMESTIC_BASE_URL 주석).
 
@@ -50,12 +58,33 @@ PLUGIN_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a10"         # 바꾸지 말 것 �
 COMMAND_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a11"
 COMMAND_NAME = "UrbanSite"
 PUBLISHER = {"name": "sanghoon", "email": "bsh969flash@gmail.com"}
+WEBSITE_URL = "https://969flash.github.io/urbansite/"
+# yak manifest — rhinocode가 쓰는 manifest.yml은 url·검색어가 비고 버전에 +빌드번호가 붙는다. PackageManager 목록·검색에 보일 내용으로 갈아 쓴다.
+# guid: 검색어는 지우지 말 것 — Rhino가 이 플러그인 id로 패키지를 찾는다.
+YAK_MANIFEST = '''name: %(name)s
+version: %(version)s
+authors:
+- %(author)s
+description: 'Site context for urban design: 3D buildings, roads, terrain and water, basemaps and survey sheets. Korea (parcel DB) or Global (OpenStreetMap). Command: UrbanSite / 도시설계 착수용 대지 컨텍스트'
+license: MIT
+url: %(url)s
+keywords:
+- urban design
+- urbansite
+- site
+- context
+- gis
+- openstreetmap
+- korea
+- guid:%(plugin_id)s
+'''
 
 PLAIN_SCRIPT_NAMES = ("loader.py", "cmd_site.py")         # 입출력 연결뿐이라 감출 로직이 없다
 UI_FILE_NAMES = ("site_ui.html",)
 UI_DIR_NAMES = ("vendor",)
 DOC_FILE_NAMES = ("docs/install.md",)
-EXCLUDED_MODULE_PREFIXES = ("dev_", "cmd_", "probe_", "server_", "blender_")     # 개발·실측 전용, 진입 스크립트, 국내 서버(VM) 전용, Blender판
+EXCLUDED_MODULE_PREFIXES = ("dev_", "cmd_", "probe_", "server_", "blender_", "sketchup_", "web_")     # 개발·실측 전용, 진입 스크립트, 국내 서버(VM) 전용, Blender·SketchUp·웹판
+YAK_EXCLUDED_NAMES = ("mesh_geometry", "panel_server")      # Blender·SketchUp 공용(mathutils·shapely, 브라우저 패널) — Rhino는 안 쓴다
 
 # UrbanSite 명령 본문 — rhinocode가 .rhp에 넣는다.
 COMMAND_SOURCE = '''#! python 3
@@ -72,9 +101,9 @@ runpy.run_path(os.path.join(folder, "scripts", "cmd_site.py"), run_name="__main_
 
 BLENDER_APP = "/Applications/Blender.app/Contents/MacOS/Blender"
 BLENDER_PACKAGE_ID = "urbansite"
-BLENDER_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py")    # Rhino 전용(Eto·RhinoCommon)
+BLENDER_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py", "cmd_sketchup.py", "cmd_web.py")    # Rhino 전용(Eto·RhinoCommon), SketchUp 사이드카, 웹판
 # 확장 약관 1.2 — 함께 넣는 글꼴·이미지는 CC0만. Pretendard(OFL)는 빼고 패널은 시스템 글꼴(Apple SD Gothic Neo·맑은 고딕)로 그린다
-BLENDER_EXCLUDED_ASSETS = ("PretendardVariable.woff2",)
+BLENDER_EXCLUDED_ASSETS = ("PretendardVariable.woff2", "LICENSE-pretendard.txt")
 BLENDER_LICENSE_PATH = os.path.join(ROOT_DIR, "docs", "licenses", "GPL-3.0.txt")   # 확장 약관 1.1 — 애드온은 GPL-3.0-or-later
 BLENDER_INIT_SOURCE = '''"""UrbanSite Blender 확장 — 본문은 scripts/cmd_blender.py(등록만 넘긴다)."""
 from .scripts import cmd_blender
@@ -158,7 +187,7 @@ def get_deploy_module_names():
         if not file_name.endswith(".py") or file_name.startswith(EXCLUDED_MODULE_PREFIXES):
             continue
         name = file_name[:-3]
-        if name != "loader":
+        if name != "loader" and name not in YAK_EXCLUDED_NAMES:
             names.append(name)
     return names
 
@@ -243,8 +272,11 @@ def build_yak():
     os.makedirs(package_dir)
     print("  로직 모듈 %d개 컴파일" % _stage_scripts(package_dir))
     plugin_dir = _build_plugin(os.path.join(work_dir, "project"))
-    for file_name in (PACKAGE_NAME + ".rhp", PACKAGE_NAME + ".rui", "manifest.yml"):
+    for file_name in (PACKAGE_NAME + ".rhp", PACKAGE_NAME + ".rui"):
         shutil.copyfile(os.path.join(plugin_dir, file_name), os.path.join(package_dir, file_name))
+    with open(os.path.join(package_dir, "manifest.yml"), "w", encoding="utf-8") as f:
+        f.write(YAK_MANIFEST % {"name": PACKAGE_NAME, "version": PACKAGE_VERSION, "author": PUBLISHER["name"],
+                                "url": WEBSITE_URL, "plugin_id": PLUGIN_ID})
     result = subprocess.run([os.path.join(RHINO_BIN_DIR, "yak"), "build", "--platform", "any"],
                             cwd=package_dir, capture_output=True, text=True)
     packages = [name for name in os.listdir(package_dir) if name.endswith(".yak")]
@@ -284,7 +316,7 @@ def build_blender():
     target = os.path.join(package_dir, "scripts")
     os.makedirs(target)
     names = [n for n in sorted(os.listdir(SCRIPTS_DIR)) if n.endswith(".py") and n not in BLENDER_EXCLUDED_NAMES
-             and not n.startswith(("dev_", "probe_", "server_"))]
+             and not n.startswith(("dev_", "probe_", "server_", "sketchup_", "web_"))]
     for name in names:
         with open(os.path.join(SCRIPTS_DIR, name), encoding="utf-8") as f:
             source = get_package_source(f.read(), [n[:-3] for n in names])
@@ -310,6 +342,188 @@ def build_blender():
     _run_blender("build", "--source-dir", package_dir, "--output-dir", repo_dir)
     _run_blender("server-generate", "--repo-dir", repo_dir, "--html")
     return os.path.join(repo_dir, "%s-%s.zip" % (BLENDER_PACKAGE_ID, PACKAGE_VERSION))
+
+
+# ── sketchup ────────────────────────────────────────────
+
+SKETCHUP_EXT_ID = "bsh_urbansite"          # 뿌리 .rb·폴더 이름(Extension Warehouse 규칙 — 개발자 접두어 + 둘이 같은 이름)
+SKETCHUP_PYTHON_URL = "https://github.com/astral-sh/python-build-standalone/releases/download/20261013/cpython-3.12.15%%2B20261013-%s-install_only_stripped.tar.gz"
+SKETCHUP_PYTHON_VERSION = "3.12"
+SKETCHUP_PLATFORMS = {   # 폴더: (python-build-standalone 대상, pip 플랫폼 태그 — 앞이 우선, macOS 14 전용 Accelerate 휠은 넣지 않는다)
+    "mac-arm64": ("aarch64-apple-darwin", ("macosx_11_0_arm64",)),
+    "mac-x64": ("x86_64-apple-darwin", ("macosx_11_0_x86_64", "macosx_10_13_x86_64", "macosx_10_9_x86_64")),
+    "win-x64": ("x86_64-pc-windows-msvc", ("win_amd64",)),
+}
+SKETCHUP_PIP_PACKAGES = ("numpy", "shapely>=2.1")   # shapely 2.1+ = constrained_delaunay_triangles(mesh_geometry 겹치기 CDT)
+SKETCHUP_PLAIN_NAMES = ("loader.py", "cmd_site.py", "cmd_sketchup.py")
+SKETCHUP_EXCLUDED_NAMES = ("panel_host", "cmd_install", "blender_baker")   # Rhino·Blender 전용
+# 런타임에서 뺄 것(번들 크기) — 런타임 루트 기준 glob. 표준 라이브러리 lib/python3.12(맥)·Lib(윈도)는 {lib}로 쓴다
+# 맥 실행 파일 python3.12는 정적 링크라 libpython dylib가 필요 없고, bin/python·python3 링크는 zip에서 18 MB 사본이 된다(2026-10-18 실측)
+SKETCHUP_PYTHON_DROP = ("bin/2to3*", "bin/idle3*", "bin/pip*", "bin/pydoc3*", "bin/python3*-config", "bin/python", "bin/python3", "lib/libpython3*.dylib",
+                        "include", "share", "lib/pkgconfig",
+                        "lib/tcl*", "lib/tk*", "lib/itcl*", "lib/thread*", "lib/libtcl*", "lib/libtk*", "Scripts", "libs", "tcl",
+                        "DLLs/_tkinter.pyd", "DLLs/tcl*.dll", "DLLs/tk*.dll", "{lib}/config-3.12-darwin", "{lib}/lib-dynload/_tkinter*",
+                        "{lib}/idlelib", "{lib}/tkinter", "{lib}/turtledemo", "{lib}/test", "{lib}/ensurepip", "{lib}/lib2to3", "{lib}/pydoc_data",
+                        "{lib}/site-packages/pip", "{lib}/site-packages/pip-*", "{lib}/site-packages/numpy/**/tests", "{lib}/site-packages/shapely/tests")
+SKETCHUP_ROOT_SOURCE = '''# UrbanSite — 도시설계 착수용 대지 컨텍스트(주변 건물·도로·지형·수계 3D, 베이스맵, 현황도). 본문은 %(id)s/main.rb
+require "sketchup.rb"
+require "extensions.rb"
+
+module BSH
+  module UrbanSite
+    unless file_loaded?(__FILE__)
+      extension = SketchupExtension.new("UrbanSite", "%(id)s/main")
+      extension.description = "필지·주소로 대상지를 고르면 주변 건물·도로·지형·수계를 3D로 만들고 베이스맵(.ai)·현황도(SVG)를 냅니다. " \\
+                              "한국은 공공데이터, 해외는 OpenStreetMap. Extensions > UrbanSite"
+      extension.version = "%(version)s"
+      extension.creator = "%(creator)s"
+      extension.copyright = "%(year)s %(creator)s"
+      Sketchup.register_extension(extension, true)
+      file_loaded(__FILE__)
+    end
+  end
+end
+'''
+
+
+def _get_python_runtime(platform):
+    # type: (str) -> str
+    """python-build-standalone tar를 build/cache/에 받아 두고 경로를 돌려준다(있으면 다시 받지 않는다)."""
+    url = SKETCHUP_PYTHON_URL % SKETCHUP_PLATFORMS[platform][0]
+    path = os.path.join(BUILD_DIR, "cache", os.path.basename(url).replace("%2B", "+"))
+    if not os.path.exists(path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        print("  받기 %s" % os.path.basename(path))
+        subprocess.run(["curl", "-sSLf", "-o", path + ".part", url], check=True)
+        os.replace(path + ".part", path)
+    return path
+
+
+def _get_site_packages(runtime_dir):
+    # type: (str) -> str
+    win = os.path.exists(os.path.join(runtime_dir, "python.exe"))
+    return os.path.join(runtime_dir, "Lib" if win else os.path.join("lib", "python" + SKETCHUP_PYTHON_VERSION), "site-packages")
+
+
+def _stage_python(python_dir):
+    # type: (str) -> str
+    """플랫폼마다 런타임을 풀고 numpy·shapely 휠을 깔고 줄인 뒤 .pyc(unchecked-hash)를 만든다. 이 Mac에서 돌릴 파이썬 경로를 돌려준다."""
+    import glob
+    import tarfile
+    host_python = os.path.join(python_dir, "mac-arm64", "bin", "python3.12")
+    for platform in SKETCHUP_PLATFORMS:   # mac-arm64가 처음 — 그 pip로 다른 플랫폼 휠도 받는다
+        runtime_dir = os.path.join(python_dir, platform)
+        with tarfile.open(_get_python_runtime(platform)) as tar:
+            tar.extractall(python_dir)   # 공식 릴리스(HTTPS) — 이것을 그대로 배포한다
+        os.rename(os.path.join(python_dir, "python"), runtime_dir)
+        site = _get_site_packages(runtime_dir)
+        platform_args = [arg for tag in SKETCHUP_PLATFORMS[platform][1] for arg in ("--platform", tag)]
+        subprocess.run([host_python, "-m", "pip", "install", "-q", "--disable-pip-version-check", "--upgrade", "--target", site,
+                        "--only-binary=:all:", "--implementation", "cp", "--python-version", SKETCHUP_PYTHON_VERSION] + platform_args
+                       + list(SKETCHUP_PIP_PACKAGES), check=True)
+    for platform in SKETCHUP_PLATFORMS:
+        runtime_dir = os.path.join(python_dir, platform)
+        lib = os.path.relpath(os.path.dirname(_get_site_packages(runtime_dir)), runtime_dir)
+        for pattern in SKETCHUP_PYTHON_DROP:
+            for path in glob.glob(os.path.join(runtime_dir, pattern.format(lib=lib)), recursive=True):
+                if os.path.isdir(path) and not os.path.islink(path):
+                    shutil.rmtree(path)
+                elif os.path.lexists(path):
+                    os.remove(path)
+        shutil.rmtree(os.path.join(_get_site_packages(runtime_dir), "bin"), ignore_errors=True)
+        subprocess.run([host_python, "-m", "compileall", "-q", "-f", "-j", "0", "--invalidation-mode", "unchecked-hash",
+                        os.path.join(runtime_dir, lib)], check=True)
+    return host_python
+
+
+def _write_icon(path, size):
+    # type: (str, int) -> None
+    """도구 막대 아이콘 PNG — 웹사이트 favicon과 같은 표식(검은 테두리 정사각 3×3 방안 + 가운데 파란 칸). sheet_svg PNG 작성기를 쓴다."""
+    import base64
+    import sheet_svg
+    edge, grid, blue, white = (17, 20, 24), (201, 210, 222), (0, 87, 255), (255, 255, 255)
+    pixels = []
+    for row in range(size):
+        for col in range(size):
+            u, v = (col + 0.5) * 32.0 / size, (row + 0.5) * 32.0 / size
+            if u < 2 or v < 2 or u > 30 or v > 30:
+                pixels.append(edge)
+            elif 11 <= u <= 21 and 11 <= v <= 21:
+                pixels.append(blue)
+            elif min(abs(u - 11), abs(u - 21), abs(v - 11), abs(v - 21)) < 0.75:
+                pixels.append(grid)
+            else:
+                pixels.append(white)
+    with open(path, "wb") as f:
+        f.write(base64.b64decode(sheet_svg._get_png_uri(pixels, size).split(",", 1)[1]))
+
+
+def build_sketchup():
+    # type: () -> str
+    """build/sketchup/에 확장 폴더를 모아 build/bsh_urbansite-<버전>.rbz로 묶는다. rbz 경로를 돌려준다."""
+    import zipfile
+    work_dir = os.path.join(BUILD_DIR, "sketchup")
+    shutil.rmtree(work_dir, ignore_errors=True)
+    ext_dir = os.path.join(work_dir, SKETCHUP_EXT_ID)
+    target = os.path.join(ext_dir, "scripts")
+    os.makedirs(target)
+    host_python = _stage_python(os.path.join(ext_dir, "python"))
+    for name in SKETCHUP_PLAIN_NAMES + UI_FILE_NAMES:
+        shutil.copyfile(os.path.join(SCRIPTS_DIR, name), os.path.join(target, name))
+    for dir_name in UI_DIR_NAMES:
+        shutil.copytree(os.path.join(SCRIPTS_DIR, dir_name), os.path.join(target, dir_name))
+    names = [n[:-3] for n in sorted(os.listdir(SCRIPTS_DIR)) if n.endswith(".py") and n[:-3] not in SKETCHUP_EXCLUDED_NAMES
+             and n[:-3] != "loader" and not n.startswith(("dev_", "cmd_", "probe_", "server_", "blender_", "web_"))]
+    compile_source = ("import py_compile, sys\nsource, target = sys.argv[1:3]\n"
+                      "for name in sys.argv[3:]:\n"
+                      "    py_compile.compile(source + '/' + name + '.py', cfile=target + '/' + name + '.pyc', dfile=name + '.py', doraise=True, optimize=2)\n")
+    subprocess.run([host_python, "-I", "-c", compile_source, SCRIPTS_DIR, target] + names, check=True)
+    shutil.copyfile(os.path.join(SCRIPTS_DIR, "sketchup_ext.rb"), os.path.join(ext_dir, "main.rb"))
+    os.makedirs(os.path.join(ext_dir, "icons"))
+    _write_icon(os.path.join(ext_dir, "icons", "urbansite.png"), 32)
+    for path in DOC_FILE_NAMES:
+        os.makedirs(os.path.join(ext_dir, os.path.dirname(path)), exist_ok=True)
+        shutil.copyfile(os.path.join(ROOT_DIR, path), os.path.join(ext_dir, path))
+    with open(os.path.join(work_dir, SKETCHUP_EXT_ID + ".rb"), "w", encoding="utf-8") as f:
+        f.write(SKETCHUP_ROOT_SOURCE % {"id": SKETCHUP_EXT_ID, "version": PACKAGE_VERSION, "creator": PUBLISHER["name"],
+                                        "year": datetime.date.today().year})
+    print("  로직 모듈 %d개 컴파일" % len(names))
+    rbz = os.path.join(BUILD_DIR, "%s-%s.rbz" % (SKETCHUP_EXT_ID, PACKAGE_VERSION))
+    with zipfile.ZipFile(rbz, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+        for folder, _dirs, files in os.walk(work_dir):
+            for name in sorted(files):
+                path = os.path.join(folder, name)
+                zf.write(path, os.path.relpath(path, work_dir))   # 심볼릭 링크는 원본 내용으로(rbz를 푸는 SketchUp이 링크를 모른다)
+    return rbz
+
+
+# ── web ─────────────────────────────────────────────────
+
+WEB_DIR = os.path.join(BUILD_DIR, "web")
+WEB_EXCLUDED_PREFIXES = ("dev_", "probe_", "server_", "blender_", "sketchup_")
+WEB_EXCLUDED_NAMES = ("panel_host", "panel_server", "cmd_install", "cmd_blender", "cmd_sketchup")   # Rhino·Blender·SketchUp 연결
+
+
+def build_web():
+    # type: () -> str
+    """build/web/에 웹판 정적 파일을 모은다. 폴더 경로를 돌려준다."""
+    import zipfile
+    sys.path.insert(0, SCRIPTS_DIR)
+    import panel_server
+    shutil.rmtree(WEB_DIR, ignore_errors=True)
+    os.makedirs(WEB_DIR)
+    shutil.copyfile(os.path.join(SCRIPTS_DIR, "web_app.html"), os.path.join(WEB_DIR, "index.html"))
+    shutil.copyfile(os.path.join(SCRIPTS_DIR, "web_worker.js"), os.path.join(WEB_DIR, "web_worker.js"))
+    with open(os.path.join(WEB_DIR, "panel.html"), "w", encoding="utf-8") as f:
+        f.write(panel_server.get_html())
+    names = [n for n in sorted(os.listdir(SCRIPTS_DIR)) if n.endswith(".py") and not n.startswith(WEB_EXCLUDED_PREFIXES)
+             and n[:-3] not in WEB_EXCLUDED_NAMES]
+    with zipfile.ZipFile(os.path.join(WEB_DIR, "scripts.zip"), "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+        for name in names:
+            zf.write(os.path.join(SCRIPTS_DIR, name), name)
+    print("  모듈 %d개 · scripts.zip %.0f KB · panel.html %.0f KB" % (len(names), os.path.getsize(os.path.join(WEB_DIR, "scripts.zip")) / 1e3,
+                                                                  os.path.getsize(os.path.join(WEB_DIR, "panel.html")) / 1e3))
+    return WEB_DIR
 
 
 # ── packs ───────────────────────────────────────────────
@@ -835,8 +1049,8 @@ def rebounds():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Yak 패키지·Blender 확장·데이터 팩 빌드")
-    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "blender", "packs", "repack", "upload", "rebounds"))
+    parser = argparse.ArgumentParser(description="Yak 패키지·Blender·SketchUp 확장·웹판·데이터 팩 빌드")
+    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "blender", "sketchup", "web", "packs", "repack", "upload", "rebounds"))
     parser.add_argument("--sido", help="packs: 쉼표로 구분한 시도 코드만 (기본 data/에 있는 전부)")
     parser.add_argument("--drop", action="store_true", help="packs: 압축 뒤 원본 시도 DB를 지운다(서울 제외)")
     args = parser.parse_args()
@@ -845,6 +1059,15 @@ def main():
     if args.what == "blender":
         print("blender: %s" % build_blender())
         print("  설치: Blender 4.2+ 환경 설정 > Get Extensions > Install from Disk, 또는 Blender -c extension install-file -r user_default -e <zip>")
+        return
+    if args.what == "sketchup":
+        rbz = build_sketchup()
+        print("sketchup: %s (%.0f MB)" % (rbz, os.path.getsize(rbz) / 1e6))
+        print("  설치: SketchUp 2022+ 확장 > Extension Manager > Install Extension, 올리기: docs/sketchup_store.md")
+        return
+    if args.what == "web":
+        print("web: %s" % build_web())
+        print("  로컬 시험: python3 -m http.server -d build/web 8766 → http://127.0.0.1:8766/ (팩 주소는 ?manifest=)")
         return
     if args.what == "upload":
         print("manifest: %s" % upload())

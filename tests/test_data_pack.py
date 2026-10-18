@@ -87,6 +87,24 @@ class LocalPackTest(unittest.TestCase):
             self.assertEqual(sorted(r["pnu"] for r in connection.execute("SELECT pnu FROM parcels")), ["11", "41"])
             connection.close()
 
+    def test_group_without_table(self):
+        """상한을 넘어 묶음으로 나뉠 때 테이블이 없는 묶음(등고선 팩만)은 건너뛴다. 어디에도 없으면 오류."""
+        with tempfile.TemporaryDirectory() as data_dir:
+            paths = []
+            for n in range(data_pack.constants.DATA_MAX_OPEN_FILES + 1):
+                path = os.path.join(data_dir, "%05d.db" % n)
+                connection = sqlite3.connect(path)
+                connection.execute("CREATE TABLE %s (v INTEGER)" % ("features" if n == data_pack.constants.DATA_MAX_OPEN_FILES else "buildings"))
+                connection.execute("INSERT INTO %s VALUES (?)" % ("features" if n == data_pack.constants.DATA_MAX_OPEN_FILES else "buildings"), (n,))
+                connection.commit()
+                connection.close()
+                paths.append(path)
+            connection = data_pack.open_databases(paths)
+            self.assertEqual(len(connection.execute("SELECT v FROM buildings").fetchall()), data_pack.constants.DATA_MAX_OPEN_FILES)
+            with self.assertRaises(sqlite3.OperationalError):
+                connection.execute("SELECT v FROM roads")
+            connection.close()
+
 
 class _QuietHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *args):

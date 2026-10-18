@@ -73,14 +73,15 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `import_context` | `dir`(결과 폴더 절대경로) | `busy{on}` → `imported` → `busy{off}` | 재삽입: 같은 `URBANSITE_LOT_KEY` 객체 삭제 후 `context_baker.import_3dm`(`context.json.origin`이 문서 원점과 다르면 차이만큼 이동). `zoom_after_import`면 줌 |
 | `export_basemap` | `dir`, `scale`(1000\|3000\|5000) | `busy{on}` → `exported` → `busy{off}` | `context_builder.export_basemap(dir, scale)`: 결과 폴더의 `context.json`(pnus·options)으로 DB에서 다시 `prepare` → `basemap_ai.write_basemap` → `<dir>/basemap_<scale>.ai`. 문서를 거치지 않는다(import 불필요, 1초 안팎). 축척별 레이어 표(`constants.BASEMAP_SCALE_LAYERS`): 1:1000 = `08`(지적선) on · `08b`(지번) on, 1:3000 = `08` on · `08b` off, 1:5000 = `08`·`08b` off. 실패하면 `exported{ok:false, text}` |
 | `zoom_view` | `dir`(결과 폴더 절대경로), `center`[lng,lat](선택) | — (`error{context:"open"}`) | `import_context`·`export_basemap`과 같은 꼴 — JS가 `result.dir`을 붙인다(Python은 마지막 결과 폴더를 기억하지 않는다). `center` 없으면 `CTX::Site` 객체로 줌. 있으면 `<dir>/context.json`의 ORIGIN으로 문서 좌표 환산 후 그 점 주변 100 m |
-| `open_path` | `path`(str) | — (`error{context:"open"}`) | 절대경로 또는 프로젝트 루트 상대(`docs/data_sources.md`, `.env`, `data`). 폴더 = 탐색기, 파일 = OS 기본 앱. `.env`가 없으면 두 줄 템플릿(`VWORLD_API_KEY=`·`DATA_GO_KR_KEY=`)을 만든 뒤 연다. 외부 URL은 열지 않는다(WebView가 이동하므로 JS에서도 링크 금지) |
+| `open_path` | `path`(str) | — (`error{context:"open"}`) | 절대경로 또는 프로젝트 루트 상대(`docs/data_sources.md`, `.env`, `data`). 폴더 = 탐색기, 파일 = OS 기본 앱. `.env`가 없으면 한 줄 템플릿(`VWORLD_API_KEY=`)을 만든 뒤 연다. 외부 URL은 열지 않는다(WebView가 이동하므로 JS에서도 링크 금지 — 토지이음은 `open_eum`) |
+| `open_eum` | `pnu`(19자리) | — (`error{context:"open"}`) | ① 필지 정보 [토지이음 ↗]. Python이 `constants.EUM_LAND_USE_URL % pnu`를 만들어 OS 브라우저로 연다(임의 URL은 받지 않는다) |
 | `save_prefs` | `options` | — | `prefs.json`에 `options`만 덮어쓴다(`recent`는 `generate` 성공 시 Python이 갱신) |
 | `style_preview` | `dir`, `sheet_id`(0~15), `style`(스타일 dict), `seq` | `style_preview`(같은 `seq`) / `error{context:"style"}` | ③ 결과의 도면 스타일 화면. `context_builder.preview_sheet` — 한 장을 스타일로 다시 그린 SVG 문자열(파일 안 씀). 시트 데이터는 컨트롤러 `_keep`(이번 세션 생성 결과, 지형 삼각형 포함), 없으면 `context.json`으로 한 번 prepare(지형 시트는 비어 나온다). SVG id·`url(#…)`은 `pv_` 접두어(패널 `#map`과 겹치지 않게). JS 250 ms 디바운스, 늦은 `seq`는 버린다 |
 | `apply_style` | `dir`, `style` | `busy{on}` → `style_applied` → `busy{off}` | `context_builder.apply_style` — 결과 폴더의 시트 전부 + 이미 쓴 `basemap_<축척>.ai`를 다시 쓰고 `context.json.options.style`을 바꾼다. 지형 삼각형이 없으면 지형 시트 파일은 그대로(`kept`). JS는 성공하면 `options.style`을 `save_prefs` |
 | `save_style` | `name`, `style` | `styles` / `error{context:"style"}` | `site_prefs.save_style` → `HOME_DIR/styles/<이름>.json`(경로 문자 제거, 같은 이름 덮어씀). 사무소 표준을 파일로 나눠 쓴다 |
 | `sheet_ai` | `dir`, `path`(도면 SVG) 또는 `all:true` | `busy{on}` → `sheet_ai` → `busy{off}` | `sheet_svg.get_sheet_ai` — 도면 SVG를 레이어 .ai로(없거나 SVG보다 오래됐을 때만 다시 쓴다). 한 장이면 쓰고 OS로 연다. 생성 때 .ai를 다 쓰지 않는다(23장이면 Rhino에서 10 s+) |
 | `area_packs` | `bbox`([서, 남, 동, 북] 경위도), `seq` | `area_packs` | 지도 이동(600 ms 디바운스)마다. 화면에 걸리는데 파일이 없는 시군구 **필지** 팩 `{seq, missing[{name, label, mb}], mb, labels}`(건물·도로·지형 팩과 새 판은 생성할 때 범위만) — 해외·매니페스트 없음·오프라인은 빈 목록. 배율 16 이상이면 JS가 곧바로 `download_data{names}` |
-| `stats_consent` | `on`(bool) | 없음 (`error{context:"init"}`) | Blender만 — 사용 통계 동의를 `~/.urbansite/prefs.json`에 남긴다. `usage_stats.is_enabled`가 Blender면 이 값이 true일 때만 보낸다(확장 약관 4.5) |
+| `stats_consent` | `on`(bool) | 없음 (`error{context:"init"}`) | Blender·SketchUp만 — 사용 통계 동의를 `~/.urbansite/prefs.json`에 남긴다. `usage_stats.is_enabled`가 `host.ask_stats` 호스트면 이 값이 true일 때만 보낸다(Blender 확장 약관 4.5, Extension Warehouse 개인정보 심사) |
 | `download_data` | `names`(선택 — 없으면 전부) | `data_progress`×N → `data_progress{done}` → `init_state` (`error{context:"init"}`) | 지도 자동 받기·진행 줄 [다시 받기]. 멈추면 그때까지 받은 팩은 남는다(받던 팩은 버리고 쓰던 DB는 그대로). `data_pack`이 매니페스트(`constants.DATA_MANIFEST_URL`)의 절대 주소에서 `HOME_DIR/data/`로 받는다. `generate`도 시작 전에 같은 방식으로 범위(`context_builder.get_query_bounds`)에 걸치는 없거나 새 판인 시군구 팩을 받는다 |
 
 명령 16개(+ 도면 스타일 3개·도면 .ai 1개, 2026-10-13). `auth_pin`(옛 PIN 인증)은 없다 — 사내 배포라 인증 게이트 없음.
@@ -108,18 +109,29 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
  "age_months":4.8,"level":"ok|warn|danger|missing",
  "newer_date":null,                                        // 새 판 기준일. 캐시 없음·조회 실패 = null
  "coverage":{"have":3,"total":4,"missing":[{"topo_sheet":"37705073","dir":"북동","center":[lng,lat]}]},  // terrain만, preflight만. 도엽 = topo_sheet
- "keys":{"vworld":true,"data_go_kr":false},                // api만. VWorld(건물 최신화) · 공공데이터포털(건축HUB 철거·말소)
- "text":"4.8개월"}                                         // 행 오른쪽 짧은 부가. api: "키 2/2" | "브이월드만" | "포털만" | "없음"
+ "keys":{"vworld":true},                                  // api만. VWorld — 지도·위성 배경, 항공사진, 주소 보조 검색(없으면 OSM·Esri·지명 검색)
+ "text":"4.8개월"}                                         // 행 오른쪽 짧은 부가. api: "있음" | "없음"
 ```
 
-`level` 규칙(data_sources §2.4): `warn` = 경과 ≥ 노랑 임계 AND `newer_date` 있음, `danger` = 경과 ≥ 빨강 임계(새 판 무관), `missing` = 원천 없음(컨텍스트 DB 없음·키 둘 다 없음), 그 외 `ok`. `api`는 둘 중 하나만 있으면 `warn`(text "브이월드만" — 철거·말소 반영 생략 / "포털만" — 건물 최신화 생략). 생성은 어느 경우도 막지 않는다.
+`level` 규칙(data_sources §2.4): `warn` = 경과 ≥ 노랑 임계 AND `newer_date` 있음, `danger` = 경과 ≥ 빨강 임계(새 판 무관), `missing` = 원천 없음(컨텍스트 DB 없음·키 없음), 그 외 `ok`. 생성은 어느 경우도 막지 않는다.
 
-### 브라우저 호스트 (Blender)
+### 브라우저 호스트 (Blender·SketchUp)
 
-Blender에는 웹뷰가 없어 `cmd_blender.py`가 127.0.0.1에 서버를 띄우고 기본 브라우저로 `/?token=<세션 토큰>`을 연다. JS는 URL에 토큰이 있으면
+Blender·SketchUp에는 Rhino식 웹뷰 브리지가 없어 `panel_server.Bridge`가 127.0.0.1에 서버를 띄우고 `/?token=<세션 토큰>`을 연다 —
+Blender는 기본 브라우저(`cmd_blender.py`), SketchUp은 `UI::HtmlDialog`(`sketchup_ext.rb`가 사이드카 `cmd_sketchup.py`의 첫 줄 주소를 연다). JS는 URL에 토큰이 있으면
 `send()`를 `POST cmd?token=…`(본문 = 명령 JSON)으로, 푸시는 `EventSource("events?token=…")`의 `data:` 한 줄(= 푸시 JSON)로 받는다.
 이벤트 줄이 열린 뒤(`onopen`) `init`을 보낸다 — 다시 연결돼도 init으로 전부 다시 받는다. 새 이벤트 줄이 열리면 앞 줄로는 보내지 않는다(탭 하나).
-명령은 Blender 메인 스레드(bpy.app.timers)에서 처리하고, `cancel`만 서버 스레드가 바로 플래그를 세운다. 토큰이 틀리면 403.
+명령은 호스트 메인 스레드(Blender = bpy.app.timers, SketchUp 사이드카 = 메인 루프)에서 처리하고, `cancel`·`host_reply`만 서버 스레드가 바로 받는다. 토큰이 틀리면 403.
+
+SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지지 못해 패널을 거쳐 Ruby를 부른다(엔진 `run`은 응답을 기다리며 막혀 있다):
+
+```jsonc
+{"type":"host_call","id":3,"method":"bake","args":{"path":"/tmp/urbansite_bake_….json"}}   // 푸시 → JS가 window.sketchup.host_call(JSON 문자열)
+{"cmd":"host_reply","id":3,"ok":true,"result":[…],"error":""}                               // 명령 ← Ruby가 execute_script("send(…)")로 보낸다
+```
+
+`method` = `get_model_attrs{keys}`·`set_model_attrs{values}`·`clear{lot_key}`·`bake{path}`·`ref{…}`·`save{path}`·`zoom{lot_key, box}`·`import{path, lot_key, lot_name, shift}`·`pick_curve{}`
+(`sketchup_baker`·`cmd_sketchup`이 부르고 `sketchup_ext.rb`의 `rpc_<method>`가 받는다). `window.sketchup`이 없는 창(일반 브라우저)이면 무시한다 — 사이드카는 `SKETCHUP_HOST_TIMEOUT` 뒤 실패.
 
 ### 푸시 정의
 
@@ -129,11 +141,11 @@ Blender에는 웹뷰가 없어 `cmd_blender.py`가 127.0.0.1에 서버를 띄우
  "blocked":false,                                 // true = 필지 DB 없음 → 블로커(차단은 이것뿐. 컨텍스트 DB 없음은 경고)
  "paths":{"root":"<HOME_DIR>","lot_db":"data/seoul_site.db","context_db":"data/seoul_context.db","env":".env","install_doc":"docs/install.md"},
  "generator":{"ok":true,"python":"Rhino Python","text":"Rhino 내장"},   // 항상 ok. UI 호환용(블로커 3행째는 ✓ 고정). Blender면 "Blender …"
- "host":{"id":"rhino","name":"Rhino","doc":"Rhino 문서","model":"context.3dm","dwg":true,"ask_stats":false},   // constants.HOST_LABELS — 패널 문구(문서 이름·모델 파일)와 DWG 옵션 표시. Blender = {"id":"blender","name":"Blender","doc":"Blender 장면","model":"context.blend","dwg":false,"ask_stats":true}
+ "host":{"id":"rhino","name":"Rhino","doc":"Rhino 문서","model":"context.3dm","dwg":true,"ask_stats":false},   // constants.HOST_LABELS — 패널 문구(문서 이름·모델 파일)와 DWG 옵션 표시. Blender = {"id":"blender","name":"Blender","doc":"Blender 장면","model":"context.blend","dwg":false,"ask_stats":true}, SketchUp = {"id":"sketchup",…,"model":"context.skp","dwg":false,"ask_stats":true}
  "stats_consent":null,                            // 사용 통계 동의 true|false|null(안 물음) — host.ask_stats(Blender + 측정 ID 있음)면 null일 때 정보 띠로 한 번 묻고([보내기]·[보내지 않음] → stats_consent{on}), 더보기 메뉴 설정에서 바꾼다
  "can_download":true,                             // DATA_MANIFEST_URL이 있으면 블로커에 [DB 받기]·[멈추기]
- "sources":[source, source, source, source],      // id = lot, building, terrain, api 순서 고정(헤더 자료 날짜·더보기 메뉴 자료 칸·블로커 체크리스트)
- "warnings":[warning],                            // 더보기 메뉴 자료 칸(no_api_key는 설정 칸 API 키 행). warn·danger면 헤더 자료 날짜 옆 점. 띠로 띄우지 않는다
+ "sources":[source, source, source, source],      // id = lot, building, terrain, api 순서 고정(더보기 메뉴 자료 칸·블로커 체크리스트·첫 실행 모드 판정)
+ "warnings":[warning],                            // 더보기 메뉴 자료 칸(no_api_key는 설정 칸 API 키 행). warn·danger면 메뉴 버튼의 점(Korea 모드). 띠로 띄우지 않는다
  "tile":{"url":"…","fallback_url":"…","attribution":"…","abroad_url":"…","abroad_attribution":"…",
          "aerial_url":"…","aerial_attribution":"…","abroad_aerial_url":"…","abroad_aerial_attribution":"…"},   // review_map.get_tile_config(). 지도 중심이 map.korea_bounds 밖이면 abroad_url(OSM). 지도 오른쪽 아래 [위성]을 누르면 aerial_url(VWorld 영상, 키 없으면 Esri) — 해외·폴백 뒤는 abroad_aerial_url(Esri)
  "map":{"center":[126.9784,37.5665],"zoom":16},              // review_map.get_map_init()
@@ -154,8 +166,14 @@ Blender에는 웹뷰가 없어 `cmd_blender.py`가 127.0.0.1에 서버를 띄우
    // properties = {pnu, address, jibun, land_category, area}. review_map.get_parcels_in_bbox 그대로
 
 {"type":"lot_state",
- "lots":[{"pnu":"…","address":"…","jibun":"277-17","land_category":"대","area":612.3,"warn":null}],   // warn: "multipart"|"hole"|null
+ "lots":[{"pnu":"…","address":"…","jibun":"277-17","land_category":"대","area":612.3,"warn":null,   // warn: "multipart"|"hole"|null
+          // ① 필지 정보(접힘) — 로컬 DB만. zones = 토지특성 용도지역 1·2('지정되지않음' 제외) + 법정 [건폐 상한, 용적 하한, 상한] %
+          // (constants.LEGAL_ZONE_LIMITS, 시행령 제84·85조 — 조례값 아님, 표에 없으면 null). designations = 토지이용계획 포함·저촉(접함 제외,
+          // 용도지역과 같은 이름 제외). area_gap = 도형(연속지적도) − 대장 ㎡(대장 없으면 null), flag = |차이| ≥ AREA_GAP_FLAG_RATIO × 대장
+          "zones":[{"name":"제2종일반주거지역","limits":[60,100,250]}],"designations":[{"name":"교육환경보호구역","conflict":"저촉"}],
+          "registered_area":612.3,"geometry_area":615.8,"area_gap":3.5,"area_gap_flag":false,"reference_date":"2026-05-13"}],
  "total_area":1234.5,
+ "land_use_date":"2026-08-25",                     // 토지이용계획 data_sources 기준일(데이터기준일자 최댓값). 예전 팩은 ""
  "lot_name":"성수동2가_277-17외1",                 // 결과 폴더명·recent 라벨 원본
  "center":[lng,lat],                             // 원점 후보(100 m 내림 전 값)
  "target_geojson":FC,                            // 필지별 role="lot" + 합집합 1개 role="target"
@@ -226,12 +244,18 @@ Blender에는 웹뷰가 없어 `cmd_blender.py`가 127.0.0.1에 서버를 띄우
 - 배포 팩은 시군구 단위 `<시군구코드>_<site|context|terrain>.db.xz`(dev_deploy가 시도 DB를 200 m 격자·PNU로 나눈다, 경계 객체는 양쪽에). 런타임은 대상지 범위에 걸리는 파일만 열고 id로 중복을 걷어 낸다.
 - 필지 DB가 없어도 `can_download`면 블로커 없이 지도로 시작한다. 지도가 배율 16 이상이면 `area_packs`의 안 받은 팩을 저절로 `download_data{names}`(새 판은 칩 [받기]로만). 칩 [멈추기]를 누르면 그 패널에서는 자동 받기를 끈다. 블로커는 받을 곳이 없을 때(`can_download=false`)만.
 
-## 해외 대상지 (2026-10-13)
+## 데이터 모드 Korea · Global (2026-10-16 — 옛 '해외 대상지')
 
-- 대상지 중심(구역 링 평균·위치 점)이 `map.korea_bounds` 밖이면 `set_area`·`set_point`가 투영 원점을 그 중심으로 옮긴다(`non_rhino_utils.set_projection`). 이후 `ring_tm`·`center_tm`은 그 지역 횡메르카토르 m이다. `select_lots`는 늘 EPSG:5186으로 되돌린다.
-- `preflight`·`generate`는 해외면 필지 DB를 보지 않고 `osm_context`(Overpass·지형 타일·인터넷 필요)를 쓴다. 필지가 필요한 시트는 빈 시트, 경고 `abroad`.
-- 블로커(필지 DB 없음)에 [DB 없이 해외 대상지로 계속] — JS `state.abroadOnly = true`, 필지 방식 칸 비활성(필지 방식이었으면 위치 방식으로), 이후 `init_state.blocked`를 무시한다.
-- `search`: 국내 필지에서 못 찾거나 필지 DB가 없으면 OSM Nominatim 지명 후보 — `matches[].pnu = ""`, `center` 있음. JS는 위치 방식이면 `set_point`, 아니면 지도만 옮긴다.
+- 헤더 오른쪽 두 칸 토글(옛 자료 날짜 배지 자리). `options.region` = `kr`(국가 DB — 필지·건축물대장·UPIS·수치지형도, 한국 대상지만) | `global`(OSM·지형 타일 — 어디서나). prefs에 저장. 자료 날짜는 더보기 메뉴 '자료'로, 자료 경고(warn·danger)는 메뉴 버튼의 점(Korea 모드만).
+- 첫 실행(`options.region = null`)은 JS가 정한다: 국내 필지 DB가 있거나 · 시간대 `Asia/Seoul`(`Intl`) · 언어 `ko*`(`navigator.languages`) 중 하나면 `kr`, 아니면 `global`. 망 접속 없음, Mac·Windows 웹뷰·Blender 브라우저 공통.
+- `search`·`set_area`·`set_point`·`preflight`에 JS가 `region`을 붙인다(`REGION_CMDS`). Global이면 필지 DB를 보지 않는다 — 검색은 Nominatim만, 구역 안 필지 0, preflight는 DB 개수 대신 경고 `abroad`, 생성은 `osm_context`(Overpass·지형 타일, 팩 받기 없음). 엔진 판정은 `context_builder.is_global(request)` = `region == "global"` 또는 지역 TM 원점.
+- 좌표계는 모드가 아니라 위치로 정한다: 대상지 중심이 `map.korea_bounds` 밖이면 `set_area`·`set_point`가 투영 원점을 그 중심으로(`non_rhino_utils.set_projection`, 이후 `ring_tm`·`center_tm`은 지역 횡메르카토르 m), 한국 안이면 Global이어도 EPSG:5186. `select_lots`는 늘 EPSG:5186.
+- Global: 필지 방식 칸 비활성(필지 방식이었으면 위치 방식으로), 지도 필지선·시군구 팩 칩·DB 안내 화면 없음, 구역 '필지 경계에 맞추기'·안의 필지 수 없음. 도면 목록은 `sheet_catalog[].korea_only`(= `constants.SHEET_KOREA_ONLY`)를 뺀다 — 엔진도 `get_sheet_ids`에서 뺀다.
+- Korea에서 대상지가 한국 밖이 되면(`area_state`·`point_state` 중심) Global로 바꾸고 토스트. 한국 밖 대상지가 있는 채로 Korea는 고를 수 없다. 최근 대상지(필지)를 고르면 Korea로.
+- 블로커(필지 DB 없음, 받을 곳 없음)는 Korea 모드에서만, 버튼 [Global로 쓰기].
+- 하는 일이 없는 칸은 보이지 않는다: Global은 고급의 무벽·가건물·도시계획 경계선, 베이스맵 레이어 토지이용·용도지역, 결과 신뢰도의 정합 오차·국가 DB 기준일·필지 수가 없다. 한국 밖 대상지는 ③ 좌표 칸이 없고 늘 원점으로(실제 좌표가 지역 TM이라 GIS와 겹칠 수 없다). 행이 없는 조서 CSV는 쓰지 않는다.
+- Global 역세권·공공시설 도면 = OSM `railway=station` 점(이름 있는 것) · 학교 면(학교 부지)·`place=square`(광장) · 시설 면(`constants.OSM_PUBLIC_USE`) 안 용도 미상 건물에 국내 용도 대분류(osm_context._apply_public_use).
+- `search`(Korea): 국내 필지에서 못 찾거나 필지 DB가 없으면 OSM Nominatim 지명 후보 — `matches[].pnu = ""`, `center` 있음. JS는 위치 방식이면 `set_point`, 아니면 지도만 옮긴다.
 
 ## 대상지 방식 (2026-10-10)
 
@@ -272,12 +296,13 @@ Blender에는 웹뷰가 없어 `cmd_blender.py`가 127.0.0.1에 서버를 띄우
  "flatten_site":false,"flatten_level":"mean",          // 대상지 평탄화(lots·area) — 높이 = 대상지 경계 자연 지반 mean|min|max
  "site_output":"curve",                                // 대상지 표시(lots·area): curve = 경계 커브만, mesh = 바닥 메시도(CTX::Site::ground). 방식 기본: 필지 mesh, 구역 curve
  "import_after":true,                                  // context.3dm은 항상 쓴다(산출물의 뼈대, 수 초). 끌 수 있는 건 Import뿐
- "make_basemap":true,"paper":"A3","paper_mm":[420,297],"scales":[5000],"basemap_layers_on":[],   // A3 가로 = 분석도 템플릿 기준(2026-10-13)   // "02b_landuse"|"05_road_center"|"11_zoning"
+ "make_basemap":true,"paper":"A3","paper_mm":[420,297],"scales":[5000],"basemap_layers_on":[],   // A3 가로 = 분석도 템플릿 기준(2026-10-13)   // "02b_landuse"|"05_road_center"|"11_zoning" — Global은 05만 보인다
                                                        // scales: ② 프레임 미리보기·③ .ai select 기본값 전용(prefs·preflight에만). generate 페이로드에서 JS가 뺀다. dirty 판정 제외
  "make_sheets":true,"sheet_ids":[0,1,…,22],"floor_breaks":[12,20],"elev_preset":"20m",   // "20m"|"50m". 카탈로그에 없는 id는 엔진이 버린다(get_sheet_ids)
  "make_tables":true,
- "include_minor_buildings":false,"demolished":"dashed","refresh_buildings":true,"include_api_objects":false,   // demolished: dashed|exclude
- "include_zoning":false,"terrain_vertex_color":false,
+ "include_minor_buildings":false,                       // Korea만 보인다(국가 DB 무벽·가건물). 2026-10-16 v1에서 아무 일도 안 하던 demolished·refresh_buildings·include_api_objects는 뺐다
+ "include_zoning":true,                                // Korea만 보인다   // CTX::Zoning::<구분>::<종류> — 용도지역·용도지구·용도구역·도시계획시설·지구단위계획(현황도 11~13 범례 색, 범위 bbox로 자름)
+ "terrain_vertex_color":false,
  "terrain_step":0,                                     // 지형 표현(③ 지형): 0 = 매끈, 1|2|5 = 계단형(등고 모형) 단 간격 m. 지반·수면 메시를 단마다 수평면 + 수직 벽으로, 건물 바닥도 계단 지반 기준
  "make_dwg":false,                                     // 3dm 2D 도면(BM::)만 basemap_<축척>.dwg로도 저장(고급 > 3dm). 결과 경로는 done.context.dwg
  "zoom_after_import":true,
@@ -348,7 +373,7 @@ Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `r
 | `~/.urbansite/prefs.json` | `{"options":{…20키…}, "recent":[{pnus,label,total_area,date}×5]}` | `save_prefs`(options), `generate` 성공(recent 앞에 삽입·중복 제거·5개) | `init` |
 | `~/.urbansite/source_news.json` | `{"checked_at":"2026-10-07","building":{"newer_date":"2026-09-09"},"lot":{…},"upis":{…}}` | `dev_check_sources.py`(P1. 없으면 `newer_date:null`) | `preflight`·`init`(배지)·생성기(`done.warnings`) |
 | `~/.urbansite/client_id` | 무작위 UUID 한 줄(사용 통계 설치 식별) | `usage_stats.get_client_id`(없으면 생성) | `usage_stats` |
-| `.env`(`HOME_DIR`) | `VWORLD_API_KEY=…`(건물 최신화) · `DATA_GO_KR_KEY=…`(건축HUB 철거·말소). `= ` 뒤 공백 금지 | 사용자(OS 편집기). 없으면 `open_path`가 두 줄 템플릿 생성 | `pnu_loader._read_local_env_value`(strip)·생성기 |
+| `.env`(`HOME_DIR`) | `VWORLD_API_KEY=…`(지도·위성 배경, 항공사진, 주소 보조 검색 — 없으면 OSM·Esri·지명 검색). `= ` 뒤 공백 금지 | 사용자(OS 편집기). 없으면 `open_path`가 한 줄 템플릿 생성 | `pnu_loader._read_local_env_value`(strip)·생성기 |
 | `HOME_DIR/data/*.db`·`packs.json` | 필지·컨텍스트·등고선 DB. `packs.json` = 받은 팩의 sha256 | `download_data` | `init`·전 명령 |
 | `HOME_DIR/result/<YYYYMMDD>/<lot_name>/` | deliverables §E. 같은 폴더가 있으면 생성기 시작 시 `sheets/`·`tables/`·`context.3dm`·`context.json`을 지우고 새로 쓴다(이전 옵션의 시트·CSV가 새것처럼 남지 않도록). `basemap_*.ai`(사용자가 만든 것)·`log.txt`(이어 쓰고 구분선)는 보존 | 생성기·베이커(.ai) | `done`·`open_path` |
 

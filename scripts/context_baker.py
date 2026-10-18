@@ -91,12 +91,29 @@ def _get_bm_leaf(full_path):
     return parts[1].split(" ")[0] if len(parts) > 1 and parts[0] == constants.BM_ROOT_LAYER else ""
 
 
+def _get_zoning_rgb(group, leaf):
+    # type: (str, str) -> tuple
+    """CTX::Zoning::<구분>::<종류> → 현황도 11~13 범례 색(선 색, 없으면 칠 색). 모르는 칸은 Zoning 색."""
+    theme = next((key for key, name in constants.ZONING_LAYERS.items() if name == group), None)
+    sheet, key = {"zone": ("zone", next((k for k, label, _ in constants.SHEET_LEGENDS["zone"][1] if label == leaf), None)),
+                  "district": ("district", "district"), "area": ("district", "area"), "plan": ("facility", "plan"),
+                  "facility": ("facility", constants.SHEET_FACILITY_KEYS.get(leaf, "facility_etc"))}.get(theme, ("", None))
+    style = next((s for k, _, s in constants.SHEET_LEGENDS[sheet][1] if k == key), {}) if sheet else {}
+    color = style.get("stroke") if style.get("stroke", "none") != "none" else style.get("fill", "none")
+    if not color.startswith("#"):
+        return constants.CTX_LAYERS["Zoning"]
+    return tuple(int(color[i:i + 2], 16) for i in (1, 3, 5))
+
+
 def get_layer_rgb(full_path):
     # type: (str) -> tuple
-    """레이어 FullPath → RGB. CTX는 constants.CTX_LAYERS(하위 레이어는 부모 색), BM은 K톤 → 회색(서브레이어는 부모 톤)."""
+    """레이어 FullPath → RGB. CTX는 constants.CTX_LAYERS(하위 레이어는 부모 색, Zoning 하위는 현황도 범례 색), BM은 K톤 → 회색(서브레이어는 부모 톤)."""
     root, _, rest = full_path.partition("::")
     if root == constants.CTX_ROOT_LAYER:
-        return constants.CTX_LAYERS.get(rest) or constants.CTX_LAYERS.get(rest.split("::")[0]) or (0, 0, 0)
+        names = rest.split("::")
+        if names[0] == "Zoning" and len(names) == 3:
+            return _get_zoning_rgb(names[1], names[2])
+        return constants.CTX_LAYERS.get(rest) or constants.CTX_LAYERS.get(names[0]) or (0, 0, 0)
     if root == constants.BM_ROOT_LAYER:
         leaf = _get_bm_leaf(full_path)
         for name, _label, fill_k, line_k, _weights in constants.BM_LAYERS:

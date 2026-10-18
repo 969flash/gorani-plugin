@@ -452,7 +452,7 @@ UrbanSite (창 1개, 480×900)
 | 건물 | `demolished` | 철거 건물 `dashed`(점선·회색) / `exclude` | dashed | A.1 |
 | 건물 | `refresh_buildings` | VWorld로 최신화(키 있을 때만 활성) | 켬 | A.5 |
 | 건물 | `include_api_objects` | API 유래 객체를 납품물에 포함 | 끔(서면 동의 전) | data_sources §3 |
-| 3dm | `include_zoning` | `CTX::Zoning` 포함 | 끔 | A.1 |
+| 3dm | `include_zoning` | `CTX::Zoning` 도시계획 경계선(용도지역·지구·구역·시설·지구단위) | 켬 | A.1 |
 | 3dm | `terrain_vertex_color` | 지형 정점색(표고) | 끔 | 요약 |
 | 문서 | `zoom_after_import` | 넣은 뒤 대상지로 줌 | 켬 | — |
 

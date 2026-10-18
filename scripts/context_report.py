@@ -4,6 +4,7 @@ Rhino 금지, 표준 라이브러리만. 입력 `prepared`는 context_builder.Pr
 SimpleNamespace로 대신해도 된다(테스트). 읽는 속성:
     request(dict: pnus·options) · lot_name · target_lots · near_lots(lot_db.LotInfo) · origin · origin_reused · radius · shape
     extent_ring · scales · bounds · frame_bounds · buildings(context_db.BuildingInfo) · features(FeatureInfo) · align_samples
+    designations(lot_db.DesignationInfo — 대상 필지만, 없으면 빈 칸)
     sources: [{"id": lot|building|terrain|upis, "name", "date", "age_months", "level", "newer_date"}] (site_preflight.get_sources 모양)
              또는 DataSource 객체(source_id → constants.SOURCE_ID_ROLES)
     stats: {"align": {"median", "p90", "n", "low_sample", "dx", "dy"}, "mismatch_count", "height_src": {...}}
@@ -17,12 +18,14 @@ import json
 import os
 
 import constants
+import lot_db
 import non_rhino_utils
 
 MISSING = "—"
 
-PARCEL_COLUMNS = ("pnu", "is_target", "address", "lot_number", "land_category", "registered_area_sqm", "geometry_area_sqm",
-                  "zone_code", "zone_name", "zone_name_2", "land_use_status", "land_price_won", "reference_date")
+PARCEL_COLUMNS = ("pnu", "is_target", "address", "lot_number", "land_category", "registered_area_sqm", "geometry_area_sqm", "area_gap_sqm",
+                  "zone_code", "zone_name", "zone_name_2", "legal_bcr", "legal_far", "designations", "land_use_status", "land_price_won",
+                  "reference_date", "eum_url")
 BUILDING_COLUMNS = ("building_id", "src_key", "pnu", "bld_nm", "usability", "strct_cd", "grnd_flr", "ugrnd_flr", "flr_src",
                     "height_m", "height_src", "height_grade", "attr_flag", "use_apr_day", "status", "ngii_kind", "ngii_use",
                     "footprint_area_sqm", "total_area_sqm", "source_id", "reference_date")
@@ -115,13 +118,13 @@ def _built_at(prepared):
 
 def _get_abroad_meta_lines(prepared):
     # type: (object) -> list
-    """해외 대상지 메타 5줄 — OSM·지형 타일 출처와 지역 횡메르카토르."""
+    """Global(OSM) 메타 5줄 — OSM·지형 타일 출처와 좌표계(해외 = 지역 횡메르카토르, 한국 = EPSG:5186)."""
     dates = get_source_dates(prepared)
     return [
         "자료기준 — OpenStreetMap %s · Terrain Tiles · %s · 생성 %s · %s v%s" % (dates["building"], non_rhino_utils.get_crs_label(),
                                                                          _built_at(prepared)[:10], constants.TOOL_NAME, constants.PANEL_VERSION),
         "출처: © OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright); 지형 Terrain Tiles (Mapzen·AWS Open Data, SRTM 등 공개 DEM)",
-        "좌표계: 대상지 중심 횡메르카토르(GRS80, 축척 1) · 지형 약 30 m 격자 — 실측·법정 자료 아님",
+        "좌표계: %s · 지형 약 30 m 격자 — 실측·법정 자료 아님" % ("대상지 중심 횡메르카토르(GRS80, 축척 1)" if non_rhino_utils.is_local_projection() else "EPSG:5186"),
         "정합 오차: — (필지 자료 없음)",
         "건물 높이: OSM height 태그(B)·층수(C)·기본값 %.1f m(D)" % constants.DEFAULT_BUILDING_HEIGHT_M,
     ]
@@ -131,7 +134,7 @@ def get_meta_lines(prepared):
     # type: (object) -> list
     """deliverables §C 공통 ①자료기준 ②출처·라이선스 ③좌표계·정확도 ④정합 오차 ⑤기준일 경고 — 5줄.
     SVG 여백·context.json·CTX::Ref META_LINES가 모두 이 문자열을 쓴다."""
-    if non_rhino_utils.is_local_projection():
+    if any(getattr(s, "source_id", "") == "osm" for s in getattr(prepared, "sources", None) or []):   # Global — 한국 안이어도 출처는 OSM(ODbL 표기)
         return _get_abroad_meta_lines(prepared)
     dates = get_source_dates(prepared)
     sheets = get_sheet_codes(prepared)
@@ -171,12 +174,22 @@ def _write_csv(path, columns, rows):
 
 
 def _parcel_rows(prepared):
+    """필지 조서. 법정 건폐·용적은 용도지역 1·2를 ' / '로 잇는다. 지역지구등은 대상 필지만(주변 필지는 조회하지 않는다)."""
     target_pnus = {_get(lot, "pnu") for lot in (_get(prepared, "target_lots") or [])}
+    designations = _get(prepared, "designations") or []
     rows = []
     for lot in get_lots_in_extent(prepared):
+        limits = [lot_db.get_legal_limits(name) for name in lot_db.get_zone_names(lot)]
+        gap = lot_db.get_area_gap(lot)
         row = {k: _get(lot, k, "") for k in PARCEL_COLUMNS}
         row.update({"is_target": 1 if _get(lot, "pnu") in target_pnus else 0,
-                    "registered_area_sqm": _get(lot, "registered_area", ""), "geometry_area_sqm": _get(lot, "geometry_area", "")})
+                    "registered_area_sqm": _get(lot, "registered_area", ""), "geometry_area_sqm": _get(lot, "geometry_area", ""),
+                    "area_gap_sqm": "" if gap is None else round(gap, 2),
+                    "legal_bcr": " / ".join(str(item[0]) for item in limits if item),
+                    "legal_far": " / ".join("%d~%d" % item[1:] for item in limits if item),
+                    "designations": "; ".join(item.name + ("(저촉)" if item.conflict == constants.LAND_USE_OVERLAP else "")
+                                              for item in lot_db.get_lot_designations(lot, designations)),
+                    "eum_url": constants.EUM_LAND_USE_URL % _get(lot, "pnu")})
         rows.append(row)
     return rows
 
@@ -292,7 +305,8 @@ def _align_rows(prepared):
 
 def write_tables(prepared, out_dir, today=None):
     # type: (object, str, datetime.date) -> list
-    """tables/parcels.csv·buildings.csv·sheet_stats.csv·height_src_stats.csv·alignment.csv → [{name, path}]."""
+    """tables/parcels.csv·buildings.csv·sheet_stats.csv·height_src_stats.csv·alignment.csv → [{name, path}]. 행이 없는 표는 쓰지 않는다
+    (Global은 필지·정합이 없다 — 머리글만 있는 빈 파일을 산출물 목록에 남기지 않는다)."""
     today = today or datetime.date.today()
     tables_dir = os.path.join(out_dir, constants.RESULT_TABLES_DIRNAME)
     os.makedirs(tables_dir, exist_ok=True)
@@ -303,6 +317,8 @@ def write_tables(prepared, out_dir, today=None):
             ("alignment.csv", ALIGN_COLUMNS, _align_rows(prepared)))
     written = []
     for name, columns, rows in plan:
+        if not rows:
+            continue
         path = os.path.join(tables_dir, name)
         _write_csv(path, columns, rows)
         written.append({"name": name, "path": path})

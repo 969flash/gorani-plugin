@@ -361,7 +361,7 @@ LAND_CHAR_SOURCE = {
 }
 
 LAND_USE_SOURCE = {
-    "source_id": "molit_land_use",
+    "source_id": constants.LAND_USE_SOURCE_ID,
     "name": "국토교통부 토지이용계획정보",
     "page_url": "https://www.data.go.kr/data/15045900/fileData.do",
     "license": "공공누리 제1유형(출처표시)",
@@ -791,6 +791,7 @@ def _insert_land_char_lots(connection, lot_data):
 
 
 LAND_USE_COLUMNS = ("고유번호", "용도지역지구코드", "용도지역지구명", "저촉여부")
+LAND_USE_DATE_COLUMN = "데이터기준일자"   # 없는 판이면 기준일을 비운다
 
 
 def _get_land_use_paths(land_use_dir, prefix):
@@ -816,6 +817,7 @@ def load_land_use(connection, land_use_dir=None, chunk_size=200000, sido_code=SE
     처리:
         시도별 파일 중 sido_code 것만 읽는다. 고유번호가 곧 PNU라 공간교차가 필요 없다.
         같은 (필지, 지역지구, 저촉여부)가 여러 번 나오므로 기본키로 걷어낸다.
+        데이터기준일자 최댓값을 data_sources 기준일로 적는다.
         원천 파일에 인코딩 표기가 없어 cp949로 읽는다.
     출력:
         적재한 행 수. 파일이 없으면 FileNotFoundError를 발생시킨다.
@@ -833,6 +835,7 @@ def load_land_use(connection, land_use_dir=None, chunk_size=200000, sido_code=SE
     _upsert_source(connection, source_id, LAND_USE_SOURCE)
     connection.execute("DELETE FROM parcel_land_use")
     total = 0
+    reference_date = ""
     for path in paths:
         with _open_land_use(path) as handle:
             reader = csv.reader(handle)
@@ -847,10 +850,13 @@ def load_land_use(connection, land_use_dir=None, chunk_size=200000, sido_code=SE
                 header.index(name) for name in LAND_USE_COLUMNS
             )
             width = max(pnu_at, code_at, name_at, conflict_at) + 1
+            date_at = header.index(LAND_USE_DATE_COLUMN) if LAND_USE_DATE_COLUMN in header else None
             rows = []
             for record in reader:
                 if len(record) < width:
                     continue
+                if date_at is not None and date_at < len(record) and record[date_at] > reference_date:
+                    reference_date = record[date_at]
                 pnu = record[pnu_at].strip()
                 code = record[code_at].strip()
                 name = record[name_at].strip()
@@ -863,6 +869,7 @@ def load_land_use(connection, land_use_dir=None, chunk_size=200000, sido_code=SE
                     rows = []
             if rows:
                 total += _insert_land_use(connection, rows)
+    connection.execute("UPDATE data_sources SET reference_date = ? WHERE source_id = ?", (reference_date or None, source_id))
     connection.commit()
     return total
 

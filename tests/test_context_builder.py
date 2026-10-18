@@ -211,6 +211,19 @@ class PrepareTest(unittest.TestCase):
         self.assertEqual(p.lot_name, "성수동2가_333-139")
         self.assertTrue(p.result_dir.endswith(os.path.join("20261007", "성수동2가_333-139")))
 
+    def test_zoning_rings_clipped_with_sheet_colors(self):
+        import context_baker
+        import context_geometry
+        rings = context_geometry.get_zoning_rings(self.prepared)
+        layers = {layer for layer, _overlay, _ring in rings}
+        for layer in ("Zoning::용도지역::준공업", "Zoning::지구단위계획::지구단위계획구역", "Zoning::도시계획시설::도로"):
+            self.assertIn(layer, layers)
+        x0, y0, x1, y1 = non_rhino_utils.get_bbox(self.prepared.extent_ring)   # 서울 도로 결정 도형은 몇 km씩 뻗는다 — 범위 bbox로 자른다
+        self.assertTrue(all(x0 - 1e-6 <= x <= x1 + 1e-6 and y0 - 1e-6 <= y <= y1 + 1e-6 for _l, _o, ring in rings for x, y in ring))
+        self.assertEqual(context_baker.get_layer_rgb("CTX::Zoning::용도지역::준공업"), (179, 188, 226))   # 현황도 11 범례 #B3BCE2
+        self.assertEqual(context_baker.get_layer_rgb("CTX::Zoning::도시계획시설::도로"), (216, 58, 58))   # 현황도 13 범례 선 색
+        self.assertEqual(context_baker.get_layer_rgb("CTX::Zoning::용도지역"), constants.CTX_LAYERS["Zoning"])
+
     def test_doc_origin_reused(self):
         p = context_builder.prepare(_request(doc_origin=[204000.0, 548500.0], options={"radius": 100}), today=TODAY)
         self.assertEqual(p.origin, (204000.0, 548500.0))
@@ -364,6 +377,18 @@ class PreflightTest(unittest.TestCase):
         result = context_builder.preflight(_request(options={"radius": 5, "scales": [1000]}), today=TODAY)
         self.assertEqual(result["extent_geojson"]["features"][0]["properties"]["radius"], constants.RADIUS_MIN)
 
+    def test_global_mode_in_korea_uses_osm_not_db(self):
+        # 한국 안 위치 + Global 모드 — 국가 DB를 세지 않고(생성 때 OSM), Korea 전용 도면은 빈 도면 목록에, 받을 팩 범위도 없다
+        request = _request(target={"mode": "point", "center": list(CENTER)}, options={"radius": 300, "scales": [1000], "region": "global"})
+        self.assertTrue(context_builder.is_global(request))
+        self.assertFalse(context_builder.is_global(_request()))
+        result = context_builder.preflight(request, today=TODAY)
+        self.assertEqual(result["estimate"]["buildings"], 0)
+        self.assertIn("abroad", [w["code"] for w in result["warnings"]])
+        self.assertEqual(sorted(result["empty_sheets"]), sorted(constants.SHEET_IDS[k] for k in constants.SHEET_KOREA_ONLY))
+        self.assertIsNone(context_builder.get_query_bounds(request))
+        self.assertTrue(context_builder.is_global(request) and not non_rhino_utils.is_local_projection())   # 좌표계는 위치대로 EPSG:5186
+
 
 @unittest.skipUnless(HAS_FIXTURES, "tests/fixtures/seongsu_*.db가 없다 (python3 scripts/dev_make_fixture.py)")
 class CancelTest(unittest.TestCase):
@@ -483,6 +508,10 @@ class StyleRedrawTest(unittest.TestCase):
     def test_sheet_ids_keep_catalog_order_and_drop_unknown(self):
         self.assertEqual(context_builder.get_sheet_ids({"sheet_ids": [11, 0, 99, "x"]}), [0, 11])
         self.assertEqual(context_builder.get_sheet_ids({}), [sheet_id for sheet_id, *_ in constants.SHEET_CATALOG])
+        global_ids = context_builder.get_sheet_ids({"region": "global"})   # Global — Korea 전용 도면은 저장된 선택에 있어도 뺀다
+        self.assertNotIn(constants.SHEET_IDS["zone"], global_ids)
+        self.assertIn(constants.SHEET_IDS["axo"], global_ids)
+        self.assertEqual(context_builder.get_sheet_ids({"region": "global", "sheet_ids": [constants.SHEET_IDS["zone"]]}), global_ids)
 
     @unittest.skipUnless(HAS_FIXTURES, "fixture DB 없음")
     def test_preview_and_apply(self):

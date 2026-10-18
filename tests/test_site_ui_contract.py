@@ -27,8 +27,9 @@ INIT_KEYS = {"type", "version", "blocked", "paths", "generator", "host", "stats_
 SOURCE_KEYS = {"id", "label", "name", "date", "age_months", "level", "newer_date", "text"}
 SEARCH_KEYS = {"type", "query", "seq", "matches", "message"}
 MATCH_KEYS = {"pnu", "address", "jibun", "land_category", "area", "center"}
-LOT_STATE_KEYS = {"type", "lots", "total_area", "lot_name", "center", "target_geojson", "warnings"}
-LOT_KEYS = {"pnu", "address", "jibun", "land_category", "area", "warn"}
+LOT_STATE_KEYS = {"type", "lots", "total_area", "lot_name", "center", "target_geojson", "warnings", "land_use_date"}
+LOT_KEYS = {"pnu", "address", "jibun", "land_category", "area", "warn", "zones", "designations", "registered_area", "geometry_area",
+            "area_gap", "area_gap_flag", "reference_date"}
 PREFLIGHT_KEYS = {"type", "seq", "sources", "extent_geojson", "estimate", "empty_sheets", "warnings"}
 ESTIMATE_KEYS = {"buildings", "lots", "topo_have", "topo_total", "seconds", "mb"}
 PROGRESS_KEYS = {"type", "state", "phase", "phase_status", "phase_detail", "percent"}
@@ -64,7 +65,9 @@ class InitStateTest(unittest.TestCase):
         self.assertEqual(set(state["options"]), set(constants.PANEL_DEFAULT_OPTIONS))
         self.assertEqual([c["id"] for c in state["sheet_catalog"]], list(range(len(constants.SHEET_CATALOG))))
         self.assertEqual(state["sheet_catalog"][constants.SHEET_IDS["elev"]]["needs"], "terrain")
-        self.assertEqual(set(state["sheet_catalog"][0]), {"id", "key", "name", "subtitle", "needs"})
+        self.assertEqual(set(state["sheet_catalog"][0]), {"id", "key", "name", "subtitle", "needs", "korea_only"})
+        self.assertTrue(state["sheet_catalog"][constants.SHEET_IDS["zone"]]["korea_only"])   # 용도지역 = Korea 모드 전용
+        self.assertFalse(state["sheet_catalog"][constants.SHEET_IDS["figure"]]["korea_only"])
         self.assertEqual(set(state["tile"]), {"url", "fallback_url", "attribution", "abroad_url", "abroad_attribution",
                                               "aerial_url", "aerial_attribution", "abroad_aerial_url", "abroad_aerial_attribution"})
         for warning in state["warnings"]:
@@ -107,6 +110,18 @@ class SearchAndLotStateTest(unittest.TestCase):
         lng, lat = state["center"]
         self.assertTrue(127.0 < lng < 127.1 and 37.5 < lat < 37.6, state["center"])
 
+    def test_lot_state_info(self):
+        # 성수동2가 333-139: 준공업 + 두 번째 용도지역 '지정되지않음', 대장 5,586 ㎡ · 도형 5,575.6 ㎡
+        lot = cmd_site.get_lot_state([constants.TEST_CONTEXT_PNU], SITE_DB)["lots"][0]
+        self.assertEqual(lot["zones"], [{"name": "준공업지역", "limits": (70, 150, 400)}])
+        names = {d["name"]: d["conflict"] for d in lot["designations"]}
+        self.assertEqual(names["교육환경보호구역"], "저촉")
+        self.assertIn("지구단위계획구역", names)
+        self.assertNotIn("준공업지역", names)              # 용도지역 줄과 겹치지 않는다
+        self.assertNotIn("제1종지구단위계획구역", names)    # 접함은 뺀다
+        self.assertAlmostEqual(lot["area_gap"], -10.4, delta=0.1)
+        self.assertFalse(lot["area_gap_flag"])
+
     def test_lot_state_merged_hole_warning_and_empty(self):
         state = cmd_site.get_lot_state([constants.TEST_CONTEXT_PNU, HOLE_PNU], SITE_DB)
         self.assertEqual(state["lot_name"], "성수동2가_333-139외1")
@@ -140,7 +155,8 @@ class PreflightResultTest(unittest.TestCase):
 
     def test_memo_key_includes_paper_mm_and_scales(self):
         key = cmd_site.get_preflight_key(self.MSG)
-        self.assertEqual(key, ('{"mode": "lots", "pnus": ["%s"]}' % constants.TEST_CONTEXT_PNU, 500, "buffer", "A1", (841, 594), (3000,)))
+        self.assertEqual(key, ('{"mode": "lots", "pnus": ["%s"]}' % constants.TEST_CONTEXT_PNU, 500, "buffer", "A1", (841, 594), (3000,), None))
+        self.assertNotEqual(key, cmd_site.get_preflight_key(dict(self.MSG, region="global")))   # 모드를 바꾸면 다시 점검
         self.assertNotEqual(key, cmd_site.get_preflight_key(dict(self.MSG, paper_mm=[594, 841])))
         self.assertNotEqual(key, cmd_site.get_preflight_key(dict(self.MSG, scales=[1000, 3000])))
         self.assertEqual(key, cmd_site.get_preflight_key(dict(self.MSG, seq=99)))   # seq는 키가 아니다
@@ -197,7 +213,7 @@ class OpenPathTest(unittest.TestCase):
             env_path = cmd_site.resolve_open_path(".env", root=tmp)
             self.assertEqual(env_path, os.path.join(tmp, ".env"))
             with open(env_path, encoding="utf-8") as f:
-                self.assertEqual(f.read(), "VWORLD_API_KEY=\nDATA_GO_KR_KEY=\n")
+                self.assertEqual(f.read(), "VWORLD_API_KEY=\n")
             self.assertEqual(cmd_site.resolve_open_path(tmp, root=tmp), tmp)
             with self.assertRaises(ValueError):
                 cmd_site.resolve_open_path("https://example.com", root=tmp)

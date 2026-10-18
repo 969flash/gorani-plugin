@@ -59,6 +59,7 @@ HOME_DIR = _ROOT_DIR if os.path.isdir(os.path.join(_ROOT_DIR, "data")) else os.p
 LAND_USE_DIRNAME = "data/raw/전국_토지이용계획정보"
 LAND_USE_ENCODING = "cp949"          # .csv에 표기가 없다. 실제 바이트로 확인했다
 LAND_USE_FILE_FORMAT = "AL_D155_%s_"  # 시도코드(PNU 앞 2자리)별 파일 접두어
+LAND_USE_SOURCE_ID = "molit_land_use"  # data_sources 행 id — 기준일(데이터기준일자 최댓값)을 패널에 보인다
 
 # 저촉여부 — 대지에 실제로 걸리는지를 가른다
 LAND_USE_INCLUDED = "포함"   # 필지 전체가 그 지역지구 안에 있다
@@ -170,12 +171,31 @@ TEST_PNU = "1123010300106760006"       # DB 검증용 PNU (동대문구 제기�
 # 필지 검색 — Rhino 실행 중 로컬 SQLite에서 후보를 보여 주는 상한
 ADDRESS_SEARCH_MAX_RESULTS = 20
 
-# 토지이음(국토교통부) 토지이용계획 열람 상세 — 패널의 "토지이음 ↗" 버튼이 연다.
+# 토지이음(국토교통부) 토지이용계획 열람 상세 — 패널 필지 정보의 [토지이음 ↗](open_eum)과 parcels.csv eum_url.
 # mode=search·isNoScr=script를 붙인 형태로 pnu가 상세 폼에 실리는 것을 확인했다.
 EUM_LAND_USE_URL = (
     "https://www.eum.go.kr/web/ar/lu/luLandDet.jsp"
     "?pnu=%s&mode=search&isNoScr=script"
 )
+
+# 용도지역별 법정 건폐율·용적률 — 국토계획법 시행령 제84조(건폐율 상한)·제85조(용적률 범위).
+# 실제 한도는 이 범위 안에서 시·군 도시계획조례가 정하고(예: 서울 2종일반 용적률 법정 250 %, 조례 200 %),
+# 지구단위계획구역이면 그 계획이 우선한다 — 패널·조서는 '법정'으로만 적고 조례값은 토지이음으로 보낸다.
+# zone_name 부분 문자열 → (건폐율 상한 %, 용적률 하한 %, 용적률 상한 %). 개발제한구역 등 표에 없는 이름은 범위 없음.
+LEGAL_ZONE_LIMITS = {
+    "제1종전용주거": (50, 50, 100), "제2종전용주거": (50, 50, 150),
+    "제1종일반주거": (60, 100, 200), "제2종일반주거": (60, 100, 250), "제3종일반주거": (50, 100, 300), "준주거": (70, 200, 500),
+    "중심상업": (90, 200, 1500), "일반상업": (80, 200, 1300), "근린상업": (70, 200, 900), "유통상업": (80, 200, 1100),
+    "전용공업": (70, 150, 300), "일반공업": (70, 150, 350), "준공업": (70, 150, 400),
+    "보전녹지": (20, 50, 80), "생산녹지": (20, 50, 100), "자연녹지": (20, 50, 100),
+    "보전관리": (20, 50, 80), "생산관리": (20, 50, 80), "계획관리": (40, 50, 100),
+    "농림": (20, 50, 80), "자연환경보전": (20, 50, 80),
+}
+ZONE_NAME_NONE = "지정되지않음"   # 토지특성정보 A16 — 두 번째 용도지역이 없는 필지(성수동2가 333-139)
+# 대장 면적 대비 도형 면적 차이가 이 비율 이상이면 '지적불부합 의심'으로 표시한다. 도형은 연속지적도(도곽을 이어 붙인
+# 참고도)라 차이 대부분은 도해지적 정밀도 탓이다. 서울 지목 '대' 65.8만 필지 중 5 % 초과 18 %, 10 % 초과 7 %
+# (seoul_site.db, 2026-10-16). 법정 허용오차(공간정보관리법 시행령 제19조, 도해 1/1200·300 ㎡ ≈ 4.7 %)보다 넉넉히 잡는다.
+AREA_GAP_FLAG_RATIO = 0.10
 
 # ─────────────────────────────────────────────────────────
 # VWorld — 인증키·도메인은 .env(gitignore)에 둔다. 코드·로그에 키를 넣지 않는다.
@@ -218,8 +238,12 @@ OSM_OVERPASS_QUERY = """[out:json][timeout:55][bbox:{bbox}];
   way["highway"]; way["railway"];
   way["waterway"]; way["natural"="water"]; relation["natural"="water"]; way["landuse"~"^(reservoir|basin|grass|forest|meadow|recreation_ground|village_green|cemetery)$"];
   way["leisure"~"^(park|garden|pitch|playground)$"]; relation["leisure"="park"]; way["natural"~"^(wood|scrub|grassland)$"];
+  node["railway"="station"];
+  way["amenity"~"^(school|kindergarten|college|university|library|hospital|clinic|nursing_home|social_facility|childcare|community_centre|arts_centre|theatre)$"];
+  relation["amenity"~"^(school|college|university|hospital)$"]["type"="multipolygon"];
+  way["leisure"="sports_centre"]; way["place"="square"];
 );
-out geom;"""
+out geom;"""   # 역·시설 줄은 OSM_PUBLIC_USE와 맞춘다(tests/test_osm_context가 확인)
 OSM_ROAD_WIDTHS = {   # highway 등급 → 기본 도로폭 m (width·lanes 태그가 없을 때). 국내 도로 분류와 비교한 대략값
     "motorway": 22.0, "trunk": 18.0, "primary": 15.0, "secondary": 12.0, "tertiary": 9.0, "unclassified": 6.0,
     "residential": 6.0, "living_street": 5.0, "service": 4.0, "pedestrian": 6.0, "footway": 2.0, "cycleway": 2.0, "path": 1.5,
@@ -236,6 +260,12 @@ OSM_BUILDING_USE = {   # building 태그 → 국내 건축물용도 대분류(�
     "industrial": "17000", "warehouse": "18000", "school": "10000", "university": "10000", "college": "10000", "kindergarten": "11000",
     "hospital": "09000", "church": "06000", "cathedral": "06000", "temple": "06000", "mosque": "06000", "train_station": "08000",
 }
+# 공공시설·역세권 도면(Global) — 역 = railway=station 점(이름 있는 것). 시설 면(amenity·leisure) 안 용도 미상 건물에 국내 용도 대분류를 준다
+# (OSM은 시설을 부지 면에 달고 건물은 building=yes로만 그리는 일이 흔하다). 학교 면은 '학교 부지', place=square는 '광장'. 근거: 건축법 시행령 별표1
+OSM_SCHOOL_AMENITIES = ("school", "kindergarten", "college", "university")
+OSM_PUBLIC_USE = {"school": "10000", "kindergarten": "10000", "college": "10000", "university": "10000", "library": "10000",
+                  "hospital": "09000", "clinic": "09000", "nursing_home": "11000", "social_facility": "11000", "childcare": "11000",
+                  "community_centre": "05000", "arts_centre": "05000", "theatre": "05000", "sports_centre": "13000"}
 OSM_NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"   # 지명 검색 — 사용자가 [검색]을 누를 때 한 번
 OSM_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 OSM_TERRAIN_ZOOM = 13           # 픽셀 약 19 m(적도)·15 m(위도 37°). 원천 DEM이 약 30 m라 더 키워도 정밀해지지 않는다
@@ -395,6 +425,8 @@ PREFS_DIRNAME = ".urbansite"            # 사용자 홈 아래. prefs.json·sour
 RESULT_DATE_FORMAT = "%Y%m%d"                  # result/<YYYYMMDD>/<대상지명>/
 CONTEXT_MODEL_FILE_NAME = "context.3dm"
 BLENDER_MODEL_FILE_NAME = "context.blend"      # Blender판 사본(blender_baker.save_copy) — 3dm 대신
+SKETCHUP_MODEL_FILE_NAME = "context.skp"       # SketchUp판 사본(sketchup_baker.save_copy — 대상지 그룹 정의를 저장)
+WEB_MODEL_FILE_NAME = "context.glb"            # 웹판 사본(web_baker.save_copy) — 페이지 뷰어가 바로 그리고 Blender·Rhino 8이 가져온다
 CONTEXT_META_FILE_NAME = "context.json"
 BASEMAP_FILE_FORMAT = "basemap_%d.ai"          # 축척 분모
 # DWG 저장 스위치. 활성 문서에서 .dwg를 쓰면 Mac Rhino 8이 12분 멈춘 뒤 실패했다(2026-10-14 을지로1가 87, job 1014-152138 731 s) →
@@ -412,6 +444,9 @@ CTX_LAYERS = {   # 이름: (RGB)
     "Bridges": (150, 150, 150), "Zoning": (200, 120, 40), "QA::cadastre_mismatch": (255, 0, 255), "Ref": (0, 0, 0),
     "Site::ground": (236, 150, 120), "Terrain::site_flat": (214, 196, 170), "Terrain::site_wall": (150, 140, 128), "Terrain::site_original": (236, 232, 222),
 }
+# CTX::Zoning 하위 레이어 — overlays theme → 'CTX::Zoning::<이름>::<종류>'. 종류는 용도지역이면 현황도 11 범례 이름, 나머지는 overlay.kind.
+# 색은 현황도 11~13 범례 색(context_baker.get_layer_rgb). 현황도에 없는 theme(건축선 notice_road)은 넣지 않는다.
+ZONING_LAYERS = {"zone": "용도지역", "district": "용도지구", "area": "용도구역", "facility": "도시계획시설", "plan": "지구단위계획"}
 CTX_HIDDEN_LAYERS = ("Terrain::site_original",)   # 처음 만들 때 끈다(평탄화 전 원지형 — 필요할 때 켜 본다). 사용자가 켠 뒤로는 건드리지 않는다
 # 베이스맵 레이어 순서·K톤(0~100)·선두께 mm(1:5000, 1:1000). fill=None이면 선만.
 BM_LAYERS = [
@@ -504,7 +539,11 @@ SHEET_CATALOG = [   # (id, 키, 이름, 영문 부제, 필요한 데이터: lot|
     (24, "axo", "입체 매스도", "Axonometric massing", "building"),   # 2026-10-15 추가 — 범위 안 건물을 평행 투상(등각)으로
 ]
 SHEET_IDS = {key: sheet_id for sheet_id, key, _name, _en, _needs in SHEET_CATALOG}
+# Korea 모드 전용 도면 — 필지·건축물대장·UPIS·공시지가가 있어야 한다. Global(OSM)은 목록에서 뺀다.
+# 역세권·공공시설은 Global도 된다 — OSM 역(railway=station)·시설 면(OSM_PUBLIC_USE)
+SHEET_KOREA_ONLY = ("lot_size", "density", "land_use", "land_category", "zone", "district", "facility", "use", "age", "price")
 PANEL_DEFAULT_OPTIONS = {
+    "region": None,   # 데이터 모드 kr(국가 DB) | global(OSM) — None = 첫 실행, 패널이 정한다(국내 DB·시간대 Asia/Seoul·한국어면 kr)
     "mode": "lots", "placement": "origin",
     "radius": 500, "shape": "circle",
     "flatten_site": False, "flatten_level": "mean",
@@ -513,8 +552,9 @@ PANEL_DEFAULT_OPTIONS = {
     "make_basemap": True, "paper": "A3", "paper_mm": [420, 297], "scales": [5000], "basemap_layers_on": [],
     "make_sheets": True, "sheet_ids": [sheet_id for sheet_id, *_ in SHEET_CATALOG], "floor_breaks": [12, 20], "elev_preset": "20m",
     "make_tables": True,
-    "include_minor_buildings": False, "demolished": "dashed", "refresh_buildings": True, "include_api_objects": False,
-    "include_zoning": False, "terrain_vertex_color": False,
+    "include_minor_buildings": False,
+    "include_zoning": True,   # CTX::Zoning — 용도지역·용도지구·용도구역·도시계획시설·지구단위계획 경계(현황도 11~13의 2D 커브)
+    "terrain_vertex_color": False,
     "terrain_step": 0,   # 지형 표현: 0 = 매끈(TIN), > 0 = 계단형(등고 모형) 단 간격 m — 패널은 1·2·5 m. 국내 원천 등고선은 5 m 간격이라 1·2 m 단은 보간값
     "make_dwg": False,   # 2D 도면(BM::)을 .dwg로도 — CAD 사용자용. 기본 off
     "zoom_after_import": True,
@@ -538,6 +578,7 @@ EXTENT_CIRCLE_SEGMENTS = 64     # circle 범위·퇴화 버퍼의 원 분할 수
 
 # 대상지 방식(2026-10-10) — lots = 필지로 고르기, area = 구역 그리기(지도·Rhino 커브), point = 위치만 찍기
 TARGET_MODES = ("lots", "area", "point")
+REGIONS = ("kr", "global")   # 헤더 토글. kr = 국가 DB(필지·대장·UPIS·수치지형도, 한국만), global = OSM·지형 타일(어디서나, 필지·용도지역 없음)
 # 방식별 기본 범위·축척 — 실무 관행에서 고른 제안값(확인 필요: 사내 기준이 있으면 바꾼다).
 # 필지 = 건축 대지검토 규모, 구역 = 지구단위계획·정비구역 현황분석 규모, 위치 = 광역 베이스맵(범위 = 용지 프레임)
 MODE_DEFAULTS = {
@@ -585,15 +626,27 @@ UDT_MANAGED_KEY = "URBANSITE_MANAGED"  # 베이크 객체 UserString — clear_p
 UDT_LOT_KEY = "URBANSITE_LOT_KEY"      # 베이크 객체 UserString — pnus 정렬 sha1 앞 8자리
 DOC_ORIGIN_KEYS = ("URBANSITE_ORIGIN_E", "URBANSITE_ORIGIN_N", "URBANSITE_CRS")   # doc.Strings 문서 수준 원점 기록(Blender는 장면 사용자 속성)
 # 패널이 호스트마다 바꿔 쓰는 이름(init_state.host) — 문서 이름·결과 모델 파일·DWG 저장(Rhino만)·커브 가져오기.
-# ask_stats = 사용 통계를 동의한 사람만 보낸다(Blender 확장 약관 4.5 '사용자 허락 없이 외부 전송 금지', 사용자 결정 2026-10-16 — Rhino는 그대로)
+# ask_stats = 사용 통계를 동의한 사람만 보낸다(Blender 확장 약관 4.5 '사용자 허락 없이 외부 전송 금지', 사용자 결정 2026-10-16 — Rhino는 그대로).
+# SketchUp도 Extension Warehouse 심사(개인정보 정책 위반 = 반려 사유)라 동의제 — GA_STREAMS에 sketchup 속성을 넣기 전에는 묻지도 않는다
 HOST_LABELS = {
     "rhino": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": True, "ask_stats": False},
     "blender": {"id": "blender", "name": "Blender", "doc": "Blender 장면", "model": BLENDER_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},
+    "sketchup": {"id": "sketchup", "name": "SketchUp", "doc": "SketchUp 모델", "model": SKETCHUP_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},
+    "web": {"id": "web", "name": "브라우저", "doc": "3D 모델", "model": WEB_MODEL_FILE_NAME, "dwg": False, "ask_stats": False},   # 통계는 웹사이트 GA(페이지)만
 }
-# Blender판(blender_geometry·cmd_blender)
-BLENDER_CDT_EPSILON = 1e-4      # m — mathutils delaunay_2d_cdt 근접 판정(0이면 안 된다). 0.1 mm — 원천 좌표는 mm 반올림
+# 메시판(mesh_geometry — Blender·SketchUp)
+CDT_EPSILON = 1e-4              # m — CDT 근접 판정(mathutils delaunay_2d_cdt는 0이면 안 된다, shapely판은 겹치기 격자). 0.1 mm — 원천 좌표는 mm 반올림
+# Blender판(cmd_blender)
 BLENDER_PANEL_POLL = 0.1        # s — 브라우저 패널 명령을 Blender 메인 스레드에서 꺼내는 간격(bpy.app.timers)
 BLENDER_VIEW_CLIP_END = 20000.0  # m — 줌할 때 3D 뷰 먼 클리핑(기본 1 km면 반경 1 km 지형이 잘린다)
+# SketchUp판(cmd_sketchup 사이드카 — 번들 파이썬 + sketchup_ext.rb)
+HOST_ENV = "URBANSITE_HOST"     # SketchUp 사이드카는 'sketchup', 웹판 워커는 'web'으로 둔다 — context_builder.get_host
+SKETCHUP_HOST_TIMEOUT = 1800.0  # s — 호스트 호출(베이크 등) 응답 대기. 패널을 닫으면 응답이 오지 않아 이만큼 뒤 실패한다
+SKETCHUP_GROUND_CELL = 5.0      # m — 지반 높이 조회 격자 칸(mesh_geometry._Ground shapely판). 지형 리샘플 4 m 삼각형이 칸마다 열 개 안팎
+# 웹판(cmd_web — 브라우저 Pyodide 워커 web_worker.js + 페이지 web_app.html). Pyodide·three.js 주소는 JS 파일 맨 위 상수
+# 반경 상한 — 2026-10-19 실측(Chrome·Apple M5, 성수 333-139): 500 m 5 s·탭 0.8 GB, 1 km 11 s·0.9 GB, 2 km 39 s·1.8 GB(시군구 팩 6곳 681 MB 포함).
+# CPU 4배 감속(오래된 보급형 노트북 가정)이면 500 m 20 s·1 km 45 s. 3 km는 팩만 1.8 GB(10곳)라 탭 메모리에 못 든다
+WEB_MAX_RADIUS = 2000.0
 # CTX::Ref UserString 고정 문자열 — deliverables §A.1 Ref 행. TRANSFORM은 UPIS 5174→5186 변환(META_CRS_LINE과 같은 근거), VDATUM은 수치지형도 표고 기준
 REF_TRANSFORM = "EPSG:5189 (UPIS EPSG:5174→5186, 공칭 ±1 m)"
 REF_VDATUM = "인천만 평균해수면(수준원점 26.6871 m)"
@@ -627,7 +680,8 @@ SHEET_CLIP_MARGIN_MM = 2.0       # 면 형상을 지도 칸 밖 이 거리에서
 SHEET_MIN_VERTEX_MM = 0.05       # 종이에서 이보다 가까운 연속 정점은 버린다(1:3000에서 0.15 m — 선굵기 0.08 mm 아래)
 SHEET_PARCEL_MAX_SCALE = 3000    # 이 축척보다 작은 도면(1:5000)은 지적선을 그리지 않는다 — deliverables B.2 '1:5000 지적선 off'
 SHEET_FADE_TO_PAPER = 0.45       # 주제도의 바탕(가구·건물·녹지·수계)을 종이색 쪽으로 이만큼 흐린다 — 주제 색이 먼저 읽히게
-SHEET_HEIGHT_SRC_LABELS = {"height": "대장 높이", "grnd_flr": "대장 층수", "topo_flr": "지형도 층수", "hub": "건축HUB", "default": "기본값"}  # 층수 카드, A.4 HEIGHT_SRC
+SHEET_HEIGHT_SRC_LABELS = {"height": "대장 높이", "grnd_flr": "대장 층수", "topo_flr": "지형도 층수", "hub": "건축HUB", "default": "기본값",
+                           "osm_height": "OSM 높이", "osm_levels": "OSM 층수"}  # 층수 카드, A.4 HEIGHT_SRC
 SHEET_HATCH = {"landlocked": {"stroke": "#D83A3A", "stroke-width": 0.25, "spacing_mm": 1.5}}   # <pattern id="hatch_<키>"> 45° 사선
 # 지명 라벨에서 뺄 이름 — 수치지형도 명칭 레이어에 공사장 안내가 섞여 있다(성수 '성수동오피스신축공사(24년01월예정)' 2026-10-13 실측)
 SHEET_LABEL_SKIP_PATTERN = r"공사|예정|\d{2}년"

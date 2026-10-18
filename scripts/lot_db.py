@@ -172,6 +172,31 @@ class LotData:
         return json.dumps(data, ensure_ascii=False, indent=2)
 
 
+def get_zone_names(lot):
+    # type: (LotInfo) -> list
+    """용도지역명 1·2. 빈 값과 '지정되지않음'은 뺀다."""
+    return [name for name in (lot.zone_name, lot.zone_name_2) if name and name != constants.ZONE_NAME_NONE]
+
+
+def get_legal_limits(zone_name):
+    # type: (str) -> tuple
+    """용도지역명 → 법정 (건폐율 상한 %, 용적률 하한 %, 상한 %). 표에 없으면 None. 조례값이 아니다."""
+    return next((limits for key, limits in constants.LEGAL_ZONE_LIMITS.items() if key in zone_name), None)
+
+
+def get_area_gap(lot):
+    # type: (LotInfo) -> float
+    """도형 면적 − 대장 면적(㎡). 대장 면적이 없으면 None. 도형은 연속지적도라 참고값이다."""
+    return float(lot.geometry_area) - float(lot.registered_area) if lot.registered_area else None
+
+
+def get_lot_designations(lot, designations):
+    # type: (LotInfo, list) -> list
+    """이 필지에 걸린(포함·저촉) 지역지구등. 용도지역과 같은 이름은 따로 보여 주므로 뺀다."""
+    zone_names = get_zone_names(lot)
+    return [item for item in designations if item.pnu == lot.pnu and item.applied and item.name not in zone_names]
+
+
 def _normalize_pnus(pnus):
     if isinstance(pnus, str):
         pnus = [pnus]

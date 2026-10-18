@@ -167,161 +167,200 @@
     "key": "base",
     "name": "베이스맵",
     "subtitle": "Base map",
-    "needs": "lot"
+    "needs": "lot",
+    "korea_only": false
    },
    {
     "id": 1,
     "key": "figure",
     "name": "도형-배경도",
     "subtitle": "Figure-ground",
-    "needs": "building"
+    "needs": "building",
+    "korea_only": false
    },
    {
     "id": 2,
     "key": "lot_size",
     "name": "필지 규모",
     "subtitle": "Parcel grain",
-    "needs": "lot"
+    "needs": "lot",
+    "korea_only": true
    },
    {
     "id": 3,
     "key": "density",
     "name": "블록 밀도",
     "subtitle": "Block density",
-    "needs": "building"
+    "needs": "building",
+    "korea_only": true
    },
    {
     "id": 4,
     "key": "transit",
     "name": "대중교통 역세권",
     "subtitle": "Transit catchment",
-    "needs": "building"
+    "needs": "building",
+    "korea_only": true
    },
    {
     "id": 5,
     "key": "walk",
     "name": "보행권",
     "subtitle": "Walking distance",
-    "needs": "road"
+    "needs": "road",
+    "korea_only": false
    },
    {
     "id": 6,
     "key": "green",
     "name": "녹지·수계",
     "subtitle": "Green and blue",
-    "needs": "building"
+    "needs": "building",
+    "korea_only": false
    },
    {
     "id": 7,
     "key": "public",
     "name": "생활 공공시설",
     "subtitle": "Community facilities",
-    "needs": "building"
+    "needs": "building",
+    "korea_only": true
    },
    {
     "id": 8,
     "key": "road",
     "name": "가로 위계",
     "subtitle": "Street hierarchy",
-    "needs": "road"
+    "needs": "road",
+    "korea_only": false
    },
    {
     "id": 9,
     "key": "land_use",
     "name": "토지이용현황",
     "subtitle": "Land use",
-    "needs": "lot"
+    "needs": "lot",
+    "korea_only": true
    },
    {
     "id": 10,
     "key": "land_category",
     "name": "지목 현황",
     "subtitle": "Land category",
-    "needs": "lot"
+    "needs": "lot",
+    "korea_only": true
    },
    {
     "id": 11,
     "key": "zone",
     "name": "용도지역",
     "subtitle": "Zoning",
-    "needs": "lot"
+    "needs": "lot",
+    "korea_only": true
    },
    {
     "id": 12,
     "key": "district",
     "name": "용도지구·구역",
     "subtitle": "Districts",
-    "needs": "lot"
+    "needs": "lot",
+    "korea_only": true
    },
    {
     "id": 13,
     "key": "facility",
     "name": "도시계획시설·지구단위계획",
     "subtitle": "Planning facilities",
-    "needs": "lot"
+    "needs": "lot",
+    "korea_only": true
    },
    {
     "id": 14,
     "key": "use",
     "name": "건축물 용도",
     "subtitle": "Building use",
-    "needs": "building"
+    "needs": "building",
+    "korea_only": true
    },
    {
     "id": 15,
     "key": "floor",
     "name": "건축물 층수",
     "subtitle": "Building height",
-    "needs": "building"
+    "needs": "building",
+    "korea_only": false
    },
    {
     "id": 16,
     "key": "age",
     "name": "건축물 노후도",
     "subtitle": "Building age",
-    "needs": "building"
+    "needs": "building",
+    "korea_only": true
    },
    {
     "id": 17,
     "key": "price",
     "name": "공시지가",
     "subtitle": "Land price",
-    "needs": "lot"
+    "needs": "lot",
+    "korea_only": true
    },
    {
     "id": 18,
     "key": "elev",
     "name": "표고",
     "subtitle": "Elevation",
-    "needs": "terrain"
+    "needs": "terrain",
+    "korea_only": false
    },
    {
     "id": 19,
     "key": "slope",
     "name": "경사",
     "subtitle": "Slope",
-    "needs": "terrain"
+    "needs": "terrain",
+    "korea_only": false
    },
    {
     "id": 20,
     "key": "view",
     "name": "경관·조망 (틀)",
     "subtitle": "Views",
-    "needs": "lot"
+    "needs": "lot",
+    "korea_only": false
    },
    {
     "id": 21,
     "key": "image",
     "name": "이미지맵 (틀)",
     "subtitle": "Image of the city",
-    "needs": "lot"
+    "needs": "lot",
+    "korea_only": false
    },
    {
     "id": 22,
     "key": "synthesis",
     "name": "종합분석 (틀)",
     "subtitle": "Synthesis",
-    "needs": "lot"
+    "needs": "lot",
+    "korea_only": false
+   },
+   {
+    "id": 23,
+    "key": "aerial",
+    "name": "항공사진",
+    "subtitle": "Aerial photo",
+    "needs": "image",
+    "korea_only": false
+   },
+   {
+    "id": 24,
+    "key": "axo",
+    "name": "입체 매스도",
+    "subtitle": "Axonometric massing",
+    "needs": "building",
+    "korea_only": false
    }
   ],
   "style_presets": {
@@ -465,7 +504,14 @@
     "address": "서울특별시 성동구 성수동2가 277-17",
     "jibun": "277-17",
     "land_category": "대",
-    "area": 612.3
+    "area": 612.3,
+    "zones": [{"name": "제2종일반주거지역", "limits": [60, 100, 250]}],
+    "designations": [{"name": "도시지역", "conflict": "포함"}, {"name": "과밀억제권역", "conflict": "포함"}, {"name": "교육환경보호구역", "conflict": "저촉"}],
+    "registered_area": 612.3,
+    "geometry_area": 615.8,
+    "area_gap": 3.5,
+    "area_gap_flag": false,
+    "reference_date": "2026-05-13"
    },
    {
     "warn": "multipart",
@@ -473,10 +519,18 @@
     "address": "서울특별시 성동구 성수동2가 277-18",
     "jibun": "277-18",
     "land_category": "대",
-    "area": 622.2
+    "area": 622.2,
+    "zones": [{"name": "제2종일반주거지역", "limits": [60, 100, 250]}, {"name": "준주거지역", "limits": [70, 200, 500]}],
+    "designations": [{"name": "도시지역", "conflict": "포함"}, {"name": "과밀억제권역", "conflict": "포함"}],
+    "registered_area": 622.2,
+    "geometry_area": 548.9,
+    "area_gap": -73.3,
+    "area_gap_flag": true,
+    "reference_date": "2026-05-13"
    }
   ],
   "total_area": 1234.5,
+  "land_use_date": "2026-08-25",
   "lot_name": "성수동2가_277-17외1",
   "center": [
    127.0558,

@@ -7,6 +7,7 @@ import unittest
 import zlib
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
+import constants  # noqa: E402
 import non_rhino_utils  # noqa: E402
 import osm_context  # noqa: E402
 
@@ -65,6 +66,12 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(osm_context.get_feature_kind({"natural": "water"}, True), ("water", "river"))
         self.assertEqual(osm_context.get_feature_kind({"highway": "primary"}, False), ("road", "centerline"))
         self.assertIsNone(osm_context.get_feature_kind({"amenity": "bench"}, False))
+        self.assertEqual(osm_context.get_feature_kind({"amenity": "school"}, True), ("public", "school_lot"))
+        self.assertEqual(osm_context.get_feature_kind({"place": "square"}, True), ("public", "plaza"))
+        self.assertIsNone(osm_context.get_feature_kind({"amenity": "hospital"}, True))   # 병원 면은 그리지 않고 안 건물의 용도로만
+        self.assertEqual(osm_context.get_building_use({"building": "yes", "amenity": "library"}), "10000")
+        for value in constants.OSM_PUBLIC_USE:   # Overpass가 시설 면을 받아 와야 용도를 줄 수 있다
+            self.assertIn(value, constants.OSM_OVERPASS_QUERY)
 
     def test_elements_to_context(self):
         non_rhino_utils.set_projection(2.29, 48.86)
@@ -82,6 +89,22 @@ class ParseTest(unittest.TestCase):
             self.assertEqual(buildings[0].usability, "02000")
             self.assertGreater(buildings[0].footprint_area, 300)   # 약 14.7 m × 22.2 m
             self.assertEqual(sorted((f.theme, f.kind) for f in features), [("green", "park"), ("road", "centerline")])
+            # 역 점 · 학교 부지 면 · 병원 면 안 building=yes → 공공시설·역세권 도면
+            far = [{"lat": p["lat"] + 0.001, "lon": p["lon"]} for p in square]
+            elements += [
+                {"type": "node", "id": 4, "lat": 48.8601, "lon": 2.2901, "tags": {"railway": "station", "name": "Gare"}},
+                {"type": "node", "id": 5, "lat": 48.8601, "lon": 2.2901, "tags": {"railway": "station"}},   # 이름 없는 역은 뺀다
+                {"type": "way", "id": 6, "tags": {"amenity": "school"}, "geometry": square},
+                {"type": "way", "id": 7, "tags": {"amenity": "hospital"}, "geometry": far},
+                {"type": "way", "id": 8, "tags": {"building": "yes"}, "geometry": far},
+            ]
+            features = osm_context._get_features(elements, "2026-10-13")
+            stations = [f for f in features if f.theme == "transit"]
+            self.assertEqual([(f.kind, f.name, f.geometry["type"]) for f in stations], [("station", "Gare", "Point")])
+            self.assertIn(("public", "school_lot"), [(f.theme, f.kind) for f in features])
+            buildings = osm_context._get_buildings(elements, "2026-10-13")
+            self.assertEqual(osm_context._apply_public_use(buildings, elements), 1)
+            self.assertEqual([b.usability for b in buildings], ["02000", "09000"])   # 아파트는 그대로, 병원 면 안 건물만
         finally:
             non_rhino_utils.set_projection()
 

@@ -40,7 +40,7 @@ def load(module_name):
         _drop_foreign_modules()
     loaded_before = _get_project_modules()
     importlib.import_module(_PREFIX + module_name)
-    for module in loaded_before:
+    for module in loaded_before if sys.platform != "emscripten" else ():   # 웹판(Pyodide) 파일은 실행 중에 바뀌지 않는다
         importlib.reload(module)
     module = sys.modules.get(_PREFIX + module_name)
     if module is None:

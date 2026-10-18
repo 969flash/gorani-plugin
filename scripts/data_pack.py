@@ -106,9 +106,19 @@ class _Connections:
         self.groups = groups
 
     def execute(self, sql, params=()):
-        rows = _Rows()
+        """묶음에 그 테이블이 없으면 건너뛴다 — 컨텍스트+등고선 팩이 상한을 넘으면 등고선 팩만 든 묶음이 생긴다(buildings 없음,
+        성수 R=2000 = 6개 구 × 2 = 12개, 2026-10-19). 모든 묶음에 없을 때만 오류."""
+        rows, missing, answered = _Rows(), None, False
         for connection in self.groups:
-            rows.extend(connection.execute(sql, params).fetchall())
+            try:
+                rows.extend(connection.execute(sql, params).fetchall())
+                answered = True
+            except sqlite3.OperationalError as exc:
+                if "no such table" not in str(exc):
+                    raise
+                missing = exc
+        if not answered:
+            raise missing
         return rows
 
     def close(self):

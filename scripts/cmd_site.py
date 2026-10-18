@@ -7,7 +7,7 @@ panel_host.PanelHost(Eto WebView)와 로직 모듈을 잇는다. JS 명령(dict)
 상태를 보낸다. 메시지 계약은 docs/panel_ui.md('아키텍처 정합' 절 우선). 생성은 context_builder.run을 UI 스레드에서
 동기 호출하고, 진행률은 콜백 안에서 push + _pump(Rhino.RhinoApp.Wait)로 펌핑한다(서브프로세스 없음).
 
-명령 → 로직 (21개)
+명령 → 로직 (22개)
     init            → get_init_state (DB 존재·원천 상태·타일·지도·prefs·recent·시트 카탈로그). preflight 메모이즈 비움
     search          → get_search_result (pnu_loader.resolve_addresses + review_map.get_parcel_centers)
     map_lots        → review_map.get_parcels_in_bbox (seq 에코)
@@ -23,6 +23,7 @@ panel_host.PanelHost(Eto WebView)와 로직 모듈을 잇는다. JS 명령(dict)
     export_basemap  → context_builder.export_basemap (DB에서 basemap_ai로 다시 씀 · busy·exported)
     zoom_view       → context_baker.zoom_to_site
     open_path       → 폴더·파일·.env 템플릿을 OS로 연다
+    open_eum        → PNU의 토지이음 토지이용계획 열람을 OS 브라우저로 연다(constants.EUM_LAND_USE_URL)
     save_prefs      → site_prefs.save_options
     style_preview   → context_builder.preview_sheet (스타일 바꾼 한 장 SVG 문자열 — 파일 안 씀, seq 에코)
     apply_style     → context_builder.apply_style (시트 전부 + 쓴 .ai 다시 쓰기, busy·style_applied)
@@ -66,7 +67,7 @@ else:   # cmd_install.py와 같은 방식 — 고유 모듈명으로 로더를 �
 
 ROOT_DIR = loader.ROOT_DIR
 PANEL_STICKY_KEY = "urbansite_site_panel"
-ENV_TEMPLATE = "VWORLD_API_KEY=\nDATA_GO_KR_KEY=\n"
+ENV_TEMPLATE = "VWORLD_API_KEY=\n"
 # 콜백이 오지 않는 phase의 행 오른쪽 글(panel_ui.md 진행률 규약)
 SKIPPED_DETAILS = {"refresh": "건너뜀 — v1 미구현", "import": "건너뜀 — 베이크로 대체"}
 SKIPPED_OPTION_DETAIL = "건너뜀 — 옵션"
@@ -118,7 +119,8 @@ def get_init_state(site_db=None, context_db=None, today=None):
         "options": site_prefs.get_options(),
         "modes": {"defaults": constants.MODE_DEFAULTS, "shapes": {k: list(v) for k, v in constants.SHAPES_BY_MODE.items()}},
         "recent": site_prefs.get_recent(),
-        "sheet_catalog": [{"id": sheet_id, "key": key, "name": name, "subtitle": en, "needs": needs} for sheet_id, key, name, en, needs in constants.SHEET_CATALOG],
+        "sheet_catalog": [{"id": sheet_id, "key": key, "name": name, "subtitle": en, "needs": needs, "korea_only": key in constants.SHEET_KOREA_ONLY}
+                          for sheet_id, key, name, en, needs in constants.SHEET_CATALOG],
         "style_presets": {key: dict(preset) for key, preset in constants.STYLE_PRESETS.items()},
         "style_defaults": dict(constants.STYLE_DEFAULTS),
         "style_ramps": {key: list(ramp) for key, ramp in constants.STYLE_RAMPS.items()},
@@ -126,16 +128,17 @@ def get_init_state(site_db=None, context_db=None, today=None):
     }
 
 
-def get_search_result(query, site_db=None):
-    # type: (str, str) -> dict
-    """search_result 페이로드. 주소·지번·PNU 한 줄 → 후보 0~8건(+중심 좌표). VWorld 키가 있으면 보조 검색을 켠다."""
+def get_search_result(query, site_db=None, region=None):
+    # type: (str, str, str) -> dict
+    """search_result 페이로드. 주소·지번·PNU 한 줄 → 후보 0~8건(+중심 좌표). VWorld 키가 있으면 보조 검색을 켠다.
+    Global 모드는 필지 DB를 보지 않고 지명 검색(Nominatim)만."""
     constants = loader.load("constants")
     pnu_loader = loader.load("pnu_loader")
     review_map = loader.load("review_map")
     use_vworld = bool(pnu_loader.get_local_env_value(constants.VWORLD_API_KEY_ENV))
     try:
-        matches = pnu_loader.resolve_addresses([query], use_vworld, site_db)[0].matches[:SEARCH_MAX_MATCHES]
-    except FileNotFoundError:   # 국내 필지 DB 없음(해외만 쓰는 사용자) — 지명 검색으로
+        matches = [] if region == "global" else pnu_loader.resolve_addresses([query], use_vworld, site_db)[0].matches[:SEARCH_MAX_MATCHES]
+    except FileNotFoundError:   # 국내 필지 DB 없음 — 지명 검색으로
         matches = []
     if not matches:
         places = loader.load("osm_context").search_places(query, SEARCH_MAX_MATCHES)
@@ -170,17 +173,22 @@ def get_lot_state(pnus, site_db=None):
     입력: 현재 대상 PNU 전체(빈 목록 = 모두 지움).
     처리: lot_db.load → 필지별 Feature(role lot) + 대상 합집합 1개(role target — 각 필지의 가장 넓은 외곽 링 MultiPolygon),
           lot_name·중심(100 m 내림 전)·multipart 경고는 context_builder의 같은 규칙을 쓴다.
-    출력: {"type": "lot_state", lots[{pnu, address, jibun, land_category, area, warn}], total_area, lot_name, center, target_geojson, warnings}.
+          필지 정보 = 용도지역(+법정 건폐·용적)·지역지구등(포함·저촉)·대장/도형 면적 차이·기준일.
+    출력: {"type": "lot_state", lots[{pnu, address, jibun, land_category, area, warn, zones, designations, registered_area,
+          geometry_area, area_gap, area_gap_flag, reference_date}], total_area, lot_name, center, target_geojson, warnings, land_use_date}.
     """
     pnus = [str(p) for p in (pnus or []) if str(p).strip()]
     if not pnus:
-        return {"type": "lot_state", "lots": [], "total_area": 0.0, "lot_name": "", "center": None, "target_geojson": _EMPTY_FC, "warnings": []}
+        return {"type": "lot_state", "lots": [], "total_area": 0.0, "lot_name": "", "center": None, "target_geojson": _EMPTY_FC, "warnings": [],
+                "land_use_date": ""}
+    constants = loader.load("constants")
     context_builder = loader.load("context_builder")
     lot_db = loader.load("lot_db")
     non_rhino_utils = loader.load("non_rhino_utils")
     review_map = loader.load("review_map")
     non_rhino_utils.set_projection()   # 필지는 국내뿐 — 해외 대상지 원점을 되돌린다
-    lots = lot_db.load(pnus, site_db).lots
+    lot_data = lot_db.load(pnus, site_db)
+    lots = lot_data.lots
     rings, warnings = context_builder.get_target_rings(lots)
     geojson = review_map.get_parcels_geojson(pnus, "lot", site_db)
     rows = []
@@ -188,8 +196,15 @@ def get_lot_state(pnus, site_db=None):
         parts = non_rhino_utils.get_polygon_parts_from_geojson(lot.geometry)
         warn = "multipart" if len(parts) > 1 else ("hole" if any(len(part) > 1 for part in parts) else None)
         feature["properties"]["jibun"] = lot.lot_number or _jibun(lot.address)
+        gap = lot_db.get_area_gap(lot)
         rows.append({"pnu": lot.pnu, "address": lot.address, "jibun": feature["properties"]["jibun"],
-                     "land_category": lot.land_category, "area": lot.area, "warn": warn})
+                     "land_category": lot.land_category, "area": lot.area, "warn": warn,
+                     "zones": [{"name": name, "limits": lot_db.get_legal_limits(name)} for name in lot_db.get_zone_names(lot)],
+                     "designations": [{"name": item.name, "conflict": item.conflict} for item in lot_db.get_lot_designations(lot, lot_data.designations)],
+                     "registered_area": lot.registered_area, "geometry_area": round(lot.geometry_area, 1),
+                     "area_gap": None if gap is None else round(gap, 1),
+                     "area_gap_flag": gap is not None and abs(gap) >= constants.AREA_GAP_FLAG_RATIO * lot.registered_area,
+                     "reference_date": lot.reference_date})
     target_coords = [[review_map.get_wgs84_ring(ring + [ring[0]])] for ring in rings]   # 닫힘 중복점을 붙여 GeoJSON 링으로
     geojson["features"].append({"type": "Feature", "properties": {"role": "target"},
                                 "geometry": {"type": "MultiPolygon", "coordinates": target_coords}})
@@ -197,6 +212,7 @@ def get_lot_state(pnus, site_db=None):
     return {
         "type": "lot_state", "lots": rows, "total_area": round(sum(row["area"] for row in rows), 1),
         "lot_name": context_builder.get_lot_name(lots), "center": center, "target_geojson": geojson, "warnings": warnings,
+        "land_use_date": next((src.reference_date or "" for src in lot_data.sources if src.source_id == constants.LAND_USE_SOURCE_ID), ""),
     }
 
 
@@ -232,7 +248,8 @@ def get_area_state(msg, site_db=None):
     else:
         return _empty_area_state()
     try:
-        request = context_builder.get_request_with_defaults({"target": {"mode": "area", "ring": points}, "site_db": site_db})
+        request = context_builder.get_request_with_defaults({"target": {"mode": "area", "ring": points}, "site_db": site_db,
+                                                             "options": {"region": msg.get("region")}})   # Global이면 안의 필지를 세지 않는다
         target = context_builder.resolve_target(request)
     except (ValueError, KeyError, FileNotFoundError, RuntimeError) as error:
         return _empty_area_state(str(error.args[0]) if error.args else str(error))
@@ -260,7 +277,8 @@ def get_point_state(msg, site_db=None):
     lng, lat = float(msg["center"][0]), float(msg["center"][1])
     non_rhino_utils.set_projection(lng, lat)   # 해외면 지역 원점, 국내면 EPSG:5186
     x, y = non_rhino_utils.get_tm_from_wgs84(lng, lat)
-    request = context_builder.get_request_with_defaults({"target": {"mode": "point", "center": [x, y]}, "site_db": site_db})
+    request = context_builder.get_request_with_defaults({"target": {"mode": "point", "center": [x, y]}, "site_db": site_db,
+                                                         "options": {"region": msg.get("region")}})
     target = context_builder.resolve_target(request)
     return {"type": "point_state", "ok": True, "center": [round(lng, 7), round(lat, 7)], "center_tm": [round(x, 2), round(y, 2)],
             "lot_name": target.name}
@@ -316,9 +334,9 @@ def get_target_from_msg(msg):
 
 def get_preflight_key(msg):
     # type: (dict) -> tuple
-    """메모이즈 키 (target json, radius, shape, paper, tuple(paper_mm), tuple(scales)) — paper_mm이 빠지면 용지 '직접'이 안 바뀐다."""
+    """메모이즈 키 (target json, radius, shape, paper, tuple(paper_mm), tuple(scales), region) — paper_mm이 빠지면 용지 '직접'이 안 바뀐다."""
     return (json.dumps(get_target_from_msg(msg), sort_keys=True), msg.get("radius"), msg.get("shape"), msg.get("paper"),
-            tuple(msg.get("paper_mm") or ()), tuple(msg.get("scales") or ()))
+            tuple(msg.get("paper_mm") or ()), tuple(msg.get("scales") or ()), msg.get("region"))
 
 
 def get_preflight_result(msg, site_db=None, context_db=None, today=None):
@@ -328,7 +346,7 @@ def get_preflight_result(msg, site_db=None, context_db=None, today=None):
     context_builder = loader.load("context_builder")
     site_prefs = loader.load("site_prefs")
     options = dict(site_prefs.get_options())
-    options.update({key: msg[key] for key in ("radius", "shape", "paper", "paper_mm", "scales") if msg.get(key) is not None})
+    options.update({key: msg[key] for key in ("radius", "shape", "paper", "paper_mm", "scales", "region") if msg.get(key) is not None})
     result = context_builder.preflight({"target": get_target_from_msg(msg), "options": options, "site_db": site_db, "context_db": context_db}, today)
     result.update(type="preflight_result", seq=msg.get("seq"))
     return result
@@ -456,7 +474,7 @@ class _SiteController:
             "set_area": self._set_area, "set_point": self._set_point, "pick_curve": self._pick_curve, "snap_area": self._snap_area,
             "preflight": self._preflight, "generate": self._generate, "cancel": self._cancel,
             "import_context": self._import_context, "export_basemap": self._export_basemap, "zoom_view": self._zoom_view,
-            "open_path": self._open_path, "save_prefs": self._save_prefs, "download_data": self._download_data,
+            "open_path": self._open_path, "open_eum": self._open_eum, "save_prefs": self._save_prefs, "download_data": self._download_data,
             "style_preview": self._style_preview, "apply_style": self._apply_style, "save_style": self._save_style, "sheet_ai": self._sheet_ai,
             "area_packs": self._area_packs, "stats_consent": self._stats_consent,
         }
@@ -500,6 +518,10 @@ class _SiteController:
         """panel_open 통계의 호스트 버전 키."""
         return {"rhino": str(Rhino.RhinoApp.Version)}
 
+    def _open(self, path):
+        """파일·폴더·URL을 OS로 연다(웹판은 내려받기·새 탭)."""
+        _open_with_os(path)
+
     def on_close(self):
         # type: () -> None
         """창 닫힘 — 생성 중이면 cancel과 같은 경로."""
@@ -521,7 +543,7 @@ class _SiteController:
         query = (msg.get("query") or "").strip()
         if not query:
             raise ValueError("주소 또는 PNU를 입력하세요")
-        self.push(get_search_result(query))
+        self.push(get_search_result(query, region=msg.get("region")))
 
     def _map_lots(self, msg):
         self.push(get_map_lots(msg.get("bbox") or [], msg.get("seq")))
@@ -784,7 +806,15 @@ class _SiteController:
             raise ValueError("CTX::Site 객체가 없습니다 — 먼저 [문서에 넣기]")
 
     def _open_path(self, msg):
-        _open_with_os(resolve_open_path(msg.get("path")))
+        self._open(resolve_open_path(msg.get("path")))
+
+    def _open_eum(self, msg):
+        # 임의 URL은 받지 않는다 — PNU만 받아 토지이음 주소를 여기서 만든다
+        constants = loader.load("constants")
+        pnu = str(msg.get("pnu") or "")
+        if not (len(pnu) == constants.PNU_LENGTH and pnu.isdigit()):
+            raise ValueError("PNU 형식이 아닙니다: %s" % pnu)
+        self._open(constants.EUM_LAND_USE_URL % pnu)
 
     def _stats_consent(self, msg):
         loader.load("site_prefs").save_stats_consent(bool(msg.get("on")))
@@ -830,7 +860,7 @@ class _SiteController:
             written = [sheet_svg.get_sheet_ai(p) for p in paths]
             self.push({"type": "sheet_ai", "ok": True, "dir": result_dir, "paths": written})
             if not msg.get("all"):
-                _open_with_os(written[0])
+                self._open(written[0])
 
         self._run_busy("레이어 .ai 쓰는 중", "style", work)
 
@@ -842,7 +872,7 @@ class _SiteController:
 # error.context — JS가 표시 자리를 고른다(panel_ui.md 오류 규약)
 _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "select", "set_point": "select", "pick_curve": "select",
                    "snap_area": "select", "import_context": "import", "export_basemap": "export",
-                   "zoom_view": "open", "open_path": "open", "save_prefs": "init", "stats_consent": "init", "cancel": "generate", "download_data": "init",
+                   "zoom_view": "open", "open_path": "open", "open_eum": "open", "save_prefs": "init", "stats_consent": "init", "cancel": "generate", "download_data": "init",
                    "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style"}
 
 
