@@ -34,7 +34,7 @@
 | 5 | 요청 dict에 `site_db`·`context_db` 경로 덮어쓰기 키 — 테스트가 fixture DB를 꽂는 유일한 방법 | onepath | §4.2 |
 | 6 | python3 테스트에서 `rhino3dm.File3dm.Read`로 결과 3dm 되읽어 레이어·객체 수·UserString·단위 단언(rhino3dm은 테스트 전용, 배포 불포함) | onepath·hybrid | §8 |
 | 7 | `dev_rhino_run.py`가 `data/*.db` 전부를 심링크(지금은 `constants.DATABASE_PATH` 하나) | onepath 지적(확인: `scripts/dev_rhino_run.py:128–130`) | §3 |
-| 8 | `doc.Strings.SetString("URBANSITE_ORIGIN_E", …)`로 문서 수준 메타(RhinoCommon `StringTable.SetString` 존재 [로컬 RhinoCommon.xml]) | hybrid | §6 |
+| 8 | `doc.Strings.SetString("GORANI_ORIGIN_E", …)`로 문서 수준 메타(RhinoCommon `StringTable.SetString` 존재 [로컬 RhinoCommon.xml]) | hybrid | §6 |
 | 9 | 건물 압출은 평면 명시 오버로드 `Extrusion.Create(crv, Plane(Point3d(0,0,base_z), ZAxis), height, True)`(bench F_z_range 12→42 확인). 방향 검사는 M2 드라이버의 단언으로만 | inrhino + hybrid | §5.3 |
 | 10 | `tests/fixtures/seongsu_context.db`·`seongsu_site.db`(성수 ±1.05 km, 합 ≈10 MB)는 gitignore 하지 않고 커밋. 전체 DB에서 `dev_make_fixture.py`가 `ATTACH`+`INSERT … SELECT`로 추출(빌더 `--extent` 없음) | hybrid(축소) | §8 |
 | 11 | Windows 노트북 검증을 M7에서 **M2 직후**로 당김(`driver_terrain`·`driver_full_run` 1회) | onepath | implementation_plan M2.5 |
@@ -99,15 +99,15 @@
 | `lot_db.py` | 보유+ | 공통 | 필지·오버레이 bbox 질의(`load`, `load_parcels_in_bounds`, `load_near_overlays`). 추가 1줄: `load_parcels_in_bounds(…, limit=None)`이면 `LIMIT`을 붙이지 않는다(지도 뷰포트는 기존 5000 유지, `prepare`는 None) | constants |
 | `pnu_loader.py`·`review_map.py` | 보유 | 공통 | 주소 해석·패널 지도 GeoJSON | lot_db |
 | **`context_db.py`** | **있음+** | 공통(Rhino 금지) | `seoul_context.db` bbox 질의 → `BuildingInfo`·`FeatureInfo`·`ContextData`; `get_counts`. 추가: `load_buildings_in_bounds(bounds, include_minor=False, …)` SQL 1줄 `AND NOT (src_key LIKE 'ngii:%' AND ngii_kind IN (?,?,?))`(`constants.TOPO_MINOR_KINDS` = 무벽건물·가건물·공사중 — 보충 행에만 건다, 대장 매칭 벌크 건물은 ngii_kind와 무관하게 유지) | constants |
-| **`context_builder.py`** | 신규 | 공통(Rhino 금지) + `run`만 Rhino | 엔진 API: `prepare`·`run`·`preflight`·`get_progress_message`. `run`은 Rhino 모듈을 함수 안에서 `import`하고 `doc.Strings["URBANSITE_ORIGIN_E/N"]`을 읽어 `request["doc_origin"]`에 넣어 `prepare`에 준다(§6) | lot_db, context_db, context_report, non_rhino_utils |
+| **`context_builder.py`** | 신규 | 공통(Rhino 금지) + `run`만 Rhino | 엔진 API: `prepare`·`run`·`preflight`·`get_progress_message`. `run`은 Rhino 모듈을 함수 안에서 `import`하고 `doc.Strings["GORANI_ORIGIN_E/N"]`을 읽어 `request["doc_origin"]`에 넣어 `prepare`에 준다(§6) | lot_db, context_db, context_report, non_rhino_utils |
 | **`context_geometry.py`** | 신규 | Rhino(RhinoCommon, `RhinoDoc` 금지) | `build(prepared) -> ContextGeo`: `get_local_pts`(원점 적용 유일), TIN·면 분류·수면 평탄·투영(`ProjectPointsToMeshesEx`)·건물 Mesh·커브 | Rhino.Geometry, non_rhino_utils, sheet_svg, constants |
-| **`context_baker.py`** | 신규 | Rhino(RhinoDoc) | `bake`(레이어 ensure·속성·UserString·Ref·단위 환산·`RedrawEnabled` try/finally·`WriteFile` 사본)·`clear_previous`(`URBANSITE_LOT_KEY`, `FindByUserString`)·`import_3dm`(재삽입용 `_-Import` 5줄 + `context.json.origin` ≠ 문서 원점이면 차이만큼 `Transform.Translation` 보정) | Rhino, constants |
+| **`context_baker.py`** | 신규 | Rhino(RhinoDoc) | `bake`(레이어 ensure·속성·UserString·Ref·단위 환산·`RedrawEnabled` try/finally·`WriteFile` 사본)·`clear_previous`(`GORANI_LOT_KEY`, `FindByUserString`)·`import_3dm`(재삽입용 `_-Import` 5줄 + `context.json.origin` ≠ 문서 원점이면 차이만큼 `Transform.Translation` 보정) | Rhino, constants |
 | **`sheet_svg.py`** | 신규 | 공통(Rhino 금지, origin을 모른다 — 입력은 전부 세계좌표 m) | 프레임 수학 `Frame(paper_mm, scale, center)`(유일한 정의 — `context_geometry`도 이것을 쓴다) + 도면 템플릿(`get_map_box` — A3 기준 side·bottom·map, 지도 칸이 곧 Frame) + 도면 스타일 해석 `get_style(options)`(STYLE_PRESETS ← options.style) + SVG 작성기(`<g id>`·clipPath·범례·카드·여백 줄) + `SHEETS = {키: (classify_fn, 바탕 방식)}` 25장(2026-10-13, 23 항공사진은 영상 타일을 `<image>`로 — 이 장만 네트워크, 24 입체 매스도는 `get_axo_scene` 평행 투상 + 화가 알고리즘) + 블록(`get_blocks`)·보행망(`get_walk`, heapq Dijkstra)·썸네일(`render_thumbnail` — 스캔라인 격자 + zlib PNG). 레이어 .ai는 `get_sheet_ai` → `basemap_ai.write_svg_ai`(누를 때). 패널 미리보기·적용은 `context_builder.preview_sheet`·`apply_style`이 `render_sheet`·`write_sheets`를 다시 부른다. Seoungsu `make_basemap_L.py`의 `path_of/geom_paths/save_svg` 이식(geopandas 제거) | constants, non_rhino_utils, context_report |
 | **`context_report.py`** | 신규 | 공통(Rhino 금지) | `get_meta_lines(prepared)`(자료기준·출처·좌표계·정합·경고 5줄 — SVG·CSV·json·Ref가 같은 문자열), `write_tables`(CSV 5), `write_context_json`, `append_log` | constants |
 | **`basemap_ai.py`** | 신규(2026-10-08) | 공통(Rhino 금지) | `write_basemap(prepared, scale, out_dir)` — 레거시 AI5 PostScript 직접 작성(§5.7·§7.3). 색은 도면 스타일(`get_layer_paint` → CMYK, 2026-10-13). `export_basemap`(context_builder)이 다른 축척 재작성에 쓴다 | sheet_svg(Frame), constants |
 | `dev_context_builder.py` | 있음+ | 개발 python3 | 도엽 features + GIS건물 병합·높이 규칙(`decide_height`). 139도엽 전체 빌드 완료(372 s). 추가: 정합 샘플(theme `qa`) 적재 | geopandas·pyogrio·shapely·pandas·numpy, constants |
 | `dev_make_fixture.py` | 신규(≈30줄) | 개발 python3(sqlite3만) | 전체 DB 2개를 `ATTACH`하고 `INSERT INTO … SELECT … WHERE bbox 교차`로 `tests/fixtures/seongsu_context.db`(buildings·features·data_sources·source_files)와 `seongsu_site.db`(parcels·overlays·parcel_overlays·parcel_land_use·data_sources, 스키마 v5, `user_version 5`, bbox 인덱스 포함) 생성 | constants |
-| `dev_deploy.py` | 신규 | 개발 | `yak`: rhinocode로 UrbanSite .rhp 빌드 + scripts/(평문 loader·cmd_site, 로직 .pyc optimize=2) → yak CLI. `packs`: 필지(rtree 제거)·컨텍스트(등고선 제외)·등고선 DB → xz + manifest.json. 받는 쪽은 `data_pack.py` | — |
+| `dev_deploy.py` | 신규 | 개발 | `yak`: rhinocode로 Gorani .rhp 빌드 + scripts/(평문 loader·cmd_site, 로직 .pyc optimize=2) → yak CLI. `packs`: 필지(rtree 제거)·컨텍스트(등고선 제외)·등고선 DB → xz + manifest.json. 받는 쪽은 `data_pack.py` | — |
 | `dev_rhino_run.py` | 보유+ | 개발 | 128–130행: `data/*.db` 전부 심링크 | constants |
 | `dev_database_builder.py`·`dev_probe_*.py` | 보유 | 개발 | 필지 DB·08 실측 재현 | — |
 
@@ -199,7 +199,7 @@ def get_progress_message(phase, fraction, text, skipped, details):
   },
   "result_root": null,                       // null = <루트>/result
   "site_db": null, "context_db": null,       // null = constants 경로. 테스트가 tests/fixtures/seongsu_site.db·seongsu_context.db를 꽂는 자리
-  "doc_origin": null                         // run이 doc.Strings URBANSITE_ORIGIN_E/N에서 읽어 채운다(§6). 테스트는 이 키로 직접 주입. prepare는 doc을 모른다
+  "doc_origin": null                         // run이 doc.Strings GORANI_ORIGIN_E/N에서 읽어 채운다(§6). 테스트는 이 키로 직접 주입. prepare는 doc을 모른다
 }
 ```
 
@@ -271,7 +271,7 @@ def get_progress_message(phase, fraction, text, skipped, details):
 
 ### 5.x Blender판 (`mesh_geometry`·`blender_baker`, 2026-10-15 — 2026-10-18 `blender_geometry` → `mesh_geometry`로 이름을 바꿔 SketchUp판과 함께 쓴다)
 
-`context_builder.run`은 `get_host_modules()`로 지오메트리·베이커 쌍을 고른다(bpy가 있으면 Blender, 환경변수 `URBANSITE_HOST=sketchup`이면 SketchUp). 규칙은 위와 같고 방법만 다르다.
+`context_builder.run`은 `get_host_modules()`로 지오메트리·베이커 쌍을 고른다(bpy가 있으면 Blender, 환경변수 `GORANI_HOST=sketchup`이면 SketchUp). 규칙은 위와 같고 방법만 다르다.
 
 - 지형: TIN = `mathutils.geometry.delaunay_2d_cdt`(볼록 껍질). 면 분할 대신 범위 링·분류 폴리곤 링(외곽·구멍)·대상지 링을 **제약 면**으로, TIN 점을 내부 정점으로 CDT 한 번 → 삼각형마다 품은 링 목록(`orig_faces`)으로 분류(외곽 안 + 같은 파트 구멍 밖, 우선순위 앞이 이김) → 정점 Z = TIN `BVHTree.ray_cast`(빗나가면 최근접 정점). 쿼드 격자가 아니라 TIN 점 + 경계 정점 삼각형이다. 성수 R=500 TIN 0.04 s·분류 CDT 0.06 s.
 - 건물: 발자국 정점 수직 투영 최저 Z, 뚜껑은 `tessellate_polygon`(구멍 포함). 동마다 객체 대신 **메시 하나 + 면 속성** `building_id`·`height`·`floors`(수천 객체는 Blender가 느리다).
@@ -285,8 +285,8 @@ def get_progress_message(phase, fraction, text, skipped, details):
 SketchUp에는 파이썬이 없다(Ruby만, sqlite3 gem도 없음). 확장(.rbz)에 **python-build-standalone 3.12 + numpy·shapely**를 플랫폼마다(mac-arm64·mac-x64·win-x64) 넣고, Ruby가 그 파이썬으로 **사이드카**를 띄운다.
 
 ```
-SketchUp(Ruby, sketchup_ext.rb = bsh_urbansite/main.rb)            사이드카(번들 파이썬, cmd_sketchup.py)
-  [UrbanSite] → IO.popen(python -I -B -X utf8 cmd_sketchup.py) ──► panel_server.Bridge 첫 줄로 127.0.0.1 주소
+SketchUp(Ruby, sketchup_ext.rb = bsh_gorani/main.rb)            사이드카(번들 파이썬, cmd_sketchup.py)
+  [Gorani] → IO.popen(python -I -B -X utf8 cmd_sketchup.py) ──► panel_server.Bridge 첫 줄로 127.0.0.1 주소
   UI::HtmlDialog.set_url(주소) ◄──── 패널 HTML·SSE·POST cmd ────► _SketchUpController(cmd_site 상속) → context_builder.run(doc = _Host)
   sketchup.host_call(json) ◄── SSE host_call{id, method, args} ─── sketchup_baker(blender_baker와 같은 함수 이름) → _Host.call
   rpc_<method> → 모델 변경 → execute_script("send({cmd:'host_reply'…})") ──► 서버 스레드가 바로 응답 큐로(DIRECT_CMDS)
@@ -294,10 +294,10 @@ SketchUp(Ruby, sketchup_ext.rb = bsh_urbansite/main.rb)            사이드카(
 
 - 지형: `mesh_geometry`의 shapely판 — 범위·분류·대상지 링 테두리를 0.1 mm 격자로 이어(교점 포함) `polygonize` → 면마다 품은 링(대표점 within) → 떨어진 점의 GEOS 들로네 TIN과 겹쳐 조각 → `constrained_delaunay_triangles`. 출력 모양은 mathutils `_get_cdt`와 같아 분류·수면·평탄화·계단 코드를 그대로 쓴다. 성수 R=500 분류별 넓이가 Blender판과 소수 첫째 자리까지 같다(면 39,287 — CDT 한 번보다 1.4배). 지반 높이는 5 m 격자 칸 삼각형 무게중심 좌표. Shewchuk `triangle`은 상업 사용 제한 약관이라 쓰지 않는다.
 - 건물: 면 채우기가 없어 동마다 각기둥(`BakeItem.prisms` = 파트 링·바닥 Z·높이·Rhino판과 같은 14키 속성) → Ruby가 `Entities#build`(EntitiesBuilder, 2022+)로 구멍 있는 바닥·지붕·옆면 = 동마다 솔리드 그룹.
-- 모델 모양: 대상지마다 최상위 그룹 `UrbanSite <대상지명>`(속성 사전 `UrbanSite`의 `URBANSITE_LOT_KEY`) 안에 태그 `CTX::…`(태그 폴더 CTX)마다 그룹, 색 = 태그 색 + 같은 이름 재질. 지형은 `PolygonMesh` → `fill_from_mesh`(자동 부드럽게), 커브는 `add_edges`. 원점은 모델 속성, 실제 좌표 방식은 대상지 그룹을 옮긴다. 한 번의 생성 = Undo 한 번(clear가 작업을 열고 뒤 호출은 투명 작업).
+- 모델 모양: 대상지마다 최상위 그룹 `Gorani <대상지명>`(속성 사전 `Gorani`의 `GORANI_LOT_KEY`) 안에 태그 `CTX::…`(태그 폴더 CTX)마다 그룹, 색 = 태그 색 + 같은 이름 재질. 지형은 `PolygonMesh` → `fill_from_mesh`(자동 부드럽게), 커브는 `add_edges`. 원점은 모델 속성, 실제 좌표 방식은 대상지 그룹을 옮긴다. 한 번의 생성 = Undo 한 번(clear가 작업을 열고 뒤 호출은 투명 작업).
 - 사본: 대상지 그룹 정의 `save_copy` → `context.skp`(로컬 좌표, 원점 = context.json `origin`). 다시 넣기는 `definitions.load` + 원점 차이만큼 옮긴 인스턴스.
-- 사이드카는 `-B`(확장 폴더에 `__pycache__`를 쓰면 서명 파일 목록이 바뀐다), stdout 첫 줄만 주소·그 뒤는 stderr = `~/UrbanSite/sketchup_sidecar.log`, stdin EOF(SketchUp 종료)에 끝난다. 패널을 닫으면 진행 중인 host_call은 `SKETCHUP_HOST_TIMEOUT` 뒤 실패.
-- 배포: `dev_deploy.py sketchup` → `build/bsh_urbansite-<버전>.rbz`(약 90 MB — 런타임 셋, numpy OpenBLAS가 절반). 올리기는 `docs/sketchup_store.md`.
+- 사이드카는 `-B`(확장 폴더에 `__pycache__`를 쓰면 서명 파일 목록이 바뀐다), stdout 첫 줄만 주소·그 뒤는 stderr = `~/Gorani/sketchup_sidecar.log`, stdin EOF(SketchUp 종료)에 끝난다. 패널을 닫으면 진행 중인 host_call은 `SKETCHUP_HOST_TIMEOUT` 뒤 실패.
+- 배포: `dev_deploy.py sketchup` → `build/bsh_gorani-<버전>.rbz`(약 90 MB — 런타임 셋, numpy OpenBLAS가 절반). 올리기는 `docs/sketchup_store.md`.
 
 ---
 
@@ -305,11 +305,11 @@ SketchUp(Ruby, sketchup_ext.rb = bsh_urbansite/main.rb)            사이드카(
 
 | 항목 | 규칙 |
 |---|---|
-| 원점 | **문서 원점은 문서 속성이다.** `request["doc_origin"]`(= `doc.Strings["URBANSITE_ORIGIN_E/N"]`, `run`이 읽어 넣는다)이 있으면 그 원점을 재사용(`origin_reused=true`, 경고 1줄) — 같은 문서에 대상지 A·B를 차례로 생성해도 좌표계가 하나다. 없을 때만 대상지(합필이면 합집합 bbox) 중심을 `ORIGIN_SNAP=100` m 단위로 내림. 재사용 원점과 새 대상지 중심 거리 > `ORIGIN_MAX_OFFSET`(20 km)이면 `ValueError("다른 지역 문서입니다 — 새 문서에서 생성하세요")`. **결정은 `context_builder.prepare`, 적용은 `context_geometry.get_local_pts(coords, origin)` 한 함수.** 모든 GeoJSON→Point3d 변환이 이 함수를 거친다 |
+| 원점 | **문서 원점은 문서 속성이다.** `request["doc_origin"]`(= `doc.Strings["GORANI_ORIGIN_E/N"]`, `run`이 읽어 넣는다)이 있으면 그 원점을 재사용(`origin_reused=true`, 경고 1줄) — 같은 문서에 대상지 A·B를 차례로 생성해도 좌표계가 하나다. 없을 때만 대상지(합필이면 합집합 bbox) 중심을 `ORIGIN_SNAP=100` m 단위로 내림. 재사용 원점과 새 대상지 중심 거리 > `ORIGIN_MAX_OFFSET`(20 km)이면 `ValueError("다른 지역 문서입니다 — 새 문서에서 생성하세요")`. **결정은 `context_builder.prepare`, 적용은 `context_geometry.get_local_pts(coords, origin)` 한 함수.** 모든 GeoJSON→Point3d 변환이 이 함수를 거친다 |
 | 실제 좌표(`placement=world`, 2026-10-10) | 계산 원점은 그대로(대상지 중심 100 m 내림 — 형상은 로컬에서 만든다), 문서 원점 = (0,0). `context_baker.bake`가 (계산 원점 − 문서 원점)만큼 `Transform.Translation`(단위 Scale 앞)으로 옮긴다. 메시는 옮기기 전에 `Vertices.UseDoublePrecisionVertices = True` — 단정밀도는 55만 m에서 6 cm 단위(헤드리스 문서 실측 `driver_target_modes`). 문서 원점 (0,0) = 실제 좌표 문서 — 방식이 다르면 `placement_mismatch` |
 | 왜 베이커가 아닌가 | 메시는 생성 전에 로컬 좌표여야 한다. RhinoCommon에 `MeshVertexList.UseDoublePrecisionVertices`가 있지만 `CreateFromTessellation` 출력의 정밀도는 미확인이고, 표시 메시·스냅은 어차피 원점 근처가 안전(07 §6.2). 베이커는 **문서 단위 환산과 원점 기록**만 |
 | 단위 | 로직 m. `context_baker`가 `RhinoMath.UnitScale(Meters, doc.ModelUnitSystem)`을 베이크 직전 복제본에 `Transform.Scale`. 3dm 사본은 문서 단위 그대로 + `context.json.model_unit`. m 단위 사본은 P2(`RhinoCommon.FileIO.File3dm` 직접 쓰기 또는 `RhinoDoc.CreateHeadless(m)`) |
-| 기록 세 곳 | ① `CTX::Ref` 원점 Point + TextDot UserString(§7 Ref 표) ② `doc.Strings.SetString("URBANSITE_ORIGIN_E"/"URBANSITE_ORIGIN_N"/"URBANSITE_CRS")` + `doc.EarthAnchorPoint`(위경도 `non_rhino_utils.get_wgs84_from_tm`, `ModelNorth=(0,1,0)`) — **원점이 재사용이면 덮어쓰지 않는다**(`URBANSITE_LOT_KEY`는 객체 UserString에만, 문서 수준 키 아님) ③ `context.json`. 복원식: 세계좌표 = 로컬 + ORIGIN. `import_3dm`은 파일 `context.json.origin` ≠ 문서 원점이면 차이만큼 `Transform.Translation`으로 보정(차이 > `ORIGIN_MAX_OFFSET`이면 거부) |
+| 기록 세 곳 | ① `CTX::Ref` 원점 Point + TextDot UserString(§7 Ref 표) ② `doc.Strings.SetString("GORANI_ORIGIN_E"/"GORANI_ORIGIN_N"/"GORANI_CRS")` + `doc.EarthAnchorPoint`(위경도 `non_rhino_utils.get_wgs84_from_tm`, `ModelNorth=(0,1,0)`) — **원점이 재사용이면 덮어쓰지 않는다**(`GORANI_LOT_KEY`는 객체 UserString에만, 문서 수준 키 아님) ③ `context.json`. 복원식: 세계좌표 = 로컬 + ORIGIN. `import_3dm`은 파일 `context.json.origin` ≠ 문서 원점이면 차이만큼 `Transform.Translation`으로 보정(차이 > `ORIGIN_MAX_OFFSET`이면 거부) |
 | Z·정북 | Z는 절대 표고 그대로. +Y = 격자북(수렴각 서울 0.03~0.13° 무시) |
 | SVG·CSV·json | 전부 세계좌표 m. `sheet_svg.Frame`이 세계좌표 → 종이 mm(`(E − E0)/S × 1000`, E0 = 프레임 중심). 원점을 모른다 — `build_terrain`의 시트용 삼각형도 세계좌표로 되돌려 받는다 |
 
@@ -321,7 +321,7 @@ SketchUp(Ruby, sketchup_ext.rb = bsh_urbansite/main.rb)            사이드카(
 
 | 레이어 | 타입 | 색 | UserString 키 | 우선 |
 |---|---|---|---|---|
-| `CTX::Site` | PolylineCurve | 220,40,40 | `PNU`, `URBANSITE_LOT_KEY` | P0 |
+| `CTX::Site` | PolylineCurve | 220,40,40 | `PNU`, `GORANI_LOT_KEY` | P0 |
 | `CTX::Parcels` | PolylineCurve(구멍 보존) | 185,185,180 | `PNU`·`JIMOK`·`ZONE` | P0 |
 | `CTX::Buildings` | Mesh(동당 1개) | 128,128,128 | `BLD_ID`·`PNU`·`PNU_SRC`·`GRND_FLR`·`FLR_SRC`·`UGRND_FLR`·`HEIGHT_M`·`HEIGHT_SRC`·`HEIGHT_GRADE`·`USABILITY`·`USEAPR_DAY`·`BLD_NM`·`STATUS`·`DEMOL_DAY`(14키) | P0 |
 | `CTX::Buildings::demolished` | Extrusion 외곽선(점선) | 160,160,160 | 위와 같음 | **P1** — `status`는 v1 전부 'active'(건축HUB 벌크가 있어야 채워짐). 레이어는 데이터가 있을 때만 생성, `counts.demolished`는 v1 항상 0 |
@@ -335,9 +335,9 @@ SketchUp(Ruby, sketchup_ext.rb = bsh_urbansite/main.rb)            사이드카(
 | `CTX::Bridges` | Extrusion(슬래브 1.5 m) | 150,150,150 | `KIND`·`DECK_Z_SRC` | P1 |
 | `CTX::Zoning::<구분>::<종류>` | PolylineCurve(기본 on) | 현황도 11~13 범례 색 | `THEME`·`KIND`·`NAME`·`NOTICE_NO` | P1 |
 | `CTX::QA::cadastre_mismatch` | Curve(잠금·비표시) | 255,0,255 | `REASON`·`DIST_M` | P1 |
-| `CTX::Ref` | Point·TextDot·Curve | 0,0,0 | `CRS=EPSG:5186`·`ORIGIN_E`·`ORIGIN_N`·`RADIUS_M`·`SHAPE`·`SRC_SHEETS`·`BUILT_AT`·`TOOL_VERSION`·`ALIGN_MEDIAN_M`·`ALIGN_P90_M`·`ALIGN_N`·`ALIGN_DX_DY`·`TOPO_YEAR`·`TRANSFORM`·`VDATUM`·`DATE_LOT`·`DATE_BUILDING`·`DATE_TERRAIN`·`DATE_UPIS`·`META_LINES`(get_meta_lines 5줄 `\n` 결합)·`URBANSITE_LOT_KEY` | P0 |
+| `CTX::Ref` | Point·TextDot·Curve | 0,0,0 | `CRS=EPSG:5186`·`ORIGIN_E`·`ORIGIN_N`·`RADIUS_M`·`SHAPE`·`SRC_SHEETS`·`BUILT_AT`·`TOOL_VERSION`·`ALIGN_MEDIAN_M`·`ALIGN_P90_M`·`ALIGN_N`·`ALIGN_DX_DY`·`TOPO_YEAR`·`TRANSFORM`·`VDATUM`·`DATE_LOT`·`DATE_BUILDING`·`DATE_TERRAIN`·`DATE_UPIS`·`META_LINES`(get_meta_lines 5줄 `\n` 결합)·`GORANI_LOT_KEY` | P0 |
 
-모든 베이크 객체에 `URBANSITE_MANAGED=1`·`URBANSITE_LOT_KEY=<pnus 정렬 후 sha1 앞 8자리>` — `clear_previous`는 같은 키의 객체만 지운다(사용자 객체 보존).
+모든 베이크 객체에 `GORANI_MANAGED=1`·`GORANI_LOT_KEY=<pnus 정렬 후 sha1 앞 8자리>` — `clear_previous`는 같은 키의 객체만 지운다(사용자 객체 보존).
 
 ### 7.2 베이스맵 레이어 (`constants.BM_LAYERS`, deliverables B.2 순서·K톤) — `.ai`와 3dm `BM::` 2D 레이어
 

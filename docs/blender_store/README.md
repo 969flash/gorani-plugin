@@ -2,8 +2,8 @@
 
 처음 한 번:
 
-1. `python3 scripts/dev_deploy.py blender` → `build/blender_repo/urbansite-<버전>.zip`
-2. 대표 이미지·아이콘(웹사이트 저장소 `../urbansite`가 옆에 있어야 한다):
+1. `python3 scripts/dev_deploy.py blender` → `build/blender_repo/gorani-<버전>.zip`
+2. 대표 이미지·아이콘(웹사이트 저장소 `../gorani`가 옆에 있어야 한다):
    `featured.html`·`icon.html` 머리 주석의 Chrome 명령 → `build/blender_store/featured.png`(1920×1080)·`icon.png`(256×256)
 3. https://extensions.blender.org 로그인(Blender ID) → Upload Extension → zip → 칸 채우기:
    Description = `description.md`(주석 줄 빼고), 아이콘·대표 이미지·미리보기(`build/blender_store/preview_*.png`) → Submit for Approval

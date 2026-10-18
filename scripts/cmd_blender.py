@@ -1,4 +1,4 @@
-"""UrbanSite Blender 확장 진입 — 등록·버튼·브라우저 패널 브리지·컨트롤러(cmd_site._SiteController 상속).
+"""Gorani Blender 확장 진입 — 등록·버튼·브라우저 패널 브리지·컨트롤러(cmd_site._SiteController 상속).
 
 Blender에는 웹뷰가 없어 패널(site_ui.html)을 기본 브라우저로 연다. 서버·토큰·큐는 panel_server.Bridge(SketchUp판과 공용) —
 명령은 Blender 메인 스레드(bpy.app.timers)에서 bridge.pump()가 컨트롤러로 넘긴다. cancel만 서버 스레드에서 바로 플래그를 세운다
@@ -19,7 +19,7 @@ SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 if __package__:   # 설치본 — scripts/가 확장의 하위 패키지(확장 정책: 최상위 모듈·sys.path 변경 금지)
     from . import cmd_site
 else:   # 저장소에서 경로로 읽을 때(tests/test_blender.py)
-    _spec = importlib.util.spec_from_file_location("urbansite_cmd_site", os.path.join(SCRIPTS_DIR, "cmd_site.py"))
+    _spec = importlib.util.spec_from_file_location("gorani_cmd_site", os.path.join(SCRIPTS_DIR, "cmd_site.py"))
     cmd_site = importlib.util.module_from_spec(_spec)
     sys.modules[_spec.name] = cmd_site
     _spec.loader.exec_module(cmd_site)
@@ -113,36 +113,36 @@ def _pump_timer():
     return POLL_SECONDS
 
 
-class URBANSITE_OT_open(bpy.types.Operator):
+class GORANI_OT_open(bpy.types.Operator):
     """대상지 패널을 기본 브라우저로 엽니다"""
 
-    bl_idname = "urbansite.open"
-    bl_label = "UrbanSite"
+    bl_idname = "gorani.open"
+    bl_label = "Gorani"
 
     def execute(self, context):
         if not bpy.app.online_access:
-            self.report({"ERROR"}, "UrbanSite는 지도·지역 데이터를 인터넷에서 받습니다 — 환경 설정 > 시스템 > 네트워크 > 온라인 접근 허용을 켜세요")
+            self.report({"ERROR"}, "Gorani는 지도·지역 데이터를 인터넷에서 받습니다 — 환경 설정 > 시스템 > 네트워크 > 온라인 접근 허용을 켜세요")
             return {"CANCELLED"}
         url = get_bridge().url
         webbrowser.open(url)
-        print("[UrbanSite] 패널: %s" % url)
-        self.report({"INFO"}, "UrbanSite 패널을 브라우저로 열었습니다")
+        print("[Gorani] 패널: %s" % url)
+        self.report({"INFO"}, "Gorani 패널을 브라우저로 열었습니다")
         return {"FINISHED"}
 
 
-class URBANSITE_PT_panel(bpy.types.Panel):
+class GORANI_PT_panel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "UrbanSite"
-    bl_label = "UrbanSite"
+    bl_category = "Gorani"
+    bl_label = "Gorani"
 
     def draw(self, context):
-        self.layout.operator(URBANSITE_OT_open.bl_idname, text="패널 열기", icon="URL")
+        self.layout.operator(GORANI_OT_open.bl_idname, text="패널 열기", icon="URL")
         if _bridge is not None:
             self.layout.label(text="브라우저 탭을 닫았으면 다시 누르세요")
 
 
-_CLASSES = (URBANSITE_OT_open, URBANSITE_PT_panel)
+_CLASSES = (GORANI_OT_open, GORANI_PT_panel)
 POLL_SECONDS = loader.load("constants").BLENDER_PANEL_POLL
 
 

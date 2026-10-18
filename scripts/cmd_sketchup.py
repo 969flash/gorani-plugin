@@ -1,9 +1,9 @@
-"""UrbanSite SketchUp판 사이드카 — 번들 파이썬이 실행하는 진입 스크립트(컨트롤러 = cmd_site._SiteController 상속).
+"""Gorani SketchUp판 사이드카 — 번들 파이썬이 실행하는 진입 스크립트(컨트롤러 = cmd_site._SiteController 상속).
 
 SketchUp에는 파이썬이 없어 확장(sketchup_ext.rb)이 번들 파이썬으로 이 파일을 띄운다:
     <확장>/python/<플랫폼>/python -I -B -X utf8 <확장>/scripts/cmd_sketchup.py <SketchUp 버전>
 첫 줄로 패널 주소(panel_server — 127.0.0.1·토큰)를 stdout에 쓰고, SketchUp의 UI::HtmlDialog가 그 주소를 연다.
-그 뒤 출력은 stderr(SketchUp이 ~/UrbanSite/sketchup_sidecar.log로 돌린다). stdin이 닫히면(SketchUp 종료) 끝난다.
+그 뒤 출력은 stderr(SketchUp이 ~/Gorani/sketchup_sidecar.log로 돌린다). stdin이 닫히면(SketchUp 종료) 끝난다.
 
 엔진은 전부 여기서 돈다. SketchUp 모델을 만지는 일만 호스트 호출이다 — 컨트롤러가 {"type": "host_call", id, method, args}를
 패널로 푸시하면 패널 JS가 sketchup.host_call로 Ruby에 넘기고, Ruby가 끝나면 패널이 {"cmd": "host_reply", id, ok, result, error}를 보낸다.
@@ -19,8 +19,8 @@ import sys
 import threading
 
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
-os.environ["URBANSITE_HOST"] = "sketchup"   # constants.HOST_ENV — context_builder.get_host가 본다(constants보다 먼저)
-_spec = importlib.util.spec_from_file_location("urbansite_cmd_site", os.path.join(SCRIPTS_DIR, "cmd_site.py"))
+os.environ["GORANI_HOST"] = "sketchup"   # constants.HOST_ENV — context_builder.get_host가 본다(constants보다 먼저)
+_spec = importlib.util.spec_from_file_location("gorani_cmd_site", os.path.join(SCRIPTS_DIR, "cmd_site.py"))
 cmd_site = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = cmd_site
 _spec.loader.exec_module(cmd_site)
@@ -135,7 +135,7 @@ def main():
     sys.stdout.write(bridge.url + "\n")
     sys.stdout.flush()
     sys.stdout = sys.stderr   # 남은 print는 로그로 — SketchUp은 첫 줄만 읽는다(안 읽는 파이프가 차면 막힌다)
-    threading.Thread(target=_exit_with_parent, name="urbansite-parent", daemon=True).start()
+    threading.Thread(target=_exit_with_parent, name="gorani-parent", daemon=True).start()
     while True:
         bridge.dispatch(bridge.inbox.get())
 

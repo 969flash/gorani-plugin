@@ -80,7 +80,7 @@ class MetaLinesTest(unittest.TestCase):
         self.assertTrue(lines[0].startswith("자료기준 — 필지 토지특성정보 2026-05-13 · 건물 GIS건물통합정보 2026-09-06"))
         self.assertIn("도시계획 서울시 UPIS —", lines[0])            # upis 원천 없음 → '—'
         self.assertIn("도엽 37705072 외 1, 2024~2026", lines[0])
-        self.assertIn("생성 2026-10-07 · UrbanSite v%s" % constants.PANEL_VERSION, lines[0])
+        self.assertIn("생성 2026-10-07 · Gorani v%s" % constants.PANEL_VERSION, lines[0])
         self.assertEqual(lines[1], constants.META_SOURCE_LINE)
         self.assertEqual(lines[2], constants.META_CRS_LINE)
         self.assertEqual(lines[3], "정합 오차 중앙값 1.2 m, p90 3.9 m (n=1431, 도로경계 자동 비교) · 지적–지형 불일치 의심 2건(현장 확인 대상, 레이어 qa_mismatch)")

@@ -1,9 +1,9 @@
-# UrbanSite SketchUp판 본문 — 확장 패키지에서는 bsh_urbansite/main.rb(dev_deploy.py sketchup이 복사한다).
+# Gorani SketchUp판 본문 — 확장 패키지에서는 bsh_gorani/main.rb(dev_deploy.py sketchup이 복사한다).
 #
 # SketchUp에는 파이썬이 없어 확장에 든 번들 파이썬(python/<플랫폼>/)으로 사이드카 scripts/cmd_sketchup.py를 띄운다.
 # 사이드카가 첫 줄로 준 127.0.0.1 패널 주소를 UI::HtmlDialog가 연다 — 엔진·패널·데이터 받기는 전부 파이썬이고,
 # 여기는 SketchUp 모델을 만지는 호스트 호출(host_call → rpc_<method>)만 한다. 응답은 패널 JS의 send({cmd: "host_reply"}).
-# 모양: 대상지마다 최상위 그룹 하나(속성 URBANSITE_LOT_KEY) 안에 태그('CTX::Buildings')마다 그룹, 건물은 동마다 그룹.
+# 모양: 대상지마다 최상위 그룹 하나(속성 GORANI_LOT_KEY) 안에 태그('CTX::Buildings')마다 그룹, 건물은 동마다 그룹.
 # 좌표는 사이드카가 로컬 m로 주고 여기서 인치로 바꾼다. 원점·사본 규칙은 scripts/sketchup_baker.py.
 # EntitiesBuilder(구멍 있는 면·빠른 일괄 생성)가 SketchUp 2022부터라 그 아래는 받지 않는다.
 
@@ -11,17 +11,17 @@ require "json"
 require "fileutils"
 
 module BSH
-  module UrbanSite
+  module Gorani
     ROOT = File.dirname(__FILE__)
-    DICT = "UrbanSite"                      # 속성 사전 — 모델(원점)·대상지 그룹·항목 그룹
-    MANAGED_KEY = "URBANSITE_MANAGED"       # constants.UDT_MANAGED_KEY
-    LOT_KEY = "URBANSITE_LOT_KEY"           # constants.UDT_LOT_KEY
-    LAYER_KEY = "URBANSITE_LAYER"           # 항목 그룹의 레이어(태그) 이름
+    DICT = "Gorani"                      # 속성 사전 — 모델(원점)·대상지 그룹·항목 그룹
+    MANAGED_KEY = "GORANI_MANAGED"       # constants.UDT_MANAGED_KEY
+    LOT_KEY = "GORANI_LOT_KEY"           # constants.UDT_LOT_KEY
+    LAYER_KEY = "GORANI_LAYER"           # 항목 그룹의 레이어(태그) 이름
     TAG_FOLDER = "CTX"                      # constants.CTX_ROOT_LAYER
     M = 1.m.to_f                            # m → 인치
     RPC = %w[get_model_attrs set_model_attrs clear bake ref save zoom import pick_curve].freeze
     TERRAIN_SMOOTH = Geom::PolygonMesh::AUTO_SOFTEN | Geom::PolygonMesh::SMOOTH_SOFT_EDGES
-    LOG_DIR = File.join(Dir.home, "UrbanSite")   # 사이드카 constants.HOME_DIR과 같은 자리
+    LOG_DIR = File.join(Dir.home, "Gorani")   # 사이드카 constants.HOME_DIR과 같은 자리
 
     @wrappers ||= {}   # lot_key → 대상지 그룹. 사이드카(@io·@url)·패널(@dialog)·마지막 그룹(@last_wrapper)도 모듈 변수 — 다시 읽어도 이어 쓴다
 
@@ -58,7 +58,7 @@ module BSH
       raise "SketchUp 2022 이상이 필요합니다(EntitiesBuilder)" if Sketchup.version.to_i < 22
       url = sidecar_url
       unless @dialog && @dialog.visible?
-        @dialog = UI::HtmlDialog.new(dialog_title: "UrbanSite", preferences_key: "BSH_UrbanSite", scrollable: true, resizable: true,
+        @dialog = UI::HtmlDialog.new(dialog_title: "Gorani", preferences_key: "BSH_Gorani", scrollable: true, resizable: true,
                                      width: 480, height: 900, min_width: 380, min_height: 500, style: UI::HtmlDialog::STYLE_DIALOG)
         @dialog.add_action_callback("host_call") { |_context, json| host_call(json) }
         @dialog_url = nil
@@ -67,7 +67,7 @@ module BSH
       @dialog_url = url
       @dialog.visible? ? @dialog.bring_to_front : @dialog.show
     rescue StandardError => e
-      UI.messagebox("UrbanSite를 열지 못했습니다.\n#{e.message}")
+      UI.messagebox("Gorani를 열지 못했습니다.\n#{e.message}")
     end
 
     def self.host_call(json)
@@ -75,7 +75,7 @@ module BSH
       raise ArgumentError, "모르는 호출: #{msg['method']}" unless RPC.include?(msg["method"])
       reply(msg["id"], true, send("rpc_#{msg['method']}", msg["args"] || {}), "")
     rescue StandardError => e
-      warn "[UrbanSite] #{e.class}: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+      warn "[Gorani] #{e.class}: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
       reply(msg && msg["id"], false, nil, "#{e.class}: #{e.message}")
     end
 
@@ -93,7 +93,7 @@ module BSH
 
     def self.rpc_set_model_attrs(args)
       model = Sketchup.active_model
-      model.start_operation("UrbanSite", true, false, true)
+      model.start_operation("Gorani", true, false, true)
       args["values"].each { |key, value| model.set_attribute(DICT, key, value) }
       model.commit_operation
       true
@@ -109,7 +109,7 @@ module BSH
     def self.rpc_clear(args)
       model = Sketchup.active_model
       targets = model.entities.select { |e| managed?(e, args["lot_key"]) }
-      model.start_operation("UrbanSite", true)
+      model.start_operation("Gorani", true)
       model.entities.erase_entities(targets) unless targets.empty?
       model.commit_operation
       @wrappers.delete(args["lot_key"])
@@ -145,7 +145,7 @@ module BSH
       wrapper = @wrappers[lot_key]
       return wrapper if wrapper && wrapper.valid?
       wrapper = model.entities.add_group
-      wrapper.name = "UrbanSite #{lot_name}"
+      wrapper.name = "Gorani #{lot_name}"
       wrapper.set_attribute(DICT, MANAGED_KEY, "1")
       wrapper.set_attribute(DICT, LOT_KEY, lot_key)
       wrapper.transformation = Geom::Transformation.translation(Geom::Vector3d.new(shift[0] * M, shift[1] * M, 0))
@@ -187,7 +187,7 @@ module BSH
         end
       rescue ArgumentError => e   # 자기교차 발자국 등
         failed += 1
-        warn "[UrbanSite] 건물 #{name}: #{e.message}"
+        warn "[Gorani] 건물 #{name}: #{e.message}"
         group.erase! if group && group.valid?
       end
       failed
@@ -206,7 +206,7 @@ module BSH
     def self.rpc_bake(args)
       data = JSON.parse(File.read(args["path"], encoding: "UTF-8"))
       model = Sketchup.active_model
-      model.start_operation("UrbanSite", true, false, true)
+      model.start_operation("Gorani", true, false, true)
       wrapper = get_wrapper(model, data["lot_key"], data["lot_name"], data["shift"])
       @last_wrapper = wrapper
       ids = []
@@ -226,7 +226,7 @@ module BSH
         end
         ids << group.persistent_id
       rescue StandardError => e
-        warn "[UrbanSite] #{item['layer']} #{item['name']}: #{e.message}"
+        warn "[Gorani] #{item['layer']} #{item['name']}: #{e.message}"
       end
       model.commit_operation
       ids
@@ -234,7 +234,7 @@ module BSH
 
     def self.rpc_ref(args)
       model = Sketchup.active_model
-      model.start_operation("UrbanSite", true, false, true)
+      model.start_operation("Gorani", true, false, true)
       wrapper = get_wrapper(model, args["lot_key"], args["lot_name"], args["shift"])
       group = wrapper.entities.add_group
       group.name = "origin"
@@ -257,11 +257,11 @@ module BSH
 
     def self.rpc_import(args)
       model = Sketchup.active_model
-      model.start_operation("UrbanSite", true, false, true)
+      model.start_operation("Gorani", true, false, true)
       definition = model.definitions.load(args["path"])
       shift = args["shift"]
       instance = model.entities.add_instance(definition, Geom::Transformation.translation(Geom::Vector3d.new(shift[0] * M, shift[1] * M, 0)))
-      instance.name = "UrbanSite #{args['lot_name']}"
+      instance.name = "Gorani #{args['lot_name']}"
       instance.set_attribute(DICT, MANAGED_KEY, "1")
       instance.set_attribute(DICT, LOT_KEY, args["lot_key"].to_s)
       model.commit_operation
@@ -330,13 +330,13 @@ module BSH
     end
 
     unless file_loaded?(__FILE__)
-      command = UI::Command.new("UrbanSite") { show_panel }
-      command.tooltip = "UrbanSite"
+      command = UI::Command.new("Gorani") { show_panel }
+      command.tooltip = "Gorani"
       command.status_bar_text = "대상지 패널 — 주변 건물·도로·지형·수계 3D와 베이스맵·현황도"
-      icon = File.join(ROOT, "icons", "urbansite.png")
+      icon = File.join(ROOT, "icons", "gorani.png")
       command.small_icon = command.large_icon = icon if File.exist?(icon)
       UI.menu("Extensions").add_item(command)
-      toolbar = UI::Toolbar.new("UrbanSite")
+      toolbar = UI::Toolbar.new("Gorani")
       toolbar.add_item(command)
       toolbar.restore
       file_loaded(__FILE__)

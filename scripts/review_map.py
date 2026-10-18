@@ -1,4 +1,4 @@
-"""UrbanSite 패널의 지도 데이터 제공자.
+"""Gorani 패널의 지도 데이터 제공자.
 
 로컬 DB의 필지(EPSG:5186)를 WGS84 GeoJSON으로 바꾸고 타일·초기 뷰 설정을 준다.
 Rhino를 import하지 않아 python3로 바로 테스트할 수 있다.

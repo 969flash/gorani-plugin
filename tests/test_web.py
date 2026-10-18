@@ -1,7 +1,7 @@
-"""웹판 — web_baker GLB(각기둥 면 풀기·레이어 노드)와 엔진 run(URBANSITE_HOST=web → mesh_geometry + web_baker).
+"""웹판 — web_baker GLB(각기둥 면 풀기·레이어 노드)와 엔진 run(GORANI_HOST=web → mesh_geometry + web_baker).
 numpy·shapely 2.1+가 있는 파이썬(SketchUp 번들 파이썬·Pyodide)에서만 돈다 — 개발 Mac python3 discover는 skip.
 
-    build/sketchup/bsh_urbansite/python/mac-arm64/bin/python3.12 -m unittest tests/test_web.py
+    build/sketchup/bsh_gorani/python/mac-arm64/bin/python3.12 -m unittest tests/test_web.py
 """
 
 import importlib.util
@@ -62,8 +62,8 @@ class WebRunTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.old_host = os.environ.get("URBANSITE_HOST")
-        os.environ["URBANSITE_HOST"] = "web"
+        cls.old_host = os.environ.get("GORANI_HOST")
+        os.environ["GORANI_HOST"] = "web"
         import constants
         import context_builder
         import web_baker
@@ -76,9 +76,9 @@ class WebRunTest(unittest.TestCase):
     def tearDownClass(cls):
         cls.tmp.cleanup()
         if cls.old_host is None:
-            os.environ.pop("URBANSITE_HOST", None)
+            os.environ.pop("GORANI_HOST", None)
         else:
-            os.environ["URBANSITE_HOST"] = cls.old_host
+            os.environ["GORANI_HOST"] = cls.old_host
 
     def test_glb(self):
         r = self.response
@@ -89,7 +89,7 @@ class WebRunTest(unittest.TestCase):
         names = [n["name"] for n in gltf["nodes"]]
         self.assertIn("CTX::Buildings", names)
         self.assertNotIn("CTX::Terrain::site_original", names)   # 숨김 레이어
-        self.assertEqual(gltf["asset"]["extras"]["urbansite"]["origin"], [round(v, 3) for v in r["context"]["origin"]])
+        self.assertEqual(gltf["asset"]["extras"]["gorani"]["origin"], [round(v, 3) for v in r["context"]["origin"]])
         for mesh in gltf["meshes"]:
             for prim in mesh["primitives"]:
                 count = gltf["accessors"][prim["attributes"]["POSITION"]]["count"]

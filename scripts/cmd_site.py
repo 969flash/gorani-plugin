@@ -1,5 +1,5 @@
 #! python 3
-"""UrbanSite 패널 진입 스크립트 + 컨트롤러 — Rhino에서 직접 실행한다.
+"""Gorani 패널 진입 스크립트 + 컨트롤러 — Rhino에서 직접 실행한다.
 
     ! _-ScriptEditor _Run "<저장소 경로>/scripts/cmd_site.py"
 
@@ -58,7 +58,7 @@ if __package__:   # Blender 확장 — scripts/가 패키지(최상위 모듈 �
     from . import loader
 else:   # cmd_install.py와 같은 방식 — 고유 모듈명으로 로더를 읽어 Rhino 공유 인터프리터의 이름 충돌을 막는다
     _spec = importlib.util.spec_from_file_location(
-        "urbansite_loader",
+        "gorani_loader",
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "loader.py"),
     )
     loader = importlib.util.module_from_spec(_spec)
@@ -66,7 +66,7 @@ else:   # cmd_install.py와 같은 방식 — 고유 모듈명으로 로더를 �
     _spec.loader.exec_module(loader)
 
 ROOT_DIR = loader.ROOT_DIR
-PANEL_STICKY_KEY = "urbansite_site_panel"
+PANEL_STICKY_KEY = "gorani_site_panel"
 ENV_TEMPLATE = "VWORLD_API_KEY=\n"
 # 콜백이 오지 않는 phase의 행 오른쪽 글(panel_ui.md 진행률 규약)
 SKIPPED_DETAILS = {"refresh": "건너뜀 — v1 미구현", "import": "건너뜀 — 베이크로 대체"}
@@ -882,7 +882,7 @@ def _show_panel():
     if existing is not None:
         try:
             existing.bring_to_front()
-            print("[UrbanSite] 이미 열린 패널을 앞으로 가져왔습니다")
+            print("[Gorani] 이미 열린 패널을 앞으로 가져왔습니다")
             return
         except Exception:
             scriptcontext.sticky.pop(PANEL_STICKY_KEY, None)   # 이미 닫혔거나 못 쓰는 패널 — 새로 연다

@@ -8,7 +8,7 @@
 GLB: 레이어마다 노드 하나(이름 'CTX::Buildings', 재질 = 레이어 색, CTX_HIDDEN_LAYERS는 뺀다) — 면은 TRIANGLES, 선은 LINES.
 건물 각기둥(mesh_geometry shapely판의 prisms)은 여기서 면으로 푼다 — 윗면·바닥은 shapely 제약 들로네, 옆면은 링 변마다 사각형.
 법선은 넣지 않는다(glTF 규약상 받는 쪽이 면 법선으로 그린다 — 각진 매스). 좌표는 로컬 m, glTF는 +Y가 위라 (x, y, z) → (x, z, −y)(정북 = −Z).
-원점(EPSG:5186)·대상지 이름은 asset.extras.urbansite와 context.json에 적는다. 생성마다 파일 하나로 끝나므로 문서 원점은 재사용하지 않는다.
+원점(EPSG:5186)·대상지 이름은 asset.extras.gorani와 context.json에 적는다. 생성마다 파일 하나로 끝나므로 문서 원점은 재사용하지 않는다.
 """
 
 import json
@@ -110,7 +110,7 @@ def get_glb(items, prepared):
     extras = {"unit": "m", "axes": "x = 동, y = 위, -z = 북(EPSG:5186 격자북)", "crs": non_rhino_utils.get_crs_label()}
     if prepared is not None:
         extras.update(origin=[round(float(v), 3) for v in prepared.origin], lot_name=prepared.lot_name)
-    return writer.get_bytes({"urbansite": extras})
+    return writer.get_bytes({"gorani": extras})
 
 
 def _get_mesh_arrays(verts, faces):

@@ -55,7 +55,7 @@ def get_model_unit_scale(doc):
 
 def get_doc_origin(doc):
     # type: (object) -> tuple
-    """doc.Strings URBANSITE_ORIGIN_E/N → (E, N). 없거나 좌표계가 지금과 다르면(국내 문서에 해외 대상지 등) None.
+    """doc.Strings GORANI_ORIGIN_E/N → (E, N). 없거나 좌표계가 지금과 다르면(국내 문서에 해외 대상지 등) None.
     context_builder.run이 request['doc_origin']에 넣는다."""
     e, n, crs = (doc.Strings.GetValue(key) for key in constants.DOC_ORIGIN_KEYS)
     if crs and crs != non_rhino_utils.get_crs_label():
@@ -240,7 +240,7 @@ def clear_previous(doc, lot_key=None):
 
 def _get_dim_style_id(doc, height, style_cache):
     # type: (object, float, dict) -> object
-    """문자 높이(문서 단위)에 맞는 치수 스타일 'UrbanSite_<높이>'를 찾거나 만들어 Id. 객체 TextHeight 오버라이드는 Objects.Add에서 사라진다(job 1007-233219-dff6) —
+    """문자 높이(문서 단위)에 맞는 치수 스타일 'Gorani_<높이>'를 찾거나 만들어 Id. 객체 TextHeight 오버라이드는 Objects.Add에서 사라진다(job 1007-233219-dff6) —
     높이를 스타일에 두는 방식."""
     name = constants.BM_DIM_STYLE_FORMAT % height
     if name not in style_cache:

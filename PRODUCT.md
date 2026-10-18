@@ -12,7 +12,7 @@ An open, unknown population of architecture and urban design practitioners and s
 
 ## Product Purpose
 
-UrbanSite turns one picked site into the starting material of an urban design project: a 3D context model in the open Rhino document, a layered basemap for Illustrator, and a family of analysis maps (현황도·분석도) built from public data. Success means a non-developer presses one button and gets drawings they can put straight into their own documents, with sources and reference dates already stated.
+Gorani turns one picked site into the starting material of an urban design project: a 3D context model in the open Rhino document, a layered basemap for Illustrator, and a family of analysis maps (현황도·분석도) built from public data. Success means a non-developer presses one button and gets drawings they can put straight into their own documents, with sources and reference dates already stated.
 
 ## Positioning
 
@@ -34,7 +34,7 @@ A free, personally published Rhino plugin (Yak) that works offline from local SQ
 
 ## Brand Commitments
 
-- Name: UrbanSite.
+- Name: Gorani.
 - Pretendard is bundled with the panel (`scripts/vendor/`).
 
 ## Evidence on Hand

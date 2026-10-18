@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>UrbanSite 웹 — 대지 주변 3D를 브라우저에서</title>
+<title>Gorani 웹 — 대지 주변 3D를 브라우저에서</title>
 <meta name="description" content="설치 없이 브라우저에서 대상지 주변 건물·도로·지형을 3D로 만들고 GLB·베이스맵·현황도를 받습니다.">
 <style>
 /* DESIGN.md 방안지 격자 — 패널(iframe)과 같은 값 */
@@ -45,7 +45,7 @@ body { font: 13px/1.5 "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", 
 </head>
 <body>
 <div class="app">
-  <iframe id="panel" title="UrbanSite 패널"></iframe>
+  <iframe id="panel" title="Gorani 패널"></iframe>
   <main class="view" id="view" aria-label="3D 모델">
     <div class="empty" id="empty"><b>생성하면 여기에 3D 모델이 나옵니다</b><span>처음 한 번 엔진을 받습니다(약 20 MB). PC의 Chrome·Edge에서 반경 2 km까지 됩니다.</span></div>
     <div class="bar">
@@ -59,12 +59,12 @@ body { font: 13px/1.5 "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", 
   </main>
 </div>
 <script type="module">
-// UrbanSite 웹판 페이지 — 패널(iframe panel.html?web=1)과 엔진 워커(web_worker.js) 사이를 잇고 결과 GLB를 그린다. 메시지는 web_worker.js 머리말.
+// Gorani 웹판 페이지 — 패널(iframe panel.html?web=1)과 엔진 워커(web_worker.js) 사이를 잇고 결과 GLB를 그린다. 메시지는 web_worker.js 머리말.
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-const PREFS_KEY = "urbansite.prefs";   // ~/.urbansite 파일들(설정·최근 대상지·설치 ID)
+const PREFS_KEY = "gorani.prefs";   // ~/.gorani 파일들(설정·최근 대상지·설치 ID)
 const LAYER_LABELS = { Buildings: "건물", Terrain: "지형", Roads: "도로", Water: "수계", Green: "녹지", Rail: "철도", Bridges: "교량",
   Site: "대상지", Parcels: "필지", Ref: "범위", Zoning: "용도지역", "Site::ground": "대상지 바닥", "Terrain::site_flat": "대상지 평탄면",
   "Terrain::site_wall": "대상지 옹벽", "Roads::centerline": "도로 중심선" };
@@ -111,8 +111,8 @@ function onWorker(m) {
 }
 
 window.addEventListener("message", (e) => {
-  if (e.source !== panel.contentWindow || !e.data || !e.data.urbansite) return;
-  const cmd = e.data.urbansite;
+  if (e.source !== panel.contentWindow || !e.data || !e.data.gorani) return;
+  const cmd = e.data.gorani;
   if (cmd.cmd === "cancel" && busy > 0) { restart(); return; }
   busy++;
   worker.postMessage({ cmd });
@@ -157,7 +157,7 @@ function showModel(buffer) {
     scene.add(model);
     fit(); renderLayers(); render();
     $("empty").hidden = true; $("save_glb").hidden = false; $("save_zip").hidden = !lastDir;
-    window.__urbansite_model = { nodes: model.children.map((o) => o.userData.name || o.name), bytes: buffer.byteLength };   // 시험용
+    window.__gorani_model = { nodes: model.children.map((o) => o.userData.name || o.name), bytes: buffer.byteLength };   // 시험용
   }, (err) => status("모델을 읽지 못했습니다: " + err.message));
 }
 

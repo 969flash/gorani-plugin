@@ -30,7 +30,7 @@
 ```
 개발 Mac: python3 scripts/dev_context_builder.py       → data/seoul_context.db (≈1 GB)
           python3 scripts/dev_deploy.py <USB>           → UrbanDesignTool/ (scripts .pyc + data 2 DB + rui)
-사용자 PC: 폴더 복사 → Rhino에서 cmd_install.py 1회 → 명령 `UrbanSite`
+사용자 PC: 폴더 복사 → Rhino에서 cmd_install.py 1회 → 명령 `Gorani`
           패널 → 필지 선택 → [생성] → 10~20초 뒤 현재 문서에 CTX::/BM:: 레이어, result/에 3dm·ai·svg·csv
 ```
 

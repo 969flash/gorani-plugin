@@ -1,4 +1,4 @@
-"""UrbanSite 웹판 — 브라우저 Pyodide 워커(web_worker.js)가 실행하는 진입 스크립트(컨트롤러 = cmd_site._SiteController 상속).
+"""Gorani 웹판 — 브라우저 Pyodide 워커(web_worker.js)가 실행하는 진입 스크립트(컨트롤러 = cmd_site._SiteController 상속).
 
 워커가 scripts/를 가상 파일계에 풀고 이 파일을 실행한 뒤 start(push)를 부른다. 패널 명령은 handle(JSON 문자열)로 들어오고 푸시는
 push(JSON 문자열)로 워커 → 페이지(web_app.html) → 패널(iframe site_ui.html)로 나간다. 메시지 계약은 데스크톱과 같다(docs/panel_ui.md).
@@ -21,15 +21,15 @@ import js
 from pyodide.ffi import to_js
 
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
-os.environ["URBANSITE_HOST"] = "web"   # constants.HOST_ENV — context_builder.get_host가 본다(constants보다 먼저)
-_spec = importlib.util.spec_from_file_location("urbansite_cmd_site", os.path.join(SCRIPTS_DIR, "cmd_site.py"))
+os.environ["GORANI_HOST"] = "web"   # constants.HOST_ENV — context_builder.get_host가 본다(constants보다 먼저)
+_spec = importlib.util.spec_from_file_location("gorani_cmd_site", os.path.join(SCRIPTS_DIR, "cmd_site.py"))
 cmd_site = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = cmd_site
 _spec.loader.exec_module(cmd_site)
 loader = cmd_site.loader
 
 _UNSAFE_HEADERS = ("user-agent", "referer", "accept-encoding", "connection", "host", "content-length")   # 브라우저가 거부한다(콘솔 오류만 남는다)
-ZIP_DIR = "/tmp/urbansite_zip"
+ZIP_DIR = "/tmp/gorani_zip"
 
 
 class _Response(io.BytesIO):
@@ -83,7 +83,7 @@ def get_open_path(path):
     if not os.path.isdir(path):
         return path
     os.makedirs(ZIP_DIR, exist_ok=True)
-    target = os.path.join(ZIP_DIR, (os.path.basename(path.rstrip("/")) or "urbansite") + ".zip")
+    target = os.path.join(ZIP_DIR, (os.path.basename(path.rstrip("/")) or "gorani") + ".zip")
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as zf:
         for folder, _dirs, files in os.walk(path):
             for name in sorted(files):

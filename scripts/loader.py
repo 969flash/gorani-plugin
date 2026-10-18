@@ -15,7 +15,7 @@ import sys
 
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SCRIPTS_DIR)
-_PREFIX = __package__ + "." if __package__ else ""   # Blender 확장 = 'bl_ext.<저장소>.urbansite.scripts.'
+_PREFIX = __package__ + "." if __package__ else ""   # Blender 확장 = 'bl_ext.<저장소>.gorani.scripts.'
 
 
 def load(module_name):

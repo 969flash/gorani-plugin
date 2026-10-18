@@ -1,5 +1,5 @@
 #! python 3
-"""UrbanSite 설치 — 새 PC에서 한 번만 실행한다.
+"""Gorani 설치 — 새 PC에서 한 번만 실행한다.
 
 폴더를 통째로 복사한 뒤 라이노에서 이 파일을 한 번 실행하면 끝이다.
 
@@ -8,10 +8,10 @@
 하는 일
     1. 지금 이 파일 위치로 프로젝트 루트를 알아낸다 (USB든 C:든 상관없음)
     2. 패널 진입 스크립트·필지 DB가 제자리에 있는지 확인한다
-    3. 앨리어스 `UrbanSite`를 등록한다 — 폴더 절대경로는 여기에만 박힌다
-    4. 툴바 파일(UrbanSite.rui)을 라이노에 올린다
+    3. 앨리어스 `Gorani`를 등록한다 — 폴더 절대경로는 여기에만 박힌다
+    4. 툴바 파일(Gorani.rui)을 라이노에 올린다
 
-이후 사용은 명령창에 `UrbanSite` 또는 툴바 버튼이다.
+이후 사용은 명령창에 `Gorani` 또는 툴바 버튼이다.
 코드를 고쳐 배포할 때는 `scripts/` 폴더만 덮어쓰면 되고 다시 설치할 필요가 없다.
 폴더를 다른 경로로 옮겼을 때만 이 파일을 다시 실행한다.
 """
@@ -25,7 +25,7 @@ import Rhino.UI
 
 # cmd_site.py와 같은 방식 — 고유 모듈명으로 로더를 읽어 이름 충돌을 막는다
 _spec = importlib.util.spec_from_file_location(
-    "urbansite_loader",
+    "gorani_loader",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "loader.py"),
 )
 loader = importlib.util.module_from_spec(_spec)
@@ -33,10 +33,10 @@ sys.modules[_spec.name] = loader
 _spec.loader.exec_module(loader)
 
 # 명령창 앨리어스
-ALIAS_NAMES = ("UrbanSite",)
-RUI_FILENAME = "UrbanSite.rui"
+ALIAS_NAMES = ("Gorani",)
+RUI_FILENAME = "Gorani.rui"
 # rui의 tool_bar_group 이름과 같아야 한다 — 툴바를 이름으로 찾을 때 쓴다
-TOOLBAR_GROUP_NAME = "UrbanSite"
+TOOLBAR_GROUP_NAME = "Gorani"
 ENTRY_SCRIPT_NAME = "cmd_site.py"
 
 
@@ -159,7 +159,7 @@ def _install():
     # type: () -> None
     """설치 절차를 순서대로 실행하고 결과를 알린다."""
     root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    lines = ["UrbanSite 설치 위치: %s" % root_dir]
+    lines = ["Gorani 설치 위치: %s" % root_dir]
 
     if not _check_files(root_dir, lines):
         _report(lines)
@@ -180,8 +180,8 @@ def _report(lines):
     # type: (list) -> None
     """설치 결과를 명령창과 대화상자에 함께 보여준다."""
     text = "\n".join(lines)
-    print("[UrbanSite 설치]\n%s" % text)
-    Rhino.UI.Dialogs.ShowMessage(text, "UrbanSite 설치")
+    print("[Gorani 설치]\n%s" % text)
+    Rhino.UI.Dialogs.ShowMessage(text, "Gorani 설치")
 
 
 _install()

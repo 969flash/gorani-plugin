@@ -68,7 +68,7 @@
 
 ### 3.3 기본 흐름(첫 사용)
 
-1. Rhino 명령 `UrbanSite` → 창 뜸 → `init` → `init_state`(타일·지도 초기 위치·DB 기준일·키 유무·prefs).
+1. Rhino 명령 `Gorani` → 창 뜸 → `init` → `init_state`(타일·지도 초기 위치·DB 기준일·키 유무·prefs).
 2. 검색줄에 "성수동2가 277-17" Enter → `search_result` 1건이면 즉시 대상 추가 + 지도 flyTo; 여러 건이면 검색줄 아래 목록(↑↓ Enter).
 3. 지도에서 옆 필지 클릭 = 합필 토글. 칩 × = 제거.
 4. 반경·산출물은 기본값(500 m·버퍼·전부 체크) 그대로.

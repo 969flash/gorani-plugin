@@ -80,7 +80,7 @@ server {
 """
 
 SYSTEMD_UNIT = """[Unit]
-Description=UrbanSite domestic gate
+Description=Gorani domestic gate
 After=network-online.target
 
 [Service]

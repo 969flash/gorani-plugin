@@ -1,7 +1,7 @@
 """SketchUp판 사이드카 — mesh_geometry shapely판(겹치기 CDT·격자 지반)·엔진 run(가짜 SketchUp이 host_call에 답한다)·다시 넣기·host_reply 경로.
 numpy·shapely 2.1+가 있는 파이썬(번들 파이썬)에서만 돈다 — 개발 Mac python3 discover는 skip.
 
-    build/sketchup/bsh_urbansite/python/mac-arm64/bin/python3 -m unittest tests/test_sketchup.py
+    build/sketchup/bsh_gorani/python/mac-arm64/bin/python3 -m unittest tests/test_sketchup.py
 """
 
 import importlib.util
@@ -26,12 +26,12 @@ READY = HAS_BACKEND and os.path.exists(SITE_DB) and os.path.exists(CONTEXT_DB)
 
 
 def setUpModule():
-    """cmd_sketchup은 읽을 때 URBANSITE_HOST를 둔다 — 이 파일이 끝나면 되돌린다(같은 프로세스의 다른 시험이 Rhino 경로를 탄다)."""
+    """cmd_sketchup은 읽을 때 GORANI_HOST를 둔다 — 이 파일이 끝나면 되돌린다(같은 프로세스의 다른 시험이 Rhino 경로를 탄다)."""
     global cmd_sketchup, loader, _old_host
     if not READY:
         return
-    _old_host = os.environ.get("URBANSITE_HOST")
-    spec = importlib.util.spec_from_file_location("urbansite_cmd_sketchup", str(SCRIPTS_DIR / "cmd_sketchup.py"))
+    _old_host = os.environ.get("GORANI_HOST")
+    spec = importlib.util.spec_from_file_location("gorani_cmd_sketchup", str(SCRIPTS_DIR / "cmd_sketchup.py"))
     cmd_sketchup = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = cmd_sketchup
     spec.loader.exec_module(cmd_sketchup)
@@ -42,9 +42,9 @@ def tearDownModule():
     if not READY:
         return
     if _old_host is None:
-        os.environ.pop("URBANSITE_HOST", None)
+        os.environ.pop("GORANI_HOST", None)
     else:
-        os.environ["URBANSITE_HOST"] = _old_host
+        os.environ["GORANI_HOST"] = _old_host
 
 
 def _request(result_root, **options):
@@ -165,7 +165,7 @@ class SidecarRunTest(unittest.TestCase):
         self.assertEqual(layers["CTX::Water"]["rgb"], [46, 125, 224])
 
     def test_origin_written(self):
-        self.assertEqual(self.fake.attrs["URBANSITE_ORIGIN_E"], "%.3f" % self.response["context"]["origin"][0])
+        self.assertEqual(self.fake.attrs["GORANI_ORIGIN_E"], "%.3f" % self.response["context"]["origin"][0])
 
     def test_import_replaces(self):
         baker = loader.load("sketchup_baker")

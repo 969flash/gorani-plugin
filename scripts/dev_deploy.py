@@ -1,9 +1,9 @@
 """배포 빌더 — Yak 패키지와 데이터 팩을 만든다 (Rhino 밖 전용, macOS).
 
     python3 scripts/dev_deploy.py            # 둘 다
-    python3 scripts/dev_deploy.py yak        # build/UrbanSite-<버전>-rh8_0-any.yak
-    python3 scripts/dev_deploy.py blender    # build/blender_repo/urbansite-<버전>.zip + index.json(정적 확장 저장소)
-    python3 scripts/dev_deploy.py sketchup   # build/bsh_urbansite-<버전>.rbz (Extension Warehouse·확장 관리자 설치)
+    python3 scripts/dev_deploy.py yak        # build/Gorani-<버전>-rh8_0-any.yak
+    python3 scripts/dev_deploy.py blender    # build/blender_repo/gorani-<버전>.zip + index.json(정적 확장 저장소)
+    python3 scripts/dev_deploy.py sketchup   # build/bsh_gorani-<버전>.rbz (Extension Warehouse·확장 관리자 설치)
     python3 scripts/dev_deploy.py web        # build/web/ (정적 파일 — 웹사이트 app/에 올린다)
     python3 scripts/dev_deploy.py packs      # build/packs/*.db.xz + manifest.json
     python3 scripts/dev_deploy.py packs --sido 43 --drop   # 시도 하나만 압축하고 원본 DB를 지운다(전국 빌드 흐름)
@@ -11,13 +11,13 @@
     python3 scripts/dev_deploy.py rebounds   # 매니페스트의 팩 범위만 다시 잰다(시군구 필지 중심점 핵심 범위 — constants.PACK_BOUNDS_*)
     python3 scripts/dev_deploy.py upload     # 필지 팩 + 매니페스트는 Hugging Face(hf auth login 먼저), 컨텍스트·등고선 팩은 국내 버킷(~/.oci/config 먼저)
 
-yak: 진입 명령 UrbanSite 하나짜리 .rhp를 rhinocode로 빌드하고(떠 있는 Rhino 8 필요), 그 옆에 scripts/(평문 진입 스크립트 +
+yak: 진입 명령 Gorani 하나짜리 .rhp를 rhinocode로 빌드하고(떠 있는 Rhino 8 필요), 그 옆에 scripts/(평문 진입 스크립트 +
      로직 .pyc + 패널 HTML·vendor)를 두고 yak CLI로 묶는다. rhinocode의 Shared 리소스는 폴더 구조를 펴 버려서 쓰지 않는다
-     (2026-10-12 실측: scripts/vendor/b.txt → shared/b.txt). UrbanSite는 .rhp 옆 scripts/cmd_site.py를 그대로 실행한다.
-blender: Blender 확장(4.2+) — urbansite/__init__.py(scripts/cmd_blender.py로 넘김) + blender_manifest.toml + scripts/ 원본 .py·UI 에셋을
+     (2026-10-12 실측: scripts/vendor/b.txt → shared/b.txt). Gorani는 .rhp 옆 scripts/cmd_site.py를 그대로 실행한다.
+blender: Blender 확장(4.2+) — gorani/__init__.py(scripts/cmd_blender.py로 넘김) + blender_manifest.toml + scripts/ 원본 .py·UI 에셋을
      Blender CLI(extension build)로 zip, 그 폴더에 server-generate로 index.json·index.html. 로직은 .pyc가 아니라 원본이다 — Blender 4.2~4.5는
      파이썬 3.11, 5.x는 3.13이라 .pyc 하나로 못 덮고, Blender 확장은 GPL이다. Rhino 전용(panel_host·cmd_install)과 dev_·server_는 뺀다.
-sketchup: SketchUp 확장(.rbz = zip) — 뿌리 bsh_urbansite.rb(등록) + bsh_urbansite/main.rb(scripts/sketchup_ext.rb) + scripts/(평문 진입 스크립트
+sketchup: SketchUp 확장(.rbz = zip) — 뿌리 bsh_gorani.rb(등록) + bsh_gorani/main.rb(scripts/sketchup_ext.rb) + scripts/(평문 진입 스크립트
      + 로직 .pyc + 패널 HTML·vendor) + python/<플랫폼>/(python-build-standalone 3.12 + numpy·shapely, 플랫폼 셋: mac-arm64·mac-x64·win-x64).
      SketchUp에는 파이썬이 없어 확장이 번들 파이썬으로 사이드카(cmd_sketchup)를 띄운다. 런타임 tar는 build/cache/에 받아 둔다.
      .pyc는 번들 파이썬(3.12)으로 컴파일한다(unchecked-hash — zip이 수정 시각을 2초 단위로 줄여도 다시 컴파일하지 않는다).
@@ -54,23 +54,23 @@ RHINO_BIN_DIR = "/Applications/Rhino 8.app/Contents/Resources/bin"
 
 PACKAGE_NAME = constants.TOOL_NAME
 PACKAGE_VERSION = "0.1.0"                                  # 올릴 때마다 올린다 — yak은 같은 버전을 다시 받지 않는다
-PLUGIN_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a10"         # 바꾸지 말 것 — UrbanSite가 이 id로 자기 폴더를 찾는다
+PLUGIN_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a10"         # 바꾸지 말 것 — Gorani가 이 id로 자기 폴더를 찾는다
 COMMAND_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a11"
-COMMAND_NAME = "UrbanSite"
+COMMAND_NAME = "Gorani"
 PUBLISHER = {"name": "sanghoon", "email": "bsh969flash@gmail.com"}
-WEBSITE_URL = "https://969flash.github.io/urbansite/"
+WEBSITE_URL = "https://969flash.github.io/gorani/"
 # yak manifest — rhinocode가 쓰는 manifest.yml은 url·검색어가 비고 버전에 +빌드번호가 붙는다. PackageManager 목록·검색에 보일 내용으로 갈아 쓴다.
 # guid: 검색어는 지우지 말 것 — Rhino가 이 플러그인 id로 패키지를 찾는다.
 YAK_MANIFEST = '''name: %(name)s
 version: %(version)s
 authors:
 - %(author)s
-description: 'Site context for urban design: 3D buildings, roads, terrain and water, basemaps and survey sheets. Korea (parcel DB) or Global (OpenStreetMap). Command: UrbanSite / 도시설계 착수용 대지 컨텍스트'
+description: 'Site context for urban design: 3D buildings, roads, terrain and water, basemaps and survey sheets. Korea (parcel DB) or Global (OpenStreetMap). Command: Gorani / 도시설계 착수용 대지 컨텍스트'
 license: MIT
 url: %(url)s
 keywords:
 - urban design
-- urbansite
+- gorani
 - site
 - context
 - gis
@@ -86,9 +86,9 @@ DOC_FILE_NAMES = ("docs/install.md",)
 EXCLUDED_MODULE_PREFIXES = ("dev_", "cmd_", "probe_", "server_", "blender_", "sketchup_", "web_")     # 개발·실측 전용, 진입 스크립트, 국내 서버(VM) 전용, Blender·SketchUp·웹판
 YAK_EXCLUDED_NAMES = ("mesh_geometry", "panel_server")      # Blender·SketchUp 공용(mathutils·shapely, 브라우저 패널) — Rhino는 안 쓴다
 
-# UrbanSite 명령 본문 — rhinocode가 .rhp에 넣는다.
+# Gorani 명령 본문 — rhinocode가 .rhp에 넣는다.
 COMMAND_SOURCE = '''#! python 3
-"""UrbanSite — 패널을 연다. Yak 설치 폴더(.rhp 옆)의 scripts/cmd_site.py를 그대로 실행한다."""
+"""Gorani — 패널을 연다. Yak 설치 폴더(.rhp 옆)의 scripts/cmd_site.py를 그대로 실행한다."""
 import os
 import runpy
 
@@ -100,12 +100,12 @@ runpy.run_path(os.path.join(folder, "scripts", "cmd_site.py"), run_name="__main_
 '''
 
 BLENDER_APP = "/Applications/Blender.app/Contents/MacOS/Blender"
-BLENDER_PACKAGE_ID = "urbansite"
+BLENDER_PACKAGE_ID = "gorani"
 BLENDER_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py", "cmd_sketchup.py", "cmd_web.py")    # Rhino 전용(Eto·RhinoCommon), SketchUp 사이드카, 웹판
 # 확장 약관 1.2 — 함께 넣는 글꼴·이미지는 CC0만. Pretendard(OFL)는 빼고 패널은 시스템 글꼴(Apple SD Gothic Neo·맑은 고딕)로 그린다
 BLENDER_EXCLUDED_ASSETS = ("PretendardVariable.woff2", "LICENSE-pretendard.txt")
 BLENDER_LICENSE_PATH = os.path.join(ROOT_DIR, "docs", "licenses", "GPL-3.0.txt")   # 확장 약관 1.1 — 애드온은 GPL-3.0-or-later
-BLENDER_INIT_SOURCE = '''"""UrbanSite Blender 확장 — 본문은 scripts/cmd_blender.py(등록만 넘긴다)."""
+BLENDER_INIT_SOURCE = '''"""Gorani Blender 확장 — 본문은 scripts/cmd_blender.py(등록만 넘긴다)."""
 from .scripts import cmd_blender
 
 
@@ -124,7 +124,7 @@ name = "%(name)s"
 tagline = "Site context for urban design: buildings, roads, terrain"
 maintainer = "%(maintainer)s"
 type = "add-on"
-website = "https://969flash.github.io/urbansite/"
+website = "https://969flash.github.io/gorani/"
 tags = ["Import-Export", "3D View"]
 blender_version_min = "4.2.0"
 license = ["SPDX:GPL-3.0-or-later"]
@@ -132,7 +132,7 @@ copyright = ["2026 sanghoon", "2010-2023 Volodymyr Agafonkin (Leaflet)", "2010-2
 
 [permissions]
 network = "Map tiles, regional data packs and OpenStreetMap context"
-files = "Write results and data packs to the UrbanSite home folder"
+files = "Write results and data packs to the Gorani home folder"
 '''
 
 PACK_KINDS = (   # (종류, 표시 이름 꼬리, 원본 DB 종류) — 등고선 팩은 컨텍스트 DB에서 terrain만 떼어 낸다
@@ -232,7 +232,7 @@ def _stage_scripts(package_dir):
 
 def _build_plugin(project_dir):
     # type: (str) -> str
-    """UrbanSite 명령 하나짜리 rhproj를 쓰고 rhinocode로 빌드한다. 빌드 결과 폴더(rhp·rui·manifest.yml)를 돌려준다."""
+    """Gorani 명령 하나짜리 rhproj를 쓰고 rhinocode로 빌드한다. 빌드 결과 폴더(rhp·rui·manifest.yml)를 돌려준다."""
     os.makedirs(os.path.join(project_dir, "commands"))
     with open(os.path.join(project_dir, "commands", COMMAND_NAME + ".py"), "w", encoding="utf-8") as f:
         f.write(COMMAND_SOURCE % {"plugin_id": PLUGIN_ID})
@@ -242,7 +242,7 @@ def _build_plugin(project_dir):
         "id": PLUGIN_ID,
         "identity": {
             "name": PACKAGE_NAME, "version": PACKAGE_VERSION, "publisher": PUBLISHER, "license": "MIT",
-            "description": "도시설계 착수용 대지 컨텍스트(건물·도로·지형·수계 3D, 베이스맵, 현황도). 명령: UrbanSite",
+            "description": "도시설계 착수용 대지 컨텍스트(건물·도로·지형·수계 3D, 베이스맵, 현황도). 명령: Gorani",
         },
         "settings": {
             "buildPath": "build/",
@@ -307,7 +307,7 @@ def _run_blender(*args):
 
 def build_blender():
     # type: () -> str
-    """build/blender/urbansite/에 확장 폴더를 모아 zip으로 묶고, build/blender_repo/에 zip과 정적 저장소 색인을 만든다. zip 경로를 돌려준다."""
+    """build/blender/gorani/에 확장 폴더를 모아 zip으로 묶고, build/blender_repo/에 zip과 정적 저장소 색인을 만든다. zip 경로를 돌려준다."""
     work_dir = os.path.join(BUILD_DIR, "blender")
     repo_dir = os.path.join(BUILD_DIR, "blender_repo")
     shutil.rmtree(work_dir, ignore_errors=True)
@@ -323,7 +323,7 @@ def build_blender():
         with open(os.path.join(target, name), "w", encoding="utf-8") as f:
             f.write(source)
     with open(os.path.join(target, "__init__.py"), "w", encoding="utf-8") as f:
-        f.write('"""UrbanSite 로직 모듈 — Blender 확장에서는 하위 패키지."""\n')
+        f.write('"""Gorani 로직 모듈 — Blender 확장에서는 하위 패키지."""\n')
     for name in UI_FILE_NAMES:
         shutil.copyfile(os.path.join(SCRIPTS_DIR, name), os.path.join(target, name))
     for dir_name in UI_DIR_NAMES:
@@ -346,7 +346,7 @@ def build_blender():
 
 # ── sketchup ────────────────────────────────────────────
 
-SKETCHUP_EXT_ID = "bsh_urbansite"          # 뿌리 .rb·폴더 이름(Extension Warehouse 규칙 — 개발자 접두어 + 둘이 같은 이름)
+SKETCHUP_EXT_ID = "bsh_gorani"          # 뿌리 .rb·폴더 이름(Extension Warehouse 규칙 — 개발자 접두어 + 둘이 같은 이름)
 SKETCHUP_PYTHON_URL = "https://github.com/astral-sh/python-build-standalone/releases/download/20261013/cpython-3.12.15%%2B20261013-%s-install_only_stripped.tar.gz"
 SKETCHUP_PYTHON_VERSION = "3.12"
 SKETCHUP_PLATFORMS = {   # 폴더: (python-build-standalone 대상, pip 플랫폼 태그 — 앞이 우선, macOS 14 전용 Accelerate 휠은 넣지 않는다)
@@ -365,16 +365,16 @@ SKETCHUP_PYTHON_DROP = ("bin/2to3*", "bin/idle3*", "bin/pip*", "bin/pydoc3*", "b
                         "DLLs/_tkinter.pyd", "DLLs/tcl*.dll", "DLLs/tk*.dll", "{lib}/config-3.12-darwin", "{lib}/lib-dynload/_tkinter*",
                         "{lib}/idlelib", "{lib}/tkinter", "{lib}/turtledemo", "{lib}/test", "{lib}/ensurepip", "{lib}/lib2to3", "{lib}/pydoc_data",
                         "{lib}/site-packages/pip", "{lib}/site-packages/pip-*", "{lib}/site-packages/numpy/**/tests", "{lib}/site-packages/shapely/tests")
-SKETCHUP_ROOT_SOURCE = '''# UrbanSite — 도시설계 착수용 대지 컨텍스트(주변 건물·도로·지형·수계 3D, 베이스맵, 현황도). 본문은 %(id)s/main.rb
+SKETCHUP_ROOT_SOURCE = '''# Gorani — 도시설계 착수용 대지 컨텍스트(주변 건물·도로·지형·수계 3D, 베이스맵, 현황도). 본문은 %(id)s/main.rb
 require "sketchup.rb"
 require "extensions.rb"
 
 module BSH
-  module UrbanSite
+  module Gorani
     unless file_loaded?(__FILE__)
-      extension = SketchupExtension.new("UrbanSite", "%(id)s/main")
+      extension = SketchupExtension.new("Gorani", "%(id)s/main")
       extension.description = "필지·주소로 대상지를 고르면 주변 건물·도로·지형·수계를 3D로 만들고 베이스맵(.ai)·현황도(SVG)를 냅니다. " \\
-                              "한국은 공공데이터, 해외는 OpenStreetMap. Extensions > UrbanSite"
+                              "한국은 공공데이터, 해외는 OpenStreetMap. Extensions > Gorani"
       extension.version = "%(version)s"
       extension.creator = "%(creator)s"
       extension.copyright = "%(year)s %(creator)s"
@@ -460,7 +460,7 @@ def _write_icon(path, size):
 
 def build_sketchup():
     # type: () -> str
-    """build/sketchup/에 확장 폴더를 모아 build/bsh_urbansite-<버전>.rbz로 묶는다. rbz 경로를 돌려준다."""
+    """build/sketchup/에 확장 폴더를 모아 build/bsh_gorani-<버전>.rbz로 묶는다. rbz 경로를 돌려준다."""
     import zipfile
     work_dir = os.path.join(BUILD_DIR, "sketchup")
     shutil.rmtree(work_dir, ignore_errors=True)
@@ -480,7 +480,7 @@ def build_sketchup():
     subprocess.run([host_python, "-I", "-c", compile_source, SCRIPTS_DIR, target] + names, check=True)
     shutil.copyfile(os.path.join(SCRIPTS_DIR, "sketchup_ext.rb"), os.path.join(ext_dir, "main.rb"))
     os.makedirs(os.path.join(ext_dir, "icons"))
-    _write_icon(os.path.join(ext_dir, "icons", "urbansite.png"), 32)
+    _write_icon(os.path.join(ext_dir, "icons", "gorani.png"), 32)
     for path in DOC_FILE_NAMES:
         os.makedirs(os.path.join(ext_dir, os.path.dirname(path)), exist_ok=True)
         shutil.copyfile(os.path.join(ROOT_DIR, path), os.path.join(ext_dir, path))
@@ -954,13 +954,13 @@ def _fill_manifest(pack_dir):
 DATASET_CARD = """---
 license: other
 license_name: kogl-type1-cc-by
-pretty_name: UrbanSite 시군구 데이터 팩
+pretty_name: Gorani 시군구 데이터 팩
 language: [ko]
 tags: [geospatial, korea, cadastral, buildings, rhino]
 ---
-# UrbanSite 데이터 팩
+# Gorani 데이터 팩
 
-Rhino 플러그인 UrbanSite가 대상지 주변만 받아 쓰는 시군구 단위 SQLite 팩(xz 압축). 좌표계 EPSG:5186.
+Rhino 플러그인 Gorani가 대상지 주변만 받아 쓰는 시군구 단위 SQLite 팩(xz 압축). 좌표계 EPSG:5186.
 
 - `<시군구코드>_site.db.xz` — 필지(토지특성정보 도형·속성), 토지이용계획 지정 현황, 계획 도형(서울 UPIS / 그 외 지정 코드로 필지를 합친 것)
 - `manifest.json` — 팩 목록·sha256·범위. 플러그인이 읽는다.

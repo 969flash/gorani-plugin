@@ -38,7 +38,7 @@
 ### 1.3 배포 시나리오
 
 1. 개발자 Mac: `dev_context_builder.py`로 `data/seoul_context.db` 생성(§7), `dev_deploy.py`(이식)로 `UrbanDesignTool/` 배포 폴더 생성(로직 `.pyc`, 진입 평문, DB 2개).
-2. 사용자 PC(Windows 노트북·Mac): 폴더 복사 → Rhino에서 `cmd_install.py` 1회 → 명령 `UrbanSite`. **인터넷·pip 불필요**(VWorld 보조 조회를 켠 경우만 네트워크).
+2. 사용자 PC(Windows 노트북·Mac): 폴더 복사 → Rhino에서 `cmd_install.py` 1회 → 명령 `Gorani`. **인터넷·pip 불필요**(VWorld 보조 조회를 켠 경우만 네트워크).
 3. 갱신: `scripts/` 덮어쓰기(코드), `data/*.db` 교체(데이터). 재설치 없음.
 
 ### 1.4 deliverables.md와 다른 점 (이 제안이 바꾸자는 것)

@@ -2,7 +2,7 @@
 
 사이드카(번들 파이썬)는 SketchUp 모델을 직접 만지지 못한다. host = cmd_sketchup의 호출 창구(call(method, **args) → 결과)이고
 모델 변경은 sketchup_ext.rb의 rpc_<method>가 한다. BakeItem처럼 큰 데이터는 임시 JSON 파일로 넘긴다.
-SketchUp 쪽 모양: 대상지마다 최상위 그룹 하나('UrbanSite <대상지명>', 속성 URBANSITE_LOT_KEY) 안에 레이어(태그 'CTX::Buildings')마다 그룹,
+SketchUp 쪽 모양: 대상지마다 최상위 그룹 하나('Gorani <대상지명>', 속성 GORANI_LOT_KEY) 안에 레이어(태그 'CTX::Buildings')마다 그룹,
 건물은 동마다 그룹. 좌표는 로컬 m(SketchUp이 인치로 바꾼다) — 실제 좌표 방식은 대상지 그룹을 계산 원점만큼 옮긴다.
 문서 원점은 모델 속성(constants.DOC_ORIGIN_KEYS), 사본은 대상지 그룹 정의를 context.skp로 저장한 것(로컬 좌표, 원점 = context.json origin).
 
@@ -76,7 +76,7 @@ def bake(host, items, prepared, lot_key=None):
     """BakeItem 목록을 대상지 그룹 안에 넣는다. 출력: 만든 그룹 id 목록(실패 항목은 빠진다 — run이 수를 비교해 경고)."""
     data = {"lot_key": _get_lot_key(prepared, lot_key), "lot_name": prepared.lot_name, "shift": _get_shift(prepared),
             "items": [_get_payload(item) for item in items]}
-    handle, path = tempfile.mkstemp(prefix="urbansite_bake_", suffix=".json")
+    handle, path = tempfile.mkstemp(prefix="gorani_bake_", suffix=".json")
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, separators=(",", ":"))

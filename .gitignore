@@ -220,7 +220,7 @@ __marimo__/
 .streamlit/secrets.toml
 
 # ==============================
-# UrbanSite 프로젝트 로컬
+# Gorani 프로젝트 로컬
 # ==============================
 .DS_Store
 .rhinocode/

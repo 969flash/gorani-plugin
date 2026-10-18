@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>UrbanSite</title>
+<title>Gorani</title>
 <!--VENDOR_CSS-->
 <style>
 /* 번들 폰트 — 호스트가 base64 data URI로 치환 */
@@ -368,7 +368,7 @@ footer .busy-label { color: var(--sub); font-size: 12px; }
 <body data-step="1" data-run="idle">
 <header>
   <div class="titlebar">
-    <h1>UrbanSite</h1>
+    <h1>Gorani</h1>
     <div class="head-r">
       <div class="modes region" id="region" role="group" aria-label="데이터 모드">
         <button type="button" data-act="region" data-region="kr" aria-pressed="false" title="Korea — 국가 DB(필지·건축물대장·용도지역). 한국 대상지만">Korea</button>
@@ -434,7 +434,7 @@ var REGION_CMDS = { search: 1, set_area: 1, set_point: 1, preflight: 1 };   // �
 function send(msg) {
   if (REGION_CMDS[msg.cmd]) msg.region = region();
   if (BRIDGE_TOKEN) { fetch("cmd?token=" + BRIDGE_TOKEN, { method: "POST", body: JSON.stringify(msg) }); return; }
-  if (WEB) { window.parent.postMessage({ urbansite: msg }, location.origin); return; }
+  if (WEB) { window.parent.postMessage({ gorani: msg }, location.origin); return; }
   window.__outbox.push(msg);
   document.title = "bridge" + (++window.__seq);  // Windows WebView2 — title 이벤트
   location.href = "bridge:flush";                // mac WKWebView — DocumentLoading에서 가로챈다
@@ -1477,7 +1477,7 @@ function renderBlocker() {
   var g = init.generator || {}, p = init.paths || {};
   var row = function (ok, label, text, cls) { return '<span class="' + (cls || (ok ? "ok" : "bad")) + '">' + ico(cls === "opt" ? "ring" : ok ? "check" : "x") + "</span><span>" + esc(label) + "</span><span>" + esc(text) + "</span>"; };
   var lotOk = src.lot && src.lot.level !== "missing", ctxOk = src.terrain && src.terrain.level !== "missing";
-  el.innerHTML = "<h2 tabindex=\"-1\">UrbanSite를 쓰려면 데이터가 필요합니다</h2><div class=\"check-list\">" +
+  el.innerHTML = "<h2 tabindex=\"-1\">Gorani를 쓰려면 데이터가 필요합니다</h2><div class=\"check-list\">" +
     row(lotOk, "필지 DB", (p.lot_db || "data/seoul_site.db") + (lotOk ? " (" + mmdd(src.lot.date) + ")" : " 없음")) +
     row(ctxOk, "컨텍스트 DB", (p.context_db || "data/seoul_context.db") + (ctxOk ? " (" + mmdd(src.building ? src.building.date : "") + ")" : " 없음"), ctxOk ? "ok" : "opt") +
     row(true, "생성기", g.text || HOST.name + " 내장") + "</div>" +
@@ -1513,7 +1513,7 @@ function renderMenu() {
       '<div class="mrow"><span class="k">안내</span><span class="v">설치·데이터·사용법</span>' + openBtn(p.install_doc || "docs/install.md") + "</div>" +
       (HOST.ask_stats ? '<div class="mrow"><span class="k">사용 통계</span><span class="v" title="' + esc(STATS_TEXT) + '">' + (init.stats_consent ? "보냄" : "보내지 않음") + '</span><button type="button" class="btn sm" data-act="stats" data-on="' + (init.stats_consent ? "0" : "1") + '">' + (init.stats_consent ? "끄기" : "켜기") + "</button></div>" : "") +
     "</div>" +
-    '<p class="menu-ver">UrbanSite ' + esc(init.version || "") + "</p>";
+    '<p class="menu-ver">Gorani ' + esc(init.version || "") + "</p>";
 }
 function openMenu() {
   state.menuOpen = true; renderMenu(); $("menu").hidden = false;

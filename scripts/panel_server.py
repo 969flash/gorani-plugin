@@ -131,7 +131,7 @@ class Bridge(object):
         self.controller.push = self.push
         self.server = _Server(("127.0.0.1", 0), _Handler)
         self.server.bridge = self
-        threading.Thread(target=self.server.serve_forever, name="urbansite-panel", daemon=True).start()
+        threading.Thread(target=self.server.serve_forever, name="gorani-panel", daemon=True).start()
         self.url = "http://127.0.0.1:%d/?token=%s" % (self.server.server_address[1], self.token)
 
     def push(self, msg):

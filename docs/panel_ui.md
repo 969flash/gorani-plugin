@@ -1,4 +1,4 @@
-# UrbanSite 패널 — 구현 계약(파일 구성·JS↔Python 메시지·상태 머신)
+# Gorani 패널 — 구현 계약(파일 구성·JS↔Python 메시지·상태 머신)
 
 세 층(`site_ui.html` 프런트 / `panel_host.py` Eto 호스트 / `cmd_site.py` 컨트롤러)이 이 문서의 계약만 보고 독립적으로 작업할 수 있어야 한다. 화면·행동·문안은 `docs/ui_spec.md`, 산출물은 `docs/deliverables.md`, 데이터는 `docs/data_sources.md`. 이 문서가 메시지 계약의 원본이다 — 키를 바꾸면 여기부터 고친다.
 
@@ -7,7 +7,7 @@
 
 ## 배경과 목표
 
-- Rhino 8 CPython. 명령 `UrbanSite` → 떠 있는 모덜리스 창 480×900(리사이즈 가능, 도킹 불가) → WebView 1장이 패널 전부.
+- Rhino 8 CPython. 명령 `Gorani` → 떠 있는 모덜리스 창 480×900(리사이즈 가능, 도킹 불가) → WebView 1장이 패널 전부.
 - 흐름은 단계형 3단계(① 대상지 → ② 범위·옵션 → ③ 결과). **생성은 Rhino CPython 안에서 동기 실행**(`context_builder.run(request, progress, doc)`, docs/code_map.md 확정 — 서브프로세스·외부 python 없음). 진행률은 콜백 안에서 `host.push` + `Rhino.RhinoApp.Wait()`, 취소는 플래그(콜백이 False를 돌려주면 엔진이 중단·되돌림).
 - 프레임워크·빌드 도구 없음. 단일 HTML + 바닐라 JS, Leaflet·Pretendard 인라인, 오프라인.
 
@@ -21,9 +21,9 @@
 | `scripts/review_map.py` | 지도 데이터 제공자(타일 설정·bbox 필지·GeoJSON). 기존 그대로 | 아니오 |
 | `scripts/lot_db.py`, `scripts/pnu_loader.py` | 필지 조회·주소 해석. 기존 그대로 | 아니오 |
 | `scripts/context_builder.py` | 엔진: `preflight(request)`(사전 점검 — 범위 링은 `non_rhino_utils.get_extent_ring` 순수 파이썬, 미리보기 = 실제 생성 범위)·`run(request, progress, doc)`·`get_progress_message(...)`. docs/code_map.md §4 | run만 Rhino |
-| `scripts/site_prefs.py` | `~/.urbansite/prefs.json`·`source_news.json` 읽기쓰기, 최근 대상지 5건 | 아니오 |
+| `scripts/site_prefs.py` | `~/.gorani/prefs.json`·`source_news.json` 읽기쓰기, 최근 대상지 5건 | 아니오 |
 | `scripts/context_baker.py` | Rhino 문서 조작 전부: 베이크(= 생성), `clear_previous`, `import_3dm`(재삽입), 뷰 줌. 베이스맵 .ai는 `basemap_ai.py`가 문서 없이 쓴다. 문서를 만지는 유일한 모듈 | 예 |
-| `scripts/dev_check_sources.py` | 브이월드 목록 '새 판' 조회(dsId=18 등) → `~/.urbansite/source_news.json`. **stdlib(urllib)만** 써서 `init`이 Rhino CPython(`sys.executable`)으로 비차단 실행 — `GENERATOR_PYTHON` 없이도 돈다. tmp 파일에 쓰고 `os.replace`(preflight가 쓰는 중 읽어도 깨진 JSON 없음). 네트워크 실패면 파일을 안 쓴다 | 아니오 |
+| `scripts/dev_check_sources.py` | 브이월드 목록 '새 판' 조회(dsId=18 등) → `~/.gorani/source_news.json`. **stdlib(urllib)만** 써서 `init`이 Rhino CPython(`sys.executable`)으로 비차단 실행 — `GENERATOR_PYTHON` 없이도 돈다. tmp 파일에 쓰고 `os.replace`(preflight가 쓰는 중 읽어도 깨진 JSON 없음). 네트워크 실패면 파일을 안 쓴다 | 아니오 |
 | `scripts/vendor/leaflet.js`·`leaflet.css`·`pretendard.css` | 원본 그대로(@preserve 헤더 유지) | — |
 | `tests/test_site_ui_contract.py` | 컨트롤러 조립 함수가 만든 `init_state`·`preflight_result`·`done` 샘플이 이 문서의 키를 갖는지 | 아니오 |
 
@@ -70,7 +70,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `preflight` | `target`(없으면 `pnus` = 필지 방식), `radius`, `shape`, `paper`, `paper_mm`, `scales`, `seq` | `preflight_result`(같은 `seq`) | ① lots 변경 직후, ② 진입·옵션 변경(300 ms 디바운스). 메모이즈 키 `(tuple(pnus), radius, shape, paper, tuple(paper_mm), tuple(scales))` — `paper_mm`이 빠지면 용지 '직접'에서 가로·세로를 바꿔도 프레임이 안 바뀐다. `init`마다 비운다 |
 | `generate` | `target`(없으면 `pnus`), `options`(§옵션 키 **`scales` 포함** — 가장 큰 축척 프레임이 DB 질의 범위를 정한다, code_map §3) | `progress`* ↔ `log`* → `done` / `progress{state:"failed"}` / `progress{state:"cancelled"}` | `context_builder.run` 동기 실행(UI 스레드, 콜백 안 `RhinoApp.Wait()`로 푸시·취소 명령 펌핑). 이미 running이면 무시하고 `error{context:"generate"}`. 베이크가 곧 '문서에 넣기'라 `busy`·`imported`는 오지 않는다(`done.context.imported`로 전한다). 생성기는 BM 레이어를 항상 전부 쓴다 — 축척별 차이는 Export 때만 |
 | `cancel` | — | `progress{state:"cancelled"}` 또는 무시 | running이 아니면 **무시**(응답 없음). running이면 `cancel_requested` 플래그만 세운다 — 다음 콜백이 False를 돌려주고 엔진이 `Cancelled`로 중단·이번 베이크 객체 삭제 → `ok=false, cancelled=true`. 부분 폴더 유지, `log.txt`에 "cancelled at <phase>" |
-| `import_context` | `dir`(결과 폴더 절대경로) | `busy{on}` → `imported` → `busy{off}` | 재삽입: 같은 `URBANSITE_LOT_KEY` 객체 삭제 후 `context_baker.import_3dm`(`context.json.origin`이 문서 원점과 다르면 차이만큼 이동). `zoom_after_import`면 줌 |
+| `import_context` | `dir`(결과 폴더 절대경로) | `busy{on}` → `imported` → `busy{off}` | 재삽입: 같은 `GORANI_LOT_KEY` 객체 삭제 후 `context_baker.import_3dm`(`context.json.origin`이 문서 원점과 다르면 차이만큼 이동). `zoom_after_import`면 줌 |
 | `export_basemap` | `dir`, `scale`(1000\|3000\|5000) | `busy{on}` → `exported` → `busy{off}` | `context_builder.export_basemap(dir, scale)`: 결과 폴더의 `context.json`(pnus·options)으로 DB에서 다시 `prepare` → `basemap_ai.write_basemap` → `<dir>/basemap_<scale>.ai`. 문서를 거치지 않는다(import 불필요, 1초 안팎). 축척별 레이어 표(`constants.BASEMAP_SCALE_LAYERS`): 1:1000 = `08`(지적선) on · `08b`(지번) on, 1:3000 = `08` on · `08b` off, 1:5000 = `08`·`08b` off. 실패하면 `exported{ok:false, text}` |
 | `zoom_view` | `dir`(결과 폴더 절대경로), `center`[lng,lat](선택) | — (`error{context:"open"}`) | `import_context`·`export_basemap`과 같은 꼴 — JS가 `result.dir`을 붙인다(Python은 마지막 결과 폴더를 기억하지 않는다). `center` 없으면 `CTX::Site` 객체로 줌. 있으면 `<dir>/context.json`의 ORIGIN으로 문서 좌표 환산 후 그 점 주변 100 m |
 | `open_path` | `path`(str) | — (`error{context:"open"}`) | 절대경로 또는 프로젝트 루트 상대(`docs/data_sources.md`, `.env`, `data`). 폴더 = 탐색기, 파일 = OS 기본 앱. `.env`가 없으면 한 줄 템플릿(`VWORLD_API_KEY=`)을 만든 뒤 연다. 외부 URL은 열지 않는다(WebView가 이동하므로 JS에서도 링크 금지 — 토지이음은 `open_eum`) |
@@ -81,7 +81,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `save_style` | `name`, `style` | `styles` / `error{context:"style"}` | `site_prefs.save_style` → `HOME_DIR/styles/<이름>.json`(경로 문자 제거, 같은 이름 덮어씀). 사무소 표준을 파일로 나눠 쓴다 |
 | `sheet_ai` | `dir`, `path`(도면 SVG) 또는 `all:true` | `busy{on}` → `sheet_ai` → `busy{off}` | `sheet_svg.get_sheet_ai` — 도면 SVG를 레이어 .ai로(없거나 SVG보다 오래됐을 때만 다시 쓴다). 한 장이면 쓰고 OS로 연다. 생성 때 .ai를 다 쓰지 않는다(23장이면 Rhino에서 10 s+) |
 | `area_packs` | `bbox`([서, 남, 동, 북] 경위도), `seq` | `area_packs` | 지도 이동(600 ms 디바운스)마다. 화면에 걸리는데 파일이 없는 시군구 **필지** 팩 `{seq, missing[{name, label, mb}], mb, labels}`(건물·도로·지형 팩과 새 판은 생성할 때 범위만) — 해외·매니페스트 없음·오프라인은 빈 목록. 배율 16 이상이면 JS가 곧바로 `download_data{names}` |
-| `stats_consent` | `on`(bool) | 없음 (`error{context:"init"}`) | Blender·SketchUp만 — 사용 통계 동의를 `~/.urbansite/prefs.json`에 남긴다. `usage_stats.is_enabled`가 `host.ask_stats` 호스트면 이 값이 true일 때만 보낸다(Blender 확장 약관 4.5, Extension Warehouse 개인정보 심사) |
+| `stats_consent` | `on`(bool) | 없음 (`error{context:"init"}`) | Blender·SketchUp만 — 사용 통계 동의를 `~/.gorani/prefs.json`에 남긴다. `usage_stats.is_enabled`가 `host.ask_stats` 호스트면 이 값이 true일 때만 보낸다(Blender 확장 약관 4.5, Extension Warehouse 개인정보 심사) |
 | `download_data` | `names`(선택 — 없으면 전부) | `data_progress`×N → `data_progress{done}` → `init_state` (`error{context:"init"}`) | 지도 자동 받기·진행 줄 [다시 받기]. 멈추면 그때까지 받은 팩은 남는다(받던 팩은 버리고 쓰던 DB는 그대로). `data_pack`이 매니페스트(`constants.DATA_MANIFEST_URL`)의 절대 주소에서 `HOME_DIR/data/`로 받는다. `generate`도 시작 전에 같은 방식으로 범위(`context_builder.get_query_bounds`)에 걸치는 없거나 새 판인 시군구 팩을 받는다 |
 
 명령 16개(+ 도면 스타일 3개·도면 .ai 1개, 2026-10-13). `auth_pin`(옛 PIN 인증)은 없다 — 사내 배포라 인증 게이트 없음.
@@ -126,7 +126,7 @@ Blender는 기본 브라우저(`cmd_blender.py`), SketchUp은 `UI::HtmlDialog`(`
 SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지지 못해 패널을 거쳐 Ruby를 부른다(엔진 `run`은 응답을 기다리며 막혀 있다):
 
 ```jsonc
-{"type":"host_call","id":3,"method":"bake","args":{"path":"/tmp/urbansite_bake_….json"}}   // 푸시 → JS가 window.sketchup.host_call(JSON 문자열)
+{"type":"host_call","id":3,"method":"bake","args":{"path":"/tmp/gorani_bake_….json"}}   // 푸시 → JS가 window.sketchup.host_call(JSON 문자열)
 {"cmd":"host_reply","id":3,"ok":true,"result":[…],"error":""}                               // 명령 ← Ruby가 execute_script("send(…)")로 보낸다
 ```
 
@@ -366,13 +366,13 @@ Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `r
 
 ## 설정 저장 위치
 
-`HOME_DIR`(constants) = 저장소·폴더 배포판처럼 루트에 `data/`가 있으면 루트, Yak 설치본이면 `~/UrbanSite`(패키지 폴더는 업데이트 때 바뀐다). `open_path`의 상대경로는 `HOME_DIR` 기준이고, 거기 없으면 코드 루트(`docs/install.md` 등)를 본다.
+`HOME_DIR`(constants) = 저장소·폴더 배포판처럼 루트에 `data/`가 있으면 루트, Yak 설치본이면 `~/Gorani`(패키지 폴더는 업데이트 때 바뀐다). `open_path`의 상대경로는 `HOME_DIR` 기준이고, 거기 없으면 코드 루트(`docs/install.md` 등)를 본다.
 
 | 파일 | 내용 | 쓰는 쪽 | 읽는 쪽 |
 |---|---|---|---|
-| `~/.urbansite/prefs.json` | `{"options":{…20키…}, "recent":[{pnus,label,total_area,date}×5]}` | `save_prefs`(options), `generate` 성공(recent 앞에 삽입·중복 제거·5개) | `init` |
-| `~/.urbansite/source_news.json` | `{"checked_at":"2026-10-07","building":{"newer_date":"2026-09-09"},"lot":{…},"upis":{…}}` | `dev_check_sources.py`(P1. 없으면 `newer_date:null`) | `preflight`·`init`(배지)·생성기(`done.warnings`) |
-| `~/.urbansite/client_id` | 무작위 UUID 한 줄(사용 통계 설치 식별) | `usage_stats.get_client_id`(없으면 생성) | `usage_stats` |
+| `~/.gorani/prefs.json` | `{"options":{…20키…}, "recent":[{pnus,label,total_area,date}×5]}` | `save_prefs`(options), `generate` 성공(recent 앞에 삽입·중복 제거·5개) | `init` |
+| `~/.gorani/source_news.json` | `{"checked_at":"2026-10-07","building":{"newer_date":"2026-09-09"},"lot":{…},"upis":{…}}` | `dev_check_sources.py`(P1. 없으면 `newer_date:null`) | `preflight`·`init`(배지)·생성기(`done.warnings`) |
+| `~/.gorani/client_id` | 무작위 UUID 한 줄(사용 통계 설치 식별) | `usage_stats.get_client_id`(없으면 생성) | `usage_stats` |
 | `.env`(`HOME_DIR`) | `VWORLD_API_KEY=…`(지도·위성 배경, 항공사진, 주소 보조 검색 — 없으면 OSM·Esri·지명 검색). `= ` 뒤 공백 금지 | 사용자(OS 편집기). 없으면 `open_path`가 한 줄 템플릿 생성 | `pnu_loader._read_local_env_value`(strip)·생성기 |
 | `HOME_DIR/data/*.db`·`packs.json` | 필지·컨텍스트·등고선 DB. `packs.json` = 받은 팩의 sha256 | `download_data` | `init`·전 명령 |
 | `HOME_DIR/result/<YYYYMMDD>/<lot_name>/` | deliverables §E. 같은 폴더가 있으면 생성기 시작 시 `sheets/`·`tables/`·`context.3dm`·`context.json`을 지우고 새로 쓴다(이전 옵션의 시트·CSV가 새것처럼 남지 않도록). `basemap_*.ai`(사용자가 만든 것)·`log.txt`(이어 쓰고 구분선)는 보존 | 생성기·베이커(.ai) | `done`·`open_path` |

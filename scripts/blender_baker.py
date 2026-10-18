@@ -1,7 +1,7 @@
 """Blender 장면을 만지는 유일한 모듈 — 베이크·원점 기록·사본(.blend) 저장·다시 넣기·줌. context_baker의 Blender판.
 
 mesh_geometry의 BakeItem(로컬 m 정점·면·폴리라인)을 객체로 만든다. 레이어 = 컬렉션('CTX' 아래 'CTX::Buildings'처럼 전체 경로 이름),
-색 = 레이어마다 재질 하나(constants.CTX_LAYERS). 모든 객체에 URBANSITE_MANAGED·URBANSITE_LOT_KEY·URBANSITE_LAYER 사용자 속성을 붙여
+색 = 레이어마다 재질 하나(constants.CTX_LAYERS). 모든 객체에 GORANI_MANAGED·GORANI_LOT_KEY·GORANI_LAYER 사용자 속성을 붙여
 clear_previous가 같은 키의 객체만 지운다(사용자 객체 보존). 문서 원점은 장면 사용자 속성(constants.DOC_ORIGIN_KEYS)에 둔다.
 장면 단위는 m로 가정한다(Blender 기본) — 실제 좌표 방식은 객체 위치로 옮긴다(메시 정점은 단정밀도라 로컬로 둔다).
 
@@ -20,7 +20,7 @@ import constants
 import non_rhino_utils
 from context_baker import get_layer_rgb, get_lot_key, get_ref_attrs, read_meta
 
-LAYER_KEY = "URBANSITE_LAYER"   # 객체가 속한 레이어(컬렉션) 이름 — .blend에서 다시 넣을 때 제자리를 찾는다
+LAYER_KEY = "GORANI_LAYER"   # 객체가 속한 레이어(컬렉션) 이름 — .blend에서 다시 넣을 때 제자리를 찾는다
 
 
 # ── 원점 ───────────────────────────────────────────────────
@@ -97,7 +97,7 @@ def _get_objects(lot_key=None):
 
 def clear_previous(scene, lot_key=None):
     # type: (object, str) -> tuple
-    """URBANSITE_MANAGED 객체(lot_key를 주면 같은 키만)와 그 데이터 삭제 + 빈 CTX 컬렉션 정리. 출력 (지운 객체 수, 지운 컬렉션 수)."""
+    """GORANI_MANAGED 객체(lot_key를 주면 같은 키만)와 그 데이터 삭제 + 빈 CTX 컬렉션 정리. 출력 (지운 객체 수, 지운 컬렉션 수)."""
     deleted = 0
     for obj in _get_objects(lot_key):
         data = obj.data
@@ -207,7 +207,7 @@ def write_ref_and_origin(scene, prepared, lot_key=None):
 
 def save_copy(scene, path, names=None, timing=None):
     # type: (object, str, list, dict) -> str
-    """CTX 컬렉션 전체를 사본 context.blend로 쓴다(열면 'UrbanSite' 장면 하나). path의 파일 이름은 무시하고 같은 폴더에 쓴다.
+    """CTX 컬렉션 전체를 사본 context.blend로 쓴다(열면 'Gorani' 장면 하나). path의 파일 이름은 무시하고 같은 폴더에 쓴다.
     ponytail: 같은 장면에 대상지가 여럿이면 함께 들어간다 — 이번 객체만 쓰려면 컬렉션 이름이 겹쳐 '.001'이 붙는다."""
     path = os.path.join(os.path.dirname(path), constants.BLENDER_MODEL_FILE_NAME)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)

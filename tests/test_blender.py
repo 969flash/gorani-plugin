@@ -26,7 +26,7 @@ CONTEXT_DB = str(FIXTURE_DIR / "seongsu_context.db")
 HAS_FIXTURES = os.path.exists(SITE_DB) and os.path.exists(CONTEXT_DB)
 
 if bpy is not None:
-    _spec = importlib.util.spec_from_file_location("urbansite_cmd_blender", str(SCRIPTS_DIR / "cmd_blender.py"))
+    _spec = importlib.util.spec_from_file_location("gorani_cmd_blender", str(SCRIPTS_DIR / "cmd_blender.py"))
     cmd_blender = importlib.util.module_from_spec(_spec)
     sys.modules[_spec.name] = cmd_blender
     _spec.loader.exec_module(cmd_blender)
@@ -67,11 +67,11 @@ class RunTest(unittest.TestCase):
         buildings = bpy.data.collections["CTX::Buildings"].objects[0]
         mesh = buildings.data
         self.assertEqual(len(mesh.attributes["height"].data), len(mesh.polygons))
-        self.assertEqual(buildings["URBANSITE_MANAGED"], "1")
+        self.assertEqual(buildings["GORANI_MANAGED"], "1")
         self.assertTrue(bpy.data.collections["CTX::Terrain::site_original"].hide_viewport)
         ref = bpy.data.objects["origin"]
         self.assertEqual(ref["ORIGIN_E"], "%.3f" % self.response["context"]["origin"][0])
-        self.assertEqual(bpy.context.scene["URBANSITE_ORIGIN_E"], ref["ORIGIN_E"])
+        self.assertEqual(bpy.context.scene["GORANI_ORIGIN_E"], ref["ORIGIN_E"])
 
     def test_buildings_stand_on_ground(self):
         """건물 바닥 Z가 지형 높이 범위 안 — 원점 이동이 지형·건물에 같게 걸렸는지."""
@@ -84,11 +84,11 @@ class RunTest(unittest.TestCase):
 
     def test_import_blend_replaces(self):
         baker = loader.load("blender_baker")
-        before = len([o for o in bpy.data.objects if o.get("URBANSITE_MANAGED") == "1"])
+        before = len([o for o in bpy.data.objects if o.get("GORANI_MANAGED") == "1"])
         result = baker.import_blend(bpy.context.scene, self.response["dir"])
         self.assertTrue(result["ok"], result["text"])
         self.assertTrue(result["replaced"])
-        self.assertEqual(len([o for o in bpy.data.objects if o.get("URBANSITE_MANAGED") == "1"]), before)
+        self.assertEqual(len([o for o in bpy.data.objects if o.get("GORANI_MANAGED") == "1"]), before)
 
 
 @unittest.skipUnless(bpy is not None and HAS_FIXTURES, "Blender 안에서 fixture DB로만 돈다")

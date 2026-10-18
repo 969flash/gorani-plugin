@@ -1,4 +1,4 @@
-"""UrbanSite 상수 — 한 파일에 근거 주석과 함께 둔다. 다른 곳에 매직넘버 금지.
+"""Gorani 상수 — 한 파일에 근거 주석과 함께 둔다. 다른 곳에 매직넘버 금지.
 
 필지 DB·주소 해석·VWorld 호출·컨텍스트 생성 상수만 둔다. 컨텍스트(건물·도로·지형·수계) 상수는 그 모듈을 만들 때
 여기에 절을 추가한다.
@@ -9,7 +9,7 @@ import os
 # ─────────────────────────────────────────────────────────
 # 도구 이름 — 명령 앨리어스·툴바·패널 캡션이 같은 이름을 쓴다
 # ─────────────────────────────────────────────────────────
-TOOL_NAME = "UrbanSite"
+TOOL_NAME = "Gorani"
 
 # ─────────────────────────────────────────────────────────
 # 지오메트리 범위·정밀도 (내부 단위 m)
@@ -46,7 +46,7 @@ DATABASE_PATH = "data/seoul_site.db"  # Rhino가 읽는 필지 SQLite DB (스키
 DATABASE_SCHEMA_VERSION = 5           # 5: parcel_land_use(필지별 지역지구등 지정 현황) 추가
 RESULT_DIRNAME = "result"             # 산출물(3dm·베이스맵·현황도) 저장 루트 (gitignore)
 # 쓰기 자리(data/·result/·.env)의 기준 폴더. 저장소·폴더 배포판은 루트에 data/가 있어 루트를 쓴다.
-# Yak 설치본은 패키지 폴더가 업데이트 때 통째로 바뀌므로 사용자 홈 아래 ~/UrbanSite를 쓴다.
+# Yak 설치본은 패키지 폴더가 업데이트 때 통째로 바뀌므로 사용자 홈 아래 ~/Gorani를 쓴다.
 _ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOME_DIR = _ROOT_DIR if os.path.isdir(os.path.join(_ROOT_DIR, "data")) else os.path.join(os.path.expanduser("~"), TOOL_NAME)
 
@@ -228,7 +228,7 @@ TERRAIN_THEME = "terrain"
 
 # 해외 대상지(osm_context.py) — OSM Overpass + AWS Terrain Tiles. 사용자 PC가 직접 부른다(서버 없음).
 # Overpass 이용 기준: IP당 하루 1만 질의·1 GB 미만(https://wiki.openstreetmap.org/wiki/Overpass_API) — 대상지 1회 1질의
-OSM_USER_AGENT = "UrbanSite/0.1 (Rhino plugin; https://www.openstreetmap.org/copyright)"
+OSM_USER_AGENT = "Gorani/0.1 (Rhino plugin; https://www.openstreetmap.org/copyright)"
 OSM_TIMEOUT_SECONDS = 60         # 미러 하나당. 공개 Overpass는 자주 붐빈다(2026-10-13 파리 900 m: 독일 504, kumi·coffee 120 s 초과, mail.ru 22 s)
 OSM_OVERPASS_URLS = ("https://overpass-api.de/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
                      "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter")
@@ -296,7 +296,7 @@ PACK_BOUNDS_MARGIN = 200.0             # m — 시군구 분할 격자 한 칸(�
 # 값 = (웹 스트림 측정 ID G-…, 관리 > 데이터 스트림 > Measurement Protocol API secret). 비면 그 호스트는 보내지 않는다. secret은 드러나도 된다(가짜 이벤트 주입 위험만)
 GA_STREAMS = {
     "rhino": ("G-NJC4VMHPM1", "Yxwc8yciQiGRUAVajxTBjg"),
-    "blender": ("G-9D69356PZJ", "vHA2irOxQeiDwDQxZvIo_w"),   # 속성 "UrbanSite Blender", 스트림 16139271804
+    "blender": ("G-9D69356PZJ", "vHA2irOxQeiDwDQxZvIo_w"),   # 속성 "Gorani Blender", 스트림 16139271804
 }
 GA_ENDPOINT = "https://www.google-analytics.com/mp/collect"
 GA_TIMEOUT_SECONDS = 5  # 백그라운드 스레드라 패널을 막지 않는다
@@ -421,7 +421,7 @@ HEIGHT_GRADES = ("A", "B", "C", "D")
 # ═════════════════════════════════════════════════════════
 PANEL_VERSION = "0.1"
 INSTALL_DOC = "docs/install.md"
-PREFS_DIRNAME = ".urbansite"            # 사용자 홈 아래. prefs.json·source_news.json
+PREFS_DIRNAME = ".gorani"            # 사용자 홈 아래. prefs.json·source_news.json
 RESULT_DATE_FORMAT = "%Y%m%d"                  # result/<YYYYMMDD>/<대상지명>/
 CONTEXT_MODEL_FILE_NAME = "context.3dm"
 BLENDER_MODEL_FILE_NAME = "context.blend"      # Blender판 사본(blender_baker.save_copy) — 3dm 대신
@@ -493,7 +493,7 @@ BM_GRID_STEP = 500.0            # m — 13_grid 간격(세계좌표 배수). 1 k
 BM_GREEN_FACILITY_KINDS = ("공원", "녹지")   # overlays facility kind 중 02_green에 넣는 것(FACILITY_KINDS 값)
 # 등고선 '구분' → 09_contour 서브레이어 ASCII 키. .ai 레이어 블록 '(BM::09_contour::main) Ln'은 Latin-1 PostScript라 한글이면 깨진다(job 1007-235316-709b 'ì£¼ê³¡ì…').
 # 한글 값은 UserString GUBUN에 남긴다. 표에 없거나 비면 'main'. 톤은 전부 부모 K35(계곡선 K55는 deliverables B.2 보류 주석).
-BM_DIM_STYLE_FORMAT = "UrbanSite_%g"               # 문자 높이(문서 단위)별 치수 스타일 이름 — 객체 TextHeight 오버라이드는 Add에서 사라진다(context_baker._get_dim_style_id)
+BM_DIM_STYLE_FORMAT = "Gorani_%g"               # 문자 높이(문서 단위)별 치수 스타일 이름 — 객체 TextHeight 오버라이드는 Add에서 사라진다(context_baker._get_dim_style_id)
 
 # 생성 phase와 진행률 가중치 — panel_ui.md 진행률 규약
 PHASES = ("query", "refresh", "terrain", "write_3dm", "basemap", "sheets", "tables", "import")
@@ -622,9 +622,9 @@ QUERY_MARGIN = 20.0             # m — DB 질의 bounds 여유 (범위 bbox ∪
 HEIGHT_GRADE_AB_MIN = 0.7       # 높이 등급 A+B 비율이 이 미만이면 height_estimate 경고 (deliverables §C #8, 08높이 §0.5)
 COMPASS_DIRECTIONS = ("동", "북동", "북", "북서", "서", "남서", "남", "남동")   # 미보유 도엽 방향 표기 (atan2 45° 단위)
 RUN_BAKE_CHUNK = 500            # run이 이 수만큼 베이크할 때마다 progress 콜백(취소 지점). 청크마다 Redraw 1회 — 성수 500 m 7,200개 실측으로 조정
-UDT_MANAGED_KEY = "URBANSITE_MANAGED"  # 베이크 객체 UserString — clear_previous 대상 표시
-UDT_LOT_KEY = "URBANSITE_LOT_KEY"      # 베이크 객체 UserString — pnus 정렬 sha1 앞 8자리
-DOC_ORIGIN_KEYS = ("URBANSITE_ORIGIN_E", "URBANSITE_ORIGIN_N", "URBANSITE_CRS")   # doc.Strings 문서 수준 원점 기록(Blender는 장면 사용자 속성)
+UDT_MANAGED_KEY = "GORANI_MANAGED"  # 베이크 객체 UserString — clear_previous 대상 표시
+UDT_LOT_KEY = "GORANI_LOT_KEY"      # 베이크 객체 UserString — pnus 정렬 sha1 앞 8자리
+DOC_ORIGIN_KEYS = ("GORANI_ORIGIN_E", "GORANI_ORIGIN_N", "GORANI_CRS")   # doc.Strings 문서 수준 원점 기록(Blender는 장면 사용자 속성)
 # 패널이 호스트마다 바꿔 쓰는 이름(init_state.host) — 문서 이름·결과 모델 파일·DWG 저장(Rhino만)·커브 가져오기.
 # ask_stats = 사용 통계를 동의한 사람만 보낸다(Blender 확장 약관 4.5 '사용자 허락 없이 외부 전송 금지', 사용자 결정 2026-10-16 — Rhino는 그대로).
 # SketchUp도 Extension Warehouse 심사(개인정보 정책 위반 = 반려 사유)라 동의제 — GA_STREAMS에 sketchup 속성을 넣기 전에는 묻지도 않는다
@@ -640,7 +640,7 @@ CDT_EPSILON = 1e-4              # m — CDT 근접 판정(mathutils delaunay_2d_
 BLENDER_PANEL_POLL = 0.1        # s — 브라우저 패널 명령을 Blender 메인 스레드에서 꺼내는 간격(bpy.app.timers)
 BLENDER_VIEW_CLIP_END = 20000.0  # m — 줌할 때 3D 뷰 먼 클리핑(기본 1 km면 반경 1 km 지형이 잘린다)
 # SketchUp판(cmd_sketchup 사이드카 — 번들 파이썬 + sketchup_ext.rb)
-HOST_ENV = "URBANSITE_HOST"     # SketchUp 사이드카는 'sketchup', 웹판 워커는 'web'으로 둔다 — context_builder.get_host
+HOST_ENV = "GORANI_HOST"     # SketchUp 사이드카는 'sketchup', 웹판 워커는 'web'으로 둔다 — context_builder.get_host
 SKETCHUP_HOST_TIMEOUT = 1800.0  # s — 호스트 호출(베이크 등) 응답 대기. 패널을 닫으면 응답이 오지 않아 이만큼 뒤 실패한다
 SKETCHUP_GROUND_CELL = 5.0      # m — 지반 높이 조회 격자 칸(mesh_geometry._Ground shapely판). 지형 리샘플 4 m 삼각형이 칸마다 열 개 안팎
 # 웹판(cmd_web — 브라우저 Pyodide 워커 web_worker.js + 페이지 web_app.html). Pyodide·three.js 주소는 JS 파일 맨 위 상수
