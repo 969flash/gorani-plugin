@@ -60,7 +60,7 @@ COMMAND_NAME = "Gorani"
 PUBLISHER = {"name": "sanghoon", "email": "bsh969flash@gmail.com"}
 WEBSITE_URL = "https://969flash.github.io/gorani/"
 # yak manifest — rhinocode가 쓰는 manifest.yml은 url·검색어가 비고 버전에 +빌드번호가 붙는다. PackageManager 목록·검색에 보일 내용으로 갈아 쓴다.
-# guid: 검색어는 지우지 말 것 — Rhino가 이 플러그인 id로 패키지를 찾는다.
+# guid: 검색어는 지우지 말 것 — Rhino가 이 플러그인 id로 패키지를 찾는다. 검색어는 영문·숫자·-·_만(공백이면 yak push가 400).
 YAK_MANIFEST = '''name: %(name)s
 version: %(version)s
 authors:
@@ -69,7 +69,7 @@ description: 'Site context for urban design: 3D buildings, roads, terrain and wa
 license: MIT
 url: %(url)s
 keywords:
-- urban design
+- urban-design
 - gorani
 - site
 - context
