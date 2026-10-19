@@ -59,7 +59,7 @@ class StylePaintTest(unittest.TestCase):
 class WriteTest(unittest.TestCase):
     def test_fixture_basemap(self):
         request = {"pnus": [constants.TEST_CONTEXT_PNU], "site_db": str(FIXTURE_DIR / "seongsu_site.db"),
-                   "context_db": str(FIXTURE_DIR / "seongsu_context.db"), "options": {"radius": 500, "scales": [3000], "paper": "A1", "paper_mm": [841, 594]}}
+                   "context_db": str(FIXTURE_DIR / "seongsu_context.db"), "options": {"radius": 500, "scales": [3000], "paper": "A1", "paper_mm": [841, 594], "make_basemap": True}}
         prepared = context_builder.prepare(request)
         with tempfile.TemporaryDirectory() as tmp:
             result = basemap_ai.write_basemap(prepared, 3000, tmp)

@@ -427,6 +427,38 @@ def save_dwg_from_3dm(model_path, dwg_path, layer_root):
     return dwg_path
 
 
+def save_dwg(items, prepared, dwg_path):
+    # type: (list, object, str) -> str
+    """2D 선 도면(BM:: BakeItem, context_geometry.build_basemap_2d)을 .dwg로 — 결과 화면 '2D 만들기'(make_2d). 활성 문서는 건드리지 않는다.
+    새 헤드리스 문서(m)에 구워 임시 .3dm으로 쓰고, 실측된 save_dwg_from_3dm(헤드리스로 다시 열어 BM만 .dwg, 0.14 s)에 넘긴다 —
+    활성 문서에서 .dwg를 쓰면 Mac에서 멈췄다(save_dwg_from_3dm 주석). 좌표는 3D 베이크와 같다(bake가 옮긴다)."""
+    if Rhino is None:
+        raise RuntimeError("DWG는 Rhino에서만 저장할 수 있습니다")
+    if not items:
+        raise RuntimeError("2D 선 도면이 비었습니다")
+    temp_path = os.path.splitext(dwg_path)[0] + "_dwg_tmp.3dm"
+    doc = Rhino.RhinoDoc.CreateHeadless(None)
+    if doc is None:
+        raise RuntimeError("DWG용 빈 문서를 만들 수 없습니다")
+    try:
+        doc.ModelUnitSystem = Rhino.UnitSystem.Meters
+        if not bake(doc, items, prepared):
+            raise RuntimeError("2D 선 도면을 굽지 못했습니다")
+        options = Rhino.FileIO.FileWriteOptions()
+        options.SuppressDialogBoxes, options.UpdateDocumentPath = True, False
+        if not doc.WriteFile(temp_path, options):
+            raise RuntimeError("DWG용 임시 3dm을 저장할 수 없습니다: %s" % temp_path)
+    finally:
+        doc.Dispose()
+    try:
+        return save_dwg_from_3dm(temp_path, dwg_path, constants.BM_ROOT_LAYER)
+    finally:
+        try:
+            os.remove(temp_path)
+        except OSError:
+            pass
+
+
 def _set_file_layer_states(doc, path, indexes):
     # type: (object, str, object) -> None
     """save_copy가 선택하려고 켠 레이어를 파일에서도 문서 상태(끔·잠금·PersistentVisibility)로 되돌린다 — WriteFile은 켠 순간의 상태로 쓴다.

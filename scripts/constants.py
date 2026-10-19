@@ -549,9 +549,10 @@ PANEL_DEFAULT_OPTIONS = {
     "flatten_site": False, "flatten_level": "mean",
     "site_output": "curve",   # 대상지 표시(lots·area): curve = 경계 커브만, mesh = 대상지 바닥 메시도(CTX::Site::ground, 대상지 색). 필지 방식 기본 mesh   # 대상지 평탄화(lots·area) — 높이 = 경계 자연 지반의 mean|min|max
     "import_after": True,
-    "make_basemap": True, "paper": "A3", "paper_mm": [420, 297], "scales": [5000], "basemap_layers_on": [],
-    "make_sheets": True, "sheet_ids": [sheet_id for sheet_id, *_ in SHEET_CATALOG], "floor_breaks": [12, 20], "elev_preset": "20m",
-    "make_tables": True,
+    # 2D 자료는 기본 끔 — 주목적은 3D, 2D는 패널 결과 화면에서 3D 뒤에 고른다(make_2d, 2026-10-19). 3D만이면 실측 약 8 s, 2D까지면 시간 2.5배(ESTIMATE_* 주석)
+    "make_basemap": False, "paper": "A3", "paper_mm": [420, 297], "scales": [5000], "basemap_layers_on": [],
+    "make_sheets": False, "sheet_ids": [sheet_id for sheet_id, *_ in SHEET_CATALOG], "floor_breaks": [12, 20], "elev_preset": "20m",
+    "make_tables": False,
     "include_minor_buildings": False,
     "include_zoning": True,   # CTX::Zoning — 용도지역·용도지구·용도구역·도시계획시설·지구단위계획 경계(현황도 11~13의 2D 커브)
     "terrain_vertex_color": False,
@@ -583,11 +584,12 @@ REGIONS = ("kr", "global")   # 헤더 토글. kr = 국가 DB(필지·대장·UPI
 # 필지 = 건축 대지검토 규모, 구역 = 지구단위계획·정비구역 현황분석 규모, 위치 = 광역 베이스맵(범위 = 용지 프레임)
 MODE_DEFAULTS = {
     "lots": {"radius": 200, "shape": "circle", "scales": [1000, 3000], "site_output": "mesh"},   # A3 1:1000 = 420×297 m(지번) + 1:3000 주변
-    "area": {"radius": 500, "shape": "site", "scales": [3000], "site_output": "curve"},
-    "point": {"radius": 500, "shape": "frame", "scales": [5000], "site_output": "curve"},
+    "area": {"radius": 500, "shape": "circle", "scales": [3000], "site_output": "curve"},
+    "point": {"radius": 500, "shape": "rect", "scales": [5000], "site_output": "curve"},   # 사각형 한 변 1 km
 }
-# 패널에 보이는 범위 형태(2026-10-10 버퍼 제외). site = 그린 구역 그대로가 범위. 엔진은 buffer도 받는다(예전 요청 호환)
-SHAPES_BY_MODE = {"lots": ("circle", "rect"), "area": ("site", "circle", "rect"), "point": ("frame", "circle", "rect")}
+# 패널에 보이는 범위 형태 — 어느 방식이든 원(반경)·사각형(한 변 = 2 × radius) 둘(2026-10-19, 방식마다 달라 혼란이었다).
+# 엔진은 buffer·site(그린 구역 그대로)·frame(용지 프레임)도 받는다(예전 요청 호환)
+SHAPES_BY_MODE = {"lots": ("circle", "rect"), "area": ("circle", "rect"), "point": ("circle", "rect")}
 AREA_LOT_MIN_FRACTION = 0.5     # 구역 안 필지 = 필지 면적의 50 % 이상이 구역 안(구역계 토지조서 관행)
 AREA_SAMPLE_GRID = 12           # 구역 경계에 걸친 필지의 안쪽 비율을 12×12 격자 점으로 잰다(ponytail: 근사 — 작은 필지 ±5 %)
 AREA_MIN = 100.0                # ㎡ — 이보다 작은 구역은 잘못 그린 것으로 본다

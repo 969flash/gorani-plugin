@@ -30,7 +30,9 @@ ALIGN_TEST_DB = "/tmp/udt_ctx_test.db"  # dev_context_builder.py --sheets 377050
 
 
 def _request(**overrides):
-    request = {"pnus": [constants.TEST_CONTEXT_PNU], "site_db": SITE_DB, "context_db": CONTEXT_DB, "options": {"radius": 500, "shape": "buffer"}}   # buffer는 패널에서 뺐지만 엔진은 받는다(실측값이 이 형태 기준)
+    request = {"pnus": [constants.TEST_CONTEXT_PNU], "site_db": SITE_DB, "context_db": CONTEXT_DB, "options": {"radius": 500, "shape": "buffer",
+                                                                                                         "make_basemap": True, "make_sheets": True, "make_tables": True}}
+    # buffer는 패널에서 뺐지만 엔진은 받는다(실측값이 이 형태 기준). 2D는 엔진 기본이 끔(3D 먼저, 2026-10-19) — 이 파일의 실측값은 2D 포함 기준
     options = overrides.pop("options", None)
     if options:
         request["options"].update(options)
@@ -262,6 +264,15 @@ class PrepareTest(unittest.TestCase):
         extent = non_rhino_utils.get_bbox(p.extent_ring)
         self.assertTrue(p.bounds[0] <= extent[0] and p.bounds[2] >= extent[2])
 
+    def test_3d_only_bounds_are_extent(self):
+        # 2D를 안 만들면 프레임(A3 1:5000 = 2.1 km)만큼 조회하지 않는다 — 범위 bbox + 여유만
+        p = context_builder.prepare(_request(options={"radius": 300, "shape": "rect", "make_basemap": False, "make_sheets": False}), today=TODAY)
+        extent = non_rhino_utils.get_bbox(p.extent_ring)
+        self.assertAlmostEqual(extent[2] - extent[0], 600.0, 3)   # 사각형 한 변 = 2 × radius
+        for got, want in zip(p.bounds, (extent[0] - constants.QUERY_MARGIN, extent[1] - constants.QUERY_MARGIN,
+                                        extent[2] + constants.QUERY_MARGIN, extent[3] + constants.QUERY_MARGIN)):
+            self.assertAlmostEqual(got, want, 6)
+
     def test_near_lots_not_truncated_at_1km(self):
         p = context_builder.prepare(_request(options={"radius": 1000, "scales": [1000]}), today=TODAY)
         self.assertGreater(len(p.near_lots), 5000)
@@ -314,8 +325,9 @@ class PrepareTest(unittest.TestCase):
                                                       "make_tables": False, "include_minor_buildings": True}), today=TODAY)
         self.assertEqual(p.skipped_phases, {"refresh", "import", "basemap", "sheets", "tables"})
         self.assertEqual(context_builder.get_skipped_phases(p.request["options"]), p.skipped_phases)
-        self.assertEqual(context_builder.get_skipped_phases(constants.PANEL_DEFAULT_OPTIONS), {"refresh", "import"})
-        q = context_builder.prepare(_request(options={"radius": 300, "scales": [1000]}), today=TODAY)
+        self.assertEqual(context_builder.get_skipped_phases(constants.PANEL_DEFAULT_OPTIONS), {"refresh", "import", "basemap", "sheets", "tables"})
+        q = context_builder.prepare(_request(options={"radius": 300, "scales": [1000], "make_basemap": False, "make_sheets": False,
+                                                      "make_tables": False}), today=TODAY)
         self.assertGreater(len(p.buildings), len(q.buildings))
 
     def test_multipart_warning_for_hole_parcel(self):
@@ -539,6 +551,47 @@ class StyleRedrawTest(unittest.TestCase):
             self.assertEqual(len(result["basemaps"]), 1)
             with open(os.path.join(tmp, constants.CONTEXT_META_FILE_NAME), encoding="utf-8") as handle:
                 self.assertEqual(json.load(handle)["options"]["style"], {"preset": "mono", "layout": "bottom"})
+
+
+class Make2dTest(unittest.TestCase):
+    """패널 결과 화면 '2D 만들기' — 3D만 만든 결과 폴더(context.json)에 .ai·도면·CSV를 더한다(Rhino 없이 돈다)."""
+
+    def test_2d_request_keeps_3d_origin_and_dwg_needs_basemap(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            meta = {"target": {"mode": "point", "center": list(CENTER)}, "lot_name": "x_일대", "doc_origin": [204700.0, 549000.0],
+                    "options": {"radius": 300, "shape": "rect", "placement": "origin", "make_basemap": False, "make_dwg": False}}
+            with open(os.path.join(tmp, constants.CONTEXT_META_FILE_NAME), "w", encoding="utf-8") as handle:
+                json.dump(meta, handle)
+            request = context_builder.get_2d_request(tmp, {"make_basemap": True, "make_dwg": True, "radius": 900})
+            self.assertEqual(request["doc_origin"], [204700.0, 549000.0])   # DWG가 3dm과 같은 좌표
+            self.assertTrue(request["options"]["make_dwg"])
+            self.assertEqual(request["options"]["radius"], 300)   # 2D 키만 덮는다 — 범위는 3D 그대로
+            self.assertEqual(request["target"], meta["target"])
+            self.assertFalse(context_builder.get_2d_request(tmp, {"make_basemap": False, "make_dwg": True})["options"]["make_dwg"])
+
+    @unittest.skipUnless(HAS_FIXTURES, "fixture DB 없음")
+    def test_adds_2d_to_3d_only_result(self):
+        import context_report
+        with tempfile.TemporaryDirectory() as tmp:
+            prepared = context_builder.prepare(_request(options={"radius": 300, "shape": "circle", "make_basemap": False, "make_sheets": False,
+                                                                 "make_tables": False}))
+            context_report.write_context_json(prepared, {}, tmp)   # 3D만 만든 결과 폴더
+            phases = []
+            ids = [0, constants.SHEET_IDS["floor"]]
+            result = context_builder.make_2d(tmp, {"make_basemap": True, "scales": [3000], "make_sheets": True, "sheet_ids": ids, "make_tables": False},
+                                             lambda phase, fraction, text: phases.append(phase) or True, {}, SITE_DB, CONTEXT_DB)
+            self.assertTrue(result["ok"], result["error"])
+            self.assertEqual(result["dir"], tmp)
+            self.assertEqual([os.path.basename(p) for p in result["basemap"]["exported"]], ["basemap_3000.ai"])
+            self.assertEqual([s["id"] for s in result["sheets"]], ids)
+            self.assertEqual(result["tables"], [])
+            self.assertEqual(set(phases), {"query", "basemap", "sheets"})
+            with open(os.path.join(tmp, constants.CONTEXT_META_FILE_NAME), encoding="utf-8") as handle:
+                meta = json.load(handle)
+            self.assertTrue(meta["options"]["make_basemap"])
+            self.assertEqual([s["id"] for s in meta["sheets"]], ids)
+            nothing = context_builder.make_2d(tmp, {"make_basemap": False, "make_sheets": False, "make_tables": False}, None, None, SITE_DB, CONTEXT_DB)
+            self.assertFalse(nothing["ok"])
 
 
 class ProgressMessageTest(unittest.TestCase):

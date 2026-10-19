@@ -160,8 +160,8 @@ class ExtentRingTest(unittest.TestCase):
         self.assertEqual(len(circle), constants.EXTENT_CIRCLE_SEGMENTS)
         self.assertEqual(len(rect), 4)
         min_x, min_y, max_x, max_y = u.get_bbox(self.lot_ring)
-        self.assertEqual(u.get_bbox(rect), (min_x - self.radius, min_y - self.radius, max_x + self.radius, max_y + self.radius))
         cx, cy = (min_x + max_x) / 2, (min_y + max_y) / 2
+        self.assertEqual(u.get_bbox(rect), (cx - self.radius, cy - self.radius, cx + self.radius, cy + self.radius))   # 한 변 = 2 × radius
         for x, y in circle:
             self.assertAlmostEqual(math.hypot(x - cx, y - cy), self.radius, 6)
         with self.assertRaises(ValueError):
