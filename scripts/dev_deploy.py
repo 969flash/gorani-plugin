@@ -69,9 +69,37 @@ version: %(version)s
 authors:
 - %(author)s
 description: |-
-  필지를 고르면 주변 건물·도로·지형이 라이노에 3D로 들어옵니다. 명령 Gorani 실행 → 지도에서 필지 클릭(또는 구역 그리기·위치 찍기) → 범위 선택 → [3D 모델 만들기]. 건물 매스, 도로, 지형, 하천, 녹지, 철도가 지금 문서에 레이어별로 생깁니다. 국내는 전국 필지 경계·용도지역·1:5,000 수치지형도 등고선까지, 해외는 OpenStreetMap 건물·도로와 지형으로 만듭니다. 같은 패널에서 일러스트레이터 베이스맵(.ai), 현황도·분석도, DWG, 조서 CSV도 뽑을 수 있습니다. 무료이고 그래스호퍼나 회원가입 없이 바로 씁니다.
+  필지를 고르면 주변 건물·도로·지형이 라이노에 3D로 들어옵니다.
+  무료이고, 그래스호퍼나 회원가입 없이 바로 씁니다.
 
-  The city around your site, modeled in Rhino. Pick a site on the map and Gorani builds the surrounding buildings, roads, terrain, rivers, parks and railways as layers in your open document. It works anywhere OpenStreetMap has data, and in Korea it adds cadastral parcels, zoning and 1:5000 contours. Gorani also saves an Illustrator basemap and urban analysis maps. It is free, and you don't need an account or Grasshopper. After installing, restart Rhino and type Gorani.
+  사용 방법
+  1. 설치 후 라이노를 다시 켭니다.
+  2. 명령창에 Gorani를 입력합니다.
+  3. 지도에서 대상지를 고르고 [3D 모델 만들기]를 누릅니다.
+
+  결과물
+  - 3D: 건물 매스, 도로, 지형, 하천, 녹지, 철도 (레이어별)
+  - 2D: 일러스트레이터 베이스맵, 현황도·분석도, DWG, 조서 CSV
+
+  데이터
+  - 국내: 전국 필지·용도지역·1:5,000 등고선
+  - 해외: OpenStreetMap 건물·도로와 지형
+
+  The city around your site, modeled in Rhino.
+  It's free, and you don't need Grasshopper or an account.
+
+  How to use
+  1. Restart Rhino after installing.
+  2. Type Gorani.
+  3. Pick a site on the map and press the 3D button.
+
+  What you get
+  - 3D: buildings, roads, terrain, rivers, parks and railways on separate layers
+  - 2D: Illustrator basemap, urban analysis maps, DWG, CSV tables
+
+  Data
+  - Worldwide: OpenStreetMap buildings and roads, public terrain
+  - Korea: nationwide parcels, zoning and 1:5,000 contours
 license: MIT
 url: %(url)s
 icon: icon.png
