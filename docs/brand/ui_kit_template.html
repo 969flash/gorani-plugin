@@ -1,0 +1,159 @@
+<!doctype html>
+<!-- Gorani UI 키트 시트 틀 — scripts/dev_brand.py가 채워 ui_kit.html로 쓴다. 아이콘 %%COUNT%%종 + 버튼·상자 컴포넌트(둥근 모서리, 단순한 선 아이콘) -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gorani UI 키트</title>
+<style>
+@font-face { font-family: "Pretendard Variable"; src: url("../../scripts/vendor/PretendardVariable.woff2") format("woff2-variations"); font-weight: 45 920; }
+/* 토큰 — 라이트·다크. 반경: 버튼 8 · 작은 버튼 6 · 카드 12 · 칩 999 */
+.light {
+  --paper: #f5f6f8; --surface: #ffffff; --line: #e3e6eb; --line-2: #cdd3db;
+  --ink: #111418; --ink-2: #4a5260; --ink-3: #7d8798; --hover: #f0f2f5; --press: #e5e8ed;
+  --on-ink: #ffffff; --ink-hover: #2b3038; --ink-press: #3a414b;
+  --accent: #0057ff; --accent-ink: #0047d6; --accent-wash: #e9f0ff; --ring: rgba(0, 87, 255, .35);
+  --danger: #c43c3c; --danger-wash: #fdeeee; --warn: #a8460b; --warn-wash: #fff6ea;
+}
+.dark {
+  --paper: #0c1016; --surface: #151b23; --line: #262e39; --line-2: #38424f;
+  --ink: #e8ecf2; --ink-2: #a9b3c3; --ink-3: #7f8a9c; --hover: #1c232d; --press: #252d38;
+  --on-ink: #111418; --ink-hover: #d3d9e2; --ink-press: #bcc4d0;
+  --accent: #5b8bff; --accent-ink: #8cb0ff; --accent-wash: #16264a; --ring: rgba(91, 139, 255, .45);
+  --danger: #f07272; --danger-wash: #3a1b1d; --warn: #f0a35e; --warn-wash: #33240f;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: #eceef1; color: #111418; font: 400 13px/1.5 "Pretendard Variable", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+.page { max-width: 1160px; margin: 0 auto; padding: 32px 16px 64px; }
+.top { display: flex; align-items: center; gap: 12px; }
+.top svg { width: 40px; height: 40px; }
+h1 { font-size: 22px; line-height: 28px; margin: 0; }
+h2 { font-size: 16px; margin: 40px 0 12px; }
+h4 { font-size: 12px; font-weight: 600; margin: 0; width: 88px; flex: none; color: var(--ink-2); padding-top: 8px; }
+p { margin: 0; }
+.sub { color: var(--ink-3); font-size: 12px; }
+.note { margin-top: 16px; background: #fff; border-radius: 12px; padding: 14px 18px; border: 1px solid #e3e6eb; }
+.note ul { margin: 6px 0 0; padding-left: 18px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.pair.stack { grid-template-columns: 1fr; }
+.crow > .st + .st, .crow > .st { margin-right: 4px; }
+.theme { background: var(--paper); color: var(--ink); border-radius: 16px; padding: 20px; min-width: 0; border: 1px solid var(--line); }
+.theme > .label { font-size: 11px; color: var(--ink-3); margin-bottom: 12px; }
+.ico { flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; }
+
+/* 아이콘 칸 */
+.icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.ic { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 4px; min-height: 96px; }
+.ic .g { display: flex; align-items: center; gap: 12px; height: 28px; color: var(--ink); }
+.ic b { font-size: 12px; font-weight: 600; }
+.ic span { font-size: 11px; color: var(--ink-3); line-height: 1.35; }
+
+/* 버튼 */
+.b { height: 32px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--surface); color: var(--ink);
+  display: inline-flex; align-items: center; gap: 8px; font: inherit; font-weight: 500; white-space: nowrap; cursor: pointer; transition: background .12s, border-color .12s; }
+.b:hover, .b.is-hover { background: var(--hover); }
+.b:active, .b.is-active { background: var(--press); }
+.b.primary { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+.b.primary:hover, .b.primary.is-hover { background: var(--ink-hover); border-color: var(--ink-hover); }
+.b.primary:active, .b.primary.is-active { background: var(--ink-press); border-color: var(--ink-press); }
+.b.ghost { border-color: transparent; background: transparent; color: var(--ink-2); padding: 0 10px; }
+.b.ghost:hover, .b.ghost.is-hover { background: var(--hover); color: var(--ink); }
+.b.ghost:active, .b.ghost.is-active { background: var(--press); }
+.b.danger { color: var(--danger); }
+.b.danger:hover, .b.danger.is-hover { background: var(--danger-wash); color: var(--danger); }
+.b.sm { height: 28px; padding: 0 10px; border-radius: 6px; font-size: 12px; gap: 6px; }
+.b.ghost.sm { padding: 0 8px; }
+.b:disabled, .b.is-dis { opacity: .4; cursor: default; background: var(--surface); }
+.b.primary:disabled { background: var(--ink); }
+.b.ghost:disabled { background: transparent; }
+:focus-visible, .is-focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ib { width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: var(--ink-2); display: inline-grid; place-items: center; cursor: pointer; }
+.ib.sm { width: 24px; height: 24px; border-radius: 6px; }
+.ib:hover, .ib.is-hover { background: var(--hover); color: var(--ink); }
+.ib:active, .ib.is-active { background: var(--press); }
+.lk { color: var(--accent-ink); font-size: 12px; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.lk:hover, .lk.is-hover { text-decoration: underline; text-underline-offset: 3px; }
+.seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 10px; background: var(--press); }
+.seg button { height: 28px; padding: 0 12px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-2); font: inherit; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.seg button:hover { color: var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 0 0 1px var(--line); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--ink-2); font: inherit; font-size: 12px; cursor: pointer; }
+.chip:hover { background: var(--hover); }
+.chip[aria-pressed="true"] { background: var(--accent-wash); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.chip:disabled { opacity: .4; }
+.field { height: 36px; min-width: 220px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--surface); display: inline-flex; align-items: center; gap: 8px; padding: 0 12px; color: var(--ink-3); }
+.field.is-focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+.field input { border: 0; outline: 0; background: transparent; font: inherit; color: var(--ink); flex: 1; min-width: 0; }
+.field input::placeholder { color: var(--ink-3); }
+.list { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 6px; width: 320px; max-width: 100%; }
+.lh { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--ink-3); padding: 6px 8px 4px; }
+.li { width: 100%; height: 36px; border: 0; border-radius: 8px; background: transparent; color: var(--ink); font: inherit; display: grid; grid-template-columns: auto minmax(0,1fr) auto 16px; align-items: center; gap: 8px; padding: 0 8px; text-align: left; cursor: pointer; }
+.li > span:first-child:not(.sub) { grid-column: 1 / 3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.li svg:first-child + span { grid-column: 2; }
+.li:hover, .li.is-hover { background: var(--hover); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; width: 340px; max-width: 100%; }
+.card .ch { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card .ca { display: flex; gap: 8px; flex-wrap: wrap; }
+.card.warn { background: var(--warn-wash); border-color: transparent; }
+.card.warn .ch { color: var(--warn); }
+.card.prog .track { position: relative; height: 40px; }
+.card.prog .track::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; border-radius: 2px; background: var(--press); }
+.card.prog .fill { position: absolute; left: 0; bottom: 0; height: 4px; width: 46%; border-radius: 2px; background: var(--ink); }
+.card.prog .runner { position: absolute; bottom: 4px; left: calc((100% - 48px) * .46); width: 48px; color: var(--ink); }
+.card.prog .runner svg { width: 48px; height: 36px; display: block; }
+.crow { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--line); }
+.crow:first-of-type { border-top: 0; }
+.st { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.row { display: flex; gap: 4px; align-items: center; }
+.sl { font-size: 10px; color: var(--ink-3); }
+
+/* 표 */
+table { width: 100%; border-collapse: separate; border-spacing: 0; background: #fff; border: 1px solid #e3e6eb; border-radius: 12px; overflow: hidden; }
+th, td { text-align: left; padding: 8px 12px; border-top: 1px solid #eef0f3; font-size: 12px; vertical-align: middle; --ink: #111418; --ink-3: #7d8798; color: #111418; }
+thead th { border-top: 0; background: #f7f8fa; color: #4a5260; font-weight: 600; }
+td code { font-size: 11px; color: #4a5260; }
+td .ico { margin-right: 4px; }
+.runs { display: flex; gap: 8px; flex-wrap: wrap; }
+.runs figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.runs .frame { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px; color: var(--ink); }
+.runs figcaption { font-size: 11px; color: var(--ink-3); }
+@media (max-width: 900px) { .pair { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+%%SPRITE%%
+<div class="page">
+  <div class="top"><svg viewBox="0 0 256 256"><path fill="#111418" fill-rule="evenodd" d="%%MARK%%"/></svg><div><h1>Gorani UI 키트</h1><p class="sub">2026-10-19 · 패널 아이콘 %%COUNT%%종과 버튼·상자 컴포넌트 · Claude 데스크톱 앱처럼 단순하고 둥글게</p></div></div>
+  <div class="note"><b>규칙</b><ul>
+    <li>아이콘: 16 칸, 선 1.5, 둥근 끝·둥근 이음, 색은 currentColor 한 색. 면은 범례 점·방식 표본·브랜드 마크에만</li>
+    <li>모서리: 버튼 8 px · 작은 버튼 6 px · 입력칸·세그먼트 10 px · 카드·목록 12 px · 칩 완전 둥글게. 그림자는 세그먼트 선택 칸에만 아주 옅게</li>
+    <li>주 버튼은 잉크(라이트 검정·다크 흰색) 한 화면에 하나. 블루는 선택·포커스·링크에만</li>
+    <li>아이콘 + 글자가 기본. 아이콘만 쓰는 버튼은 누구나 아는 것(더보기·검색·닫기·뒤로)뿐이고 title·aria-label을 단다. 확인·취소처럼 짧은 답은 글자만</li>
+    <li>고라니는 브랜드 자리(헤더·도구 막대·로딩)에만 — 기능 아이콘에 쓰지 않는다</li>
+  </ul></div>
+
+  <h2>아이콘 — 24 px · 16 px</h2>
+  <div class="pair">
+    <div class="theme light"><div class="label">라이트</div><div class="icons">%%CELLS%%</div></div>
+    <div class="theme dark"><div class="label">다크</div><div class="icons">%%CELLS%%</div></div>
+  </div>
+
+  <h2>버튼 · 상자</h2>
+  <div class="pair stack">
+    <div class="theme light"><div class="label">라이트</div>%%COMP%%</div>
+    <div class="theme dark"><div class="label">다크</div>%%COMP%%</div>
+  </div>
+
+  <h2>로딩 — 달리는 고라니 8장</h2>
+  <div class="pair">
+    <div class="theme light"><div class="runs">%%RUNS%%</div></div>
+    <div class="theme dark"><div class="runs">%%RUNS%%</div></div>
+  </div>
+
+  <h2>버튼별 아이콘 짝</h2>
+  <table><thead><tr><th>화면</th><th>버튼 문구</th><th>data-act</th><th>아이콘</th><th>버튼 종류</th></tr></thead><tbody>%%ROWS%%</tbody></table>
+</div>
+</body>
+</html>

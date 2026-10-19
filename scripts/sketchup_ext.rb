@@ -333,7 +333,8 @@ module BSH
       command = UI::Command.new("Gorani") { show_panel }
       command.tooltip = "Gorani"
       command.status_bar_text = "대상지 패널 — 주변 건물·도로·지형·수계 3D와 베이스맵·현황도"
-      icon = File.join(ROOT, "icons", "gorani.png")
+      # 아이콘: Windows는 SVG(벡터), macOS는 PNG — 맥 SketchUp의 벡터 아이콘은 PDF뿐이다
+      icon = File.join(ROOT, "icons", Sketchup.platform == :platform_win ? "gorani.svg" : "gorani.png")
       command.small_icon = command.large_icon = icon if File.exist?(icon)
       UI.menu("Extensions").add_item(command)
       toolbar = UI::Toolbar.new("Gorani")

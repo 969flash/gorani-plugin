@@ -75,29 +75,34 @@ typography:
     letterSpacing: "0.01em"
 rounded:
   none: "0px"
+  sm: "6px"
+  md: "8px"
+  field: "10px"
+  lg: "12px"
+  full: "999px"
 spacing:
   cell: "8px"
   gutter: "16px"
   row: "32px"
 components:
   button-primary:
-    backgroundColor: "{colors.blue}"
-    textColor: "{colors.on-blue}"
-    rounded: "{rounded.none}"
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.surface}"
+    rounded: "{rounded.md}"
     height: "32px"
-    padding: "0 12px"
+    padding: "0 14px"
   button-primary-hover:
-    backgroundColor: "{colors.blue-dn}"
+    backgroundColor: "#2B3038"
   button-secondary:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.none}"
+    rounded: "{rounded.md}"
     height: "32px"
-    padding: "0 12px"
+    padding: "0 14px"
   cell:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink-2}"
-    rounded: "{rounded.none}"
+    rounded: "{rounded.sm}"
     height: "32px"
     padding: "6px 8px"
   cell-selected:
@@ -113,6 +118,8 @@ components:
 ## Overview
 
 패널은 방안지(모눈종이) 위에 그린 구성 격자다. 모든 행·셀·견본이 8 px 모눈에 맞물리고, 1 px 사각 괘선과 크라우얼 블루 한 색만 쓴다. 회색 카드와 파란 알약 버튼의 SaaS 설정창을 거부한다. 패널은 Rhino 옆에 붙는 480 px Eto WebView라서 패널 자체가 화면 전체다. 그래서 모눈 바탕은 패널 본문 안에 있다.
+
+> **2026-10-19 모양 방향 바뀜** — 사용자 요청으로 Claude 데스크톱 앱처럼 단순하고 둥글게 간다. 버튼·상자·아이콘의 모양(둥근 모서리, 옅은 테두리, 둥근 선 아이콘, 잉크 주 버튼)은 `docs/brand/ui_kit.html`이 원본이고, 이 문서의 '사각 괘선·모서리 0' 서술보다 우선한다. 패널(`site_ui.html`)은 아직 옮기지 않았다.
 
 기준 시안: `docs/ui_proposals/panel_grid_proto.html` (실데이터 자리는 `__DATA__`). 이식 대상: `scripts/site_ui.html`.
 
@@ -158,18 +165,20 @@ components:
 
 ## Elevation & Depth
 
-그림자는 없다. 깊이는 모눈 바탕 위에 흰 면을 놓고 1 px 괘선으로 가르는 것으로만 만든다.
+깊이는 옅은 바탕 위에 흰 면을 놓고 옅은 1 px 테두리(#E3E6EB, 다크 #262E39)로 가른다. 그림자는 세그먼트의 선택 칸에만 아주 옅게(0 1px 2px rgba(0,0,0,.08)) 쓴다.
 
 ## Shapes
 
-모든 모서리는 0이다. 사선은 두 곳에만 쓴다: 현재 단계 셀의 오른쪽 끝, 그리고 다음 화면으로 가거나 적용하는 버튼 오른쪽의 "/" 선.
+모서리는 둥글다: 버튼 8 px · 작은 버튼 6 px · 입력칸·세그먼트 10 px · 카드·목록·메뉴 12 px · 칩 완전 둥글게(2026-10-19). 사선 "/" 장식은 쓰지 않는다.
 
 ## Components
 
 ### Buttons
-- 주행동(`primary go`): 파란 면 + 흰 글자 + 오른쪽 "/" 선. 한 화면에 하나.
-- 보조: 흰 면 + 잉크 괘선. hover는 테두리와 글자가 파랑으로.
-- 고스트: 테두리 없음, `ink-2` 글자. 뒤로·초기화·해제에 쓴다.
+- 주 버튼: 잉크 면 + 흰 글자(다크에서는 밝은 면 + 어두운 글자). 한 화면에 하나. 블루는 선택·포커스·링크에만 쓴다.
+- 보조: 흰 면 + 옅은 테두리. hover·누름은 면이 한 단계씩 어두워진다.
+- 고스트: 테두리 없음, `ink-2` 글자. 뒤로·되돌리기·해제에 쓴다. 위험(지우기)은 빨간 글자 고스트.
+- 아이콘 + 글자가 기본. 아이콘만 쓰는 버튼(32 px, 작게 24 px)은 더보기·검색·닫기·뒤로뿐이고 title·aria-label을 단다. 버튼별 아이콘 짝은 `docs/brand/ui_kit.html` 표.
+- 포커스: 2 px 블루 테두리, 2 px 띄움.
 
 ### Cells (선택기)
 - 세그먼트·프리셋·레이아웃·선 굵기·단계색을 모두 같은 셀로 만든다. 선택된 셀은 파란 2 px(바깥 1 + 안쪽 1) 테두리와 파란 글자다.
@@ -191,7 +200,18 @@ components:
 - 더보기 메뉴: 헤더 오른쪽 메뉴 아이콘 버튼 하나가 연다. 헤더 괘선 아래로 내려오는 흰 면이고, 화면에 안 맞는 것(최근 대상지·작업 폴더·한국 자료 OSM 전환·API 키·안내)을 표 행(라벨 열 72 px)으로 모은다. 자료 기준일·경고는 패널에 두지 않는다. Esc·바깥 누르기로 닫는다.
 
 ### Icons
-- 16 px, 선 1.5, 각진 끝의 인라인 SVG 심볼(`i-back`, `i-check`, `i-x`, `i-down`, `i-lock`, `i-search`, `i-menu`, 방식 표본 `i-lots`·`i-area`·`i-point`). 글리프나 이모지는 쓰지 않는다.
+- 16 px, 선 1.5, 둥근 끝·둥근 이음의 인라인 SVG 심볼 45종(2026-10-19). 원본 표는 `scripts/dev_brand.py`(돌리면 `docs/brand/icons/*.svg`·`sprite.svg`·시트를 다시 쓴다), 패널에는 `sprite.svg`를 그대로 넣는다. 색은 currentColor 한 색이고, 면은 범례 점·방식 표본·브랜드 마크(`i-gorani`)에만 쓴다. 글리프나 이모지는 쓰지 않는다.
+
+## Brand
+
+- 마크: 정면 고라니 얼굴 실루엣 — 큰 귀, 아래로 내려온 엄니 둘, 뿔 없음(2026-10-19 확정, 시트 `docs/brand/logo.html`). 원본은 `docs/brand/gorani_mark.svg`(32 px 이상)와 `gorani_mark_small.svg`(24 px 이하 — 눈·주둥이·엄니·귀 안 흰 면을 굵게). path 하나(evenodd), 색은 `currentColor` 한 색.
+- 색: 라이트 잉크 #111418, 다크 잉크 #E8ECF2. 블루·그라데이션·바탕 원·테두리를 더하지 않는다. 마크는 곡선 실루엣이고 기능 아이콘(선)과 섞지 않는다.
+- 크기별 PNG: `docs/brand/png/gorani_<16·24·32·48·64·128·256>.png`(투명 바탕, 라이트 잉크. 24 이하는 작은 판).
+- 쓰는 자리: Rhino 도구 막대(`dev_deploy`가 빌드한 .rui의 아이콘을 작은 판 SVG로 갈아 끼운다), Yak 목록(`icon.png` = 128 px), SketchUp 도구 막대(Windows SVG, macOS PNG 48 px), Blender 스토어 아이콘·대표 이미지(`docs/blender_store/`), 패널 헤더(마크 + 워드마크).
+- 워드마크: `Gorani`(G만 대문자), Pretendard 800. 마크 오른쪽에 둔다.
+- 고라니는 브랜드 자리(진입 버튼·헤더·스토어·로딩)에만 쓴다. 기능 버튼 아이콘은 위 Icons 규칙을 따르고, 산출물(3dm·베이스맵·현황도)에는 로고를 넣지 않는다.
+- 뿔을 달지 않는다 — 고라니는 암수 모두 뿔이 없어 뿔을 그리면 노루·사슴으로 읽힌다. 강조할 특징은 엄니와 큰 귀다.
+- 로딩(시안): 옆모습으로 달리는 고라니 8장(`docs/brand/concepts.html` §3). 생성이 Rhino UI 스레드에서 동기로 돌아 화면이 멈출 수 있으므로, 위치는 진행률에 묶고 다리 장은 진행 푸시마다 넘긴다. 패널 적용은 아직 안 했다.
 
 ## Do's and Don'ts
 
@@ -201,7 +221,7 @@ components:
 - 도면 미리보기는 같은 틀과 축척을 유지한다. 도면을 바꿔도 지도가 움직이지 않는다.
 
 ### Don't:
-- 둥근 모서리, 알약 모양, 그림자, 그라데이션을 쓰지 않는다.
+- 그라데이션, 진한 그림자, 색을 채운 카드를 쓰지 않는다. 한 버튼 안에 아이콘을 둘 넣지 않는다.
 - 섹션 제목 위에 영문 소제목(eyebrow)을 달지 않는다.
 - 파란색 외에 강조색을 추가하지 않는다.
 - 설명 문장으로 컨트롤을 해설하지 않는다.
