@@ -91,7 +91,7 @@ def get_init_state(site_db=None, context_db=None, today=None):
     입력: DB 경로 override 2개(테스트가 fixture를 꽂는다. None = constants 경로), today(테스트용).
     처리: 필지 DB 존재 → blocked, context_builder.get_sources/get_source_warnings, review_map 타일·지도, site_prefs 옵션·recent,
           SHEET_CATALOG. 네트워크 접근 없음. generator는 항상 ok(서브프로세스 없음 — UI 호환 키).
-    출력: {"type": "init_state", version, blocked, paths, generator, host, stats_consent, sources, warnings, tile, map, options, modes, recent, sheet_catalog,
+    출력: {"type": "init_state", version, blocked, paths, generator, host, stats_consent, links, sources, warnings, tile, map, options, modes, recent, sheet_catalog,
           style_presets, style_defaults, style_ramps, styles}.
     """
     constants = loader.load("constants")
@@ -111,6 +111,7 @@ def get_init_state(site_db=None, context_db=None, today=None):
         "generator": {"ok": True, "python": host["name"] + " Python", "text": host["name"] + " 내장"},
         "host": host,
         "stats_consent": site_prefs.get_stats_consent(),
+        "links": dict(constants.PANEL_LINKS),   # 메뉴가 주소를 그대로 보여 준다. 여는 건 open_url{key}
         "can_download": bool(constants.DATA_MANIFEST_URL),
         "sources": sources,
         "warnings": context_builder.get_source_warnings(sources),
@@ -902,7 +903,7 @@ class _SiteController:
         """도면 한 장(path) 또는 결과 폴더 전부(all)를 레이어 .ai로 — 하나면 쓰고 바로 연다."""
         result_dir = self._get_result_dir(msg)
         sheet_svg = loader.load("sheet_svg")
-        sheets_dir = os.path.join(result_dir, loader.load("constants").RESULT_SHEETS_DIRNAME)
+        sheets_dir = loader.load("context_builder").get_sheets_dir(result_dir)
         paths = sorted(os.path.join(sheets_dir, n) for n in os.listdir(sheets_dir) if n.endswith(".svg")) if msg.get("all") else [str(msg.get("path") or "")]
         if not all(p.startswith(sheets_dir) and os.path.exists(p) for p in paths):
             raise ValueError("도면 파일이 없습니다")

@@ -667,6 +667,7 @@ WEB_MAX_RADIUS = 2000.0
 REF_TRANSFORM = "EPSG:5189 (UPIS EPSG:5174→5186, 공칭 ±1 m)"
 REF_VDATUM = "인천만 평균해수면(수준원점 26.6871 m)"
 # 조서·메타(context_report) — deliverables §C 공통 ①~⑤·§E 폴더 규약
+RESULT_2D_DIRNAME = "2D"   # 2D 산출물(베이스맵 .ai·.dwg·sheets/·tables/)을 결과 폴더 안 한곳에 — 패널 2D 카드 [폴더 열기]가 여기를 연다(2026-10-19)
 RESULT_TABLES_DIRNAME = "tables"
 RESULT_SHEETS_DIRNAME = "sheets"
 # data_sources.source_id → 메타 역할(lot·building·terrain·upis). prepare가 DataSource 객체를 그대로 넘겨도 역할을 찾는다

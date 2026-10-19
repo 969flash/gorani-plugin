@@ -144,6 +144,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
  "paths":{"root":"<HOME_DIR>","lot_db":"data/seoul_site.db","context_db":"data/seoul_context.db","env":".env","install_doc":"docs/install.md"},
  "generator":{"ok":true,"python":"Rhino Python","text":"Rhino 내장"},   // 항상 ok. UI 호환용(블로커 3행째는 ✓ 고정). Blender면 "Blender …"
  "host":{"id":"rhino","name":"Rhino","doc":"Rhino 문서","model":"context.3dm","dwg":true,"ask_stats":false},   // constants.HOST_LABELS — 패널 문구(문서 이름·모델 파일)와 DWG 옵션 표시. Blender = {"id":"blender","name":"Blender","doc":"Blender 장면","model":"context.blend","dwg":false,"ask_stats":true}, SketchUp = {"id":"sketchup",…,"model":"context.skp","dwg":false,"ask_stats":true}
+ "links":{"website":"https://969flash.github.io/gorani/"},   // constants.PANEL_LINKS — 메뉴 '웹페이지' 줄이 주소를 링크로 보여 주고, 누르면 open_url{key}
  "stats_consent":null,                            // 사용 통계 동의 true|false|null(안 물음) — host.ask_stats(Blender + 측정 ID 있음)면 null일 때 정보 띠로 한 번 묻고([보내기]·[보내지 않음] → stats_consent{on}), 더보기 메뉴 설정에서 바꾼다
  "can_download":true,                             // DATA_MANIFEST_URL이 있으면 블로커에 [DB 받기]·[멈추기]
  "sources":[source, source, source, source],      // id = lot, building, terrain, api 순서 고정(더보기 메뉴 자료 칸·블로커 체크리스트·첫 실행 모드 판정)
@@ -231,7 +232,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
             "dates":{"lot":"2026-05-13","building":"2026-05-09","terrain":"2024~2026","upis":"2026-09"}},
  "qa_geojson":FC}                                // role="qa_mismatch" 점·선(② 지도 qaLayer). 없으면 빈 FC
 
-{"type":"made_2d","ok":true,"cancelled":false,"dir":"…","elapsed_s":12.4,
+{"type":"made_2d","ok":true,"cancelled":false,"dir":"…","folder":"…/2D","elapsed_s":12.4,   // folder = 2D 산출물 폴더(결과 폴더/2D — 베이스맵 .ai·.dwg, sheets/, tables/)
  "options":{…2D 옵션을 덮은 옵션…},
  "basemap":{"ready":true,"paper":"A3","layers":14,"scales":[5000],"exported":["…/basemap_5000.ai"],"dwg":"…/basemap_5000.dwg"},   // done.basemap과 같은 꼴. make_basemap 끔이면 ready=false·exported=[]. dwg: make_dwg로 쓴 경로, 아니면 ""
  "sheets":[…done.sheets와 같은 꼴…],"tables":[…],"files":[…],"warnings":[warning],
@@ -341,11 +342,11 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 | map | [3D 모델 만들기] / ⌘Enter | result, run running | `generate`(§옵션 키의 고정값) |
 | result running | `progress{state:"done"}` → `done` | result, run done | 3D 블록 + 2D 카드. Python이 `recent` 갱신 |
 | result running | `progress{state:"failed"}` / `cancelled` | result, run failed/cancelled | 오류 블록. 푸터 [← 지도로][다시 시도] |
-| result running | [취소] / Esc / 창 닫기 | (cancelled로) | `cancel` |
+| result running | [취소] / 창 닫기 | (cancelled로) | `cancel`. Esc로는 취소하지 않는다(2026-10-19) |
 | result done | [2D 만들기] | job2d running | `make_2d{dir, options}` — 진행은 2D 카드 자리 |
 | job2d running | `made_2d` | job2d done/failed/cancelled | 2D 카드가 결과(.ai·다이어그램 격자·CSV)로 바뀐다 |
-| result done | [← 범위 바꾸기] | map, run idle | 대상지·옵션 유지, 결과 버림 |
-| result done | [새 대상지] / ⌘Enter | map, run idle | 대상지 지움, options 유지, `select_lots{pnus:[]}` |
+| result done | [← 지도로] / ⌘Enter | map, run idle | 대상지·옵션 유지. 결과·2D 상태는 JS가 맡겨 둔다(`state.last`) |
+| map | [결과로 돌아가기] | result, run done | 맡긴 결과로. 대상지·범위·3D 설정(2D 옵션 뺀 `generate` 옵션)이 그 결과를 만들 때와 같을 때만 보인다. 메시지 없음. [3D 모델 만들기]는 맡긴 결과를 버린다 |
 | result failed/cancelled | [다시 시도] | result, run running | 같은 `generate` |
 
 Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `running`이 아닐 때만 받고 플래그를 내린다. 결과 폴더·원점 같은 '마지막 결과'는 기억하지 않는다 — 결과에 대한 명령(`import_context`·`export_basemap`·`zoom_view`)은 JS가 `dir`을 붙인다.

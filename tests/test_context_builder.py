@@ -491,8 +491,11 @@ class ResponseSchemaTest(unittest.TestCase):
                 open(os.path.join(tmp, name), "w").close()
             os.makedirs(os.path.join(tmp, "sheets"))
             os.makedirs(os.path.join(tmp, "tables"))
+            os.makedirs(os.path.join(tmp, "2D", "sheets"))   # 지금 구조 — 2D/ 아래 sheets·tables, .ai는 남긴다
+            open(os.path.join(tmp, "2D", "basemap_1000.ai"), "w").close()
             context_builder._reset_result_dir(tmp)
-            self.assertEqual(sorted(os.listdir(tmp)), ["basemap_3000.ai", "log.txt"])
+            self.assertEqual(sorted(os.listdir(tmp)), ["2D", "basemap_3000.ai", "log.txt"])
+            self.assertEqual(os.listdir(os.path.join(tmp, "2D")), ["basemap_1000.ai"])
 
 
 class AlignTest(unittest.TestCase):
@@ -546,8 +549,8 @@ class StyleRedrawTest(unittest.TestCase):
             prepared = context_builder.prepare(_request(options={"radius": 300, "shape": "circle"}))
             data = sheet_svg.SheetData.from_prepared(prepared, [])
             ids = [0, constants.SHEET_IDS["floor"], constants.SHEET_IDS["elev"]]
-            sheets = sheet_svg.write_sheets(data, os.path.join(tmp, constants.RESULT_SHEETS_DIRNAME), ids)
-            basemap_ai.write_basemap(prepared, 5000, tmp)
+            sheets = sheet_svg.write_sheets(data, context_builder.get_sheets_dir(tmp), ids)
+            basemap_ai.write_basemap(prepared, 5000, context_builder.get_2d_dir(tmp))
             context_report.write_context_json(prepared, {"sheets": sheets}, tmp)
             keep = {"dir": tmp, "data": data, "prepared": prepared}
             preview = context_builder.preview_sheet(tmp, 0, {"preset": "mono"}, keep)

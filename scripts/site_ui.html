@@ -13,22 +13,36 @@
   font-weight: 45 920;
   font-display: swap;
 }
-/* ── 토큰 (DESIGN.md — 방안지 위의 구성 격자: 8 px 모눈, 1 px 사각 괘선, 블루 하나) ── */
+/* ── 토큰 — UI 키트(docs/brand/ui_kit.html, 2026-10-19): Claude 데스크톱 앱처럼 둥글고 단순하게. 주 버튼은 잉크, 블루는 선택·포커스·링크에만 ── */
 :root {
-  --bg: #f5f7fa; --grid: #e4eaf2; --surface: #fff; --border: #c9d2de; --rule: #111418; --line: #a9c0f2;
-  --ink: #111418; --sub: #465061; --muted: #7d8798;
-  --accent: #0057ff; --accent-dn: #0044cc; --accent-ink: #0047d6; --accent-bg: #e9f0ff;
-  --ok: #1f7a4d; --warn: #a8460b; --warn-bg: #fff4e5; --danger: #c43c3c; --danger-bg: #fdeaea;
+  --paper: #f5f6f8; --surface: #ffffff; --line: #e3e6eb; --line-2: #cdd3db;
+  --ink: #111418; --ink-2: #4a5260; --ink-3: #7d8798; --hover: #f0f2f5; --press: #e5e8ed;
+  --on-ink: #ffffff; --ink-hover: #2b3038; --ink-press: #3a414b;
+  --accent: #0057ff; --accent-ink: #0047d6; --accent-wash: #e9f0ff; --ring: rgba(0, 87, 255, .35);
+  --ok: #1f7a4d; --danger: #c43c3c; --danger-wash: #fdeeee; --warn: #a8460b; --warn-wash: #fff6ea;
+  --map-bg: #e9ecef; --overlay: rgba(255, 255, 255, .94);
   --mono: "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0c1016; --surface: #151b23; --line: #262e39; --line-2: #38424f;
+    --ink: #e8ecf2; --ink-2: #a9b3c3; --ink-3: #7f8a9c; --hover: #1c232d; --press: #252d38;
+    --on-ink: #111418; --ink-hover: #d3d9e2; --ink-press: #bcc4d0;
+    --accent: #5b8bff; --accent-ink: #8cb0ff; --accent-wash: #16264a; --ring: rgba(91, 139, 255, .45);
+    --ok: #5cc28f; --danger: #f07272; --danger-wash: #3a1b1d; --warn: #f0a35e; --warn-wash: #33240f;
+    --map-bg: #1c232d; --overlay: rgba(21, 27, 35, .94);
+    color-scheme: dark;
+  }
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body {
-  display: flex; flex-direction: column; background: var(--bg); color: var(--ink);
+  display: flex; flex-direction: column; background: var(--paper); color: var(--ink);
   font: 400 13px/1.5 "Pretendard Variable", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   overflow: hidden;
 }
-::selection { background: var(--accent-bg); color: var(--ink); }
+::selection { background: var(--accent-wash); color: var(--ink); }
 input, textarea { caret-color: var(--accent); }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -39,305 +53,321 @@ h2:focus-visible { outline: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .num { font-variant-numeric: tabular-nums; }
 .mono { font-family: var(--mono); font-size: 12px; }
-.hint { color: var(--sub); font-size: 12px; }
-.sub { color: var(--sub); font-weight: 400; font-size: 12px; }
+.hint { color: var(--ink-2); font-size: 12px; }
+.sub { color: var(--ink-3); font-weight: 400; font-size: 12px; }
 h2 { font-size: 15px; font-weight: 600; line-height: 1.3; margin: 0 0 8px; }
-h3 { font-size: 13px; font-weight: 600; line-height: 16px; margin: 24px 0 8px; color: var(--accent-ink); display: flex; align-items: center; gap: 8px; }
-.ico { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: square; vertical-align: -3px; }
+h3 { font-size: 13px; font-weight: 600; line-height: 16px; margin: 24px 0 8px; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+.ico { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; }
+.ico.mark { fill: currentColor; stroke: none; }
 
-/* ── 헤더 — 제목 + 더보기 ── */
-header { flex: none; padding: 8px 16px; background: var(--surface); border-bottom: 1px solid var(--rule); }
+/* ── 헤더 — 마크 + 워드마크 + 더보기 ── */
+header { flex: none; padding: 8px 12px 8px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
 .titlebar { height: 32px; display: flex; align-items: center; justify-content: space-between; }
-.titlebar h1 { font-size: 16px; font-weight: 700; margin: 0; line-height: 32px; }
-#menu_btn { display: flex; gap: 6px; align-items: center; height: 32px; padding: 0 8px; font-size: 12px; color: var(--sub); background: none; border: 1px solid transparent; }
-#menu_btn:hover { border-color: var(--border); color: var(--ink); }
-#menu_btn[aria-expanded="true"] { border-color: var(--accent); color: var(--accent-ink); }
+.brand { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 16px; font-weight: 800; line-height: 32px; letter-spacing: -.01em; }
+.brand .ico { width: 24px; height: 24px; vertical-align: 0; }
+.ib { width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: var(--ink-2); display: inline-grid; place-items: center; padding: 0; }
+.ib.sm { width: 24px; height: 24px; border-radius: 6px; }
+.ib:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
+.ib:active:not(:disabled) { background: var(--press); }
+.ib[aria-expanded="true"] { background: var(--press); color: var(--ink); }
+.ib.danger { color: var(--danger); }
+.ib.danger:hover:not(:disabled) { background: var(--danger-wash); color: var(--danger); }
 
 /* ── 띠·블로커·메뉴·토스트 ── */
 #init_warnings:empty { display: none; }
-.band { padding: 6px 12px; margin: 8px 16px 0; border: 1px solid var(--border); background: var(--surface); font-size: 12px; display: flex; gap: 8px; align-items: flex-start; }
-.band.lv-danger { border-color: var(--danger); background: var(--danger-bg); color: var(--danger); }
-.band.lv-info { color: var(--sub); }
+.band { padding: 8px 12px; margin: 8px 16px 0; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-size: 12px; display: flex; gap: 8px; align-items: flex-start; }
+.band.lv-danger { border-color: transparent; background: var(--danger-wash); color: var(--danger); }
+.band.lv-info { color: var(--ink-2); }
 .band .btn { margin-left: auto; flex: none; }
 .band .btn + .btn { margin-left: 0; }
-#blocker { position: absolute; inset: 0; background: var(--bg); padding: 24px 16px; z-index: 1000; overflow: auto; }
+#blocker { position: absolute; inset: 0; background: var(--paper); padding: 24px 16px; z-index: 1000; overflow: auto; }
 #blocker h2 { margin-bottom: 16px; }
 .check-list { display: grid; grid-template-columns: 1.4em 7em 1fr; gap: 4px 8px; margin-bottom: 16px; }
-.check-list .ok { color: var(--ok); } .check-list .bad { color: var(--danger); } .check-list .opt { color: var(--muted); }
-/* 더보기 메뉴 — 헤더 괘선 아래로 내려오는 흰 면(최근 대상지·설정·안내) */
-#menu { position: absolute; top: 0; left: 0; right: 0; max-height: 100%; overflow: auto; z-index: 1100; background: var(--surface); border-bottom: 1px solid var(--rule); padding: 0 16px 16px; }
-#menu h3:first-child { margin-top: 16px; }
-.mrow { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 32px; border-top: 1px solid var(--border); font-size: 12px; }
-.mrow:first-of-type { border-top: 0; }
-.mrow .k { color: var(--sub); }
+.check-list .ok { color: var(--ok); } .check-list .bad { color: var(--danger); } .check-list .opt { color: var(--ink-3); }
+/* 더보기 메뉴 — 헤더 아래로 떠오르는 둥근 면(최근 대상지·설정·도움) */
+#menu { position: absolute; top: 8px; left: 8px; right: 8px; max-height: calc(100% - 16px); overflow: auto; z-index: 1100; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 4px 12px 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, .12); }
+#menu h3:first-child { margin-top: 12px; }
+#menu h3 { margin: 16px 0 6px; font-size: 11px; color: var(--ink-3); font-weight: 600; }
+.mlist { display: grid; gap: 2px; }
+.mrow { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 36px; padding: 0 8px; border-radius: 8px; font-size: 12px; }
+.mrow:hover { background: var(--hover); }
+.mrow .k { color: var(--ink-2); }
 .mrow .v { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mlist { border: 1px solid var(--border); }
-.mlist .mrow { padding: 0 8px; }
-.recent { display: grid; grid-template-columns: minmax(0, 1fr) auto 16px; align-items: center; gap: 8px; width: 100%; height: 32px; padding: 0 8px; border: 0; border-top: 1px solid var(--border); background: none; text-align: left; color: var(--ink); }
-.recent:first-child { border-top: 0; }
-.recent:hover:not(:disabled) { background: var(--accent-bg); color: var(--accent-ink); }
-.recent:disabled { color: var(--muted); }
-.recent span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.menu-ver { margin: 16px 0 0; color: var(--muted); font-size: 11px; }
-#toast { position: absolute; left: 50%; top: 56px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 8px 14px; font-size: 12px; z-index: 1200; opacity: 0; transition: opacity .15s; pointer-events: none; display: flex; gap: 12px; align-items: center; white-space: nowrap; }
+.recent { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto 16px; align-items: center; gap: 8px; width: 100%; height: 36px; padding: 0 8px; border: 0; border-radius: 8px; background: none; text-align: left; color: var(--ink); }
+.recent:hover:not(:disabled) { background: var(--hover); }
+.recent:disabled { color: var(--ink-3); }
+.recent > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent > .ico:first-child { color: var(--ink-3); }
+.menu-ver { margin: 12px 8px 0; color: var(--ink-3); font-size: 11px; }
+#toast { position: absolute; left: 50%; top: 56px; transform: translateX(-50%); background: var(--ink); color: var(--on-ink); padding: 8px 14px; border-radius: 10px; font-size: 12px; z-index: 1200; opacity: 0; transition: opacity .15s; pointer-events: none; display: flex; gap: 12px; align-items: center; white-space: nowrap; }
 #toast.show { opacity: 1; }
 #toast.act { pointer-events: auto; }
-#toast button { background: none; border: 0; padding: 0; color: #8cb0ff; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+#toast button { background: none; border: 0; padding: 0; color: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 
-/* ── 본문·화면 — 방안지 바탕. 화면은 둘: 지도(map)·결과(result) ── */
-main { flex: 1; min-height: 0; position: relative; overflow: hidden;
-  background-color: var(--bg); background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-  background-size: 8px 8px; background-position: -1px -1px; }
+/* ── 본문·화면 — 화면은 둘: 지도(map)·결과(result) ── */
+main { flex: 1; min-height: 0; position: relative; overflow: hidden; background: var(--paper); }
 section { display: none; height: 100%; }
-body[data-screen="map"] section[data-screen="map"] { display: flex; flex-direction: column; padding: 8px 16px 0; }
+body[data-screen="map"] section[data-screen="map"] { display: flex; flex-direction: column; padding: 12px 16px 0; }
 /* 결과는 넓은 창에서도 내용 폭 880 px까지만(가운데) */
 body[data-screen="result"] section[data-screen="result"] { display: block; overflow: auto; padding: 12px max(16px, calc((100% - 880px) / 2)) 16px; }
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: contents; }
 section[data-screen="map"] fieldset { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
-/* ── 버튼·입력 ── */
-.btn { height: 32px; padding: 0 12px; border: 1px solid var(--rule); background: var(--surface); display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; color: var(--ink); }
-.btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-ink); }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn.primary:hover:not(:disabled) { background: var(--accent-dn); border-color: var(--accent-dn); color: #fff; }
-.btn.ghost { border-color: transparent; background: none; color: var(--sub); padding: 0 8px; }
-.btn.ghost:hover:not(:disabled) { border-color: transparent; color: var(--accent-ink); }
-.btn.sm { height: 28px; padding: 0 10px; font-size: 12px; }
-.btn:disabled { color: var(--muted); border-color: var(--border); background: var(--surface); }
-.btn.primary:disabled { background: var(--border); border-color: var(--border); color: #fff; }
-.link { background: none; border: 0; padding: 0; color: var(--accent-ink); font-size: 12px; display: inline-flex; align-items: center; gap: 2px; }
+/* ── 버튼 — 아이콘 + 글자. 주 = 잉크, 보조 = 흰 면 + 옅은 테두리, 고스트 = 테두리 없음 ── */
+.btn { height: 32px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--surface); color: var(--ink); display: inline-flex; align-items: center; gap: 8px; font-weight: 500; white-space: nowrap; transition: background .12s, border-color .12s; }
+.btn:hover:not(:disabled) { background: var(--hover); }
+.btn:active:not(:disabled) { background: var(--press); }
+.btn.primary { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+.btn.primary:hover:not(:disabled) { background: var(--ink-hover); border-color: var(--ink-hover); }
+.btn.primary:active:not(:disabled) { background: var(--ink-press); border-color: var(--ink-press); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--ink-2); padding: 0 10px; }
+.btn.ghost:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
+.btn.danger, .link.danger-text { color: var(--danger); }
+.btn.danger:hover:not(:disabled) { background: var(--danger-wash); }
+.btn.sm { height: 28px; padding: 0 10px; border-radius: 6px; font-size: 12px; gap: 6px; }
+.btn.ghost.sm { padding: 0 8px; }
+.btn:disabled { opacity: .4; }
+.link { background: none; border: 0; padding: 0; color: var(--accent-ink); font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
 .link:hover { text-decoration: underline; text-underline-offset: 3px; }
-.link:disabled { color: var(--muted); text-decoration: none; }
+.link:disabled { color: var(--ink-3); text-decoration: none; }
 .danger-text { color: var(--danger); }
-input[type="text"], input[type="search"], input[type="number"], select { height: 32px; padding: 0 8px; border: 1px solid var(--border); background: var(--surface); }
-input[type="text"]:hover, input[type="number"]:hover, select:hover { border-color: var(--muted); }
-input[type="text"]:focus, input[type="number"]:focus, select:focus { border-color: var(--accent); outline: none; box-shadow: inset 0 0 0 1px var(--accent); }
-input[type="number"].sm, select.sm { height: 28px; padding: 0 6px; font-size: 12px; }
+/* 입력칸 — 둥근 10 px, 포커스는 블루 테두리 + 옅은 링 */
+input[type="text"], input[type="search"], input[type="number"], select { height: 32px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--surface); color: var(--ink); }
+input[type="text"]:focus, input[type="number"]:focus, select:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--ring); }
+input[type="number"].sm, select.sm { height: 28px; padding: 0 8px; border-radius: 8px; font-size: 12px; }
 input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; margin: 0 8px 0 0; accent-color: var(--accent); vertical-align: -3px; }
 label.chk { display: flex; align-items: center; min-height: 32px; }
+/* 세그먼트 — 하나만 고르는 칸(범위·크기·용지·좌표·지형·프리셋). 옅은 트랙 위 고른 칸만 흰 면 */
+.seg { display: inline-flex; flex-wrap: wrap; padding: 3px; gap: 2px; border-radius: 10px; background: var(--press); max-width: 100%; }
+.seg label, .seg .sb { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-2); font-size: 12px; cursor: pointer; white-space: nowrap; }
+.seg label:hover, .seg .sb:hover { color: var(--ink); }
+.seg input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; left: 0; top: 0; cursor: pointer; }
+.seg label:has(input:checked), .seg .sb[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 0 0 1px var(--line); }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* 칩 — 켜고 끄는 것(더 그리기) */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex: 1; min-width: 0; }
+.chip2 { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--ink-2); font-size: 12px; }
+.chip2:hover { background: var(--hover); }
+.chip2[aria-pressed="true"] { background: var(--accent-wash); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+/* [직접] — 같은 세그먼트 칸. 고르면 옆에 입력칸이 나온다 */
+.direct { display: none; align-items: center; gap: 4px; font-size: 12px; color: var(--ink-2); }
+.direct input[type="number"] { width: 76px; height: 34px; }
+.seg:has(input[value="custom"]:checked) + .direct, .direct.on { display: inline-flex; }
+.tile-b .row .direct { margin-left: 64px; }
 
 /* ── 지도 화면 — 위 도구줄(방식 칸 + 검색), 지도, 아래 트레이(대상지·범위·3D 설정) ── */
-.toolrow { display: flex; gap: 8px; position: relative; margin-bottom: 8px; }
+.toolrow { display: flex; gap: 8px; position: relative; margin-bottom: 8px; align-items: center; }
 /* 방식 칸 두 묶음 — [필지│구역] = 대상지 정하기, [위치] = 대상지 없이 */
-.mode-groups { display: flex; gap: 4px; flex: none; }
-.modes { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); border: 1px solid var(--rule); background: var(--surface); }
-.modes button { display: flex; align-items: center; justify-content: center; gap: 6px; height: 30px; padding: 0 10px; border: 0; border-left: 1px solid var(--rule); background: none; color: var(--sub); font-size: 12px; white-space: nowrap; }
-.modes button:first-child { border-left: 0; }
-.modes button:hover:not(:disabled):not([aria-pressed="true"]) { background: var(--accent-bg); color: var(--ink); }
-.modes button[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--accent); color: var(--accent-ink); font-weight: 600; }
-.modes button:disabled { color: var(--border); }
-.search { display: flex; flex: 1; min-width: 0; }
-.search input { flex: 1; min-width: 0; }
-.search .btn { width: 32px; padding: 0; justify-content: center; margin-left: -1px; }
+.mode-groups { display: flex; gap: 6px; flex: none; }
+.modes { display: inline-flex; padding: 3px; gap: 2px; border-radius: 10px; background: var(--press); }
+.modes button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-2); font-size: 12px; white-space: nowrap; }
+.modes button:hover:not(:disabled):not([aria-pressed="true"]) { color: var(--ink); }
+.modes button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 0 0 1px var(--line); }
+.modes button:disabled { opacity: .4; }
+.search { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; height: 36px; padding: 0 4px 0 6px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--surface); }
+.search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+.search input { flex: 1; min-width: 0; height: 32px; border: 0; padding: 0 4px; background: transparent; }
+.search input:focus { box-shadow: none; }
+.search input::placeholder { color: var(--ink-3); }
 #search_msg { min-height: 18px; margin: -4px 0 4px; }
 #search_msg:empty { min-height: 0; margin: 0; }
-#search_list { position: absolute; top: 36px; left: 0; right: 0; z-index: 900; margin: 0; padding: 0; list-style: none; background: var(--surface); border: 1px solid var(--rule); max-height: 264px; overflow: auto; }
-#search_list li { height: 32px; padding: 0 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; border-top: 1px solid var(--border); }
-#search_list li:first-child { border-top: 0; }
+#search_list { position: absolute; top: 40px; left: 0; right: 0; z-index: 900; margin: 0; padding: 6px; list-style: none; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, .12); max-height: 264px; overflow: auto; }
+#search_list li { height: 36px; padding: 0 8px; border-radius: 8px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
 #search_list li .sub { margin-left: auto; white-space: nowrap; }
-#search_list li[aria-selected="true"], #search_list li:hover { background: var(--accent-bg); }
-.map-slot { position: relative; isolation: isolate; border: 1px solid var(--rule); overflow: hidden; background: #e9ecef; flex: 1; min-height: 240px; }
+#search_list li[aria-selected="true"], #search_list li:hover { background: var(--hover); }
+.map-slot { position: relative; isolation: isolate; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--map-bg); flex: 1; min-height: 240px; }
 #map { width: 100%; height: 100%; }
 #map_park { display: none; }
 /* 지도 위 안내 — 다음에 할 일 한 줄. 대상지가 생기면 사라진다 */
-.guide { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 800; max-width: calc(100% - 16px); background: var(--surface); border: 1px solid var(--accent); color: var(--accent-ink); padding: 4px 12px; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.guide { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 800; max-width: calc(100% - 20px); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; box-shadow: 0 2px 8px rgba(0, 0, 0, .12); color: var(--ink); padding: 5px 14px; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 .map-chips { position: absolute; left: 8px; bottom: 8px; z-index: 800; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
-.chip { background: rgba(255,255,255,.94); border: 1px solid var(--border); padding: 2px 8px; font-size: 12px; color: var(--sub); }
+.chip { background: var(--overlay); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: 12px; color: var(--ink-2); }
 .chip.lv-danger { color: var(--danger); }
 .leaflet-container { font: inherit; }
+.leaflet-bar { border: 1px solid var(--line) !important; border-radius: 8px !important; overflow: hidden; box-shadow: 0 1px 2px rgba(0, 0, 0, .08) !important; }
 .leaflet-bar a { border-radius: 0 !important; }
-.aerial-ctl a { font-size: 11px; color: var(--sub); }
-.aerial-ctl a[aria-pressed="true"] { color: var(--accent-ink); box-shadow: inset 0 0 0 2px var(--accent); font-weight: 600; }
+.aerial-ctl a { font-size: 11px; color: var(--ink-2); }
+.aerial-ctl a[aria-pressed="true"] { color: var(--accent-ink); font-weight: 600; background: var(--accent-wash); }
 .leaflet-container.aerial .map-label { color: #fff; text-shadow: 0 0 3px rgba(0,0,0,.85); }
 .map-label { background: none; border: 0; box-shadow: none; color: #5c5c58; font-size: 11px; padding: 0; }
-.map-label.extent { color: var(--ink); font-weight: 600; }
+.map-label.extent { color: #111418; font-weight: 600; }
 .leaflet-container.drawing { cursor: crosshair; }
-.tray { flex: none; padding: 4px 0 8px; }
+.tray { flex: none; padding: 8px 0; }
 .trow { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-height: 40px; }
-.trow .lbl { width: 48px; flex: none; color: var(--sub); }
+.trow .lbl { width: 48px; flex: none; color: var(--ink-2); }
 .trow .tval { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trow .total { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .trow .end { margin-left: auto; display: flex; gap: 8px; align-items: center; }
-.tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 4px 56px; }
-.lot-more > summary { min-height: 24px; margin-left: 56px; display: flex; align-items: center; gap: 2px; font-size: 12px; color: var(--accent-ink); cursor: pointer; list-style: none; }
+.tools { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 4px 56px; }
+.lot-more > summary { min-height: 24px; margin-left: 56px; display: inline-flex; align-items: center; gap: 2px; font-size: 12px; color: var(--accent-ink); cursor: pointer; list-style: none; }
 .lot-more > summary::-webkit-details-marker { display: none; }
 .lot-more[open] > summary .ico { transform: rotate(180deg); }
-.lot-more .body { max-height: 220px; overflow: auto; border: 1px solid var(--border); background: var(--surface); margin: 4px 0 4px; font-size: 12px; }
-.chip-row { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 4px 0 8px; cursor: pointer; border-top: 1px solid var(--border); }
-.chip-row:first-child { border-top: 0; }
-.chip-row:hover, .chip-row:focus-visible { background: var(--accent-bg); }
-.chip-row .x { margin-left: auto; background: none; border: 0; color: var(--sub); width: 28px; height: 28px; display: grid; place-content: center; }
-.chip-row .x:hover { color: var(--danger); }
-.lot-info { padding: 4px 8px 8px; border-top: 1px solid var(--border); }
-.li-head { display: flex; align-items: center; min-height: 28px; border-top: 1px solid var(--border); margin-top: 4px; }
-.li-head:first-child { border-top: 0; margin-top: 0; }
-.li-head .link { margin-left: auto; }
+.lot-more .body { max-height: 220px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); margin: 4px 0; padding: 4px; font-size: 12px; }
+.chip-row { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 4px 0 8px; border-radius: 8px; cursor: pointer; }
+.chip-row:hover, .chip-row:focus-visible { background: var(--hover); }
+.chip-row .x { margin-left: auto; }
+.lot-info { padding: 4px 8px 8px; }
+.li-head { display: flex; align-items: center; min-height: 28px; margin-top: 8px; }
+.li-head:first-child { margin-top: 0; }
+.li-head .end { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+.li-head.chip-row { padding: 0 0 0 8px; margin-left: -8px; margin-right: -4px; gap: 8px; }
 .li-row { display: grid; grid-template-columns: 56px 1fr; gap: 8px; min-height: 20px; }
-.li-row > :first-child { color: var(--sub); }
+.li-row > :first-child { color: var(--ink-2); }
 .li-row .flag { color: var(--warn); }
 .lot-info .hint { margin: 8px 0 0; }
-.badge-warn { font-size: 11px; color: var(--warn); background: var(--warn-bg); padding: 0 4px; display: inline-flex; align-items: center; gap: 2px; }
-.seg { display: flex; flex-wrap: wrap; gap: 8px; }
-.seg label, .chip2 { display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-size: 12px; position: relative; color: var(--sub); }
-.seg label:hover, .chip2:hover { border-color: var(--muted); color: var(--ink); }
-.seg input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; left: 0; top: 0; cursor: pointer; }
-.seg label:has(input:checked), .chip2[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--accent-ink); font-weight: 600; }
-.seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
-/* [직접] — 다른 칸과 같은 칩. 고르면 옆에 입력칸이 나온다(칩 안에 입력칸을 넣지 않는다, 2026-10-19 QA) */
-.direct { display: none; align-items: center; gap: 4px; font-size: 12px; color: var(--sub); }
-.direct input[type="number"] { width: 72px; height: 32px; }
-.seg:has(input[value="custom"]:checked) + .direct, .direct.on { display: inline-flex; }
-.tile-b .row .direct { margin-left: 64px; }   /* 좁은 타일에서 줄이 넘어가도 칩 아래에 맞춘다 */
+.badge-warn { font-size: 11px; color: var(--warn); background: var(--warn-wash); padding: 0 6px; border-radius: 999px; display: inline-flex; align-items: center; gap: 2px; }
 /* 3D 설정 — 접어 두고 요약 한 줄 */
 details.s3d { margin-top: 4px; }
-details.s3d > summary { display: flex; align-items: center; gap: 8px; min-height: 40px; cursor: pointer; list-style: none; }
+details.s3d > summary { display: flex; align-items: center; gap: 8px; min-height: 40px; cursor: pointer; list-style: none; border-radius: 8px; }
 details.s3d > summary::-webkit-details-marker { display: none; }
-details.s3d > summary .lbl { width: 48px; flex: none; color: var(--accent-ink); font-weight: 600; }
-details.s3d > summary .sum { flex: 1; min-width: 0; color: var(--sub); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-details.s3d > summary .ico { color: var(--accent-ink); transition: transform .15s; }
+details.s3d > summary .lbl { width: 48px; flex: none; color: var(--ink); font-weight: 600; }
+details.s3d > summary .sum { flex: 1; min-width: 0; color: var(--ink-3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+details.s3d > summary .ico { color: var(--ink-2); transition: transform .15s; }
 details.s3d[open] > summary .ico { transform: rotate(180deg); }
 details.s3d .body { padding: 0 0 4px; }
-details.s3d .trow { min-height: 36px; }
+details.s3d .trow { min-height: 38px; }
 
 /* ── 결과 ── */
-.run-sub { margin: -4px 0 8px; }
-.progress { height: 8px; background: var(--surface); border: 1px solid var(--rule); margin: 8px 0 4px; }
-.progress > div { height: 100%; background: var(--accent); width: 0; transition: width .15s; }
-.prog-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--sub); }
+/* 진행 — 4 px 막대 위로 달리는 고라니(위치 = 진행률, 다리 장 = 진행 푸시마다 한 장씩) */
+.track { position: relative; height: 44px; margin: 8px 0 4px; }
+.track::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; border-radius: 2px; background: var(--press); }
+.track .fill { position: absolute; left: 0; bottom: 0; height: 4px; border-radius: 2px; background: var(--ink); width: 0; }   /* 전환 없음 — Rhino가 바쁘면 화면이 드문드문 그려져 전환 시작점(0 %)에 멈춰 보였다(2026-10-19 Rhino QA) */
+.track .runner { position: absolute; bottom: 4px; left: 0; width: 48px; height: 36px; overflow: hidden; color: var(--ink); }
+.track .runner .frames { display: flex; width: 384px; }
+.track .runner svg { flex: none; width: 48px; height: 36px; display: block; }
+.track.live .runner .frames { animation: gorani-run .64s steps(8) infinite; }
+@keyframes gorani-run { to { transform: translateX(-384px); } }
+@media (prefers-reduced-motion: reduce) { .track.live .runner .frames { animation: none; } }
+.prog-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-2); }
 .prog-meta b { font-size: 20px; font-weight: 600; color: var(--ink); line-height: 1.2; }
-.phase-list { margin: 12px 0; padding: 0; list-style: none; border: 1px solid var(--border); background: var(--surface); }
-.phase-list li { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 8px; border-top: 1px solid var(--border); }
-.phase-list li:first-child { border-top: 0; }
+.phase-list { margin: 8px -8px 0; padding: 0; list-style: none; }
+.phase-list li { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 8px; border-radius: 8px; }
 .phase-list li .ic { width: 16px; display: inline-flex; }
-.phase-list li .det { margin-left: auto; color: var(--sub); font-size: 12px; text-align: right; }
-.phase-list li.st-pending { color: var(--sub); }
-.phase-list li.st-done .ic { color: var(--ok); } .phase-list li.st-running .ic { color: var(--accent); } .phase-list li.st-failed .ic { color: var(--danger); }
-.log details summary { font-size: 12px; color: var(--sub); cursor: pointer; line-height: 28px; }
-.log pre { margin: 0; padding: 8px; background: var(--surface); border: 1px solid var(--border); font-family: var(--mono); font-size: 12px; max-height: 240px; overflow: auto; white-space: pre-wrap; }
+.phase-list li .det { margin-left: auto; color: var(--ink-3); font-size: 12px; text-align: right; }
+.phase-list li.st-pending { color: var(--ink-3); }
+.phase-list li.st-done .ic { color: var(--ok); } .phase-list li.st-running { font-weight: 600; } .phase-list li.st-running .ic { color: var(--ink); } .phase-list li.st-failed .ic { color: var(--danger); }
+.log { margin: 4px 0 12px; }
+.log details summary { font-size: 12px; color: var(--ink-2); cursor: pointer; line-height: 28px; }
+.log pre { margin: 4px 0 0; padding: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; font-family: var(--mono); font-size: 12px; max-height: 240px; overflow: auto; white-space: pre-wrap; }
 .log .lw { color: var(--warn); } .log .le { color: var(--danger); }
-.err-card { border: 1px solid var(--danger); background: var(--danger-bg); padding: 12px; margin: 12px 0; }
-.err-card h4 { margin: 0 0 4px; font-size: 13px; color: var(--danger); }
+.err-card { border-radius: 12px; background: var(--danger-wash); padding: 14px 16px; margin: 12px 0; }
+.err-card h4 { margin: 0 0 6px; font-size: 13px; color: var(--danger); }
 .err-card pre { font-family: var(--mono); font-size: 12px; white-space: pre-wrap; max-height: 200px; overflow: auto; margin: 4px 0; }
-.err-card .acts { display: flex; gap: 8px; margin-top: 8px; }
+.err-card .acts { display: flex; gap: 8px; margin-top: 10px; }
 .err-card p { margin: 0 0 6px; color: var(--ink); }
 .err-card .todo { margin: 0 0 4px; padding-left: 20px; color: var(--ink); }
 .err-card .todo li { margin: 2px 0; }
-.card { background: var(--surface); border: 1px solid var(--rule); margin-bottom: 12px; }
-.card > .top { padding: 12px; display: grid; gap: 4px; }
-.card .acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--rule); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
+.card > .top { padding: 14px 16px; display: grid; gap: 4px; }
+.card .acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--line); }
 .f2d-head { display: flex; align-items: center; gap: 8px; }
 .f2d-head h3 { margin: 0; flex: 1; }
-.card .acts .k { font-size: 12px; color: var(--sub); }
+.card .acts .k { font-size: 12px; color: var(--ink-2); }
 .card .red { color: var(--danger); font-size: 12px; margin-top: 4px; }
-.card .ok-line { color: var(--ok); font-size: 12px; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-.card .ok-line .link { color: var(--ok); }
 .done-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0; font-size: 15px; font-weight: 600; }
-.done-line .ok { color: var(--ink); display: inline-flex; align-items: center; gap: 6px; }
-.done-line .ok .ico { color: var(--accent); }
-.done-line .num { margin-left: auto; }
+.done-line .num { margin-left: 4px; }
 /* 3D 블록 — 숫자 칸 셋 · 파일 위치 · 다시 불러오기 안내 */
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 8px 0 4px; }
-.stat { display: grid; gap: 2px; padding: 8px; background: var(--bg); border: 1px solid var(--grid); min-width: 0; }
-.stat .k { font-size: 11px; color: var(--sub); }
+.stat { display: grid; gap: 2px; padding: 8px 10px; background: var(--paper); border-radius: 10px; min-width: 0; }
+.stat .k { font-size: 11px; color: var(--ink-3); }
 .stat .v { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.doc-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.done-head { display: flex; align-items: center; gap: 8px; }
+.done-head .done-line { flex: 1; min-width: 0; }
+.ellip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-acts { display: flex; gap: 8px; flex: none; }
+.card .files { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
 .doc-again { margin: 4px 0 0; }
 .doc-again:empty { display: none; }
-.c2-title { margin: 0; padding: 0; border: 0; }
 .card2d .top h3 { margin: 0 0 4px; padding: 0; border: 0; }
-.card2d .p-cancel { display: flex; justify-content: flex-end; }
+/* 진행 카드(3D·2D 같은 꼴) — 제목 + 오른쪽 위 [취소], 대상지 줄, 막대, 단계, 안내. 로그는 카드 밖 */
+.job .track { margin-top: 12px; }
+.job .job-note { margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
 /* 2D 카드 타일 — 누르면 켜지고, 켠 타일 안에만 칩 */
-.tile2d { border: 1px solid var(--border); background: var(--surface); margin-top: 8px; }
-.tile2d.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-.tile-h { display: grid; grid-template-columns: 24px minmax(0, 1fr) 16px; gap: 10px; align-items: center; width: 100%; padding: 10px 12px; border: 0; background: none; text-align: left; color: var(--ink); }
-.tile-h:hover { background: var(--accent-bg); }
-.tile-h .ti-ic { color: var(--sub); display: inline-flex; }
-.tile2d.on .tile-h .ti-ic, .tile2d.on .tile-h .ti-ck { color: var(--accent); }
+.tile2d { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); margin-top: 8px; overflow: hidden; }
+.tile2d.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.tile-h { display: grid; grid-template-columns: 24px minmax(0, 1fr) 16px; gap: 10px; align-items: center; width: 100%; padding: 12px 14px; border: 0; background: none; text-align: left; color: var(--ink); }
+.tile-h:hover { background: var(--hover); }
+.tile-h .ti-ic { color: var(--ink-2); display: inline-flex; }
+.tile2d.on .tile-h .ti-ic { color: var(--ink); }
+.tile2d.on .tile-h .ti-ck { color: var(--accent); }
 .tile-h .ti-ic .ico { width: 20px; height: 20px; }
 .tile-h .ti-t { display: grid; gap: 1px; min-width: 0; }
 .tile-h .ti-t b { font-weight: 600; font-size: 13px; }
-.tile-b { padding: 0 12px 10px 46px; display: grid; gap: 6px; }
-.tile-b .row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-height: 32px; }
-.tile-b .lbl { width: 56px; flex: none; color: var(--sub); font-size: 12px; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex: 1; min-width: 0; }
-.sheet-pick .grp { font-size: 12px; color: var(--muted); margin-top: 4px; }
-.drow { display: flex; align-items: center; min-height: 32px; gap: 8px; }
-.drow .sum { margin-left: auto; color: var(--sub); font-size: 12px; text-align: right; }
-.disc { background: none; border: 0; color: var(--accent-ink); font-size: 12px; padding: 0 4px; height: 28px; white-space: nowrap; display: inline-flex; align-items: center; gap: 2px; }
-.disc:disabled { color: var(--border); }
-.disc .ico { transition: transform .15s; }
-.disc[aria-expanded="true"] .ico { transform: rotate(180deg); }
-.disc-body { background: var(--surface); border: 1px solid var(--border); padding: 8px 12px; margin: 2px 0 8px 24px; }
-.disc-body .row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-height: 36px; }
-.disc-body .lbl { width: 56px; flex: none; color: var(--sub); }
+.tile-b { padding: 0 14px 12px 48px; display: grid; gap: 8px; }
+.tile-b .row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-height: 34px; }
+.tile-b .lbl { width: 56px; flex: none; color: var(--ink-2); font-size: 12px; }
+.sheet-pick .grp { font-size: 12px; color: var(--ink-3); margin-top: 4px; }
 .grid13 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px; }
 .grid13 label { min-height: 28px; font-size: 12px; }
-.sub-h { padding: 8px 12px 4px; font-size: 12px; color: var(--sub); border-top: 1px solid var(--rule); }
-.sheet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; padding: 4px 12px 12px; }   /* 칸 폭 고정·칸 수가 폭 따라 */
-.sheet-cell { border: 1px solid var(--border); background: var(--surface); padding: 0 0 6px; text-align: left; display: grid; gap: 2px; min-width: 0; min-height: 48px; align-content: start; color: var(--ink); }
-.sheet-cell img { display: block; width: 100%; aspect-ratio: 1; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+.sub-h { display: flex; justify-content: space-between; gap: 8px; padding: 12px 16px 8px; font-size: 12px; color: var(--ink-2); border-top: 1px solid var(--line); }
+.sub-h #applied_style { color: var(--ink-3); }
+/* 결과 파일 덩어리 — 라벨 열 64 px 하나에 줄을 맞춘다 */
+.fblock { display: grid; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.frow { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 28px; }
+.frow .k { font-size: 12px; color: var(--ink-2); }
+.fblock #bm_err:empty { display: none; }
+.sheet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; padding: 4px 16px 14px; }   /* 칸 폭 고정·칸 수가 폭 따라 */
+.sheet-cell { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); padding: 0 0 6px; text-align: left; display: grid; gap: 2px; min-width: 0; min-height: 48px; align-content: start; color: var(--ink); }
+.sheet-cell img { display: block; width: 100%; aspect-ratio: 1; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
 .sheet-cell .n, .sheet-cell .t { padding: 0 8px; }
 .sheet-cell.empty img { opacity: .45; }
-.sheet-cell:hover { border-color: var(--accent); }
+.sheet-cell:hover:not(:disabled) { border-color: var(--line-2); background: var(--hover); }
 .sheet-cell .n { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13px; }
-.sheet-cell .t { font-size: 11px; line-height: 14px; color: var(--sub); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.sheet-cell.empty { color: var(--muted); cursor: default; }
-.sheet-cell.empty .t { color: var(--muted); }
+.sheet-cell .t { font-size: 11px; line-height: 14px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.sheet-cell.empty { color: var(--ink-3); cursor: default; }
+.sheet-cell.empty .t { color: var(--ink-3); }
 .style-dirty { font-size: 11px; color: var(--warn); }
 .style-pick { display: flex; align-items: center; gap: 8px; min-height: 40px; }
 .style-pick select { flex: 1; min-width: 0; }
 
 /* ── 도면 스타일 (결과 안 하위 화면) — 미리보기는 위에 고정해 아래 항목을 바꾸며 본다 ── */
-.st-top { position: sticky; top: -12px; z-index: 5; background: var(--bg); padding: 12px 0 8px; margin-top: -12px; border-bottom: 1px solid var(--line); }
+.st-top { position: sticky; top: -12px; z-index: 5; background: var(--paper); padding: 12px 0 8px; margin-top: -12px; }
 .st-head { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
 .st-head h2 { margin: 0; }
 .st-head .sub { margin-left: auto; }
-.st-preview { border: 1px solid var(--rule); background: var(--surface); line-height: 0; position: relative; min-height: 120px; }
+.st-preview { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; line-height: 0; position: relative; min-height: 120px; }
 .st-preview svg { width: 100%; height: auto; max-height: 36vh; display: block; }
-.st-preview .wait { position: absolute; right: 8px; top: 8px; line-height: 1.4; font-size: 11px; color: var(--sub); background: var(--surface); border: 1px solid var(--border); padding: 0 6px; }
+.st-preview .wait { position: absolute; right: 8px; top: 8px; line-height: 1.4; font-size: 11px; color: #4a5260; background: #fff; border: 1px solid #e3e6eb; border-radius: 999px; padding: 0 8px; }
 .cells { display: grid; gap: 8px; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); }
-.cell { min-height: 32px; border: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; padding: 6px 8px; font-size: 12px; color: var(--sub); text-align: left; min-width: 0; }
-.cell:hover { border-color: var(--muted); color: var(--ink); }
-.cell[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--accent-ink); font-weight: 600; }
+.cell { min-height: 32px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; padding: 8px 10px; font-size: 12px; color: var(--ink-2); text-align: left; min-width: 0; }
+.cell:hover { background: var(--hover); color: var(--ink); }
+.cell[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); color: var(--ink); font-weight: 600; }
 .cell.c { align-items: center; text-align: center; }
-.strip { display: flex; width: 100%; height: 8px; outline: 1px solid var(--border); }
+.strip { display: flex; width: 100%; height: 8px; border-radius: 4px; overflow: hidden; outline: 1px solid var(--line); }
 .strip i { flex: 1; }
-.st-legend { border: 1px solid var(--border); background: var(--surface); }
-.st-legend .grp { font-size: 12px; color: var(--muted); padding: 8px 8px 4px; border-top: 1px solid var(--border); }
-.st-legend .grp:first-child { border-top: 0; }
-.el { display: grid; grid-template-columns: 32px 1fr auto 16px; align-items: center; gap: 8px; height: 32px; padding: 0 8px; border: 0; background: none; text-align: left; width: 100%; color: var(--ink); }
-.el:hover { background: var(--accent-bg); }
-.el[aria-expanded="true"] { background: var(--accent-bg); color: var(--accent-ink); font-weight: 600; }
-.el .sw { width: 32px; height: 16px; border: 1px solid var(--border); }
+.st-legend { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 4px; }
+.st-legend .grp { font-size: 11px; color: var(--ink-3); padding: 8px 8px 4px; }
+.el { display: grid; grid-template-columns: 32px 1fr auto 16px; align-items: center; gap: 8px; height: 34px; padding: 0 8px; border: 0; border-radius: 8px; background: none; text-align: left; width: 100%; color: var(--ink); }
+.el:hover { background: var(--hover); }
+.el[aria-expanded="true"] { background: var(--hover); font-weight: 600; }
+.el .sw { width: 32px; height: 16px; border: 1px solid var(--line-2); border-radius: 4px; }
 .el .sw.line { border: 0; position: relative; }
-.el .sw.line::after { content: ""; position: absolute; left: 0; right: 0; top: 7px; height: 2px; background: var(--c); }
-.el .hex { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.el .sw.line::after { content: ""; position: absolute; left: 0; right: 0; top: 7px; height: 2px; border-radius: 1px; background: var(--c); }
+.el .hex { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .el .ico { transition: transform .15s; }
 .el[aria-expanded="true"] .ico { transform: rotate(180deg); }
-.picker { display: grid; gap: 8px; padding: 8px; border-top: 1px solid var(--accent); border-bottom: 1px solid var(--accent); }
+.picker { display: grid; gap: 8px; padding: 8px; margin: 2px 0 6px; border-radius: 10px; background: var(--paper); }
 .swatches { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
-.swatches button { aspect-ratio: 3 / 2; border: 1px solid var(--border); padding: 0; color: var(--ink); }
+.swatches button { aspect-ratio: 3 / 2; border: 1px solid var(--line-2); border-radius: 6px; padding: 0; color: var(--ink); }
 .swatches button[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pick-row { display: flex; gap: 8px; align-items: center; }
 .pick-row input[type="text"] { flex: 1; min-width: 0; font-variant-numeric: tabular-nums; }
-.native { position: relative; height: 32px; border: 1px solid var(--rule); background: var(--surface); display: inline-flex; align-items: center; padding: 0 10px; white-space: nowrap; cursor: pointer; }
-.native:hover { border-color: var(--accent); color: var(--accent-ink); }
+.native { position: relative; height: 32px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface); display: inline-flex; align-items: center; padding: 0 12px; white-space: nowrap; cursor: pointer; font-weight: 500; }
+.native:hover { background: var(--hover); }
 .native input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
 .pick-err { color: var(--warn); font-size: 12px; }
-.lockline { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; padding: 8px; border-top: 1px solid var(--border); }
+.lockline { display: flex; align-items: center; gap: 8px; color: var(--ink-3); font-size: 12px; padding: 8px; }
 .st-save { display: flex; gap: 8px; flex: 1; min-width: 0; }
 .st-save input { flex: 1; min-width: 0; }
-.st-msg { flex: 1; min-width: 0; color: var(--sub); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-msg { flex: 1; min-width: 0; color: var(--ink-2); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── 푸터 ── */
-footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--surface); border-top: 1px solid var(--rule); }
-footer.busy .btn { pointer-events: none; color: var(--muted); }
-footer .busy-label { color: var(--sub); font-size: 12px; }
+footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--surface); border-top: 1px solid var(--line); }
 /* 지역 데이터 받기(지도에서) — 지도 밖, 푸터 위 한 줄. 생성 중 받기는 진행 목록에 나온다 */
-#dl { flex: none; display: flex; align-items: center; gap: 8px; height: 24px; padding: 0 16px; font-size: 11px; color: var(--sub); background: var(--surface); border-top: 1px solid var(--grid); }
-#dl .dl-bar { flex: 1; height: 2px; background: var(--grid); }
-#dl .dl-bar i { display: block; height: 100%; background: var(--accent); }
-#dl button { font: inherit; color: var(--sub); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+#dl { flex: none; display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 16px; font-size: 11px; color: var(--ink-2); background: var(--surface); border-top: 1px solid var(--line); }
+#dl .dl-bar { flex: 1; height: 4px; border-radius: 2px; background: var(--press); overflow: hidden; }
+#dl .dl-bar i { display: block; height: 100%; border-radius: 2px; background: var(--ink); }
+#dl button { font: inherit; color: var(--ink-2); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
 
 @media (max-width: 419px) {
   .modes .t { display: none; }
@@ -349,8 +379,8 @@ footer .busy-label { color: var(--sub); font-size: 12px; }
 <body data-screen="map" data-run="idle">
 <header>
   <div class="titlebar">
-    <h1>Gorani</h1>
-    <button id="menu_btn" type="button" data-act="menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu" title="최근 대상지, 설정, 도움"><svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg><span class="sr-only">더보기</span></button>
+    <h1 class="brand"><svg class="ico mark" aria-hidden="true"><use href="#i-gorani"/></svg>Gorani</h1>
+    <button id="menu_btn" class="ib" type="button" data-act="menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu" title="최근 대상지, 설정, 도움"><svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg><span class="sr-only">더보기</span></button>
   </div>
 </header>
 <div id="init_warnings"></div>
@@ -366,26 +396,54 @@ footer .busy-label { color: var(--sub); font-size: 12px; }
 <div id="phase_live" class="sr-only" aria-live="polite"></div>
 <!-- 지도 컨테이너 — 지도 화면 슬롯에 들어가고, 결과 화면·재렌더 중에는 여기 둔다 -->
 <div id="map_park"><div id="map" tabindex="-1"></div></div>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
-  <symbol id="i-check" viewBox="0 0 16 16"><path d="M3 8.5 6.5 12 13 4.5"/></symbol>
+<!-- 아이콘 — UI 키트 스프라이트(docs/brand/icons/sprite.svg, 원본 scripts/dev_brand.py). 고칠 때는 dev_brand.py를 돌리고 여기 다시 넣는다 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></symbol>
   <symbol id="i-x" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
-  <symbol id="i-back" viewBox="0 0 16 16"><path d="M10 3 5 8l5 5"/></symbol>
-  <symbol id="i-next" viewBox="0 0 16 16"><path d="M6 3l5 5-5 5"/></symbol>
-  <symbol id="i-down" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></symbol>
-  <symbol id="i-dot" viewBox="0 0 16 16"><path d="M5 5h6v6H5z" fill="currentColor"/></symbol>
-  <symbol id="i-ring" viewBox="0 0 16 16"><path d="M5 5h6v6H5z"/></symbol>
-  <symbol id="i-warn" viewBox="0 0 16 16"><path d="M8 2.5 14 13.5H2zM8 6.5v3.5M8 11.5v.5"/></symbol>
-  <symbol id="i-ext" viewBox="0 0 16 16"><path d="M6 3h7v7M13 3 4 12"/></symbol>
-  <symbol id="i-lock" viewBox="0 0 16 16"><path d="M4 7.5h8v6H4zM5.5 7.5V5a2.5 2.5 0 0 1 5 0v2.5"/></symbol>
-  <symbol id="i-menu" viewBox="0 0 16 16"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/></symbol>
-  <symbol id="i-map" viewBox="0 0 16 16"><path d="M1.5 3.5 5.5 2l5 1.5 4-1.5v10.5l-4 1.5-5-1.5-4 1.5zM5.5 2v10.5M10.5 3.5V14"/></symbol>
-  <symbol id="i-grid" viewBox="0 0 16 16"><path d="M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z"/></symbol>
-  <symbol id="i-table" viewBox="0 0 16 16"><path d="M2 3h12v10H2zM2 6.5h12M2 10h12M6.5 3v10"/></symbol>
-  <symbol id="i-folder" viewBox="0 0 16 16"><path d="M2 3.5h4.5l1.5 1.5h6v7.5H2z"/></symbol>
-  <symbol id="i-search" viewBox="0 0 16 16"><path d="M7 2.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zM10.5 10.5l3 3"/></symbol>
-  <symbol id="i-lots" viewBox="0 0 16 16"><path d="M2.5 5 10 2.5l3.5 7.5-9 3.5z" fill="currentColor" fill-opacity=".2"/></symbol>
-  <symbol id="i-area" viewBox="0 0 16 16"><path d="M2.5 4 9.5 2.5l4 4.5-2 6.5-8.5-1z" stroke-dasharray="2.5 1.5"/></symbol>
-  <symbol id="i-point" viewBox="0 0 16 16"><path d="M8 1.5v3.5M8 11v3.5M1.5 8H5M11 8h3.5"/><path d="M6.5 6.5h3v3h-3z" fill="currentColor"/></symbol>
+  <symbol id="i-back" viewBox="0 0 16 16"><path d="M10 3.5 5.5 8l4.5 4.5"/></symbol>
+  <symbol id="i-next" viewBox="0 0 16 16"><path d="M6 3.5 10.5 8 6 12.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 16 16"><path d="M3.5 6 8 10.5 12.5 6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 16 16"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5l3 3"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M13.5 2.5 7.5 8.5M12 9.5v3a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 16 16"><path d="M7.1 2.6a1 1 0 0 1 1.8 0l5.3 9.6a1 1 0 0 1-.9 1.5H2.7a1 1 0 0 1-.9-1.5z"/><path d="M8 6.5v3M8 11.5h.01"/></symbol>
+  <symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M8 7.5v4M8 5h.01"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></symbol>
+  <symbol id="i-dot" viewBox="0 0 16 16"><rect x="4.5" y="4.5" width="7" height="7" rx="2" fill="currentColor"/></symbol>
+  <symbol id="i-ring" viewBox="0 0 16 16"><rect x="4.5" y="4.5" width="7" height="7" rx="2"/></symbol>
+  <symbol id="i-lots" viewBox="0 0 16 16"><path d="M2.5 5 10 2.5l3.5 7.5-9 3.5z" fill="currentColor" fill-opacity=".18"/></symbol>
+  <symbol id="i-area" viewBox="0 0 16 16"><path d="M2.5 4 9.5 2.5l4 4.5-2 6.5-8.5-1z" stroke-dasharray="2.2 2"/></symbol>
+  <symbol id="i-point" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 16 16"><path d="M11 2.6a1.6 1.6 0 0 1 2.4 2.4L5 13.4l-3 .6.6-3z"/><path d="M9.5 4l2.5 2.5"/></symbol>
+  <symbol id="i-curve" viewBox="0 0 16 16"><path d="M4.5 11.5C5.5 7.5 8.5 5 11.5 4.5"/><circle cx="3.5" cy="12.5" r="1.5"/><circle cx="12.5" cy="3.5" r="1.5"/></symbol>
+  <symbol id="i-magnet" viewBox="0 0 16 16"><path d="M3.5 2.5h3v5.5a1.5 1.5 0 0 0 3 0V2.5h3v5.5a4.5 4.5 0 0 1-9 0z"/><path d="M3.5 5.5h3M9.5 5.5h3"/></symbol>
+  <symbol id="i-move" viewBox="0 0 16 16"><path d="M8 1.5v13M1.5 8h13M6 3.5l2-2 2 2M6 12.5l2 2 2-2M3.5 6l-2 2 2 2M12.5 6l2 2-2 2"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 16 16"><path d="M2.5 4h11M6.5 4V2.5h3V4M3.8 4l.6 8.6a1 1 0 0 0 1 .9h5.2a1 1 0 0 0 1-.9l.6-8.6M6.5 7v4M9.5 7v4"/></symbol>
+  <symbol id="i-focus" viewBox="0 0 16 16"><path d="M2 5.5v-2A1.5 1.5 0 0 1 3.5 2h2M10.5 2h2A1.5 1.5 0 0 1 14 3.5v2M14 10.5v2a1.5 1.5 0 0 1-1.5 1.5h-2M5.5 14h-2A1.5 1.5 0 0 1 2 12.5v-2"/><circle cx="8" cy="8" r="2"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M1.5 8h13M8 1.5c-2.3 2-2.3 11 0 13M8 1.5c2.3 2 2.3 11 0 13"/></symbol>
+  <symbol id="i-cube" viewBox="0 0 16 16"><path d="M8 1.75 13.75 5v6L8 14.25 2.25 11V5z"/><path d="M2.25 5 8 8.25 13.75 5M8 8.25v6"/></symbol>
+  <symbol id="i-plan" viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="11" rx="1.5"/><path d="M2.5 7.5H7v6M9.5 2.5V6h4"/></symbol>
+  <symbol id="i-map" viewBox="0 0 16 16"><path d="M1.5 3.5 5.5 2l5 1.5 4-1.5v10.5l-4 1.5-5-1.5-4 1.5z"/><path d="M5.5 2v10.5M10.5 3.5V14"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 16 16"><path d="M8 1.75 14.25 5 8 8.25 1.75 5z"/><path d="M1.75 8 8 11.25 14.25 8M1.75 11 8 14.25 14.25 11"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></symbol>
+  <symbol id="i-table" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M2 6.5h12M2 10h12M6.5 6.5V13"/></symbol>
+  <symbol id="i-import" viewBox="0 0 16 16"><path d="M9.5 2.5h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-3M2 8h7.5M6.5 5l3 3-3 3"/></symbol>
+  <symbol id="i-export" viewBox="0 0 16 16"><path d="M6.5 2.5h-3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h3M6 8h7.5M10.5 5l3 3-3 3"/></symbol>
+  <symbol id="i-download" viewBox="0 0 16 16"><path d="M8 2v8M4.5 6.5 8 10l3.5-3.5M2.5 10.5v2a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-2"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 16 16"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 16 16"><path d="M2 4.5a1 1 0 0 1 1-1h3l1.5 1.5H13a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 16 16"><path d="M9 1.5H4.5a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V5zM9 1.5V5h3.5"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 16 16"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1.5"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 16 16"><path d="M14 8a6 6 0 1 1-6-6c1.7 0 3.3.7 4.5 1.8L14 5.3"/><path d="M14 2v3.3h-3.3"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 16 16"><path d="M8 1.5a6.5 6.5 0 0 0 0 13c.9 0 1.5-.6 1.5-1.4 0-.9-.7-1.2-.7-2s.6-1.3 1.4-1.3h1.6a2.7 2.7 0 0 0 2.7-2.7C14.5 4 11.6 1.5 8 1.5z"/><circle cx="5" cy="7" r=".9" fill="currentColor"/><circle cx="8" cy="4.6" r=".9" fill="currentColor"/><circle cx="11" cy="6.6" r=".9" fill="currentColor"/></symbol>
+  <symbol id="i-save" viewBox="0 0 16 16"><path d="M3.5 2.5h7l3 3v7a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z"/><path d="M5 2.5v3h5M5 13.5v-4h6v4"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 16 16"><path d="M5.5 2.5 2.5 5.5l3 3M2.5 5.5h7a4 4 0 0 1 0 8H6"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5V8l2.5 1.5"/></symbol>
+  <symbol id="i-key" viewBox="0 0 16 16"><circle cx="5.5" cy="10.5" r="3"/><path d="M7.6 8.4 13.5 2.5M11.5 4.5l2 2M9.8 6.2l1.5 1.5"/></symbol>
+  <symbol id="i-database" viewBox="0 0 16 16"><ellipse cx="8" cy="3.75" rx="5.5" ry="2"/><path d="M2.5 3.75v8.5c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2v-8.5M2.5 8c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2"/></symbol>
+  <symbol id="i-gorani" viewBox="0 0 256 256"><path d="M132.2 246.2C127.8 246.4 122.6 246.4 117.7 245.5C112.8 244.7 107.4 243.0 102.9 241.0C98.4 239.0 93.8 235.9 90.7 233.3C87.5 230.7 85.2 227.1 84.1 225.4C82.9 223.7 82.3 227.9 83.7 222.8C85.1 217.7 90.9 202.6 92.4 194.8C94.0 187.0 93.4 180.4 93.1 175.8C92.7 171.3 93.2 171.8 90.5 167.4C87.8 163.1 79.9 154.7 76.6 149.7C73.4 144.7 72.0 141.7 70.9 137.5C69.7 133.3 69.1 129.9 69.6 124.6C70.0 119.3 73.2 110.1 73.7 105.6C74.3 101.2 74.0 100.3 73.1 97.9C72.2 95.5 70.9 93.6 68.4 91.3C65.9 89.0 60.8 86.5 58.1 84.2C55.4 81.9 54.2 80.5 52.2 77.6C50.2 74.7 47.6 70.4 46.1 67.0C44.5 63.6 43.6 60.3 42.8 57.3C42.1 54.4 41.6 54.0 41.6 49.3C41.5 44.6 41.6 34.7 42.5 29.0C43.4 23.3 45.4 18.0 47.0 14.8C48.6 11.7 50.1 10.9 52.0 10.2C54.0 9.4 56.3 9.7 58.8 10.2C61.2 10.6 63.7 11.6 66.8 13.1C69.9 14.6 74.3 17.1 77.5 19.2C80.6 21.3 82.2 22.3 85.5 25.6C88.8 29.0 93.7 33.5 97.3 39.3C100.8 45.1 103.4 57.4 106.8 60.4C110.1 63.4 114.0 58.1 117.4 57.5C120.7 56.8 123.2 56.5 126.7 56.5C130.2 56.5 134.6 56.8 138.3 57.5C142.0 58.1 146.4 61.8 148.9 60.4C151.4 59.0 151.5 52.8 153.3 49.0C155.1 45.1 156.9 41.3 159.7 37.4C162.5 33.5 167.1 28.6 170.2 25.6C173.3 22.6 175.1 21.3 178.2 19.2C181.3 17.1 185.4 14.6 188.9 13.1C192.3 11.5 196.0 10.2 198.8 9.8C201.6 9.5 203.6 9.6 205.6 11.1C207.6 12.7 209.2 14.7 210.6 19.0C212.0 23.3 213.5 31.7 214.1 36.7C214.7 41.8 214.6 45.1 214.1 49.3C213.7 53.5 212.7 58.0 211.5 61.8C210.4 65.6 208.6 69.2 207.0 72.1C205.5 75.0 203.8 77.2 202.2 79.2C200.6 81.2 200.0 82.2 197.5 84.2C195.0 86.2 189.7 89.0 187.2 91.3C184.7 93.6 183.5 95.5 182.6 97.9C181.7 100.3 181.3 101.2 181.9 105.6C182.5 110.1 185.6 119.3 186.1 124.6C186.6 129.9 186.0 133.3 184.8 137.5C183.6 141.7 182.3 144.7 179.0 149.7C175.8 154.7 167.9 163.1 165.2 167.4C162.5 171.8 162.9 171.3 162.6 175.8C162.3 180.4 161.7 187.0 163.3 194.8C164.8 202.6 170.6 217.7 171.9 222.8C173.3 227.9 172.8 223.7 171.6 225.4C170.5 227.1 167.5 231.0 165.0 233.3C162.5 235.6 160.2 237.3 156.7 239.1C153.1 240.9 147.9 243.0 143.8 244.2C139.7 245.4 136.5 245.9 132.2 246.2ZM80.2 89.5C80.8 89.3 80.0 91.7 82.1 88.2C84.3 84.7 91.8 74.1 93.1 68.6C94.3 63.1 91.1 59.5 89.5 55.4C87.9 51.3 86.1 47.6 83.4 43.8C80.8 40.0 77.2 35.8 73.6 32.7C70.0 29.6 65.0 26.7 62.0 25.3C59.0 23.9 57.0 24.1 55.6 24.3C54.1 24.6 54.0 25.5 53.5 26.7C52.9 27.9 52.4 28.8 52.2 31.6C51.9 34.3 51.2 38.4 51.9 43.2C52.5 47.9 54.0 55.0 56.0 60.2C58.1 65.5 60.4 69.9 64.1 74.7C67.8 79.6 75.7 86.9 78.4 89.4C81.1 91.8 79.6 89.7 80.2 89.5ZM176.5 89.5C179.6 87.1 188.5 78.9 192.6 73.4C196.6 68.0 199.1 61.2 200.9 56.7C202.7 52.1 203.0 49.9 203.5 46.1C204.0 42.3 204.0 37.0 203.8 33.8C203.6 30.6 202.8 28.3 202.2 26.7C201.6 25.2 201.5 24.6 200.1 24.3C198.7 24.1 196.7 23.9 193.7 25.3C190.7 26.7 185.7 29.6 182.1 32.7C178.5 35.8 174.9 40.0 172.3 43.8C169.6 47.6 167.8 51.3 166.2 55.4C164.5 59.5 161.4 63.1 162.6 68.6C163.8 74.1 171.3 84.7 173.6 88.2C175.9 91.7 173.3 92.0 176.5 89.5ZM102.7 120.8C103.8 120.5 105.1 119.8 105.6 119.1C106.2 118.4 106.2 117.9 105.9 116.6C105.7 115.2 105.1 112.9 104.0 111.1C102.9 109.2 101.1 106.9 99.3 105.5C97.5 104.0 95.0 103.0 93.2 102.6C91.5 102.1 90.1 102.2 88.7 102.6C87.4 102.9 85.6 103.9 85.0 104.7C84.4 105.4 84.3 105.8 85.0 106.9C85.8 108.0 87.8 109.0 89.5 111.1C91.2 113.2 93.6 117.7 95.2 119.3C96.7 120.9 97.8 120.7 99.0 120.9C100.3 121.2 101.6 121.1 102.7 120.8ZM156.8 120.8C158.1 120.5 159.0 120.9 160.5 119.3C162.1 117.7 164.5 113.2 166.2 111.1C167.8 109.0 170.1 108.2 170.7 106.9C171.2 105.7 170.2 104.3 169.5 103.5C168.9 102.8 168.6 102.6 167.0 102.6C165.3 102.6 161.9 102.4 159.6 103.5C157.2 104.7 154.2 107.5 152.6 109.5C151.0 111.4 150.5 113.7 150.1 115.3C149.6 116.9 149.5 118.2 150.1 119.1C150.6 120.1 152.0 120.6 153.1 120.9C154.2 121.2 155.6 121.0 156.8 120.8ZM144.3 189.7C145.0 189.4 146.2 189.5 147.2 187.7C148.1 186.0 149.3 182.8 150.1 179.0C150.8 175.2 151.6 169.4 151.7 164.9C151.8 160.3 150.4 154.3 150.7 151.7C151.0 149.0 152.6 150.2 153.3 149.1C154.0 148.0 154.8 146.9 154.9 144.9C154.9 142.9 154.7 139.6 153.6 137.2C152.5 134.7 151.1 132.4 148.3 130.3C145.5 128.1 140.7 125.6 136.7 124.5C132.7 123.3 127.9 123.2 124.1 123.5C120.4 123.8 117.4 124.5 114.2 126.1C110.9 127.7 106.9 130.4 104.7 133.0C102.4 135.5 101.3 139.0 100.8 141.4C100.3 143.7 100.7 145.4 101.4 147.2C102.1 148.9 104.6 150.3 105.0 151.7C105.4 153.1 104.1 152.5 104.0 155.5C103.9 158.5 103.7 164.5 104.3 169.7C105.0 174.8 106.7 183.1 107.9 186.4C109.1 189.8 110.6 189.5 111.6 189.8C112.6 190.1 113.1 194.1 114.0 188.4C114.9 182.6 115.3 161.1 116.9 155.2C118.5 149.3 121.8 154.1 123.5 153.1C125.2 152.1 126.5 150.5 126.9 149.4C127.2 148.3 127.2 148.0 125.7 146.7C124.3 145.3 119.8 143.1 118.2 141.4C116.6 139.7 116.3 137.7 116.2 136.5C116.2 135.3 117.1 134.8 118.0 134.1C118.9 133.4 119.5 132.9 121.6 132.5C123.7 132.1 127.9 131.6 130.6 131.9C133.3 132.1 136.2 133.3 137.7 134.1C139.1 134.9 139.5 135.3 139.4 136.5C139.4 137.7 139.1 139.7 137.5 141.4C135.9 143.1 131.4 145.3 129.9 146.7C128.5 148.0 128.4 148.3 128.8 149.4C129.2 150.5 130.5 152.1 132.2 153.1C133.8 154.1 137.3 149.6 138.8 155.2C140.3 160.8 140.4 181.1 141.0 186.8C141.7 192.4 142.0 188.7 142.5 189.2C143.0 189.7 143.5 189.9 144.3 189.7Z" fill="currentColor" stroke="none" fill-rule="evenodd"/></symbol>
 </defs></svg>
 <!--VENDOR_JS-->
 <script>
@@ -418,6 +476,8 @@ function phaseLabel(ph, job) {
   return { query: job === "2d" ? "데이터 불러오기" : "건물과 지형 불러오기", terrain: "3D 모델 만들기", write_3dm: HOST.name + " 파일에 넣기",
     basemap: "베이스맵 .ai", sheets: "다이어그램", tables: "조서 CSV" }[ph] || ph;
 }
+// 로딩 — 옆모습으로 달리는 고라니 8장(UI 키트 docs/brand/icons/run). 위치 = 진행률, 다리 = CSS 띠 애니메이션(숫자가 멈춰도 계속 뛴다, 2026-10-19 사용자 요청)
+var RUN_FRAMES = ["<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"48\" viewBox=\"0 0 64 48\"><g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21.00 22.40L17.20 31.65\" stroke-width=\"5\"/><path d=\"M17.20 31.65L7.19 39.95\" stroke-width=\"2.6\"/><path d=\"M41.00 24.40L44.76 32.58\" stroke-width=\"3.6\"/><path d=\"M44.76 32.58L36.41 41.20\" stroke-width=\"2.4\"/><path d=\"M21.00 22.40L21.00 32.40\" stroke-width=\"5\"/><path d=\"M21.00 32.40L14.90 43.88\" stroke-width=\"2.6\"/><path d=\"M41.00 24.40L41.00 33.40\" stroke-width=\"3.6\"/><path d=\"M41.00 33.40L29.05 34.45\" stroke-width=\"2.4\"/></g><g fill=\"currentColor\" transform=\"translate(0 -1.60)\"><path d=\"M13 21C13 14 20 11 27 13C33 15 39 17 44 19C49 21 49 29 43 30.5C35 32 26 31 19 29.5C15 28.5 13 25 13 21Z\"/><path d=\"M40 21C43 15 47 11 51 9L56 13C52 17 48 23 46 29Z\"/><path d=\"M49 7C53 4.5 58 6.5 62 11C63.5 13 62.5 15 60.5 15H54C50.5 15 48 11.5 49 7Z\"/><path d=\"M51 8C49 3 45.5 0 42 0.5C42 4 45 8 49.5 11Z\"/><path d=\"M14 17C12 14.5 11 12.5 11.5 11C13.5 12 15 14 16 16Z\"/></g></svg>", "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"48\" viewBox=\"0 0 64 48\"><g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21.00 24.00L14.91 31.93\" stroke-width=\"5\"/><path d=\"M14.91 31.93L3.08 37.31\" stroke-width=\"2.6\"/><path d=\"M41.00 26.00L46.96 32.74\" stroke-width=\"3.6\"/><path d=\"M46.96 32.74L52.63 43.32\" stroke-width=\"2.4\"/><path d=\"M21.00 24.00L16.48 32.92\" stroke-width=\"5\"/><path d=\"M16.48 32.92L5.85 40.40\" stroke-width=\"2.6\"/><path d=\"M41.00 26.00L45.46 33.82\" stroke-width=\"3.6\"/><path d=\"M45.46 33.82L39.39 44.17\" stroke-width=\"2.4\"/></g><g fill=\"currentColor\" transform=\"translate(0 -0.00)\"><path d=\"M13 21C13 14 20 11 27 13C33 15 39 17 44 19C49 21 49 29 43 30.5C35 32 26 31 19 29.5C15 28.5 13 25 13 21Z\"/><path d=\"M40 21C43 15 47 11 51 9L56 13C52 17 48 23 46 29Z\"/><path d=\"M49 7C53 4.5 58 6.5 62 11C63.5 13 62.5 15 60.5 15H54C50.5 15 48 11.5 49 7Z\"/><path d=\"M51 8C49 3 45.5 0 42 0.5C42 4 45 8 49.5 11Z\"/><path d=\"M14 17C12 14.5 11 12.5 11.5 11C13.5 12 15 14 16 16Z\"/></g></svg>", "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"48\" viewBox=\"0 0 64 48\"><g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21.00 25.60L15.89 34.19\" stroke-width=\"5\"/><path d=\"M15.89 34.19L2.92 35.15\" stroke-width=\"2.6\"/><path d=\"M41.00 27.60L46.03 35.06\" stroke-width=\"3.6\"/><path d=\"M46.03 35.06L52.74 45.01\" stroke-width=\"2.4\"/><path d=\"M21.00 25.60L14.84 33.48\" stroke-width=\"5\"/><path d=\"M14.84 33.48L2.97 38.77\" stroke-width=\"2.6\"/><path d=\"M41.00 27.60L47.02 34.29\" stroke-width=\"3.6\"/><path d=\"M47.02 34.29L55.05 43.21\" stroke-width=\"2.4\"/></g><g fill=\"currentColor\" transform=\"translate(0 1.60)\"><path d=\"M13 21C13 14 20 11 27 13C33 15 39 17 44 19C49 21 49 29 43 30.5C35 32 26 31 19 29.5C15 28.5 13 25 13 21Z\"/><path d=\"M40 21C43 15 47 11 51 9L56 13C52 17 48 23 46 29Z\"/><path d=\"M49 7C53 4.5 58 6.5 62 11C63.5 13 62.5 15 60.5 15H54C50.5 15 48 11.5 49 7Z\"/><path d=\"M51 8C49 3 45.5 0 42 0.5C42 4 45 8 49.5 11Z\"/><path d=\"M14 17C12 14.5 11 12.5 11.5 11C13.5 12 15 14 16 16Z\"/></g></svg>", "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"48\" viewBox=\"0 0 64 48\"><g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21.00 24.00L19.96 33.95\" stroke-width=\"5\"/><path d=\"M19.96 33.95L7.19 36.34\" stroke-width=\"2.6\"/><path d=\"M41.00 26.00L42.03 34.94\" stroke-width=\"3.6\"/><path d=\"M42.03 34.94L43.40 46.86\" stroke-width=\"2.4\"/><path d=\"M21.00 24.00L16.48 32.92\" stroke-width=\"5\"/><path d=\"M16.48 32.92L3.49 33.51\" stroke-width=\"2.6\"/><path d=\"M41.00 26.00L45.46 33.82\" stroke-width=\"3.6\"/><path d=\"M45.46 33.82L51.40 44.24\" stroke-width=\"2.4\"/></g><g fill=\"currentColor\" transform=\"translate(0 0.00)\"><path d=\"M13 21C13 14 20 11 27 13C33 15 39 17 44 19C49 21 49 29 43 30.5C35 32 26 31 19 29.5C15 28.5 13 25 13 21Z\"/><path d=\"M40 21C43 15 47 11 51 9L56 13C52 17 48 23 46 29Z\"/><path d=\"M49 7C53 4.5 58 6.5 62 11C63.5 13 62.5 15 60.5 15H54C50.5 15 48 11.5 49 7Z\"/><path d=\"M51 8C49 3 45.5 0 42 0.5C42 4 45 8 49.5 11Z\"/><path d=\"M14 17C12 14.5 11 12.5 11.5 11C13.5 12 15 14 16 16Z\"/></g></svg>", "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"48\" viewBox=\"0 0 64 48\"><g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21.00 22.40L24.80 31.65\" stroke-width=\"5\"/><path d=\"M24.80 31.65L15.95 41.18\" stroke-width=\"2.6\"/><path d=\"M41.00 24.40L37.24 32.58\" stroke-width=\"3.6\"/><path d=\"M37.24 32.58L32.23 43.48\" stroke-width=\"2.4\"/><path d=\"M21.00 22.40L21.00 32.40\" stroke-width=\"5\"/><path d=\"M21.00 32.40L8.50 35.98\" stroke-width=\"2.6\"/><path d=\"M41.00 24.40L41.00 33.40\" stroke-width=\"3.6\"/><path d=\"M41.00 33.40L41.00 45.40\" stroke-width=\"2.4\"/></g><g fill=\"currentColor\" transform=\"translate(0 -1.60)\"><path d=\"M13 21C13 14 20 11 27 13C33 15 39 17 44 19C49 21 49 29 43 30.5C35 32 26 31 19 29.5C15 28.5 13 25 13 21Z\"/><path d=\"M40 21C43 15 47 11 51 9L56 13C52 17 48 23 46 29Z\"/><path d=\"M49 7C53 4.5 58 6.5 62 11C63.5 13 62.5 15 60.5 15H54C50.5 15 48 11.5 49 7Z\"/><path d=\"M51 8C49 3 45.5 0 42 0.5C42 4 45 8 49.5 11Z\"/><path d=\"M14 17C12 14.5 11 12.5 11.5 11C13.5 12 15 14 16 16Z\"/></g></svg>", "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"48\" viewBox=\"0 0 64 48\"><g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21.00 24.00L27.09 31.93\" stroke-width=\"5\"/><path d=\"M27.09 31.93L27.62 44.92\" stroke-width=\"2.6\"/><path d=\"M41.00 26.00L35.04 32.74\" stroke-width=\"3.6\"/><path d=\"M35.04 32.74L27.09 41.73\" stroke-width=\"2.4\"/><path d=\"M21.00 24.00L25.52 32.92\" stroke-width=\"5\"/><path d=\"M25.52 32.92L18.31 43.74\" stroke-width=\"2.6\"/><path d=\"M41.00 26.00L36.54 33.82\" stroke-width=\"3.6\"/><path d=\"M36.54 33.82L30.60 44.24\" stroke-width=\"2.4\"/></g><g fill=\"currentColor\" transform=\"translate(0 -0.00)\"><path d=\"M13 21C13 14 20 11 27 13C33 15 39 17 44 19C49 21 49 29 43 30.5C35 32 26 31 19 29.5C15 28.5 13 25 13 21Z\"/><path d=\"M40 21C43 15 47 11 51 9L56 13C52 17 48 23 46 29Z\"/><path d=\"M49 7C53 4.5 58 6.5 62 11C63.5 13 62.5 15 60.5 15H54C50.5 15 48 11.5 49 7Z\"/><path d=\"M51 8C49 3 45.5 0 42 0.5C42 4 45 8 49.5 11Z\"/><path d=\"M14 17C12 14.5 11 12.5 11.5 11C13.5 12 15 14 16 16Z\"/></g></svg>", "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"48\" viewBox=\"0 0 64 48\"><g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21.00 25.60L26.11 34.19\" stroke-width=\"5\"/><path d=\"M26.11 34.19L26.73 47.18\" stroke-width=\"2.6\"/><path d=\"M41.00 27.60L35.97 35.06\" stroke-width=\"3.6\"/><path d=\"M35.97 35.06L24.04 36.33\" stroke-width=\"2.4\"/><path d=\"M21.00 25.60L27.16 33.48\" stroke-width=\"5\"/><path d=\"M27.16 33.48L29.41 46.28\" stroke-width=\"2.6\"/><path d=\"M41.00 27.60L34.98 34.29\" stroke-width=\"3.6\"/><path d=\"M34.98 34.29L26.95 43.21\" stroke-width=\"2.4\"/></g><g fill=\"currentColor\" transform=\"translate(0 1.60)\"><path d=\"M13 21C13 14 20 11 27 13C33 15 39 17 44 19C49 21 49 29 43 30.5C35 32 26 31 19 29.5C15 28.5 13 25 13 21Z\"/><path d=\"M40 21C43 15 47 11 51 9L56 13C52 17 48 23 46 29Z\"/><path d=\"M49 7C53 4.5 58 6.5 62 11C63.5 13 62.5 15 60.5 15H54C50.5 15 48 11.5 49 7Z\"/><path d=\"M51 8C49 3 45.5 0 42 0.5C42 4 45 8 49.5 11Z\"/><path d=\"M14 17C12 14.5 11 12.5 11.5 11C13.5 12 15 14 16 16Z\"/></g></svg>", "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"48\" viewBox=\"0 0 64 48\"><g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21.00 24.00L22.04 33.95\" stroke-width=\"5\"/><path d=\"M22.04 33.95L17.15 45.99\" stroke-width=\"2.6\"/><path d=\"M41.00 26.00L39.97 34.94\" stroke-width=\"3.6\"/><path d=\"M39.97 34.94L27.97 34.83\" stroke-width=\"2.4\"/><path d=\"M21.00 24.00L25.52 32.92\" stroke-width=\"5\"/><path d=\"M25.52 32.92L25.26 45.92\" stroke-width=\"2.6\"/><path d=\"M41.00 26.00L36.54 33.82\" stroke-width=\"3.6\"/><path d=\"M36.54 33.82L24.54 33.86\" stroke-width=\"2.4\"/></g><g fill=\"currentColor\" transform=\"translate(0 0.00)\"><path d=\"M13 21C13 14 20 11 27 13C33 15 39 17 44 19C49 21 49 29 43 30.5C35 32 26 31 19 29.5C15 28.5 13 25 13 21Z\"/><path d=\"M40 21C43 15 47 11 51 9L56 13C52 17 48 23 46 29Z\"/><path d=\"M49 7C53 4.5 58 6.5 62 11C63.5 13 62.5 15 60.5 15H54C50.5 15 48 11.5 49 7Z\"/><path d=\"M51 8C49 3 45.5 0 42 0.5C42 4 45 8 49.5 11Z\"/><path d=\"M14 17C12 14.5 11 12.5 11.5 11C13.5 12 15 14 16 16Z\"/></g></svg>"];
 var PHASE_ICON = { done: "check", running: "dot", pending: "ring", skipped: "ring", failed: "x" };
 // 범위 — 어느 방식이든 원(반경)·사각형(한 변 = 2 × radius), 대상지 중심(constants.SHAPES_BY_MODE)
 var SHAPES = ["circle", "rect"];
@@ -563,28 +623,28 @@ function renderFooter() {
   var r = state.run, html = "";
   if (state.screen === "map") {
     var can = hasTarget() && !busyTarget();
-    html = '<span class="hint">' + (can ? "" : state.mode === "area" && draw.on ? "구역을 닫으면 만들 수 있습니다" : "") + "</span>" +
-      '<button type="button" class="btn primary" data-act="generate"' + (can ? "" : " disabled") + ">3D 모델 만들기</button>";
+    html = (canReturn() && !draw.on && !stamp.on ? '<button type="button" class="btn ghost" data-act="to_result">결과로 돌아가기' + ico("next") + "</button>"
+        : '<span class="hint">' + (can ? "" : state.mode === "area" && draw.on ? "구역을 닫으면 만들 수 있습니다" : "") + "</span>") +
+      '<button type="button" class="btn primary" data-act="generate"' + (can ? "" : " disabled") + ">" + ico("cube") + "3D 모델 만들기</button>";
   } else if (r === "running") {
-    html = '<span class="busy-label" id="busy_label"></span><button type="button" class="btn" data-act="cancel" id="cancel_btn">취소</button>';
+    html = "";
   } else if (r === "done" && state.styleOpen) {
     html = state.styleSaving
       ? '<div class="st-save"><input type="text" id="st_save_name" placeholder="스타일 이름" aria-label="스타일 이름" maxlength="40"></div><button type="button" class="btn ghost" data-act="st_save_cancel">취소</button><button type="button" class="btn primary" data-act="st_save_ok">저장</button>'
-      : '<button type="button" class="btn ghost" data-act="st_revert"' + (styleDirty() ? "" : " disabled") + '>되돌리기</button><span class="st-msg" id="st_msg" role="status"></span>' +
-        '<button type="button" class="btn" data-act="st_save">저장</button><button type="button" class="btn primary" data-act="st_apply"' + (styleDirty() ? "" : " disabled") + ">" + ((state.result && state.result.sheets) || []).length + "장에 적용</button>";
+      : '<button type="button" class="btn ghost" data-act="st_revert"' + (styleDirty() ? "" : " disabled") + '>' + ico("undo") + '되돌리기</button><span class="st-msg" id="st_msg" role="status"></span>' +
+        '<button type="button" class="btn" data-act="st_save">' + ico("save") + '저장</button><button type="button" class="btn primary" data-act="st_apply"' + (styleDirty() ? "" : " disabled") + ">" + ico("check") + ((state.result && state.result.sheets) || []).length + "장에 적용</button>";
   } else if (r === "done") {
     var lock = state.job2d === "running" ? " disabled" : "";
-    html = '<button type="button" class="btn ghost" data-act="rerange"' + lock + ">" + ico("back") + '범위 바꾸기</button><button type="button" class="btn" data-act="newlot"' + lock + ">새 대상지</button>";
+    html = '<button type="button" class="btn ghost" data-act="rerange"' + lock + ' title="대상지는 그대로 두고 지도로 돌아갑니다. 새 대상지는 지도에서 지우고 고르세요">' + ico("back") + "지도로</button><span></span>";   // 예전 [범위 바꾸기]·[새 대상지]는 둘 다 지도로 가서 차이가 대상지 유지뿐이었다(2026-10-19 QA)
   } else {
-    html = '<button type="button" class="btn ghost" data-act="back">' + ico("back") + '지도로</button><button type="button" class="btn primary" data-act="retry">다시 시도</button>';
+    html = '<button type="button" class="btn ghost" data-act="back">' + ico("back") + '지도로</button><button type="button" class="btn primary" data-act="retry">' + ico("refresh") + '다시 시도</button>';
   }
-  $("footer").innerHTML = html; updateCancelBtn();
+  $("footer").innerHTML = html; $("footer").hidden = !html; updateCancelBtn();
 }
 function updateCancelBtn() {
   var b = $("cancel_btn"); if (!b) return;
   b.disabled = !!state.busy; b.title = state.busy ? "문서에 넣는 중에는 취소할 수 없습니다" : "";
-  $("footer").classList.toggle("busy", state.busy);
-  var l = $("busy_label"); if (l) l.textContent = state.busy ? (state.busyLabel || "작업 중…") : "";
+  var n = $("job_note"); if (n) n.textContent = jobNote();
 }
 
 // ── 지도 화면 — 도구줄(방식 칸 + 검색) · 지도 · 트레이(대상지 · 범위 · 3D 설정) ──
@@ -605,8 +665,8 @@ function renderMap() {
   var sec = document.querySelector('section[data-screen="map"]');
   sec.innerHTML = '<h2 class="sr-only" tabindex="-1">대상지와 범위</h2><fieldset>' +
     '<div class="toolrow"><div class="mode-groups" id="mode_groups">' + modeGroupsHtml() + "</div>" +
-    '<div class="search"><input type="text" id="search_input" role="combobox" aria-expanded="false" aria-controls="search_list" aria-autocomplete="list" placeholder="' + esc(searchPlaceholder()) + '" aria-label="검색" autocomplete="off">' +
-    '<button type="button" class="btn" data-act="search" aria-label="검색">' + ico("search") + "</button>" +
+    '<div class="search"><button type="button" class="ib sm" data-act="search" aria-label="검색" title="검색">' + ico("search") + '</button><input type="text" id="search_input" role="combobox" aria-expanded="false" aria-controls="search_list" aria-autocomplete="list" placeholder="' + esc(searchPlaceholder()) + '" aria-label="검색" autocomplete="off">' +
+
     '<ul id="search_list" role="listbox" hidden></ul></div></div>' +
     '<div id="search_msg" class="hint" aria-live="polite"></div>' +
     '<div id="map_slot" class="map-slot"></div>' +
@@ -634,32 +694,28 @@ function targetHtml(moreOpen) {
   if (m === "lots") {
     var ls = state.lotState; if (!ls || !ls.lots.length) return "";
     return '<div class="trow"><span class="lbl">대상지</span><span class="tval">' + esc(lotLabel()) + '</span><span class="total num">' + esc(fmtArea(ls.total_area)) + "</span>" +
-      '<span class="end"><button type="button" class="link danger-text" data-act="clear">지우기</button></span></div>' +
-      '<details class="lot-more" id="lot_more"' + (moreOpen ? " open" : "") + "><summary>필지 " + ls.lots.length + "개, 용도지역과 면적" + ico("down") + '</summary><div class="body"><div id="lot_rows">' +
-      ls.lots.map(function (l) {
-        return '<div class="chip-row" tabindex="0" data-pnu="' + esc(l.pnu) + '" title="' + esc(l.address) + '"><span>' + esc(dongJibun(l)) + '</span><span class="sub">' + esc(l.land_category || "") + ", " + esc(fmtArea(l.area)) + "</span>" +
-          (l.warn ? '<span class="badge-warn" title="가장 넓은 조각의 바깥 경계만 씁니다">' + ico("warn") + (l.warn === "hole" ? "구멍" : "다조각") + "</span>" : "") +
-          '<button type="button" class="x" data-act="remove" data-pnu="' + esc(l.pnu) + '" aria-label="' + esc(l.jibun) + ' 제외">' + ico("x") + "</button></div>";
-      }).join("") + "</div>" + lotInfoHtml(ls) + "</div></details>";
+      '<span class="end">' + trashBtn("clear") + "</span></div>" +
+      '<details class="lot-more" id="lot_more"' + (moreOpen ? " open" : "") + "><summary>" + (ls.lots.length > 1 ? "필지 " + ls.lots.length + "개 정보" : "필지 정보") + ico("down") + '</summary><div class="body">' +
+      lotInfoHtml(ls) + "</div></details>";
   }
   if (m === "area") {
-    var a = state.area, curveBtn = HOST.id === "web" ? "" : '<button type="button" class="btn sm" data-act="pick_curve" title="' + esc(HOST.name) + '에서 닫힌 평면 커브 하나를 먼저 선택해 두면 바로 가져옵니다">' + esc(HOST.name) + " 커브 가져오기</button>";
+    var a = state.area, curveBtn = HOST.id === "web" ? "" : '<button type="button" class="btn sm" data-act="pick_curve" title="' + esc(HOST.name) + '에서 닫힌 평면 커브 하나를 먼저 선택해 두면 바로 가져옵니다">' + ico("curve") + esc(HOST.name) + " 커브 가져오기</button>";
     if (draw.on) return '<div class="trow"><span class="lbl">구역</span><span class="hint num">꼭짓점 ' + draw.pts.length + "개</span>" +
-      '<span class="end"><button type="button" class="btn sm primary" data-act="draw_done"' + (draw.pts.length >= 3 ? "" : " disabled") + '>닫기</button><button type="button" class="btn sm" data-act="draw_cancel">취소</button></span></div>' +
+      '<span class="end"><button type="button" class="btn sm primary" data-act="draw_done"' + (draw.pts.length >= 3 ? "" : " disabled") + '>' + ico("check") + '닫기</button><button type="button" class="btn sm" data-act="draw_cancel">취소</button></span></div>' +
       (draw.pts.length ? "" : '<div class="tools" style="margin-left:56px">' + curveBtn + "</div>");
     if (stamp.on) return '<div class="trow"><span class="lbl">구역</span><span class="hint">지도를 끌어 자리를 맞추세요</span>' +
-      '<span class="end"><button type="button" class="btn sm primary" data-act="stamp_place">여기에 놓기</button><button type="button" class="btn sm" data-act="stamp_cancel">취소</button></span></div>';
-    if (!a) return '<div class="tools" style="margin-left:0"><button type="button" class="btn sm" data-act="draw_start">지도에 그리기</button>' + curveBtn + "</div>";
+      '<span class="end"><button type="button" class="btn sm primary" data-act="stamp_place">' + ico("move") + '여기에 놓기</button><button type="button" class="btn sm" data-act="stamp_cancel">취소</button></span></div>';
+    if (!a) return '<div class="tools" style="margin-left:0"><button type="button" class="btn sm" data-act="draw_start">' + ico("pen") + '지도에 그리기</button>' + curveBtn + "</div>";
     return '<div class="trow"><span class="lbl">대상지</span><span class="tval">구역 <b class="num">' + esc(fmtNum(a.area, 0)) + " ㎡</b>" +
       (isGlobal() ? "" : ' <span class="sub">(안의 필지 ' + a.lots + (a.snapped ? ", 필지 경계에 맞춤" : "") + ")</span>") + "</span>" +
-      '<span class="end"><button type="button" class="link danger-text" data-act="area_clear">지우기</button></span></div>' +
-      '<div class="tools"><button type="button" class="btn sm" data-act="draw_start">다시 그리기</button>' +
-      (isGlobal() ? "" : '<button type="button" class="btn sm" data-act="snap" title="구역 안 필지(면적 50 % 이상)의 바깥 경계로 구역을 바꿉니다">필지 경계에 맞추기</button>') +
-      '<button type="button" class="btn sm" data-act="area_move">옮기기</button></div>';
+      '<span class="end">' + trashBtn("area_clear") + "</span></div>" +
+      '<div class="tools"><button type="button" class="btn sm" data-act="draw_start">' + ico("pen") + '다시 그리기</button>' +
+      (isGlobal() ? "" : '<button type="button" class="btn sm" data-act="snap" title="구역 안 필지(면적 50 % 이상)의 바깥 경계로 구역을 바꿉니다">' + ico("magnet") + '필지 경계에 맞추기</button>') +
+      '<button type="button" class="btn sm" data-act="area_move">' + ico("move") + '옮기기</button></div>';
   }
   var p = state.point; if (!p) return "";
   return '<div class="trow"><span class="lbl">위치</span><span class="tval">' + esc((p.lot_name || "").replace(/_/g, " ")) + "</span>" +
-    '<span class="end"><button type="button" class="link danger-text" data-act="point_clear">지우기</button></span></div>';
+    '<span class="end">' + trashBtn("point_clear") + "</span></div>";
 }
 function rangeHtml() {
   var o = state.options, rect = o.shape === "rect", custom = SIZE_PRESETS.indexOf(o.radius) < 0;
@@ -734,6 +790,7 @@ function afterOptionChange(name) {
   updateSummaries();
   debounce("prefs", 500, function () { send({ cmd: "save_prefs", options: state.options }); });
   if (name === "shape") renderTray();   // 크기 칸 이름·값(반경 ↔ 한 변)이 바뀐다
+  else if (state.screen === "map") renderFooter();   // [결과로 돌아가기]는 범위·3D 설정이 그 결과와 같을 때만
   if (name === "shape" || name === "radius" || name === "radius_custom") drawLocalExtent(true);
 }
 
@@ -840,8 +897,10 @@ function setPointLayer() {
   pointLayer = L.circleMarker(ll(p.center), Object.assign({ interactive: false }, MAP_STYLE.point)).addTo(map);
 }
 // 필지 정보 — 용도지역(법정 건폐·용적)·지역지구등·대장/도형 면적. 조례값은 토지이음에서 본다
+function trashBtn(act) { return '<button type="button" class="ib sm danger" data-act="' + act + '" aria-label="대상지 지우기" title="대상지 지우기">' + ico("trash") + "</button>"; }
+// 필지 정보 — 트레이에 이미 보이는 이름·면적은 되풀이하지 않는다. 여러 필지일 때만 필지 이름(누르면 지도 이동)과 빼기
 function lotInfoHtml(ls) {
-  var none = '<span class="sub">–</span>';
+  var none = '<span class="sub">–</span>', many = ls.lots.length > 1;
   var body = ls.lots.map(function (l) {
     var zones = (l.zones || []).map(function (z) {
       return esc(z.name) + (z.limits ? ' <span class="sub">(법정 건폐 ' + z.limits[0] + " % 이하, 용적 " + z.limits[1] + "~" + z.limits[2] + " %)</span>" : "");
@@ -851,10 +910,15 @@ function lotInfoHtml(ls) {
       "대장 " + esc(fmtArea(l.registered_area)) + ", 도형 " + esc(fmtArea(l.geometry_area)) + ", " +
       "<span" + (l.area_gap_flag ? ' class="flag" title="지적불부합 의심. 도형은 연속지적도(참고도)라 대장 면적이 기준입니다"' : "") + ">차이 " +
       (l.area_gap > 0 ? "+" : "") + esc(fmtArea(l.area_gap)) + " (" + (l.area_gap > 0 ? "+" : "") + esc(fmtNum(100 * l.area_gap / l.registered_area, 1)) + " %)" + (l.area_gap_flag ? " " + ico("warn") : "") + "</span>";
-    return '<div class="li-head"><b>' + esc(dongJibun(l)) + '</b><button type="button" class="link" data-act="eum" data-pnu="' + esc(l.pnu) + '">토지이음' + ico("ext") + "</button></div>" +
+    var badge = l.warn ? '<span class="badge-warn" title="가장 넓은 조각의 바깥 경계만 씁니다">' + ico("warn") + (l.warn === "hole" ? "구멍" : "다조각") + "</span>" : "";
+    var eum = '<button type="button" class="link" data-act="eum" data-pnu="' + esc(l.pnu) + '" title="토지이음에서 토지이용계획 보기">토지이음' + ico("ext") + "</button>";
+    return (many ? '<div class="li-head chip-row" tabindex="0" data-pnu="' + esc(l.pnu) + '" title="' + esc(l.address) + '"><b>' + esc(dongJibun(l)) + '</b><span class="sub">' + esc(fmtArea(l.area)) + "</span>" + badge + '<span class="end">' + eum +
+        '<button type="button" class="ib sm x" data-act="remove" data-pnu="' + esc(l.pnu) + '" aria-label="' + esc(l.jibun) + ' 빼기" title="이 필지 빼기">' + ico("x") + "</button></span></div>"
+        : '<div class="li-head">' + badge + '<span class="end">' + eum + "</span></div>") +
+      '<div class="li-row"><span>지목</span><span>' + esc(l.land_category || "–") + "</span></div>" +
       '<div class="li-row"><span>용도지역</span><span>' + zones + "</span></div>" +
       '<div class="li-row"><span>지역지구</span><span>' + des + "</span></div>" +
-      '<div class="li-row"><span>면적</span><span class="num">' + gap + "</span></div>";
+      (l.area_gap == null || l.area_gap_flag ? '<div class="li-row"><span>면적</span><span class="num">' + gap + "</span></div>" : "");   // 면적은 대장과 도형이 크게 다를 때만
   }).join("");
   var dates = [ls.lots[0].reference_date ? "토지특성 " + ls.lots[0].reference_date : "", ls.land_use_date ? "토지이용계획 " + ls.land_use_date : ""].filter(Boolean).join(", ");
   return '<div class="lot-info">' + body +
@@ -1053,11 +1117,21 @@ function renderResult() {
   var sec = document.querySelector('section[data-screen="result"]');
   if (state.run === "done" && state.result && state.styleOpen) { renderStyle(sec); return; }
   if (state.run === "done" && state.result) { sec.innerHTML = doneHtml(); renderCard2d(); return; }
-  sec.innerHTML = '<h2 tabindex="-1" id="run_title">' + esc(runTitle()) + "</h2>" +
-    '<div class="hint run-sub">' + esc(targetLabel() + ", " + rangeLabel()) + "</div>" +
-    progressHtml() + '<div id="error_card"></div>' + logHtml() +
-    (state.run === "running" ? '<p class="hint" style="margin-top:16px">' + (HOST.id === "web" ? "이 탭 안에서 만듭니다. 탭을 닫으면 멈춥니다." : esc(HOST.name) + " 안에서 만들어 " + esc(HOST.name) + " 화면이 잠깐씩 멈출 수 있습니다.") + "</p>" : "");
-  renderPhaseList(); renderErrorCard();
+  if (state.run === "running") sec.innerHTML = '<div class="card job"><div class="top">' + jobHeadHtml(runTitle(), targetLabel() + ", " + rangeLabel()) + progressHtml() + jobNoteHtml() + "</div></div>" + logHtml();
+  else sec.innerHTML = '<h2 tabindex="-1" id="run_title">' + esc(runTitle()) + '</h2><div id="error_card"></div>' + logHtml();
+  renderPhaseList(); renderErrorCard(); updateCancelBtn();
+}
+// 진행 카드 머리 — 제목 + 오른쪽 위 [취소](3D·2D 같은 자리, 2026-10-19). 대상지 줄은 3D에만(2D는 위 3D 카드에 있다)
+function jobHeadHtml(title, sub) {
+  return '<div class="done-head"><h2 class="done-line" tabindex="-1" id="run_title">' + esc(title) + '</h2><span class="doc-acts"><button type="button" class="btn sm" data-act="cancel" id="cancel_btn">' + ico("stop") + "취소</button></span></div>" +
+    (sub ? '<div class="sub ellip">' + esc(sub) + "</div>" : "");
+}
+function jobNoteHtml() {   // 문서에 넣는 중이면 그 말로 바뀐다(busy)
+  return '<div class="hint job-note" id="job_note">' + esc(jobNote()) + "</div>";
+}
+function jobNote() {
+  if (state.busy) return String(state.busyLabel || "작업 중").replace(/[….]+$/, "") + "입니다. 끝날 때까지 취소할 수 없습니다.";
+  return HOST.id === "web" ? "이 탭 안에서 만듭니다. 탭을 닫으면 멈춥니다." : HOST.name + " 안에서 만들어 " + HOST.name + " 화면이 잠깐씩 멈출 수 있습니다.";
 }
 function runTitle() {
   if (state.run === "running") return "3D 모델 만드는 중";
@@ -1073,17 +1147,22 @@ function overallPercent() {
 }
 function progressHtml() {
   var pc = overallPercent();
-  return '<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pc + '" id="progress_bar"><div style="width:' + pc + '%"></div></div>' +
+  var live = state.run === "running" || state.job2d === "running";   // 도는 동안만 뛴다 — 웹뷰는 Rhino와 다른 프로세스라 Rhino가 바빠도 CSS 애니메이션은 돈다
+  return '<div class="track' + (live ? " live" : "") + '" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pc + '" id="progress_bar"><div class="fill" style="width:' + pc + '%"></div>' +
+      '<div class="runner" id="runner" aria-hidden="true" style="left:calc((100% - 48px) * ' + (pc / 100) + ')"><div class="frames">' + RUN_FRAMES.join("") + "</div></div></div>" +
     '<div class="prog-meta"><span><b class="num" id="percent">' + pc + '</b> %</span><span class="num" id="elapsed">' + fmtTime((Date.now() - state.startedAt) / 1000) + "</span></div>" +
     '<ul class="phase-list" id="phase_list"></ul>';
 }
-function logHtml() {
-  return '<div class="log"><details><summary>로그 (<span id="log_count">' + state.logLines.length + '</span>줄)</summary><pre id="log_pre">' + state.logLines.map(logLineHtml).join("\n") + "</pre></details></div>";
+function logHtml() {   // 로그 자세히 보기 — 엔진 원문은 여기 한 곳에만. 복사도 여기서
+  return '<div class="log" id="log_box"' + (state.logLines.length ? "" : " hidden") + '><details><summary>로그 자세히 보기 <span class="sub">(<span id="log_count">' + state.logLines.length + '</span>줄)</span></summary><pre id="log_pre">' + state.logLines.map(logLineHtml).join("\n") + "</pre>" +
+    '<button type="button" class="btn sm" data-act="copylog" style="margin-top:8px">' + ico("copy") + "로그 복사</button></details></div>";
 }
 function updateProgress() {   // 슬롯만 — 막대·퍼센트·단계 목록
   var pc = overallPercent(), bar = $("progress_bar");
   if (bar) { bar.setAttribute("aria-valuenow", pc); bar.firstChild.style.width = pc + "%"; }
+  var rn = $("runner"); if (rn) rn.style.left = "calc((100% - 48px) * " + (pc / 100) + ")";
   var el = $("percent"); if (el) el.textContent = pc;
+  var et = $("elapsed"); if (et && state.startedAt) et.textContent = fmtTime((Date.now() - state.startedAt) / 1000);   // 타이머만으로는 Rhino가 바쁠 때 0:00에 멈춰 보였다
   renderPhaseList();
 }
 function renderPhaseList() {
@@ -1142,25 +1221,22 @@ function errorHelp(e) {
     todo: [retry + ".", "같은 오류가 반복되면 [로그 복사]로 내용을 복사해 개발자에게 보내 주세요."] };
 }
 function errorHelpHtml(e) {
-  var h = errorHelp(e), d = (e && e.detail) || "", t = (e && e.title) || "";
-  if (t && d.indexOf(t) === 0) d = d.slice(t.length).replace(/^\n+/, "");   // 상세 첫 줄이 제목과 같으면 나머지만
-  var raw = [t, d].filter(Boolean).join("\n");
+  var h = errorHelp(e);
   return "<h4>" + esc(h.title) + "</h4>" + (h.what ? "<p>" + esc(h.what) + "</p>" : "") +
-    '<ol class="todo">' + h.todo.map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ol>" +
-    (raw && raw !== h.what ? '<details><summary class="hint">자세히</summary><pre id="err_detail">' + esc((e.code ? e.code + ": " : "") + raw) + "</pre></details>" : "");
+    '<ol class="todo">' + h.todo.map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ol>";   // 엔진 원문은 아래 '로그 자세히 보기'에만
 }
 function renderErrorCard() {
   var slot = $("error_card"); if (!slot) return;
   var p = state.progress, e = p && p.error;
   if (state.run === "running" || (!e && state.run !== "cancelled")) { slot.innerHTML = ""; return; }
-  slot.innerHTML = '<div class="err-card" role="alert">' + (state.run === "cancelled" ? "<h4>취소했습니다</h4><p>만든 데까지 결과 폴더에 남아 있습니다.</p>" : errorHelpHtml(e)) +
-    '<div class="acts"><button type="button" class="btn sm" data-act="copylog">로그 복사</button></div></div>';
+  slot.innerHTML = '<div class="err-card" role="alert">' + (state.run === "cancelled" ? "<h4>취소했습니다</h4><p>만든 데까지 결과 폴더에 남아 있습니다.</p>" : errorHelpHtml(e)) + "</div>";
 }
 function logLineHtml(l) { return '<span class="' + (l.level === "error" ? "le" : l.level === "warn" ? "lw" : "") + '">' + esc(l.text) + "</span>"; }
 function appendLog(text, level) {
   String(text || "").split("\n").forEach(function (t) { state.logLines.push({ text: t, level: level || "info" }); });
   if (state.logLines.length > 400) state.logLines.splice(0, state.logLines.length - 400);
   var pre = $("log_pre"); if (!pre) return;
+  $("log_box").hidden = false;
   var stick = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 4;
   pre.innerHTML = state.logLines.map(logLineHtml).join("\n");
   $("log_count").textContent = state.logLines.length;
@@ -1185,9 +1261,9 @@ function docStatsHtml() {
 }
 function docActsHtml() {
   var r = state.result, c = r.context || {}, imported = !!c.imported;
-  var folder = '<button type="button" class="btn" data-act="open" data-path="' + esc(r.dir) + '" title="' + esc(r.dir) + '">' + ico("folder") + (HOST.id === "web" ? dirLabel() : "파일 위치 열기") + "</button>";
-  if (HOST.id === "web") return '<button type="button" class="btn" data-act="import">3D 보기</button><button type="button" class="btn" data-act="open" data-path="' + esc(c.path) + '">' + esc(HOST.model) + " 받기</button>";
-  if (!imported) return '<button type="button" class="btn primary" data-act="import" title="결과 폴더의 ' + esc(HOST.model) + '을 지금 열린 파일로 불러옵니다">' + esc(HOST.name) + "에 불러오기</button>" + folder;
+  var folder = '<button type="button" class="btn sm" data-act="open" data-path="' + esc(r.dir) + '" title="' + esc(r.dir) + '">' + ico("folder") + (HOST.id === "web" ? dirLabel() : "폴더 열기") + "</button>";
+  if (HOST.id === "web") return '<button type="button" class="btn" data-act="import">' + ico("eye") + '3D 보기</button><button type="button" class="btn" data-act="open" data-path="' + esc(c.path) + '">' + ico("download") + esc(HOST.model) + " 받기</button>";
+  if (!imported) return '<button type="button" class="btn sm primary" data-act="import" title="결과 폴더의 ' + esc(HOST.model) + '을 지금 열린 파일로 불러옵니다">' + ico("import") + esc(HOST.name) + "에 불러오기</button>" + folder;
   return folder;
 }
 function docAgainHtml() {
@@ -1197,20 +1273,18 @@ function docAgainHtml() {
 function docStatusHtml(ok, text, path) {
   return ok || HOST.id === "web" ? "" : '<div class="red">' + esc(text || "문서에 넣지 못했습니다") + '<br><span class="mono">' + esc(path || "") + "</span><br>이 파일을 " + esc(HOST.name) + "에서 직접 가져올 수 있습니다</div>";
 }
-function doneHtml() {
+function doneHtml() {   // 3D 완료 카드 — 제목, 주소, [열기]만(2026-10-19 사용자 요청). 불러오지 못했을 때만 경로와 [Rhino에 불러오기]
   var r = state.result, c = r.context || {};
-  return '<div class="card" id="doc_card"><div class="top"><h2 class="done-line" tabindex="-1"><span class="ok" id="doc_title">' + ico("check") + esc(docTitle()) + '</span><span class="num sub">' + fmtTime(r.elapsed_s) + "</span></h2>" +
-    '<div class="sub">' + esc(targetLabel()) + "</div>" +
-    '<div class="stats">' + docStatsHtml() + "</div>" +
-    '<div id="doc_status">' + docStatusHtml(!!c.imported, c.import_text, c.path) + "</div>" +
-    '<div class="doc-acts" id="doc_acts">' + docActsHtml() + "</div>" +
-    '<p class="hint doc-again" id="doc_again">' + docAgainHtml() + "</p></div></div>" +
-    '<div class="card card2d" id="card2d"></div>';
+  return '<div class="card" id="doc_card"><div class="top"><div class="done-head"><h2 class="done-line" tabindex="-1"><span id="doc_title">' + esc(docTitle()) + '</span><span class="num sub">' + fmtTime(r.elapsed_s) + "</span></h2>" +
+    '<span class="doc-acts" id="doc_acts">' + docActsHtml() + "</span></div>" +
+    '<div class="sub ellip">' + esc(targetLabel()) + "</div>" +
+    '<div id="doc_status">' + docStatusHtml(!!c.imported, c.import_text, c.path) + "</div></div></div>" +
+    '<div class="card card2d" id="card2d"></div><div id="log2d"></div>';
 }
 function applyImported(ok, text, layers, objects) {   // 다시 넣기·문서에 넣기 뒤 3D 블록만 교체
   var r = state.result; if (!r) return;
   r.context.imported = ok; r.context.import_text = ok ? "" : text;
-  var t = $("doc_title"); if (t) t.innerHTML = ico("check") + esc(docTitle());
+  var t = $("doc_title"); if (t) t.textContent = docTitle();
   var ds = $("doc_status"); if (ds) ds.innerHTML = docStatusHtml(ok, text, r.context.path);
   var da = $("doc_acts"); if (da) da.innerHTML = docActsHtml();
   var dg = $("doc_again"); if (dg) dg.innerHTML = docAgainHtml();
@@ -1221,14 +1295,17 @@ function renderCard2d() {
   var el = $("card2d"); if (!el) return;
   var j = state.job2d, m = state.made2d, html = "";
   if (j === "running") {
-    el.innerHTML = '<div class="top"><h3>2D 자료 만드는 중</h3>' + progressHtml() + '<div class="p-cancel"><button type="button" class="btn sm" data-act="cancel">취소</button></div>' + logHtml() + "</div>";
-    updateProgress(); return;
+    el.classList.add("job");
+    el.innerHTML = '<div class="top">' + jobHeadHtml("2D 자료 만드는 중") + progressHtml() + jobNoteHtml() + "</div>";
+    $("log2d").innerHTML = logHtml(); updateProgress(); updateCancelBtn(); return;
   }
+  el.classList.remove("job");
+  $("log2d").innerHTML = j === "failed" ? logHtml() : "";
   if (m) html += made2dHtml(m);
   if (j === "cancelled") html += '<div class="top"><div class="hint" role="status">' + esc(state.err2d) + "</div></div>";
   if (j === "failed") html += '<div class="top"><div class="err-card" role="alert">' + errorHelpHtml(state.err2dObj || { title: state.err2d }) + "</div></div>";
   if (!m || state.form2d) html += form2dHtml();
-  else html += '<div class="acts"><button type="button" class="btn sm" data-act="form2d">다른 2D도 만들기</button><span style="flex:1"></span><button type="button" class="btn sm" data-act="open" data-path="' + esc(state.result.dir) + '">' + dirLabel() + "</button></div>";
+  else html += '<div class="acts"><button type="button" class="btn sm" data-act="form2d">' + ico("plus") + "다른 2D도 만들기</button></div>";
   el.innerHTML = html; updateSummaries(); renderExportedList();
 }
 // 2D 카드 — 고르는 타일 셋(베이스맵·다이어그램·조서). 켠 타일 안에만 칩 한 줄. 인쇄 용어(용지·축척)는 '직접'에서만(2026-10-19 QA)
@@ -1254,6 +1331,7 @@ function sheetPickKey() {   // 지금 고른 도면이 어느 묶음 칩과 같�
   return "custom";
 }
 function chip(act, attrs, on, label) { return '<button type="button" class="chip2" data-act="' + act + '"' + attrs + ' aria-pressed="' + (on ? "true" : "false") + '">' + label + "</button>"; }
+function segBtn(act, attrs, on, label) { return '<button type="button" class="sb" data-act="' + act + '"' + attrs + ' aria-pressed="' + (on ? "true" : "false") + '">' + label + "</button>"; }   // 세그먼트 칸(하나만 고르기)
 function tile2d(key, icon, name, desc, body) {
   var on = !!state.options[key];
   return '<div class="tile2d' + (on ? " on" : "") + '"><button type="button" class="tile-h" data-act="tile2d" data-key="' + key + '" aria-pressed="' + on + '">' +
@@ -1264,8 +1342,8 @@ function form2dHtml() {
   var o = state.options, glob = isGlobal(), custom = o.basemap_preset === "custom", customP = !PAPERS[o.paper];
   var noCtx = state.init && state.init.sources.some(function (s) { return s.id === "terrain" && s.level === "missing"; }) && !glob;
   var seg = SEG;
-  var bmBody = '<div class="chips">' + Object.keys(BM_PRESETS).map(function (k) { return chip("bm_preset", ' data-v="' + k + '"', o.basemap_preset === k, BM_PRESETS[k].label); }).join("") +
-      chip("bm_preset", ' data-v="custom"', custom, "직접") + "</div>" +
+  var bmBody = '<div><div class="seg">' + Object.keys(BM_PRESETS).map(function (k) { return segBtn("bm_preset", ' data-v="' + k + '"', o.basemap_preset === k, BM_PRESETS[k].label); }).join("") +
+      segBtn("bm_preset", ' data-v="custom"', custom, "직접") + "</div></div>" +
     (custom ? '<div class="row"><span class="lbl">용지</span><div class="seg" role="radiogroup" aria-label="용지">' + ["A3", "A1", "A0"].map(function (p) { return seg("paper", p, p, o.paper === p ? " checked" : ""); }).join("") +
         '<label><input type="radio" name="paper" value="custom" id="paper_c"' + (customP ? " checked" : "") + ">직접</label></div>" +
         '<span class="direct"><input type="number" name="paper_mm" id="paper_w" min="100" max="3000" value="' + (o.paper_mm ? o.paper_mm[0] : 420) + '" aria-label="가로 mm">×<input type="number" name="paper_mm" id="paper_h" min="100" max="3000" value="' + (o.paper_mm ? o.paper_mm[1] : 297) + '" aria-label="세로 mm">mm</span></div>' +
@@ -1276,8 +1354,8 @@ function form2dHtml() {
     }).join("") + "</div></div>" +
     (HOST.dwg ? '<label class="chk" title="가장 상세한 축척의 선 도면을 basemap_축척.dwg로 저장합니다. 3D 모델과 좌표가 같습니다"><input type="checkbox" name="make_dwg"' + (o.make_dwg ? " checked" : "") + ">AutoCAD용 DWG도 저장</label>" : "");
   var pick = state.sheetCustom ? "custom" : sheetPickKey();
-  var shBody = '<div class="chips">' + SHEET_PICKS.map(function (x) { return chip("sheet_pick", ' data-v="' + x[0] + '"', pick === x[0], x[1] + ' <span class="num">' + sheetGroupIds(x[0]).length + "</span>"); }).join("") +
-      chip("sheet_pick", ' data-v="custom"', pick === "custom", "직접") + '<span class="sub" id="sheets_count" style="margin-left:auto">' + sheetPick().length + "장</span></div>" +
+  var shBody = '<div class="row" style="min-height:0"><div class="seg">' + SHEET_PICKS.map(function (x) { return segBtn("sheet_pick", ' data-v="' + x[0] + '"', pick === x[0], x[1] + ' <span class="num sub">' + sheetGroupIds(x[0]).length + "</span>"); }).join("") +
+      segBtn("sheet_pick", ' data-v="custom"', pick === "custom", "직접") + '</div><span class="sub" id="sheets_count" style="margin-left:auto">' + sheetPick().length + "장</span></div>" +
     (pick === "custom" ? '<div class="sheet-pick">' + [["base", "기본"], ["status", "현황도"], ["analysis", "분석도"], ["frame", "그려 넣을 틀"]].map(function (g) {
         var items = sheetCatalog().filter(function (c) { return c.group === g[0]; });
         return items.length ? '<div class="grp">' + g[1] + '</div><div class="grid13">' + items.map(function (c) {
@@ -1289,46 +1367,64 @@ function form2dHtml() {
       '<div class="row"><span class="lbl">표고 단계</span><select class="sm" name="elev_preset" aria-label="표고 단계"><option value="20m"' + (o.elev_preset === "20m" ? " selected" : "") + '>20 m</option><option value="50m"' + (o.elev_preset === "50m" ? " selected" : "") + ">50 m</option></select></div></div>" : "") +
     '<div class="row"><span class="lbl">스타일</span><select class="sm" name="style_pick" aria-label="다이어그램 스타일">' + stylePickOptions(o.style) + "</select></div>";
   return '<div class="top f2d"><div class="f2d-head"><h3>' + (state.made2d ? "다른 2D 자료도 만들까요?" : "2D 자료도 만들까요?") + "</h3>" +
-    '<button type="button" class="btn primary" data-act="make2d" id="make2d_btn">2D 자료 만들기</button></div>' +
+    '<button type="button" class="btn primary" data-act="make2d" id="make2d_btn">' + ico("plan") + '2D 자료 만들기</button></div>' +
     tile2d("make_basemap", "map", "베이스맵", "Illustrator 레이어 도면 (.ai)", bmBody) +
     tile2d("make_sheets", "grid", "다이어그램", "현황도와 분석도 (.svg, .ai)", shBody) +
     tile2d("make_tables", "table", "조서", "필지와 건축물 표 (엑셀 CSV)", "") + "</div>";
 }
 function made2dHtml(m) {
   var bm = m.basemap || {}, sheets = m.sheets || [], tables = m.tables || [], dir = state.result.dir, html = "";
-  var defScale = (state.options.scales && state.options.scales[0]) || 5000, emptyN = sheets.filter(function (x) { return x.empty; }).length;
-  html += '<div class="top"><h3>2D 자료</h3></div>';
+  var emptyN = sheets.filter(function (x) { return x.empty; }).length;
+  var folder = m.folder || dir + "/2D";
+  html += '<div class="top"><div class="done-head"><h2 class="done-line"><span>2D 자료 생성 완료</span><span class="num sub">' + fmtTime(m.elapsed_s) + "</span></h2>" +
+    '<span class="doc-acts"><button type="button" class="btn sm" data-act="open" data-path="' + esc(folder) + '" title="' + esc(folder) + '">' + ico("folder") + "폴더 열기</button></span></div></div>";
   if (bm.ready || (bm.exported || []).length) {
-    html += '<div class="acts"><span class="k">베이스맵</span><span id="exported_list" class="ok-line"></span><span style="flex:1"></span>' +
-      '<select class="sm" id="export_scale" aria-label="축척">' + SCALES.map(function (x) { return '<option value="' + x + '"' + (x === defScale ? " selected" : "") + ">1:" + fmtNum(x) + "</option>"; }).join("") + "</select>" +
-      '<button type="button" class="btn sm" data-act="export" title="다른 축척의 .ai를 더 씁니다">.ai 더 내보내기</button></div>' +
-      (bm.dwg ? '<div class="acts"><span class="k">CAD</span><span class="ok-line"><span>' + ico("check") + '<button type="button" class="link" data-act="open" data-path="' + esc(bm.dwg) + '">' + esc(bm.dwg.split("/").pop()) + "</button></span></span></div>" : "") +
-      '<div style="padding:0 12px"><div id="bm_err"></div></div>';
+    // 다른 축척은 아직 안 만든 것만 칩으로 — 누르면 바로 그 축척 .ai를 쓴다(예전: 이미 만든 축척이 골라진 select + 버튼이라 같은 파일을 다시 썼다)
+    // 베이스맵·다른 축척·CAD는 한 덩어리(줄마다 괘선이던 것을 라벨 열 하나로, 2026-10-19 Rhino QA)
+    html += '<div class="fblock"><div class="frow"><span class="k">베이스맵</span><span id="exported_list" class="files"></span></div>' +
+      '<div class="frow" id="more_scales"></div>' +
+      (bm.dwg ? '<div class="frow"><span class="k">CAD</span><span class="files"><button type="button" class="link" data-act="open" data-path="' + esc(bm.dwg) + '">' + esc(bm.dwg.split("/").pop()) + "</button></span></div>" : "") +
+      '<div id="bm_err"></div></div>';
   }
   if (sheets.length) {
-    html += '<div class="sub-h">다이어그램 ' + sheets.length + "장" + (emptyN ? ", 빈 " + emptyN + "장" : "") + ' <span id="applied_style">' + esc(styleLabel(state.appliedStyle)) + "</span></div>" +
+    html += '<div class="sub-h"><span>다이어그램 ' + sheets.length + "장" + (emptyN ? ", 빈 " + emptyN + "장" : "") + '</span><span id="applied_style">' + esc(styleLabel(state.appliedStyle)) + "</span></div>" +
       '<div class="sheet-grid">' + sheets.map(sheetCellHtml).join("") + "</div>" +
-      '<div class="acts"><button type="button" class="btn" data-act="style_open">스타일</button><span class="style-dirty" id="style_dirty"' + (styleDirty() ? "" : " hidden") + ">적용 안 한 변경 있음</span>" +
-      '<span style="flex:1"></span><button type="button" class="btn sm" data-act="sheet_ai_all" title="다이어그램 SVG를 레이어 .ai로 모두 씁니다">.ai 모두</button></div>';
+      '<div class="acts"><button type="button" class="btn" data-act="style_open">' + ico("palette") + '스타일</button><span class="style-dirty" id="style_dirty"' + (styleDirty() ? "" : " hidden") + ">적용 안 한 변경 있음</span>" +
+      '<span style="flex:1"></span><button type="button" class="btn sm" data-act="sheet_ai_all" title="다이어그램을 모두 Illustrator용 레이어 .ai로 저장합니다(칸을 누르면 한 장씩 .ai로 열립니다)">' + ico("export") + '모두 .ai로 저장</button></div>';
   }
   if (tables.length) {
-    html += '<div class="acts"><span class="k">조서 CSV</span>' + tables.map(function (t) { return '<button type="button" class="link" data-act="open" data-path="' + esc(t.path) + '">' + esc(t.name) + "</button>"; }).join(" ") + "</div>";
+    html += '<div class="fblock"><div class="frow"><span class="k">조서 CSV</span><span class="files">' + tables.map(function (t) { return '<button type="button" class="link" data-act="open" data-path="' + esc(t.path) + '">' + esc(t.name) + "</button>"; }).join("") + "</span></div></div>";
   }
   return html;
 }
 function renderExportedList() {
   var el = $("exported_list"); if (!el || !state.made2d) return;
-  el.innerHTML = ((state.made2d.basemap || {}).exported || []).map(function (p) { return '<span>' + ico("check") + '<button type="button" class="link" data-act="open" data-path="' + esc(p) + '">' + esc(p.split("/").pop()) + "</button></span>"; }).join("");
+  var ex = (state.made2d.basemap || {}).exported || [];
+  el.innerHTML = ex.map(function (p) { return '<button type="button" class="link" data-act="open" data-path="' + esc(p) + '">' + esc(p.split(/[\\/]/).pop()) + "</button>"; }).join("");
+  var made = ex.map(function (p) { var mt = /basemap_(\d+)\.ai$/.exec(p); return mt ? +mt[1] : 0; });
+  var left = SCALES.filter(function (sc) { return made.indexOf(sc) < 0; }), box = $("more_scales");
+  if (box) { box.hidden = !left.length; box.innerHTML = '<span class="k">다른 축척</span><span class="files">' + left.map(function (sc) { return '<button type="button" class="chip2" data-act="export" data-scale="' + sc + '" title="1:' + fmtNum(sc) + ' 베이스맵 .ai를 더 만듭니다">' + ico("download") + "1:" + fmtNum(sc) + "</button>"; }).join("") + "</span>"; }
 }
 function stylePickOptions(cur) {
   cur = cur || {}; var init = state.init || {}, presets = init.style_presets || {};
   return Object.keys(presets).map(function (k) { return '<option value="p:' + esc(k) + '"' + (!cur.name && cur.preset === k ? " selected" : "") + ">" + esc(presets[k].name) + "</option>"; }).join("") +
     (init.styles || []).map(function (x) { return '<option value="s:' + esc(x.name) + '"' + (cur.name === x.name ? " selected" : "") + ">" + esc(x.name) + " (저장한 스타일)</option>"; }).join("");
 }
+function generateOptions() {
+  return Object.assign({}, state.options, FIXED_3D, { region: region() }, isAbroad(targetCenter()) ? { placement: "origin" } : {});
+}
+// 3D를 바꾸는 입력(대상지·범위·3D 설정)만으로 만든 열쇠 — 2D 옵션은 빼서 2D 카드에서 바꿔도 같은 결과로 친다
+function generateKey() {
+  if (!hasTarget()) return "";
+  var o = generateOptions();
+  return JSON.stringify([targetMsg(), Object.keys(o).sort().filter(function (k) { return KEYS_2D.indexOf(k) < 0; }).map(function (k) { return [k, o[k]]; })]);
+}
+// [← 지도로]로 떠난 결과로 돌아갈 수 있나 — 대상지·범위·3D 설정이 그 결과를 만들 때와 같을 때만
+function canReturn() { return !!(state.last && hasTarget() && !busyTarget() && state.last.key === generateKey()); }
 function startGenerate() {
   if (!hasTarget() || busyTarget() || state.run === "running") return;
-  var o = Object.assign({}, state.options, FIXED_3D, { region: region() }, isAbroad(targetCenter()) ? { placement: "origin" } : {});
-  send({ cmd: "generate", target: targetMsg(), options: o });
+  send({ cmd: "generate", target: targetMsg(), options: generateOptions() });
+  state.runKey = generateKey(); state.last = null;   // 다시 만들면 같은 대상지의 이전 3D는 문서에서 바뀐다 — 돌아갈 결과도 없앤다
   state.progress = null; state.result = null; state.made2d = null; state.job2d = "idle"; state.form2d = true; state.err2d = ""; state.dl = null; state.logLines = []; state.busy = false;
   state.run = "running"; startTimer(); go("result");
 }
@@ -1384,7 +1480,7 @@ function stCell(act, attrs, pressed, inner, center) { return '<button type="butt
 function renderStyle(sec) {
   var st = state.styleEdit, sheets = (state.result.sheets || []).filter(function (x) { return !x.empty; });
   if (!sec.querySelector("#st_preview")) {
-    sec.innerHTML = '<div class="st-top"><div class="st-head"><button type="button" class="btn ghost" data-act="style_back" aria-label="결과로">' + ico("back") + '</button><h2 tabindex="-1">다이어그램 스타일</h2><span class="sub" id="st_label"></span></div>' +
+    sec.innerHTML = '<div class="st-top"><div class="st-head"><button type="button" class="ib" data-act="style_back" aria-label="결과로" title="결과로">' + ico("back") + '</button><h2 tabindex="-1">다이어그램 스타일</h2><span class="sub" id="st_label"></span></div>' +
       '<div class="st-preview" id="st_preview" aria-label="다이어그램 미리보기"><span class="wait" id="st_wait">그리는 중</span></div>' +
       '<div class="style-pick" style="margin-top:8px;min-height:32px"><select id="st_sheet" aria-label="미리볼 다이어그램">' + sheets.map(function (x) { return '<option value="' + x.id + '"' + (x.id === state.styleSheet ? " selected" : "") + ">" + ("0" + x.id).slice(-2) + " " + esc(x.name) + "</option>"; }).join("") + "</select></div></div>" +
       '<div id="st_controls"></div>';
@@ -1451,9 +1547,9 @@ function renderBlocker() {
     row(lotOk, "필지 DB", (p.lot_db || "data/seoul_site.db") + (lotOk ? "" : " 없음")) +
     row(ctxOk, "컨텍스트 DB", (p.context_db || "data/seoul_context.db") + (ctxOk ? "" : " 없음"), ctxOk ? "ok" : "opt") + "</div>" +
     "<p>필지 DB <span class=\"mono\">data/seoul_site.db</span> 를 data 폴더에 넣으세요.</p>" +
-    '<div style="display:flex;gap:8px;flex-wrap:wrap">' + (HOST.id === "web" ? "" : '<button type="button" class="btn" data-act="open" data-path="data">data 폴더 열기</button><button type="button" class="btn" data-act="open" data-path="' + esc(p.install_doc || "docs/install.md") + '">문서 열기</button>') + '<button type="button" class="btn primary" data-act="init">다시 확인</button></div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' + (HOST.id === "web" ? "" : '<button type="button" class="btn" data-act="open" data-path="data">data 폴더 열기</button><button type="button" class="btn" data-act="open" data-path="' + esc(p.install_doc || "docs/install.md") + '">문서 열기</button>') + '<button type="button" class="btn primary" data-act="init">' + ico("refresh") + '다시 확인</button></div>' +
     '<p class="hint" style="margin-top:12px">DB 없이 시작하려면 건물, 도로, 지형을 OpenStreetMap에서 받습니다(필지, 용도지역 없음).</p>' +
-    '<div><button type="button" class="btn" data-act="abroad">OpenStreetMap으로 쓰기</button></div>';
+    '<div><button type="button" class="btn" data-act="abroad">' + ico("globe") + 'OpenStreetMap으로 쓰기</button></div>';
   el.hidden = false;
 }
 // ── 더보기 메뉴 — 최근 대상지 · 설정 · 안내 ──
@@ -1463,19 +1559,19 @@ function renderMenu() {
   var init = state.init, el = $("menu"); if (!init || !state.menuOpen) return;
   var recent = init.recent || [], lock = state.run === "running" || state.job2d === "running", p = init.paths || {};
   var row = function (k, v, act, title) { return '<div class="mrow"><span class="k">' + k + '</span><span class="v"' + (title ? ' title="' + esc(title) + '"' : "") + ">" + v + "</span>" + act + "</div>"; };
-  el.innerHTML = "<h3>최근 대상지</h3>" +
+  el.innerHTML = "<h3>" + ico("clock") + "최근 대상지</h3>" +
     (recent.length ? '<div class="mlist">' + recent.map(function (r, i) {
-      return '<button type="button" class="recent" data-act="recent" data-i="' + i + '"' + (lock ? " disabled" : "") + '><span>' + esc(r.label) + '</span><span class="sub num">' + esc(fmtNum(r.total_area)) + " ㎡, " + esc(mmdd(r.date)) + "</span>" + ico("next") + "</button>";
+      return '<button type="button" class="recent" data-act="recent" data-i="' + i + '"' + (lock ? " disabled" : "") + '>' + ico(r.mode && MODE_SHORT[r.mode] ? r.mode : "lots") + "<span>" + esc(r.label) + '</span><span class="sub num">' + esc(fmtNum(r.total_area)) + " ㎡, " + esc(mmdd(r.date)) + "</span>" + ico("next") + "</button>";
     }).join("") + "</div>" : '<div class="hint">아직 없습니다. 필지로 만들면 여기에 남습니다</div>') +
     "<h3>설정</h3>" +
     '<div class="mlist">' +
       row("폴더 경로", '<span class="mono">' + esc(p.root || "") + "</span>", '<button type="button" class="btn sm" data-act="open" data-path="' + esc(p.root || "data") + '">' + ico("folder") + "열기</button>", (p.root || "") + " (결과 result, 지역 데이터 data)") +
       row("한국 자료", forceOsm() ? "OpenStreetMap으로 만듦" : "국가 DB(필지, 건축물대장)",
-        '<button type="button" class="btn sm" data-act="force_osm"' + (lock ? " disabled" : "") + ">" + (forceOsm() ? "국가 DB로" : "OSM으로") + "</button>", "켜면 한국 안에서도 국가 DB 대신 OpenStreetMap으로 만듭니다(필지, 용도지역 없음)") +
+        '<button type="button" class="btn sm" data-act="force_osm"' + (lock ? " disabled" : "") + ">" + ico("globe") + (forceOsm() ? "국가 DB로" : "OSM으로") + "</button>", "켜면 한국 안에서도 국가 DB 대신 OpenStreetMap으로 만듭니다(필지, 용도지역 없음)") +
       (HOST.ask_stats ? row("사용 통계", init.stats_consent ? "보냄" : "보내지 않음", '<button type="button" class="btn sm" data-act="stats" data-on="' + (init.stats_consent ? "0" : "1") + '">' + (init.stats_consent ? "끄기" : "켜기") + "</button>", STATS_TEXT) : "") +
     "</div>" +
     "<h3>도움</h3>" +
-    '<div class="mlist">' + row("웹페이지", "설치와 사용법", '<button type="button" class="btn sm" data-act="open_url" data-key="website">' + ico("ext") + "열기</button>") + "</div>" +
+    '<div class="mlist">' + row("웹페이지", '<button type="button" class="link" data-act="open_url" data-key="website" title="설치와 사용법">' + esc(String((init.links || {}).website || "고라니 웹페이지").replace(/^https?:\/\//, "").replace(/\/$/, "")) + "</button>", "") + "</div>" +
     '<p class="menu-ver">Gorani ' + esc(init.version || "") + "</p>";
 }
 function openMenu() {
@@ -1516,7 +1612,7 @@ function setStats(on) {
 }
 function showErrorBand(text) {
   var d = document.createElement("div"); d.className = "band lv-danger"; d.setAttribute("role", "alert");
-  d.innerHTML = "<span>" + esc(text) + '</span><button type="button" class="btn sm" data-act="dismiss">닫기</button>';
+  d.innerHTML = "<span>" + esc(text) + '</span><button type="button" class="ib sm" data-act="dismiss" aria-label="닫기" title="닫기">' + ico("x") + '</button>';
   $("init_warnings").appendChild(d);
 }
 function slotError(id, text) { var el = $(id); if (el) el.innerHTML = '<div class="danger-text" role="alert" style="font-size:12px;padding:4px 0">' + esc(text) + "</div>"; else showErrorBand(text); }
@@ -1553,7 +1649,7 @@ function restoreTarget(s) {
 function primaryAction() {
   if (state.blocked) return;
   if (state.screen === "map") { if (draw.on) finishDraw(); else if (stamp.on) placeStamp(); else startGenerate(); }
-  else if (state.run === "done" && !state.styleOpen && state.job2d !== "running") resetLots();
+  else if (state.run === "done" && !state.styleOpen && state.job2d !== "running") ACTIONS.rerange();
 }
 function requestCancel() {
   if (state.job2d === "running") { send({ cmd: "cancel" }); return; }
@@ -1585,8 +1681,16 @@ var ACTIONS = {
   generate: startGenerate,
   retry: startGenerate,
   back: function () { state.run = "idle"; state.progress = null; go("map"); },
-  rerange: function () { state.run = "idle"; state.result = null; state.made2d = null; state.job2d = "idle"; state.progress = null; state.styleOpen = false; go("map"); },
-  newlot: function () { resetLots(); },   // ACTIONS는 버튼을 넘긴다 — resetLots(mode)에 들어가면 안 된다
+  rerange: function () {   // 결과는 state.last에 맡겨 두고 지도로 — 대상지·범위·3D 설정을 그대로 두면 [결과로 돌아가기]
+    state.last = { key: state.resultKey, result: state.result, made2d: state.made2d, job2d: state.job2d, form2d: state.form2d, err2d: state.err2d, err2dObj: state.err2dObj };
+    state.run = "idle"; state.result = null; state.made2d = null; state.job2d = "idle"; state.progress = null; state.styleOpen = false; go("map");
+  },
+  to_result: function () {
+    if (!canReturn()) return;
+    var l = state.last; state.last = null;
+    state.result = l.result; state.made2d = l.made2d; state.job2d = l.job2d; state.form2d = l.form2d; state.err2d = l.err2d; state.err2dObj = l.err2dObj;
+    state.progress = null; state.styleOpen = false; state.run = "done"; go("result");
+  },
   cancel: requestCancel,
   make2d: startMake2d,
   form2d: function () { state.form2d = true; renderCard2d(); },
@@ -1610,7 +1714,7 @@ var ACTIONS = {
   open: function (b) { openPath(b.dataset.path); },
   open_url: function (b) { send({ cmd: "open_url", key: b.dataset.key }); },
   import: function () { if (state.result) send({ cmd: "import_context", dir: state.result.dir }); },
-  export: function () { if (state.result) { $("bm_err").innerHTML = ""; send({ cmd: "export_basemap", dir: state.result.dir, scale: +$("export_scale").value }); } },
+  export: function (b) { if (state.result) { $("bm_err").innerHTML = ""; send({ cmd: "export_basemap", dir: state.result.dir, scale: +b.dataset.scale }); } },
   copylog: function (b) {
     var log = state.logLines.map(function (l) { return l.text; }).join("\n"), err = state.progress && state.progress.error;
     var text = log + (err && err.title && log.indexOf(err.title) < 0 ? "\n\n" + [err.code, err.title, err.detail !== err.title ? err.detail : ""].filter(Boolean).join("\n") : "");
@@ -1705,8 +1809,8 @@ document.addEventListener("keydown", function (e) {
   if (e.key === "Escape" && state.menuOpen) { closeMenu(true); return; }
   if (e.key === "Escape") {
     if (state.styleOpen) { if (state.styleSaving) ACTIONS.st_save_cancel(); else closeStyle(); return; }
-    if (state.run === "running" || state.job2d === "running") requestCancel();
-    else { var openDisc = document.querySelector('.disc[aria-expanded="true"]'); if (openDisc) ACTIONS.disc(openDisc); }
+    // 생성 중 Esc는 취소하지 않는다 — 메뉴·목록 닫기에 습관처럼 눌러 몇십 초 작업을 날린다(2026-10-19 QA). 취소는 [취소] 버튼으로만
+    if (state.run !== "running" && state.job2d !== "running") { var openDisc = document.querySelector('.disc[aria-expanded="true"]'); if (openDisc) ACTIONS.disc(openDisc); }
     return;
   }
   if (e.key === "Backspace" && e.target.classList.contains("chip-row")) { e.preventDefault(); toggleLot(e.target.dataset.pnu); return; }
@@ -1831,7 +1935,7 @@ var handlers = {
   },
   done: function (m) {
     clearInterval(timers.elapsed);
-    state.result = m; state.result.sheets = []; state.made2d = null; state.job2d = "idle"; state.form2d = true; state.dl = null;
+    state.result = m; state.result.sheets = []; state.made2d = null; state.job2d = "idle"; state.form2d = true; state.dl = null; state.resultKey = state.runKey;
     state.appliedStyle = fullStyle(state.options.style); state.styleEdit = clone(state.appliedStyle); state.styleOpen = false;
     state.run = "done"; state.screen = "result"; render();
     if (state.mode === "lots" && state.lotState && state.init) {   // 메뉴의 최근 대상지 — Python이 prefs에 넣는 것(site_prefs.add_recent)과 같은 꼴로 앞에 넣는다
@@ -1848,7 +1952,7 @@ var handlers = {
       var prev = state.made2d || { basemap: { exported: [] }, sheets: [], tables: [] }, bm = m.basemap || {};
       var ex = ((prev.basemap || {}).exported || []).slice();
       (bm.exported || []).forEach(function (p) { if (ex.indexOf(p) < 0) ex.push(p); });
-      state.made2d = { elapsed_s: m.elapsed_s, options: m.options, basemap: Object.assign({}, bm, { exported: ex, ready: !!bm.ready || !!(prev.basemap || {}).ready, dwg: bm.dwg || (prev.basemap || {}).dwg || "" }),
+      state.made2d = { elapsed_s: m.elapsed_s, folder: m.folder, options: m.options, basemap: Object.assign({}, bm, { exported: ex, ready: !!bm.ready || !!(prev.basemap || {}).ready, dwg: bm.dwg || (prev.basemap || {}).dwg || "" }),
         sheets: (m.sheets || []).length ? m.sheets : prev.sheets, tables: (m.tables || []).length ? m.tables : prev.tables };
       state.result.sheets = state.made2d.sheets;
       if ((m.sheets || []).length) { state.appliedStyle = fullStyle((m.options || {}).style); state.styleEdit = clone(state.appliedStyle); }
@@ -1868,7 +1972,7 @@ var handlers = {
   },
   exported: function (m) {
     if (!state.result || !state.made2d) return;
-    if (m.ok) { var ex = state.made2d.basemap.exported; if (ex.indexOf(m.path) < 0) ex.push(m.path); renderExportedList(); toast(m.path.split("/").pop() + " 내보냈습니다"); }
+    if (m.ok) { var ex = state.made2d.basemap.exported; if (ex.indexOf(m.path) < 0) ex.push(m.path); renderExportedList(); toast(m.path.split(/[\\/]/).pop() + "을 만들었습니다"); }
     else slotError("bm_err", (m.text || "내보내기 실패") + " (log.txt 확인)");
   },
   error: function (m) {
