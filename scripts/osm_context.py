@@ -53,7 +53,7 @@ def get_overpass_elements(bounds):
             return _CACHE[key]
         except Exception as error:   # 미러 하나가 막혀도 다음 것을 쓴다
             errors.append("%s: %s" % (endpoint, error))
-    raise RuntimeError("OSM(Overpass) 데이터를 받지 못했습니다 — 인터넷 연결을 확인하세요\n" + "\n".join(errors))
+    raise RuntimeError("OSM(Overpass) 데이터를 받지 못했습니다. 인터넷 연결을 확인하세요\n" + "\n".join(errors))
 
 
 # ── 도형 ────────────────────────────────────────────────

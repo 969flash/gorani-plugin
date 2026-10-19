@@ -69,18 +69,20 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `snap_area` | `ring_tm` | `area_state{snapped:true}` 또는 `area_state{ok:false,text}` | Rhino 전용. 필지 경계에 맞추기 |
 | `preflight` | `target`(없으면 `pnus` = 필지 방식), `radius`, `shape`, `paper`, `paper_mm`, `scales`, `seq` | `preflight_result`(같은 `seq`) | 2026-10-19부터 Rhino 패널은 보내지 않는다(범위를 JS가 그린다). 예전: ① lots 변경 직후, ② 진입·옵션 변경(300 ms 디바운스). 메모이즈 키 `(tuple(pnus), radius, shape, paper, tuple(paper_mm), tuple(scales))` — `paper_mm`이 빠지면 용지 '직접'에서 가로·세로를 바꿔도 프레임이 안 바뀐다. `init`마다 비운다 |
 | `generate` | `target`(없으면 `pnus`), `options`(§옵션 키 **`scales` 포함** — 가장 큰 축척 프레임이 DB 질의 범위를 정한다, code_map §3) | `progress`* ↔ `log`* → `done` / `progress{state:"failed"}` / `progress{state:"cancelled"}` | `context_builder.run` 동기 실행(UI 스레드, 콜백 안 `RhinoApp.Wait()`로 푸시·취소 명령 펌핑). 이미 running이면 무시하고 `error{context:"generate"}`. 베이크가 곧 '문서에 넣기'라 `busy`·`imported`는 오지 않는다(`done.context.imported`로 전한다). 생성기는 BM 레이어를 항상 전부 쓴다 — 축척별 차이는 Export 때만 |
-| `make_2d` | `dir`(결과 폴더), `options`(2D 키 — `make_basemap`·`paper`·`paper_mm`·`scales`·`basemap_layers_on`·`make_dwg`·`make_sheets`·`sheet_ids`·`floor_breaks`·`elev_preset`·`make_tables`·`style`) | `data_progress`* → `progress`* ↔ `log`* → `made_2d` | 3D 결과에 2D 자료를 더한다(2026-10-19). `context_builder.make_2d`: `context.json`의 대상지·옵션 위에 2D 옵션을 덮어 다시 `prepare`(가장 큰 프레임까지 조회 — 생성 전에 그 범위 팩을 받는다) → basemap·sheets·tables phase(run과 같은 함수) → `context.json` 갱신. `make_dwg`(베이스맵과 함께만, Rhino만)면 basemap phase 끝에 가장 상세한 축척의 2D 선 도면을 새 헤드리스 문서에 구워 `basemap_<축척>.dwg`(`context_baker.save_dwg` — 활성 문서는 안 건드린다). 원점은 `context.json.doc_origin`을 써 3dm과 같은 좌표. 지형 삼각형은 이번 세션 3D 결과(`_keep`)에서, 없으면 지형 도면이 빈다. 문서는 건드리지 않는다. running 중이면 `error{context:"generate"}`. progress는 `query`·`basemap`·`sheets`·`tables`만(나머지 skipped). 취소는 `cancel` 그대로 |
+| `make_2d` | `dir`(결과 폴더), `options`(2D 키 — `make_basemap`·`paper`·`paper_mm`·`scales`·`basemap_layers_on`·`make_dwg`·`make_sheets`·`sheet_ids`·`floor_breaks`·`elev_preset`·`make_tables`·`style`) | `data_progress`* → `progress`* ↔ `log`* → `made_2d` | 3D 결과에 2D 자료를 더한다(2026-10-19). `context_builder.make_2d`: `context.json`의 대상지·옵션 위에 2D 옵션을 덮어 다시 `prepare`(가장 큰 프레임까지 조회 — 생성 전에 그 범위 팩을 받는다) → basemap·sheets·tables phase(run과 같은 함수) → `context.json` 갱신. 도면 폴더는 비우지 않고 고른 장만 새로 쓴 뒤 전에 만든 장과 합친 목록을 돌려준다(`_merge_sheets`, 같은 id는 새것). 조서 CSV 폴더는 비우고 다시 쓴다. `make_dwg`(베이스맵과 함께만, Rhino만)면 basemap phase 끝에 가장 상세한 축척의 2D 선 도면을 새 헤드리스 문서에 구워 `basemap_<축척>.dwg`(`context_baker.save_dwg` — 활성 문서는 안 건드린다). 원점은 `context.json.doc_origin`을 써 3dm과 같은 좌표. 지형 삼각형은 이번 세션 3D 결과(`_keep`)에서, 없으면 지형 도면이 빈다. 문서는 건드리지 않는다. running 중이면 `error{context:"generate"}`. progress는 `query`·`basemap`·`sheets`·`tables`만(나머지 skipped). 취소는 `cancel` 그대로 |
 | `cancel` | — | `progress{state:"cancelled"}` 또는 무시 | running이 아니면 **무시**(응답 없음). running이면 `cancel_requested` 플래그만 세운다 — 다음 콜백이 False를 돌려주고 엔진이 `Cancelled`로 중단·이번 베이크 객체 삭제 → `ok=false, cancelled=true`. 부분 폴더 유지, `log.txt`에 "cancelled at <phase>" |
 | `import_context` | `dir`(결과 폴더 절대경로) | `busy{on}` → `imported` → `busy{off}` | 재삽입: 같은 `GORANI_LOT_KEY` 객체 삭제 후 `context_baker.import_3dm`(`context.json.origin`이 문서 원점과 다르면 차이만큼 이동). `zoom_after_import`면 줌 |
 | `export_basemap` | `dir`, `scale`(1000\|3000\|5000) | `busy{on}` → `exported` → `busy{off}` | `context_builder.export_basemap(dir, scale)`: 결과 폴더의 `context.json`(pnus·options)으로 DB에서 다시 `prepare` → `basemap_ai.write_basemap` → `<dir>/basemap_<scale>.ai`. 문서를 거치지 않는다(import 불필요, 1초 안팎). 축척별 레이어 표(`constants.BASEMAP_SCALE_LAYERS`): 1:1000 = `08`(지적선) on · `08b`(지번) on, 1:3000 = `08` on · `08b` off, 1:5000 = `08`·`08b` off. 실패하면 `exported{ok:false, text}` |
 | `zoom_view` | `dir`(결과 폴더 절대경로), `center`[lng,lat](선택) | — (`error{context:"open"}`) | `import_context`·`export_basemap`과 같은 꼴 — JS가 `result.dir`을 붙인다(Python은 마지막 결과 폴더를 기억하지 않는다). `center` 없으면 `CTX::Site` 객체로 줌. 있으면 `<dir>/context.json`의 ORIGIN으로 문서 좌표 환산 후 그 점 주변 100 m |
 | `open_path` | `path`(str) | — (`error{context:"open"}`) | 절대경로 또는 프로젝트 루트 상대(`docs/data_sources.md`, `.env`, `data`). 폴더 = 탐색기, 파일 = OS 기본 앱. `.env`가 없으면 한 줄 템플릿(`VWORLD_API_KEY=`)을 만든 뒤 연다. 외부 URL은 열지 않는다(WebView가 이동하므로 JS에서도 링크 금지 — 토지이음은 `open_eum`) |
+| `open_url` | `key`(`constants.PANEL_LINKS`의 키 — 지금은 `website`) | — (`error{context:"open"}`) | 더보기 메뉴 '고라니 웹페이지'. 키만 받아 정해진 주소를 OS 브라우저로 연다(임의 URL은 받지 않는다) |
 | `open_eum` | `pnu`(19자리) | — (`error{context:"open"}`) | ① 필지 정보 [토지이음 ↗]. Python이 `constants.EUM_LAND_USE_URL % pnu`를 만들어 OS 브라우저로 연다(임의 URL은 받지 않는다) |
 | `save_prefs` | `options` | — | `prefs.json`에 `options`만 덮어쓴다(`recent`는 `generate` 성공 시 Python이 갱신) |
-| `style_preview` | `dir`, `sheet_id`(0~15), `style`(스타일 dict), `seq` | `style_preview`(같은 `seq`) / `error{context:"style"}` | ③ 결과의 도면 스타일 화면. `context_builder.preview_sheet` — 한 장을 스타일로 다시 그린 SVG 문자열(파일 안 씀). 시트 데이터는 컨트롤러 `_keep`(이번 세션 생성 결과, 지형 삼각형 포함), 없으면 `context.json`으로 한 번 prepare(지형 시트는 비어 나온다). SVG id·`url(#…)`은 `pv_` 접두어(패널 `#map`과 겹치지 않게). JS 250 ms 디바운스, 늦은 `seq`는 버린다 |
-| `apply_style` | `dir`, `style` | `busy{on}` → `style_applied` → `busy{off}` | `context_builder.apply_style` — 결과 폴더의 시트 전부 + 이미 쓴 `basemap_<축척>.ai`를 다시 쓰고 `context.json.options.style`을 바꾼다. 지형 삼각형이 없으면 지형 시트 파일은 그대로(`kept`). JS는 성공하면 `options.style`을 `save_prefs` |
+| `style_preview` | `dir`, `sheet_id`(0~15), `style`(스타일 dict), `seq` | `style_preview`(같은 `seq`) / `error{context:"style"}` | ③ 2D 카드 다이어그램 타일 [편집]의 스타일 화면(만들기 전). `context_builder.preview_sheet` — 한 장을 스타일로 다시 그린 SVG 문자열(파일 안 씀). 시트 데이터는 컨트롤러 `_keep`(이번 세션 생성 결과, 지형 삼각형 포함). 2D를 아직 안 만들었으면 3D를 만든 Prepared를 그대로 써서 다시 조회하지 않는다(`get_sheet_data(quick=True)` — 자료는 3D 범위까지. 다시 prepare하면 Global은 OSM·지형 타일을 또 받아 55 s 걸렸다, 2026-10-19). `_keep`이 다른 결과면 `context.json`으로 한 번 prepare(지형 시트는 비어 나온다). SVG id·`url(#…)`은 `pv_` 접두어(패널 `#map`과 겹치지 않게). JS 250 ms 디바운스, 늦은 `seq`는 버린다 |
+| `apply_style` | `dir`, `style` | `busy{on}` → `style_applied` → `busy{off}` | `context_builder.apply_style` — 결과 폴더의 시트 전부 + 이미 쓴 `basemap_<축척>.ai`를 다시 쓰고 `context.json.options.style`을 바꾼다. 지형 삼각형이 없으면 지형 시트 파일은 그대로(`kept`). JS는 성공하면 `options.style`을 `save_prefs`. **2026-10-19부터 패널은 보내지 않는다** — 스타일은 만들기 전에 정하고 [적용]은 `options.style`만 바꾼다 |
 | `save_style` | `name`, `style` | `styles` / `error{context:"style"}` | `site_prefs.save_style` → `HOME_DIR/styles/<이름>.json`(경로 문자 제거, 같은 이름 덮어씀). 사무소 표준을 파일로 나눠 쓴다 |
-| `sheet_ai` | `dir`, `path`(도면 SVG) 또는 `all:true` | `busy{on}` → `sheet_ai` → `busy{off}` | `sheet_svg.get_sheet_ai` — 도면 SVG를 레이어 .ai로(없거나 SVG보다 오래됐을 때만 다시 쓴다). 한 장이면 쓰고 OS로 연다. 생성 때 .ai를 다 쓰지 않는다(23장이면 Rhino에서 10 s+) |
+| `sheet_view` | `dir`, `path`(도면 SVG) | `sheet_view{path, svg}` / `error{context:"view"}` | 다이어그램 칸 → 패널 보기 창(2026-10-19). SVG 내용을 그대로 보낸다 — OS로 열면 .svg도 Illustrator에 묶인 PC가 많았다. `path`는 그 결과의 sheets 폴더 안 .svg만. JS는 Blob URL `<img>`로 그린다(패널 id와 안 겹침), ←→ 넘기기, 누르면 확대, Esc 닫기 |
+| `sheet_ai` | `dir`, `path`(도면 SVG) 또는 `all:true` | `busy{on}` → `sheet_ai` → `busy{off}` | `sheet_svg.get_sheet_ai` — 도면 SVG를 레이어 .ai로(없거나 SVG보다 오래됐을 때만 다시 쓴다). 한 장이면 쓰고 OS로 연다. 생성 때 .ai를 다 쓰지 않는다(23장이면 Rhino에서 10 s+). 패널은 [모두 .ai로 저장](`all`)만 보낸다 — 칸을 누르면 `sheet_view`로 패널 안에서 본다(2026-10-19). `write_sheets`는 다시 쓴 SVG 옆에 .ai가 있으면 .ai도 새로 쓴다 |
 | `area_packs` | `bbox`([서, 남, 동, 북] 경위도), `seq` | `area_packs` | 지도 이동(600 ms 디바운스)마다. 화면에 걸리는데 파일이 없는 시군구 **필지** 팩 `{seq, missing[{name, label, mb}], mb, labels}`(건물·도로·지형 팩과 새 판은 생성할 때 범위만) — 해외·매니페스트 없음·오프라인은 빈 목록. 배율 16 이상이면 JS가 곧바로 `download_data{names}` |
 | `stats_consent` | `on`(bool) | 없음 (`error{context:"init"}`) | Blender·SketchUp만 — 사용 통계 동의를 `~/.gorani/prefs.json`에 남긴다. `usage_stats.is_enabled`가 `host.ask_stats` 호스트면 이 값이 true일 때만 보낸다(Blender 확장 약관 4.5, Extension Warehouse 개인정보 심사) |
 | `download_data` | `names`(선택 — 없으면 전부) | `data_progress`×N → `data_progress{done}` → `init_state` (`error{context:"init"}`) | 지도 자동 받기·진행 줄 [다시 받기]. 멈추면 그때까지 받은 팩은 남는다(받던 팩은 버리고 쓰던 DB는 그대로). `data_pack`이 매니페스트(`constants.DATA_MANIFEST_URL`)의 절대 주소에서 `HOME_DIR/data/`로 받는다. `generate`도 시작 전에 같은 방식으로 범위(`context_builder.get_query_bounds`)에 걸치는 없거나 새 판인 시군구 팩을 받는다 |
@@ -143,6 +145,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
  "paths":{"root":"<HOME_DIR>","lot_db":"data/seoul_site.db","context_db":"data/seoul_context.db","env":".env","install_doc":"docs/install.md"},
  "generator":{"ok":true,"python":"Rhino Python","text":"Rhino 내장"},   // 항상 ok. UI 호환용(블로커 3행째는 ✓ 고정). Blender면 "Blender …"
  "host":{"id":"rhino","name":"Rhino","doc":"Rhino 문서","model":"context.3dm","dwg":true,"ask_stats":false},   // constants.HOST_LABELS — 패널 문구(문서 이름·모델 파일)와 DWG 옵션 표시. Blender = {"id":"blender","name":"Blender","doc":"Blender 장면","model":"context.blend","dwg":false,"ask_stats":true}, SketchUp = {"id":"sketchup",…,"model":"context.skp","dwg":false,"ask_stats":true}
+ "links":{"website":"https://969flash.github.io/gorani/"},   // constants.PANEL_LINKS — 메뉴 '웹페이지' 줄이 주소를 링크로 보여 주고, 누르면 open_url{key}
  "stats_consent":null,                            // 사용 통계 동의 true|false|null(안 물음) — host.ask_stats(Blender + 측정 ID 있음)면 null일 때 정보 띠로 한 번 묻고([보내기]·[보내지 않음] → stats_consent{on}), 더보기 메뉴 설정에서 바꾼다
  "can_download":true,                             // DATA_MANIFEST_URL이 있으면 블로커에 [DB 받기]·[멈추기]
  "sources":[source, source, source, source],      // id = lot, building, terrain, api 순서 고정(더보기 메뉴 자료 칸·블로커 체크리스트·첫 실행 모드 판정)
@@ -152,7 +155,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
  "map":{"center":[126.9784,37.5665],"zoom":16},              // review_map.get_map_init()
  "options":{…옵션 키 전부, prefs.json 복원 또는 기본값…},
  "recent":[{"pnus":["…"],"label":"성수동2가 277-17 외 1","total_area":1234.5,"date":"2026-10-06"}],   // 최대 5, 필지 방식만. 더보기 메뉴 [최근 대상지] → 필지 방식으로 select_lots. done 때 JS가 같은 꼴로 앞에 넣는다(다음 init까지)
- "sheet_catalog":[{"id":0,"key":"base","name":"베이스맵","subtitle":"Base map","needs":"lot"},…,{"id":15,"key":"slope","name":"경사","subtitle":"Slope","needs":"terrain"}],   // constants.SHEET_CATALOG 25장(분석도 8 · 현황도 12 · 틀 3 · 항공사진 1 · 입체 매스도 1, needs image = 영상 타일). done.sheets[].thumb = 160 px PNG data URI(패널 도면 칸, 항공사진만 SVG data URI)
+ "sheet_catalog":[{"id":0,"key":"base","name":"베이스맵","subtitle":"Base map","needs":"lot","korea_only":false,"group":"base"},…,{"id":19,"key":"slope","name":"경사","subtitle":"Slope","needs":"terrain","korea_only":false,"group":"status"}],   // group = constants.SHEET_GROUP: base(베이스맵·항공사진)·status(현황도)·analysis(분석도)·frame(틀) — 2D 카드 묶음 칩   // constants.SHEET_CATALOG 25장(분석도 8 · 현황도 12 · 틀 3 · 항공사진 1 · 입체 매스도 1, needs image = 영상 타일). done.sheets[].thumb = 160 px PNG data URI(패널 도면 칸, 항공사진만 SVG data URI)
  "style_presets":{"std":{"name":"표준","paper":"#FFFFFF",…,"ramp":"warm"},"vivid":…,"mono":…,"dark":…},   // constants.STYLE_PRESETS
  "style_defaults":{"layout":"side","line_scale":1.0,"text_scale":1.0,"font":"sans","fade_outside":0.55,"labels":true,"subtitle_en":true,"project":"","axo_view":"se"},
  "style_ramps":{"warm":["#FBEFC9",…],…},
@@ -230,7 +233,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
             "dates":{"lot":"2026-05-13","building":"2026-05-09","terrain":"2024~2026","upis":"2026-09"}},
  "qa_geojson":FC}                                // role="qa_mismatch" 점·선(② 지도 qaLayer). 없으면 빈 FC
 
-{"type":"made_2d","ok":true,"cancelled":false,"dir":"…","elapsed_s":12.4,
+{"type":"made_2d","ok":true,"cancelled":false,"dir":"…","folder":"…/2D","elapsed_s":12.4,   // folder = 2D 산출물 폴더(결과 폴더/2D — 베이스맵 .ai·.dwg, sheets/, tables/)
  "options":{…2D 옵션을 덮은 옵션…},
  "basemap":{"ready":true,"paper":"A3","layers":14,"scales":[5000],"exported":["…/basemap_5000.ai"],"dwg":"…/basemap_5000.dwg"},   // done.basemap과 같은 꼴. make_basemap 끔이면 ready=false·exported=[]. dwg: make_dwg로 쓴 경로, 아니면 ""
  "sheets":[…done.sheets와 같은 꼴…],"tables":[…],"files":[…],"warnings":[warning],
@@ -306,7 +309,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
  "flatten_site":false,"flatten_level":"mean",          // 대상지 평탄화(lots·area) — 높이 = 대상지 경계 자연 지반 mean|min|max
  "site_output":"curve",                                // 대상지 표시(lots·area): curve = 경계 커브만, mesh = 바닥 메시도(CTX::Site::ground). 방식 기본: 필지 mesh, 구역 curve
  "import_after":true,                                  // context.3dm은 항상 쓴다(산출물의 뼈대, 수 초). 끌 수 있는 건 Import뿐
- "make_basemap":true,"paper":"A3","paper_mm":[420,297],"scales":[5000],"basemap_layers_on":[],   // A3 가로 = 분석도 템플릿 기준(2026-10-13)   // "02b_landuse"|"05_road_center"|"11_zoning" — Global은 05만 보인다
+ "make_basemap":true,"paper":"A3","paper_mm":[420,297],"scales":[5000],"basemap_layers_on":[],"basemap_preset":"a3",   // basemap_preset: 패널 2D 카드 칩 a3|a1(축척을 범위에 맞춰 자동 — 범위 2 × radius가 용지에 들어가는 가장 상세한 축척)|custom. 엔진은 보지 않는다   // A3 가로 = 분석도 템플릿 기준(2026-10-13)   // "02b_landuse"|"05_road_center"|"11_zoning" — Global은 05만 보인다
                                                        // scales: ② 프레임 미리보기·③ .ai select 기본값 전용(prefs·preflight에만). generate 페이로드에서 JS가 뺀다. dirty 판정 제외
  "make_sheets":true,"sheet_ids":[0,1,…,22],"floor_breaks":[12,20],"elev_preset":"20m",   // "20m"|"50m". 카탈로그에 없는 id는 엔진이 버린다(get_sheet_ids)
  "make_tables":true,
@@ -340,11 +343,11 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 | map | [3D 모델 만들기] / ⌘Enter | result, run running | `generate`(§옵션 키의 고정값) |
 | result running | `progress{state:"done"}` → `done` | result, run done | 3D 블록 + 2D 카드. Python이 `recent` 갱신 |
 | result running | `progress{state:"failed"}` / `cancelled` | result, run failed/cancelled | 오류 블록. 푸터 [← 지도로][다시 시도] |
-| result running | [취소] / Esc / 창 닫기 | (cancelled로) | `cancel` |
+| result running | [취소] / 창 닫기 | (cancelled로) | `cancel`. Esc로는 취소하지 않는다(2026-10-19) |
 | result done | [2D 만들기] | job2d running | `make_2d{dir, options}` — 진행은 2D 카드 자리 |
 | job2d running | `made_2d` | job2d done/failed/cancelled | 2D 카드가 결과(.ai·다이어그램 격자·CSV)로 바뀐다 |
-| result done | [← 범위 바꾸기] | map, run idle | 대상지·옵션 유지, 결과 버림 |
-| result done | [새 대상지] / ⌘Enter | map, run idle | 대상지 지움, options 유지, `select_lots{pnus:[]}` |
+| result done | [← 지도로] / ⌘Enter | map, run idle | 대상지·옵션 유지. 결과·2D 상태는 JS가 맡겨 둔다(`state.last`) |
+| map | [결과로 돌아가기] | result, run done | 맡긴 결과로. 대상지·범위·3D 설정(2D 옵션 뺀 `generate` 옵션)이 그 결과를 만들 때와 같을 때만 보인다. 메시지 없음. [3D 모델 만들기]는 맡긴 결과를 버린다 |
 | result failed/cancelled | [다시 시도] | result, run running | 같은 `generate` |
 
 Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `running`이 아닐 때만 받고 플래그를 내린다. 결과 폴더·원점 같은 '마지막 결과'는 기억하지 않는다 — 결과에 대한 명령(`import_context`·`export_basemap`·`zoom_view`)은 JS가 `dir`을 붙인다.
@@ -380,7 +383,7 @@ Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `r
 | `~/.gorani/client_id` | 무작위 UUID 한 줄(사용 통계 설치 식별) | `usage_stats.get_client_id`(없으면 생성) | `usage_stats` |
 | `.env`(`HOME_DIR`) | `VWORLD_API_KEY=…`(지도·위성 배경, 항공사진, 주소 보조 검색 — 없으면 OSM·Esri·지명 검색). `= ` 뒤 공백 금지 | 사용자(OS 편집기). 없으면 `open_path`가 한 줄 템플릿 생성 | `pnu_loader._read_local_env_value`(strip)·생성기 |
 | `HOME_DIR/data/*.db`·`packs.json` | 필지·컨텍스트·등고선 DB. `packs.json` = 받은 팩의 sha256 | `download_data` | `init`·전 명령 |
-| `HOME_DIR/result/<lot_name>_<YYYYMMDD>/` | deliverables §E. 같은 폴더가 있으면 생성기 시작 시 `sheets/`·`tables/`·`context.3dm`·`context.json`을 지우고 새로 쓴다(이전 옵션의 시트·CSV가 새것처럼 남지 않도록). `basemap_*.ai`(사용자가 만든 것)·`log.txt`(이어 쓰고 구분선)는 보존 | 생성기·베이커(.ai) | `done`·`open_path` |
+| `HOME_DIR/result/<lot_name>_<YYYYMMDD>/` | deliverables §E. 2026-10-19부터 그 폴더에 이전 결과(`context.json`·3dm·blend·skp)가 있으면 첫 베이크 직전에 `<lot_name>_<YYYYMMDD>_<HHMM>/`(같은 분이면 `_2`…) 새 폴더를 쓴다(`context_builder.get_free_result_dir`) — 이전 결과를 지우지 않는다. 문서의 이전 3D는 그대로 바꾼다(`clear_previous`). 패널은 이 패널에서 이미 만든 대상지면 [3D 모델 다시 만들기]와 '이전 3D를 새것으로 바꿉니다'를 보인다. 2D는 `2D/` 아래 | 생성기·베이커(.ai) | `done`·`open_path` |
 
 `localStorage`·쿠키는 쓰지 않는다(file:// 임시 파일 출처).
 

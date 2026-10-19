@@ -256,7 +256,7 @@ def get_tin_points(prepared):
             add(float(f.geometry["coordinates"][0]), float(f.geometry["coordinates"][1]), f.value)
     n_input = len(pts)
     if not n_input:
-        raise DomainError("no_terrain_points", "범위 안 등고선·표고점이 없습니다 — 컨텍스트 DB 도엽을 확인하세요")
+        raise DomainError("no_terrain_points", "범위 안에 등고선과 표고점이 없습니다. 컨텍스트 DB 도엽을 확인하세요")
     nearest = NearestXYZ(list(pts.values()), constants.CLASSIFY_GRID)
     for x, y in prepared.extent_ring:
         add(x, y, nearest.nearest_z(x, y))
@@ -819,15 +819,15 @@ def get_curve_ring(curve, unit_scale, tolerance):
     if curve is None:
         return None, "커브가 아닙니다"
     if not curve.IsClosed:
-        return None, "닫힌 커브가 아닙니다 — 끝점이 붙은 커브만 받습니다"
+        return None, "닫힌 커브가 아닙니다. 끝점이 붙은 커브를 고르세요"
     ok, plane = curve.TryGetPlane(tolerance)
     if not ok:
         return None, "평면 커브가 아닙니다"
     if abs(plane.Normal.Z) < 0.999:
-        return None, "XY 평면(Top)에 놓인 커브여야 합니다 — 기울어진 커브입니다"
+        return None, "기울어진 커브입니다. XY 평면(Top)에 놓인 커브를 고르세요"
     events = Intersection.CurveSelf(curve, tolerance)
     if events is not None and events.Count > 0:
-        return None, "자기교차가 있는 커브입니다 — 꼬이지 않은 닫힌 커브만 받습니다"
+        return None, "꼬인(자기교차) 커브입니다. 꼬이지 않은 닫힌 커브를 고르세요"
     ok, polyline = curve.TryGetPolyline()
     if not ok:
         approx = curve.ToPolyline(constants.CURVE_POLYLINE_TOLERANCE / unit_scale, math.radians(2.0), 0.0, 0.0)
