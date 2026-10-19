@@ -528,7 +528,7 @@ class FixtureTest(unittest.TestCase):
     def test_all_sheets_from_prepare(self):
         import context_builder
         request = {"pnus": [constants.TEST_CONTEXT_PNU], "site_db": str(FIXTURE_DIR / "seongsu_site.db"),
-                   "context_db": str(FIXTURE_DIR / "seongsu_context.db"), "options": {"radius": 500}}
+                   "context_db": str(FIXTURE_DIR / "seongsu_context.db"), "options": {"radius": 500, "make_sheets": True}}
         prepared = context_builder.prepare(request)
         cx, cy = prepared.target_lots[0].min_x, prepared.target_lots[0].min_y
         tris = [_tri(cx + i * 50, cy + j * 50, 10 + i, 12 + j, 11) for i in range(-3, 3) for j in range(-3, 3)]

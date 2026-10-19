@@ -111,7 +111,7 @@ class PrepareTest(unittest.TestCase):
     def test_area_prepare_outputs(self):
         cx, cy = _center()
         with tempfile.TemporaryDirectory() as tmp:
-            p = context_builder.prepare({"target": {"mode": "area", "ring": _box(cx, cy, 150, 100)}, "options": {"radius": 300, "shape": "site"},
+            p = context_builder.prepare({"target": {"mode": "area", "ring": _box(cx, cy, 150, 100)}, "options": {"radius": 300, "shape": "site", "make_basemap": True},
                                          "site_db": SITE_DB, "context_db": CONTEXT_DB, "result_root": tmp})
             self.assertEqual(p.mode, "area")
             self.assertTrue(p.target_lots)
@@ -119,7 +119,7 @@ class PrepareTest(unittest.TestCase):
             self.assertEqual(sorted(p.extent_ring), sorted(p.site_rings[0]))   # 그린 경계 그대로가 범위
             rect = context_builder.prepare({"target": {"mode": "area", "ring": _box(cx, cy, 150, 100)}, "options": {"radius": 300, "shape": "rect"},
                                             "site_db": SITE_DB, "context_db": CONTEXT_DB})
-            self.assertLess(non_rhino_utils.get_bbox(rect.extent_ring)[0], cx - 150 - 299)   # 사각형은 경계에서 반경만큼 밖
+            self.assertAlmostEqual(non_rhino_utils.get_bbox(rect.extent_ring)[0], cx - 300, 6)   # 사각형 = 중심 ± 반경(한 변 600 m)
             ai = basemap_ai.write_basemap(p, 5000, tmp)
             self.assertEqual(ai["counts"]["10_site"], 2)   # 구역 경계 + 범위
             path = context_report.write_context_json(p, {}, tmp)

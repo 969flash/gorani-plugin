@@ -126,7 +126,7 @@ UserString: HEIGHT_SRC, HEIGHT_GRADE(A~D), HEIGHT_M, GRND_FLR(채택 층수), FL
       → (런타임, 사용자 키) LT_C_BLDGINFO BOX 재호출(세션 캐시 1개월) → 건축HUB 철거멸실(최근 24개월)·폐쇄말소 표제부
         → buildings STATUS 갱신  [08기준일 §6.4]
       → 정합 오차 측정(§A.3) → 기준일 경과 경고 계산(§C 공통)
-      → numpy/scipy TIN(표고점 필터) → 분류 → rhino3dm File3dm 작성 → result/<날짜>/<대상지>/context.3dm (+ .json)
+      → numpy/scipy TIN(표고점 필터) → 분류 → rhino3dm File3dm 작성 → result/<대상지>_<날짜>/context.3dm (+ .json)
   → 패널: `_-Import` 로 현재 문서에 넣기 (레이어·UserString 보존, 00 실측)
 ```
 
@@ -286,7 +286,7 @@ UserString: HEIGHT_SRC, HEIGHT_GRADE(A~D), HEIGHT_M, GRND_FLR(채택 층수), FL
 ## E. 산출물 폴더 규약
 
 ```
-result/<YYYYMMDD>/<대상지명 또는 PNU>/
+result/<대상지명>_<YYYYMMDD>/   (2026-10-19 날짜를 맨 뒤로 — 예전 result/<YYYYMMDD>/<대상지명>/)
   context.3dm, context.json          # A (+메타: 원점·범위·원천별 기준일/파일/sha256/라이선스/age_months/warn,
                                      #    변환 경로(EPSG:5189)·정합 오차·수직기준·ref_line)  [08기준일 §5.2(3), 08정합 §4.1]
   basemap_<축척>.ai (+ .pdf)         # B  — `_NC` 접미 레이어(CC BY-NC-ND·4유형 원천)는 내보내기 단계에서 자동 제외

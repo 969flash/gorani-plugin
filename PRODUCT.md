@@ -21,7 +21,7 @@ A free, personally published Rhino plugin (Yak) that works offline from local SQ
 ## Operating Context
 
 - Runs as a 480 px wide Eto WebView panel docked inside Rhino 8 (Windows and Mac). Single HTML file, vanilla JS, Leaflet map. No server.
-- Flow: ① pick site (parcels, drawn area, or point) → ② range and outputs → ③ results (3D in the document, basemap .ai, analysis map SVG/AI, CSV tables).
+- Flow (two screens): ① map — pick site (parcels, drawn area, or point) and range, then [Make 3D model] → ② results — 3D in the document first, then optionally add 2D outputs (basemap .ai, analysis maps SVG/AI, CSV tables).
 - Outputs are finished in Illustrator and placed into A3 reports or A1 boards. Many offices have their own board template and graphic standard.
 
 ## Capabilities and Constraints

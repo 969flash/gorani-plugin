@@ -5,7 +5,8 @@
 도시설계용 베이스맵(일러스트레이터)과 공공데이터 기반 현황도·분석자료를 낸다.
 개인이 무료로 공개하는 Rhino 플러그인(Yak)이고, 사용자는 불특정 다수의 건축·도시설계 실무자와 학생이다. 서버 없는 데스크톱 도구다(SaaS 아님).
 
-독립 프로젝트다. 패널 헤더 토글로 두 데이터 모드를 쓴다 — Korea(자체 필지·컨텍스트 DB, 시군구 팩, 한국만)·Global(OpenStreetMap·지형 타일, 어디서나). 판정은 `context_builder.is_global`, 첫 실행 기본값은 한국(시간대·언어·국내 DB)이면 Korea.
+독립 프로젝트다. 두 데이터 모드를 쓴다 — Korea(자체 필지·컨텍스트 DB, 시군구 팩, 한국만)·Global(OpenStreetMap·지형 타일, 어디서나). 패널은 대상지 위치로 고르고(한국 밖 = Global), 더보기 메뉴에서 한국 안에서도 OSM을 고를 수 있다. 판정은 `context_builder.is_global`.
+패널은 2화면(지도: 대상지·범위·3D 설정 → 결과: 3D 완료 뒤 2D 자료를 추가로)이다 — 주목적은 3D 모델, 2D(베이스맵·다이어그램·조서)는 `make_2d`로 나중에(`docs/ui_spec.md`).
 배치·법규·일조 로직은 이 프로젝트의 목적이 아니다.
 
 ## Claude의 역할
@@ -50,7 +51,7 @@
 - **필지 하나는 닫힌 커브 하나다.** 대상 필지가 여러 조각이거나 구멍이 있으면 가장 넓은 조각의 바깥 경계를 쓰고 경고한다. 주변 필지·도로 필지(가로망 전체가 한 필지인 도넛)는 구멍을 보존한다.
 - 좌표계: +Y = 정북 가정(EPSG:5186 격자북. 진북과의 자오선수차는 서울에서 0.1° 이내라 무시). 해외 대상지는 대상지 중심 지역 횡메르카토르(`non_rhino_utils.set_projection`, 투영 원점은 환경변수로 loader 재적재에도 유지).
 - Rhino 8 CPython 기준. rhinoscriptsyntax보다 RhinoCommon 우선.
-- 쓰기 자리(`data/`·`result/`·`.env`)는 `constants.HOME_DIR` — 저장소처럼 루트에 `data/`가 있으면 루트, Yak 설치본은 `~/Gorani`. 산출물은 `HOME_DIR/result/<날짜>/<대상지>/`에 쌓는다. 3dm·베이스맵·현황도·로그를 한 폴더에 둔다.
+- 쓰기 자리(`data/`·`result/`·`.env`)는 `constants.HOME_DIR` — 저장소처럼 루트에 `data/`가 있으면 루트, Yak 설치본은 `~/Gorani`. 산출물은 `HOME_DIR/result/<대상지>_<날짜>/`에 쌓는다. 3dm·베이스맵·현황도·로그를 한 폴더에 둔다.
 - 상세 스펙: `docs/deliverables.md`(산출물 정의), `docs/data_sources.md`(데이터·DB), `docs/panel_ui.md`(패널 메시지 계약), `docs/code_map.md`(확정 아키텍처·실행 흐름·엔진 API·읽는 순서), `docs/implementation_plan.md`(마일스톤·위험), `docs/research/`(조사 근거)
 
 ## 네이밍 컨벤션 (변수·메시지 키 공통)

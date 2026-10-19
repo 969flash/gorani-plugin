@@ -892,7 +892,9 @@ def build(prepared):
     items += b_items
     curve_items = build_curves(prepared)
     items += curve_items
-    bm_items = build_basemap_2d(prepared, min(prepared.scales))   # 2D는 가장 상세한 축척 한 장만 — 축척마다 넣으면 3dm이 축척 수만큼 커진다
+    options = prepared.request.get("options") or {}
+    # 2D는 가장 상세한 축척 한 장만 — 축척마다 넣으면 3dm이 축척 수만큼 커진다. 3D만(베이스맵·DWG 끔)이면 굽지 않는다 — 프레임만큼 조회하지 않았다
+    bm_items = build_basemap_2d(prepared, min(prepared.scales)) if options.get("make_basemap") or options.get("make_dwg") else []
     items += bm_items
     counts["basemap_2d"] = len(bm_items)
     counts.update(b_counts)

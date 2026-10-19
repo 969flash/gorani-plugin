@@ -360,6 +360,16 @@ def get_skipped_details(options):
     return skipped, {phase: SKIPPED_DETAILS.get(phase, SKIPPED_OPTION_DETAIL) for phase in skipped}
 
 
+def get_skipped_details_2d(options):
+    # type: (dict) -> tuple
+    """make_2d 시작 때의 (skipped, phase_detail) — 3D phase(terrain·write_3dm)는 이미 끝난 일이라 건너뛰고, 끈 2D phase도 건너뛴다."""
+    skipped, details = get_skipped_details(options)
+    for phase in ("terrain", "write_3dm"):
+        skipped.add(phase)
+        details[phase] = "3D는 이미 만듦"
+    return skipped, details
+
+
 def get_done_message(response):
     # type: (dict) -> dict
     """context_builder.run 응답(ok=true) → done 푸시. 응답 dict 모양이 곧 done 페이로드라 type만 붙인다."""
@@ -472,7 +482,7 @@ class _SiteController:
         handlers = {
             "init": self._init, "search": self._search, "map_lots": self._map_lots, "select_lots": self._select_lots,
             "set_area": self._set_area, "set_point": self._set_point, "pick_curve": self._pick_curve, "snap_area": self._snap_area,
-            "preflight": self._preflight, "generate": self._generate, "cancel": self._cancel,
+            "preflight": self._preflight, "generate": self._generate, "make_2d": self._make_2d, "cancel": self._cancel,
             "import_context": self._import_context, "export_basemap": self._export_basemap, "zoom_view": self._zoom_view,
             "open_path": self._open_path, "open_eum": self._open_eum, "save_prefs": self._save_prefs, "download_data": self._download_data,
             "style_preview": self._style_preview, "apply_style": self._apply_style, "save_style": self._save_style, "sheet_ai": self._sheet_ai,
@@ -658,6 +668,28 @@ class _SiteController:
         if response["options"].get("zoom_after_import"):
             context_baker.zoom_to_site(doc, response["dir"])
         self.push(get_init_state())   # 생성 중 받은 지역 데이터로 헤더 배지 갱신
+
+    def _make_2d(self, msg):
+        """3D 결과 폴더에 2D 자료(베이스맵 .ai·도면·조서 CSV)를 더한다 — context_builder.make_2d를 UI 스레드에서 동기 호출.
+        생성 전에 2D 범위(가장 큰 프레임)의 팩을 받는다. 진행은 progress, 끝(성공·실패·취소)은 made_2d 하나. 문서는 건드리지 않는다."""
+        if self._running:
+            self.push({"type": "error", "context": "generate", "text": "이미 만드는 중입니다", "detail": ""})
+            return
+        result_dir = self._get_result_dir(msg)
+        context_builder = loader.load("context_builder")
+        options = dict(msg.get("options") or {})
+        self._context_builder = context_builder
+        self._skipped, self._phase_detail = get_skipped_details_2d(options)
+        self._last_phase = "query"
+        self._running, self._cancel_requested = True, False
+        try:
+            self._download_for_generate(context_builder.get_2d_request(result_dir, options))
+            response = context_builder.make_2d(result_dir, options, self._progress, self._keep)
+        finally:
+            self._running = False
+        if response["error"] and not response["cancelled"]:
+            self.push({"type": "log", "level": "error", "text": "%s: %s\n%s" % (response["error"]["code"], response["error"]["title"], response["error"]["detail"])})
+        self.push(dict(response, type="made_2d"))
 
     def _send_build_stats(self, target, lots, response):
         # type: (dict, list, dict) -> None
@@ -872,7 +904,7 @@ class _SiteController:
 # error.context — JS가 표시 자리를 고른다(panel_ui.md 오류 규약)
 _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "select", "set_point": "select", "pick_curve": "select",
                    "snap_area": "select", "import_context": "import", "export_basemap": "export",
-                   "zoom_view": "open", "open_path": "open", "open_eum": "open", "save_prefs": "init", "stats_consent": "init", "cancel": "generate", "download_data": "init",
+                   "zoom_view": "open", "open_path": "open", "open_eum": "open", "save_prefs": "init", "stats_consent": "init", "cancel": "generate", "make_2d": "generate", "download_data": "init",
                    "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style"}
 
 

@@ -144,6 +144,14 @@ def get_skipped_phases(options):
                                     if not options.get(key)}
 
 
+def has_2d(options):
+    # type: (dict) -> bool
+    """용지 프레임이 필요한 2D 산출물(베이스맵 .ai·도면·DWG)을 만드는가. 아니면(3D만) DB 조회 범위가 범위 bbox로 줄고
+    3dm에 2D 선 도면(BM::)을 굽지 않는다 — 1:5000 A3 프레임(2.1×1.5 km)만큼 받고 읽지 않도록(2026-10-19 3D 먼저)."""
+    options = options or {}
+    return bool(options.get("make_basemap") or options.get("make_sheets") or options.get("make_dwg"))
+
+
 def _warning(level, code, text, detail="", action=None, center=None):
     # type: (str, str, str, str, dict, list) -> dict
     """panel_ui.md 공통 경고 스키마 한 건."""
@@ -642,13 +650,16 @@ def get_source_warnings(sources):
 
 # ── prepare ────────────────────────────────────────────────
 
-def _get_query_extent(target, radius, shape, paper_mm, scales):
-    # type: (Target, float, str, tuple, list) -> tuple
-    """범위 링·그 bbox·축척별 프레임 bbox·DB 조회 bbox(범위 ∪ 최대 프레임 ∪ 시트 + QUERY_MARGIN). 세계좌표 m."""
+def _get_query_extent(target, radius, shape, paper_mm, scales, frames=True):
+    # type: (Target, float, str, tuple, list, bool) -> tuple
+    """범위 링·그 bbox·축척별 프레임 bbox·DB 조회 bbox(범위 ∪ 최대 프레임 ∪ 시트 + QUERY_MARGIN). 세계좌표 m.
+    frames=False(2D 없음, has_2d)면 조회 bbox = 범위 bbox + QUERY_MARGIN."""
     extent_ring = get_target_extent_ring(target, radius, shape, paper_mm, scales)
     extent_bounds = non_rhino_utils.get_bbox(extent_ring)
     frame_bounds = {scale: Frame(paper_mm, scale, target.center).world_bounds() for scale in scales}
-    boxes = [extent_bounds, frame_bounds[max(scales)], sheet_svg.get_sheet_query_bounds(paper_mm, scales, target.center, extent_ring)]
+    boxes = [extent_bounds]
+    if frames:
+        boxes += [frame_bounds[max(scales)], sheet_svg.get_sheet_query_bounds(paper_mm, scales, target.center, extent_ring)]
     margin = constants.QUERY_MARGIN
     bounds = (min(b[0] for b in boxes) - margin, min(b[1] for b in boxes) - margin,
               max(b[2] for b in boxes) + margin, max(b[3] for b in boxes) + margin)
@@ -666,7 +677,7 @@ def get_query_bounds(request):
     if is_global(request):
         return None
     radius = float(options.get("radius") or constants.CONTEXT_RADIUS)
-    return _get_query_extent(target, radius, options.get("shape") or "circle", paper_mm, scales)[3]
+    return _get_query_extent(target, radius, options.get("shape") or "circle", paper_mm, scales, has_2d(options))[3]
 
 
 def prepare(request, progress=None, today=None):
@@ -701,7 +712,7 @@ def prepare(request, progress=None, today=None):
         warnings.append(_warning("info", "origin_reused", "문서 원점 재사용 E %.0f / N %.0f" % origin,
                                  "같은 문서에 이미 생성된 대상지가 있어 그 원점을 씁니다. 새 문서에서 생성하면 대상지 중심으로 원점이 잡힙니다."))
 
-    extent_ring, extent_bounds, frame_bounds, bounds = _get_query_extent(target, radius, shape, paper_mm, scales)
+    extent_ring, extent_bounds, frame_bounds, bounds = _get_query_extent(target, radius, shape, paper_mm, scales, has_2d(options))
 
     if is_global(request):
         return _prepare_abroad(request, options, today, target, lot_name, warnings, origin, origin_reused, doc_origin, radius, shape,
@@ -735,7 +746,7 @@ def prepare(request, progress=None, today=None):
         radius=radius, shape=shape, extent_ring=extent_ring, scales=scales, bounds=bounds, frame_bounds=frame_bounds, context=context,
         align_samples=align_samples, overlays=overlays, designations=list(lot_data.designations) if lot_data else [],
         sources=sources, warnings=warnings, skipped_phases=skipped,
-        result_dir=os.path.join(result_root, today.strftime(constants.RESULT_DATE_FORMAT), lot_name), lots_truncated=bool(truncated),
+        result_dir=os.path.join(result_root, constants.RESULT_DIR_FORMAT % (lot_name, today.strftime(constants.RESULT_DATE_FORMAT))), lots_truncated=bool(truncated),
         mode=target.mode, site_rings=target.site_rings, center=center, target_key=target.key, placement=placement, doc_origin=doc_origin,
     )
 
@@ -777,7 +788,7 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
         request=request, lot_name=lot_name, target_lots=[], near_lots=[], origin=origin, origin_reused=origin_reused,
         radius=radius, shape=shape, extent_ring=extent_ring, scales=scales, bounds=bounds, frame_bounds=frame_bounds, context=context,
         align_samples=[], overlays=[], sources=context.sources, warnings=warnings, skipped_phases=skipped,
-        result_dir=os.path.join(result_root, today.strftime(constants.RESULT_DATE_FORMAT), lot_name), lots_truncated=False,
+        result_dir=os.path.join(result_root, constants.RESULT_DIR_FORMAT % (lot_name, today.strftime(constants.RESULT_DATE_FORMAT))), lots_truncated=False,
         mode=target.mode, site_rings=target.site_rings, center=center, target_key=target.key, placement=placement, doc_origin=doc_origin,
     )
     height = context_report.get_height_src_stats(prepared)
@@ -822,7 +833,7 @@ def _get_empty_response(options):
         "ok": False, "cancelled": False, "dir": "", "lot_name": "", "elapsed_s": 0.0, "options": dict(options or {}),
         "context": {"path": "", "layers": 0, "buildings": 0, "lots": 0, "demolished": 0, "tin_points": 0, "origin": None,
                     "origin_reused": False, "placement": (options or {}).get("placement", "origin"), "doc_origin": None, "model_unit": "", "imported": False, "import_text": "", "dwg": ""},
-        "basemap": {"ready": False, "paper": (options or {}).get("paper", ""), "layers": 0, "scales": [], "exported": []},
+        "basemap": {"ready": False, "paper": (options or {}).get("paper", ""), "layers": 0, "scales": [], "exported": [], "dwg": ""},
         "sheets": [], "tables": [], "files": [], "warnings": [],
         "quality": {"height_src": {}, "align": {}, "skipped": {"buildings": 0, "lots": 0}, "mismatch_count": 0, "dates": {}},
         "qa_geojson": {"type": "FeatureCollection", "features": []}, "error": None,
@@ -916,7 +927,7 @@ def run(request, progress=None, doc=None, keep=None):
     → (sheets) sheet_svg.write_sheets → (tables) context_report.write_tables → context.json·log.txt → 응답 dict(code_map §4.3).
 
     입력: 요청 dict(§4.2), progress(phase, fraction, text) -> bool(False = 취소), doc(RhinoDoc·Blender 장면; None이면 문서 원점을 읽지 않는다 — python3 테스트),
-          keep(dict, 선택 — 시트를 썼으면 {dir, data, prepared}를 담아 준다. 패널 '도면 스타일'이 지형까지 다시 그릴 때 쓴다).
+          keep(dict, 선택 — 성공하면 {dir, data(시트를 썼을 때만), prepared, terrain_tris}를 담아 준다. 패널 '도면 스타일'·'2D 만들기'가 지형까지 그릴 때 쓴다).
     처리: phase는 constants.PHASES 순서(refresh·import는 항상 skipped, 옵션으로 끈 basemap·sheets·tables도 skipped — 콜백 없음).
           Cancelled → 이번 베이크 객체(UDT_LOT_KEY) 삭제 → ok=false·cancelled=true. 도메인 예외 → error{code,title,detail}, 그 외 → exception+traceback.
           basemap·시트 한 장·tables의 실패는 phase 단위 예외(ok=true + warnings[skipped]). Rhino 모듈은 prepare 뒤에 import한다.
@@ -942,9 +953,10 @@ def run(request, progress=None, doc=None, keep=None):
         response["error"] = _get_error(exc, traceback.format_exc())
     response["elapsed_s"] = round(time.time() - started, 1)
     prepared = state["prepared"]
-    if keep is not None and response["ok"] and state.get("sheet_data") is not None:
+    if keep is not None and response["ok"]:   # 3D만 만들어도 지형 삼각형을 남긴다 — 결과 화면 '2D 만들기'(make_2d)가 지형 도면에 쓴다
         keep.clear()
-        keep.update(dir=prepared.result_dir, data=state["sheet_data"], prepared=prepared)
+        keep.update(dir=prepared.result_dir, data=state.get("sheet_data"), prepared=prepared,
+                    terrain_tris=state["geo"].terrain_tris_world if state.get("geo") is not None else [])
     if prepared is not None:
         if response["ok"]:
             context_report.write_context_json(prepared, {k: response[k] for k in ("context", "basemap", "sheets", "tables", "warnings", "elapsed_s")},
@@ -1033,6 +1045,27 @@ def _run_phases(request, progress, doc, response, state):
             _phase_failed(response, "write_3dm", exc)
     _report(progress, "write_3dm", 1.0, "객체 %d · 레이어 %d" % (len(ids), len(layers)))
 
+    _run_2d_phases(prepared, options, geo.terrain_tris_world, progress, response, state)
+
+
+def _write_dwg(prepared):
+    # type: (object) -> str
+    """make_2d의 DWG — 가장 상세한 축척의 2D 선 도면(BM::)을 헤드리스 문서에 구워 basemap_<축척>.dwg로(Rhino만, context_baker.save_dwg)."""
+    context_geometry, context_baker = get_host_modules()
+    if not hasattr(context_baker, "save_dwg"):
+        raise RuntimeError("DWG는 Rhino에서만 저장할 수 있습니다")
+    scale = min(prepared.scales)
+    items = context_geometry.build_basemap_2d(prepared, scale)
+    return context_baker.save_dwg(items, prepared, os.path.join(prepared.result_dir, constants.DWG_FILE_FORMAT % scale))
+
+
+def _run_2d_phases(prepared, options, terrain_tris, progress, response, state, dwg=False):
+    # type: (object, dict, list, object, dict, dict, bool) -> None
+    """basemap → sheets → tables phase(옵션으로 끈 것은 prepared.skipped_phases). run과 make_2d가 같이 쓴다. 활성 문서는 건드리지 않는다.
+    dwg=True(make_2d의 make_dwg)면 basemap phase 끝에 _write_dwg — 실패는 phase 단위 경고."""
+    import sheet_svg
+    skipped = prepared.skipped_phases
+
     # basemap — 요청 축척마다 basemap_ai가 .ai를 직접 쓴다(Rhino 문서·뷰 불필요, 축척당 ≈0.5 s). 한 축척의 실패는 phase 단위 경고
     if "basemap" not in skipped:
         state["phase"] = "basemap"
@@ -1047,7 +1080,13 @@ def _run_phases(request, progress, doc, response, state):
             except Exception as exc:   # noqa: BLE001
                 _phase_failed(response, "basemap", exc)
         response["basemap"].update(ready=len(exported) == len(prepared.scales), layers=layer_count, scales=list(prepared.scales), exported=exported)
-        _report(progress, "basemap", 1.0, ".ai %d장" % len(exported))
+        if dwg:
+            _report(progress, "basemap", 0.95, ".dwg 저장")
+            try:
+                response["basemap"]["dwg"] = _write_dwg(prepared)
+            except Exception as exc:   # noqa: BLE001 — .ai는 남긴다
+                _phase_failed(response, "basemap", exc)
+        _report(progress, "basemap", 1.0, ".ai %d장" % len(exported) + (" · .dwg" if response["basemap"].get("dwg") else ""))
 
     # sheets — 한 장마다 콜백, 한 장의 실패는 empty+reason '오류'
     if "sheets" not in skipped:
@@ -1056,7 +1095,7 @@ def _run_phases(request, progress, doc, response, state):
         names = {sheet_id: name for sheet_id, _key, name, _en, _needs in constants.SHEET_CATALOG}
         sheets_dir = os.path.join(prepared.result_dir, constants.RESULT_SHEETS_DIRNAME)
         try:
-            data = sheet_svg.SheetData.from_prepared(prepared, geo.terrain_tris_world)
+            data = sheet_svg.SheetData.from_prepared(prepared, terrain_tris)
             state["sheet_data"] = data
         except Exception as exc:   # noqa: BLE001
             _phase_failed(response, "sheets", exc)
@@ -1125,7 +1164,7 @@ def preflight(request, today=None):
     sources = get_abroad_sources(today) if abroad else get_sources(request["site_db"], request["context_db"], today)
     pending = []   # DB 파일을 지정한 요청(fixture·개발 DB)과 해외는 받지 않는다
     if not abroad and not request["context_db"]:
-        bounds = _get_query_extent(target, radius, shape, paper_mm, scales)[3]
+        bounds = _get_query_extent(target, radius, shape, paper_mm, scales, has_2d(options))[3]
         pending = [p for p in get_pending_packs(bounds) if not p["name"].endswith("_site.db")]
     if pending:   # 이 범위의 건물·지형은 생성할 때 받는다 — 지금 이 PC에 있는 것만으로 '없음'·도엽 부족을 말하지 않는다
         for src in sources:
@@ -1260,14 +1299,16 @@ def _prepare_from_meta(result_dir, extra_scale=None, site_db=None, context_db=No
     # type: (str, int, object, object) -> object
     """결과 폴더의 context.json(target·options)으로 prepare를 다시 돌린다 — 원점은 도면과 무관해 doc_origin 없이(좌표 방식 검사도 건너뜀)."""
     meta = _read_meta(result_dir)
-    options = dict(meta.get("options") or {})
+    options = dict(meta.get("options") or {}, make_basemap=True)   # 2D용 — 3D만 만든 결과(has_2d 거짓)도 프레임까지 조회한다
     scales = set(int(v) for v in (options.get("scales") or []))
     if extra_scale:
         scales.add(int(extra_scale))
     options["scales"] = sorted(scales)
     request = {"target": meta.get("target") or {"mode": "lots", "pnus": meta["pnus"]}, "options": options, "site_db": site_db,
-               "context_db": context_db, "lot_name": meta.get("lot_name"), "result_root": os.path.dirname(os.path.dirname(result_dir))}
-    return prepare(request)
+               "context_db": context_db, "lot_name": meta.get("lot_name"), "result_root": os.path.dirname(result_dir)}
+    prepared = prepare(request)
+    prepared.result_dir = result_dir   # prepare는 오늘 날짜 폴더를 고른다
+    return prepared
 
 
 def export_basemap(result_dir, scale, site_db=None, context_db=None):
@@ -1283,14 +1324,92 @@ def get_sheet_data(result_dir, keep=None, site_db=None, context_db=None):
     """결과 폴더의 (SheetData, Prepared). 이번 세션에 만든 결과면 keep(지형 삼각형 포함), 아니면 context.json으로 다시 prepare
     (지형 삼각형은 Rhino 메시에서 나와 다시 만들지 않는다 — 지형 시트는 비어 있다). keep이 있으면 새로 만든 것을 담아 둔다."""
     import sheet_svg
-    if keep and keep.get("dir") == result_dir and keep.get("data") is not None:
+    same = bool(keep) and keep.get("dir") == result_dir
+    if same and keep.get("data") is not None:
         return keep["data"], keep["prepared"]
+    terrain_tris = keep.get("terrain_tris") or [] if same else []   # 3D만 만든 이번 세션 결과 — 지형 삼각형은 남아 있다
     prepared = _prepare_from_meta(result_dir, None, site_db, context_db)
-    data = sheet_svg.SheetData.from_prepared(prepared, [])
+    data = sheet_svg.SheetData.from_prepared(prepared, terrain_tris)
     if keep is not None:
         keep.clear()
-        keep.update(dir=result_dir, data=data, prepared=prepared)
+        keep.update(dir=result_dir, data=data, prepared=prepared, terrain_tris=terrain_tris)
     return data, prepared
+
+
+_2D_OPTION_KEYS = ("make_basemap", "paper", "paper_mm", "scales", "basemap_layers_on", "make_dwg", "make_sheets", "sheet_ids", "floor_breaks",
+                   "elev_preset", "make_tables", "style")
+
+
+def get_2d_request(result_dir, options, site_db=None, context_db=None):
+    # type: (str, dict, object, object) -> dict
+    """3D 결과 폴더 + 2D 옵션 → make_2d 요청(context.json의 대상지·옵션 위에 2D 키만 덮는다). 컨트롤러가 받을 팩 범위(get_query_bounds)에도 쓴다."""
+    meta = _read_meta(result_dir)
+    merged = dict(meta.get("options") or {})
+    merged.update({key: (options or {})[key] for key in _2D_OPTION_KEYS if key in (options or {})})
+    merged["make_dwg"] = bool(merged.get("make_dwg") and merged.get("make_basemap"))   # DWG = 베이스맵의 선 도면 — 베이스맵과 함께만
+    # 3D가 쓴 원점(문서 원점 재사용 포함)을 그대로 — DWG 좌표가 3dm과 겹친다. .ai·도면은 세계좌표라 원점과 무관
+    return {"target": meta.get("target") or {"mode": "lots", "pnus": meta.get("pnus") or []}, "options": merged, "site_db": site_db,
+            "context_db": context_db, "lot_name": meta.get("lot_name"), "result_root": os.path.dirname(result_dir),
+            "doc_origin": meta.get("doc_origin") or None}
+
+
+def make_2d(result_dir, options, progress=None, keep=None, site_db=None, context_db=None):
+    # type: (str, dict, object, dict, object, object) -> dict
+    """3D 결과 폴더에 2D 자료(베이스맵 .ai·도면·조서 CSV)를 더한다 — 패널 결과 화면 '2D 만들기'(panel_ui.md make_2d, 2026-10-19).
+
+    입력: result_dir(run이 만든 폴더 — context.json 필요), options(2D 키, _2D_OPTION_KEYS), progress(phase, fraction, text) -> bool,
+          keep(run이 남긴 {dir, terrain_tris} — 지형 도면용. 다른 폴더면 지형 도면은 빈다).
+    처리: get_2d_request → prepare(가장 큰 프레임까지 다시 조회, phase 'query') → 이번에 켠 것의 sheets/·tables/만 비우고 _run_2d_phases
+          → context.json의 options·basemap·sheets·tables 갱신 + log.txt. Rhino 문서는 건드리지 않는다.
+    출력: {ok, cancelled, dir, elapsed_s, options, basemap, sheets, tables, files, warnings, error}.
+    """
+    started = time.time()
+    request = get_request_with_defaults(get_2d_request(result_dir, options, site_db, context_db))
+    response = _get_empty_response(request["options"])
+    response.update(dir=result_dir)
+    state = {"phase": "query"}
+    prepared = None
+    try:
+        if not has_2d(request["options"]) and not request["options"].get("make_tables"):
+            raise ValueError("만들 2D 자료를 하나 이상 고르세요")
+        prepared = prepare(request, progress)
+        prepared.result_dir = result_dir   # prepare는 오늘 날짜 폴더를 고른다 — 어제 만든 3D 폴더에 더할 수 있게
+        response.update(options=dict(prepared.request["options"]), warnings=list(prepared.warnings))
+        for key, name in (("make_sheets", constants.RESULT_SHEETS_DIRNAME), ("make_tables", constants.RESULT_TABLES_DIRNAME)):
+            if request["options"].get(key):   # 이전 2D의 다른 도면·CSV가 새것처럼 남지 않게
+                shutil.rmtree(os.path.join(result_dir, name), ignore_errors=True)
+        same = bool(keep) and keep.get("dir") == result_dir
+        terrain_tris = (keep.get("terrain_tris") or []) if same else []
+        _run_2d_phases(prepared, request["options"], terrain_tris, progress, response, state,
+                       dwg=bool(request["options"].get("make_dwg")) and constants.DWG_EXPORT_ENABLED)
+        response["ok"] = True
+        if keep is not None:
+            keep.clear()
+            keep.update(dir=result_dir, data=state.get("sheet_data"), prepared=prepared, terrain_tris=terrain_tris)
+    except Cancelled as exc:
+        response["cancelled"] = True
+        response["error"] = {"code": "cancelled", "title": "취소됨", "detail": str(exc)}
+    except (ValueError, KeyError, FileNotFoundError, RuntimeError) as exc:
+        response["error"] = _get_error(exc)
+    except Exception as exc:   # noqa: BLE001 — 패널에 traceback을 전한다
+        response["error"] = _get_error(exc, traceback.format_exc())
+    response["elapsed_s"] = round(time.time() - started, 1)
+    if response["ok"]:
+        meta = _read_meta(result_dir)
+        meta["options"] = dict(response["options"])
+        for key in ("basemap", "sheets", "tables"):
+            if response[key]:
+                meta[key] = response[key]
+        with open(os.path.join(result_dir, constants.CONTEXT_META_FILE_NAME), "w", encoding="utf-8") as handle:
+            json.dump(meta, handle, ensure_ascii=False, indent=1, default=str)
+    lines = ["2D %s · %.1f s · 베이스맵 %d · 도면 %d · CSV %d" % ("OK" if response["ok"] else ("CANCELLED" if response["cancelled"] else "FAILED"),
+                                                          response["elapsed_s"], len(response["basemap"]["exported"]), len(response["sheets"]), len(response["tables"]))]
+    lines += ["경고 %s: %s" % (w["code"], w["text"]) for w in response["warnings"]]
+    if response["error"]:
+        lines.append("오류 %s: %s\n%s" % (response["error"]["code"], response["error"]["title"], response["error"]["detail"]))
+    context_report.append_log(result_dir, lines)
+    response["files"] = _list_files(result_dir)
+    return response
 
 
 def preview_sheet(result_dir, sheet_id, style, keep=None):

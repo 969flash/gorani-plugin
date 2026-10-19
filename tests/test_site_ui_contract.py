@@ -165,17 +165,28 @@ class PreflightResultTest(unittest.TestCase):
 class ProgressTest(unittest.TestCase):
     def test_skipped_details_and_running_message(self):
         import context_builder
-        skipped, details = cmd_site.get_skipped_details({"make_basemap": False})
+        skipped, details = cmd_site.get_skipped_details({"make_basemap": False, "make_sheets": True, "make_tables": True})
         self.assertEqual(skipped, {"refresh", "import", "basemap"})
         self.assertEqual(details["import"], "건너뜀 — 베이크로 대체")
         self.assertEqual(details["refresh"], "건너뜀 — v1 미구현")
         self.assertEqual(details["basemap"], "건너뜀 — 옵션")
-        self.assertNotIn("basemap", cmd_site.get_skipped_details({})[0])
+        self.assertNotIn("basemap", cmd_site.get_skipped_details({"make_basemap": True})[0])
+        self.assertTrue({"basemap", "sheets", "tables"} <= cmd_site.get_skipped_details({})[0])   # 2D는 기본 끔(3D 먼저)
         message = context_builder.get_progress_message("terrain", 0.5, "TIN", skipped, details)
         self.assertEqual(set(message), PROGRESS_KEYS)
         self.assertEqual(message["phase_status"]["import"], "skipped")
         self.assertEqual(message["phase_detail"]["import"], "건너뜀 — 베이크로 대체")
         self.assertEqual(set(message["phase_status"]), set(constants.PHASES))
+
+    def test_make_2d_skips_3d_phases(self):
+        import context_builder
+        skipped, details = cmd_site.get_skipped_details_2d({"make_basemap": True, "make_sheets": False, "make_tables": True})
+        self.assertEqual(skipped, {"refresh", "import", "terrain", "write_3dm", "sheets"})
+        self.assertEqual(details["terrain"], "3D는 이미 만듦")
+        message = context_builder.get_progress_message("basemap", 0.5, ".ai", skipped, details)
+        self.assertEqual(message["phase_status"]["query"], "done")
+        self.assertEqual(message["phase_status"]["tables"], "pending")
+        self.assertEqual(message["percent"], round(100 * (15 + 5) / 30))   # query 15 + basemap 10 × 0.5 / (15 + 10 + 5)
 
     def test_failed_and_cancelled_messages(self):
         skipped, details = cmd_site.get_skipped_details({})

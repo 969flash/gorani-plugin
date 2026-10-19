@@ -571,7 +571,8 @@ def get_extent_ring(lot_rings, radius, shape):
         lot_rings: 대상 필지 외곽 링 목록 ``[[(x, y)], ...]`` EPSG:5186 m. radius: m. shape: buffer | circle | rect.
     처리:
         buffer = 전체 정점 볼록껍질을 radius만큼 둥글게 바깥 오프셋(_get_rounded_buffer).
-        circle = 대상지 bbox 중심 원(EXTENT_CIRCLE_SEGMENTS각). rect = 대상지 bbox ± radius.
+        circle = 대상지 bbox 중심 원(EXTENT_CIRCLE_SEGMENTS각). rect = 대상지 bbox 중심 ± radius 정사각형(한 변 2 × radius —
+        패널 '사각형 한 변'과 같은 뜻, 2026-10-19. 예전 bbox ± radius는 한 변이 대상지 폭만큼 더 커서 혼란).
     출력:
         ``[(x, y)]`` 반시계, 닫힘 중복점 없음. 알 수 없는 shape은 ValueError.
     """
@@ -582,8 +583,8 @@ def get_extent_ring(lot_rings, radius, shape):
     if shape == "circle":
         return _get_circle_ring((min_x + max_x) / 2.0, (min_y + max_y) / 2.0, radius, constants.EXTENT_CIRCLE_SEGMENTS)
     if shape == "rect":
-        return [(min_x - radius, min_y - radius), (max_x + radius, min_y - radius),
-                (max_x + radius, max_y + radius), (min_x - radius, max_y + radius)]
+        cx, cy = (min_x + max_x) / 2.0, (min_y + max_y) / 2.0
+        return [(cx - radius, cy - radius), (cx + radius, cy - radius), (cx + radius, cy + radius), (cx - radius, cy + radius)]
     if shape == "buffer":
         return _get_rounded_buffer(_get_convex_hull(points), radius)
     raise ValueError("알 수 없는 범위 shape: %s" % shape)

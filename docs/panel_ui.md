@@ -8,7 +8,7 @@
 ## 배경과 목표
 
 - Rhino 8 CPython. 명령 `Gorani` → 떠 있는 모덜리스 창 480×900(리사이즈 가능, 도킹 불가) → WebView 1장이 패널 전부.
-- 흐름은 단계형 3단계(① 대상지 → ② 범위·옵션 → ③ 결과). **생성은 Rhino CPython 안에서 동기 실행**(`context_builder.run(request, progress, doc)`, docs/code_map.md 확정 — 서브프로세스·외부 python 없음). 진행률은 콜백 안에서 `host.push` + `Rhino.RhinoApp.Wait()`, 취소는 플래그(콜백이 False를 돌려주면 엔진이 중단·되돌림).
+- 흐름은 2화면(지도: 대상지·범위·3D 설정 → 결과: 3D 진행·완료 → 2D 추가, 2026-10-19 — `docs/ui_spec.md`). 3D(`generate`)와 2D(`make_2d`)는 따로 만든다. **생성은 Rhino CPython 안에서 동기 실행**(`context_builder.run(request, progress, doc)`, docs/code_map.md 확정 — 서브프로세스·외부 python 없음). 진행률은 콜백 안에서 `host.push` + `Rhino.RhinoApp.Wait()`, 취소는 플래그(콜백이 False를 돌려주면 엔진이 중단·되돌림).
 - 프레임워크·빌드 도구 없음. 단일 HTML + 바닐라 JS, Leaflet·Pretendard 인라인, 오프라인.
 
 ## 파일 구성
@@ -67,8 +67,9 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `set_point` | `center`([lng,lat], 없으면 지움) | `point_state` | 위치 방식. 지도 클릭·검색 결과 |
 | `pick_curve` | — | `curve_shape` | Rhino 전용. 선택된 커브가 하나면 그것, 없으면 고르기 프롬프트 |
 | `snap_area` | `ring_tm` | `area_state{snapped:true}` 또는 `area_state{ok:false,text}` | Rhino 전용. 필지 경계에 맞추기 |
-| `preflight` | `target`(없으면 `pnus` = 필지 방식), `radius`, `shape`, `paper`, `paper_mm`, `scales`, `seq` | `preflight_result`(같은 `seq`) | ① lots 변경 직후, ② 진입·옵션 변경(300 ms 디바운스). 메모이즈 키 `(tuple(pnus), radius, shape, paper, tuple(paper_mm), tuple(scales))` — `paper_mm`이 빠지면 용지 '직접'에서 가로·세로를 바꿔도 프레임이 안 바뀐다. `init`마다 비운다 |
+| `preflight` | `target`(없으면 `pnus` = 필지 방식), `radius`, `shape`, `paper`, `paper_mm`, `scales`, `seq` | `preflight_result`(같은 `seq`) | 2026-10-19부터 Rhino 패널은 보내지 않는다(범위를 JS가 그린다). 예전: ① lots 변경 직후, ② 진입·옵션 변경(300 ms 디바운스). 메모이즈 키 `(tuple(pnus), radius, shape, paper, tuple(paper_mm), tuple(scales))` — `paper_mm`이 빠지면 용지 '직접'에서 가로·세로를 바꿔도 프레임이 안 바뀐다. `init`마다 비운다 |
 | `generate` | `target`(없으면 `pnus`), `options`(§옵션 키 **`scales` 포함** — 가장 큰 축척 프레임이 DB 질의 범위를 정한다, code_map §3) | `progress`* ↔ `log`* → `done` / `progress{state:"failed"}` / `progress{state:"cancelled"}` | `context_builder.run` 동기 실행(UI 스레드, 콜백 안 `RhinoApp.Wait()`로 푸시·취소 명령 펌핑). 이미 running이면 무시하고 `error{context:"generate"}`. 베이크가 곧 '문서에 넣기'라 `busy`·`imported`는 오지 않는다(`done.context.imported`로 전한다). 생성기는 BM 레이어를 항상 전부 쓴다 — 축척별 차이는 Export 때만 |
+| `make_2d` | `dir`(결과 폴더), `options`(2D 키 — `make_basemap`·`paper`·`paper_mm`·`scales`·`basemap_layers_on`·`make_dwg`·`make_sheets`·`sheet_ids`·`floor_breaks`·`elev_preset`·`make_tables`·`style`) | `data_progress`* → `progress`* ↔ `log`* → `made_2d` | 3D 결과에 2D 자료를 더한다(2026-10-19). `context_builder.make_2d`: `context.json`의 대상지·옵션 위에 2D 옵션을 덮어 다시 `prepare`(가장 큰 프레임까지 조회 — 생성 전에 그 범위 팩을 받는다) → basemap·sheets·tables phase(run과 같은 함수) → `context.json` 갱신. `make_dwg`(베이스맵과 함께만, Rhino만)면 basemap phase 끝에 가장 상세한 축척의 2D 선 도면을 새 헤드리스 문서에 구워 `basemap_<축척>.dwg`(`context_baker.save_dwg` — 활성 문서는 안 건드린다). 원점은 `context.json.doc_origin`을 써 3dm과 같은 좌표. 지형 삼각형은 이번 세션 3D 결과(`_keep`)에서, 없으면 지형 도면이 빈다. 문서는 건드리지 않는다. running 중이면 `error{context:"generate"}`. progress는 `query`·`basemap`·`sheets`·`tables`만(나머지 skipped). 취소는 `cancel` 그대로 |
 | `cancel` | — | `progress{state:"cancelled"}` 또는 무시 | running이 아니면 **무시**(응답 없음). running이면 `cancel_requested` 플래그만 세운다 — 다음 콜백이 False를 돌려주고 엔진이 `Cancelled`로 중단·이번 베이크 객체 삭제 → `ok=false, cancelled=true`. 부분 폴더 유지, `log.txt`에 "cancelled at <phase>" |
 | `import_context` | `dir`(결과 폴더 절대경로) | `busy{on}` → `imported` → `busy{off}` | 재삽입: 같은 `GORANI_LOT_KEY` 객체 삭제 후 `context_baker.import_3dm`(`context.json.origin`이 문서 원점과 다르면 차이만큼 이동). `zoom_after_import`면 줌 |
 | `export_basemap` | `dir`, `scale`(1000\|3000\|5000) | `busy{on}` → `exported` → `busy{off}` | `context_builder.export_basemap(dir, scale)`: 결과 폴더의 `context.json`(pnus·options)으로 DB에서 다시 `prepare` → `basemap_ai.write_basemap` → `<dir>/basemap_<scale>.ai`. 문서를 거치지 않는다(import 불필요, 1초 안팎). 축척별 레이어 표(`constants.BASEMAP_SCALE_LAYERS`): 1:1000 = `08`(지적선) on · `08b`(지번) on, 1:3000 = `08` on · `08b` off, 1:5000 = `08`·`08b` off. 실패하면 `exported{ok:false, text}` |
@@ -207,7 +208,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 {"type":"error","context":"init|search|select|preflight|generate|import|export|open","text":"한 줄","detail":"traceback 또는 빈 문자열"}
 
 {"type":"done",
- "dir":"/…/result/20261007/성수동2가_277-17외1",
+ "dir":"/…/result/성수동2가_277-17외1_20261007",
  "lot_name":"성수동2가_277-17외1",
  "elapsed_s":41,
  "options":{…generate에 쓰인 옵션 그대로…},        // dirty 판정·결과 카드 제목
@@ -229,6 +230,11 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
             "dates":{"lot":"2026-05-13","building":"2026-05-09","terrain":"2024~2026","upis":"2026-09"}},
  "qa_geojson":FC}                                // role="qa_mismatch" 점·선(② 지도 qaLayer). 없으면 빈 FC
 
+{"type":"made_2d","ok":true,"cancelled":false,"dir":"…","elapsed_s":12.4,
+ "options":{…2D 옵션을 덮은 옵션…},
+ "basemap":{"ready":true,"paper":"A3","layers":14,"scales":[5000],"exported":["…/basemap_5000.ai"],"dwg":"…/basemap_5000.dwg"},   // done.basemap과 같은 꼴. make_basemap 끔이면 ready=false·exported=[]. dwg: make_dwg로 쓴 경로, 아니면 ""
+ "sheets":[…done.sheets와 같은 꼴…],"tables":[…],"files":[…],"warnings":[warning],
+ "error":null}                                   // ok=false면 error{code,title,detail}(취소면 code "cancelled"). 3D 결과·문서는 그대로
 {"type":"imported","ok":true,"dir":"…","layers":12,"objects":4120,"replaced":true,"text":""}   // ok=false면 text에 Rhino 메시지. run=running 중(import_after 경로)에는 JS가 무시 — 결과는 done.context에 담겨 온다
 {"type":"exported","ok":true,"dir":"…","scale":3000,"path":"…/basemap_3000.ai","text":""}
 {"type":"style_preview","seq":3,"sheet_id":0,"svg":"<svg …>","empty":false,"reason":""}   // id는 pv_ 접두어
@@ -237,7 +243,9 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 {"type":"styles","styles":[{"name":"OO건축 표준","style":{…}}],"saved":"OO건축 표준","dir":"<HOME_DIR>/styles"}
 ```
 
-푸시 12종. `toast`는 없다 — 성공 토스트는 JS가 `imported`·`exported`를 받아 띄운다.
+`data_progress{in_generate:true}`는 `generate`·`make_2d`가 생성 전에 그 범위 팩을 받을 때 온다 — 패널은 지도 밖 받기 줄이 아니라 진행 목록의 '지역 데이터 받기' 줄과 막대 앞 20 %로 그린다.
+
+푸시 13종. `toast`는 없다 — 성공 토스트는 JS가 `imported`·`exported`를 받아 띄운다.
 
 ## 시군구 팩 (2026-10-13)
 
@@ -246,7 +254,8 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 
 ## 데이터 모드 Korea · Global (2026-10-16 — 옛 '해외 대상지')
 
-- 헤더 오른쪽 두 칸 토글(옛 자료 날짜 배지 자리). `options.region` = `kr`(국가 DB — 필지·건축물대장·UPIS·수치지형도, 한국 대상지만) | `global`(OSM·지형 타일 — 어디서나). prefs에 저장. 자료 날짜는 더보기 메뉴 '자료'로, 자료 경고(warn·danger)는 메뉴 버튼의 점(Korea 모드만).
+- **2026-10-19: 헤더 토글을 없앴다.** 모드는 위치로 정한다 — 대상지(없으면 지도 중심)가 `map.korea_bounds` 안이면 Korea, 밖이면 Global. `options.region = "global"`은 더보기 메뉴 설정 '한국에서도 OpenStreetMap 쓰기'(한국 안에서도 Global)이고, `kr`·`null`은 자동이다. JS `region()`이 이 규칙으로 보낼 값을 정한다. 자료 날짜·자료 경고는 패널에 없다.
+- (예전) `options.region` = `kr`(국가 DB — 필지·건축물대장·UPIS·수치지형도, 한국 대상지만) | `global`(OSM·지형 타일 — 어디서나). prefs에 저장.
 - 첫 실행(`options.region = null`)은 JS가 정한다: 국내 필지 DB가 있거나 · 시간대 `Asia/Seoul`(`Intl`) · 언어 `ko*`(`navigator.languages`) 중 하나면 `kr`, 아니면 `global`. 망 접속 없음, Mac·Windows 웹뷰·Blender 브라우저 공통.
 - `search`·`set_area`·`set_point`·`preflight`에 JS가 `region`을 붙인다(`REGION_CMDS`). Global이면 필지 DB를 보지 않는다 — 검색은 Nominatim만, 구역 안 필지 0, preflight는 DB 개수 대신 경고 `abroad`, 생성은 `osm_context`(Overpass·지형 타일, 팩 받기 없음). 엔진 판정은 `context_builder.is_global(request)` = `region == "global"` 또는 지역 TM 원점.
 - 좌표계는 모드가 아니라 위치로 정한다: 대상지 중심이 `map.korea_bounds` 밖이면 `set_area`·`set_point`가 투영 원점을 그 중심으로(`non_rhino_utils.set_projection`, 이후 `ring_tm`·`center_tm`은 지역 횡메르카토르 m), 한국 안이면 Global이어도 EPSG:5186. `select_lots`는 늘 EPSG:5186.
@@ -259,7 +268,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 
 ## 대상지 방식 (2026-10-10)
 
-① 첫 화면은 지도다(2026-10-14 — 소개·방식 고르기 화면 없음). 지도 위 도구줄의 방식 칸 [필지·구역·위치]로 바꾸고, 처음엔 마지막 방식(`options.mode`, 저장된 옵션 그대로). 방식을 바꾸면 대상지를 지우고 `init_state.modes.defaults[mode]`(constants `MODE_DEFAULTS` — 필지 200 m·1:1000 / 구역 500 m·1:3000 / 위치 용지 프레임·1:5000)를 옵션에 덮고 `save_prefs`. [새 대상지]는 대상지만 지우고 같은 방식의 지도로.
+① 첫 화면은 지도다(2026-10-14 — 소개·방식 고르기 화면 없음). 지도 위 도구줄의 방식 칸 [필지·구역·위치]로 바꾸고, 처음엔 마지막 방식(`options.mode`, 저장된 옵션 그대로). 방식을 바꾸면 대상지를 지우고 `init_state.modes.defaults[mode]`(constants `MODE_DEFAULTS` — 축척·대상지 바닥면만: 필지 1:1000·1:3000 / 구역 1:3000 / 위치 1:5000)를 옵션에 덮고 `save_prefs`. 범위(radius·shape)는 방식을 바꿔도 마지막 값 그대로다(기본 사각형 한 변 500 m = radius 250, 2026-10-19). `prefs.json`의 `version` < 2면 예전에 저장한 radius·shape는 한 번 버린다(`site_prefs.PREFS_VERSION`). [새 대상지]는 대상지만 지우고 같은 방식의 지도로.
 
 | 방식 | 요청 `target` | 대상지 경계(`site_rings`) | 대상 필지 | 결과 폴더명 |
 |---|---|---|---|---|
@@ -270,7 +279,8 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 - 구역 안전장치(`non_rhino_utils.get_ring_problem`): 꼭짓점 3~2000개, 자기교차 없음, 면적 ≥ 100 ㎡, bbox 긴 변 ≤ 4 km. Rhino 커브는 추가로 닫힘·XY 평면(법선 ±Z)·`Intersection.CurveSelf` 0을 본다(`context_geometry.get_curve_ring`). 곡선 커브는 0.05 m 허용오차 폴리라인으로 바꾼다.
 - Rhino 커브 위치: 이 도구가 만든 문서(문서 원점 있음)면 로컬 + 원점, 아니면 좌표가 서울 EPSG:5186 범위(`SEOUL_TM_BOUNDS`)면 그대로 = `located:true` → 패널이 바로 `set_area{ring_tm}`. 그 밖이면 모양만(`offsets` m) → 패널이 화면 가운데에 파란 구역을 고정해 얹고, 사용자가 지도를 끌어 맞춘 뒤 [여기에 놓기] → `set_area{center, offsets}`. 모양은 m 그대로라 축척이 변하지 않는다.
 - 필지 경계에 맞추기: (구역 ∪ 50 % 이상 필지) − (걸쳤지만 50 % 미만 필지). 도로·하천·구거·철도용지·제방(`AREA_SNAP_LINEAR_CATEGORIES`)은 더하지도 빼지도 않아 그린 선이 그대로 가로지른다 — 구역계 관행.
-- 범위 형태(2026-10-10 버퍼 제외): lots = circle|rect, area = site|circle|rect(site = 그린 경계 그대로가 범위, 기본), point = frame|circle|rect(`SHAPES_BY_MODE`). 엔진은 buffer도 받는다(예전 요청). frame = 가장 큰 축척 용지 프레임 사각형.
+- 범위 형태(2026-10-19): 모든 방식이 circle|rect(`SHAPES_BY_MODE`). circle = 대상지 중심 반경 `radius`, **rect = 대상지 중심 한 변 2 × `radius` 정사각형**(예전: 대상지 bbox ± radius). 엔진은 예전 요청의 buffer·site(그린 경계 그대로)·frame(가장 큰 축척 용지 프레임)도 받는다.
+- DB 조회 범위: 2D(`make_basemap`·`make_sheets`·`make_dwg`)가 꺼져 있으면 범위 bbox만(3D만 — 프레임 크기만큼 받지 않는다), 켜져 있으면 범위 ∪ 가장 큰 프레임 ∪ 도면 범위. 3dm 안 2D 선 도면(`BM::`)도 `make_basemap`·`make_dwg`일 때만 굽는다.
 
 ```jsonc
 {"type":"area_state","ok":true,"text":"",            // ok=false면 text 한 줄(자기교차·너무 작음…) — 패널은 이전 구역을 유지한다
@@ -311,36 +321,31 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
                                                        // axo_view(se|sw|ne|nw — 입체 매스도 시점, Rhino 등각. 스타일 화면에서 바꾸면 미리보기가 입체 매스도로 넘어간다)
 ```
 
+2026-10-19: `make_basemap`·`make_sheets`·`make_tables` 기본 false(3D 먼저). 패널은 `generate`에 이 셋과 `make_dwg`를 false로(DWG는 2D 카드의 베이스맵 'DWG로도 저장' → `make_2d`), `import_after`·`zoom_after_import`를 true로, `include_minor_buildings`를 false로 고정해 보낸다 — prefs의 `make_*`는 결과 화면 2D 카드 체크의 마지막 값이고 `make_2d`가 쓴다. `shape`가 circle·rect가 아니면(옛 prefs) 패널이 circle로 바꾼다.
+
 28개. 모르는 키는 Python이 무시하고 빠진 키는 기본값(constants)으로 채운다. `generate`는 `pnus`를 옵션 밖 별도 키로 받는다(옵션은 대상지와 독립이어야 prefs로 재사용된다). **`scales`는 `generate`에도 포함한다**(code_map §3: 가장 큰 프레임이 질의 범위) — dirty 판정에서는 여전히 제외.
 
 ## 상태 머신
 
-**단계(2026-10-10 4단계)**: ① 대상지(방식·필지/구역/위치) → ② 범위(지도가 화면 대부분 — 형태·반경·용지·축척·예상만) → ③ 옵션(지도와 무관: 좌표·대상지 평탄화·산출물·자료 상태·고급) → ④ 결과. 아래 표의 'step 2 [생성 시작]'은 이제 step 3에서, 'step 3'(결과)은 step 4다.
-
-JS 상태 두 축: `step ∈ {1,2,3,4}`, `run ∈ {idle, running, done, failed, cancelled}` + `blocked`·`dirty`. `document.body.dataset.step/run`으로 노출해 CSS가 섹션 표시·`fieldset[disabled]`·푸터 라벨을 처리한다.
+**화면(2026-10-19 2화면)**: `screen ∈ {map, result}` + 결과 화면 안 하위 화면 `styleOpen`. 3D 상태 `run ∈ {idle, running, done, failed, cancelled}`, 2D 상태 `job2d ∈ {idle, running, done, failed, cancelled}` + `blocked`. `document.body.dataset.screen/run`으로 노출해 CSS가 섹션 표시를 처리한다.
 
 | 현재 | 이벤트 | 다음 | 부수 효과 |
 |---|---|---|---|
-| (시작) | `init_state.blocked=true` | blocked | 블로커 표시(필지 DB 없음 또는 `generator.ok=false`). [다시 확인] → `init` |
-| (시작) | `init_state.blocked=false` | step 1, run idle | 검색줄 포커스. options·recent 복원 |
-| 초기화 뒤 어디서나 | `init_state`(배지 클릭·[다시 확인]) | 변화 없음 | `sources`·`warnings`·`tile`·`paths`·`generator`(·`blocked`)만 갱신. **`step`·`run`·`lots`·`options`·`result`는 건드리지 않는다.** ②에 있으면 `preflight`를 다시 보낸다(Python 메모이즈가 비워졌으므로 자료 상태가 바뀐다) |
-| step 1 | 방식 칸(다른 방식) | step 1 | 대상지 지움·방식 기본값 적용·`save_prefs`. 방식별 트레이(필지 목록 / 구역 도구 / 위치) |
-| step 1 | `lot_state.lots ≥ 1` / `area_state.ok` / `point_state.center` | step 1 | `preflight` 전송. [다음]·[바로 생성] 활성(그리기·옮기기 중에는 비활성) |
-| step 1 | [다음] | step 2 | 지도 컨테이너 이동. `preflight`(메모이즈 적중이면 즉시) |
-| step 1 | [바로 생성] (preflight warn/danger 없음) | step 3, run running | `generate` |
-| step 2 | 옵션 변경 | step 2 | `save_prefs`(500 ms) · `preflight`(300 ms) · run=done이면 `dirty=true` |
-| step 2 | [생성 시작] | step 3, run running | `generate`, `dirty=false` |
-| step 3 running | `progress{state:"done"}` → `done` | step 3, run done | 결과 렌더. "생성 완료" 낭독. Python이 `recent` 갱신 |
-| step 3 running | `progress{state:"failed"}` | step 3, run failed | 오류 카드. 푸터 [뒤로][다시 시도] |
-| step 3 running | [취소] / Esc / 창 닫기 | step 3, run cancelled | `cancel`. `progress.phase === "import"` 또는 `busy.on`이면 [취소]·Esc 비활성(툴팁 "문서에 넣는 중에는 취소할 수 없습니다") |
-| step 3 failed/cancelled | [다시 시도] | step 3, run running | `generate` 같은 payload |
-| step 3 failed/cancelled | [뒤로] | step 2 | run 유지(스텝퍼 ③ 도달 가능) |
-| step 3 done | [옵션 바꿔 다시] / 스텝퍼 ② | step 2 | lots·result 유지 |
-| step 3 done | [새 대상지] / 스텝퍼 ① | step 1, run idle | lots·preflight·result 초기화, options 유지, `select_lots{pnus:[]}` |
-| step 2 (run done, dirty) | 스텝퍼 ③ | step 3 done | "이전 결과 — 설정이 바뀜" 띠 |
-| 어디서나 | `import_context`·`export_basemap`·`open_path`·`zoom_view` | 변화 없음 | 카드 안 버튼 상태만 |
-
-스텝퍼 가드: `canGo(s) = s <= maxReached && run !== "running" && !(s === 3 && run === "idle")`.
+| (시작) | `init_state.blocked=true`(받을 곳 없음) | blocked | 블로커. [다시 확인] → `init` |
+| (시작) | `init_state` | map, run idle | 마지막 방식의 지도. options·recent 복원 |
+| 초기화 뒤 어디서나 | `init_state`([다시 확인]·받기 끝) | 변화 없음 | `tile`·`paths`·`blocked`·메뉴만 갱신. 화면·대상지·옵션·결과는 건드리지 않는다 |
+| map | 방식 칸(다른 방식) | map | 대상지 지움(토스트 [되돌리기])·방식 기본값 적용·`save_prefs`. 구역이면 곧바로 그리기 |
+| map | `lot_state.lots ≥ 1` / `area_state.ok` / `point_state.center` | map | 트레이에 범위·3D 설정. 지도에 범위(JS가 즉시 그림). [3D 모델 만들기] 활성(그리기·옮기기 중 비활성) |
+| map | 범위·3D 설정 변경 | map | `save_prefs`(500 ms). 범위는 지도에 즉시 |
+| map | [3D 모델 만들기] / ⌘Enter | result, run running | `generate`(§옵션 키의 고정값) |
+| result running | `progress{state:"done"}` → `done` | result, run done | 3D 블록 + 2D 카드. Python이 `recent` 갱신 |
+| result running | `progress{state:"failed"}` / `cancelled` | result, run failed/cancelled | 오류 블록. 푸터 [← 지도로][다시 시도] |
+| result running | [취소] / Esc / 창 닫기 | (cancelled로) | `cancel` |
+| result done | [2D 만들기] | job2d running | `make_2d{dir, options}` — 진행은 2D 카드 자리 |
+| job2d running | `made_2d` | job2d done/failed/cancelled | 2D 카드가 결과(.ai·다이어그램 격자·CSV)로 바뀐다 |
+| result done | [← 범위 바꾸기] | map, run idle | 대상지·옵션 유지, 결과 버림 |
+| result done | [새 대상지] / ⌘Enter | map, run idle | 대상지 지움, options 유지, `select_lots{pnus:[]}` |
+| result failed/cancelled | [다시 시도] | result, run running | 같은 `generate` |
 
 Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `running`이 아닐 때만 받고 플래그를 내린다. 결과 폴더·원점 같은 '마지막 결과'는 기억하지 않는다 — 결과에 대한 명령(`import_context`·`export_basemap`·`zoom_view`)은 JS가 `dir`을 붙인다.
 
@@ -375,7 +380,7 @@ Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `r
 | `~/.gorani/client_id` | 무작위 UUID 한 줄(사용 통계 설치 식별) | `usage_stats.get_client_id`(없으면 생성) | `usage_stats` |
 | `.env`(`HOME_DIR`) | `VWORLD_API_KEY=…`(지도·위성 배경, 항공사진, 주소 보조 검색 — 없으면 OSM·Esri·지명 검색). `= ` 뒤 공백 금지 | 사용자(OS 편집기). 없으면 `open_path`가 한 줄 템플릿 생성 | `pnu_loader._read_local_env_value`(strip)·생성기 |
 | `HOME_DIR/data/*.db`·`packs.json` | 필지·컨텍스트·등고선 DB. `packs.json` = 받은 팩의 sha256 | `download_data` | `init`·전 명령 |
-| `HOME_DIR/result/<YYYYMMDD>/<lot_name>/` | deliverables §E. 같은 폴더가 있으면 생성기 시작 시 `sheets/`·`tables/`·`context.3dm`·`context.json`을 지우고 새로 쓴다(이전 옵션의 시트·CSV가 새것처럼 남지 않도록). `basemap_*.ai`(사용자가 만든 것)·`log.txt`(이어 쓰고 구분선)는 보존 | 생성기·베이커(.ai) | `done`·`open_path` |
+| `HOME_DIR/result/<lot_name>_<YYYYMMDD>/` | deliverables §E. 같은 폴더가 있으면 생성기 시작 시 `sheets/`·`tables/`·`context.3dm`·`context.json`을 지우고 새로 쓴다(이전 옵션의 시트·CSV가 새것처럼 남지 않도록). `basemap_*.ai`(사용자가 만든 것)·`log.txt`(이어 쓰고 구분선)는 보존 | 생성기·베이커(.ai) | `done`·`open_path` |
 
 `localStorage`·쿠키는 쓰지 않는다(file:// 임시 파일 출처).
 
@@ -390,15 +395,14 @@ Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `r
 
 ## 프런트엔드(site_ui.html) 요점
 
-레이아웃·문안·토큰은 `docs/ui_spec.md` §4·§5·§9. 여기서는 계약에 직접 걸리는 것만.
+레이아웃·문안은 `docs/ui_spec.md`, 토큰은 `DESIGN.md`. 여기서는 계약에 직접 걸리는 것만.
 
-- 상태: `state = {step, run, blocked, dirty, lots, lotState, options, preflight, progress, result, seq:{map, preflight}}`. `render()`는 **step 전환 때만** 섹션 `innerHTML`을 다시 그린다(`body.dataset` 갱신 + 해당 섹션 템플릿 1회 + 지도 컨테이너 이동). 푸시 핸들러는 섹션을 다시 그리지 않고 **슬롯 요소만 교체**한다 — 입력 중 포커스·IME 조합·열린 `<details>`·로그 스크롤이 날아가지 않도록. 옵션 입력은 네이티브 폼 요소라 값 보존 코드가 필요 없다. 가상 DOM 없음.
-- `receive` 핸들러 표(슬롯만 교체): `init_state`→첫 수신이면 상태 복원·`render()`; 이후는 `#badges`·`#menu`(열려 있으면)·블로커·`state.generator`만(step·run·lots·options·result 불변, ②면 `preflight` 재전송) / `search_result`→`#search_list` 또는 즉시 `select_lots` / `map_lots`→`seq` 검사 후 `lotsLayer` 교체 / `lot_state`→`#lot_chips`·합계·`targetLayer`·`preflight` 전송 / `preflight_result`→`seq` 검사 후 `#estimate`·`#data_status`·`extentLayer`·`topoLayer`·`frameLayer`·[바로 생성] 노출 / `progress`→`#phase_list`·progressbar 속성·[취소] 활성(phase≠import) / `log`→`<pre>` append(400줄) / `busy`→푸터 잠금·라벨·[취소] 비활성 / `done`→③ 섹션 1회 렌더·`qaLayer` / `imported`(run≠running일 때만)·`exported`→카드 안 슬롯·토스트 / `error`→`context` 슬롯.
-- Leaflet 인스턴스 1개. ①↔② 사이 `#map` 컨테이너를 `appendChild`로 옮기고 `invalidateSize()`. `map.remove()` 금지. 줌 ≥ 17에서만 `map_lots`(moveend 250 ms 디바운스, `seq` 증가). `tileerror` 3회 → `fallback_url`(위성이면 `abroad_aerial_url`)로 `setUrl` 1회; 폴백 뒤에도 3회면 지도 위 칩 "지도 타일을 못 받음(오프라인) — 필지선만 표시"를 띄우고 더 전환하지 않는다(필지는 로컬 DB라 계속 동작).
-- 경고 렌더 `renderWarnings(warnings, slotEl, {mapClick})` 하나. `center` 있으면 ②에서는 flyTo, ③에서는 [Rhino] = `zoom_view{dir: result.dir, center}`(`result.context.imported`일 때만 활성).
-- `generate` 페이로드: `{pnus, options}`에서 `options.scales`를 뺀다. dirty 판정은 `done.options` vs 현재 `options`(둘 다 `scales` 제외) 얕은 비교.
-- ③ 베이스맵 카드 축척 select는 1000·3000·5000 고정, 기본값 `options.scales[0]`. `basemap.ready=false`면 카드 안 빨강 1줄 '생성 실패 — [log.txt]' + 버튼 비활성.
-- `?mock=1`: `send`를 콘솔 출력으로 바꾸고 `tests/fixtures/site_ui_mock.json`의 메시지를 순서대로 `receive`에 흘린다(`init_state` → `lot_state` → `preflight_result` → `progress`×3 → `done`). vendor는 상대 경로로 로드.
+- 상태: `state = {screen, run, job2d, blocked, mode, lots, lotState, area, point, options, progress, result, made2d, seq:{map, packs, style}}`. `render()`는 **화면 전환 때만** 섹션 `innerHTML`을 다시 그린다. 푸시 핸들러는 **슬롯 요소만 교체**한다 — 입력 중 포커스·IME 조합·열린 `<details>`·로그 스크롤이 날아가지 않도록.
+- `receive` 핸들러(슬롯만 교체): `init_state`→첫 수신이면 상태 복원·`render()`, 이후는 메뉴·블로커·타일만 / `search_result`→`#search_list` 또는 즉시 선택 / `map_lots`→`seq` 검사 후 `lotsLayer` / `lot_state`·`area_state`·`point_state`→트레이·`targetLayer`·범위 / `progress`→진행 목록·막대(3D면 결과 섹션, `job2d=running`이면 2D 카드) / `data_progress{in_generate}`→진행 목록의 받기 줄 / `log`→`<pre>` / `done`→결과 섹션 1회 렌더 / `made_2d`→2D 카드 / `imported`·`exported`→카드 안 슬롯·토스트 / `error`→`context` 슬롯.
+- `preflight`는 패널이 보내지 않는다(2026-10-19 — 범위가 원·사각형뿐이라 JS가 그린다). 명령은 남아 있다(Blender·SketchUp·예전 패널).
+- Leaflet 인스턴스 1개, 지도 화면에만 있다(결과 화면에서는 `#map_park`에 대피). `map.remove()` 금지. 줌 ≥ 17에서만 `map_lots`(moveend 250 ms 디바운스, `seq` 증가). `tileerror` 3회 → `fallback_url`로 `setUrl` 1회, 폴백 뒤에도 3회면 지도 위 칩.
+- `generate` 페이로드: `{target, options}` — 옵션 키 절의 고정값을 덮어 보낸다. `make_2d` 페이로드: `{dir: result.dir, options}`.
+- `?mock=1`: `send`를 콘솔 출력으로 바꾸고 `tests/fixtures/site_ui_mock.json`을 순서대로 흘린다(`init_state` → `search_result` → `lot_state` → `data_progress`·`progress`… → `done` → (`&step=2d`면) `progress`… → `made_2d`). `&step=1`은 지도까지, `&menu=1`은 메뉴를 연다.
 
 ## 플랫폼 주의(기존 그대로)
 

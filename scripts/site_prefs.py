@@ -15,6 +15,8 @@ PREFS_DIR = os.path.join(os.path.expanduser("~"), ".gorani")
 PREFS_PATH = os.path.join(PREFS_DIR, "prefs.json")
 SOURCE_NEWS_PATH = os.path.join(PREFS_DIR, "source_news.json")
 RECENT_MAX = 5
+PREFS_VERSION = 2   # 2 = 범위 기본값을 사각형 한 변 500 m로 바꿨다(2026-10-19) — 그 전에 저장된 radius·shape는 한 번 버린다
+_RESET_BEFORE_V2 = ("radius", "shape")
 
 
 def _read_json(path):
@@ -41,9 +43,11 @@ def get_options(path=PREFS_PATH):
     # type: (str) -> dict
     """저장된 옵션을 기본값 위에 덮어 돌려준다. 모르는 키는 버린다."""
     options = dict(constants.PANEL_DEFAULT_OPTIONS)
-    saved = _read_json(path).get("options") or {}
+    data = _read_json(path)
+    saved = data.get("options") or {}
+    old = int(data.get("version") or 1) < PREFS_VERSION
     for key in options:
-        if key in saved:
+        if key in saved and not (old and key in _RESET_BEFORE_V2):
             options[key] = saved[key]
     return options
 
@@ -57,6 +61,7 @@ def save_options(options, path=PREFS_PATH):
         if key in (options or {}):
             merged[key] = options[key]
     data["options"] = merged
+    data["version"] = PREFS_VERSION
     _write_json(path, data)
     return merged
 
