@@ -23,7 +23,7 @@ Rhino 8 명령창에 `PackageManager` → `Gorani` 검색 → 설치 → Rhino�
 
 ## 3. 사용
 
-- 결과는 `~/Gorani/result/<대상지>_<날짜>/`에 쌓인다(`context.3dm`, `basemap_<축척>.ai`, `sheets/*.svg`, `tables/*.csv`, `log.txt`).
+- 결과는 `~/Gorani/result/<대상지>_<날짜>/`에 쌓인다(`context.3dm`, `log.txt`, 2D 자료는 `2D/` 안에 `basemap_<축척>.ai`, `sheets/*.svg`, `tables/*.csv`). 같은 대상지를 같은 날 다시 만들면 `<대상지>_<날짜>_<시각>/` 새 폴더에 쌓이고 이전 결과는 남는다.
 - 문서 단위는 mm·cm·m 아무거나 된다. 내부 계산은 m이고 베이크 때 문서 단위로 환산한다.
 - 등고선·표고값·3D 컨텍스트는 온라인에 올리지 않는다(국토지리정보원 보안관리규정 별표1). 파일 납품만.
 

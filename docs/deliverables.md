@@ -286,7 +286,7 @@ UserString: HEIGHT_SRC, HEIGHT_GRADE(A~D), HEIGHT_M, GRND_FLR(채택 층수), FL
 ## E. 산출물 폴더 규약
 
 ```
-result/<대상지명>_<YYYYMMDD>/   (2026-10-19 날짜를 맨 뒤로 — 예전 result/<YYYYMMDD>/<대상지명>/)
+result/<대상지명>_<YYYYMMDD>/   (2026-10-19 날짜를 맨 뒤로 — 예전 result/<YYYYMMDD>/<대상지명>/. 같은 날 다시 만들면 _<HHMM> 붙은 새 폴더)
   context.3dm, context.json          # A (+메타: 원점·범위·원천별 기준일/파일/sha256/라이선스/age_months/warn,
                                      #    변환 경로(EPSG:5189)·정합 오차·수직기준·ref_line)  [08기준일 §5.2(3), 08정합 §4.1]
   basemap_<축척>.ai (+ .pdf)         # B  — `_NC` 접미 레이어(CC BY-NC-ND·4유형 원천)는 내보내기 단계에서 자동 제외

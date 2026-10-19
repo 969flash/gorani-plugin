@@ -91,7 +91,7 @@ def get_init_state(site_db=None, context_db=None, today=None):
     입력: DB 경로 override 2개(테스트가 fixture를 꽂는다. None = constants 경로), today(테스트용).
     처리: 필지 DB 존재 → blocked, context_builder.get_sources/get_source_warnings, review_map 타일·지도, site_prefs 옵션·recent,
           SHEET_CATALOG. 네트워크 접근 없음. generator는 항상 ok(서브프로세스 없음 — UI 호환 키).
-    출력: {"type": "init_state", version, blocked, paths, generator, host, stats_consent, sources, warnings, tile, map, options, modes, recent, sheet_catalog,
+    출력: {"type": "init_state", version, blocked, paths, generator, host, stats_consent, links, sources, warnings, tile, map, options, modes, recent, sheet_catalog,
           style_presets, style_defaults, style_ramps, styles}.
     """
     constants = loader.load("constants")
@@ -111,6 +111,7 @@ def get_init_state(site_db=None, context_db=None, today=None):
         "generator": {"ok": True, "python": host["name"] + " Python", "text": host["name"] + " 내장"},
         "host": host,
         "stats_consent": site_prefs.get_stats_consent(),
+        "links": dict(constants.PANEL_LINKS),   # 메뉴가 주소를 그대로 보여 준다. 여는 건 open_url{key}
         "can_download": bool(constants.DATA_MANIFEST_URL),
         "sources": sources,
         "warnings": context_builder.get_source_warnings(sources),
@@ -119,7 +120,8 @@ def get_init_state(site_db=None, context_db=None, today=None):
         "options": site_prefs.get_options(),
         "modes": {"defaults": constants.MODE_DEFAULTS, "shapes": {k: list(v) for k, v in constants.SHAPES_BY_MODE.items()}},
         "recent": site_prefs.get_recent(),
-        "sheet_catalog": [{"id": sheet_id, "key": key, "name": name, "subtitle": en, "needs": needs, "korea_only": key in constants.SHEET_KOREA_ONLY}
+        "sheet_catalog": [{"id": sheet_id, "key": key, "name": name, "subtitle": en, "needs": needs, "korea_only": key in constants.SHEET_KOREA_ONLY,
+                           "group": constants.SHEET_GROUP.get(key, "base")}
                           for sheet_id, key, name, en, needs in constants.SHEET_CATALOG],
         "style_presets": {key: dict(preset) for key, preset in constants.STYLE_PRESETS.items()},
         "style_defaults": dict(constants.STYLE_DEFAULTS),
@@ -144,13 +146,13 @@ def get_search_result(query, site_db=None, region=None):
         places = loader.load("osm_context").search_places(query, SEARCH_MAX_MATCHES)
         return {"type": "search_result", "query": query, "seq": None,
                 "matches": [{"pnu": "", "address": p["name"], "jibun": "", "land_category": "", "area": None, "center": p["center"]} for p in places],
-                "message": "지명 후보 %d건 (OpenStreetMap)" % len(places) if places else "찾지 못했습니다 — 동 이름까지 적어 보세요"}
+                "message": "지명 후보 %d건 (OpenStreetMap)" % len(places) if places else "찾지 못했습니다. 동 이름까지 적어 보세요"}
     centers = review_map.get_parcel_centers([m.pnu for m in matches], site_db) if matches else {}
     return {
         "type": "search_result", "query": query, "seq": None,
         "matches": [{"pnu": m.pnu, "address": m.address, "jibun": m.lot_number or _jibun(m.address), "land_category": m.land_category,
                      "area": m.geometry_area, "center": centers.get(m.pnu)} for m in matches],
-        "message": "후보 %d건" % len(matches) if matches else "찾지 못했습니다 — 동 이름까지 적어 보세요",
+        "message": "후보 %d건" % len(matches) if matches else "찾지 못했습니다. 동 이름까지 적어 보세요",
     }
 
 
@@ -370,6 +372,17 @@ def get_skipped_details_2d(options):
     return skipped, details
 
 
+def get_error_log_text(error):
+    # type: (dict) -> str
+    """실패 응답의 error → 로그 한 덩어리. 상세가 제목과 같거나 비면 한 줄만(같은 문장이 두 번 찍혔다)."""
+    error = error or {}
+    head = "%s: %s" % (error.get("code") or "exception", error.get("title") or "")
+    detail, title = error.get("detail") or "", error.get("title") or ""
+    if title and detail.startswith(title):   # 상세 첫 줄이 제목과 같으면 나머지만
+        detail = detail[len(title):].lstrip("\n")
+    return head + "\n" + detail if detail else head
+
+
 def get_done_message(response):
     # type: (dict) -> dict
     """context_builder.run 응답(ok=true) → done 푸시. 응답 dict 모양이 곧 done 페이로드라 type만 붙인다."""
@@ -484,9 +497,9 @@ class _SiteController:
             "set_area": self._set_area, "set_point": self._set_point, "pick_curve": self._pick_curve, "snap_area": self._snap_area,
             "preflight": self._preflight, "generate": self._generate, "make_2d": self._make_2d, "cancel": self._cancel,
             "import_context": self._import_context, "export_basemap": self._export_basemap, "zoom_view": self._zoom_view,
-            "open_path": self._open_path, "open_eum": self._open_eum, "save_prefs": self._save_prefs, "download_data": self._download_data,
+            "open_path": self._open_path, "open_eum": self._open_eum, "open_url": self._open_url, "save_prefs": self._save_prefs, "download_data": self._download_data,
             "style_preview": self._style_preview, "apply_style": self._apply_style, "save_style": self._save_style, "sheet_ai": self._sheet_ai,
-            "area_packs": self._area_packs, "stats_consent": self._stats_consent,
+            "sheet_view": self._sheet_view, "area_packs": self._area_packs, "stats_consent": self._stats_consent,
         }
         handler = handlers.get(cmd)
         if handler is None:
@@ -613,7 +626,7 @@ class _SiteController:
             return
         snapped = context_geometry.get_snapped_ring([tuple(p) for p in current["ring_tm"]], add, cut, constants.UNION_TOLERANCE)
         if not snapped:
-            self.push(dict(current, ok=False, text="필지 경계에 맞추지 못했습니다 — 구역을 조금 다르게 그려 보세요"))
+            self.push(dict(current, ok=False, text="필지 경계에 맞추지 못했습니다. 구역을 조금 다르게 그려 보세요"))
             return
         self.push(get_area_state({"ring_tm": snapped, "snapped": True}))
 
@@ -656,7 +669,7 @@ class _SiteController:
         target = request["target"]
         if not response["ok"]:
             self._send_build_stats(target, [], response)   # 실패는 필지 DB 자체가 원인일 수 있어 다시 읽지 않는다(PNU만)
-            self.push({"type": "log", "level": "error", "text": "%s: %s\n%s" % (response["error"]["code"], response["error"]["title"], response["error"]["detail"])})
+            self.push({"type": "log", "level": "error", "text": get_error_log_text(response["error"])})
             self.push(get_failed_progress(response, self._last_phase, self._skipped, self._phase_detail))
             return
         self.push(self._context_builder.get_progress_message(self._last_phase, 1.0, "", self._skipped, self._phase_detail, state="done"))
@@ -688,7 +701,7 @@ class _SiteController:
         finally:
             self._running = False
         if response["error"] and not response["cancelled"]:
-            self.push({"type": "log", "level": "error", "text": "%s: %s\n%s" % (response["error"]["code"], response["error"]["title"], response["error"]["detail"])})
+            self.push({"type": "log", "level": "error", "text": get_error_log_text(response["error"])})
         self.push(dict(response, type="made_2d"))
 
     def _send_build_stats(self, target, lots, response):
@@ -745,8 +758,8 @@ class _SiteController:
                 break
             done.append(pack["name"])
             offset += pack.get("xz_size", 0)
-        text = "" if ok else ("받기를 멈췄습니다 — 받은 지역은 남습니다" if self._cancel_requested
-                              else reason or "지역 데이터를 다 받지 못했습니다 — 인터넷 연결을 확인하세요")
+        text = "" if ok else ("받기를 멈췄습니다. 받은 지역은 남습니다" if self._cancel_requested
+                              else reason or "지역 데이터를 다 받지 못했습니다. 인터넷 연결을 확인하세요")
         self.push({"type": "data_progress", "done": True, "ok": ok, "text": text, "in_generate": in_generate})
         self._send_stats("pack_download", {"packs": ",".join(dict.fromkeys(name.split("_")[0] for name in done)), "count": len(done),
                                            "requested": len(packs), "in_generate": in_generate})
@@ -835,7 +848,7 @@ class _SiteController:
     def _zoom_view(self, msg):
         context_baker = loader.load("context_builder").get_host_modules()[1]
         if not context_baker.zoom_to_site(self._get_doc(), str(msg.get("dir") or ""), msg.get("center")):
-            raise ValueError("CTX::Site 객체가 없습니다 — 먼저 [문서에 넣기]")
+            raise ValueError("대상지 3D가 문서에 없습니다. 먼저 Rhino에 불러오세요")
 
     def _open_path(self, msg):
         self._open(resolve_open_path(msg.get("path")))
@@ -847,6 +860,13 @@ class _SiteController:
         if not (len(pnu) == constants.PNU_LENGTH and pnu.isdigit()):
             raise ValueError("PNU 형식이 아닙니다: %s" % pnu)
         self._open(constants.EUM_LAND_USE_URL % pnu)
+
+    def _open_url(self, msg):
+        # 임의 URL은 받지 않는다 — 키(constants.PANEL_LINKS)만 받아 정해진 주소를 연다
+        url = loader.load("constants").PANEL_LINKS.get(str(msg.get("key") or ""))
+        if not url:
+            raise ValueError("알 수 없는 링크입니다: %s" % msg.get("key"))
+        self._open(url)
 
     def _stats_consent(self, msg):
         loader.load("site_prefs").save_stats_consent(bool(msg.get("on")))
@@ -883,7 +903,7 @@ class _SiteController:
         """도면 한 장(path) 또는 결과 폴더 전부(all)를 레이어 .ai로 — 하나면 쓰고 바로 연다."""
         result_dir = self._get_result_dir(msg)
         sheet_svg = loader.load("sheet_svg")
-        sheets_dir = os.path.join(result_dir, loader.load("constants").RESULT_SHEETS_DIRNAME)
+        sheets_dir = loader.load("context_builder").get_sheets_dir(result_dir)
         paths = sorted(os.path.join(sheets_dir, n) for n in os.listdir(sheets_dir) if n.endswith(".svg")) if msg.get("all") else [str(msg.get("path") or "")]
         if not all(p.startswith(sheets_dir) and os.path.exists(p) for p in paths):
             raise ValueError("도면 파일이 없습니다")
@@ -896,6 +916,15 @@ class _SiteController:
 
         self._run_busy("레이어 .ai 쓰는 중", "style", work)
 
+    def _sheet_view(self, msg):
+        """도면 SVG 한 장의 내용을 패널 보기 창으로 — OS로 열면 .svg가 Illustrator에 묶인 PC가 많다(2026-10-19 Rhino QA)."""
+        sheets_dir = loader.load("context_builder").get_sheets_dir(self._get_result_dir(msg))
+        path = str(msg.get("path") or "")
+        if not (os.path.abspath(path).startswith(os.path.join(os.path.abspath(sheets_dir), "")) and path.endswith(".svg") and os.path.exists(path)):
+            raise ValueError("도면 파일이 없습니다")
+        with open(path, encoding="utf-8") as handle:
+            self.push({"type": "sheet_view", "path": path, "svg": handle.read()})
+
     def _save_style(self, msg):
         styles = loader.load("site_prefs").save_style(msg.get("name"), msg.get("style") or {})
         self.push({"type": "styles", "styles": styles, "saved": msg.get("name"), "dir": loader.load("site_prefs").get_styles_dir()})
@@ -904,8 +933,8 @@ class _SiteController:
 # error.context — JS가 표시 자리를 고른다(panel_ui.md 오류 규약)
 _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "select", "set_point": "select", "pick_curve": "select",
                    "snap_area": "select", "import_context": "import", "export_basemap": "export",
-                   "zoom_view": "open", "open_path": "open", "open_eum": "open", "save_prefs": "init", "stats_consent": "init", "cancel": "generate", "make_2d": "generate", "download_data": "init",
-                   "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style"}
+                   "zoom_view": "open", "open_path": "open", "open_eum": "open", "open_url": "open", "save_prefs": "init", "stats_consent": "init", "cancel": "generate", "make_2d": "generate", "download_data": "init",
+                   "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style", "sheet_view": "view"}
 
 
 def _show_panel():

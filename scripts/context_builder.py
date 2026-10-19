@@ -246,7 +246,7 @@ def _get_origin(center, doc_origin):
     if doc_origin:
         origin = (float(doc_origin[0]), float(doc_origin[1]))
         if math.hypot(center[0] - origin[0], center[1] - origin[1]) > constants.ORIGIN_MAX_OFFSET:
-            raise DomainError("origin_mismatch", "다른 지역 문서입니다 — 새 문서에서 생성하세요 (문서 원점과 대상지 중심 거리 %.0f m > %.0f m)"
+            raise DomainError("origin_mismatch", "다른 지역 문서입니다. 새 문서에서 생성하세요 (문서 원점과 대상지 중심 거리 %.0f m > %.0f m)"
                               % (math.hypot(center[0] - origin[0], center[1] - origin[1]), constants.ORIGIN_MAX_OFFSET))
         return origin, True
     snap = constants.ORIGIN_SNAP
@@ -260,7 +260,7 @@ def _get_origins(center, doc_origin, placement):
     world_doc = doc_origin is not None and abs(float(doc_origin[0])) < 1e-6 and abs(float(doc_origin[1])) < 1e-6
     if doc_origin is not None and world_doc != (placement == "world"):
         doc_text, want_text = ("실제 좌표", "원점 이동") if world_doc else ("원점 이동", "실제 좌표")
-        raise DomainError("placement_mismatch", "이 문서는 '%s' 방식으로 생성된 문서입니다 — '%s'로 바꾸거나 새 문서에서 생성하세요"
+        raise DomainError("placement_mismatch", "이 문서는 '%s' 방식으로 생성된 문서입니다. '%s'로 바꾸거나 새 문서에서 생성하세요"
                           % (doc_text, want_text))
     if placement == "world":
         origin, _reused = _get_origin(center, None)
@@ -473,7 +473,7 @@ def _get_paper_and_scales(options):
     scales = sorted({int(s) for s in (options.get("scales") or constants.PANEL_DEFAULT_OPTIONS["scales"])})
     bad = [s for s in scales if s not in constants.BASEMAP_SCALES]
     if bad:
-        raise ValueError("지원하지 않는 축척 %s — 가능한 값 %s" % (bad, list(constants.BASEMAP_SCALES)))
+        raise ValueError("지원하지 않는 축척 %s입니다. 가능한 값 %s" % (bad, list(constants.BASEMAP_SCALES)))
     return (float(paper_mm[0]), float(paper_mm[1])), scales
 
 
@@ -822,7 +822,8 @@ def _get_error(exc, detail=""):
     text = str(exc.args[0]) if exc.args else str(exc)
     code = getattr(exc, "code", "exception")
     if isinstance(exc, (ValueError, KeyError, FileNotFoundError, RuntimeError)):
-        return {"code": code, "title": text.splitlines()[0][:80], "detail": text}
+        title = text.splitlines()[0][:80] if text else ""
+        return {"code": code, "title": title, "detail": "" if text == title else text}   # 한 줄 오류는 상세를 비운다 — 같은 문장이 두 번 보였다
     return {"code": "exception", "title": "%s: %s" % (type(exc).__name__, text), "detail": detail or text}
 
 
@@ -840,12 +841,47 @@ def _get_empty_response(options):
     }
 
 
+def get_2d_dir(result_dir):
+    # type: (str) -> str
+    """결과 폴더 안 2D 산출물 폴더(constants.RESULT_2D_DIRNAME) — 베이스맵 .ai·.dwg, sheets/, tables/."""
+    return os.path.join(result_dir, constants.RESULT_2D_DIRNAME)
+
+
+def get_sheets_dir(result_dir):
+    # type: (str) -> str
+    """도면 SVG 폴더 — 2D/sheets. 2026-10-19 전 결과 폴더는 결과 폴더 바로 아래 sheets/라 그쪽에 있으면 그쪽."""
+    legacy = os.path.join(result_dir, constants.RESULT_SHEETS_DIRNAME)
+    current = os.path.join(get_2d_dir(result_dir), constants.RESULT_SHEETS_DIRNAME)
+    return legacy if os.path.isdir(legacy) and not os.path.isdir(current) else current
+
+
+def _has_result(result_dir):
+    # type: (str) -> bool
+    return any(os.path.exists(os.path.join(result_dir, name)) for name in (constants.CONTEXT_META_FILE_NAME, constants.CONTEXT_MODEL_FILE_NAME,
+                                                                            constants.BLENDER_MODEL_FILE_NAME, constants.SKETCHUP_MODEL_FILE_NAME))
+
+
+def get_free_result_dir(result_dir):
+    # type: (str) -> str
+    """이미 결과가 든 폴더면 시각을 붙인 새 폴더(<대상지>_<날짜>_<HHMM>, 같은 분이면 _2…).
+    같은 대상지를 같은 날 다시 만들면 이전 3dm·2D를 지웠다(2026-10-19 사용자 행동 분석) — 이제 이전 결과는 그대로 남는다."""
+    if not _has_result(result_dir):
+        return result_dir
+    base = "%s_%s" % (result_dir, time.strftime(constants.RESULT_TIME_FORMAT))
+    path, n = base, 2
+    while _has_result(path):
+        path, n = "%s_%d" % (base, n), n + 1
+    return path
+
+
 def _reset_result_dir(result_dir):
     # type: (str) -> None
-    """결과 폴더 준비(write_3dm 첫 베이크 직전) — sheets/·tables/·context.3dm·context.json은 지우고 새로, .ai·log.txt는 보존(panel_ui.md 폴더 규약)."""
+    """결과 폴더 준비(write_3dm 첫 베이크 직전) — sheets/·tables/(결과 폴더 바로 아래 = 예전, 2D/ 아래 = 지금)·context.3dm·context.json은 지우고 새로,
+    .ai·.dwg·log.txt는 보존(panel_ui.md 폴더 규약)."""
     os.makedirs(result_dir, exist_ok=True)
-    for name in _RESET_NAMES:
-        path = os.path.join(result_dir, name)
+    paths = [os.path.join(result_dir, name) for name in _RESET_NAMES]
+    paths += [os.path.join(get_2d_dir(result_dir), name) for name in (constants.RESULT_SHEETS_DIRNAME, constants.RESULT_TABLES_DIRNAME)]
+    for path in paths:
         if os.path.isdir(path):
             shutil.rmtree(path, ignore_errors=True)
         elif os.path.exists(path):
@@ -1018,7 +1054,9 @@ def _run_phases(request, progress, doc, response, state):
     lot_key = prepared.target_key
     state["lot_key"] = lot_key
     _report(progress, "write_3dm", 0.0, "이전 베이크 정리")
-    _reset_result_dir(prepared.result_dir)   # 이전 산출물은 첫 베이크 직전에 지운다 — query·terrain 중 취소·실패는 이전 결과를 남긴다
+    prepared.result_dir = get_free_result_dir(prepared.result_dir)   # 이전 결과가 있으면 새 폴더 — 첫 베이크 직전에 정해 query·terrain 중 취소·실패는 빈 폴더를 남기지 않는다
+    response["dir"] = prepared.result_dir
+    _reset_result_dir(prepared.result_dir)
     context_baker.clear_previous(doc, lot_key)
     state["baked"] = True
     ids, items, chunk = [], geo.items, constants.RUN_BAKE_CHUNK
@@ -1039,7 +1077,8 @@ def _run_phases(request, progress, doc, response, state):
     if options.get("make_dwg") and constants.DWG_EXPORT_ENABLED and hasattr(context_baker, "save_dwg_from_3dm"):   # DWG는 Rhino만   # 2D 도면(BM::)만 .dwg로 — 실패해도 3dm은 남긴다
         _report(progress, "write_3dm", 0.95, ".dwg 저장")
         try:   # 방금 쓴 3dm을 헤드리스로 열어 쓴다 — 활성 문서에서 쓰면 Mac에서 멈춘다(context_baker.save_dwg_from_3dm)
-            dwg_path = os.path.join(prepared.result_dir, constants.DWG_FILE_FORMAT % min(prepared.scales))
+            os.makedirs(get_2d_dir(prepared.result_dir), exist_ok=True)
+            dwg_path = os.path.join(get_2d_dir(prepared.result_dir), constants.DWG_FILE_FORMAT % min(prepared.scales))
             response["context"]["dwg"] = context_baker.save_dwg_from_3dm(path, dwg_path, constants.BM_ROOT_LAYER)
         except Exception as exc:   # noqa: BLE001
             _phase_failed(response, "write_3dm", exc)
@@ -1056,7 +1095,8 @@ def _write_dwg(prepared):
         raise RuntimeError("DWG는 Rhino에서만 저장할 수 있습니다")
     scale = min(prepared.scales)
     items = context_geometry.build_basemap_2d(prepared, scale)
-    return context_baker.save_dwg(items, prepared, os.path.join(prepared.result_dir, constants.DWG_FILE_FORMAT % scale))
+    os.makedirs(get_2d_dir(prepared.result_dir), exist_ok=True)
+    return context_baker.save_dwg(items, prepared, os.path.join(get_2d_dir(prepared.result_dir), constants.DWG_FILE_FORMAT % scale))
 
 
 def _run_2d_phases(prepared, options, terrain_tris, progress, response, state, dwg=False):
@@ -1073,7 +1113,7 @@ def _run_2d_phases(prepared, options, terrain_tris, progress, response, state, d
         for n, scale in enumerate(prepared.scales):
             _report(progress, "basemap", n / float(len(prepared.scales)), "1:%d .ai" % scale)
             try:
-                result = basemap_ai.write_basemap(prepared, scale, prepared.result_dir)
+                result = basemap_ai.write_basemap(prepared, scale, get_2d_dir(prepared.result_dir))
                 exported.append(result["path"])
                 layer_count = max(layer_count, result["layers"])
                 state.setdefault("ai_results", {})[scale] = result
@@ -1093,7 +1133,7 @@ def _run_2d_phases(prepared, options, terrain_tris, progress, response, state, d
         state["phase"] = "sheets"
         sheet_ids = get_sheet_ids(options)
         names = {sheet_id: name for sheet_id, _key, name, _en, _needs in constants.SHEET_CATALOG}
-        sheets_dir = os.path.join(prepared.result_dir, constants.RESULT_SHEETS_DIRNAME)
+        sheets_dir = os.path.join(get_2d_dir(prepared.result_dir), constants.RESULT_SHEETS_DIRNAME)
         try:
             data = sheet_svg.SheetData.from_prepared(prepared, terrain_tris)
             state["sheet_data"] = data
@@ -1116,7 +1156,7 @@ def _run_2d_phases(prepared, options, terrain_tris, progress, response, state, d
         state["phase"] = "tables"
         _report(progress, "tables", 0.0, "조서 CSV")
         try:
-            response["tables"] = context_report.write_tables(prepared, prepared.result_dir)
+            response["tables"] = context_report.write_tables(prepared, get_2d_dir(prepared.result_dir))
         except Exception as exc:   # noqa: BLE001
             _phase_failed(response, "tables", exc)
         _report(progress, "tables", 1.0, "CSV %d개" % len(response["tables"]))
@@ -1316,17 +1356,23 @@ def export_basemap(result_dir, scale, site_db=None, context_db=None):
     """결과 폴더의 context.json(pnus·options·원점·스타일)으로 prepare를 다시 돌려 basemap_<축척>.ai 한 장을 쓴다(패널 '.ai 내보내기').
     Rhino 문서를 쓰지 않는다 — 문서에서 객체를 지웠어도 된다. 반환 basemap_ai.write_basemap 결과."""
     prepared = _prepare_from_meta(result_dir, scale, site_db, context_db)
-    return basemap_ai.write_basemap(prepared, int(scale), result_dir)
+    return basemap_ai.write_basemap(prepared, int(scale), get_2d_dir(result_dir))
 
 
-def get_sheet_data(result_dir, keep=None, site_db=None, context_db=None):
-    # type: (str, dict, object, object) -> tuple
+def get_sheet_data(result_dir, keep=None, site_db=None, context_db=None, quick=False):
+    # type: (str, dict, object, object, bool) -> tuple
     """결과 폴더의 (SheetData, Prepared). 이번 세션에 만든 결과면 keep(지형 삼각형 포함), 아니면 context.json으로 다시 prepare
-    (지형 삼각형은 Rhino 메시에서 나와 다시 만들지 않는다 — 지형 시트는 비어 있다). keep이 있으면 새로 만든 것을 담아 둔다."""
+    (지형 삼각형은 Rhino 메시에서 나와 다시 만들지 않는다 — 지형 시트는 비어 있다). keep이 있으면 새로 만든 것을 담아 둔다.
+    quick(스타일 미리보기): 2D 데이터가 아직 없으면 3D를 만든 Prepared를 그대로 쓴다 — 자료가 3D 범위까지만이라 파일 쓰기에는 안 쓴다.
+    다시 prepare하면 Global은 OSM·지형 타일을 프레임 크기로 또 받아 미리보기가 수십 초 걸렸다(2026-10-19 무교동 12-1 구역, 3D 53.9 s)."""
     import sheet_svg
     same = bool(keep) and keep.get("dir") == result_dir
     if same and keep.get("data") is not None:
         return keep["data"], keep["prepared"]
+    if quick and same and keep.get("prepared") is not None:
+        if keep.get("preview_data") is None:
+            keep["preview_data"] = sheet_svg.SheetData.from_prepared(keep["prepared"], keep.get("terrain_tris") or [])
+        return keep["preview_data"], keep["prepared"]
     terrain_tris = keep.get("terrain_tris") or [] if same else []   # 3D만 만든 이번 세션 결과 — 지형 삼각형은 남아 있다
     prepared = _prepare_from_meta(result_dir, None, site_db, context_db)
     data = sheet_svg.SheetData.from_prepared(prepared, terrain_tris)
@@ -1359,14 +1405,15 @@ def make_2d(result_dir, options, progress=None, keep=None, site_db=None, context
 
     입력: result_dir(run이 만든 폴더 — context.json 필요), options(2D 키, _2D_OPTION_KEYS), progress(phase, fraction, text) -> bool,
           keep(run이 남긴 {dir, terrain_tris} — 지형 도면용. 다른 폴더면 지형 도면은 빈다).
-    처리: get_2d_request → prepare(가장 큰 프레임까지 다시 조회, phase 'query') → 이번에 켠 것의 sheets/·tables/만 비우고 _run_2d_phases
+    처리: get_2d_request → prepare(가장 큰 프레임까지 다시 조회, phase 'query') → tables/만 비우고 _run_2d_phases
+          → 도면은 이번에 고른 장만 새로 쓰고 전에 만든 다른 장은 목록에 합친다(_merge_sheets)
           → context.json의 options·basemap·sheets·tables 갱신 + log.txt. Rhino 문서는 건드리지 않는다.
     출력: {ok, cancelled, dir, elapsed_s, options, basemap, sheets, tables, files, warnings, error}.
     """
     started = time.time()
     request = get_request_with_defaults(get_2d_request(result_dir, options, site_db, context_db))
     response = _get_empty_response(request["options"])
-    response.update(dir=result_dir)
+    response.update(dir=result_dir, folder=get_2d_dir(result_dir))   # folder = 패널 2D 카드 [폴더 열기]
     state = {"phase": "query"}
     prepared = None
     try:
@@ -1375,14 +1422,16 @@ def make_2d(result_dir, options, progress=None, keep=None, site_db=None, context
         prepared = prepare(request, progress)
         prepared.result_dir = result_dir   # prepare는 오늘 날짜 폴더를 고른다 — 어제 만든 3D 폴더에 더할 수 있게
         response.update(options=dict(prepared.request["options"]), warnings=list(prepared.warnings))
-        for key, name in (("make_sheets", constants.RESULT_SHEETS_DIRNAME), ("make_tables", constants.RESULT_TABLES_DIRNAME)):
-            if request["options"].get(key):   # 이전 2D의 다른 도면·CSV가 새것처럼 남지 않게
-                shutil.rmtree(os.path.join(result_dir, name), ignore_errors=True)
+        if request["options"].get("make_tables"):   # 조서 CSV는 늘 같은 다섯 개를 새로 쓴다
+            shutil.rmtree(os.path.join(get_2d_dir(result_dir), constants.RESULT_TABLES_DIRNAME), ignore_errors=True)
+        # 도면 폴더는 비우지 않는다 — 현황도 다음에 분석도를 더 만들면 현황도가 사라졌다(2026-10-19 사용자 행동 분석)
         same = bool(keep) and keep.get("dir") == result_dir
         terrain_tris = (keep.get("terrain_tris") or []) if same else []
         _run_2d_phases(prepared, request["options"], terrain_tris, progress, response, state,
                        dwg=bool(request["options"].get("make_dwg")) and constants.DWG_EXPORT_ENABLED)
         response["ok"] = True
+        if response["sheets"]:
+            response["sheets"] = _merge_sheets(_read_meta(result_dir).get("sheets") or [], response["sheets"])
         if keep is not None:
             keep.clear()
             keep.update(dir=result_dir, data=state.get("sheet_data"), prepared=prepared, terrain_tris=terrain_tris)
@@ -1412,11 +1461,19 @@ def make_2d(result_dir, options, progress=None, keep=None, site_db=None, context
     return response
 
 
+def _merge_sheets(old_sheets, new_sheets):
+    # type: (list, list) -> list
+    """전에 만든 도면 목록(context.json sheets)에 이번 도면을 덮어 합친다 — 같은 id는 새것, 파일이 없어진 옛 장은 뺀다. id 순."""
+    merged = {int(s["id"]): s for s in old_sheets if isinstance(s, dict) and s.get("path") and os.path.exists(s["path"])}
+    merged.update((int(s["id"]), s) for s in new_sheets)
+    return [merged[k] for k in sorted(merged)]
+
+
 def preview_sheet(result_dir, sheet_id, style, keep=None):
     # type: (str, int, dict, dict) -> dict
     """스타일을 바꾼 한 장 — 파일은 쓰지 않는다(패널 미리보기). 반환 {svg, empty, reason}."""
     import sheet_svg
-    data, _prepared = get_sheet_data(result_dir, keep)
+    data, _prepared = get_sheet_data(result_dir, keep, quick=True)
     data.options["style"] = dict(style or {})
     data.options["_aerial_dpi"] = constants.AERIAL_PREVIEW_DPI
     try:
@@ -1442,14 +1499,15 @@ def apply_style(result_dir, style, keep=None):
     ids = [int(s["id"]) for s in written] or get_sheet_ids(meta.get("options") or {})
     terrain_ids = {sheet_id for sheet_id, _key, _name, _en, needs in constants.SHEET_CATALOG if needs == "terrain"}
     kept = [sheet_id for sheet_id in ids if sheet_id in terrain_ids and not data.terrain_tris]
-    sheets = sheet_svg.write_sheets(data, os.path.join(result_dir, constants.RESULT_SHEETS_DIRNAME), [i for i in ids if i not in kept])
+    sheets = sheet_svg.write_sheets(data, get_sheets_dir(result_dir), [i for i in ids if i not in kept])
     sheets += [s for s in written if int(s["id"]) in kept]
     sheets.sort(key=lambda s: int(s["id"]))
     basemaps = []
-    for name in sorted(os.listdir(result_dir)):
-        match = re.match(r"basemap_(\d+)\.ai$", name)
-        if match and int(match.group(1)) in prepared.frame_bounds:
-            basemaps.append(basemap_ai.write_basemap(prepared, int(match.group(1)), result_dir)["path"])
+    for folder in (result_dir, get_2d_dir(result_dir)):   # 예전 결과는 결과 폴더 바로 아래, 지금은 2D/ — 있던 자리에 다시 쓴다
+        for name in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
+            match = re.match(r"basemap_(\d+)\.ai$", name)
+            if match and int(match.group(1)) in prepared.frame_bounds:
+                basemaps.append(basemap_ai.write_basemap(prepared, int(match.group(1)), folder)["path"])
     meta.setdefault("options", {})["style"] = style
     meta["sheets"] = sheets
     with open(os.path.join(result_dir, constants.CONTEXT_META_FILE_NAME), "w", encoding="utf-8") as handle:

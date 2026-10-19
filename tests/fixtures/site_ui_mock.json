@@ -141,7 +141,8 @@
    "zoom_after_import": true,
    "style": {
     "preset": "std"
-   }
+   },
+   "basemap_preset": "a3"
   },
   "recent": [
    {
@@ -169,7 +170,8 @@
     "name": "베이스맵",
     "subtitle": "Base map",
     "needs": "lot",
-    "korea_only": false
+    "korea_only": false,
+    "group": "base"
    },
    {
     "id": 1,
@@ -177,7 +179,8 @@
     "name": "도형-배경도",
     "subtitle": "Figure-ground",
     "needs": "building",
-    "korea_only": false
+    "korea_only": false,
+    "group": "analysis"
    },
    {
     "id": 2,
@@ -185,7 +188,8 @@
     "name": "필지 규모",
     "subtitle": "Parcel grain",
     "needs": "lot",
-    "korea_only": true
+    "korea_only": true,
+    "group": "analysis"
    },
    {
     "id": 3,
@@ -193,7 +197,8 @@
     "name": "블록 밀도",
     "subtitle": "Block density",
     "needs": "building",
-    "korea_only": true
+    "korea_only": true,
+    "group": "analysis"
    },
    {
     "id": 4,
@@ -201,7 +206,8 @@
     "name": "대중교통 역세권",
     "subtitle": "Transit catchment",
     "needs": "building",
-    "korea_only": false
+    "korea_only": false,
+    "group": "analysis"
    },
    {
     "id": 5,
@@ -209,7 +215,8 @@
     "name": "보행권",
     "subtitle": "Walking distance",
     "needs": "road",
-    "korea_only": false
+    "korea_only": false,
+    "group": "analysis"
    },
    {
     "id": 6,
@@ -217,7 +224,8 @@
     "name": "녹지·수계",
     "subtitle": "Green and blue",
     "needs": "building",
-    "korea_only": false
+    "korea_only": false,
+    "group": "analysis"
    },
    {
     "id": 7,
@@ -225,7 +233,8 @@
     "name": "생활 공공시설",
     "subtitle": "Community facilities",
     "needs": "building",
-    "korea_only": false
+    "korea_only": false,
+    "group": "analysis"
    },
    {
     "id": 8,
@@ -233,7 +242,8 @@
     "name": "가로 위계",
     "subtitle": "Street hierarchy",
     "needs": "road",
-    "korea_only": false
+    "korea_only": false,
+    "group": "analysis"
    },
    {
     "id": 9,
@@ -241,7 +251,8 @@
     "name": "토지이용현황",
     "subtitle": "Land use",
     "needs": "lot",
-    "korea_only": true
+    "korea_only": true,
+    "group": "status"
    },
    {
     "id": 10,
@@ -249,7 +260,8 @@
     "name": "지목 현황",
     "subtitle": "Land category",
     "needs": "lot",
-    "korea_only": true
+    "korea_only": true,
+    "group": "status"
    },
    {
     "id": 11,
@@ -257,7 +269,8 @@
     "name": "용도지역",
     "subtitle": "Zoning",
     "needs": "lot",
-    "korea_only": true
+    "korea_only": true,
+    "group": "status"
    },
    {
     "id": 12,
@@ -265,7 +278,8 @@
     "name": "용도지구·구역",
     "subtitle": "Districts",
     "needs": "lot",
-    "korea_only": true
+    "korea_only": true,
+    "group": "status"
    },
    {
     "id": 13,
@@ -273,7 +287,8 @@
     "name": "도시계획시설·지구단위계획",
     "subtitle": "Planning facilities",
     "needs": "lot",
-    "korea_only": true
+    "korea_only": true,
+    "group": "status"
    },
    {
     "id": 14,
@@ -281,7 +296,8 @@
     "name": "건축물 용도",
     "subtitle": "Building use",
     "needs": "building",
-    "korea_only": true
+    "korea_only": true,
+    "group": "status"
    },
    {
     "id": 15,
@@ -289,7 +305,8 @@
     "name": "건축물 층수",
     "subtitle": "Building height",
     "needs": "building",
-    "korea_only": false
+    "korea_only": false,
+    "group": "status"
    },
    {
     "id": 16,
@@ -297,7 +314,8 @@
     "name": "건축물 노후도",
     "subtitle": "Building age",
     "needs": "building",
-    "korea_only": true
+    "korea_only": true,
+    "group": "status"
    },
    {
     "id": 17,
@@ -305,7 +323,8 @@
     "name": "공시지가",
     "subtitle": "Land price",
     "needs": "lot",
-    "korea_only": true
+    "korea_only": true,
+    "group": "status"
    },
    {
     "id": 18,
@@ -313,7 +332,8 @@
     "name": "표고",
     "subtitle": "Elevation",
     "needs": "terrain",
-    "korea_only": false
+    "korea_only": false,
+    "group": "status"
    },
    {
     "id": 19,
@@ -321,7 +341,8 @@
     "name": "경사",
     "subtitle": "Slope",
     "needs": "terrain",
-    "korea_only": false
+    "korea_only": false,
+    "group": "status"
    },
    {
     "id": 20,
@@ -329,7 +350,8 @@
     "name": "경관·조망 (틀)",
     "subtitle": "Views",
     "needs": "lot",
-    "korea_only": false
+    "korea_only": false,
+    "group": "frame"
    },
    {
     "id": 21,
@@ -337,7 +359,8 @@
     "name": "이미지맵 (틀)",
     "subtitle": "Image of the city",
     "needs": "lot",
-    "korea_only": false
+    "korea_only": false,
+    "group": "frame"
    },
    {
     "id": 22,
@@ -345,7 +368,8 @@
     "name": "종합분석 (틀)",
     "subtitle": "Synthesis",
     "needs": "lot",
-    "korea_only": false
+    "korea_only": false,
+    "group": "frame"
    },
    {
     "id": 23,
@@ -353,7 +377,8 @@
     "name": "항공사진",
     "subtitle": "Aerial photo",
     "needs": "image",
-    "korea_only": false
+    "korea_only": false,
+    "group": "base"
    },
    {
     "id": 24,
@@ -361,7 +386,8 @@
     "name": "입체 매스도",
     "subtitle": "Axonometric massing",
     "needs": "building",
-    "korea_only": false
+    "korea_only": false,
+    "group": "analysis"
    }
   ],
   "style_presets": {
@@ -520,6 +546,9 @@
    "model": "context.3dm",
    "dwg": true,
    "ask_stats": false
+  },
+  "links": {
+   "website": "https://969flash.github.io/gorani/"
   }
  },
  {
@@ -1282,184 +1311,183 @@
     3000
    ],
    "exported": [
-    "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/basemap_1000.ai",
-    "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/basemap_3000.ai"
+    "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/basemap_1000.ai"
    ],
-   "dwg": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/basemap_1000.dwg"
+   "dwg": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/basemap_1000.dwg"
   },
   "sheets": [
    {
     "id": 0,
     "name": "베이스맵",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/00_베이스맵.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/00_베이스맵.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 1,
     "name": "도형-배경도",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/01_도형-배경도.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/01_도형-배경도.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 2,
     "name": "필지 규모",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/02_필지규모.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/02_필지규모.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 3,
     "name": "블록 밀도",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/03_블록밀도.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/03_블록밀도.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 4,
     "name": "대중교통 역세권",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/04_대중교통역세권.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/04_대중교통역세권.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 5,
     "name": "보행권",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/05_보행권.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/05_보행권.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 6,
     "name": "녹지·수계",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/06_녹지·수계.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/06_녹지·수계.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 7,
     "name": "생활 공공시설",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/07_생활공공시설.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/07_생활공공시설.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 8,
     "name": "가로 위계",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/08_가로위계.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/08_가로위계.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 9,
     "name": "토지이용현황",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/09_토지이용현황.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/09_토지이용현황.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 10,
     "name": "지목 현황",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/10_지목현황.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/10_지목현황.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 11,
     "name": "용도지역",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/11_용도지역.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/11_용도지역.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 12,
     "name": "용도지구·구역",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/12_용도지구·구역.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/12_용도지구·구역.svg",
     "empty": true,
     "reason": "데이터 없음"
    },
    {
     "id": 13,
     "name": "도시계획시설·지구단위계획",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/13_도시계획시설·지구단위계획.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/13_도시계획시설·지구단위계획.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 14,
     "name": "건축물 용도",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/14_건축물용도.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/14_건축물용도.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 15,
     "name": "건축물 층수",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/15_건축물층수.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/15_건축물층수.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 16,
     "name": "건축물 노후도",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/16_건축물노후도.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/16_건축물노후도.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 17,
     "name": "공시지가",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/17_공시지가.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/17_공시지가.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 18,
     "name": "표고",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/18_표고.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/18_표고.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 19,
     "name": "경사",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/19_경사.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/19_경사.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 20,
     "name": "경관·조망 (틀)",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/20_경관·조망(틀).svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/20_경관·조망(틀).svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 21,
     "name": "이미지맵 (틀)",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/21_이미지맵(틀).svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/21_이미지맵(틀).svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 22,
     "name": "종합분석 (틀)",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/22_종합분석(틀).svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/22_종합분석(틀).svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 23,
     "name": "항공사진",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/23_항공사진.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/23_항공사진.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 24,
     "name": "입체 매스도",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/24_입체매스도.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/sheets/24_입체매스도.svg",
     "empty": false,
     "reason": ""
    }
@@ -1467,23 +1495,23 @@
   "tables": [
    {
     "name": "parcels.csv",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/tables/parcels.csv"
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/tables/parcels.csv"
    },
    {
     "name": "buildings.csv",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/tables/buildings.csv"
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/tables/buildings.csv"
    },
    {
     "name": "sheet_stats.csv",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/tables/sheet_stats.csv"
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/tables/sheet_stats.csv"
    },
    {
     "name": "height_src_stats.csv",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/tables/height_src_stats.csv"
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/tables/height_src_stats.csv"
    },
    {
     "name": "alignment.csv",
-    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/tables/alignment.csv"
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/tables/alignment.csv"
    }
   ],
   "files": [
@@ -1504,14 +1532,15 @@
    }
   ],
   "warnings": [],
-  "error": null
+  "error": null,
+  "folder": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D"
  },
  {
   "type": "exported",
   "ok": true,
   "dir": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019",
-  "scale": 5000,
-  "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/basemap_5000.ai",
+  "scale": 3000,
+  "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/2D/basemap_3000.ai",
   "text": ""
  }
 ]
