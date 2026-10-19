@@ -55,30 +55,45 @@ BRAND_DIR = os.path.join(ROOT_DIR, "docs", "brand")      # 로고 원본 SVG(cur
 TOOLBAR_ICON_COLORS = {"light": "#111418", "dark": "#E8ECF2"}   # Rhino 도구 막대 라이트·다크 아이콘 색 = DESIGN.md 잉크·다크 잉크
 
 PACKAGE_NAME = constants.TOOL_NAME
-PACKAGE_VERSION = "0.1.0"                                  # 올릴 때마다 올린다 — yak은 같은 버전을 다시 받지 않는다
+PACKAGE_VERSION = "0.2.0"                                  # 올릴 때마다 올린다 — yak은 같은 버전을 다시 받지 않는다
 PLUGIN_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a10"         # 바꾸지 말 것 — Gorani가 이 id로 자기 폴더를 찾는다
 COMMAND_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a11"
 COMMAND_NAME = "Gorani"
 PUBLISHER = {"name": "sanghoon", "email": "bsh969flash@gmail.com"}
 WEBSITE_URL = "https://969flash.github.io/gorani/"
 # yak manifest — rhinocode가 쓰는 manifest.yml은 url·검색어가 비고 버전에 +빌드번호가 붙는다. PackageManager 목록·검색에 보일 내용으로 갈아 쓴다.
+# PackageManager 검색은 이름·설명·검색어를 다 본다(2026-10-19 yak search 실측 — 'terrain'·'roads'가 설명만으로 걸림). 설명은 쉬운 말로, 사람들이 찾을 낱말을 넣는다.
 # guid: 검색어는 지우지 말 것 — Rhino가 이 플러그인 id로 패키지를 찾는다. 검색어는 영문·숫자·-·_만(공백이면 yak push가 400).
 YAK_MANIFEST = '''name: %(name)s
 version: %(version)s
 authors:
 - %(author)s
-description: 'Site context for urban design: 3D buildings, roads, terrain and water, basemaps and survey sheets. Korea (parcel DB) or Global (OpenStreetMap). Command: Gorani / 도시설계 착수용 대지 컨텍스트'
+description: |-
+  The city around your site, modeled in Rhino. Pick a site on the map and Gorani builds the surrounding buildings, roads, terrain, rivers, parks and railways as layers in your open document. It works anywhere OpenStreetMap has data, and in Korea it adds cadastral parcels, zoning and 1:5000 contours. Gorani also saves an Illustrator basemap and urban analysis maps. It is free, and you don't need an account or Grasshopper. After installing, restart Rhino and type Gorani.
+
+  대상지를 고르면 주변 건물·도로·지형을 Rhino 문서에 3D로 만들어 주는 무료 플러그인입니다. 설치한 뒤 Rhino를 다시 켜고 명령창에 Gorani를 입력하세요.
 license: MIT
 url: %(url)s
 icon: icon.png
 keywords:
-- urban-design
 - gorani
-- site
-- context
-- gis
+- urban-design
+- site-model
+- context-model
+- city-model
+- 3d-city
+- buildings
+- terrain
+- topography
+- contours
 - openstreetmap
+- osm
+- gis
+- basemap
+- site-analysis
 - korea
+- cadastral
+- zoning
 - guid:%(plugin_id)s
 '''
 

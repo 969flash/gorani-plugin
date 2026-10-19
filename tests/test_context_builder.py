@@ -223,7 +223,7 @@ class PrepareTest(unittest.TestCase):
         self.assertLess(abs(cx - CENTER[0]), 10.0)
         self.assertLess(abs(cy - CENTER[1]), 10.0)
         self.assertEqual(p.lot_name, "성수동2가_333-139")
-        self.assertTrue(p.result_dir.endswith(os.path.join("20261007", "성수동2가_333-139")))
+        self.assertTrue(p.result_dir.endswith("성수동2가_333-139_20261007"))   # result/<대상지>_<날짜>/
 
     def test_zoning_rings_clipped_with_sheet_colors(self):
         import context_baker
@@ -454,7 +454,7 @@ class ResponseSchemaTest(unittest.TestCase):
             self.assertTrue(response["dir"].startswith(tmp))
             self.assertEqual(set(response["context"]), {"path", "layers", "buildings", "lots", "demolished", "tin_points", "origin",
                                                         "origin_reused", "placement", "doc_origin", "model_unit", "imported", "import_text", "dwg"})
-            self.assertEqual(set(response["basemap"]), {"ready", "paper", "layers", "scales", "exported"})
+            self.assertEqual(set(response["basemap"]), {"ready", "paper", "layers", "scales", "exported", "dwg"})
             self.assertEqual(set(response["quality"]), {"height_src", "align", "skipped", "mismatch_count", "dates"})
             self.assertAlmostEqual(sum(response["quality"]["height_src"].values()), 1.0, 2)
             self.assertEqual(response["quality"]["dates"]["building"], "2026-09-06")
