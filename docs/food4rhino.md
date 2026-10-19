@@ -17,10 +17,11 @@ Rhino판을 yak에 올린 뒤 food4rhino(https://www.food4rhino.com)에 앱 페�
 
 **Name**: Gorani
 
-**Short description**:
+**Short description**(영어 다음 줄에 한국어):
 The city around your site, modeled in Rhino. Free 3D context of buildings, roads, terrain and water anywhere OpenStreetMap has data, plus parcels, zoning and contours in Korea.
+대상지 주변 도시를 Rhino에 3D로 만들어 주는 무료 플러그인. 해외는 OpenStreetMap, 국내는 지적 필지·용도지역·등고선까지.
 
-**Description**:
+**Description**(영어 다음에 한국어를 이어 쓴다):
 
 Gorani builds a 3D context model of the area around your site in your open Rhino document.
 
@@ -43,7 +44,29 @@ Good to know
 - Gorani sends anonymous usage statistics to Google Analytics: a random ID per install, versions and OS, where you generated, the extent, run time and error types. No names, file paths or drawing contents.
 - Results that contain Korean contours or elevations must not be posted online (National Geographic Information Institute security rules).
 
-**Website**: https://969flash.github.io/gorani/ (English: https://969flash.github.io/gorani/en/)
+한국어
+
+Gorani는 대상지 주변의 3D 컨텍스트 모델을 지금 열린 Rhino 문서에 만들어 줍니다.
+
+쓰는 법
+1. 패키지 매니저(PackageManager)에서 Gorani를 검색해 설치하고 Rhino를 다시 켭니다.
+2. 명령창에 Gorani를 입력하면 지도가 있는 패널이 뷰포트 옆에 열립니다.
+3. 필지를 클릭하거나 구역을 그리거나 위치를 찍고, 범위(한 변 500 m~2 km 사각형 또는 반경)를 고른 뒤 [3D 모델 만들기]를 누릅니다.
+
+만들어지는 것
+- 건물 매스·도로·지형 메시·하천·공원·철도가 레이어별로 들어옵니다. 건물 높이는 국내는 층수, 해외는 OpenStreetMap 태그로 정합니다.
+- 같은 패널에서 2D도 만들 수 있습니다. 레이어가 나뉜 일러스트레이터 베이스맵(1:1,000~1:5,000), 도시설계 현황·분석도(SVG·AI, 도형-배경도·토지이용·용도지역·가로 위계 등), DWG, 필지·건물 조서 CSV입니다.
+
+지원 범위
+- 해외: OpenStreetMap 건물·도로와 공개 지형 타일. 생성할 때 인터넷이 필요합니다.
+- 국내: 전국 지적 필지·용도지역·건물·1:5,000 등고선. 지역(시군구) 데이터는 패널에서 처음 한 번 받습니다.
+
+알아 둘 것
+- Rhino 8(Windows·Mac). 그래스호퍼·회원가입·API 키가 필요 없습니다.
+- 사용 통계를 Google Analytics로 보냅니다. 설치마다 만든 무작위 ID, 버전·OS, 생성한 위치·범위·걸린 시간·오류 종류입니다. 이름·파일 경로·도면 내용은 보내지 않습니다.
+- 국내 등고선·표고가 든 결과물은 인터넷에 올리지 마세요(국토지리정보원 보안관리규정).
+
+**Website**: https://969flash.github.io/gorani/en/ (한국어: https://969flash.github.io/gorani/)
 
 **Support**: https://github.com/969flash/gorani/issues
 
@@ -53,6 +76,6 @@ Good to know
 
 **Category**(있는 것 중에서): Architecture, Urban Design / Planning, GIS / Mapping, Landscape
 
-**Tags**: site context, urban design, city model, OpenStreetMap, GIS, terrain, topography, contours, basemap, site analysis, Korea
+**Tags**: site context, urban design, city model, OpenStreetMap, GIS, terrain, topography, contours, basemap, site analysis, Korea, 도시설계, 대지분석, 현황도
 
 **Release**: Rhino Package Manager 패키지 `Gorani`로 연결(파일을 따로 올리지 않는다). 새 판은 yak에만 올리면 된다.
