@@ -70,13 +70,14 @@ try:
     check("context_3dm", os.path.exists(response["context"]["path"]) and os.path.getsize(response["context"]["path"]) > 1_000_000,
           "%s %d bytes" % (response["context"]["path"], os.path.getsize(response["context"]["path"]) if os.path.exists(response["context"]["path"]) else -1))
     check("context_json", os.path.exists(os.path.join(response["dir"], constants.CONTEXT_META_FILE_NAME)))
-    check("sheets_all", len(response["sheets"]) == len(constants.SHEET_CATALOG) and all(r["path"] and os.path.exists(r["path"]) for r in response["sheets"]),
+    n_sheets = len(context_builder.get_sheet_ids(response["options"]))   # 기본 시트 = 틀(frame) 뺀 것(2026-10-19 패널 2화면, constants 기본 sheet_ids)
+    check("sheets_all", len(response["sheets"]) == n_sheets and all(r["path"] and os.path.exists(r["path"]) for r in response["sheets"]),
           str([(r["id"], r["empty"], r["reason"]) for r in response["sheets"]]))
     # 도면 스타일 — 이번 run의 시트 데이터(지형 삼각형 포함)로 미리보기·적용(2026-10-13)
     preview = context_builder.preview_sheet(response["dir"], constants.SHEET_IDS["elev"], {"preset": "dark"}, keep)
     check("style_preview_terrain", not preview["empty"] and 'id="pv_map"' in preview["svg"], str(preview["reason"]))
     applied = context_builder.apply_style(response["dir"], {"preset": "mono", "layout": "bottom"}, keep)
-    check("style_apply", len(applied["sheets"]) == len(constants.SHEET_CATALOG) and applied["kept"] == [] and len(applied["basemaps"]) == 1,
+    check("style_apply", len(applied["sheets"]) == n_sheets and applied["kept"] == [] and len(applied["basemaps"]) == 1,
           "%d sheets kept=%s basemaps=%s" % (len(applied["sheets"]), applied["kept"], applied["basemaps"]))
     check("tables_5", len(response["tables"]) == 5 and all(os.path.exists(t["path"]) for t in response["tables"]), str([t["name"] for t in response["tables"]]))
     check("files", {f["name"] for f in response["files"]} >= {constants.CONTEXT_MODEL_FILE_NAME, constants.CONTEXT_META_FILE_NAME, constants.RESULT_LOG_FILE_NAME},
@@ -91,7 +92,7 @@ try:
     check("callback_fractions", all(c[1] <= n[1] or c[0] != n[0] for c, n in zip(calls, calls[1:])) and calls[-1][1] == 1.0, str(len(calls)))
     # 베이스맵 — basemap_ai가 직접 쓴 .ai: ready·존재·%%BoundingBox = 용지 pt·%AI5_ArtSize·레이어 순서(BM_LAYERS)·문서에 BM 객체 없음
     import re
-    ai_path = os.path.join(response["dir"], constants.BASEMAP_FILE_FORMAT % 3000)
+    ai_path = os.path.join(context_builder.get_2d_dir(response["dir"]), constants.BASEMAP_FILE_FORMAT % 3000)   # 2D 산출물은 결과 폴더 안 2D/(2026-10-19)
     bm = response["basemap"]
     check("basemap_ready", bm["ready"] and bm["exported"] == [ai_path] and os.path.exists(ai_path), "ready=%s exported=%s" % (bm["ready"], bm["exported"]))
     ai_text = open(ai_path, encoding="ascii").read() if os.path.exists(ai_path) else ""
@@ -154,7 +155,7 @@ try:
     check("cancel_rollback", count_baked() == 0, str(count_baked()))
     with open(os.path.join(cancelled["dir"], constants.RESULT_LOG_FILE_NAME), encoding="utf-8") as f:
         check("cancel_log", "cancelled at write_3dm" in f.read())
-    check("first_run_kept", len(response["sheets"]) == len(constants.SHEET_CATALOG) and all(os.path.exists(r["path"]) for r in response["sheets"])
+    check("first_run_kept", len(response["sheets"]) == n_sheets and all(os.path.exists(r["path"]) for r in response["sheets"])
           and all(os.path.exists(t["path"]) for t in response["tables"]) and os.path.exists(response["context"]["path"]))
 finally:
     deleted, layers = context_baker.clear_previous(doc, lot_key)
