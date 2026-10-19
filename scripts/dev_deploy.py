@@ -69,9 +69,9 @@ version: %(version)s
 authors:
 - %(author)s
 description: |-
-  The city around your site, modeled in Rhino. Pick a site on the map and Gorani builds the surrounding buildings, roads, terrain, rivers, parks and railways as layers in your open document. It works anywhere OpenStreetMap has data, and in Korea it adds cadastral parcels, zoning and 1:5000 contours. Gorani also saves an Illustrator basemap and urban analysis maps. It is free, and you don't need an account or Grasshopper. After installing, restart Rhino and type Gorani.
+  필지를 고르면 주변 건물·도로·지형이 라이노에 3D로 들어옵니다. 명령 Gorani 실행 → 지도에서 필지 클릭(또는 구역 그리기·위치 찍기) → 범위 선택 → [3D 모델 만들기]. 건물 매스, 도로, 지형, 하천, 녹지, 철도가 지금 문서에 레이어별로 생깁니다. 국내는 전국 필지 경계·용도지역·1:5,000 수치지형도 등고선까지, 해외는 OpenStreetMap 건물·도로와 지형으로 만듭니다. 같은 패널에서 일러스트레이터 베이스맵(.ai), 현황도·분석도, DWG, 조서 CSV도 뽑을 수 있습니다. 무료이고 그래스호퍼나 회원가입 없이 바로 씁니다.
 
-  대상지 주변 도시를 Rhino에 3D로 만들어 줍니다. 지도에서 대상지를 고르면 주변 건물·도로·지형·하천·공원·철도가 지금 열린 문서에 레이어별로 들어옵니다. OpenStreetMap 데이터가 있는 곳이면 어디서나 되고, 국내는 지적 필지·용도지역·1:5,000 등고선까지 들어갑니다. 일러스트레이터 베이스맵과 도시설계 현황·분석도도 만들 수 있습니다. 무료이고 회원가입이나 그래스호퍼가 필요 없습니다. 설치한 뒤 Rhino를 다시 켜고 명령창에 Gorani를 입력하세요.
+  The city around your site, modeled in Rhino. Pick a site on the map and Gorani builds the surrounding buildings, roads, terrain, rivers, parks and railways as layers in your open document. It works anywhere OpenStreetMap has data, and in Korea it adds cadastral parcels, zoning and 1:5000 contours. Gorani also saves an Illustrator basemap and urban analysis maps. It is free, and you don't need an account or Grasshopper. After installing, restart Rhino and type Gorani.
 license: MIT
 url: %(url)s
 icon: icon.png
