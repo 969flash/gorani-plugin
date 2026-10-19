@@ -51,6 +51,8 @@ import constants  # noqa: E402
 
 BUILD_DIR = os.path.join(ROOT_DIR, "build")
 RHINO_BIN_DIR = "/Applications/Rhino 8.app/Contents/Resources/bin"
+BRAND_DIR = os.path.join(ROOT_DIR, "docs", "brand")      # 로고 원본 SVG(currentColor)와 크기별 PNG — docs/brand/logo.html
+TOOLBAR_ICON_COLORS = {"light": "#111418", "dark": "#E8ECF2"}   # Rhino 도구 막대 라이트·다크 아이콘 색 = DESIGN.md 잉크·다크 잉크
 
 PACKAGE_NAME = constants.TOOL_NAME
 PACKAGE_VERSION = "0.1.0"                                  # 올릴 때마다 올린다 — yak은 같은 버전을 다시 받지 않는다
@@ -68,6 +70,7 @@ authors:
 description: 'Site context for urban design: 3D buildings, roads, terrain and water, basemaps and survey sheets. Korea (parcel DB) or Global (OpenStreetMap). Command: Gorani / 도시설계 착수용 대지 컨텍스트'
 license: MIT
 url: %(url)s
+icon: icon.png
 keywords:
 - urban-design
 - gorani
@@ -263,6 +266,29 @@ def _build_plugin(project_dir):
     return output_dir
 
 
+def _get_mark_svg(file_name, color):
+    # type: (str, str) -> str
+    """docs/brand의 마크 SVG(currentColor)를 한 색으로 칠한 문자열."""
+    with open(os.path.join(BRAND_DIR, file_name), encoding="utf-8") as f:
+        return f.read().strip().replace("currentColor", color)
+
+
+def _set_rui_icons(rui_path):
+    # type: (str) -> None
+    """rhinocode가 쓴 .rui의 명령 아이콘(기본 회색 상자 SVG)을 Gorani 마크로 바꾼다. .rhproj의 아이콘 칸은 빌드에 반영되지 않아
+    (2026-10-19 실측 — identity·codes에 icon·image·imageSet을 원문·base64로 넣어도 .rui는 기본 아이콘) 빌드 뒤에 갈아 끼운다.
+    도구 막대는 24 px 안팎이라 작은 판(gorani_mark_small.svg)을 쓴다."""
+    with open(rui_path, encoding="utf-8") as f:
+        text = f.read()
+    for mode, color in TOOLBAR_ICON_COLORS.items():
+        svg = _get_mark_svg("gorani_mark_small.svg", color)
+        text, count = re.subn(r"<%s>.*?</%s>" % (mode, mode), lambda m: "<%s>%s</%s>" % (mode, svg, mode), text, flags=re.S)
+        if not count:
+            sys.exit(".rui에 <%s> 아이콘 자리가 없습니다 — rhinocode 출력 형식이 바뀌었는지 확인하세요: %s" % (mode, rui_path))
+    with open(rui_path, "w", encoding="utf-8") as f:
+        f.write(text)
+
+
 def build_yak():
     # type: () -> str
     """build/yak/ 아래에서 스크립트를 모으고 플러그인을 빌드해 .yak 하나를 build/에 만든다. 경로를 돌려준다."""
@@ -274,6 +300,8 @@ def build_yak():
     plugin_dir = _build_plugin(os.path.join(work_dir, "project"))
     for file_name in (PACKAGE_NAME + ".rhp", PACKAGE_NAME + ".rui"):
         shutil.copyfile(os.path.join(plugin_dir, file_name), os.path.join(package_dir, file_name))
+    _set_rui_icons(os.path.join(package_dir, PACKAGE_NAME + ".rui"))
+    shutil.copyfile(os.path.join(BRAND_DIR, "png", "gorani_128.png"), os.path.join(package_dir, "icon.png"))   # PackageManager 목록 아이콘
     with open(os.path.join(package_dir, "manifest.yml"), "w", encoding="utf-8") as f:
         f.write(YAK_MANIFEST % {"name": PACKAGE_NAME, "version": PACKAGE_VERSION, "author": PUBLISHER["name"],
                                 "url": WEBSITE_URL, "plugin_id": PLUGIN_ID})
@@ -436,28 +464,6 @@ def _stage_python(python_dir):
     return host_python
 
 
-def _write_icon(path, size):
-    # type: (str, int) -> None
-    """도구 막대 아이콘 PNG — 웹사이트 favicon과 같은 표식(검은 테두리 정사각 3×3 방안 + 가운데 파란 칸). sheet_svg PNG 작성기를 쓴다."""
-    import base64
-    import sheet_svg
-    edge, grid, blue, white = (17, 20, 24), (201, 210, 222), (0, 87, 255), (255, 255, 255)
-    pixels = []
-    for row in range(size):
-        for col in range(size):
-            u, v = (col + 0.5) * 32.0 / size, (row + 0.5) * 32.0 / size
-            if u < 2 or v < 2 or u > 30 or v > 30:
-                pixels.append(edge)
-            elif 11 <= u <= 21 and 11 <= v <= 21:
-                pixels.append(blue)
-            elif min(abs(u - 11), abs(u - 21), abs(v - 11), abs(v - 21)) < 0.75:
-                pixels.append(grid)
-            else:
-                pixels.append(white)
-    with open(path, "wb") as f:
-        f.write(base64.b64decode(sheet_svg._get_png_uri(pixels, size).split(",", 1)[1]))
-
-
 def build_sketchup():
     # type: () -> str
     """build/sketchup/에 확장 폴더를 모아 build/bsh_gorani-<버전>.rbz로 묶는다. rbz 경로를 돌려준다."""
@@ -480,7 +486,10 @@ def build_sketchup():
     subprocess.run([host_python, "-I", "-c", compile_source, SCRIPTS_DIR, target] + names, check=True)
     shutil.copyfile(os.path.join(SCRIPTS_DIR, "sketchup_ext.rb"), os.path.join(ext_dir, "main.rb"))
     os.makedirs(os.path.join(ext_dir, "icons"))
-    _write_icon(os.path.join(ext_dir, "icons", "gorani.png"), 32)
+    # 도구 막대 아이콘 — Windows는 SVG, macOS는 PNG(SketchUp 맥은 SVG 대신 PDF를 받는다 — PNG는 48 px를 줄여 그린다)
+    with open(os.path.join(ext_dir, "icons", "gorani.svg"), "w", encoding="utf-8") as f:
+        f.write(_get_mark_svg("gorani_mark_small.svg", TOOLBAR_ICON_COLORS["light"]))
+    shutil.copyfile(os.path.join(BRAND_DIR, "png", "gorani_48.png"), os.path.join(ext_dir, "icons", "gorani.png"))
     for path in DOC_FILE_NAMES:
         os.makedirs(os.path.join(ext_dir, os.path.dirname(path)), exist_ok=True)
         shutil.copyfile(os.path.join(ROOT_DIR, path), os.path.join(ext_dir, path))

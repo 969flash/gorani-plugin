@@ -1,0 +1,317 @@
+<!doctype html>
+<!-- Gorani 마크 2차 시안 — 고대비 얼굴 로고 3안 + 뿔 비교 + 달리는 고라니 로딩. 브라우저로 그냥 연다(file:// 가능) -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gorani 마크 시안</title>
+<style>
+@font-face { font-family: "Pretendard Variable"; src: url("../../scripts/vendor/PretendardVariable.woff2") format("woff2-variations"); font-weight: 45 920; }
+:root {
+  --paper: #f5f7fa; --grid: #e4eaf2; --surface: #fff; --hair: #c9d2de; --rule: #111418;
+  --ink: #111418; --ink-2: #465061; --ink-3: #7d8798; --blue: #0057ff; --blue-ink: #0047d6; --warn: #a8460b;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--paper);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 8px 8px;
+  color: var(--ink); font: 400 13px/1.5 "Pretendard Variable", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+.page { max-width: 1120px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 24px; font-weight: 700; line-height: 32px; margin: 0; }
+h2.part { font-size: 18px; margin: 40px 0 0; }
+h2 { font-size: 16px; font-weight: 700; line-height: 24px; margin: 0; display: flex; gap: 8px; align-items: baseline; }
+h2 .tag { display: inline-block; min-width: 28px; height: 24px; line-height: 24px; padding: 0 4px; text-align: center; background: var(--ink); color: #fff; font-size: 13px; }
+h3 { font-size: 12px; font-weight: 600; margin: 0 0 8px; }
+p { margin: 0; }
+.sub { color: var(--ink-2); font-size: 12px; }
+.meta { margin-top: 4px; }
+.brief { margin-top: 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--rule); background: var(--surface); }
+.brief > div { padding: 12px 16px; border-left: 1px solid var(--hair); }
+.brief > div:first-child { border-left: 0; }
+.brief b { display: block; font-size: 12px; color: var(--blue-ink); margin-bottom: 4px; }
+.brief b.w { color: var(--warn); }
+.brief ul { margin: 0; padding-left: 16px; }
+
+section.card { margin-top: 16px; border: 1px solid var(--rule); background: var(--surface); }
+.c-head { padding: 16px; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.c-head .why { color: var(--ink-2); margin-top: 4px; }
+.c-head dl { margin: 0; display: grid; grid-template-columns: 40px 1fr; gap: 2px 8px; font-size: 12px; }
+.c-head dt { color: var(--ink-3); }
+.c-head dd { margin: 0; }
+.themes { display: grid; grid-template-columns: 1fr 1fr; }
+.theme { padding: 16px; min-width: 0; }
+.theme + .theme { border-left: 1px solid var(--rule); }
+.theme .label { font-size: 11px; margin-bottom: 12px; }
+.sizes { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.sizes figure, .px figure, .strip figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+figcaption { font-size: 11px; font-variant-numeric: tabular-nums; }
+svg, canvas { display: block; }
+.row2 { margin-top: 16px; display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: start; }
+.px { display: flex; gap: 12px; }
+.px canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+.mocks { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.hdr { height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid; }
+.hdr .name { font-size: 16px; font-weight: 700; }
+.hdr .seg { margin-left: auto; display: flex; border: 1px solid; font-size: 11px; }
+.hdr .seg span { padding: 2px 8px; }
+.bar { height: 32px; display: flex; align-items: center; gap: 2px; padding: 0 4px; }
+.bar .b { width: 28px; height: 28px; display: grid; place-items: center; }
+.bar .b.on { outline: 1px solid; outline-offset: -1px; }
+
+.horn { display: grid; grid-template-columns: 1fr 1fr; }
+.horn > div { padding: 16px; display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+.horn > div + div { border-left: 1px solid var(--rule); }
+.horn .cap { width: 100%; font-size: 12px; }
+.horn .cap b { display: block; font-size: 13px; }
+
+.strip { display: flex; gap: 8px; flex-wrap: wrap; }
+.strip figure > div { border: 1px solid var(--hair); }
+.runrow { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.prog { margin-top: 16px; border: 1px solid; padding: 12px; max-width: 480px; }
+.prog .track { position: relative; height: 40px; margin-top: 8px; }
+.prog .rail { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; }
+.prog .fill { position: absolute; left: 0; bottom: 0; height: 4px; width: 0; }
+.prog .runner { position: absolute; bottom: 4px; left: 0; width: 48px; height: 36px; }
+.prog .phase { display: flex; justify-content: space-between; font-size: 12px; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.note { margin-top: 16px; padding: 12px 16px; background: var(--surface); border: 1px solid var(--rule); border-left: 4px solid var(--blue); }
+.note b { color: var(--blue-ink); }
+@media (max-width: 860px) {
+  .brief, .c-head, .themes, .horn { grid-template-columns: 1fr; }
+  .brief > div { border-left: 0; border-top: 1px solid var(--hair); }
+  .brief > div:first-child { border-top: 0; }
+  .theme + .theme, .horn > div + div { border-left: 0; border-top: 1px solid var(--rule); }
+  .row2 { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .anim-note::after { content: " (움직임 줄이기 켜짐 — 첫 장만 보입니다)"; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Gorani 마크 시안 — 2차</h1>
+  <p class="sub meta">2026-10-19 · 1차(정면 각진 실루엣·방안 격자·타일 프로필) 의견 반영: 샘플처럼 검정·흰 면 둘만 쓰는 고대비, 얼굴 로고, 눈 강조, 로딩은 달리는 고라니</p>
+  <div class="brief">
+    <div><b>이번에 바꾼 것</b><ul><li>블루를 빼고 검정·흰 면 둘로만 그렸다(샘플과 같은 고대비)</li><li>로고는 마크라 곡선을 쓴다 — 패널 UI는 계속 직선·각진 끝</li><li>눈을 크게, 흰 하이라이트 한 점으로 살렸다</li></ul></div>
+    <div><b class="w">뿔에 대해 — 먼저 짚을 점</b><ul><li>고라니는 암수 모두 <b style="display:inline;color:inherit">뿔이 없다</b>. 사슴과 중 드문 경우라 이게 고라니의 정체성이다</li><li>뿔 자리에서 강조할 것은 수컷의 <b style="display:inline;color:inherit">엄니</b>(위턱에서 내려온 송곳니) — '뱀파이어 사슴'으로 불리는 특징</li><li>뿔을 달면 노루·사슴으로 읽힌다 → 아래 '뿔 비교'에서 직접 보세요</li></ul></div>
+    <div><b>보는 법</b><ul><li>16·24·32·64·256은 화면 CSS px</li><li>'1× 실제 픽셀'은 Windows 100 % 배율 도구 막대에서 보이는 그대로를 4배 확대</li><li>얼굴 배지는 24 px 이하에서 작은 크기판으로 바뀐다(안쪽 귀·하이라이트를 뺀다)</li></ul></div>
+  </div>
+
+  <h2 class="part">1. 얼굴 로고</h2>
+  <div id="logos"></div>
+
+  <h2 class="part">2. 뿔 비교 — 같은 얼굴에 뿔만 더했다</h2>
+  <section class="card"><div class="horn" id="horn"></div></section>
+
+  <h2 class="part">3. 로딩 — 달리는 고라니</h2>
+  <section class="card">
+    <div class="c-head">
+      <div><h2><span class="tag">R</span>옆모습 달리기 8장</h2><p class="why">엉덩이가 어깨보다 높은 고라니 체형(뒷다리가 길다), 큰 귀, 뿔 없음. 네 다리를 모은 장과 쭉 뻗은 장을 오가는 도약 달리기를 8장으로 돈다. 메뉴 막대의 달리는 고양이처럼 같은 실루엣이 16 px에서도 움직임으로 읽히게 했다.</p></div>
+      <dl><dt>쓰는 곳</dt><dd>결과 화면의 생성 진행 막대 위 — 고라니가 진행률만큼 달려간다</dd><dt>주의</dt><dd>생성은 Rhino UI 스레드에서 동기로 돈다. 진행 콜백 사이에는 화면이 멈출 수 있어 고라니가 제자리에서 멈춘 듯 보일 수 있다 → 위치는 진행률(fraction)에 묶고, 다리 장은 진행 푸시마다 한 장씩 넘기는 것을 기본으로 한다(아래 모의는 브라우저라 일정 속도로 돈다)</dd></dl>
+    </div>
+    <div class="themes" id="run"></div>
+  </section>
+  <div class="note"><b>다음 단계에서 정할 것.</b> ① 로고 안 하나(추천: 얼굴 배지 — 작은 크기판까지 가장 단단하다) ② 엄니 길이·눈 크기 손질 ③ 워드마크(Gorani)와 묶는 방식 ④ 로딩 장 수·속도와 진행 푸시에 묶는 방식.</div>
+</div>
+
+<script>
+"use strict";
+var THEMES = {
+  light: { name: "라이트", bg: "#ffffff", ink: "#111418", sub: "#465061", hair: "#c9d2de", bar: "#eceef1", tool: "#5a6170", rule: "#111418" },
+  dark:  { name: "다크",   bg: "#111821", ink: "#e8ecf2", sub: "#a9b3c3", hair: "#2a3442", bar: "#1e242c", tool: "#a9b3c3", rule: "#5b6677" }
+};
+var MIRROR = ' transform="matrix(-1 0 0 1 256 0)"';
+
+// ── 얼굴 부품 (256 칸, 정면은 x=128 대칭 — 왼쪽만 그리고 MIRROR로 오른쪽) ──
+var FACE = {
+  head: "M128 78C152 78 170 90 176 112C182 134 168 160 156 178C148 191 140 200 128 200C116 200 108 191 100 178C88 160 74 134 80 112C86 90 104 78 128 78Z",
+  ear: "M100 98C84 72 54 48 28 52C20 54 22 68 32 82C48 104 76 114 98 114Z",
+  earIn: "M90 98C76 82 56 68 40 66C36 68 40 76 46 84C58 96 74 103 88 105Z",
+  eye: "M84 124C88 110 106 106 118 118C120 130 106 140 94 138C88 136 84 130 84 124Z",
+  glint: '<circle cx="101" cy="119" r="5.5"/>',
+  nose: "M110 170C110 162 146 162 146 170C146 182 138 190 128 190C118 190 110 182 110 170Z",
+  tusk: "M108 182C107 198 103 212 94 226C104 222 113 208 118 192Z",
+  antler: "M114 84C110 66 104 50 94 36L100 32C106 40 110 48 113 56C115 46 118 38 124 32L130 36C124 44 120 54 120 64C121 72 122 78 124 84Z"
+};
+function el(d) { return d.charAt(0) === "<" ? d : '<path d="' + d + '"/>'; }
+function pair(d) { return el(d) + el(d).replace("/>", MIRROR + "/>"); }
+function g(t, inner) { return '<g transform="' + t + '">' + inner + "</g>"; }
+var BADGE_T = "translate(128 132) scale(.82) translate(-128 -136)";
+
+// 그리기 순서대로 [ink|cut, 도형]. ink = 잉크로 칠함, cut = 파냄(바탕이 보임)
+var LOGOS = [
+  {
+    id: "L1", name: "얼굴 배지", vb: 256,
+    why: "검은 원 안에 흰 얼굴을 파냈다(GitHub 마크·샘플 2처럼). 큰 귀, 하이라이트가 든 큰 눈, 둥근 코, 턱 아래로 내려온 엄니 둘.",
+    plus: "원 틀 덕에 16 px에서도 덩어리가 단단하고, 도구 막대·스토어·파비콘 어디든 같은 모양으로 놓인다.",
+    minus: "얼굴이 원 안에 들어가 작아진다 — 24 px 이하는 작은 크기판(안쪽 귀·하이라이트 뺌)으로 바꾼다.",
+    layers: [["ink", '<circle cx="128" cy="128" r="124"/>'],
+      ["cut", g(BADGE_T, el(FACE.head) + pair(FACE.ear) + pair(FACE.tusk))],
+      ["ink", g(BADGE_T, pair(FACE.earIn) + pair(FACE.eye) + el(FACE.nose))],
+      ["cut", g(BADGE_T, pair(FACE.glint))]],
+    small: [["ink", '<circle cx="128" cy="128" r="124"/>'],
+      ["cut", g("translate(128 128) scale(.9) translate(-128 -134)", el(FACE.head) + pair(FACE.ear) + pair("M106 180C106 200 102 214 92 228C106 226 116 210 120 192Z"))],
+      ["ink", g("translate(128 128) scale(.9) translate(-128 -134)", pair("M82 124C86 106 108 102 120 116C122 132 106 142 94 140C86 138 82 132 82 124Z") + el("M106 168C106 158 150 158 150 168C150 182 140 192 128 192C116 192 106 182 106 168Z"))]]
+  },
+  {
+    id: "L2", name: "얼굴 실루엣", vb: 256,
+    why: "틀 없이 검은 얼굴 한 덩어리(샘플 1의 곰처럼). 눈·코·안쪽 귀를 흰 면으로 파냈다 — 눈은 앞쪽으로 치켜든 아몬드에 작은 눈동자.",
+    plus: "틀이 없어 헤더·워드마크 옆에서 가장 크게 보이고 표정이 산다.",
+    minus: "흰 눈 둘이 가면처럼 이어 보이고, 작게 보면 구멍 셋(눈·코)이 '해골'처럼 읽힐 위험이 있다. 24 px 이하 전용판이 필요하다.",
+    layers: [["ink", el(FACE.head) + pair(FACE.ear) + pair("M106 184C105 200 101 214 92 228C102 224 111 210 116 194Z")],
+      ["cut", pair(FACE.earIn) + pair("M84 126C90 112 108 108 120 120C112 132 94 136 84 126Z") + el("M110 168C110 160 146 160 146 168C146 180 138 188 128 188C118 188 110 180 110 168Z")],
+      ["ink", pair('<circle cx="108" cy="121" r="5"/>')]]
+  },
+  {
+    id: "L3", name: "옆얼굴", vb: 256,
+    why: "오른쪽을 보는 옆얼굴 한 덩어리(샘플 3·4의 카피바라처럼). 위로 선 큰 귀, 흰 큰 눈, 주둥이 아래로 따로 떨어져 보이는 엄니.",
+    plus: "엄니가 바탕 위에 홀로 서서 가장 잘 보인다. 로딩의 달리는 옆모습과 같은 방향이라 짝이 맞는다.",
+    minus: "정면보다 덩어리가 한쪽으로 쏠려 정사각 칸에서 무게가 기운다.",
+    layers: [["ink", el("M70 236C62 206 62 168 74 132C84 104 104 88 128 84C150 80 168 92 186 108C200 120 212 128 220 134C228 140 228 156 218 159C210 161 198 161 186 164C180 166 178 174 170 178C160 183 150 184 144 192C138 202 138 220 140 236Z") +
+        el("M100 100C84 82 76 56 80 34C82 26 92 26 100 32C118 46 128 68 130 90Z") + el("M186 162C192 162 196 164 196 168C194 186 186 202 174 214C178 198 182 182 182 168Z")],
+      ["cut", el("M104 86C94 72 90 56 92 42C102 50 112 66 116 84Z") + el("M140 114C146 102 162 100 172 108C166 120 150 124 140 114Z") + el("M214 140C219 139 222 142 222 146C218 146 215 144 214 140Z")],
+      ["ink", '<circle cx="158" cy="110" r="7"/>'],
+      ["cut", '<circle cx="161" cy="107" r="2.5"/>']]
+  }
+];
+var HORN = {
+  id: "H", vb: 256,
+  layers: [["ink", '<circle cx="128" cy="128" r="124"/>'],
+    ["cut", g(BADGE_T, el(FACE.head) + pair(FACE.ear) + pair(FACE.tusk) + pair(FACE.antler))],
+    ["ink", g(BADGE_T, pair(FACE.earIn) + pair(FACE.eye) + el(FACE.nose))],
+    ["cut", g(BADGE_T, pair(FACE.glint))]]
+};
+
+var uid = 0;
+function markSvg(c, t, size) {
+  var layers = (c.small && size <= 24) ? c.small : c.layers, id = "m" + (++uid), v = c.vb;
+  var mask = layers.map(function (l) { return '<g fill="' + (l[0] === "ink" ? "#fff" : "#000") + '">' + l[1] + "</g>"; }).join("");
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + v + " " + v + '">' +
+    '<defs><mask id="' + id + '" maskUnits="userSpaceOnUse" x="0" y="0" width="' + v + '" height="' + v + '"><rect width="' + v + '" height="' + v + '" fill="#000"/>' + mask + "</mask></defs>" +
+    '<rect width="' + v + '" height="' + v + '" fill="' + t.ink + '" mask="url(#' + id + ')"/></svg>';
+}
+function pxCanvas(svgText, t, w, h) {
+  var cv = document.createElement("canvas");
+  cv.width = w; cv.height = h; cv.style.width = w * 4 + "px"; cv.style.height = h * 4 + "px"; cv.style.border = "1px solid " + t.hair;
+  var ctx = cv.getContext("2d"), img = new Image();
+  ctx.fillStyle = t.bg; ctx.fillRect(0, 0, w, h);
+  img.onload = function () { ctx.drawImage(img, 0, 0, w, h); };
+  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgText);
+  return cv;
+}
+var TOOL_GLYPHS = ['<circle cx="12" cy="12" r="2.5"/>', '<path d="M4 20L20 4"/>', '<circle cx="12" cy="12" r="8"/>',
+  '<path d="M4 8h12v12H4zM4 8l4-4h12l-4 4M20 4v12l-4 4"/>', '<path d="M4 20C8 4 16 4 20 20"/>'];
+function toolSvg(gl, t) { return '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="' + t.tool + '" stroke-width="1.5">' + gl + "</svg>"; }
+
+function logoTheme(c, key) {
+  var t = THEMES[key], d = document.createElement("div");
+  d.className = "theme"; d.style.background = t.bg; d.style.color = t.ink;
+  d.innerHTML = '<div class="label" style="color:' + t.sub + '">' + t.name + "</div>" +
+    '<div class="sizes">' + [256, 64, 32, 24, 16].map(function (n) { return "<figure><div>" + markSvg(c, t, n) + '</div><figcaption style="color:' + t.sub + '">' + n + "</figcaption></figure>"; }).join("") + "</div>" +
+    '<div class="row2"><div><h3 style="color:' + t.sub + '">1× 실제 픽셀 (×4)</h3><div class="px"></div></div>' +
+    '<div class="mocks"><h3 style="color:' + t.sub + '">자리에 놓아 보기 — 패널 헤더 · Rhino 도구 막대</h3>' +
+    '<div class="hdr" style="border-color:' + t.rule + '">' + markSvg(c, t, 28) + '<span class="name">Gorani</span><span class="seg" style="border-color:' + t.hair + '"><span style="background:' + t.ink + ";color:" + t.bg + '">Korea</span><span style="color:' + t.sub + '">Global</span></span></div>' +
+    '<div class="bar" style="background:' + t.bar + '">' + TOOL_GLYPHS.map(function (gl) { return '<span class="b">' + toolSvg(gl, t) + "</span>"; }).join("") +
+    '<span class="b on" style="outline-color:' + t.hair + '">' + markSvg(c, t, 24) + "</span></div></div></div>";
+  var px = d.querySelector(".px");
+  [16, 24].forEach(function (n) {
+    var f = document.createElement("figure");
+    f.appendChild(pxCanvas(markSvg(c, t, n), t, n, n));
+    f.insertAdjacentHTML("beforeend", '<figcaption style="color:' + t.sub + '">' + n + " @1×</figcaption>");
+    px.appendChild(f);
+  });
+  return d;
+}
+var logos = document.getElementById("logos");
+LOGOS.forEach(function (c) {
+  var s = document.createElement("section");
+  s.className = "card"; s.id = "logo-" + c.id;
+  s.innerHTML = '<div class="c-head"><div><h2><span class="tag">' + c.id + "</span>" + c.name + '</h2><p class="why">' + c.why + "</p></div><dl><dt>장점</dt><dd>" + c.plus + "</dd><dt>약점</dt><dd>" + c.minus + "</dd></dl></div>";
+  var th = document.createElement("div"); th.className = "themes";
+  th.appendChild(logoTheme(c, "light")); th.appendChild(logoTheme(c, "dark"));
+  s.appendChild(th); logos.appendChild(s);
+});
+(function () {
+  var t = THEMES.light, box = document.getElementById("horn");
+  box.innerHTML = '<div><p class="cap"><b>엄니 (추천)</b>뿔 없이 귀·눈·엄니 — 고라니로 읽힌다</p>' + markSvg(LOGOS[0], t, 160) + markSvg(LOGOS[0], t, 32) + "</div>" +
+    '<div><p class="cap"><b>엄니 + 뿔</b>같은 얼굴에 작은 두 갈래 뿔 — 노루·사슴으로 읽히고, 엄니가 오히려 어색해진다</p>' + markSvg(HORN, t, 160) + markSvg(HORN, t, 32) + "</div>";
+})();
+
+// ── 달리는 고라니: 몸·목·머리는 고정 도형, 다리 넷은 관절 각도로 장마다 계산 (64×48 칸, 오른쪽으로 달림) ──
+var RUN_FRAMES = 8;
+var BODY = "M13 21C13 14 20 11 27 13C33 15 39 17 44 19C49 21 49 29 43 30.5C35 32 26 31 19 29.5C15 28.5 13 25 13 21Z" +   // 엉덩이가 어깨보다 높다
+  "M40 21C43 15 47 11 51 9L56 13C52 17 48 23 46 29Z" +                                                                   // 목
+  "M49 7C53 4.5 58 6.5 62 11C63.5 13 62.5 15 60.5 15H54C50.5 15 48 11.5 49 7Z" +                                             // 머리
+  "M51 8C49 3 45.5 0 42 0.5C42 4 45 8 49.5 11Z" +                                                                          // 귀
+  "M14 17C12 14.5 11 12.5 11.5 11C13.5 12 15 14 16 16Z";                                                                    // 꼬리
+function leg(hip, l1, l2, a, b, w1, w2) {
+  var r = Math.PI / 180, kx = hip[0] + l1 * Math.sin(a * r), ky = hip[1] + l1 * Math.cos(a * r);
+  var fx = kx + l2 * Math.sin(b * r), fy = ky + l2 * Math.cos(b * r);
+  var f = function (n) { return n.toFixed(2); };
+  return '<path d="M' + f(hip[0]) + " " + f(hip[1]) + "L" + f(kx) + " " + f(ky) + '" stroke-width="' + w1 + '"/>' +
+    '<path d="M' + f(kx) + " " + f(ky) + "L" + f(fx) + " " + f(fy) + '" stroke-width="' + w2 + '"/>';
+}
+function runFrame(i) {
+  var p = i / RUN_FRAMES, s = function (o) { return Math.sin(2 * Math.PI * (p + o)); }, c = function (o) { return Math.cos(2 * Math.PI * (p + o)); };
+  var bob = -1.6 * Math.cos(4 * Math.PI * p), legs = "";
+  [0.1, 0].forEach(function (o) {                       // 먼 다리(0.1 늦게) 먼저, 가까운 다리 위에
+    var ah = -38 * s(o), bh = ah - 28 - 46 * Math.max(0, -c(o));     // 뒷다리: 넓적다리 + 정강이(뒤로 꺾임)
+    var af = 42 * s(o), bf = af - 85 * Math.max(0, c(o));            // 앞다리: 앞으로 뻗고 돌아올 때 접힘
+    legs += leg([21, 24 + bob], 10, 13, ah, bh, 5, 2.6) + leg([41, 26 + bob], 9, 12, af, bf, 3.6, 2.4);
+  });
+  return { legs: legs, bob: bob };
+}
+function runSvg(i, t, w) {
+  var f = runFrame(i);
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + (w * 0.75) + '" viewBox="0 0 64 48">' +
+    '<g fill="none" stroke="' + t.ink + '" stroke-linecap="round" stroke-linejoin="round">' + f.legs + "</g>" +
+    '<g fill="' + t.ink + '" transform="translate(0 ' + f.bob.toFixed(2) + ')">' +
+    BODY.split("M").slice(1).map(function (d) { return '<path d="M' + d + '"/>'; }).join("") + "</g></svg>";   // 부품마다 따로 — 겹친 자리가 반대 감기로 뚫리지 않게
+}
+var reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+var animated = [];   // [요소, 테마, 너비]
+function runTheme(key) {
+  var t = THEMES[key], d = document.createElement("div");
+  d.className = "theme"; d.style.background = t.bg; d.style.color = t.ink;
+  var strip = "";
+  for (var i = 0; i < RUN_FRAMES; i++) strip += '<figure><div style="border-color:' + t.hair + '">' + runSvg(i, t, 64) + '</div><figcaption style="color:' + t.sub + '">' + (i + 1) + "</figcaption></figure>";
+  d.innerHTML = '<div class="label" style="color:' + t.sub + '">' + t.name + "</div>" +
+    '<h3 style="color:' + t.sub + '">8장</h3><div class="strip">' + strip + "</div>" +
+    '<h3 style="color:' + t.sub + ';margin-top:16px" class="anim-note">움직임 — 64 · 32 · 24 · 16 px (12장/초)</h3><div class="runrow"></div>' +
+    '<h3 style="color:' + t.sub + ';margin-top:16px">16 px @1× (×4)</h3><div class="px"></div>' +
+    '<div class="prog" style="border-color:' + t.rule + '"><div style="font-weight:600">3D 모델 만드는 중</div>' +
+    '<div class="track"><div class="rail" style="background:' + t.hair + '"></div><div class="fill" style="background:' + t.ink + '"></div><div class="runner"></div></div>' +
+    '<div class="phase" style="color:' + t.sub + '"><span class="ph">건물·도로 불러오는 중</span><span class="pct">0 %</span></div></div>';
+  var row = d.querySelector(".runrow");
+  [64, 32, 24, 16].forEach(function (n) {
+    var f = document.createElement("figure"), box = document.createElement("div");
+    box.innerHTML = runSvg(0, t, n); f.appendChild(box);
+    f.insertAdjacentHTML("beforeend", '<figcaption style="color:' + t.sub + '">' + n + "</figcaption>");
+    row.appendChild(f); animated.push([box, t, n]);
+  });
+  var px = d.querySelector(".px"), cvs = [];
+  for (var k = 0; k < 4; k++) { var cv = pxCanvas(runSvg(k * 2, t, 16), t, 16, 12); cvs.push(cv); px.appendChild(cv); }
+  var runner = d.querySelector(".runner");
+  runner.innerHTML = runSvg(0, t, 48); animated.push([runner, t, 48]);
+  d._prog = { fill: d.querySelector(".fill"), runner: runner, ph: d.querySelector(".ph"), pct: d.querySelector(".pct") };
+  return d;
+}
+var run = document.getElementById("run"), progs = [];
+["light", "dark"].forEach(function (k) { var d = runTheme(k); progs.push(d._prog); run.appendChild(d); });
+var PHASES = [[0, "건물·도로 불러오는 중"], [0.35, "지형 만드는 중"], [0.7, "문서에 굽는 중"], [0.92, "3dm 저장 중"]];
+var frame = 0, start = performance.now();
+function tick(now) {
+  frame = (frame + 1) % RUN_FRAMES;
+  animated.forEach(function (a) { a[0].innerHTML = runSvg(frame, a[1], a[2]); });
+  var fr = ((now - start) / 9000) % 1.15; fr = Math.min(1, fr);   // 9초에 0→100 %, 잠깐 쉬고 다시
+  progs.forEach(function (p) {
+    p.fill.style.width = fr * 100 + "%"; p.runner.style.left = "calc((100% - 48px) * " + fr + ")";
+    p.pct.textContent = Math.round(fr * 100) + " %";
+    p.ph.textContent = PHASES.filter(function (x) { return fr >= x[0]; }).pop()[1];
+  });
+}
+if (!reduced) setInterval(function () { tick(performance.now()); }, 1000 / 12);
+</script>
+</body>
+</html>
