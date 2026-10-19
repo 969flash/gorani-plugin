@@ -227,6 +227,14 @@ details.s3d .trow { min-height: 36px; }
 .done-line .ok { color: var(--ink); display: inline-flex; align-items: center; gap: 6px; }
 .done-line .ok .ico { color: var(--accent); }
 .done-line .num { margin-left: auto; }
+/* 3D 블록 '⋯' — 드물게 쓰는 동작(다시 불러오기)을 숨긴다 */
+details.more { position: relative; }
+details.more > summary { list-style: none; font-size: 16px; letter-spacing: 1px; }
+details.more > summary::-webkit-details-marker { display: none; }
+.more-pop { position: absolute; right: 0; top: 32px; z-index: 20; min-width: 232px; background: var(--surface); border: 1px solid var(--rule); }
+.more-pop .mi { display: grid; gap: 2px; width: 100%; padding: 8px 12px; border: 0; background: none; text-align: left; color: var(--ink); font-size: 13px; }
+.more-pop .mi:hover { background: var(--accent-bg); color: var(--accent-ink); }
+.more-pop .mi small { font-size: 11px; color: var(--sub); }
 .c2-title { margin: 0; padding: 0; border: 0; }
 .card2d .top h3 { margin: 0 0 4px; padding: 0; border: 0; }
 .card2d .p-cancel { display: flex; justify-content: flex-end; }
@@ -380,21 +388,21 @@ var PHASES_2D = ["query", "basemap", "sheets", "tables"];
 var PHASE_2D_KEY = { basemap: "make_basemap", sheets: "make_sheets", tables: "make_tables" };
 var DETAIL_PHASES = { query: 1, basemap: 1, sheets: 1, tables: 1 };   // 끝난 줄 오른쪽에 엔진 글(건물 n동 · 필지 n 등)을 보이는 단계
 function phaseLabel(ph, job) {
-  return { query: job === "2d" ? "데이터 불러오기" : "건물·지형 불러오기", terrain: "3D 모델 만들기", write_3dm: HOST.doc + "에 넣기",
+  return { query: job === "2d" ? "데이터 불러오기" : "건물·지형 불러오기", terrain: "3D 모델 만들기", write_3dm: HOST.name + " 파일에 넣기",
     basemap: "베이스맵 .ai", sheets: "다이어그램", tables: "조서 CSV" }[ph] || ph;
 }
 var PHASE_ICON = { done: "check", running: "dot", pending: "ring", skipped: "ring", failed: "x" };
 // 범위 — 어느 방식이든 원(반경)·사각형(한 변 = 2 × radius), 대상지 중심(constants.SHAPES_BY_MODE)
 var SHAPES = ["circle", "rect"];
 var SHAPE_LABEL = { circle: "원", rect: "사각형" };
-var SIZE_PRESETS = [200, 500, 1000];   // radius — 사각형은 한 변 400·1,000·2,000으로 보인다
+var SIZE_PRESETS = [250, 500, 1000];   // radius — 사각형은 한 변 500·1,000·2,000, 원은 반경 250·500·1,000으로 보인다. 기본 = 사각형 한 변 500 m
 var MODE_SHORT = { lots: "필지", area: "구역", point: "위치" };
 var MODE_TITLE = { lots: "필지로 고르기 — 대상지 필지를 눌러 고릅니다", area: "구역 그리기 — 대상지 경계를 직접 그립니다", point: "위치만 찍기 — 대상지 없이 한 점 주변을 만듭니다" };
 var PLACEMENT_TITLE = { origin: "대상지 중심(100 m 단위)을 (0,0)으로 옮깁니다", world: "EPSG:5186 좌표 그대로 — GIS·다른 도면과 겹칠 때. 문서 단위를 m로 쓰세요" };
 var PAPERS = { A3: [420, 297], A1: [841, 594], A0: [1189, 841] };
 var SCALES = [1000, 3000, 5000];
 var LAYER_OPTS = [["02b_landuse", "토지이용"], ["05_road_center", "도로 중심선", true], ["11_zoning", "용도지역"]];   // 셋째 = Global(OSM)에서도 그려진다
-var DEFAULTS = { region: null, mode: "lots", placement: "origin", flatten_site: false, flatten_level: "mean", site_output: "curve", radius: 500, shape: "circle", import_after: true,
+var DEFAULTS = { region: null, mode: "lots", placement: "origin", flatten_site: false, flatten_level: "mean", site_output: "curve", radius: 250, shape: "rect", import_after: true,
   make_basemap: false, paper: "A3", paper_mm: [420, 297], scales: [5000], basemap_layers_on: [],
   make_sheets: false, sheet_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24], floor_breaks: [12, 20], elev_preset: "20m",
   make_tables: false, include_minor_buildings: false,
@@ -425,7 +433,7 @@ var state = { screen: "map", run: "idle", job2d: "idle", blocked: false,
   made2d: null, form2d: true, err2d: "", dl: null, init: null, busy: false, logLines: [], startedAt: 0,
   seq: { map: 0, packs: 0, style: 0 }, areaPacks: null, lastRegion: null,
   styleOpen: false, styleSheet: 0, styleEdit: null, appliedStyle: null, openEl: null, styleSaving: false, menuOpen: false };
-var map = null, tiles = null, lotsLayer = null, targetLayer = null, extentLayer = null;
+var map = null, tiles = null, lotsLayer = null, targetLayer = null, extentLayer = null, extentLabel = null;
 var tileErrors = 0, tileFallback = false, tileDead = false, aerial = false;
 var pointLayer = null, draw = { on: false, pts: [], layer: null, rubber: null, first: null }, stamp = { on: false, offsets: null, layer: null };
 var timers = { prefs: 0, move: 0, elapsed: 0, toast: 0, style: 0, packs: 0 };
@@ -579,7 +587,7 @@ function renderMap() {
   renderTray();
   setTimeout(function () { var i = state.blocked ? $("blocker").querySelector("h2") : $("search_input"); if (i && state.screen === "map" && !state.menuOpen && !busyTarget()) i.focus(); }, 0);
 }
-// 방식 기본값(범위·축척·대상지 바닥면)을 옵션에 덮는다 — 방식을 바꿀 때만. 첫 화면은 저장된 옵션 그대로
+// 방식 기본값(축척·대상지 바닥면)을 옵션에 덮는다 — 방식을 바꿀 때만. 범위는 방식과 무관하게 마지막 값 그대로(constants.MODE_DEFAULTS)
 function applyMode(m) {
   state.mode = m; state.options.mode = m;
   var d = state.init && state.init.modes && state.init.modes.defaults && state.init.modes.defaults[m];
@@ -676,7 +684,7 @@ function updateSummaries() {
   var mb = $("make2d_btn"); if (mb) mb.disabled = !(o.make_basemap || o.make_sheets || o.make_tables);
 }
 function clampSize(v, rect) {   // 직접 입력(사각형은 한 변) → radius
-  var r = (+v || (rect ? 1000 : 500)) / (rect ? 2 : 1);
+  var r = (+v || 500) / (rect ? 2 : 1);
   r = Math.round(r / 50) * 50; return Math.min(2000, Math.max(100, r));
 }
 function checkedValues(name, num) { return Array.prototype.map.call(document.querySelectorAll('input[name="' + name + '"]:checked'), function (i) { return num ? +i.value : i.value; }); }
@@ -736,7 +744,7 @@ function useMatch(it) {
 // ── 구역 그리기 — 구역 칸을 누르면 곧바로 그리기. 첫 점을 다시 누르거나 더블클릭·Enter로 닫는다 ──
 function startDraw() {
   stopStamp(); draw.on = true; draw.pts = [];
-  if (extentLayer && map) { map.removeLayer(extentLayer); extentLayer = null; }
+  clearExtent();
   if (map) { map.doubleClickZoom.disable(); map.getContainer().classList.add("drawing"); }
   renderTray();
 }
@@ -782,7 +790,7 @@ function drawStamp() {
 function startStamp(offsets, fit) {
   cancelDraw(); stamp.on = true; stamp.offsets = offsets;
   if (targetLayer && state.mode === "area") map.removeLayer(targetLayer);
-  if (extentLayer) { map.removeLayer(extentLayer); extentLayer = null; }
+  clearExtent();
   drawStamp();
   if (fit && stamp.layer) map.fitBounds(stamp.layer.getBounds().pad(0.4), { animate: false });
   map.on("move", drawStamp);
@@ -991,15 +999,20 @@ function flyToLot(pnu) {
   targetLayer.eachLayer(function (l) { if (l.feature.properties.pnu === pnu) map.flyToBounds(l.getBounds(), { maxZoom: 18 }); });
 }
 // 범위 — 원·사각형을 JS가 바로 그린다(엔진 get_extent_ring과 같은 정의: 대상지 중심 ± radius). fit = 범위가 보이게 지도를 맞춘다
+function clearExtent() {
+  if (map) { [extentLayer, extentLabel].forEach(function (l) { if (l) map.removeLayer(l); }); }
+  extentLayer = extentLabel = null;
+}
 function drawLocalExtent(fit) {
-  if (extentLayer && map) { map.removeLayer(extentLayer); extentLayer = null; }
+  clearExtent();
   var c = targetCenter();
   if (!map || !c || state.screen !== "map" || busyTarget()) return;
-  var o = state.options, r = +o.radius || 500, style = Object.assign({ interactive: false }, mapStyle("extent"));
-  if (o.shape === "rect") { var k = mPerDeg(c[1]), dl = r / k[0], dp = r / k[1]; extentLayer = L.rectangle([[c[1] - dp, c[0] - dl], [c[1] + dp, c[0] + dl]], style); }
-  else extentLayer = L.circle(ll(c), Object.assign({ radius: r }, style));
-  extentLayer.addTo(map).bindTooltip(rangeLabel(), { permanent: true, direction: "top", className: "map-label extent" });
-  if (fit) map.fitBounds(extentLayer.getBounds(), { padding: [16, 16] });
+  var o = state.options, r = +o.radius || 250, k = mPerDeg(c[1]), dl = r / k[0], dp = r / k[1], style = Object.assign({ interactive: false }, mapStyle("extent"));
+  extentLayer = (o.shape === "rect" ? L.rectangle([[c[1] - dp, c[0] - dl], [c[1] + dp, c[0] + dl]], style) : L.circle(ll(c), Object.assign({ radius: r }, style))).addTo(map);
+  // 라벨은 범위 윗변(원은 맨 위) 바깥 — 가운데에 두면 대상지를 가린다(2026-10-19 QA)
+  extentLabel = L.tooltip({ permanent: true, direction: "top", className: "map-label extent", interactive: false, offset: [0, -2] })
+    .setLatLng([c[1] + dp, c[0]]).setContent(esc(rangeLabel())).addTo(map);
+  if (fit) map.fitBounds(extentLayer.getBounds(), { padding: [28, 16] });
 }
 // 지도 컨테이너 — 지도 화면 슬롯으로, 결과 화면이면 대피
 function placeMap() {
@@ -1095,17 +1108,25 @@ function startTimer() {
   timers.elapsed = setInterval(function () { var el = $("elapsed"); if (el) el.textContent = fmtTime((Date.now() - state.startedAt) / 1000); }, 1000);
 }
 // 3D 블록 — 됐다 · 무엇이 · 다음 행동
+// 3D 블록 — "무엇이 됐나 · 어디에 있나 · 다음에 할 일"을 사용자 말로(2026-10-19 QA: '문서에 넣었습니다'·'다시 넣기'가 무슨 뜻인지 몰랐다)
 function docTitle() {
   var c = (state.result && state.result.context) || {};
-  if (HOST.id === "web") return HOST.model + "을 만들었습니다";
-  return c.imported ? HOST.doc + "에 넣었습니다" : HOST.model + "을 만들었습니다 — 문서에는 넣지 못했습니다";
+  return c.imported || HOST.id === "web" ? "3D 모델을 만들었습니다" : "3D 파일을 만들었습니다 — " + HOST.name + "에는 불러오지 못했습니다";
+}
+function docWhere() {
+  var c = (state.result && state.result.context) || {};
+  if (HOST.id === "web") return "";
+  return c.imported ? "지금 열린 " + HOST.name + " 파일에 들어갔습니다 · 레이어 CTX" : "";
 }
 function docActsHtml() {
   var r = state.result, c = r.context || {}, imported = !!c.imported;
   if (HOST.id === "web") return '<button type="button" class="btn sm" data-act="import">3D 보기</button><button type="button" class="btn sm" data-act="open" data-path="' + esc(c.path) + '">' + esc(HOST.model) + " 받기</button>";
-  return '<button type="button" class="btn sm" data-act="zoom" id="zoom_btn"' + (imported ? "" : " disabled") + ">대상지로 줌</button>" +
-    '<button type="button" class="btn sm" data-act="open" data-path="' + esc(r.dir) + '" title="' + esc(r.dir) + '">' + dirLabel() + "</button>" +
-    '<span style="flex:1"></span><button type="button" class="btn sm' + (imported ? "" : " primary") + '" data-act="import" title="이 대상지의 3D를 지우고 다시 넣습니다">' + (imported ? "다시 넣기" : "문서에 넣기") + "</button>";
+  if (!imported) return '<button type="button" class="btn sm primary" data-act="import" title="결과 폴더의 ' + esc(HOST.model) + "을 지금 열린 파일로 불러옵니다\">" + esc(HOST.name) + "에 불러오기</button>" +
+    '<button type="button" class="btn sm" data-act="open" data-path="' + esc(r.dir) + '" title="' + esc(r.dir) + '">결과 폴더</button>';
+  return '<button type="button" class="btn sm" data-act="zoom" id="zoom_btn" title="' + esc(HOST.name) + ' 화면을 대상지로 옮깁니다">대상지 보기</button>' +
+    '<button type="button" class="btn sm" data-act="open" data-path="' + esc(r.dir) + '" title="' + esc(r.dir) + '">' + (HOST.id === "web" ? dirLabel() : "결과 폴더") + "</button>" +
+    '<span style="flex:1"></span><details class="more" id="doc_more"><summary class="btn sm ghost" aria-label="더 보기" title="더 보기">⋯</summary><div class="more-pop">' +
+    '<button type="button" class="mi" data-act="import" title="이 대상지의 3D를 지우고 결과 폴더의 ' + esc(HOST.model) + '에서 다시 불러옵니다">' + esc(HOST.name) + "에 다시 불러오기<small>3D를 지웠거나 다른 파일에 넣을 때</small></button></div></details>";
 }
 function docStatusHtml(ok, text, path) {
   return ok || HOST.id === "web" ? "" : '<div class="red">' + esc(text || "문서에 넣지 못했습니다") + '<br><span class="mono">' + esc(path || "") + "</span> — " + esc(HOST.name) + "에서 직접 가져올 수 있습니다</div>";
@@ -1113,6 +1134,7 @@ function docStatusHtml(ok, text, path) {
 function doneHtml() {
   var r = state.result, c = r.context || {};
   return '<div class="card" id="doc_card"><div class="top"><h2 class="done-line" tabindex="-1"><span class="ok" id="doc_title">' + ico("check") + esc(docTitle()) + '</span><span class="num sub">' + fmtTime(r.elapsed_s) + "</span></h2>" +
+    '<div class="sub" id="doc_where">' + esc(docWhere()) + "</div>" +
     '<div class="sub">' + esc(targetLabel() + " · " + rangeLabel(r.options) + (c.buildings != null ? " · 건물 " + fmtNum(c.buildings) + "동" : "")) + "</div>" +
     '<div id="doc_status">' + docStatusHtml(!!c.imported, c.import_text, c.path) + '</div></div><div class="acts" id="doc_acts">' + docActsHtml() + "</div></div>" +
     '<div class="card card2d" id="card2d"></div>';
@@ -1121,9 +1143,10 @@ function applyImported(ok, text, layers, objects) {   // 다시 넣기·문서�
   var r = state.result; if (!r) return;
   r.context.imported = ok; r.context.import_text = ok ? "" : text;
   var t = $("doc_title"); if (t) t.innerHTML = ico("check") + esc(docTitle());
+  var w = $("doc_where"); if (w) w.textContent = docWhere();
   var ds = $("doc_status"); if (ds) ds.innerHTML = docStatusHtml(ok, text, r.context.path);
   var da = $("doc_acts"); if (da) da.innerHTML = docActsHtml();
-  if (ok) toast("문서에 넣었습니다 — 객체 " + fmtNum(objects));
+  if (ok) toast(HOST.name + "에 불러왔습니다 — 객체 " + fmtNum(objects));
 }
 // ── 2D 카드 — "2D 자료도 만들까요?" → 진행 → 결과(.ai·다이어그램·CSV) ──
 function renderCard2d() {
@@ -1399,7 +1422,7 @@ function resetLots(mode, pnus) {
   setPointLayer();
   state.lots = []; state.lotState = null; state.result = null; state.progress = null; state.made2d = null; state.job2d = "idle"; state.form2d = true; state.dl = null;
   state.run = "idle"; state.styleOpen = false; clearInterval(timers.elapsed);
-  if (map) { setTargetLayer(null); if (extentLayer) { map.removeLayer(extentLayer); extentLayer = null; } }
+  if (map) { setTargetLayer(null); clearExtent(); }
   send({ cmd: "select_lots", pnus: pnus || [] });
   go("map");
   if (state.mode === "area" && map) startDraw();
@@ -1507,6 +1530,7 @@ var OPTION_AREAS = 'section[data-screen="map"], #card2d';   // 옵션 입력이 
 document.addEventListener("click", function (e) {
   if (e.target.id === "toast_act") { var fn = toastAction; hideToast(); if (fn) fn(); return; }
   if (state.menuOpen && !e.target.closest("#menu, #menu_btn")) closeMenu();
+  document.querySelectorAll("details.more[open]").forEach(function (d) { if (!d.contains(e.target) || e.target.closest(".mi")) d.open = false; });
   var t = e.target.closest("[data-act]");
   if (t) { if (t.disabled) return; var f = ACTIONS[t.dataset.act]; if (f) f(t); return; }
   var li = e.target.closest("#search_list li"); if (li) { chooseList(+li.dataset.i); return; }
@@ -1577,7 +1601,7 @@ var handlers = {
       Object.keys(DEFAULTS).forEach(function (k) { state.options[k] = (m.options && k in m.options) ? m.options[k] : clone(DEFAULTS[k]); });
       if (!state.options.region) { state.options.region = detectRegion(m) === "global" ? "global" : "kr"; send({ cmd: "save_prefs", options: state.options }); }
       if (SHAPES.indexOf(state.options.shape) < 0) state.options.shape = "circle";   // 옛 prefs(buffer·site·frame)
-      state.options.radius = Math.min(2000, Math.max(100, +state.options.radius || 500));
+      state.options.radius = Math.min(2000, Math.max(100, +state.options.radius || 250));
       state.mode = state.mode || (MODE_SHORT[state.options.mode] ? state.options.mode : "lots");   // 첫 화면 = 마지막 방식의 지도
       initMap(m);
       if (isGlobal() && state.mode === "lots") state.mode = state.options.mode = "point";

@@ -51,7 +51,7 @@
 - **필지 하나는 닫힌 커브 하나다.** 대상 필지가 여러 조각이거나 구멍이 있으면 가장 넓은 조각의 바깥 경계를 쓰고 경고한다. 주변 필지·도로 필지(가로망 전체가 한 필지인 도넛)는 구멍을 보존한다.
 - 좌표계: +Y = 정북 가정(EPSG:5186 격자북. 진북과의 자오선수차는 서울에서 0.1° 이내라 무시). 해외 대상지는 대상지 중심 지역 횡메르카토르(`non_rhino_utils.set_projection`, 투영 원점은 환경변수로 loader 재적재에도 유지).
 - Rhino 8 CPython 기준. rhinoscriptsyntax보다 RhinoCommon 우선.
-- 쓰기 자리(`data/`·`result/`·`.env`)는 `constants.HOME_DIR` — 저장소처럼 루트에 `data/`가 있으면 루트, Yak 설치본은 `~/Gorani`. 산출물은 `HOME_DIR/result/<날짜>/<대상지>/`에 쌓는다. 3dm·베이스맵·현황도·로그를 한 폴더에 둔다.
+- 쓰기 자리(`data/`·`result/`·`.env`)는 `constants.HOME_DIR` — 저장소처럼 루트에 `data/`가 있으면 루트, Yak 설치본은 `~/Gorani`. 산출물은 `HOME_DIR/result/<대상지>_<날짜>/`에 쌓는다. 3dm·베이스맵·현황도·로그를 한 폴더에 둔다.
 - 상세 스펙: `docs/deliverables.md`(산출물 정의), `docs/data_sources.md`(데이터·DB), `docs/panel_ui.md`(패널 메시지 계약), `docs/code_map.md`(확정 아키텍처·실행 흐름·엔진 API·읽는 순서), `docs/implementation_plan.md`(마일스톤·위험), `docs/research/`(조사 근거)
 
 ## 네이밍 컨벤션 (변수·메시지 키 공통)

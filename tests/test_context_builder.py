@@ -183,6 +183,18 @@ class PrefsTest(unittest.TestCase):
             with open(path, encoding="utf-8") as f:
                 self.assertIn("options", json.load(f))
 
+    def test_old_prefs_range_resets_once(self):
+        # 범위 기본값이 사각형 한 변 500 m로 바뀌었다(2026-10-19) — 그 전 prefs의 radius·shape만 한 번 버린다
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "prefs.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({"options": {"radius": 200, "shape": "circle", "terrain_step": 2}}, f)
+            options = site_prefs.get_options(path)
+            self.assertEqual((options["radius"], options["shape"]), (250, "rect"))
+            self.assertEqual(options["terrain_step"], 2)   # 다른 옵션은 그대로
+            site_prefs.save_options({"radius": 1000, "shape": "circle"}, path)
+            self.assertEqual((site_prefs.get_options(path)["radius"], site_prefs.get_options(path)["shape"]), (1000, "circle"))   # 새로 저장한 값은 남는다
+
     def test_style_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(site_prefs.list_styles(tmp), [])

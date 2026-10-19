@@ -208,7 +208,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 {"type":"error","context":"init|search|select|preflight|generate|import|export|open","text":"한 줄","detail":"traceback 또는 빈 문자열"}
 
 {"type":"done",
- "dir":"/…/result/20261007/성수동2가_277-17외1",
+ "dir":"/…/result/성수동2가_277-17외1_20261007",
  "lot_name":"성수동2가_277-17외1",
  "elapsed_s":41,
  "options":{…generate에 쓰인 옵션 그대로…},        // dirty 판정·결과 카드 제목
@@ -268,7 +268,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 
 ## 대상지 방식 (2026-10-10)
 
-① 첫 화면은 지도다(2026-10-14 — 소개·방식 고르기 화면 없음). 지도 위 도구줄의 방식 칸 [필지·구역·위치]로 바꾸고, 처음엔 마지막 방식(`options.mode`, 저장된 옵션 그대로). 방식을 바꾸면 대상지를 지우고 `init_state.modes.defaults[mode]`(constants `MODE_DEFAULTS` — 필지 200 m·1:1000 / 구역 500 m·1:3000 / 위치 용지 프레임·1:5000)를 옵션에 덮고 `save_prefs`. [새 대상지]는 대상지만 지우고 같은 방식의 지도로.
+① 첫 화면은 지도다(2026-10-14 — 소개·방식 고르기 화면 없음). 지도 위 도구줄의 방식 칸 [필지·구역·위치]로 바꾸고, 처음엔 마지막 방식(`options.mode`, 저장된 옵션 그대로). 방식을 바꾸면 대상지를 지우고 `init_state.modes.defaults[mode]`(constants `MODE_DEFAULTS` — 축척·대상지 바닥면만: 필지 1:1000·1:3000 / 구역 1:3000 / 위치 1:5000)를 옵션에 덮고 `save_prefs`. 범위(radius·shape)는 방식을 바꿔도 마지막 값 그대로다(기본 사각형 한 변 500 m = radius 250, 2026-10-19). `prefs.json`의 `version` < 2면 예전에 저장한 radius·shape는 한 번 버린다(`site_prefs.PREFS_VERSION`). [새 대상지]는 대상지만 지우고 같은 방식의 지도로.
 
 | 방식 | 요청 `target` | 대상지 경계(`site_rings`) | 대상 필지 | 결과 폴더명 |
 |---|---|---|---|---|
@@ -380,7 +380,7 @@ Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `r
 | `~/.gorani/client_id` | 무작위 UUID 한 줄(사용 통계 설치 식별) | `usage_stats.get_client_id`(없으면 생성) | `usage_stats` |
 | `.env`(`HOME_DIR`) | `VWORLD_API_KEY=…`(지도·위성 배경, 항공사진, 주소 보조 검색 — 없으면 OSM·Esri·지명 검색). `= ` 뒤 공백 금지 | 사용자(OS 편집기). 없으면 `open_path`가 한 줄 템플릿 생성 | `pnu_loader._read_local_env_value`(strip)·생성기 |
 | `HOME_DIR/data/*.db`·`packs.json` | 필지·컨텍스트·등고선 DB. `packs.json` = 받은 팩의 sha256 | `download_data` | `init`·전 명령 |
-| `HOME_DIR/result/<YYYYMMDD>/<lot_name>/` | deliverables §E. 같은 폴더가 있으면 생성기 시작 시 `sheets/`·`tables/`·`context.3dm`·`context.json`을 지우고 새로 쓴다(이전 옵션의 시트·CSV가 새것처럼 남지 않도록). `basemap_*.ai`(사용자가 만든 것)·`log.txt`(이어 쓰고 구분선)는 보존 | 생성기·베이커(.ai) | `done`·`open_path` |
+| `HOME_DIR/result/<lot_name>_<YYYYMMDD>/` | deliverables §E. 같은 폴더가 있으면 생성기 시작 시 `sheets/`·`tables/`·`context.3dm`·`context.json`을 지우고 새로 쓴다(이전 옵션의 시트·CSV가 새것처럼 남지 않도록). `basemap_*.ai`(사용자가 만든 것)·`log.txt`(이어 쓰고 구분선)는 보존 | 생성기·베이커(.ai) | `done`·`open_path` |
 
 `localStorage`·쿠키는 쓰지 않는다(file:// 임시 파일 출처).
 

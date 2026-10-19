@@ -422,7 +422,8 @@ HEIGHT_GRADES = ("A", "B", "C", "D")
 PANEL_VERSION = "0.1"
 INSTALL_DOC = "docs/install.md"
 PREFS_DIRNAME = ".gorani"            # 사용자 홈 아래. prefs.json·source_news.json
-RESULT_DATE_FORMAT = "%Y%m%d"                  # result/<YYYYMMDD>/<대상지명>/
+RESULT_DATE_FORMAT = "%Y%m%d"                  # result/<대상지명>_<YYYYMMDD>/ — 날짜는 맨 뒤(2026-10-19 사용자 결정, 예전 result/<YYYYMMDD>/<대상지명>/)
+RESULT_DIR_FORMAT = "%s_%s"                    # (대상지명, 날짜)
 CONTEXT_MODEL_FILE_NAME = "context.3dm"
 BLENDER_MODEL_FILE_NAME = "context.blend"      # Blender판 사본(blender_baker.save_copy) — 3dm 대신
 SKETCHUP_MODEL_FILE_NAME = "context.skp"       # SketchUp판 사본(sketchup_baker.save_copy — 대상지 그룹 정의를 저장)
@@ -545,7 +546,7 @@ SHEET_KOREA_ONLY = ("lot_size", "density", "land_use", "land_category", "zone", 
 PANEL_DEFAULT_OPTIONS = {
     "region": None,   # 데이터 모드 kr(국가 DB) | global(OSM) — None = 첫 실행, 패널이 정한다(국내 DB·시간대 Asia/Seoul·한국어면 kr)
     "mode": "lots", "placement": "origin",
-    "radius": 500, "shape": "circle",
+    "radius": 250, "shape": "rect",   # 범위 기본 = 사각형 한 변 500 m(2026-10-19 사용자 결정). 방식을 바꿔도 마지막 범위를 유지한다
     "flatten_site": False, "flatten_level": "mean",
     "site_output": "curve",   # 대상지 표시(lots·area): curve = 경계 커브만, mesh = 대상지 바닥 메시도(CTX::Site::ground, 대상지 색). 필지 방식 기본 mesh   # 대상지 평탄화(lots·area) — 높이 = 경계 자연 지반의 mean|min|max
     "import_after": True,
@@ -582,10 +583,11 @@ TARGET_MODES = ("lots", "area", "point")
 REGIONS = ("kr", "global")   # 헤더 토글. kr = 국가 DB(필지·대장·UPIS·수치지형도, 한국만), global = OSM·지형 타일(어디서나, 필지·용도지역 없음)
 # 방식별 기본 범위·축척 — 실무 관행에서 고른 제안값(확인 필요: 사내 기준이 있으면 바꾼다).
 # 필지 = 건축 대지검토 규모, 구역 = 지구단위계획·정비구역 현황분석 규모, 위치 = 광역 베이스맵(범위 = 용지 프레임)
+# 범위(radius·shape)는 방식과 무관하게 마지막 값을 쓴다 — 방식마다 덮으면 기본값이 제각각이라 혼란이었다(2026-10-19 QA)
 MODE_DEFAULTS = {
-    "lots": {"radius": 200, "shape": "circle", "scales": [1000, 3000], "site_output": "mesh"},   # A3 1:1000 = 420×297 m(지번) + 1:3000 주변
-    "area": {"radius": 500, "shape": "circle", "scales": [3000], "site_output": "curve"},
-    "point": {"radius": 500, "shape": "rect", "scales": [5000], "site_output": "curve"},   # 사각형 한 변 1 km
+    "lots": {"scales": [1000, 3000], "site_output": "mesh"},   # A3 1:1000 = 420×297 m(지번) + 1:3000 주변
+    "area": {"scales": [3000], "site_output": "curve"},
+    "point": {"scales": [5000], "site_output": "curve"},
 }
 # 패널에 보이는 범위 형태 — 어느 방식이든 원(반경)·사각형(한 변 = 2 × radius) 둘(2026-10-19, 방식마다 달라 혼란이었다).
 # 엔진은 buffer·site(그린 구역 그대로)·frame(용지 프레임)도 받는다(예전 요청 호환)

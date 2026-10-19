@@ -746,7 +746,7 @@ def prepare(request, progress=None, today=None):
         radius=radius, shape=shape, extent_ring=extent_ring, scales=scales, bounds=bounds, frame_bounds=frame_bounds, context=context,
         align_samples=align_samples, overlays=overlays, designations=list(lot_data.designations) if lot_data else [],
         sources=sources, warnings=warnings, skipped_phases=skipped,
-        result_dir=os.path.join(result_root, today.strftime(constants.RESULT_DATE_FORMAT), lot_name), lots_truncated=bool(truncated),
+        result_dir=os.path.join(result_root, constants.RESULT_DIR_FORMAT % (lot_name, today.strftime(constants.RESULT_DATE_FORMAT))), lots_truncated=bool(truncated),
         mode=target.mode, site_rings=target.site_rings, center=center, target_key=target.key, placement=placement, doc_origin=doc_origin,
     )
 
@@ -788,7 +788,7 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
         request=request, lot_name=lot_name, target_lots=[], near_lots=[], origin=origin, origin_reused=origin_reused,
         radius=radius, shape=shape, extent_ring=extent_ring, scales=scales, bounds=bounds, frame_bounds=frame_bounds, context=context,
         align_samples=[], overlays=[], sources=context.sources, warnings=warnings, skipped_phases=skipped,
-        result_dir=os.path.join(result_root, today.strftime(constants.RESULT_DATE_FORMAT), lot_name), lots_truncated=False,
+        result_dir=os.path.join(result_root, constants.RESULT_DIR_FORMAT % (lot_name, today.strftime(constants.RESULT_DATE_FORMAT))), lots_truncated=False,
         mode=target.mode, site_rings=target.site_rings, center=center, target_key=target.key, placement=placement, doc_origin=doc_origin,
     )
     height = context_report.get_height_src_stats(prepared)
@@ -1305,7 +1305,7 @@ def _prepare_from_meta(result_dir, extra_scale=None, site_db=None, context_db=No
         scales.add(int(extra_scale))
     options["scales"] = sorted(scales)
     request = {"target": meta.get("target") or {"mode": "lots", "pnus": meta["pnus"]}, "options": options, "site_db": site_db,
-               "context_db": context_db, "lot_name": meta.get("lot_name"), "result_root": os.path.dirname(os.path.dirname(result_dir))}
+               "context_db": context_db, "lot_name": meta.get("lot_name"), "result_root": os.path.dirname(result_dir)}
     prepared = prepare(request)
     prepared.result_dir = result_dir   # prepare는 오늘 날짜 폴더를 고른다
     return prepared
@@ -1349,7 +1349,7 @@ def get_2d_request(result_dir, options, site_db=None, context_db=None):
     merged["make_dwg"] = bool(merged.get("make_dwg") and merged.get("make_basemap"))   # DWG = 베이스맵의 선 도면 — 베이스맵과 함께만
     # 3D가 쓴 원점(문서 원점 재사용 포함)을 그대로 — DWG 좌표가 3dm과 겹친다. .ai·도면은 세계좌표라 원점과 무관
     return {"target": meta.get("target") or {"mode": "lots", "pnus": meta.get("pnus") or []}, "options": merged, "site_db": site_db,
-            "context_db": context_db, "lot_name": meta.get("lot_name"), "result_root": os.path.dirname(os.path.dirname(result_dir)),
+            "context_db": context_db, "lot_name": meta.get("lot_name"), "result_root": os.path.dirname(result_dir),
             "doc_origin": meta.get("doc_origin") or None}
 
 

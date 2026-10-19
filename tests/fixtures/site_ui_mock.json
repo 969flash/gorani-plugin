@@ -82,8 +82,8 @@
    "region": "kr",
    "mode": "lots",
    "placement": "origin",
-   "radius": 200,
-   "shape": "circle",
+   "radius": 250,
+   "shape": "rect",
    "flatten_site": false,
    "flatten_level": "mean",
    "site_output": "mesh",
@@ -479,8 +479,6 @@
   "modes": {
    "defaults": {
     "lots": {
-     "radius": 200,
-     "shape": "circle",
      "scales": [
       1000,
       3000
@@ -488,16 +486,12 @@
      "site_output": "mesh"
     },
     "area": {
-     "radius": 500,
-     "shape": "circle",
      "scales": [
       3000
      ],
      "site_output": "curve"
     },
     "point": {
-     "radius": 500,
-     "shape": "rect",
      "scales": [
       5000
      ],
@@ -878,15 +872,15 @@
  },
  {
   "type": "done",
-  "dir": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1",
+  "dir": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019",
   "lot_name": "성수동2가_277-17외1",
   "elapsed_s": 8.3,
   "options": {
    "region": "kr",
    "mode": "lots",
    "placement": "origin",
-   "radius": 200,
-   "shape": "circle",
+   "radius": 250,
+   "shape": "rect",
    "flatten_site": false,
    "flatten_level": "mean",
    "site_output": "mesh",
@@ -947,7 +941,7 @@
    }
   },
   "context": {
-   "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/context.3dm",
+   "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/context.3dm",
    "layers": 12,
    "buildings": 1842,
    "lots": 2310,
@@ -972,17 +966,17 @@
   "files": [
    {
     "name": "context.3dm",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/context.3dm",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/context.3dm",
     "bytes": 16800000
    },
    {
     "name": "context.json",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/context.json",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/context.json",
     "bytes": 42000
    },
    {
     "name": "log.txt",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/log.txt",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/log.txt",
     "bytes": 2100
    }
   ],
@@ -1212,14 +1206,14 @@
   "type": "made_2d",
   "ok": true,
   "cancelled": false,
-  "dir": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1",
+  "dir": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019",
   "elapsed_s": 12.4,
   "options": {
    "region": "kr",
    "mode": "lots",
    "placement": "origin",
-   "radius": 200,
-   "shape": "circle",
+   "radius": 250,
+   "shape": "rect",
    "flatten_site": false,
    "flatten_level": "mean",
    "site_output": "mesh",
@@ -1288,184 +1282,184 @@
     3000
    ],
    "exported": [
-    "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/basemap_1000.ai",
-    "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/basemap_3000.ai"
+    "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/basemap_1000.ai",
+    "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/basemap_3000.ai"
    ],
-   "dwg": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/basemap_1000.dwg"
+   "dwg": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/basemap_1000.dwg"
   },
   "sheets": [
    {
     "id": 0,
     "name": "베이스맵",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/00_베이스맵.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/00_베이스맵.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 1,
     "name": "도형-배경도",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/01_도형-배경도.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/01_도형-배경도.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 2,
     "name": "필지 규모",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/02_필지규모.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/02_필지규모.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 3,
     "name": "블록 밀도",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/03_블록밀도.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/03_블록밀도.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 4,
     "name": "대중교통 역세권",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/04_대중교통역세권.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/04_대중교통역세권.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 5,
     "name": "보행권",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/05_보행권.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/05_보행권.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 6,
     "name": "녹지·수계",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/06_녹지·수계.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/06_녹지·수계.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 7,
     "name": "생활 공공시설",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/07_생활공공시설.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/07_생활공공시설.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 8,
     "name": "가로 위계",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/08_가로위계.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/08_가로위계.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 9,
     "name": "토지이용현황",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/09_토지이용현황.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/09_토지이용현황.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 10,
     "name": "지목 현황",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/10_지목현황.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/10_지목현황.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 11,
     "name": "용도지역",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/11_용도지역.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/11_용도지역.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 12,
     "name": "용도지구·구역",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/12_용도지구·구역.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/12_용도지구·구역.svg",
     "empty": true,
     "reason": "데이터 없음"
    },
    {
     "id": 13,
     "name": "도시계획시설·지구단위계획",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/13_도시계획시설·지구단위계획.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/13_도시계획시설·지구단위계획.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 14,
     "name": "건축물 용도",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/14_건축물용도.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/14_건축물용도.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 15,
     "name": "건축물 층수",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/15_건축물층수.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/15_건축물층수.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 16,
     "name": "건축물 노후도",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/16_건축물노후도.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/16_건축물노후도.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 17,
     "name": "공시지가",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/17_공시지가.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/17_공시지가.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 18,
     "name": "표고",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/18_표고.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/18_표고.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 19,
     "name": "경사",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/19_경사.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/19_경사.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 20,
     "name": "경관·조망 (틀)",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/20_경관·조망(틀).svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/20_경관·조망(틀).svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 21,
     "name": "이미지맵 (틀)",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/21_이미지맵(틀).svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/21_이미지맵(틀).svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 22,
     "name": "종합분석 (틀)",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/22_종합분석(틀).svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/22_종합분석(틀).svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 23,
     "name": "항공사진",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/23_항공사진.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/23_항공사진.svg",
     "empty": false,
     "reason": ""
    },
    {
     "id": 24,
     "name": "입체 매스도",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/sheets/24_입체매스도.svg",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/sheets/24_입체매스도.svg",
     "empty": false,
     "reason": ""
    }
@@ -1473,39 +1467,39 @@
   "tables": [
    {
     "name": "parcels.csv",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/tables/parcels.csv"
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/tables/parcels.csv"
    },
    {
     "name": "buildings.csv",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/tables/buildings.csv"
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/tables/buildings.csv"
    },
    {
     "name": "sheet_stats.csv",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/tables/sheet_stats.csv"
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/tables/sheet_stats.csv"
    },
    {
     "name": "height_src_stats.csv",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/tables/height_src_stats.csv"
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/tables/height_src_stats.csv"
    },
    {
     "name": "alignment.csv",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/tables/alignment.csv"
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/tables/alignment.csv"
    }
   ],
   "files": [
    {
     "name": "context.3dm",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/context.3dm",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/context.3dm",
     "bytes": 16800000
    },
    {
     "name": "context.json",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/context.json",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/context.json",
     "bytes": 42000
    },
    {
     "name": "log.txt",
-    "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/log.txt",
+    "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/log.txt",
     "bytes": 2100
    }
   ],
@@ -1515,9 +1509,9 @@
  {
   "type": "exported",
   "ok": true,
-  "dir": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1",
+  "dir": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019",
   "scale": 5000,
-  "path": "/Users/me/Gorani/result/20261019/성수동2가_277-17외1/basemap_5000.ai",
+  "path": "/Users/me/Gorani/result/성수동2가_277-17외1_20261019/basemap_5000.ai",
   "text": ""
  }
 ]

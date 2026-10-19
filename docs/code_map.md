@@ -210,7 +210,7 @@ def get_progress_message(phase, fraction, text, skipped, details):
 ```jsonc
 {
   "ok": true, "cancelled": false,
-  "dir": ".../result/20261007/성수동2가_333-139", "lot_name": "성수동2가_333-139", "elapsed_s": 4.2,
+  "dir": ".../result/성수동2가_333-139_20261007", "lot_name": "성수동2가_333-139", "elapsed_s": 4.2,
   "options": { ...요청 options에 기본값 채운 것... },
   "context": {"path": ".../context.3dm", "layers": 12, "buildings": 3500, "lots": 8900, "demolished": 0, "tin_points": 4121,
               "origin": [204700.0, 548900.0], "origin_reused": false, "model_unit": "Millimeters", "imported": true, "import_text": ""},
