@@ -2157,13 +2157,13 @@ class SimpleShape(object):
         self.geometry = geometry
 
 
-def get_sheet_ai(svg_path):
-    # type: (str) -> str
+def get_sheet_ai(svg_path, force=False):
+    # type: (str, bool) -> str
     """도면 SVG 옆 레이어 .ai 경로 — 없거나 SVG보다 오래됐으면(스타일 적용 뒤) basemap_ai.write_svg_ai로 새로 쓴다.
     영상이 든 SVG(항공사진)는 SVG 경로 그대로 — 레거시 .ai는 래스터를 못 담는다(Illustrator로 SVG를 열면 영상째 열린다)."""
     import basemap_ai   # basemap_ai가 이 모듈을 import한다 — 순환을 피해 여기서
     ai_path = os.path.splitext(svg_path)[0] + ".ai"
-    if not os.path.exists(ai_path) or os.path.getmtime(ai_path) < os.path.getmtime(svg_path):
+    if force or not os.path.exists(ai_path) or os.path.getmtime(ai_path) < os.path.getmtime(svg_path):
         with open(svg_path, encoding="utf-8") as handle:
             text = handle.read()
         if "<image " in text:
@@ -2179,7 +2179,8 @@ def get_sheet_file_name(sheet_id, name):
 
 def write_sheets(data, out_dir, sheet_ids=None, options=None):
     # type: (SheetData, str, list, dict) -> list
-    """시트들을 out_dir에 쓴다 — 장마다 .svg + 썸네일 PNG data URI. 레이어 .ai는 패널이 누를 때 만든다(get_sheet_ai — 23장 다 쓰면 Rhino에서 10 s+).
+    """시트들을 out_dir에 쓴다 — 장마다 .svg + 썸네일 PNG data URI. 레이어 .ai는 패널 [모두 .ai로 저장]이 만든다(get_sheet_ai — 23장 다 쓰면 Rhino에서 10 s+).
+    옆에 .ai가 이미 있으면 함께 새로 쓴다 — 다시 만든 뒤 폴더에서 연 .ai가 옛 스타일·옛 자료로 남아 있었다(2026-10-19).
     반환 [{id, name, path(svg), thumb, empty, reason}] (panel_ui.md done.sheets 모양)."""
     if options:
         data.options = dict(data.options, **options)
@@ -2193,5 +2194,7 @@ def write_sheets(data, out_dir, sheet_ids=None, options=None):
         path = os.path.join(out_dir, get_sheet_file_name(sheet_id, name))
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(svg)
+        if os.path.exists(os.path.splitext(path)[0] + ".ai"):
+            get_sheet_ai(path, force=True)   # 수정 시각 비교는 같은 초 안이면 놓친다
         results.append({"id": sheet_id, "name": name, "path": path, "thumb": render_thumbnail(sheet_id, data), "empty": empty, "reason": reason})
     return results

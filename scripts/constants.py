@@ -427,6 +427,7 @@ HEIGHT_GRADES = ("A", "B", "C", "D")
 PANEL_VERSION = "0.1"
 INSTALL_DOC = "docs/install.md"
 PREFS_DIRNAME = ".gorani"            # 사용자 홈 아래. prefs.json·source_news.json
+RESULT_TIME_FORMAT = "%H%M"                    # 같은 날 같은 대상지를 다시 만들면 result/<대상지명>_<YYYYMMDD>_<HHMM>/ — 이전 결과를 지우지 않는다(2026-10-19)
 RESULT_DATE_FORMAT = "%Y%m%d"                  # result/<대상지명>_<YYYYMMDD>/ — 날짜는 맨 뒤(2026-10-19 사용자 결정, 예전 result/<YYYYMMDD>/<대상지명>/)
 RESULT_DIR_FORMAT = "%s_%s"                    # (대상지명, 날짜)
 CONTEXT_MODEL_FILE_NAME = "context.3dm"
@@ -564,7 +565,7 @@ PANEL_DEFAULT_OPTIONS = {
     # 2D 자료는 기본 끔 — 주목적은 3D, 2D는 패널 결과 화면에서 3D 뒤에 고른다(make_2d, 2026-10-19). 3D만이면 실측 약 8 s, 2D까지면 시간 2.5배(ESTIMATE_* 주석)
     "make_basemap": False, "paper": "A3", "paper_mm": [420, 297], "scales": [5000], "basemap_layers_on": [],
     "basemap_preset": "a3",   # 패널 2D 카드 베이스맵 칩: a3(보고서 A3)·a1(판넬 A1) = 축척을 범위에 맞춰 자동, custom = 용지·축척 직접. 엔진은 보지 않는다
-    "make_sheets": False, "sheet_ids": [sheet_id for sheet_id, *_ in SHEET_CATALOG], "floor_breaks": [12, 20], "elev_preset": "20m",
+    "make_sheets": False, "sheet_ids": [sheet_id for sheet_id, key, *_ in SHEET_CATALOG if SHEET_GROUP.get(key) != "frame"],   # 그려 넣을 틀은 따로 켠다(패널 '더 넣기') "floor_breaks": [12, 20], "elev_preset": "20m",
     "make_tables": False,
     "include_minor_buildings": False,
     "include_zoning": True,   # CTX::Zoning — 용도지역·용도지구·용도구역·도시계획시설·지구단위계획 경계(현황도 11~13의 2D 커브)

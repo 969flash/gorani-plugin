@@ -855,6 +855,25 @@ def get_sheets_dir(result_dir):
     return legacy if os.path.isdir(legacy) and not os.path.isdir(current) else current
 
 
+def _has_result(result_dir):
+    # type: (str) -> bool
+    return any(os.path.exists(os.path.join(result_dir, name)) for name in (constants.CONTEXT_META_FILE_NAME, constants.CONTEXT_MODEL_FILE_NAME,
+                                                                            constants.BLENDER_MODEL_FILE_NAME, constants.SKETCHUP_MODEL_FILE_NAME))
+
+
+def get_free_result_dir(result_dir):
+    # type: (str) -> str
+    """이미 결과가 든 폴더면 시각을 붙인 새 폴더(<대상지>_<날짜>_<HHMM>, 같은 분이면 _2…).
+    같은 대상지를 같은 날 다시 만들면 이전 3dm·2D를 지웠다(2026-10-19 사용자 행동 분석) — 이제 이전 결과는 그대로 남는다."""
+    if not _has_result(result_dir):
+        return result_dir
+    base = "%s_%s" % (result_dir, time.strftime(constants.RESULT_TIME_FORMAT))
+    path, n = base, 2
+    while _has_result(path):
+        path, n = "%s_%d" % (base, n), n + 1
+    return path
+
+
 def _reset_result_dir(result_dir):
     # type: (str) -> None
     """결과 폴더 준비(write_3dm 첫 베이크 직전) — sheets/·tables/(결과 폴더 바로 아래 = 예전, 2D/ 아래 = 지금)·context.3dm·context.json은 지우고 새로,
@@ -1035,7 +1054,9 @@ def _run_phases(request, progress, doc, response, state):
     lot_key = prepared.target_key
     state["lot_key"] = lot_key
     _report(progress, "write_3dm", 0.0, "이전 베이크 정리")
-    _reset_result_dir(prepared.result_dir)   # 이전 산출물은 첫 베이크 직전에 지운다 — query·terrain 중 취소·실패는 이전 결과를 남긴다
+    prepared.result_dir = get_free_result_dir(prepared.result_dir)   # 이전 결과가 있으면 새 폴더 — 첫 베이크 직전에 정해 query·terrain 중 취소·실패는 빈 폴더를 남기지 않는다
+    response["dir"] = prepared.result_dir
+    _reset_result_dir(prepared.result_dir)
     context_baker.clear_previous(doc, lot_key)
     state["baked"] = True
     ids, items, chunk = [], geo.items, constants.RUN_BAKE_CHUNK
@@ -1338,14 +1359,20 @@ def export_basemap(result_dir, scale, site_db=None, context_db=None):
     return basemap_ai.write_basemap(prepared, int(scale), get_2d_dir(result_dir))
 
 
-def get_sheet_data(result_dir, keep=None, site_db=None, context_db=None):
-    # type: (str, dict, object, object) -> tuple
+def get_sheet_data(result_dir, keep=None, site_db=None, context_db=None, quick=False):
+    # type: (str, dict, object, object, bool) -> tuple
     """결과 폴더의 (SheetData, Prepared). 이번 세션에 만든 결과면 keep(지형 삼각형 포함), 아니면 context.json으로 다시 prepare
-    (지형 삼각형은 Rhino 메시에서 나와 다시 만들지 않는다 — 지형 시트는 비어 있다). keep이 있으면 새로 만든 것을 담아 둔다."""
+    (지형 삼각형은 Rhino 메시에서 나와 다시 만들지 않는다 — 지형 시트는 비어 있다). keep이 있으면 새로 만든 것을 담아 둔다.
+    quick(스타일 미리보기): 2D 데이터가 아직 없으면 3D를 만든 Prepared를 그대로 쓴다 — 자료가 3D 범위까지만이라 파일 쓰기에는 안 쓴다.
+    다시 prepare하면 Global은 OSM·지형 타일을 프레임 크기로 또 받아 미리보기가 수십 초 걸렸다(2026-10-19 무교동 12-1 구역, 3D 53.9 s)."""
     import sheet_svg
     same = bool(keep) and keep.get("dir") == result_dir
     if same and keep.get("data") is not None:
         return keep["data"], keep["prepared"]
+    if quick and same and keep.get("prepared") is not None:
+        if keep.get("preview_data") is None:
+            keep["preview_data"] = sheet_svg.SheetData.from_prepared(keep["prepared"], keep.get("terrain_tris") or [])
+        return keep["preview_data"], keep["prepared"]
     terrain_tris = keep.get("terrain_tris") or [] if same else []   # 3D만 만든 이번 세션 결과 — 지형 삼각형은 남아 있다
     prepared = _prepare_from_meta(result_dir, None, site_db, context_db)
     data = sheet_svg.SheetData.from_prepared(prepared, terrain_tris)
@@ -1378,7 +1405,8 @@ def make_2d(result_dir, options, progress=None, keep=None, site_db=None, context
 
     입력: result_dir(run이 만든 폴더 — context.json 필요), options(2D 키, _2D_OPTION_KEYS), progress(phase, fraction, text) -> bool,
           keep(run이 남긴 {dir, terrain_tris} — 지형 도면용. 다른 폴더면 지형 도면은 빈다).
-    처리: get_2d_request → prepare(가장 큰 프레임까지 다시 조회, phase 'query') → 이번에 켠 것의 sheets/·tables/만 비우고 _run_2d_phases
+    처리: get_2d_request → prepare(가장 큰 프레임까지 다시 조회, phase 'query') → tables/만 비우고 _run_2d_phases
+          → 도면은 이번에 고른 장만 새로 쓰고 전에 만든 다른 장은 목록에 합친다(_merge_sheets)
           → context.json의 options·basemap·sheets·tables 갱신 + log.txt. Rhino 문서는 건드리지 않는다.
     출력: {ok, cancelled, dir, elapsed_s, options, basemap, sheets, tables, files, warnings, error}.
     """
@@ -1394,14 +1422,16 @@ def make_2d(result_dir, options, progress=None, keep=None, site_db=None, context
         prepared = prepare(request, progress)
         prepared.result_dir = result_dir   # prepare는 오늘 날짜 폴더를 고른다 — 어제 만든 3D 폴더에 더할 수 있게
         response.update(options=dict(prepared.request["options"]), warnings=list(prepared.warnings))
-        for key, name in (("make_sheets", constants.RESULT_SHEETS_DIRNAME), ("make_tables", constants.RESULT_TABLES_DIRNAME)):
-            if request["options"].get(key):   # 이전 2D의 다른 도면·CSV가 새것처럼 남지 않게
-                shutil.rmtree(os.path.join(get_2d_dir(result_dir), name), ignore_errors=True)
+        if request["options"].get("make_tables"):   # 조서 CSV는 늘 같은 다섯 개를 새로 쓴다
+            shutil.rmtree(os.path.join(get_2d_dir(result_dir), constants.RESULT_TABLES_DIRNAME), ignore_errors=True)
+        # 도면 폴더는 비우지 않는다 — 현황도 다음에 분석도를 더 만들면 현황도가 사라졌다(2026-10-19 사용자 행동 분석)
         same = bool(keep) and keep.get("dir") == result_dir
         terrain_tris = (keep.get("terrain_tris") or []) if same else []
         _run_2d_phases(prepared, request["options"], terrain_tris, progress, response, state,
                        dwg=bool(request["options"].get("make_dwg")) and constants.DWG_EXPORT_ENABLED)
         response["ok"] = True
+        if response["sheets"]:
+            response["sheets"] = _merge_sheets(_read_meta(result_dir).get("sheets") or [], response["sheets"])
         if keep is not None:
             keep.clear()
             keep.update(dir=result_dir, data=state.get("sheet_data"), prepared=prepared, terrain_tris=terrain_tris)
@@ -1431,11 +1461,19 @@ def make_2d(result_dir, options, progress=None, keep=None, site_db=None, context
     return response
 
 
+def _merge_sheets(old_sheets, new_sheets):
+    # type: (list, list) -> list
+    """전에 만든 도면 목록(context.json sheets)에 이번 도면을 덮어 합친다 — 같은 id는 새것, 파일이 없어진 옛 장은 뺀다. id 순."""
+    merged = {int(s["id"]): s for s in old_sheets if isinstance(s, dict) and s.get("path") and os.path.exists(s["path"])}
+    merged.update((int(s["id"]), s) for s in new_sheets)
+    return [merged[k] for k in sorted(merged)]
+
+
 def preview_sheet(result_dir, sheet_id, style, keep=None):
     # type: (str, int, dict, dict) -> dict
     """스타일을 바꾼 한 장 — 파일은 쓰지 않는다(패널 미리보기). 반환 {svg, empty, reason}."""
     import sheet_svg
-    data, _prepared = get_sheet_data(result_dir, keep)
+    data, _prepared = get_sheet_data(result_dir, keep, quick=True)
     data.options["style"] = dict(style or {})
     data.options["_aerial_dpi"] = constants.AERIAL_PREVIEW_DPI
     try:

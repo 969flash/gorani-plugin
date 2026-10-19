@@ -499,7 +499,7 @@ class _SiteController:
             "import_context": self._import_context, "export_basemap": self._export_basemap, "zoom_view": self._zoom_view,
             "open_path": self._open_path, "open_eum": self._open_eum, "open_url": self._open_url, "save_prefs": self._save_prefs, "download_data": self._download_data,
             "style_preview": self._style_preview, "apply_style": self._apply_style, "save_style": self._save_style, "sheet_ai": self._sheet_ai,
-            "area_packs": self._area_packs, "stats_consent": self._stats_consent,
+            "sheet_view": self._sheet_view, "area_packs": self._area_packs, "stats_consent": self._stats_consent,
         }
         handler = handlers.get(cmd)
         if handler is None:
@@ -916,6 +916,15 @@ class _SiteController:
 
         self._run_busy("레이어 .ai 쓰는 중", "style", work)
 
+    def _sheet_view(self, msg):
+        """도면 SVG 한 장의 내용을 패널 보기 창으로 — OS로 열면 .svg가 Illustrator에 묶인 PC가 많다(2026-10-19 Rhino QA)."""
+        sheets_dir = loader.load("context_builder").get_sheets_dir(self._get_result_dir(msg))
+        path = str(msg.get("path") or "")
+        if not (os.path.abspath(path).startswith(os.path.join(os.path.abspath(sheets_dir), "")) and path.endswith(".svg") and os.path.exists(path)):
+            raise ValueError("도면 파일이 없습니다")
+        with open(path, encoding="utf-8") as handle:
+            self.push({"type": "sheet_view", "path": path, "svg": handle.read()})
+
     def _save_style(self, msg):
         styles = loader.load("site_prefs").save_style(msg.get("name"), msg.get("style") or {})
         self.push({"type": "styles", "styles": styles, "saved": msg.get("name"), "dir": loader.load("site_prefs").get_styles_dir()})
@@ -925,7 +934,7 @@ class _SiteController:
 _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "select", "set_point": "select", "pick_curve": "select",
                    "snap_area": "select", "import_context": "import", "export_basemap": "export",
                    "zoom_view": "open", "open_path": "open", "open_eum": "open", "open_url": "open", "save_prefs": "init", "stats_consent": "init", "cancel": "generate", "make_2d": "generate", "download_data": "init",
-                   "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style"}
+                   "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style", "sheet_view": "view"}
 
 
 def _show_panel():

@@ -498,6 +498,24 @@ class ResponseSchemaTest(unittest.TestCase):
             self.assertEqual(os.listdir(os.path.join(tmp, "2D")), ["basemap_1000.ai"])
 
 
+class FreeResultDirTest(unittest.TestCase):
+    def test_new_folder_when_result_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = os.path.join(tmp, "삼청동_35-89_20261019")
+            self.assertEqual(context_builder.get_free_result_dir(base), base)   # 없으면 그대로
+            os.makedirs(base)
+            open(os.path.join(base, "log.txt"), "w").close()
+            self.assertEqual(context_builder.get_free_result_dir(base), base)   # 실패한 로그만 있으면 그대로
+            open(os.path.join(base, constants.CONTEXT_META_FILE_NAME), "w").close()
+            first = context_builder.get_free_result_dir(base)
+            self.assertRegex(os.path.basename(first), r"^삼청동_35-89_20261019_\d{4}$")
+            os.makedirs(first)
+            open(os.path.join(first, constants.CONTEXT_MODEL_FILE_NAME), "w").close()
+            second = context_builder.get_free_result_dir(base)
+            self.assertNotEqual(second, first)
+            self.assertTrue(os.listdir(base))   # 이전 결과는 지우지 않는다
+
+
 class AlignTest(unittest.TestCase):
     """정합 샘플 — dev_context_builder.get_align_samples(합성) + 4도엽 부분 빌드 DB(/tmp/udt_ctx_test.db)의 통계."""
 
@@ -607,6 +625,36 @@ class Make2dTest(unittest.TestCase):
             self.assertEqual([s["id"] for s in meta["sheets"]], ids)
             nothing = context_builder.make_2d(tmp, {"make_basemap": False, "make_sheets": False, "make_tables": False}, None, None, SITE_DB, CONTEXT_DB)
             self.assertFalse(nothing["ok"])
+            # 다른 도면을 더 만들면 먼저 만든 장은 남고 목록에 합쳐진다
+            more = context_builder.make_2d(tmp, {"make_sheets": True, "sheet_ids": [constants.SHEET_IDS["elev"]]}, None, {}, SITE_DB, CONTEXT_DB)
+            self.assertTrue(more["ok"], more["error"])
+            self.assertEqual([s["id"] for s in more["sheets"]], sorted(ids + [constants.SHEET_IDS["elev"]]))
+            self.assertTrue(all(os.path.exists(s["path"]) for s in more["sheets"] if s["path"]))
+
+    def test_preview_reuses_3d_prepared_without_prepare(self):
+        # 미리보기는 2D 데이터가 없으면 3D Prepared를 그대로 쓴다 — 다시 prepare하면 Global은 OSM을 또 받는다
+        from unittest import mock
+        import sheet_svg
+        prepared, data = object(), object()
+        keep = {"dir": "/r", "data": None, "prepared": prepared, "terrain_tris": []}
+        with mock.patch.object(context_builder, "_prepare_from_meta", side_effect=AssertionError("다시 prepare")), \
+                mock.patch.object(sheet_svg.SheetData, "from_prepared", return_value=data) as made:
+            self.assertEqual(context_builder.get_sheet_data("/r", keep, quick=True), (data, prepared))
+            self.assertEqual(context_builder.get_sheet_data("/r", keep, quick=True), (data, prepared))
+            self.assertEqual(made.call_count, 1)
+            self.assertIsNone(keep["data"])   # 파일 쓰기(apply_style)는 3D 범위 자료를 쓰지 않는다
+
+    def test_merge_sheets_keeps_old_and_replaces_same_id(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = {}
+            for name in ("a", "b", "c"):
+                paths[name] = os.path.join(tmp, name + ".svg")
+                open(paths[name], "w").close()
+            old = [{"id": 3, "path": paths["a"]}, {"id": 1, "path": paths["b"]}, {"id": 7, "path": os.path.join(tmp, "gone.svg")}]
+            new = [{"id": 1, "path": paths["c"]}, {"id": 5, "path": None, "empty": True}]
+            merged = context_builder._merge_sheets(old, new)
+            self.assertEqual([s["id"] for s in merged], [1, 3, 5])
+            self.assertEqual(merged[0]["path"], paths["c"])
 
 
 class ProgressMessageTest(unittest.TestCase):
