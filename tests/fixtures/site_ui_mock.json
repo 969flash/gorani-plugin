@@ -141,7 +141,8 @@
    "zoom_after_import": true,
    "style": {
     "preset": "std"
-   }
+   },
+   "basemap_preset": "a3"
   },
   "recent": [
    {
@@ -169,7 +170,8 @@
     "name": "베이스맵",
     "subtitle": "Base map",
     "needs": "lot",
-    "korea_only": false
+    "korea_only": false,
+    "group": "base"
    },
    {
     "id": 1,
@@ -177,7 +179,8 @@
     "name": "도형-배경도",
     "subtitle": "Figure-ground",
     "needs": "building",
-    "korea_only": false
+    "korea_only": false,
+    "group": "analysis"
    },
    {
     "id": 2,
@@ -185,7 +188,8 @@
     "name": "필지 규모",
     "subtitle": "Parcel grain",
     "needs": "lot",
-    "korea_only": true
+    "korea_only": true,
+    "group": "analysis"
    },
    {
     "id": 3,
@@ -193,7 +197,8 @@
     "name": "블록 밀도",
     "subtitle": "Block density",
     "needs": "building",
-    "korea_only": true
+    "korea_only": true,
+    "group": "analysis"
    },
    {
     "id": 4,
@@ -201,7 +206,8 @@
     "name": "대중교통 역세권",
     "subtitle": "Transit catchment",
     "needs": "building",
-    "korea_only": false
+    "korea_only": false,
+    "group": "analysis"
    },
    {
     "id": 5,
@@ -209,7 +215,8 @@
     "name": "보행권",
     "subtitle": "Walking distance",
     "needs": "road",
-    "korea_only": false
+    "korea_only": false,
+    "group": "analysis"
    },
    {
     "id": 6,
@@ -217,7 +224,8 @@
     "name": "녹지·수계",
     "subtitle": "Green and blue",
     "needs": "building",
-    "korea_only": false
+    "korea_only": false,
+    "group": "analysis"
    },
    {
     "id": 7,
@@ -225,7 +233,8 @@
     "name": "생활 공공시설",
     "subtitle": "Community facilities",
     "needs": "building",
-    "korea_only": false
+    "korea_only": false,
+    "group": "analysis"
    },
    {
     "id": 8,
@@ -233,7 +242,8 @@
     "name": "가로 위계",
     "subtitle": "Street hierarchy",
     "needs": "road",
-    "korea_only": false
+    "korea_only": false,
+    "group": "analysis"
    },
    {
     "id": 9,
@@ -241,7 +251,8 @@
     "name": "토지이용현황",
     "subtitle": "Land use",
     "needs": "lot",
-    "korea_only": true
+    "korea_only": true,
+    "group": "status"
    },
    {
     "id": 10,
@@ -249,7 +260,8 @@
     "name": "지목 현황",
     "subtitle": "Land category",
     "needs": "lot",
-    "korea_only": true
+    "korea_only": true,
+    "group": "status"
    },
    {
     "id": 11,
@@ -257,7 +269,8 @@
     "name": "용도지역",
     "subtitle": "Zoning",
     "needs": "lot",
-    "korea_only": true
+    "korea_only": true,
+    "group": "status"
    },
    {
     "id": 12,
@@ -265,7 +278,8 @@
     "name": "용도지구·구역",
     "subtitle": "Districts",
     "needs": "lot",
-    "korea_only": true
+    "korea_only": true,
+    "group": "status"
    },
    {
     "id": 13,
@@ -273,7 +287,8 @@
     "name": "도시계획시설·지구단위계획",
     "subtitle": "Planning facilities",
     "needs": "lot",
-    "korea_only": true
+    "korea_only": true,
+    "group": "status"
    },
    {
     "id": 14,
@@ -281,7 +296,8 @@
     "name": "건축물 용도",
     "subtitle": "Building use",
     "needs": "building",
-    "korea_only": true
+    "korea_only": true,
+    "group": "status"
    },
    {
     "id": 15,
@@ -289,7 +305,8 @@
     "name": "건축물 층수",
     "subtitle": "Building height",
     "needs": "building",
-    "korea_only": false
+    "korea_only": false,
+    "group": "status"
    },
    {
     "id": 16,
@@ -297,7 +314,8 @@
     "name": "건축물 노후도",
     "subtitle": "Building age",
     "needs": "building",
-    "korea_only": true
+    "korea_only": true,
+    "group": "status"
    },
    {
     "id": 17,
@@ -305,7 +323,8 @@
     "name": "공시지가",
     "subtitle": "Land price",
     "needs": "lot",
-    "korea_only": true
+    "korea_only": true,
+    "group": "status"
    },
    {
     "id": 18,
@@ -313,7 +332,8 @@
     "name": "표고",
     "subtitle": "Elevation",
     "needs": "terrain",
-    "korea_only": false
+    "korea_only": false,
+    "group": "status"
    },
    {
     "id": 19,
@@ -321,7 +341,8 @@
     "name": "경사",
     "subtitle": "Slope",
     "needs": "terrain",
-    "korea_only": false
+    "korea_only": false,
+    "group": "status"
    },
    {
     "id": 20,
@@ -329,7 +350,8 @@
     "name": "경관·조망 (틀)",
     "subtitle": "Views",
     "needs": "lot",
-    "korea_only": false
+    "korea_only": false,
+    "group": "frame"
    },
    {
     "id": 21,
@@ -337,7 +359,8 @@
     "name": "이미지맵 (틀)",
     "subtitle": "Image of the city",
     "needs": "lot",
-    "korea_only": false
+    "korea_only": false,
+    "group": "frame"
    },
    {
     "id": 22,
@@ -345,7 +368,8 @@
     "name": "종합분석 (틀)",
     "subtitle": "Synthesis",
     "needs": "lot",
-    "korea_only": false
+    "korea_only": false,
+    "group": "frame"
    },
    {
     "id": 23,
@@ -353,7 +377,8 @@
     "name": "항공사진",
     "subtitle": "Aerial photo",
     "needs": "image",
-    "korea_only": false
+    "korea_only": false,
+    "group": "base"
    },
    {
     "id": 24,
@@ -361,7 +386,8 @@
     "name": "입체 매스도",
     "subtitle": "Axonometric massing",
     "needs": "building",
-    "korea_only": false
+    "korea_only": false,
+    "group": "analysis"
    }
   ],
   "style_presets": {

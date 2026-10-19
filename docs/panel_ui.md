@@ -75,6 +75,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `export_basemap` | `dir`, `scale`(1000\|3000\|5000) | `busy{on}` → `exported` → `busy{off}` | `context_builder.export_basemap(dir, scale)`: 결과 폴더의 `context.json`(pnus·options)으로 DB에서 다시 `prepare` → `basemap_ai.write_basemap` → `<dir>/basemap_<scale>.ai`. 문서를 거치지 않는다(import 불필요, 1초 안팎). 축척별 레이어 표(`constants.BASEMAP_SCALE_LAYERS`): 1:1000 = `08`(지적선) on · `08b`(지번) on, 1:3000 = `08` on · `08b` off, 1:5000 = `08`·`08b` off. 실패하면 `exported{ok:false, text}` |
 | `zoom_view` | `dir`(결과 폴더 절대경로), `center`[lng,lat](선택) | — (`error{context:"open"}`) | `import_context`·`export_basemap`과 같은 꼴 — JS가 `result.dir`을 붙인다(Python은 마지막 결과 폴더를 기억하지 않는다). `center` 없으면 `CTX::Site` 객체로 줌. 있으면 `<dir>/context.json`의 ORIGIN으로 문서 좌표 환산 후 그 점 주변 100 m |
 | `open_path` | `path`(str) | — (`error{context:"open"}`) | 절대경로 또는 프로젝트 루트 상대(`docs/data_sources.md`, `.env`, `data`). 폴더 = 탐색기, 파일 = OS 기본 앱. `.env`가 없으면 한 줄 템플릿(`VWORLD_API_KEY=`)을 만든 뒤 연다. 외부 URL은 열지 않는다(WebView가 이동하므로 JS에서도 링크 금지 — 토지이음은 `open_eum`) |
+| `open_url` | `key`(`constants.PANEL_LINKS`의 키 — 지금은 `website`) | — (`error{context:"open"}`) | 더보기 메뉴 '고라니 웹페이지'. 키만 받아 정해진 주소를 OS 브라우저로 연다(임의 URL은 받지 않는다) |
 | `open_eum` | `pnu`(19자리) | — (`error{context:"open"}`) | ① 필지 정보 [토지이음 ↗]. Python이 `constants.EUM_LAND_USE_URL % pnu`를 만들어 OS 브라우저로 연다(임의 URL은 받지 않는다) |
 | `save_prefs` | `options` | — | `prefs.json`에 `options`만 덮어쓴다(`recent`는 `generate` 성공 시 Python이 갱신) |
 | `style_preview` | `dir`, `sheet_id`(0~15), `style`(스타일 dict), `seq` | `style_preview`(같은 `seq`) / `error{context:"style"}` | ③ 결과의 도면 스타일 화면. `context_builder.preview_sheet` — 한 장을 스타일로 다시 그린 SVG 문자열(파일 안 씀). 시트 데이터는 컨트롤러 `_keep`(이번 세션 생성 결과, 지형 삼각형 포함), 없으면 `context.json`으로 한 번 prepare(지형 시트는 비어 나온다). SVG id·`url(#…)`은 `pv_` 접두어(패널 `#map`과 겹치지 않게). JS 250 ms 디바운스, 늦은 `seq`는 버린다 |
@@ -152,7 +153,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
  "map":{"center":[126.9784,37.5665],"zoom":16},              // review_map.get_map_init()
  "options":{…옵션 키 전부, prefs.json 복원 또는 기본값…},
  "recent":[{"pnus":["…"],"label":"성수동2가 277-17 외 1","total_area":1234.5,"date":"2026-10-06"}],   // 최대 5, 필지 방식만. 더보기 메뉴 [최근 대상지] → 필지 방식으로 select_lots. done 때 JS가 같은 꼴로 앞에 넣는다(다음 init까지)
- "sheet_catalog":[{"id":0,"key":"base","name":"베이스맵","subtitle":"Base map","needs":"lot"},…,{"id":15,"key":"slope","name":"경사","subtitle":"Slope","needs":"terrain"}],   // constants.SHEET_CATALOG 25장(분석도 8 · 현황도 12 · 틀 3 · 항공사진 1 · 입체 매스도 1, needs image = 영상 타일). done.sheets[].thumb = 160 px PNG data URI(패널 도면 칸, 항공사진만 SVG data URI)
+ "sheet_catalog":[{"id":0,"key":"base","name":"베이스맵","subtitle":"Base map","needs":"lot","korea_only":false,"group":"base"},…,{"id":19,"key":"slope","name":"경사","subtitle":"Slope","needs":"terrain","korea_only":false,"group":"status"}],   // group = constants.SHEET_GROUP: base(베이스맵·항공사진)·status(현황도)·analysis(분석도)·frame(틀) — 2D 카드 묶음 칩   // constants.SHEET_CATALOG 25장(분석도 8 · 현황도 12 · 틀 3 · 항공사진 1 · 입체 매스도 1, needs image = 영상 타일). done.sheets[].thumb = 160 px PNG data URI(패널 도면 칸, 항공사진만 SVG data URI)
  "style_presets":{"std":{"name":"표준","paper":"#FFFFFF",…,"ramp":"warm"},"vivid":…,"mono":…,"dark":…},   // constants.STYLE_PRESETS
  "style_defaults":{"layout":"side","line_scale":1.0,"text_scale":1.0,"font":"sans","fade_outside":0.55,"labels":true,"subtitle_en":true,"project":"","axo_view":"se"},
  "style_ramps":{"warm":["#FBEFC9",…],…},
@@ -306,7 +307,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
  "flatten_site":false,"flatten_level":"mean",          // 대상지 평탄화(lots·area) — 높이 = 대상지 경계 자연 지반 mean|min|max
  "site_output":"curve",                                // 대상지 표시(lots·area): curve = 경계 커브만, mesh = 바닥 메시도(CTX::Site::ground). 방식 기본: 필지 mesh, 구역 curve
  "import_after":true,                                  // context.3dm은 항상 쓴다(산출물의 뼈대, 수 초). 끌 수 있는 건 Import뿐
- "make_basemap":true,"paper":"A3","paper_mm":[420,297],"scales":[5000],"basemap_layers_on":[],   // A3 가로 = 분석도 템플릿 기준(2026-10-13)   // "02b_landuse"|"05_road_center"|"11_zoning" — Global은 05만 보인다
+ "make_basemap":true,"paper":"A3","paper_mm":[420,297],"scales":[5000],"basemap_layers_on":[],"basemap_preset":"a3",   // basemap_preset: 패널 2D 카드 칩 a3|a1(축척을 범위에 맞춰 자동 — 범위 2 × radius가 용지에 들어가는 가장 상세한 축척)|custom. 엔진은 보지 않는다   // A3 가로 = 분석도 템플릿 기준(2026-10-13)   // "02b_landuse"|"05_road_center"|"11_zoning" — Global은 05만 보인다
                                                        // scales: ② 프레임 미리보기·③ .ai select 기본값 전용(prefs·preflight에만). generate 페이로드에서 JS가 뺀다. dirty 판정 제외
  "make_sheets":true,"sheet_ids":[0,1,…,22],"floor_breaks":[12,20],"elev_preset":"20m",   // "20m"|"50m". 카탈로그에 없는 id는 엔진이 버린다(get_sheet_ids)
  "make_tables":true,

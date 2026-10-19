@@ -171,6 +171,11 @@ TEST_PNU = "1123010300106760006"       # DB 검증용 PNU (동대문구 제기�
 # 필지 검색 — Rhino 실행 중 로컬 SQLite에서 후보를 보여 주는 상한
 ADDRESS_SEARCH_MAX_RESULTS = 20
 
+# 패널 더보기 메뉴의 바깥 링크(open_url) — 키만 받아 이 주소를 연다(임의 URL은 받지 않는다)
+PANEL_LINKS = {
+    "website": "https://969flash.github.io/gorani/",   # 고라니 웹페이지 — 설치·사용법
+}
+
 # 토지이음(국토교통부) 토지이용계획 열람 상세 — 패널 필지 정보의 [토지이음 ↗](open_eum)과 parcels.csv eum_url.
 # mode=search·isNoScr=script를 붙인 형태로 pnu가 상세 폼에 실리는 것을 확인했다.
 EUM_LAND_USE_URL = (
@@ -540,6 +545,12 @@ SHEET_CATALOG = [   # (id, 키, 이름, 영문 부제, 필요한 데이터: lot|
     (24, "axo", "입체 매스도", "Axonometric massing", "building"),   # 2026-10-15 추가 — 범위 안 건물을 평행 투상(등각)으로
 ]
 SHEET_IDS = {key: sheet_id for sheet_id, key, _name, _en, _needs in SHEET_CATALOG}
+# 패널 2D 카드의 다이어그램 묶음 칩(전체·현황도·분석도) — 실무 보고서의 현황도/분석도 구분. 기본(베이스맵·항공사진)은 두 묶음에 다 넣고, 틀은 '전체'에만
+SHEET_GROUP = dict(
+    [(key, "analysis") for key in ("figure", "lot_size", "density", "transit", "walk", "green", "public", "road", "axo")] +
+    [(key, "status") for key in ("land_use", "land_category", "zone", "district", "facility", "use", "floor", "age", "price", "elev", "slope")] +
+    [(key, "frame") for key in ("view", "image", "synthesis")] +
+    [(key, "base") for key in ("base", "aerial")])
 # Korea 모드 전용 도면 — 필지·건축물대장·UPIS·공시지가가 있어야 한다. Global(OSM)은 목록에서 뺀다.
 # 역세권·공공시설은 Global도 된다 — OSM 역(railway=station)·시설 면(OSM_PUBLIC_USE)
 SHEET_KOREA_ONLY = ("lot_size", "density", "land_use", "land_category", "zone", "district", "facility", "use", "age", "price")
@@ -552,6 +563,7 @@ PANEL_DEFAULT_OPTIONS = {
     "import_after": True,
     # 2D 자료는 기본 끔 — 주목적은 3D, 2D는 패널 결과 화면에서 3D 뒤에 고른다(make_2d, 2026-10-19). 3D만이면 실측 약 8 s, 2D까지면 시간 2.5배(ESTIMATE_* 주석)
     "make_basemap": False, "paper": "A3", "paper_mm": [420, 297], "scales": [5000], "basemap_layers_on": [],
+    "basemap_preset": "a3",   # 패널 2D 카드 베이스맵 칩: a3(보고서 A3)·a1(판넬 A1) = 축척을 범위에 맞춰 자동, custom = 용지·축척 직접. 엔진은 보지 않는다
     "make_sheets": False, "sheet_ids": [sheet_id for sheet_id, *_ in SHEET_CATALOG], "floor_breaks": [12, 20], "elev_preset": "20m",
     "make_tables": False,
     "include_minor_buildings": False,

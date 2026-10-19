@@ -246,7 +246,7 @@ def _get_origin(center, doc_origin):
     if doc_origin:
         origin = (float(doc_origin[0]), float(doc_origin[1]))
         if math.hypot(center[0] - origin[0], center[1] - origin[1]) > constants.ORIGIN_MAX_OFFSET:
-            raise DomainError("origin_mismatch", "다른 지역 문서입니다 — 새 문서에서 생성하세요 (문서 원점과 대상지 중심 거리 %.0f m > %.0f m)"
+            raise DomainError("origin_mismatch", "다른 지역 문서입니다. 새 문서에서 생성하세요 (문서 원점과 대상지 중심 거리 %.0f m > %.0f m)"
                               % (math.hypot(center[0] - origin[0], center[1] - origin[1]), constants.ORIGIN_MAX_OFFSET))
         return origin, True
     snap = constants.ORIGIN_SNAP
@@ -260,7 +260,7 @@ def _get_origins(center, doc_origin, placement):
     world_doc = doc_origin is not None and abs(float(doc_origin[0])) < 1e-6 and abs(float(doc_origin[1])) < 1e-6
     if doc_origin is not None and world_doc != (placement == "world"):
         doc_text, want_text = ("실제 좌표", "원점 이동") if world_doc else ("원점 이동", "실제 좌표")
-        raise DomainError("placement_mismatch", "이 문서는 '%s' 방식으로 생성된 문서입니다 — '%s'로 바꾸거나 새 문서에서 생성하세요"
+        raise DomainError("placement_mismatch", "이 문서는 '%s' 방식으로 생성된 문서입니다. '%s'로 바꾸거나 새 문서에서 생성하세요"
                           % (doc_text, want_text))
     if placement == "world":
         origin, _reused = _get_origin(center, None)
@@ -473,7 +473,7 @@ def _get_paper_and_scales(options):
     scales = sorted({int(s) for s in (options.get("scales") or constants.PANEL_DEFAULT_OPTIONS["scales"])})
     bad = [s for s in scales if s not in constants.BASEMAP_SCALES]
     if bad:
-        raise ValueError("지원하지 않는 축척 %s — 가능한 값 %s" % (bad, list(constants.BASEMAP_SCALES)))
+        raise ValueError("지원하지 않는 축척 %s입니다. 가능한 값 %s" % (bad, list(constants.BASEMAP_SCALES)))
     return (float(paper_mm[0]), float(paper_mm[1])), scales
 
 
@@ -822,7 +822,8 @@ def _get_error(exc, detail=""):
     text = str(exc.args[0]) if exc.args else str(exc)
     code = getattr(exc, "code", "exception")
     if isinstance(exc, (ValueError, KeyError, FileNotFoundError, RuntimeError)):
-        return {"code": code, "title": text.splitlines()[0][:80], "detail": text}
+        title = text.splitlines()[0][:80] if text else ""
+        return {"code": code, "title": title, "detail": "" if text == title else text}   # 한 줄 오류는 상세를 비운다 — 같은 문장이 두 번 보였다
     return {"code": "exception", "title": "%s: %s" % (type(exc).__name__, text), "detail": detail or text}
 
 

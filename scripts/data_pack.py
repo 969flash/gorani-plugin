@@ -211,7 +211,7 @@ def _open_pack(pack, client_id, manifest_url):
             return urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=constants.DATA_TIMEOUT_SECONDS)
         except urllib.error.HTTPError as exc:
             if exc.code == 429:
-                raise ValueError("오늘 받을 수 있는 지역 데이터 양을 넘었습니다 — 내일 다시 받아 주세요") from None
+                raise ValueError("오늘 받을 수 있는 지역 데이터 양을 넘었습니다. 내일 다시 받아 주세요") from None
             raise
 
     try:
