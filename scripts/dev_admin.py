@@ -4,7 +4,8 @@
 
 인터넷에 올리지 않는다 — 공개 페이지가 없으니 로그인도 없다. 열쇠(Hugging Face 쓰기 토큰 = `hf auth login`)는 이 Mac에만 있다.
 토큰이 없는 요청은 403이라 다른 웹 페이지가 로컬 서버로 공지를 올리지 못한다. 예외는 /vendor/(Leaflet — 공개 파일).
-편집은 docs/notices.json에 바로 저장하고(git으로 되돌린다), [올리기]가 dev_deploy.upload_notices로 HF 매니페스트에 넣는다.
+고친 것은 초안 = docs/notices.json(바로 저장, git으로 되돌린다). [게시하기]가 dev_deploy.upload_notices로 HF 매니페스트에 넣고,
+[변경 취소]는 초안을 게시된 내용으로 되돌린다.
 칸 뜻은 docs/panel_ui.md '업데이트·공지'.
 """
 
@@ -42,24 +43,26 @@ def get_notice_errors(data):
     # type: (dict) -> list
     """
     입력: {"update": dict|None, "notices": [dict]} — docs/notices.json 모양.
-    처리: 버전 꼴(숫자.숫자), min ≤ latest, min ≤ 저장소 버전(넘으면 모두 막힌다), 공지 id 중복·빈 글·level·주소(http(s))를 본다.
-    출력: 고칠 것 문장 목록(빈 목록 = 저장·올리기 가능).
+    처리: 버전 꼴(숫자.숫자), min ≤ latest, latest·min ≤ 저장소 버전(아직 없는 버전), 공지 id 중복·빈 글·level·주소(http(s))를 본다.
+    출력: 고칠 것 문장 목록(빈 목록 = 저장·게시 가능).
     """
     errors = []
     update = data.get("update")
     if update is not None:
         if not isinstance(update, dict):
             return ["업데이트 안내 모양이 잘못됐습니다"]
-        for key, label in (("latest", "최신 버전"), ("min", "최소 버전")):
+        for key, label in (("latest", "새 버전"), ("min", "사용 불가 기준 버전")):
             if update.get(key) and not VERSION_PATTERN.match(str(update[key])):
                 errors.append("%s은 0.3.0처럼 숫자와 점만 씁니다" % label)
-        if not update.get("latest") and not update.get("min"):
-            errors.append("업데이트 안내를 켰으면 최신 버전이나 최소 버전을 적으세요")
-        if not errors and update.get("latest") and update.get("min") and get_version_key(update["min"]) > get_version_key(update["latest"]):
-            errors.append("최소 버전이 최신 버전보다 높습니다")
-        if not errors and update.get("min") and get_version_key(update["min"]) > get_version_key(constants.PANEL_VERSION):
-            errors.append("최소 버전 %s가 저장소 버전(%s)보다 높아 모든 사용자가 막힙니다 — 그 버전을 배포하고 PANEL_VERSION을 올린 뒤에 올리세요"
-                          % (update["min"], constants.PANEL_VERSION))
+        if not update.get("latest"):
+            errors.append("알릴 새 버전을 적으세요")
+        formats_ok = not errors
+        if formats_ok and update.get("latest") and update.get("min") and get_version_key(update["min"]) > get_version_key(update["latest"]):
+            errors.append("사용 불가 기준이 새 버전보다 높습니다")
+        for key, effect in (("latest", "있지도 않은 버전으로 업데이트하라고 안내합니다"), ("min", "모든 사용자가 막힙니다")):
+            if formats_ok and update.get(key) and get_version_key(update[key]) > get_version_key(constants.PANEL_VERSION):
+                errors.append("%s은 아직 배포하지 않은 버전입니다(배포한 최신 %s) — 이대로면 %s. 그 버전을 배포하고 PANEL_VERSION을 올린 뒤에 게시하세요"
+                              % (update[key], constants.PANEL_VERSION, effect))
     seen = set()
     for index, notice in enumerate(data.get("notices") or []):
         name = "공지 %d" % (index + 1)
@@ -81,22 +84,22 @@ def get_changes(local, remote):
     # type: (dict, dict) -> list
     """
     입력: local(docs/notices.json), remote(지금 HF 매니페스트의 update·notices).
-    처리: 업데이트 안내 하나 + 공지(id 기준) 추가·삭제·수정을 사람이 읽는 문장으로.
+    처리: 버전 안내 하나 + 공지(id 기준) 새 공지·수정·내림을 사람이 읽는 문장으로.
     출력: 바뀐 점 목록(빈 목록 = 올린 것과 같다).
     """
     changes = []
     old_update, new_update = remote.get("update"), local.get("update")
     if old_update != new_update:
-        describe = lambda u: "없음" if not u else "최신 %s · 최소 %s" % (u.get("latest") or "–", u.get("min") or "–")
-        changes.append("업데이트 안내: %s → %s" % (describe(old_update), describe(new_update)))
+        describe = lambda u: "없음" if not u else "새 버전 %s" % u.get("latest") + (" · %s 미만 사용 불가" % u["min"] if u.get("min") else "")
+        changes.append("버전 안내: %s → %s" % (describe(old_update), describe(new_update)))
     old_notices = {n.get("id"): n for n in remote.get("notices") or []}
     new_notices = {n.get("id"): n for n in local.get("notices") or []}
     for notice_id, notice in new_notices.items():
         if notice_id not in old_notices:
-            changes.append("공지 추가: %s" % notice.get("text"))
+            changes.append("새 공지: %s" % notice.get("text"))
         elif notice != old_notices[notice_id]:
             changes.append("공지 수정: %s" % notice.get("text"))
-    changes += ["공지 삭제: %s" % n.get("text") for notice_id, n in old_notices.items() if notice_id not in new_notices]
+    changes += ["공지 내림: %s" % n.get("text") for notice_id, n in old_notices.items() if notice_id not in new_notices]
     return changes
 
 
@@ -148,18 +151,18 @@ class _State(object):
 
     def __init__(self):
         self.token = secrets.token_urlsafe(16)
-        self.remote, self.remote_error = None, ""
+        self.remote, self.remote_error = None, ""   # remote = 지금 사용자에게 게시된 update·notices
         self.lock = threading.Lock()
 
     def refresh_remote(self):
         try:
             self.remote, self.remote_error = get_remote(), ""
         except Exception as error:
-            self.remote, self.remote_error = None, "올라간 공지를 받지 못했습니다: %s" % error
+            self.remote, self.remote_error = None, "게시된 내용을 불러오지 못했습니다(%s)" % error
 
     def get_summary(self, local):
         # type: (dict) -> dict
-        return {"local": local, "errors": get_notice_errors(local), "remote_error": self.remote_error,
+        return {"local": local, "remote": self.remote, "errors": get_notice_errors(local), "remote_error": self.remote_error,
                 "changes": get_changes(local, self.remote) if self.remote is not None else [],
                 "version": constants.PANEL_VERSION, "today": datetime.date.today().isoformat()}
 
@@ -229,6 +232,10 @@ class _Handler(panel_server.http.server.BaseHTTPRequestHandler):
                 if not get_notice_errors(data):
                     write_local(data)
                 self._send(dict(state.get_summary(read_local()), errors=get_notice_errors(data)))
+            elif path == "/api/revert":   # 변경 취소 — 초안(docs/notices.json)을 게시된 내용으로
+                if state.remote is not None:
+                    write_local(state.remote)
+                self._send(state.get_summary(read_local()))
             elif path == "/api/publish":
                 local = read_local()
                 errors = get_notice_errors(local)
@@ -238,10 +245,10 @@ class _Handler(panel_server.http.server.BaseHTTPRequestHandler):
                 try:
                     dev_deploy.upload_notices()
                 except Exception as error:   # huggingface_hub 없음·로그인 안 함·네트워크
-                    self._send({"ok": False, "text": "올리지 못했습니다: %s (hf auth login 했는지 확인)" % error})
+                    self._send({"ok": False, "text": "게시하지 못했습니다: %s (hf auth login 했는지 확인)" % error})
                     return
                 state.refresh_remote()
-                self._send(dict(state.get_summary(local), ok=True, text="올렸습니다"))
+                self._send(dict(state.get_summary(local), ok=True, text="게시했습니다. 사용자가 다음에 패널을 열 때 받습니다"))
             else:
                 self.send_error(404)
 
