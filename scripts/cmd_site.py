@@ -84,15 +84,16 @@ def _jibun(address):
     return parts[-1] if parts else ""
 
 
-def get_init_state(site_db=None, context_db=None, today=None):
-    # type: (str, str, datetime.date) -> dict
+def get_init_state(site_db=None, context_db=None, today=None, manifest=None):
+    # type: (str, str, datetime.date, dict) -> dict
     """init_state 페이로드(panel_ui.md).
 
-    입력: DB 경로 override 2개(테스트가 fixture를 꽂는다. None = constants 경로), today(테스트용).
+    입력: DB 경로 override 2개(테스트가 fixture를 꽂는다. None = constants 경로), today(테스트용), manifest(테스트용. None = 이번 세션에 받은 것).
     처리: 필지 DB 존재 → blocked, context_builder.get_sources/get_source_warnings, review_map 타일·지도, site_prefs 옵션·recent,
-          SHEET_CATALOG. 네트워크 접근 없음. generator는 항상 ok(서브프로세스 없음 — UI 호환 키).
+          SHEET_CATALOG, 매니페스트 업데이트·공지(data_pack.get_notice_state). 네트워크 접근 없음 — 매니페스트는 _init이 먼저 받아 둔다.
+          generator는 항상 ok(서브프로세스 없음 — UI 호환 키).
     출력: {"type": "init_state", version, blocked, paths, generator, host, stats_consent, links, sources, warnings, tile, map, options, modes, recent, sheet_catalog,
-          style_presets, style_defaults, style_ramps, styles}.
+          style_presets, style_defaults, style_ramps, styles, update, notices}.
     """
     constants = loader.load("constants")
     context_builder = loader.load("context_builder")
@@ -102,7 +103,7 @@ def get_init_state(site_db=None, context_db=None, today=None):
     sources = context_builder.mark_downloadable(context_builder.get_sources(site_db, context_db, today), not site_db)
     host = dict(constants.HOST_LABELS[context_builder.get_host()])
     host["ask_stats"] = host["ask_stats"] and loader.load("usage_stats").is_configured()   # 보낼 곳이 없으면 묻지 않는다
-    return {
+    return dict({
         "type": "init_state",
         "version": constants.PANEL_VERSION,
         "blocked": not has_lot_db,
@@ -127,7 +128,7 @@ def get_init_state(site_db=None, context_db=None, today=None):
         "style_defaults": dict(constants.STYLE_DEFAULTS),
         "style_ramps": {key: list(ramp) for key, ramp in constants.STYLE_RAMPS.items()},
         "styles": site_prefs.list_styles(),
-    }
+    }, **loader.load("data_pack").get_notice_state(manifest))
 
 
 def get_search_result(query, site_db=None, region=None):
@@ -555,6 +556,10 @@ class _SiteController:
 
     def _init(self, msg):
         self._preflight_memo.clear()   # 키 유무·새 판은 메모 키에 없으므로 init마다 비운다
+        try:   # 공지·업데이트 — 처음 한 번만 짧게 기다린다. 오프라인·서버 장애면 공지 없이 연다(사용자를 막지 않는다)
+            loader.load("data_pack").get_manifest(timeout=loader.load("constants").NOTICE_TIMEOUT_SECONDS)
+        except Exception:
+            pass
         state = get_init_state()
         self.push(state)
         if not self._opened:   # init은 배지 [다시 확인]에도 온다 — 패널 열기는 한 번만
@@ -862,7 +867,10 @@ class _SiteController:
         self._open(constants.EUM_LAND_USE_URL % pnu)
 
     def _open_url(self, msg):
-        # 임의 URL은 받지 않는다 — 키(constants.PANEL_LINKS)만 받아 정해진 주소를 연다
+        # 임의 URL은 받지 않는다 — 키(constants.PANEL_LINKS)나 공지 id(매니페스트 notices)만 받아 정해진 주소를 연다
+        if msg.get("notice"):
+            self._open(loader.load("data_pack").get_notice_url(str(msg["notice"])))
+            return
         url = loader.load("constants").PANEL_LINKS.get(str(msg.get("key") or ""))
         if not url:
             raise ValueError("알 수 없는 링크입니다: %s" % msg.get("key"))

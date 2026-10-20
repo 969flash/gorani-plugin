@@ -10,6 +10,7 @@
     python3 scripts/dev_deploy.py repack     # 시도 팩 압축본을 풀어 (줄이고) 시군구 팩으로 나눠 다시 압축
     python3 scripts/dev_deploy.py rebounds   # 매니페스트의 팩 범위만 다시 잰다(시군구 필지 중심점 핵심 범위 — constants.PACK_BOUNDS_*)
     python3 scripts/dev_deploy.py upload     # 필지 팩 + 매니페스트는 Hugging Face(hf auth login 먼저), 컨텍스트·등고선 팩은 국내 버킷(~/.oci/config 먼저)
+    python3 scripts/dev_deploy.py notices    # docs/notices.json(업데이트·공지)만 Hugging Face 매니페스트에 넣어 올린다 — 팩은 그대로
 
 yak: 진입 명령 Gorani 하나짜리 .rhp를 rhinocode로 빌드하고(떠 있는 Rhino 8 필요), 그 옆에 scripts/(평문 진입 스크립트 +
      로직 .pyc + 패널 HTML·vendor)를 두고 yak CLI로 묶는다. rhinocode의 Shared 리소스는 폴더 구조를 펴 버려서 쓰지 않는다
@@ -50,12 +51,13 @@ sys.path.insert(0, SCRIPTS_DIR)
 import constants  # noqa: E402
 
 BUILD_DIR = os.path.join(ROOT_DIR, "build")
+NOTICES_PATH = os.path.join(ROOT_DIR, "docs", "notices.json")   # 매니페스트 update·notices 원본 — 칸은 docs/panel_ui.md '업데이트·공지'
 RHINO_BIN_DIR = "/Applications/Rhino 8.app/Contents/Resources/bin"
 BRAND_DIR = os.path.join(ROOT_DIR, "docs", "brand")      # 로고 원본 SVG(currentColor)와 크기별 PNG — docs/brand/logo.html
 TOOLBAR_ICON_COLORS = {"light": "#111418", "dark": "#E8ECF2"}   # Rhino 도구 막대 라이트·다크 아이콘 색 = DESIGN.md 잉크·다크 잉크
 
 PACKAGE_NAME = constants.TOOL_NAME
-PACKAGE_VERSION = "0.2.0"                                  # 올릴 때마다 올린다 — yak은 같은 버전을 다시 받지 않는다
+PACKAGE_VERSION = constants.PANEL_VERSION                  # 올릴 때마다 constants.PANEL_VERSION을 올린다 — yak은 같은 버전을 다시 받지 않는다
 PLUGIN_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a10"         # 바꾸지 말 것 — Gorani가 이 id로 자기 폴더를 찾는다
 COMMAND_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a11"
 COMMAND_NAME = "Gorani"
@@ -1054,7 +1056,7 @@ def upload():
     stage = os.path.join(BUILD_DIR, "hf_stage")
     os.makedirs(stage, exist_ok=True)
     with open(os.path.join(stage, "manifest.json"), "w", encoding="utf-8") as f:
-        json.dump({"version": manifest["version"], "packs": public}, f, ensure_ascii=False, indent=1)
+        json.dump(dict(_read_notices(), version=manifest["version"], packs=public), f, ensure_ascii=False, indent=1)
     with open(os.path.join(stage, "README.md"), "w", encoding="utf-8") as f:
         f.write(DATASET_CARD)
     api = HfApi()
@@ -1064,6 +1066,33 @@ def upload():
     api.upload_folder(repo_id=constants.DATA_REPO_ID, repo_type="dataset", folder_path=stage, commit_message="manifest·README")
     print("  올림: 팩 %d개 → https://huggingface.co/datasets/%s + %s" % (len(public), constants.DATA_REPO_ID,
                                                                         constants.DATA_DOMESTIC_BASE_URL), flush=True)
+    return constants.DATA_MANIFEST_URL
+
+
+def _read_notices():
+    # type: () -> dict
+    """docs/notices.json → {"update", "notices"}. 매니페스트를 올릴 때마다 넣어 팩을 다시 올려도 공지가 지워지지 않게 한다."""
+    with open(NOTICES_PATH, encoding="utf-8") as f:
+        data = json.load(f)
+    return {"update": data.get("update"), "notices": data.get("notices") or []}
+
+
+def upload_notices():
+    # type: () -> str
+    """Hugging Face의 지금 매니페스트를 받아 update·notices만 docs/notices.json으로 바꿔 다시 올린다(팩·팩 목록은 그대로)."""
+    import urllib.request
+    from huggingface_hub import HfApi
+    with urllib.request.urlopen(constants.DATA_MANIFEST_URL, timeout=constants.DATA_TIMEOUT_SECONDS) as response:
+        manifest = json.loads(response.read().decode("utf-8"))
+    manifest.update(_read_notices())
+    stage = os.path.join(BUILD_DIR, "hf_stage")
+    os.makedirs(stage, exist_ok=True)
+    path = os.path.join(stage, "manifest.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, ensure_ascii=False, indent=1)
+    HfApi().upload_file(path_or_fileobj=path, path_in_repo="manifest.json", repo_id=constants.DATA_REPO_ID, repo_type="dataset",
+                        commit_message="manifest: 업데이트·공지")
+    print("  올림: update %s, 공지 %d개" % ("있음" if manifest["update"] else "없음", len(manifest["notices"])), flush=True)
     return constants.DATA_MANIFEST_URL
 
 
@@ -1102,7 +1131,7 @@ def rebounds():
 
 def main():
     parser = argparse.ArgumentParser(description="Yak 패키지·Blender·SketchUp 확장·웹판·데이터 팩 빌드")
-    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "blender", "sketchup", "web", "packs", "repack", "upload", "rebounds"))
+    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "blender", "sketchup", "web", "packs", "repack", "upload", "notices", "rebounds"))
     parser.add_argument("--sido", help="packs: 쉼표로 구분한 시도 코드만 (기본 data/에 있는 전부)")
     parser.add_argument("--drop", action="store_true", help="packs: 압축 뒤 원본 시도 DB를 지운다(서울 제외)")
     args = parser.parse_args()
@@ -1123,6 +1152,9 @@ def main():
         return
     if args.what == "upload":
         print("manifest: %s" % upload())
+        return
+    if args.what == "notices":
+        print("notices: %s" % upload_notices())
         return
     if args.what == "rebounds":
         print("rebounds: %s" % rebounds())

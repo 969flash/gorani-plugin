@@ -288,6 +288,7 @@ DATA_DOMESTIC_BUCKET_URL = "https://objectstorage.ap-chuncheon-1.oraclecloud.com
 DATA_DOMESTIC_BASE_URL = "http://150.230.249.1/"   # 문지기 VM udt-gate(2026-10-14, VM.Standard.E2.1.Micro)
 DATA_STATE_FILE_NAME = "packs.json"    # data/ 안. 받은 팩의 sha256 — 바뀐 팩만 다시 받는다
 DATA_TIMEOUT_SECONDS = 30              # 연결·조각 읽기 제한
+NOTICE_LEVELS = ("warn", "info")      # 매니페스트 notices[].level — warn = 주황 띠(꼭 알아야 할 것), info = 파랑 띠
 DATA_CHUNK_BYTES = 1024 * 1024         # 압축 스트림을 1 MB씩 읽어 풀고 진행률을 알린다
 DATA_MAX_OPEN_FILES = 11               # 한 연결에 여는 지역 DB 수 상한 — SQLite ATTACH 기본 상한 10 + main(2026-10-12 실측)
 # 팩 범위(매니페스트 bounds) — 시군구 필지 중심점의 핵심 범위(0.5~99.5 %)를 각 변마다 그 폭의 절반(최소 5 km)까지 넓힌 창 안의 필지만으로 잰다.
@@ -424,7 +425,8 @@ HEIGHT_GRADES = ("A", "B", "C", "D")
 # ═════════════════════════════════════════════════════════
 # 패널 — docs/panel_ui.md·docs/ui_spec.md
 # ═════════════════════════════════════════════════════════
-PANEL_VERSION = "0.1"
+PANEL_VERSION = "0.2.0"   # 배포 버전 하나(Yak·Blender·SketchUp 패키지 버전 = dev_deploy.PACKAGE_VERSION). 매니페스트 update.latest·min과 비교한다
+NOTICE_TIMEOUT_SECONDS = 3   # 패널을 열 때 매니페스트(공지·업데이트)를 기다리는 한도 — 못 받으면 공지 없이 연다
 INSTALL_DOC = "docs/install.md"
 PREFS_DIRNAME = ".gorani"            # 사용자 홈 아래. prefs.json·source_news.json
 RESULT_TIME_FORMAT = "%H%M"                    # 같은 날 같은 대상지를 다시 만들면 result/<대상지명>_<YYYYMMDD>_<HHMM>/ — 이전 결과를 지우지 않는다(2026-10-19)
@@ -573,6 +575,8 @@ PANEL_DEFAULT_OPTIONS = {
     "terrain_step": 0,   # 지형 표현: 0 = 매끈(TIN), > 0 = 계단형(등고 모형) 단 간격 m — 패널은 1·2·5 m. 국내 원천 등고선은 5 m 간격이라 1·2 m 단은 보간값
     "make_dwg": False,   # 2D 도면(BM::)을 .dwg로도 — CAD 사용자용. 기본 off
     "zoom_after_import": True,
+    "update_later_date": "",   # 권장 업데이트 모달에서 [나중에]를 누른 날(YYYY-MM-DD) — 그날은 다시 띄우지 않는다
+    "closed_notices": [],   # 패널 공지 띠에서 닫은 공지 id(매니페스트 notices) — 더보기 메뉴에서는 계속 보인다
     "style": {"preset": "std"},   # 도면 스타일 — 사용자가 바꾼 값만. 해석은 sheet_svg.get_style(STYLE_*)
 }
 
