@@ -204,8 +204,11 @@ label.chk { display: flex; align-items: center; min-height: 32px; }
 .map-label { background: none; border: 0; box-shadow: none; color: #5c5c58; font-size: 11px; line-height: 16px; padding: 0; }
 .map-label.extent { color: #111418; font-weight: 600; }
 .leaflet-container.drawing { cursor: crosshair; }
-/* 트레이 자리 고정(2026-10-20) — 대상지를 고르기 전부터 고른 뒤 높이를 잡아 두어 지도가 줄며 밀리지 않게. 펼치면 트레이 안에서 스크롤(scrollTray) */
-.tray { flex: none; height: min(200px, 40vh); padding: 8px 0; overflow-y: auto; overscroll-behavior: contain; }
+/* 트레이 자리 고정(2026-10-20) — 높이는 창 높이로만 정한다(고르기·펼치기로 바뀌지 않아 지도가 밀리지 않는다).
+   창이 크면 3D 설정까지 펼친 높이(392)까지 늘고, 그보다 크면 지도가 커진다. 작으면 200에서 트레이 안 스크롤(scrollTray)
+   480 = 헤더 49 + 도구줄 40 + 위 여백 12 + 푸터 57 + 지도 최소 314 + 간격 8 (2026-10-21 Rhino QA: 창을 키워도 아래 카드가 잘렸다) */
+.tray { flex: none; height: clamp(200px, calc(100vh - 480px), 392px); margin-top: 8px; padding: 0 0 8px; overflow-y: auto; overscroll-behavior: contain; }
+.tray.scrolled { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px); mask-image: linear-gradient(to bottom, transparent 0, #000 16px); }   /* 스크롤하면 위 끝을 흐려 지도와 붙어 보이지 않게 */
 .tray-empty .tray-h { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 11px; line-height: 16px; font-weight: 600; color: var(--ink-3); }
 .tray-empty .mlist { margin: 0 -8px; }
 .tray-empty .hint { padding: 8px 0; }
@@ -707,7 +710,9 @@ var SEG = function (name, val, label, extra) { return '<label><input type="radio
 function renderTray() {
   var slot = $("tray"); if (!slot) return;
   var open = { s3d: !!($("s3d") && $("s3d").open), more: !!($("lot_more") && $("lot_more").open) };
+  if (!slot.dataset.scrollWatch) { slot.dataset.scrollWatch = "1"; slot.addEventListener("scroll", function () { slot.classList.toggle("scrolled", slot.scrollTop > 0); }); }
   slot.innerHTML = targetHtml(open.more) + (hasTarget() && !busyTarget() ? rangeHtml() + settingsHtml(open.s3d) : emptyTrayHtml()) + '<div id="tray_err"></div>';
+  slot.classList.toggle("scrolled", slot.scrollTop > 0);
   updateSummaries(); updateGuide(); renderFooter();
 }
 // 대상지 고르기 전 트레이 — 다음 할 일 한 줄 + 최근 대상지(필지 방식, site_prefs.add_recent)
