@@ -32,19 +32,46 @@ def get_data_dir():
 _MANIFEST = {}   # 매니페스트 주소 → 받은 매니페스트 — 지도를 옮길 때마다(area_packs) 다시 받지 않는다
 
 
-def get_manifest(manifest_url=None, refresh=False):
-    # type: (str, bool) -> dict
-    """매니페스트를 받아 dict로(Rhino 세션 동안 한 번). 각 팩의 url을 절대 URL로 바꿔 둔다. 주소가 비었으면 ValueError."""
+def get_manifest(manifest_url=None, refresh=False, timeout=None):
+    # type: (str, bool, float) -> dict
+    """매니페스트를 받아 dict로(Rhino 세션 동안 한 번). 각 팩의 url을 절대 URL로 바꿔 둔다. 주소가 비었으면 ValueError.
+    timeout = 기다리는 한도(초, None = DATA_TIMEOUT_SECONDS) — 패널 열기는 NOTICE_TIMEOUT_SECONDS로 짧게 기다린다."""
     manifest_url = manifest_url or constants.DATA_MANIFEST_URL
     if not manifest_url:
         raise ValueError("데이터 주소가 아직 정해지지 않았습니다(constants.DATA_MANIFEST_URL)")
     if refresh or manifest_url not in _MANIFEST:
-        with urllib.request.urlopen(manifest_url, timeout=constants.DATA_TIMEOUT_SECONDS) as response:
+        with urllib.request.urlopen(manifest_url, timeout=timeout or constants.DATA_TIMEOUT_SECONDS) as response:
             manifest = json.loads(response.read().decode("utf-8"))
         for pack in manifest["packs"]:
             pack["url"] = urllib.parse.urljoin(manifest_url, pack["url"])
         _MANIFEST[manifest_url] = manifest
     return _MANIFEST[manifest_url]
+
+
+def get_notice_state(manifest=None):
+    # type: (dict) -> dict
+    """매니페스트의 업데이트·공지(패널 init_state.update·notices).
+
+    입력: manifest(None = 이번 세션에 이미 받은 매니페스트 — 네트워크 접근 없음).
+    처리: update {latest, min, title, body, items, deadline}는 그대로, notices는 id·text가 있는 것만 남기고 level을 warn|info로 맞춘다.
+          못 받았거나 값이 없으면 update None·notices [] — 패널은 아무것도 띄우지 않는다.
+    출력: {"update": dict|None, "notices": [{id, level, date, text, url}]}.
+    """
+    manifest = manifest or _MANIFEST.get(constants.DATA_MANIFEST_URL) or {}
+    notices = [{"id": str(n["id"]), "level": n.get("level") if n.get("level") in constants.NOTICE_LEVELS else "info",
+                "date": str(n.get("date") or ""), "text": str(n["text"]), "url": str(n.get("url") or "")}
+               for n in manifest.get("notices") or [] if isinstance(n, dict) and n.get("id") and n.get("text")]
+    update = manifest.get("update")
+    return {"update": update if isinstance(update, dict) else None, "notices": notices}
+
+
+def get_notice_url(notice_id, manifest=None):
+    # type: (str, dict) -> str
+    """공지 id → 그 공지의 http(s) 주소(패널 open_url{notice}). 없으면 ValueError — 패널은 임의 URL을 보내지 못한다."""
+    url = next((n["url"] for n in get_notice_state(manifest)["notices"] if n["id"] == notice_id), "")
+    if not url.startswith(("https://", "http://")):
+        raise ValueError("알 수 없는 공지입니다: %s" % notice_id)
+    return url
 
 
 def _read_state(data_dir):

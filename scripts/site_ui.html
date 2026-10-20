@@ -80,10 +80,30 @@ header { flex: none; padding: 8px 12px 8px 16px; background: var(--surface); bor
 .band { padding: 8px 12px; margin: 8px 16px 0; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-size: 12px; display: flex; gap: 8px; align-items: flex-start; }
 .band.lv-danger { border-color: transparent; background: var(--danger-wash); color: var(--danger); }
 .band.lv-info { color: var(--ink-2); }
+/* 공지 띠 — warn(주황) = 업데이트·꼭 알아야 할 공지, note(파랑) = 일반 공지. 빨강(danger)은 오류에만 */
+.band.lv-warn { border-color: transparent; background: var(--warn-wash); color: var(--warn); }
+.band.lv-note { border-color: transparent; background: var(--accent-wash); color: var(--accent-ink); }
+.band > .ico { flex: none; margin-top: 2px; }
+.band > span { flex: 1; min-width: 0; }
+.note { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 8px; align-items: start; width: 100%; padding: 8px; border: 0; border-radius: 8px; background: none; text-align: left; font-size: 12px; color: var(--ink); }
+.note:hover { background: var(--hover); }
+.note .sub { color: var(--ink-3); white-space: nowrap; }
+.note.lv-warn > .ico { color: var(--warn); } .note.lv-note > .ico { color: var(--accent-ink); }
+.note.closed, .note.closed > .ico { color: var(--ink-3); }
 .band .btn { margin-left: auto; flex: none; }
 .band .btn + .btn { margin-left: 0; }
 #blocker { position: absolute; inset: 0; background: var(--paper); padding: 24px 16px; z-index: 1000; overflow: auto; }
 #blocker h2 { margin-bottom: 16px; }
+/* 업데이트 모달 — 권장(닫기 있음)·강제(닫기 없음). 매니페스트 update 값으로 뜬다 */
+#update_modal { position: fixed; inset: 0; z-index: 1100; background: rgba(17, 20, 24, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+#update_modal[hidden] { display: none; }
+#update_modal .dlg { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; width: 100%; max-width: 400px; max-height: 100%; overflow: auto; }
+#update_modal .ver { font-size: 12px; color: var(--ink-3); margin: 0 0 4px; }
+#update_modal p { color: var(--ink-2); margin: 0 0 12px; }
+#update_modal ul { margin: 0 0 12px; padding-left: 18px; color: var(--ink-2); }
+#update_modal ol { margin: 0 0 16px; padding: 10px 12px 10px 30px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink-2); font-size: 12px; line-height: 1.9; }
+#update_modal .due { color: var(--warn); font-size: 12px; }
+#update_modal .acts { display: flex; gap: 8px; flex-wrap: wrap; }
 .check-list { display: grid; grid-template-columns: 1.4em 7em 1fr; gap: 4px 8px; margin-bottom: 16px; }
 .check-list .ok { color: var(--ok); } .check-list .bad { color: var(--danger); } .check-list .opt { color: var(--ink-3); }
 /* 더보기 메뉴 — 헤더 아래로 떠오르는 둥근 면(최근 대상지·설정·도움) */
@@ -403,6 +423,7 @@ footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-
   <div id="menu" role="region" aria-label="더보기" hidden></div>
   <div id="viewer" role="dialog" aria-modal="true" aria-label="다이어그램 보기" hidden></div>
 </main>
+<div id="update_modal" role="dialog" aria-modal="true" aria-labelledby="update_title" hidden></div>
 <div id="dl" role="status" hidden></div>
 <footer id="footer"></footer>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -506,7 +527,7 @@ var DEFAULTS = { region: null, mode: "lots", placement: "origin", flatten_site: 
   make_basemap: false, paper: "A3", paper_mm: [420, 297], scales: [5000], basemap_layers_on: [], basemap_preset: "a3",
   make_sheets: false, sheet_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24], floor_breaks: [12, 20], elev_preset: "20m",
   make_tables: false, include_minor_buildings: false,
-  include_zoning: true, terrain_vertex_color: false, terrain_step: 0, make_dwg: false, zoom_after_import: true, style: { preset: "std" } };
+  include_zoning: true, terrain_vertex_color: false, terrain_step: 0, make_dwg: false, zoom_after_import: true, style: { preset: "std" }, update_later_date: "", closed_notices: [] };
 // 3D 생성(generate)에 늘 덮어 보내는 값 — 화면에 없는 옵션이 옛 prefs로 몰래 켜지지 않게(docs/ui_spec.md §3.4). 2D는 결과 화면 make_2d가 만든다
 var FIXED_3D = { make_basemap: false, make_sheets: false, make_tables: false, make_dwg: false, import_after: true, zoom_after_import: true, include_minor_buildings: false };
 var KEYS_2D = ["make_basemap", "paper", "paper_mm", "scales", "basemap_layers_on", "make_dwg", "make_sheets", "sheet_ids", "floor_breaks", "elev_preset", "make_tables", "style"];
@@ -1616,13 +1637,85 @@ function renderBlocker() {
     '<div><button type="button" class="btn" data-act="abroad">' + ico("globe") + 'OpenStreetMap으로 쓰기</button></div>';
   el.hidden = false;
 }
-// ── 더보기 메뉴 — 최근 대상지 · 설정 · 안내 ──
+// ── 업데이트 모달 — init_state.update {latest, min, title, body, items, deadline}. min 미만 = 강제, latest 미만 = 권장 ──
+var UPDATE_STEPS = {
+  rhino: ["Rhino 도구 → 패키지 관리자", "Gorani 검색 → 업데이트", "Rhino 다시 시작"],
+  blender: ["편집 → 환경설정 → 확장", "Gorani 업데이트", "Blender 다시 시작"],
+  sketchup: ["확장 프로그램 → Extension Manager", "Gorani 업데이트", "SketchUp 다시 시작"]
+};
+function cmpVer(a, b) {
+  var x = String(a || "0").split("."), y = String(b || "0").split(".");
+  for (var i = 0; i < Math.max(x.length, y.length); i++) { var d = (+x[i] || 0) - (+y[i] || 0); if (d) return d; }
+  return 0;
+}
+function todayStr() { var d = new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
+function updateLevel() {
+  var init = state.init, u = init && init.update; if (!u) return "";
+  if (u.min && cmpVer(init.version, u.min) < 0) return "hard";
+  if (u.latest && cmpVer(init.version, u.latest) < 0 && state.options.update_later_date !== todayStr()) return "soft";
+  return "";
+}
+function renderUpdate() {
+  var el = $("update_modal"), lvl = updateLevel(); if (!lvl) { el.hidden = true; return; }
+  var init = state.init, u = init.update, v = esc(init.version || "");
+  var steps = "<ol>" + (UPDATE_STEPS[HOST.id] || UPDATE_STEPS.rhino).map(function (s) { return "<li>" + esc(s) + "</li>"; }).join("") + "</ol>";
+  var web = '<button type="button" class="btn" data-act="open_url" data-key="website">웹페이지' + ico("ext") + "</button>";
+  el.innerHTML = '<div class="dlg">' + (lvl === "hard"
+    ? '<p class="ver">지금 버전 ' + v + "</p><h2 id=\"update_title\" tabindex=\"-1\">업데이트해야 쓸 수 있습니다</h2>" +
+      "<p>Gorani " + v + "은 지원이 끝났습니다. " + esc(u.min) + " 이상으로 업데이트하세요.</p>" + steps +
+      '<div class="acts"><button type="button" class="btn primary" data-act="init">' + ico("refresh") + "다시 확인</button>" +
+      '<button type="button" class="btn" data-act="open" data-path="result">' + ico("folder") + "결과 폴더</button>" + web + "</div>"
+    : '<p class="ver">지금 버전 ' + v + "</p><h2 id=\"update_title\" tabindex=\"-1\">" + esc(u.title || "Gorani " + u.latest + "이 나왔습니다") + "</h2>" +
+      (u.body ? "<p>" + esc(u.body) + "</p>" : "") +
+      (u.items && u.items.length ? "<ul>" + u.items.map(function (s) { return "<li>" + esc(s) + "</li>"; }).join("") + "</ul>" : "") +
+      (u.deadline ? '<p class="due">' + esc(u.deadline) + "부터 이 버전(" + v + ")은 쓸 수 없습니다.</p>" : "") + steps +
+      '<div class="acts"><button type="button" class="btn primary" data-act="open_url" data-key="website">업데이트 방법' + ico("ext") + "</button>" +
+      '<button type="button" class="btn" data-act="update_later">나중에</button></div>') + "</div>";
+  el.hidden = false;
+  el.querySelector("h2").focus();
+}
+// 공지 — 업데이트(구버전, 닫기 없음) + 매니페스트 notices [{id, level: warn|info, date, text, url}]. 닫은 공지는 prefs closed_notices, 메뉴에서 다시 본다
+function getNotices() {
+  var init = state.init, u = init && init.update, list = [];
+  if (u && u.latest && cmpVer(init.version, u.latest) < 0 && updateLevel() !== "hard")
+    list.push({ id: "update", level: "warn", update: true, date: u.date || "", text: "Gorani " + u.latest + "이 나왔습니다" + (u.deadline ? ". " + u.deadline + "부터 이 버전은 쓸 수 없습니다" : "") });
+  return list.concat((init && init.notices) || []);
+}
+function isClosedNotice(n) { return !n.update && (state.options.closed_notices || []).indexOf(n.id) >= 0; }
+function noticeAct(n) {
+  return n.update ? ' data-act="open_url" data-key="website"' : n.url ? ' data-act="open_notice" data-id="' + esc(n.id) + '"' : "";
+}
+function renderNoticeBands() {
+  var box = $("init_warnings");
+  Array.prototype.slice.call(box.querySelectorAll(".notice")).forEach(function (d) { box.removeChild(d); });
+  var open = getNotices().filter(function (n) { return !isClosedNotice(n); });   // 띠는 하나만 — 지도를 밀어내지 않게. 나머지는 +N → 메뉴
+  open.slice(0, 1).forEach(function (n) {
+    var d = document.createElement("div"); d.className = "band notice " + (n.level === "warn" ? "lv-warn" : "lv-note");
+    d.innerHTML = ico(n.level === "warn" ? "warn" : "info") + "<span>" + esc(n.text) + "</span>" +
+      (n.update || n.url ? '<button type="button" class="btn sm"' + noticeAct(n) + ">" + (n.update ? "업데이트 방법" : "자세히") + "</button>" : "") +
+      (open.length > 1 ? '<button type="button" class="btn sm ghost" data-act="notices" title="공지 모두 보기">+' + (open.length - 1) + "</button>" : "") +
+      (n.update ? "" : '<button type="button" class="ib sm" data-act="close_notice" data-id="' + esc(n.id) + '" aria-label="닫기" title="닫기(메뉴에서 다시 봅니다)">' + ico("x") + "</button>");
+    box.insertBefore(d, box.firstChild);
+  });
+}
+function closeNotice(id) {
+  state.options.closed_notices = (state.options.closed_notices || []).concat([id]);
+  send({ cmd: "save_prefs", options: state.options });
+  renderNoticeBands(); renderMenu(); toast("닫은 공지는 메뉴에서 다시 볼 수 있습니다");
+}
+// ── 더보기 메뉴 — 최근 대상지 · 설정 · 안내 · 공지 ──
 // 메뉴에 남기는 것만(2026-10-19 QA): 최근 대상지 · 폴더 경로 · 한국 자료 · 사용 통계(Blender·SketchUp) · 고라니 웹페이지 · 버전.
 // 뺀 것 — VWorld 키(.env, 개발자용 — install.md), 다시 확인(팩을 저절로 받는다), 로컬 install.md(웹페이지로)
 function renderMenu() {
   var init = state.init, el = $("menu"); if (!init || !state.menuOpen) return;
   var recent = init.recent || [], lock = state.run === "running" || state.job2d === "running", p = init.paths || {};
   var row = function (k, v, act, title) { return '<div class="mrow"><span class="k">' + k + '</span><span class="v"' + (title ? ' title="' + esc(title) + '"' : "") + ">" + v + "</span>" + act + "</div>"; };
+  var notices = getNotices();
+  var noticeList = (notices.length ? '<h3 id="menu_notices">' + ico("info") + "공지</h3><div class=\"mlist\">" + notices.map(function (n) {
+      var closed = isClosedNotice(n), act = noticeAct(n);
+      return "<" + (act ? 'button type="button"' + act : "div") + ' class="note ' + (n.level === "warn" ? "lv-warn" : "lv-note") + (closed ? " closed" : "") + '">' +
+        ico(n.level === "warn" ? "warn" : "info") + "<span>" + esc(n.text) + '</span><span class="sub num">' + esc(closed ? "닫음" : n.date ? mmdd(n.date) : "") + "</span></" + (act ? "button" : "div") + ">";
+    }).join("") + "</div>" : "");
   el.innerHTML = "<h3>" + ico("clock") + "최근 대상지</h3>" +
     (recent.length ? '<div class="mlist">' + recent.map(function (r, i) {
       return '<button type="button" class="recent" data-act="recent" data-i="' + i + '"' + (lock ? " disabled" : "") + '>' + ico(r.mode && MODE_SHORT[r.mode] ? r.mode : "lots") + "<span>" + esc(r.label) + '</span><span class="sub num">' + esc(fmtNum(r.total_area)) + " ㎡, " + esc(mmdd(r.date)) + "</span>" + ico("next") + "</button>";
@@ -1637,7 +1730,7 @@ function renderMenu() {
     "</div>" +
     "<h3>도움</h3>" +
     '<div class="mlist">' + row("웹페이지", '<button type="button" class="link" data-act="open_url" data-key="website" title="설치와 사용법">' + esc(String((init.links || {}).website || "고라니 웹페이지").replace(/^https?:\/\//, "").replace(/\/$/, "")) + "</button>", "") + "</div>" +
-    '<p class="menu-ver">Gorani ' + esc(init.version || "") + "</p>";
+    noticeList + '<p class="menu-ver">Gorani ' + esc(init.version || "") + "</p>";
 }
 function openMenu() {
   state.menuOpen = true; renderMenu(); $("menu").hidden = false;
@@ -1800,6 +1893,10 @@ var ACTIONS = {
   },
   stats: function (b) { setStats(b.dataset.on === "1"); },
   dismiss: function (b) { b.parentNode.parentNode.removeChild(b.parentNode); },
+  update_later: function () { state.options.update_later_date = todayStr(); send({ cmd: "save_prefs", options: state.options }); renderUpdate(); },   // 권장 모달은 하루 한 번
+  close_notice: function (b) { closeNotice(b.dataset.id); },
+  notices: function () { openMenu(); var h = $("menu_notices"); if (h) h.scrollIntoView({ block: "start" }); },
+  open_notice: function (b) { send({ cmd: "open_url", notice: b.dataset.id }); },
   sheet_ai: function (b) { if (state.result) send({ cmd: "sheet_ai", dir: state.result.dir, path: b.dataset.path }); },
   sheet_view: function (b) { openViewer(b.dataset.path); },
   vw_close: closeViewer,
@@ -1931,7 +2028,7 @@ var handlers = {
       updateTileSource();   // 키를 넣거나 뺐으면 배경 주소가 바뀐다
       if (state.downloading) { state.downloading = false; state.areaPacks = null; requestLots(); requestAreaPacks(); }
     }
-    renderMenu(); renderBlocker(); renderStatsBand();
+    renderMenu(); renderBlocker(); renderStatsBand(); renderNoticeBands(); renderUpdate();
   },
   search_result: function (m) {
     var msg = $("search_msg"); if (!msg) return;
@@ -2091,6 +2188,17 @@ if (MOCK) {
   var playMock = function (msgs) {
     var after3d = { progress: 1, log: 1, data_progress: 1, busy: 1, imported: 1, done: 1, made_2d: 1, exported: 1, _mock_make2d: 1 };
     state.mode = state.mode || "lots";   // 목 데이터는 필지 방식
+    var up = (location.search.match(/[?&]update=(\w+)/) || [])[1];   // &update=soft|hard — 업데이트 모달 보기
+    if (up) msgs[0].update = up === "hard" ? { latest: "0.3.0", min: "0.3.0" }
+      : { latest: "0.3.0", body: "새 버전부터 계정으로 로그인합니다. 무료로 계속 쓸 수 있습니다.", deadline: "12월 1일",
+          items: ["로그인과 최근 대상지 동기화", "결과 화면 하단 후원 안내", "현황도 3종 추가"] };
+    if (up || /[?&]notice=1/.test(location.search)) {
+      msgs[0].notices = [
+        { id: "2026-11-maint", level: "info", date: "2026-10-28", text: "11월 3일 02~06시 서버 점검으로 DB 받기가 멈춥니다", url: "https://969flash.github.io/gorani/" },
+        { id: "2026-10-gg-height", level: "warn", date: "2026-10-25", text: "경기 건물 높이 오류를 고쳤습니다. 경기 지역은 DB를 다시 받으세요" },
+        { id: "2026-09-launch", level: "info", date: "2026-09-30", text: "Gorani를 공개했습니다" }];
+      msgs[0].options = Object.assign({}, msgs[0].options, { closed_notices: ["2026-09-launch"] });
+    }
     var i = 0;
     var tick = function () {
       if (i >= msgs.length) { if (/[?&]menu=1/.test(location.search)) openMenu(); return; }

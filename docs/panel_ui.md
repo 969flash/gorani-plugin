@@ -75,7 +75,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `export_basemap` | `dir`, `scale`(1000\|3000\|5000) | `busy{on}` → `exported` → `busy{off}` | `context_builder.export_basemap(dir, scale)`: 결과 폴더의 `context.json`(pnus·options)으로 DB에서 다시 `prepare` → `basemap_ai.write_basemap` → `<dir>/basemap_<scale>.ai`. 문서를 거치지 않는다(import 불필요, 1초 안팎). 축척별 레이어 표(`constants.BASEMAP_SCALE_LAYERS`): 1:1000 = `08`(지적선) on · `08b`(지번) on, 1:3000 = `08` on · `08b` off, 1:5000 = `08`·`08b` off. 실패하면 `exported{ok:false, text}` |
 | `zoom_view` | `dir`(결과 폴더 절대경로), `center`[lng,lat](선택) | — (`error{context:"open"}`) | `import_context`·`export_basemap`과 같은 꼴 — JS가 `result.dir`을 붙인다(Python은 마지막 결과 폴더를 기억하지 않는다). `center` 없으면 `CTX::Site` 객체로 줌. 있으면 `<dir>/context.json`의 ORIGIN으로 문서 좌표 환산 후 그 점 주변 100 m |
 | `open_path` | `path`(str) | — (`error{context:"open"}`) | 절대경로 또는 프로젝트 루트 상대(`docs/data_sources.md`, `.env`, `data`). 폴더 = 탐색기, 파일 = OS 기본 앱. `.env`가 없으면 한 줄 템플릿(`VWORLD_API_KEY=`)을 만든 뒤 연다. 외부 URL은 열지 않는다(WebView가 이동하므로 JS에서도 링크 금지 — 토지이음은 `open_eum`) |
-| `open_url` | `key`(`constants.PANEL_LINKS`의 키 — 지금은 `website`) | — (`error{context:"open"}`) | 더보기 메뉴 '고라니 웹페이지'. 키만 받아 정해진 주소를 OS 브라우저로 연다(임의 URL은 받지 않는다) |
+| `open_url` | `key`(`constants.PANEL_LINKS`의 키 — 지금은 `website`) 또는 `notice`(공지 id) | — (`error{context:"open"}`) | 더보기 메뉴 '고라니 웹페이지'·업데이트 [업데이트 방법]은 `key`, 공지 [자세히]는 `notice` — 매니페스트에서 그 공지의 http(s) 주소를 찾아 연다. 임의 URL은 받지 않는다 |
 | `open_eum` | `pnu`(19자리) | — (`error{context:"open"}`) | ① 필지 정보 [토지이음 ↗]. Python이 `constants.EUM_LAND_USE_URL % pnu`를 만들어 OS 브라우저로 연다(임의 URL은 받지 않는다) |
 | `save_prefs` | `options` | — | `prefs.json`에 `options`만 덮어쓴다(`recent`는 `generate` 성공 시 Python이 갱신) |
 | `style_preview` | `dir`, `sheet_id`(0~15), `style`(스타일 dict), `seq` | `style_preview`(같은 `seq`) / `error{context:"style"}` | ③ 2D 카드 다이어그램 타일 [편집]의 스타일 화면(만들기 전). `context_builder.preview_sheet` — 한 장을 스타일로 다시 그린 SVG 문자열(파일 안 씀). 시트 데이터는 컨트롤러 `_keep`(이번 세션 생성 결과, 지형 삼각형 포함). 2D를 아직 안 만들었으면 3D를 만든 Prepared를 그대로 써서 다시 조회하지 않는다(`get_sheet_data(quick=True)` — 자료는 3D 범위까지. 다시 prepare하면 Global은 OSM·지형 타일을 또 받아 55 s 걸렸다, 2026-10-19). `_keep`이 다른 결과면 `context.json`으로 한 번 prepare(지형 시트는 비어 나온다). SVG id·`url(#…)`은 `pv_` 접두어(패널 `#map`과 겹치지 않게). JS 250 ms 디바운스, 늦은 `seq`는 버린다 |
@@ -140,7 +140,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 
 ```jsonc
 {"type":"init_state",
- "version":"0.1",
+ "version":"0.2.0",                               // constants.PANEL_VERSION = 패키지 버전(dev_deploy.PACKAGE_VERSION)
  "blocked":false,                                 // true = 필지 DB 없음 → 블로커(차단은 이것뿐. 컨텍스트 DB 없음은 경고)
  "paths":{"root":"<HOME_DIR>","lot_db":"data/seoul_site.db","context_db":"data/seoul_context.db","env":".env","install_doc":"docs/install.md"},
  "generator":{"ok":true,"python":"Rhino Python","text":"Rhino 내장"},   // 항상 ok. UI 호환용(블로커 3행째는 ✓ 고정). Blender면 "Blender …"
@@ -159,7 +159,9 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
  "style_presets":{"std":{"name":"표준","paper":"#FFFFFF",…,"ramp":"warm"},"vivid":…,"mono":…,"dark":…},   // constants.STYLE_PRESETS
  "style_defaults":{"layout":"side","line_scale":1.0,"text_scale":1.0,"font":"sans","fade_outside":0.55,"labels":true,"subtitle_en":true,"project":"","axo_view":"se"},
  "style_ramps":{"warm":["#FBEFC9",…],…},
- "styles":[{"name":"OO건축 표준","style":{…}}]}      // HOME_DIR/styles/*.json
+ "styles":[{"name":"OO건축 표준","style":{…}}],     // HOME_DIR/styles/*.json
+ "update":null,                                   // 매니페스트 update — 아래 '업데이트·공지'. 못 받았으면 null
+ "notices":[]}                                    // 매니페스트 notices [{id, level:"warn"|"info", date, text, url}]
 
 {"type":"search_result","query":"…","seq":null,
  "matches":[{"pnu":"1120010200102770017","address":"서울특별시 성동구 성수동2가 277-17","jibun":"277-17",
@@ -249,6 +251,23 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 `data_progress{in_generate:true}`는 `generate`·`make_2d`가 생성 전에 그 범위 팩을 받을 때 온다 — 패널은 지도 밖 받기 줄이 아니라 진행 목록의 '지역 데이터 받기' 줄과 막대 앞 20 %로 그린다.
 
 푸시 13종. `toast`는 없다 — 성공 토스트는 JS가 `imported`·`exported`를 받아 띄운다.
+
+## 업데이트·공지 (2026-10-21)
+
+이미 깔린 플러그인에 코드 수정 없이 알린다. 원본은 `docs/notices.json`, 올리기는 `python3 scripts/dev_deploy.py notices`(HF 매니페스트의 `update`·`notices`만 바꾼다. `upload`도 같이 넣는다).
+
+```json
+{"update": {"latest": "0.3.0", "min": "0.2.0", "body": "새 버전부터 계정으로 로그인합니다. 무료로 계속 쓸 수 있습니다.",
+            "items": ["로그인", "현황도 3종 추가"], "deadline": "12월 1일", "title": ""},
+ "notices": [{"id": "2026-11-maint", "level": "info", "date": "2026-10-28", "text": "11월 3일 02~06시 서버 점검으로 DB 받기가 멈춥니다", "url": "https://…"}]}
+```
+
+- 패널을 열 때(`init`) 매니페스트를 `NOTICE_TIMEOUT_SECONDS`(3 s)까지 기다린다. 못 받으면 아무것도 띄우지 않는다 — 사용자를 막지 않는다.
+- `version < update.min` → 강제 모달(닫기 없음, [다시 확인]·[결과 폴더]·[웹페이지]). 지원을 끊을 때만 올린다.
+- `version < update.latest` → 권장 모달(하루 한 번 — [나중에] = `options.update_later_date`) + 주황 띠(닫기 없음, 업데이트할 때까지).
+- 공지 → 위쪽 띠는 한 번에 하나(업데이트 > 공지 순서), 나머지는 띠의 `+N` → 더보기 메뉴 '공지' 목록. 띠 [×]는 `options.closed_notices`에 id를 넣고, 메뉴에서는 계속 보인다(흐리게 '닫음'). `level`: `warn` = 주황(꼭 알아야 할 것), `info` = 파랑. 빨강은 오류에만.
+- 공지 `id`는 바꾸지 않는다 — 바꾸면 닫은 사람에게 다시 뜬다. 목 패널: `site_ui.html?mock=1&step=1&update=soft|hard`(공지 견본 셋 포함), `&notice=1`은 공지만.
+- 버전은 `constants.PANEL_VERSION` 하나 — 배포할 때 올린다. 0.1.0 이전 설치본에는 이 확인이 없다(그 사용자는 막을 수 없다).
 
 ## 시군구 팩 (2026-10-13)
 

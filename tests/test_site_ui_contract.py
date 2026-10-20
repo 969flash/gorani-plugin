@@ -23,7 +23,7 @@ HOLE_PNU = "1120011400100130219"   # 성수동1가 13-219 — 구멍 3개(test_c
 
 # docs/panel_ui.md 푸시 정의의 키 집합
 INIT_KEYS = {"type", "version", "blocked", "paths", "generator", "host", "stats_consent", "links", "can_download", "sources", "warnings", "tile", "map", "options", "modes", "recent", "sheet_catalog",
-             "style_presets", "style_defaults", "style_ramps", "styles"}
+             "style_presets", "style_defaults", "style_ramps", "styles", "update", "notices"}
 SOURCE_KEYS = {"id", "label", "name", "date", "age_months", "level", "newer_date", "text"}
 SEARCH_KEYS = {"type", "query", "seq", "matches", "message"}
 MATCH_KEYS = {"pnu", "address", "jibun", "land_category", "area", "center"}
@@ -47,6 +47,24 @@ def _load_cmd_site():
 
 
 cmd_site = _load_cmd_site()
+
+
+class NoticeStateTest(unittest.TestCase):
+    def test_notices_filtered_and_url_by_id(self):
+        data_pack = cmd_site.loader.load("data_pack")
+        manifest = {"update": {"latest": "0.3.0", "min": "0.2.0"}, "notices": [
+            {"id": "a", "level": "loud", "text": "점검", "url": "https://example.com/a"},
+            {"id": "b", "text": "링크 없음"}, {"text": "id 없음"}, "문자열"]}
+        state = data_pack.get_notice_state(manifest)
+        self.assertEqual(state["update"]["min"], "0.2.0")
+        self.assertEqual([(n["id"], n["level"]) for n in state["notices"]], [("a", "info"), ("b", "info")])
+        self.assertEqual(data_pack.get_notice_url("a", manifest), "https://example.com/a")
+        for notice_id in ("b", "없음"):   # 주소 없는 공지·모르는 id는 열지 않는다
+            with self.assertRaises(ValueError):
+                data_pack.get_notice_url(notice_id, manifest)
+
+    def test_no_manifest_means_nothing(self):
+        self.assertEqual(cmd_site.loader.load("data_pack").get_notice_state({}), {"update": None, "notices": []})
 
 
 @unittest.skipUnless(HAS_FIXTURES, "tests/fixtures/seongsu_*.db가 없다")
