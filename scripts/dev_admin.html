@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gorani 관리</title>
+<style>
+/* 패널(site_ui.html)과 같은 토큰 — 관리자 페이지도 같은 톤 */
+:root {
+  --paper: #f5f6f8; --surface: #ffffff; --line: #e3e6eb; --line-2: #cdd3db;
+  --ink: #111418; --ink-2: #4a5260; --ink-3: #7d8798; --hover: #f0f2f5; --press: #e5e8ed;
+  --on-ink: #ffffff; --ink-hover: #2b3038;
+  --accent: #0057ff; --accent-ink: #0047d6; --accent-wash: #e9f0ff; --ring: rgba(0, 87, 255, .35);
+  --ok: #1f7a4d; --danger: #c43c3c; --danger-wash: #fdeeee; --warn: #a8460b; --warn-wash: #fff6ea;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0c1016; --surface: #151b23; --line: #262e39; --line-2: #38424f;
+    --ink: #e8ecf2; --ink-2: #a9b3c3; --ink-3: #7f8a9c; --hover: #1c232d; --press: #252d38;
+    --on-ink: #111418; --ink-hover: #d3d9e2;
+    --accent: #5b8bff; --accent-ink: #8cb0ff; --accent-wash: #16264a; --ring: rgba(91, 139, 255, .45);
+    --ok: #5cc28f; --danger: #f07272; --danger-wash: #3a1b1d; --warn: #f0a35e; --warn-wash: #33240f;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 13px/1.5 "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+button, input, textarea { font: inherit; color: inherit; }
+header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 24px; background: var(--surface); border-bottom: 1px solid var(--line); }
+header h1 { margin: 0; font-size: 16px; font-weight: 700; }
+#status { margin-left: auto; color: var(--ink-3); font-size: 12px; }
+#status.dirty { color: var(--warn); }
+main { display: grid; grid-template-columns: minmax(0, 1fr) 504px; gap: 24px; max-width: 1180px; margin: 0 auto; padding: 24px; align-items: start; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.card h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 15px; font-weight: 600; }
+.card h2 .btn { margin-left: auto; }
+.btn { height: 32px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--surface); display: inline-flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.btn:hover:not(:disabled) { background: var(--hover); }
+.btn.primary { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+.btn.primary:hover:not(:disabled) { background: var(--ink-hover); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.sm { height: 28px; padding: 0 10px; font-size: 12px; }
+.ib { width: 28px; height: 28px; border: 0; border-radius: 8px; background: none; color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.ib:hover { background: var(--danger-wash); color: var(--danger); }
+.ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.grid { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px 12px; align-items: center; }
+.grid label { color: var(--ink-2); font-size: 12px; }
+.grid .hint { grid-column: 2; margin-top: -4px; color: var(--ink-3); font-size: 11px; }
+input[type=text], input[type=date], textarea { width: 100%; height: 32px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface); }
+textarea { height: auto; min-height: 56px; padding: 6px 10px; resize: vertical; }
+input:focus, textarea:focus, .btn:focus-visible, .seg button:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+input.short { width: 120px; }
+.seg { display: inline-flex; padding: 2px; border-radius: 10px; background: var(--hover); gap: 2px; }
+.seg button { height: 28px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--ink-2); cursor: pointer; font-weight: 500; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--line); }
+.seg button.warn[aria-pressed="true"] { color: var(--warn); }
+.seg button.info[aria-pressed="true"] { color: var(--accent-ink); }
+.verdict { margin-top: 12px; padding: 8px 12px; border-radius: 8px; background: var(--hover); color: var(--ink-2); font-size: 12px; }
+.verdict b { color: var(--ink); font-weight: 600; }
+.notice { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
+.notice + .notice { margin-top: 8px; }
+.notice.warn { border-left: 3px solid var(--warn); border-radius: 0 10px 10px 0; }
+.notice.info { border-left: 3px solid var(--accent); border-radius: 0 10px 10px 0; }
+.notice .top { display: flex; align-items: center; gap: 8px; }
+.notice .id { color: var(--ink-3); font-size: 11px; font-family: "SF Mono", Menlo, monospace; margin-left: auto; }
+.notice .order { color: var(--ink-3); font-size: 11px; }
+.empty { color: var(--ink-3); padding: 8px 0; }
+#errors:empty { display: none; }
+#errors { margin-bottom: 16px; padding: 10px 12px; border-radius: 12px; background: var(--warn-wash); color: var(--warn); font-size: 12px; }
+#errors ul { margin: 4px 0 0; padding-left: 18px; }
+aside { position: sticky; top: 80px; }
+aside .bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: var(--ink-2); font-size: 12px; }
+aside .bar .seg { margin-left: auto; }
+aside iframe { display: block; width: 482px; height: calc(100vh - 140px); min-height: 560px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+dialog { border: 1px solid var(--line); border-radius: 12px; padding: 20px; width: min(440px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); }
+dialog::backdrop { background: rgba(17, 20, 24, .55); }
+dialog h3 { margin: 0 0 8px; font-size: 16px; }
+dialog ul { margin: 0 0 16px; padding-left: 18px; color: var(--ink-2); }
+dialog .acts { display: flex; gap: 8px; justify-content: flex-end; }
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 8px 14px; border-radius: 10px; background: var(--ink); color: var(--on-ink); font-size: 12px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+#toast.on { opacity: 1; }
+@media (max-width: 1080px) { main { grid-template-columns: minmax(0, 1fr); } aside { position: static; } aside iframe { width: 100%; height: 760px; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 16 16"><path d="M2.5 4h11M6.5 4V2.5h3V4M3.8 4l.6 8.6a1 1 0 0 0 1 .9h5.2a1 1 0 0 0 1-.9l.6-8.6M6.5 7v4M9.5 7v4"/></symbol>
+  <symbol id="i-up" viewBox="0 0 16 16"><path d="M8 13V3M4 7l4-4 4 4"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 16 16"><path d="M14 8a6 6 0 1 1-6-6c1.7 0 3.3.7 4.5 1.8L14 5.3"/><path d="M14 2v3.3h-3.3"/></symbol>
+</defs></svg>
+<header>
+  <h1>Gorani 관리</h1>
+  <span id="status">불러오는 중</span>
+  <button type="button" class="btn sm" id="refresh_btn" title="올라간 공지를 다시 받습니다"><svg class="ico"><use href="#i-refresh"/></svg>다시 받기</button>
+  <button type="button" class="btn primary" id="publish_btn" disabled>올리기</button>
+</header>
+<main>
+  <section>
+    <div id="errors"></div>
+    <div class="card">
+      <h2>업데이트 안내
+        <span class="seg" role="group" aria-label="업데이트 안내" style="margin-left:auto">
+          <button type="button" data-update="off">끔</button><button type="button" data-update="on">켬</button>
+        </span>
+      </h2>
+      <div id="update_form"></div>
+    </div>
+    <div class="card">
+      <h2>공지 <button type="button" class="btn sm" id="add_btn"><svg class="ico"><use href="#i-plus"/></svg>공지 추가</button></h2>
+      <div id="notice_list"></div>
+    </div>
+  </section>
+  <aside>
+    <div class="bar">사용자 화면 미리보기
+      <span class="seg" role="group" aria-label="미리 볼 버전" id="as_seg"></span>
+    </div>
+    <iframe id="preview" title="패널 미리보기"></iframe>
+  </aside>
+</main>
+<dialog id="confirm">
+  <h3>이대로 올릴까요?</h3>
+  <p style="margin:0 0 8px;color:var(--ink-2)">설치된 모든 Gorani가 다음에 패널을 열 때 받습니다.</p>
+  <ul id="confirm_list"></ul>
+  <div class="acts"><button type="button" class="btn" id="confirm_no">취소</button><button type="button" class="btn primary" id="confirm_yes">올리기</button></div>
+</dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+"use strict";
+var TOKEN = (location.search.match(/[?&]token=([\w-]+)/) || [])[1] || "";
+var S = { data: { update: null, notices: [] }, keptUpdate: null, version: "", today: "", changes: [], errors: [], remoteError: "", as: "now" };
+var $ = function (id) { return document.getElementById(id); };
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+function ico(n) { return '<svg class="ico" aria-hidden="true"><use href="#i-' + n + '"/></svg>'; }
+function api(path, body) {
+  var url = path + (path.indexOf("?") < 0 ? "?" : "&") + "token=" + TOKEN;
+  return fetch(url, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}).then(function (r) { return r.json(); });
+}
+function toast(t) { var el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(function () { el.classList.remove("on"); }, 2400); }
+function cmpVer(a, b) {
+  var x = String(a || "0").split("."), y = String(b || "0").split(".");
+  for (var i = 0; i < Math.max(x.length, y.length); i++) { var d = (+x[i] || 0) - (+y[i] || 0); if (d) return d; }
+  return 0;
+}
+// 그 버전 사용자에게 무엇이 뜨나 — 패널 updateLevel과 같은 판정
+function verdictFor(v) {
+  var u = S.data.update; if (!u) return "안내 없음";
+  if (u.min && cmpVer(v, u.min) < 0) return "<b>강제</b> — 닫을 수 없는 모달, 만들기 막힘";
+  if (u.latest && cmpVer(v, u.latest) < 0) return "<b>권장</b> — 하루 한 번 모달 + 주황 띠";
+  return "안내 없음(최신)";
+}
+var VER = /^\d+(\.\d+)*$/;
+function previewVersion() {
+  var u = S.data.update || {};
+  return S.as === "hard" ? lowerThan(u.min) : S.as === "soft" ? lowerThan(u.latest) : S.version;
+}
+function lowerThan(v) { var p = String(v).split("."); for (var i = p.length - 1; i >= 0; i--) { if (+p[i] > 0) { p[i] = +p[i] - 1; return p.join("."); } } return "0"; }
+
+// ── 그리기 ──
+function renderUpdate() {
+  var u = S.data.update, form = $("update_form");
+  document.querySelectorAll("[data-update]").forEach(function (b) { b.setAttribute("aria-pressed", String((b.dataset.update === "on") === !!u)); });
+  if (!u) { form.innerHTML = '<div class="empty">켜면 지금 버전보다 낮은 사용자에게 업데이트 모달과 띠가 뜹니다.</div>'; return; }
+  var f = function (key, label, hint, cls, ph) {
+    return "<label for=\"u_" + key + "\">" + label + "</label><input type=\"text\" id=\"u_" + key + "\" data-ukey=\"" + key + "\" class=\"" + (cls || "") + "\" placeholder=\"" + esc(ph || "") + "\" value=\"" + esc(u[key] || "") + "\">" +
+      (hint ? '<div class="hint">' + hint + "</div>" : "");
+  };
+  form.innerHTML = '<div class="grid">' +
+    f("latest", "최신 버전", "이보다 낮으면 권장 안내", "short", S.version) +
+    f("min", "최소 버전", "이보다 낮으면 강제 — 비워 두면 막지 않습니다", "short", "") +
+    f("deadline", "마감일", "권장 모달에 '…부터 이 버전은 쓸 수 없습니다'로 나옵니다", "short", "12월 1일") +
+    f("title", "제목", "비우면 'Gorani 최신 버전이 나왔습니다'", "", "") +
+    '<label for="u_body">본문</label><textarea id="u_body" data-ukey="body" rows="2">' + esc(u.body || "") + "</textarea>" +
+    '<label for="u_items">바뀐 점</label><textarea id="u_items" data-ukey="items" rows="3" placeholder="한 줄에 하나">' + esc((u.items || []).join("\n")) + "</textarea>" +
+    "</div>" + '<div class="verdict" id="verdict"></div>';
+  renderVerdict();
+}
+function renderVerdict() {
+  var el = $("verdict"); if (!el) return;
+  var u = S.data.update || {}, old = VER.test(u.min || "") ? lowerThan(u.min) : "";
+  var ahead = [u.latest, u.min].filter(function (v) { return VER.test(v || "") && cmpVer(v, S.version) > 0; });   // 저장소 버전보다 높다 = 아직 낸 적 없는 버전
+  el.innerHTML = "지금 버전 " + esc(S.version) + " 사용자: " + verdictFor(S.version) +
+    (old && old !== S.version ? "<br>" + esc(old) + " 사용자: " + verdictFor(old) : "") +
+    (ahead.length ? '<br><span style="color:var(--warn)">' + esc(ahead[0]) + "은 저장소 버전(" + esc(S.version) + ")보다 높습니다. 그 버전을 배포한 뒤에 올리세요" +
+      (u.min && cmpVer(u.min, S.version) > 0 ? " — 지금 올리면 모든 사용자가 막힙니다" : "") + "</span>" : "");
+}
+function renderNotices() {
+  var list = S.data.notices;
+  $("notice_list").innerHTML = list.length ? list.map(function (n, i) {
+    return '<div class="notice ' + (n.level === "warn" ? "warn" : "info") + '" data-i="' + i + '">' +
+      '<div class="top"><span class="seg" role="group" aria-label="종류">' +
+        '<button type="button" class="info" data-level="info" aria-pressed="' + (n.level !== "warn") + '">일반</button>' +
+        '<button type="button" class="warn" data-level="warn" aria-pressed="' + (n.level === "warn") + '">중요</button></span>' +
+        '<input type="date" data-key="date" value="' + esc(n.date || "") + '" style="width:150px" aria-label="날짜">' +
+        (i === 0 ? '<span class="order">띠에 먼저 뜸</span>' : '<button type="button" class="ib" data-act="up" title="위로(띠에 먼저 뜹니다)" aria-label="위로">' + ico("up") + "</button>") +
+        '<span class="id" title="바꾸지 않습니다 — 바꾸면 닫은 사람에게 다시 뜹니다">' + esc(n.id) + "</span>" +
+        '<button type="button" class="ib" data-act="del" title="삭제" aria-label="삭제">' + ico("trash") + "</button></div>" +
+      '<input type="text" data-key="text" placeholder="공지 글 — 한 줄로" value="' + esc(n.text || "") + '" aria-label="공지 글">' +
+      '<input type="text" data-key="url" placeholder="https://… 자세히 링크(선택)" value="' + esc(n.url || "") + '" aria-label="링크">' +
+      "</div>";
+  }).join("") : '<div class="empty">공지가 없습니다.</div>';
+}
+// 미리 볼 사용자: 지금 버전 + 권장 안내를 받는 옛 버전(지금 버전이 최신일 때) + 막히는 옛 버전(min이 있을 때)
+function renderAsSeg() {
+  var u = S.data.update || {}, opts = [["now", "지금 " + S.version]];
+  if (u.latest && VER.test(u.latest) && cmpVer(S.version, u.latest) >= 0) opts.push(["soft", lowerThan(u.latest) + " (권장)"]);   // 지금 버전이 최신이면 옛 버전으로 본다
+  if (u.min && VER.test(u.min)) opts.push(["hard", lowerThan(u.min) + " (강제)"]);
+  if (!opts.some(function (o) { return o[0] === S.as; })) S.as = "now";
+  $("as_seg").innerHTML = opts.map(function (o) { return '<button type="button" data-as="' + o[0] + '" aria-pressed="' + (S.as === o[0]) + '">' + esc(o[1]) + "</button>"; }).join("");
+}
+function renderStatus() {
+  var el = $("status"), n = S.changes.length;
+  $("errors").innerHTML = S.errors.length ? "저장하지 못했습니다. 고칠 것:<ul>" + S.errors.map(function (e) { return "<li>" + esc(e) + "</li>"; }).join("") + "</ul>" : "";
+  el.className = "";
+  if (S.remoteError) { el.textContent = S.remoteError; el.className = "dirty"; }
+  else if (S.errors.length) { el.textContent = "고칠 것 " + S.errors.length + "개"; el.className = "dirty"; }
+  else if (n) { el.textContent = "저장됨 · 올린 것과 " + n + "곳 다름"; el.className = "dirty"; }
+  else el.textContent = "저장됨 · 올린 것과 같음";
+  $("publish_btn").disabled = !!(S.errors.length || !n || S.remoteError);
+}
+function reloadPreview() { $("preview").src = "/panel?token=" + TOKEN + "&mock=1&step=1&w=480&as=" + encodeURIComponent(previewVersion()) + "&t=" + Date.now(); }
+function apply(res, keepForm) {
+  S.version = res.version; S.today = res.today; S.changes = res.changes; S.errors = res.errors; S.remoteError = res.remote_error;
+  if (!keepForm) { S.data = { update: res.local.update, notices: res.local.notices || [] }; renderUpdate(); renderNotices(); }
+  renderAsSeg(); renderStatus(); renderVerdict();
+  if (!res.errors.length) reloadPreview();
+}
+
+// ── 고치기 — 바꿀 때마다 0.4 s 뒤 docs/notices.json에 저장 ──
+function save() { clearTimeout(save.t); save.t = setTimeout(function () { api("/api/save", S.data).then(function (r) { apply(r, true); }); }, 400); }
+function newId() {
+  var base = S.today, n = 1, ids = S.data.notices.map(function (x) { return x.id; });
+  while (ids.indexOf(base + "-" + n) >= 0) n++;
+  return base + "-" + n;
+}
+document.addEventListener("input", function (e) {
+  var t = e.target, box = t.closest(".notice");
+  if (t.dataset.ukey) {
+    var v = t.value; S.data.update[t.dataset.ukey] = t.dataset.ukey === "items" ? v.split("\n").map(function (s) { return s.trim(); }).filter(Boolean) : v.trim();
+    renderVerdict(); renderAsSeg(); save();
+  } else if (box && t.dataset.key) { S.data.notices[+box.dataset.i][t.dataset.key] = t.value.trim(); save(); }
+});
+document.addEventListener("click", function (e) {
+  var b = e.target.closest("button"); if (!b) return;
+  var box = b.closest(".notice"), i = box ? +box.dataset.i : -1;
+  if (b.dataset.update) {
+    if (b.dataset.update === "on" && !S.data.update) S.data.update = S.keptUpdate || { latest: "", min: "" };
+    if (b.dataset.update === "off" && S.data.update) { S.keptUpdate = S.data.update; S.data.update = null; }
+    renderUpdate(); renderAsSeg(); save();
+  } else if (b.dataset.level) { S.data.notices[i].level = b.dataset.level; renderNotices(); save(); }
+  else if (b.dataset.act === "del") {
+    var gone = S.data.notices.splice(i, 1)[0]; renderNotices(); save();
+    toast("삭제했습니다: " + (gone.text || gone.id));
+  } else if (b.dataset.act === "up") { var x = S.data.notices.splice(i, 1)[0]; S.data.notices.splice(i - 1, 0, x); renderNotices(); save(); }
+  else if (b.dataset.as) { S.as = b.dataset.as; renderAsSeg(); reloadPreview(); }
+  else if (b.id === "add_btn") {
+    S.data.notices.unshift({ id: newId(), level: "info", date: S.today, text: "", url: "" }); renderNotices();
+    document.querySelector('.notice[data-i="0"] [data-key="text"]').focus();
+  } else if (b.id === "refresh_btn") { api("/api/state?refresh=1").then(function (r) { apply(r); toast("올라간 공지를 다시 받았습니다"); }); }
+  else if (b.id === "publish_btn") {
+    $("confirm_list").innerHTML = S.changes.map(function (c) { return "<li>" + esc(c) + "</li>"; }).join("");
+    $("confirm").showModal();
+  } else if (b.id === "confirm_no") $("confirm").close();
+  else if (b.id === "confirm_yes") {
+    b.disabled = true;
+    api("/api/publish", {}).then(function (r) { b.disabled = false; $("confirm").close(); toast(r.text); if (r.ok) apply(r); });
+  }
+});
+api("/api/state").then(function (r) { apply(r); });
+</script>
+</body>
+</html>

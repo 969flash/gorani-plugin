@@ -66,7 +66,6 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `set_area` | `ring_tm` \| `ring_lnglat` \| `center`+`offsets` (없으면 지움) | `area_state` | 구역 방식. 지도에 그린 링(경위도), Rhino 커브 실제 좌표(`ring_tm`), 지도에서 옮겨 놓은 커브(`center` 경위도 + `offsets` m). 안전장치·안의 필지는 Python(§대상지 방식) |
 | `set_point` | `center`([lng,lat], 없으면 지움) | `point_state` | 위치 방식. 지도 클릭·검색 결과 |
 | `pick_curve` | — | `curve_shape` | Rhino 전용. 선택된 커브가 하나면 그것, 없으면 고르기 프롬프트 |
-| `snap_area` | `ring_tm` | `area_state{snapped:true}` 또는 `area_state{ok:false,text}` | Rhino 전용. 필지 경계에 맞추기 |
 | `preflight` | `target`(없으면 `pnus` = 필지 방식), `radius`, `shape`, `paper`, `paper_mm`, `scales`, `seq` | `preflight_result`(같은 `seq`) | 2026-10-19부터 Rhino 패널은 보내지 않는다(범위를 JS가 그린다). 예전: ① lots 변경 직후, ② 진입·옵션 변경(300 ms 디바운스). 메모이즈 키 `(tuple(pnus), radius, shape, paper, tuple(paper_mm), tuple(scales))` — `paper_mm`이 빠지면 용지 '직접'에서 가로·세로를 바꿔도 프레임이 안 바뀐다. `init`마다 비운다 |
 | `generate` | `target`(없으면 `pnus`), `options`(§옵션 키 **`scales` 포함** — 가장 큰 축척 프레임이 DB 질의 범위를 정한다, code_map §3) | `progress`* ↔ `log`* → `done` / `progress{state:"failed"}` / `progress{state:"cancelled"}` | `context_builder.run` 동기 실행(UI 스레드, 콜백 안 `RhinoApp.Wait()`로 푸시·취소 명령 펌핑). 이미 running이면 무시하고 `error{context:"generate"}`. 베이크가 곧 '문서에 넣기'라 `busy`·`imported`는 오지 않는다(`done.context.imported`로 전한다). 생성기는 BM 레이어를 항상 전부 쓴다 — 축척별 차이는 Export 때만 |
 | `make_2d` | `dir`(결과 폴더), `options`(2D 키 — `make_basemap`·`paper`·`paper_mm`·`scales`·`basemap_layers_on`·`make_dwg`·`make_sheets`·`sheet_ids`·`floor_breaks`·`elev_preset`·`make_tables`·`style`) | `data_progress`* → `progress`* ↔ `log`* → `made_2d` | 3D 결과에 2D 자료를 더한다(2026-10-19). `context_builder.make_2d`: `context.json`의 대상지·옵션 위에 2D 옵션을 덮어 다시 `prepare`(가장 큰 프레임까지 조회 — 생성 전에 그 범위 팩을 받는다) → basemap·sheets·tables phase(run과 같은 함수) → `context.json` 갱신. 도면 폴더는 비우지 않고 고른 장만 새로 쓴 뒤 전에 만든 장과 합친 목록을 돌려준다(`_merge_sheets`, 같은 id는 새것). 조서 CSV 폴더는 비우고 다시 쓴다. `make_dwg`(베이스맵과 함께만, Rhino만)면 basemap phase 끝에 가장 상세한 축척의 2D 선 도면을 새 헤드리스 문서에 구워 `basemap_<축척>.dwg`(`context_baker.save_dwg` — 활성 문서는 안 건드린다). 원점은 `context.json.doc_origin`을 써 3dm과 같은 좌표. 지형 삼각형은 이번 세션 3D 결과(`_keep`)에서, 없으면 지형 도면이 빈다. 문서는 건드리지 않는다. running 중이면 `error{context:"generate"}`. progress는 `query`·`basemap`·`sheets`·`tables`만(나머지 skipped). 취소는 `cancel` 그대로 |
@@ -97,7 +96,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 
 ```jsonc
 {"level":"info|warn|danger",
- "code":"stale_lot|stale_building|stale_terrain|coverage|no_context_db|no_api_key|invalid_key|height_estimate|mismatch|skipped|empty_buildings|frame_over|multipart",
+ "code":"stale_lot|stale_building|stale_terrain|coverage|no_context_db|no_api_key|invalid_key|height_estimate|mismatch|skipped|empty_buildings|frame_over|multipart|merge_failed|merge_apart|merge_hole",
  "text":"건물 자료 4.9개월 경과 · 새 판 있음",            // 1줄
  "detail":"⚠ 건물 자료가 4.9개월 지났습니다(…) → docs/data_sources.md §0 절차로 교체하세요",  // 펼침(deliverables §C ⑤ 문안)
  "action":{"label":"절차 열기","path":"docs/data_sources.md"},   // 선택. open_path 로 보낸다
@@ -255,6 +254,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 ## 업데이트·공지 (2026-10-21)
 
 이미 깔린 플러그인에 코드 수정 없이 알린다. 원본은 `docs/notices.json`, 올리기는 `python3 scripts/dev_deploy.py notices`(HF 매니페스트의 `update`·`notices`만 바꾼다. `upload`도 같이 넣는다).
+보통은 관리자 페이지 `python3 scripts/dev_admin.py`로 한다 — 이 Mac의 127.0.0.1에만 뜨고(실행마다 새 토큰, 인터넷에 올리지 않는다), 고치면 `docs/notices.json`에 바로 저장하고 오른쪽에 실제 패널(목 모드)로 지금 버전·옛 버전 사용자 화면을 보여 준다. [올리기]는 올라간 것과 바뀐 점을 보여 주고 확인을 받은 뒤 올린다. 최소 버전이 `PANEL_VERSION`보다 높으면(아직 배포 안 한 버전 = 모두 막힘) 저장·올리기를 막는다.
 
 ```json
 {"update": {"latest": "0.3.0", "min": "0.2.0", "body": "새 버전부터 계정으로 로그인합니다. 무료로 계속 쓸 수 있습니다.",
@@ -281,7 +281,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 - 첫 실행(`options.region = null`)은 JS가 정한다: 국내 필지 DB가 있거나 · 시간대 `Asia/Seoul`(`Intl`) · 언어 `ko*`(`navigator.languages`) 중 하나면 `kr`, 아니면 `global`. 망 접속 없음, Mac·Windows 웹뷰·Blender 브라우저 공통.
 - `search`·`set_area`·`set_point`·`preflight`에 JS가 `region`을 붙인다(`REGION_CMDS`). Global이면 필지 DB를 보지 않는다 — 검색은 Nominatim만, 구역 안 필지 0, preflight는 DB 개수 대신 경고 `abroad`, 생성은 `osm_context`(Overpass·지형 타일, 팩 받기 없음). 엔진 판정은 `context_builder.is_global(request)` = `region == "global"` 또는 지역 TM 원점.
 - 좌표계는 모드가 아니라 위치로 정한다: 대상지 중심이 `map.korea_bounds` 밖이면 `set_area`·`set_point`가 투영 원점을 그 중심으로(`non_rhino_utils.set_projection`, 이후 `ring_tm`·`center_tm`은 지역 횡메르카토르 m), 한국 안이면 Global이어도 EPSG:5186. `select_lots`는 늘 EPSG:5186.
-- Global: 필지 방식 칸 비활성(필지 방식이었으면 위치 방식으로), 지도 필지선·시군구 팩 칩·DB 안내 화면 없음, 구역 '필지 경계에 맞추기'·안의 필지 수 없음. 도면 목록은 `sheet_catalog[].korea_only`(= `constants.SHEET_KOREA_ONLY`)를 뺀다 — 엔진도 `get_sheet_ids`에서 뺀다.
+- Global: 필지 방식 칸 비활성(필지 방식이었으면 위치 방식으로), 지도 필지선·시군구 팩 칩·DB 안내 화면 없음, 구역 안의 필지 수 없음. 도면 목록은 `sheet_catalog[].korea_only`(= `constants.SHEET_KOREA_ONLY`)를 뺀다 — 엔진도 `get_sheet_ids`에서 뺀다.
 - Korea에서 대상지가 한국 밖이 되면(`area_state`·`point_state` 중심) Global로 바꾸고 토스트. 한국 밖 대상지가 있는 채로 Korea는 고를 수 없다. 최근 대상지(필지)를 고르면 Korea로.
 - 블로커(필지 DB 없음, 받을 곳 없음)는 Korea 모드에서만, 버튼 [Global로 쓰기].
 - 하는 일이 없는 칸은 보이지 않는다: Global은 고급의 무벽·가건물·도시계획 경계선, 베이스맵 레이어 토지이용·용도지역, 결과 신뢰도의 정합 오차·국가 DB 기준일·필지 수가 없다. 한국 밖 대상지는 ③ 좌표 칸이 없고 늘 원점으로(실제 좌표가 지역 TM이라 GIS와 겹칠 수 없다). 행이 없는 조서 CSV는 쓰지 않는다.
@@ -294,13 +294,12 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 
 | 방식 | 요청 `target` | 대상지 경계(`site_rings`) | 대상 필지 | 결과 폴더명 |
 |---|---|---|---|---|
-| lots 필지로 고르기 | `{mode:"lots", pnus}` | 필지마다 가장 넓은 조각 외곽 | 고른 필지 | `성수동2가_333-139(외n)` |
+| lots 필지로 고르기 | `{mode:"lots", pnus}` | 합필 외곽(필지마다 가장 넓은 조각을 합친 것 — 맞닿지 않으면 덩어리마다) | 고른 필지 | `성수동2가_333-139(외n)` |
 | area 구역 그리기 | `{mode:"area", ring:[[x,y]] EPSG:5186}` | 구역 링 1개 | 면적 50 % 이상이 구역 안인 필지(`AREA_LOT_MIN_FRACTION`) | `<중심 필지 동_지번>_구역` |
 | point 위치만 찍기 | `{mode:"point", center:[x,y]}` | 없음 | 없음 | `<가장 가까운 필지>_일대` |
 
 - 구역 안전장치(`non_rhino_utils.get_ring_problem`): 꼭짓점 3~2000개, 자기교차 없음, 면적 ≥ 100 ㎡, bbox 긴 변 ≤ 4 km. Rhino 커브는 추가로 닫힘·XY 평면(법선 ±Z)·`Intersection.CurveSelf` 0을 본다(`context_geometry.get_curve_ring`). 곡선 커브는 0.05 m 허용오차 폴리라인으로 바꾼다.
 - Rhino 커브 위치: 이 도구가 만든 문서(문서 원점 있음)면 로컬 + 원점, 아니면 좌표가 서울 EPSG:5186 범위(`SEOUL_TM_BOUNDS`)면 그대로 = `located:true` → 패널이 바로 `set_area{ring_tm}`. 그 밖이면 모양만(`offsets` m) → 패널이 화면 가운데에 파란 구역을 고정해 얹고, 사용자가 지도를 끌어 맞춘 뒤 [여기에 놓기] → `set_area{center, offsets}`. 모양은 m 그대로라 축척이 변하지 않는다.
-- 필지 경계에 맞추기: (구역 ∪ 50 % 이상 필지) − (걸쳤지만 50 % 미만 필지). 도로·하천·구거·철도용지·제방(`AREA_SNAP_LINEAR_CATEGORIES`)은 더하지도 빼지도 않아 그린 선이 그대로 가로지른다 — 구역계 관행.
 - 범위 형태(2026-10-19): 모든 방식이 circle|rect(`SHAPES_BY_MODE`). circle = 대상지 중심 반경 `radius`, **rect = 대상지 중심 한 변 2 × `radius` 정사각형**(예전: 대상지 bbox ± radius). 엔진은 예전 요청의 buffer·site(그린 경계 그대로)·frame(가장 큰 축척 용지 프레임)도 받는다.
 - DB 조회 범위: 2D(`make_basemap`·`make_sheets`·`make_dwg`)가 꺼져 있으면 범위 bbox만(3D만 — 프레임 크기만큼 받지 않는다), 켜져 있으면 범위 ∪ 가장 큰 프레임 ∪ 도면 범위. 3dm 안 2D 선 도면(`BM::`)도 `make_basemap`·`make_dwg`일 때만 굽는다.
 
@@ -309,7 +308,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
  "ring_tm":[[x,y]],"ring_lnglat":[[lng,lat]],"center":[lng,lat],"center_tm":[x,y],"offsets":[[dx,dy]],
  "area":60000.0,"lots":69,"lots_area":44242.0,"lot_name":"성수동2가_333-139_구역",
  "target_geojson":FC,                                 // role="target" 안의 필지 + role="area" 구역 1개
- "warnings":[warning],"snapped":false}
+ "warnings":[warning]}
 {"type":"point_state","ok":true,"center":[lng,lat],"center_tm":[x,y],"lot_name":"성수동2가_333-139_일대"}
 {"type":"curve_shape","ok":true,"text":"","located":false,"ring_tm":[],"offsets":[[dx,dy]],"area":22800.0,"vertices":4}
 ```
