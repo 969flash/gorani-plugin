@@ -451,7 +451,6 @@ footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-
   <symbol id="i-point" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/></symbol>
   <symbol id="i-pen" viewBox="0 0 16 16"><path d="M11 2.6a1.6 1.6 0 0 1 2.4 2.4L5 13.4l-3 .6.6-3z"/><path d="M9.5 4l2.5 2.5"/></symbol>
   <symbol id="i-curve" viewBox="0 0 16 16"><path d="M4.5 11.5C5.5 7.5 8.5 5 11.5 4.5"/><circle cx="3.5" cy="12.5" r="1.5"/><circle cx="12.5" cy="3.5" r="1.5"/></symbol>
-  <symbol id="i-magnet" viewBox="0 0 16 16"><path d="M3.5 2.5h3v5.5a1.5 1.5 0 0 0 3 0V2.5h3v5.5a4.5 4.5 0 0 1-9 0z"/><path d="M3.5 5.5h3M9.5 5.5h3"/></symbol>
   <symbol id="i-move" viewBox="0 0 16 16"><path d="M8 1.5v13M1.5 8h13M6 3.5l2-2 2 2M6 12.5l2 2 2-2M3.5 6l-2 2 2 2M12.5 6l2 2-2 2"/></symbol>
   <symbol id="i-trash" viewBox="0 0 16 16"><path d="M2.5 4h11M6.5 4V2.5h3V4M3.8 4l.6 8.6a1 1 0 0 0 1 .9h5.2a1 1 0 0 0 1-.9l.6-8.6M6.5 7v4M9.5 7v4"/></symbol>
   <symbol id="i-focus" viewBox="0 0 16 16"><path d="M2 5.5v-2A1.5 1.5 0 0 1 3.5 2h2M10.5 2h2A1.5 1.5 0 0 1 14 3.5v2M14 10.5v2a1.5 1.5 0 0 1-1.5 1.5h-2M5.5 14h-2A1.5 1.5 0 0 1 2 12.5v-2"/><circle cx="8" cy="8" r="2"/></symbol>
@@ -744,10 +743,9 @@ function targetHtml(moreOpen) {
       '<span class="end"><button type="button" class="btn sm primary" data-act="stamp_place">' + ico("move") + '여기에 놓기</button><button type="button" class="btn sm" data-act="stamp_cancel">취소</button></span></div>';
     if (!a) return '<div class="tools" style="margin-left:0"><button type="button" class="btn sm" data-act="draw_start">' + ico("pen") + '지도에 그리기</button>' + curveBtn + "</div>";
     return '<div class="trow"><span class="lbl">대상지</span><span class="tval">구역 <b class="num">' + esc(fmtNum(a.area, 0)) + " ㎡</b>" +
-      (isGlobal() ? "" : ' <span class="sub">(안의 필지 ' + a.lots + (a.snapped ? ", 필지 경계에 맞춤" : "") + ")</span>") + "</span>" +
+      (isGlobal() ? "" : ' <span class="sub">(안의 필지 ' + a.lots + ")</span>") + "</span>" +
       '<span class="end">' + clearBtn("area_clear") + "</span></div>" +
       '<div class="tools"><button type="button" class="btn sm" data-act="draw_start">' + ico("pen") + '다시 그리기</button>' +
-      (isGlobal() ? "" : '<button type="button" class="btn sm" data-act="snap" title="구역 안 필지(면적 50 % 이상)의 바깥 경계로 구역을 바꿉니다">' + ico("magnet") + '필지 경계에 맞추기</button>') +
       '<button type="button" class="btn sm" data-act="area_move">' + ico("move") + '옮기기</button></div>';
   }
   var p = state.point; if (!p) return "";
@@ -1044,7 +1042,7 @@ function initMap(init) {
     return bar;
   };
   aerialCtl.addTo(map);
-  tiles = L.tileLayer(init.tile.url, { attribution: init.tile.attribution, maxZoom: 19 }).addTo(map);
+  tiles = L.tileLayer(init.tile.url, { attribution: init.tile.attribution, maxZoom: 21, maxNativeZoom: 19 }).addTo(map);   // 타일은 19까지 — 20·21은 확대해 보여 준다(작은 필지 고르기)
   map.attributionControl.setPrefix("");
   tiles.on("tileerror", function () {
     if (tileDead) return;
@@ -1831,7 +1829,6 @@ var ACTIONS = {
   draw_done: finishDraw,
   draw_cancel: cancelDraw,
   pick_curve: function () { cancelDraw(); var e = $("tray_err"); if (e) e.innerHTML = ""; toast(HOST.name + "에서 닫힌 커브를 고르세요"); send({ cmd: "pick_curve" }); },
-  snap: function () { if (state.area) send({ cmd: "snap_area", ring_tm: state.area.ring_tm }); },
   area_move: function () { if (state.area && map) { map.setView(ll(state.area.center), map.getZoom(), { animate: false }); startStamp(state.area.offsets, false); } },
   area_clear: function () { send({ cmd: "set_area" }); startDraw(); },
   stamp_place: placeStamp,

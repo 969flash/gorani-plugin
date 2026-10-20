@@ -612,6 +612,129 @@ def get_clean_ring(points):
     return ring
 
 
+def get_merged_rings(polygons, tolerance):
+    # type: (list, float) -> tuple
+    """맞닿은 필지들을 합친다(합필). 입력은 바꾸지 않는다.
+
+    입력: polygons ``[[바깥 링, 구멍 링, ...]]`` 세계좌표 m(GeoJSON Polygon coordinates 꼴). tolerance: 같은 점·같은 변으로 볼 거리 m.
+    처리: 공공 지적은 이웃 경계가 정점 단위로 맞지 않는다(T자 정점·수 cm 틈·겹침 — 서울 표본 1,500묶음 중 0.3 %가 0.1~150 ㎡ 겹침).
+          서울 표본 2,800묶음(2~13필지)에서 shapely 합집합과 덩어리 수·면적이 모두 같았다(2026-10-21).
+          ① tolerance 안 정점을 한 점으로 모은다 ② 다른 필지 정점이 변에서 tolerance 안이면 그 변에 끼우고, 변끼리 교차하면 교차점을 양쪽에 끼운다
+          ③ 바깥은 반시계·구멍은 시계로 두고 변을 고른다 — 반대 방향 같은 변(공유 경계)과 다른 필지 안의 변(겹침)은 지운다
+          ④ 남은 변을 잇는다(갈림점에서는 가장 왼쪽으로 꺾는다) ⑤ 폭이 2 × tolerance 이하인 가는 조각은 버린다.
+    출력: (바깥 링 목록 넓은 순, 구멍 링 목록). 바깥은 반시계, 구멍은 시계, 닫힘 중복점 없음. 떨어진 덩어리는 바깥 링이 여럿.
+    """
+    pts, grid = [], {}
+
+    def snap(x, y):
+        ix, iy = int(math.floor(x / tolerance)), int(math.floor(y / tolerance))
+        for key in ((ix + i, iy + j) for i in (-1, 0, 1) for j in (-1, 0, 1)):
+            for k in grid.get(key, ()):
+                if math.hypot(pts[k][0] - x, pts[k][1] - y) <= tolerance:
+                    return k
+        pts.append((x, y))
+        grid.setdefault((ix, iy), []).append(len(pts) - 1)
+        return len(pts) - 1
+
+    def get_t(k, a, b):   # 정점 k가 변 ab 위(tolerance 안)면 변 위치 0~1, 아니면 None
+        (ax, ay), (bx, by), (px, py) = pts[a], pts[b], pts[k]
+        dx, dy = bx - ax, by - ay
+        length2 = dx * dx + dy * dy
+        t = ((px - ax) * dx + (py - ay) * dy) / length2
+        if k in (a, b) or not 0.0 < t < 1.0 or abs((px - ax) * dy - (py - ay) * dx) > tolerance * math.sqrt(length2):
+            return None
+        return t
+
+    rings, owners, shapes = [], [], {}   # 정점 번호 링(바깥 반시계·구멍 시계), 그 필지 번호, 필지 번호 → 겹침 판정용 좌표 링
+    for owner, polygon in enumerate(polygons):
+        for hole, ring in enumerate(polygon):
+            ids = []
+            for p in ring:
+                k = snap(float(p[0]), float(p[1]))
+                if not ids or ids[-1] != k:
+                    ids.append(k)
+            while len(ids) > 1 and ids[0] == ids[-1]:
+                ids.pop()
+            if len(ids) >= 3:
+                ccw = get_ring_orientation([pts[k] for k in ids]) > 0
+                rings.append(ids if ccw == (hole == 0) else ids[::-1])
+                owners.append(owner)
+                shapes.setdefault(owner, []).append([pts[k] for k in rings[-1]])
+    boxes = [get_bbox([pts[k] for k in ids]) for ids in rings]
+    shape_boxes = {owner: get_bbox(shape[0]) for owner, shape in shapes.items()}
+    extra = [[[] for _ in ids] for ids in rings]   # 변마다 끼울 (t, 정점 번호)
+    for r, s in ((r, s) for r in range(len(rings)) for s in range(r + 1, len(rings))):
+        if owners[r] == owners[s] or boxes[r][0] > boxes[s][2] + tolerance or boxes[s][0] > boxes[r][2] + tolerance \
+                or boxes[r][1] > boxes[s][3] + tolerance or boxes[s][1] > boxes[r][3] + tolerance:
+            continue
+        for i, a in enumerate(rings[r]):
+            b = rings[r][(i + 1) % len(rings[r])]
+            x0, x1 = min(pts[a][0], pts[b][0]) - tolerance, max(pts[a][0], pts[b][0]) + tolerance
+            y0, y1 = min(pts[a][1], pts[b][1]) - tolerance, max(pts[a][1], pts[b][1]) + tolerance
+            for j, c in enumerate(rings[s]):
+                d = rings[s][(j + 1) % len(rings[s])]
+                if max(pts[c][0], pts[d][0]) < x0 or min(pts[c][0], pts[d][0]) > x1 or max(pts[c][1], pts[d][1]) < y0 or min(pts[c][1], pts[d][1]) > y1:
+                    continue
+                t_c, t_a = get_t(c, a, b), get_t(a, c, d)   # 끝점 d·b는 다음 변의 시작점으로 확인된다
+                if t_c is not None:
+                    extra[r][i].append((t_c, c))
+                if t_a is not None:
+                    extra[s][j].append((t_a, a))
+                if t_c is None and t_a is None and len({a, b, c, d}) == 4 and _segments_cross(pts[a], pts[b], pts[c], pts[d]):
+                    (ax, ay), (bx, by), (cx, cy), (dx, dy) = pts[a], pts[b], pts[c], pts[d]
+                    u = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / ((bx - ax) * (dy - cy) - (by - ay) * (dx - cx))
+                    k = snap(ax + (bx - ax) * u, ay + (by - ay) * u)
+                    for ring_index, edge_index, p, q in ((r, i, a, b), (s, j, c, d)):
+                        t = get_t(k, p, q)
+                        if t is not None:
+                            extra[ring_index][edge_index].append((t, k))
+    present = {}   # 방향 변 → [나온 수, 그 변을 가진 필지 번호들]
+    for r, ids in enumerate(rings):
+        walk = []
+        for i, a in enumerate(ids):
+            walk.append(a)
+            inserted = {}
+            for t, k in extra[r][i]:
+                inserted.setdefault(k, t)
+            walk += [k for k in sorted(inserted, key=inserted.get) if k != walk[-1]]
+        for i, a in enumerate(walk):
+            b = walk[(i + 1) % len(walk)]
+            if a != b:
+                entry = present.setdefault((a, b), [0, set()])
+                entry[0] += 1
+                entry[1].add(owners[r])
+    out_edges = {}
+    for (a, b), (n, own) in present.items():
+        if n <= present.get((b, a), [0])[0]:
+            continue   # 공유 경계(반대 방향 변과 짝). 남는 같은 방향 변은 하나만 — 접힌 경계(1174010500103710009 — 이웃 필지가 메운 쐐기)·겹침
+        mx, my = (pts[a][0] + pts[b][0]) * 0.5, (pts[a][1] + pts[b][1]) * 0.5
+        if any(owner not in own and box[0] <= mx <= box[2] and box[1] <= my <= box[3] and is_point_in_polygon(mx, my, shapes[owner])
+               for owner, box in shape_boxes.items()):
+            continue   # 다른 필지와 겹친 부분
+        out_edges.setdefault(a, []).append(b)
+
+    def turn(prev, cur, nxt):   # 들어온 방향 대비 꺾는 각(왼쪽 +). 되돌아가기는 맨 끝
+        if nxt == prev:
+            return -4.0
+        (px, py), (cx, cy), (nx, ny) = pts[prev], pts[cur], pts[nxt]
+        ux, uy, vx, vy = cx - px, cy - py, nx - cx, ny - cy
+        return math.atan2(ux * vy - uy * vx, ux * vx + uy * vy)
+
+    outers, holes = [], []
+    for start in list(out_edges):
+        while out_edges[start]:
+            ring, prev, cur = [start], start, out_edges[start].pop()
+            while cur != start and out_edges.get(cur):
+                ring.append(cur)
+                nexts = out_edges[cur]
+                prev, cur = cur, nexts.pop(max(range(len(nexts)), key=lambda j: turn(prev, cur, nexts[j])))
+            coords = get_clean_ring([pts[k] for k in ring])
+            perimeter = sum(math.hypot(p[0] - q[0], p[1] - q[1]) for p, q in zip(coords, coords[1:] + coords[:1]))
+            if cur == start and len(coords) >= 3 and get_ring_area(coords) > tolerance * perimeter:   # 가는 조각(틈·겹침 찌꺼기)은 버린다
+                (outers if get_ring_orientation([pts[k] for k in ring]) > 0 else holes).append(coords)
+    return sorted(outers, key=get_ring_area, reverse=True), [ring[::-1] for ring in holes]
+
+
 def _segments_cross(a, b, c, d):
     # type: (tuple, tuple, tuple, tuple) -> bool
     """선분 ab와 cd가 서로의 내부에서 교차하는가(끝점 접촉·평행 겹침은 제외 — 이웃 변의 공유점 때문)."""

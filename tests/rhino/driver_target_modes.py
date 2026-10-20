@@ -1,11 +1,11 @@
-"""driver_target_modes — 대상지 방식(area·point)·결과 좌표(world)·구역 커브 검증·필지 합집합 (python3 scripts/dev_rhino_run.py tests/rhino/driver_target_modes.py).
+"""driver_target_modes — 대상지 방식(area·point)·결과 좌표(world)·구역 커브 검증·합필 (python3 scripts/dev_rhino_run.py tests/rhino/driver_target_modes.py).
 
 ① 구역 방식(fixture, 원점 이동) — 헤드리스 문서에서 run → CTX::Site 구역 커브 1개·Parcels IN_SITE = 안의 필지 수.
    (사용자 문서는 건드리지 않는다 — 열린 문서가 없을 때도 돈다)
 ② 위치 방식 + 실제 좌표 — 헤드리스 문서(사용자 문서와 원점 방식이 섞이지 않게)에서 run → 건물 메시 bbox가 세계좌표(E 20만대)·
    배정밀도 정점·doc.Strings 원점 (0,0)·context.3dm 되읽기 객체 위치.
 ③ get_curve_ring — 사각형 OK·원(곡선) OK·열린 커브·자기교차·기울어진 커브 거부, mm 문서 배율.
-④ get_union_ring — 구역 안 필지 합집합 면적 ≈ 필지 면적 합.
+④ 합필 — 맞닿은 두 필지는 CTX::Site 커브 하나(면적 = 합), 합필 전 필지는 CTX::Site::lots.
 """
 import json
 import os
@@ -55,7 +55,9 @@ try:
     lots_in = len(meta["pnus"])
     check("area_site_curve", len(site) == 1 and site[0].Attributes.GetUserString("KIND") == "area", "%d" % len(site))
     check("area_in_site_parcels", lots_in > 0 and len({o.Attributes.GetUserString("PNU") for o in in_site}) == lots_in, "%d vs %d" % (len(in_site), lots_in))
-    check("area_sheets_tables", len(response["sheets"]) == 13 and len(response["tables"]) == 5 and response["basemap"]["ready"])
+    n_sheets = len(context_builder.get_sheet_ids(response["options"]))   # 기본 시트 = 틀 뺀 것(driver_full_run과 같은 기준)
+    check("area_sheets_tables", len(response["sheets"]) == n_sheets and len(response["tables"]) == 5 and response["basemap"]["ready"],
+          "sheets %d/%d · tables %d · basemap %s" % (len(response["sheets"]), n_sheets, len(response["tables"]), response["basemap"]["ready"]))
     # 쿼드 지형 + 평탄화(경계 평균) — 평탄면 Z 하나, 원지형 사본 레이어는 꺼져 있고 면적 = 구역, 벽 있음, 대상지 안 건물 바닥 = 평탄 높이
     def layer_objs(path):
         return [o for o in objs if doc.Layers[o.Attributes.LayerIndex].FullPath == path]
@@ -162,20 +164,28 @@ try:
     ring, why = context_geometry.get_curve_ring(tilted, 1.0, tol)
     check("curve_tilted_rejected", ring is None and "XY" in why, why)
 
-    # ④ 필지 경계에 맞추기 — 맞춘 뒤 일반 필지는 거의 다 안이거나 거의 다 밖, 도로는 걸쳐도 된다
-    add, cut = context_builder.get_snap_rings(area_ring, SITE_DB)
-    t0 = time.time()
-    snapped = context_geometry.get_snapped_ring(area_ring, add, cut, constants.UNION_TOLERANCE)
-    seconds = time.time() - t0
-    problem = non_rhino_utils.get_ring_problem(snapped) if snapped else "None"
-    straddle = []
-    if snapped:
-        for lot_info, fraction in context_builder.get_area_lot_fractions(snapped, SITE_DB):
-            if lot_info.land_category not in constants.AREA_SNAP_LINEAR_CATEGORIES and 0.1 < fraction < 0.9:
-                straddle.append((lot_info.lot_number, round(fraction, 2)))
-    check("snap_ring", snapped and not problem and len(straddle) <= 2,
-          "add %d cut %d · %.0f ㎡ → %.0f ㎡ · %d pts · %.2f s · 걸침 %s %s" % (len(add), len(cut), non_rhino_utils.get_ring_area(area_ring),
-          non_rhino_utils.get_ring_area(snapped) if snapped else 0, len(snapped or []), seconds, straddle, problem))
+    # ④ 합필 — 맞닿은 두 필지(333-139 + 333-132)는 CTX::Site 커브 하나(면적 = 두 필지 합)·바닥 메시 하나,
+    #    합필 전 필지는 CTX::Site::lots 둘(레이어 꺼짐), 3dm 2D 도면의 BM 10b도 꺼짐(BM 루트를 켜도 꺼진 채)
+    pnus = [constants.TEST_CONTEXT_PNU, "1120011500103330132"]
+    r4 = context_builder.run({"pnus": pnus, "site_db": SITE_DB, "context_db": CONTEXT_DB, "result_root": os.path.join(OUT_DIR, "result"),   # noqa: F821
+                              "options": {"radius": 200, "shape": "circle", "site_output": "mesh", "scales": [1000], "make_basemap": True,
+                                          "make_sheets": False, "make_tables": False}}, None, doc)
+    key4 = context_builder.get_target_key({"mode": "lots", "pnus": pnus})
+    objs4 = [o for o in context_baker._get_objects(doc) if o.Attributes.GetUserString(constants.UDT_LOT_KEY) == key4]
+    by_path = lambda path: [o for o in objs4 if doc.Layers[o.Attributes.LayerIndex].FullPath == path]
+    sites, before, ground = by_path("CTX::Site"), by_path("CTX::Site::lots"), by_path("CTX::Site::ground")
+    scale = context_baker.get_model_unit_scale(doc)
+    want = sum(l.geometry_area for l in context_builder.lot_db.load(pnus, SITE_DB).lots)
+    got = rg.AreaMassProperties.Compute(sites[0].Geometry).Area / scale ** 2 if len(sites) == 1 else 0.0
+    g_area = rg.AreaMassProperties.Compute(ground[0].Geometry).Area / scale ** 2 if len(ground) == 1 else 0.0
+    lots_layer = doc.Layers.FindByFullPath("CTX::Site::lots", -1)
+    bm_layer = next((l for l in doc.Layers if l.FullPath.startswith(constants.BM_ROOT_LAYER + "::10b_site_lots")), None)
+    check("merged_site", r4["ok"] and len(sites) == 1 and abs(got - want) < 1.0 and abs(g_area - want) / want < 0.01,   # 바닥 메시는 지형 경사만큼 크다
+          "Site %d · %.1f ㎡ · 바닥 %.1f ㎡ vs %.1f ㎡" % (len(sites), got, g_area, want))
+    check("merged_lots_hidden", len(before) == 2 and lots_layer >= 0 and not doc.Layers[lots_layer].IsVisible
+          and bm_layer is not None and not bm_layer.IsVisible and not bm_layer.GetPersistentVisibility(),
+          "lots %d · CTX 보임 %s · BM 10b 보임 %s 다시 켤 때 %s" % (len(before), doc.Layers[lots_layer].IsVisible if lots_layer >= 0 else None,
+                                                             bm_layer and bm_layer.IsVisible, bm_layer and bm_layer.GetPersistentVisibility()))
 finally:
     doc.Dispose()
     with open(os.path.join(OUT_DIR, "result.json"), "w", encoding="utf-8") as f:   # noqa: F821

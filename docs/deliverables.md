@@ -32,7 +32,7 @@ P0에서 **빼는 것**(이유 포함): 소유현황(국공유지) — 토지소
 
 | 레이어 | 타입 | 색(RGB) | 내용 | 원천 데이터 | 생성 방법 | 우선 |
 |---|---|---|---|---|---|---|
-| `CTX::Site` | PolylineCurve | 220,40,40 | 대상 필지 경계(여러 필지면 각각 + 합집합) | 필지 DB `parcels` | 기존 `lot_db` 조회 → GeoJSON → 커브. UserString `PNU` | P0 |
+| `CTX::Site` | PolylineCurve | 220,40,40 | 대상지 경계 — 여러 필지면 합필 외곽 하나(합필 전 필지는 `CTX::Site::lots`, 레이어 꺼짐) | 필지 DB `parcels` | 기존 `lot_db` 조회 → GeoJSON → 커브. UserString `PNU` | P0 |
 | `CTX::Parcels` | PolylineCurve | 185,185,180 | 반경 안 주변 필지. 도로 필지(도넛)는 구멍 보존 | 필지 DB | bbox 질의(`min_x/max_x`) → 커브. UserString `PNU`·`JIMOK`·`ZONE` | P0 |
 | `CTX::Buildings` | Extrusion | 128,128,128 | 건물 매스. 바닥 = 발자국 정점 중 **최저 지형 표고**, 위로 압출(고저차 >3 m 건물은 `HEIGHT_SRC`에 `~slope` 표시 — 영 §119② 가중평균 지표면과 다름 [08높이 §2.4]) | **GIS건물통합정보 벌크 SHP**(dsId=18; `A16 높이`·`A26/A27 층수`·`A8 용도코드`·`A13 사용승인일`·`A2 PNU`) ← 대상지 생성 시 `LT_C_BLDGINFO`로 최신화(세션 캐시, 약관 제19조) + 수치지형도 `N3A_B0010000` `층수`·`종류`(아파트·연립 층수 우선, 누락 건물 20 % 보충; 무벽건물·가건물은 **사용자 옵션**) | 높이 규칙 A.4. 링 방향 CW로 정규화 후 양수 압출(CCW면 지하로 내려감) [07 §2.4]. 철거·폐쇄말소 건물(`STATUS=demolished`)은 점선·회색 또는 제외 옵션 [08기준일 §2.3]. UserString `BLD_ID`·`PNU`·`PNU_SRC`·`GRND_FLR`·`FLR_SRC`·`UGRND_FLR`·`HEIGHT_M`·`HEIGHT_SRC`·`HEIGHT_GRADE`·`USABILITY`·`USEAPR_DAY`·`BLD_NM`·`STATUS`·`DEMOL_DAY` | P0 |
 | `CTX::Terrain` | Mesh | 236,232,222 | 지형 TIN(수면·도로·녹지 영역 제외한 나머지 면). **등고선만 TIN 금지 — 표고점 필수**(성수 평지에서 등고선만이면 면의 54 %가 평삼각형, 중앙값 2.0 m → 표고점 추가 0.55 m [08정합 §2.4]) | 수치지형도 `N3L_F0010000` 등고선(`등고수치`) + `N3P_F0020000` 표고점(`수치`) — 단 **교량 `N3A_A0070000`·입체교차부 `N3A_A0090000`·인터체인지 `N3A_A0100000` 5 m 버퍼 안 표고점은 구조물 상판으로 보고 제외**(성수 7.7 %; 제외 전 RMSE 3.48 m → 1.54 m), `CTX::Terrain::struct_pts`로 보존. 철도경계 `A0160024`는 구조물 아님 | 4 m 리샘플 → `scipy.spatial.Delaunay` → 면 중심점으로 분류 → 분류별 Mesh [07 §1.6]. 옵션 `terrain_step`(1·2·5 m)이면 지반·수면 메시를 계단형(단마다 수평면 + 수직 벽, 등고 모형)으로 — 국내 원천 등고선 간격이 5 m라 1·2 m 단은 보간값. 성수 4도엽 12만 점 0.3 s. 등고선만 TIN 대비 +10 m 이상 표고점 제외는 A009/A010이 없는 도엽용 **보조 규칙**(성수에선 추가 제거 0·오탐 0) [08정합 §4.1] | P0 |
@@ -167,6 +167,7 @@ UserString: HEIGHT_SRC, HEIGHT_GRADE(A~D), HEIGHT_M, GRND_FLR(채택 층수), FL
 | 08b | `08b_parcel_no / 지번` | 필지 DB | K60 text | 4~5 pt | 1:1000만 |
 | 09 | `09_contour / 등고선` | F001 | K35(구분 서브레이어 `main/index/half/quarter` 전부 부모 톤 — **계곡선 K55는 보류**, code_map §7.2 톤 규칙) | 0.08 / 0.1 | **온라인 공유 금지**(§B.4) |
 | 10 | `10_site / 대상지` | 사용자 | K100 | 0.7 / 0.9 | |
+| 10b | `10b_site_lots / 합필 전 필지` | 사용자 | K70 | 0.1 / 0.15 | 여러 필지일 때만. 레이어 꺼짐 — 합필 외곽은 10_site, 지번은 08b에 '333-139 외 1필지' |
 | 11 | `11_zoning / 용도지역·지구단위` | 필지 DB overlays | K70 dashed | 0.3 / 0.4 | 기본 off, 구역명·고시번호 라벨 내장 |
 | 11b | `11b_admin / 행정경계` | SGIS 행정동 | K55 dash-dot | 0.25 / 0.3 | P1 |
 | 11c | `11c_poi / 공공시설·랜드마크` | 수치지형도 건물 명칭·용도 | K90 마커 | 2.5 mm | P1 |

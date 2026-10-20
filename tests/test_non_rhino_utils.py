@@ -168,6 +168,43 @@ class ExtentRingTest(unittest.TestCase):
             u.get_extent_ring([self.lot_ring], self.radius, "hexagon")
 
 
+class MergedRingsTest(unittest.TestCase):
+    """합필 — 공공 지적처럼 어긋난 경계(T자 정점·틈·겹침)도 덩어리 하나로."""
+
+    @staticmethod
+    def _box(x0, y0, x1, y1):
+        return [[(x0, y0), (x1, y0), (x1, y1), (x0, y1)]]
+
+    def _merge(self, polygons):
+        outers, holes = u.get_merged_rings(polygons, 0.05)
+        return [round(u.get_ring_area(r), 1) for r in outers], [round(u.get_ring_area(r), 1) for r in holes]
+
+    def test_t_junction_and_gap(self):
+        right = [[(10.02, 0), (20, 0), (20, 10), (10.02, 10), (10.02, 5)]]   # 2 cm 틈 + 이웃 변 가운데 정점(T자)
+        outers, holes = self._merge([self._box(0, 0, 10, 10), right])
+        self.assertEqual((len(outers), holes), (1, []))
+        self.assertAlmostEqual(outers[0], 200.0, delta=0.5)
+
+    def test_overlap_and_contained(self):
+        self.assertEqual(self._merge([self._box(0, 0, 10, 10), self._box(9, 0, 20, 10)]), ([200.0], []))   # 1 m 겹침
+        self.assertEqual(self._merge([self._box(0, 0, 10, 10), self._box(2, 2, 4, 4)]), ([100.0], []))     # 안에 든 필지
+
+    def test_apart_and_hole(self):
+        self.assertEqual(self._merge([self._box(0, 0, 10, 10), self._box(20, 0, 30, 10)]), ([100.0, 100.0], []))
+        ring = [self._box(0, 0, 30, 10), self._box(0, 20, 30, 30), self._box(0, 10, 10, 20), self._box(20, 10, 30, 20)]
+        self.assertEqual(self._merge(ring), ([900.0], [100.0]))   # 가운데를 안 고른 'ㅁ'자
+        donut = [[(0, 0), (30, 0), (30, 30), (0, 30)], [(10, 10), (10, 20), (20, 20), (20, 10)]]
+        self.assertEqual(self._merge([donut, self._box(10, 10, 20, 20)]), ([900.0], []))   # 구멍을 메운 필지
+
+    def test_fixture_neighbors(self):
+        # 성수동2가 333-139 + 333-132 — 실제 지적 이웃
+        lots = lot_db.load([constants.TEST_CONTEXT_PNU, "1120011500103330132"], FIXTURE_SITE_DB).lots
+        polygons = [u.get_polygon_parts_from_geojson(lot.geometry)[0] for lot in lots]
+        outers, holes = self._merge(polygons)
+        self.assertEqual((len(outers), holes), (1, []))
+        self.assertAlmostEqual(outers[0], sum(u.get_ring_area(p[0]) for p in polygons), delta=0.5)
+
+
 class SteppedMeshTest(unittest.TestCase):
     """계단 지형 — 단 면은 수평·step 배수, 평면 면적 보존, 안쪽 변은 정확히 두 번(반대 방향) — 틈·겹침·뒤집힌 벽이 없다."""
 
