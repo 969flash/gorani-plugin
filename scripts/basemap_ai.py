@@ -187,6 +187,7 @@ class AiWriter(object):
         self.min_seg = MIN_SEGMENT_MM * MM_TO_PT
         self.layers = {}                                  # 이름 → [조각]
         self.counts = {}
+        self.hidden = set(constants.BM_HIDDEN_LAYERS)     # 꺼 둔 채 쓰는 레이어(SVG display="none" 그룹도 여기에)
 
     def _pt(self, x, y):
         return (x - self.x0) * self.k, (y - self.y0) * self.k
@@ -294,7 +295,9 @@ class AiWriter(object):
         labels = dict(order)
         for name in names:
             gray = 255 - int(round(255 * self._layer_k(name) / 100.0))
-            parts.append("%%AI5_BeginLayer\n1 1 1 1 0 0 -1 %d %d %d Lb\n%s Ln\n0 A\n0 R\n" % (gray, gray, gray, _ps_string(("%s %s" % (name, labels[name])).strip())))
+            visible = 0 if name in self.hidden else 1   # Lb 첫 값 = 보이기
+            parts.append("%%AI5_BeginLayer\n%d 1 1 1 0 0 -1 %d %d %d Lb\n%s Ln\n0 A\n0 R\n"
+                         % (visible, gray, gray, gray, _ps_string(("%s %s" % (name, labels[name])).strip())))
             parts.append("".join(self.layers.get(name, [])))
             parts.append("LB\n%AI5_EndLayer--\n")
         parts.append("%%PageTrailer\ngsave annotatepage grestore showpage\n%%Trailer\n"
@@ -449,6 +452,8 @@ def build_ai(prepared, scale, writer=None):
     # 필지
     site_rings = list(getattr(prepared, "site_rings", None) or [])
     targets = set() if site_rings else {lot.pnu for lot in prepared.target_lots}   # 예전 Prepared(경계 없음)만 필지 외곽으로
+    # 합필 — 대상 필지의 지적선·지번은 꺼 둔 10b(합필 전 필지)로. 합친 덩어리(site_rings)가 곧 필지다
+    merged = {lot.pnu for lot in prepared.target_lots} if getattr(prepared, "mode", "lots") == "lots" and len(prepared.target_lots) > 1 else set()
     for lot in list(prepared.target_lots) + list(prepared.near_lots):
         if not _hits(lot, bbox):
             continue
@@ -458,18 +463,20 @@ def build_ai(prepared, scale, writer=None):
             polygon("02_green", None, lot.geometry)
         elif lot.land_category == constants.LAND_CATEGORY_ROAD:
             polygon("03_road_surface", None, lot.geometry)
-        polygon("02b_landuse", "08_parcel", lot.geometry)
+        polygon("02b_landuse", "10b_site_lots" if lot.pnu in merged else "08_parcel", lot.geometry)
         parts = _get_parts(lot.geometry)
         if not parts:
             continue
         outer = max((part[0] for part in parts), key=non_rhino_utils.get_ring_area)
         if lot.lot_number:
             cx, cy = get_ring_centroid(outer)
-            text("08b_parcel_no", lot.lot_number, cx, cy)
+            text("10b_site_lots" if lot.pnu in merged else "08b_parcel_no", lot.lot_number, cx, cy)
         if lot.pnu in targets:
             polygon(None, "10_site", {"type": "Polygon", "coordinates": [outer]})
     for ring in site_rings:
         polygon(None, "10_site", {"type": "Polygon", "coordinates": [ring]})
+    if merged and len(site_rings) == 1:   # 합필 지번 — '333-139 외 1필지'(토지조서 관행)
+        text("08b_parcel_no", "%s 외 %d필지" % (prepared.target_lots[0].lot_number, len(merged) - 1), *get_ring_centroid(site_rings[0]))
     polygon(None, "10_site", {"type": "Polygon", "coordinates": [prepared.extent_ring]})
     # 건물 — 층수 구간마다 칠 + 외곽
     for bld in prepared.buildings:
@@ -684,6 +691,8 @@ def write_svg_ai(svg_text, path, title):
                 child_layer = layer or node_id or "info"
             if node_id.startswith("theme_") and len(node) == 0:
                 layer_of(node_id)   # 틀 시트 — 빈 레이어
+            if node.get("display") == "none" and child_layer:
+                writer.hidden.add(child_layer)   # 합필 전 필지(site_lots) — 꺼진 레이어
             for child in node:
                 walk(child, style, child_layer, offset, in_map, depth + 1)
             return

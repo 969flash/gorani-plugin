@@ -49,6 +49,7 @@
 - Rhino 문서 변경(베이크·저장·내보내기)은 베이커 모듈만 담당한다. 로직 모듈은 지오메트리 객체를 만들어 돌려줄 뿐 문서를 건드리지 않는다.
 - **대상지 방식은 셋이다**: 필지로 고르기(`lots`)·구역 그리기(`area` — 지도에 그린 폴리곤 또는 Rhino 닫힌 커브)·위치만 찍기(`point`). 엔진은 `context_builder.resolve_target` 하나로 방식별 경계 링·안의 필지·중심·이름을 만든다. 구역 안 필지 = 면적 50 % 이상이 구역 안.
 - **필지 하나는 닫힌 커브 하나다.** 대상 필지가 여러 조각이거나 구멍이 있으면 가장 넓은 조각의 바깥 경계를 쓰고 경고한다. 주변 필지·도로 필지(가로망 전체가 한 필지인 도넛)는 구멍을 보존한다.
+- **여러 필지를 고르면 합필이다.** 합친 외곽(`context_builder.get_target_rings` → `non_rhino_utils.get_merged_rings`)이 대상지 필지로 3D·2D 전부에 쓰이고, 합필 전 필지는 꺼 둔 레이어(`CTX::Site::lots`·BM `10b_site_lots`·도면 SVG `site_lots`)에만 둔다. 공공 지적은 이웃 경계가 정점 단위로 맞지 않으므로(T자 정점·수 cm 틈·겹침) 합치기는 허용오차(`UNION_TOLERANCE`) 안 정점 붙이기 + 공유 변 지우기로 한다.
 - 좌표계: +Y = 정북 가정(EPSG:5186 격자북. 진북과의 자오선수차는 서울에서 0.1° 이내라 무시). 해외 대상지는 대상지 중심 지역 횡메르카토르(`non_rhino_utils.set_projection`, 투영 원점은 환경변수로 loader 재적재에도 유지).
 - Rhino 8 CPython 기준. rhinoscriptsyntax보다 RhinoCommon 우선.
 - 쓰기 자리(`data/`·`result/`·`.env`)는 `constants.HOME_DIR` — 저장소처럼 루트에 `data/`가 있으면 루트, Yak 설치본은 `~/Gorani`. 산출물은 `HOME_DIR/result/<대상지>_<날짜>/`에 쌓는다(같은 날 다시 만들면 `_<HHMM>`을 붙인 새 폴더, 이전 결과는 지우지 않는다). 3dm·베이스맵·현황도·로그를 한 폴더에 둔다.

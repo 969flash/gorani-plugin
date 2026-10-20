@@ -122,13 +122,6 @@ class MeshGeometryTest(unittest.TestCase):
         self.assertGreater(len(zs), 1)
         self.assertTrue(all(z == round(z) for z in zs), sorted(zs)[:5])
 
-    def test_snapped_ring(self):
-        area = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)]
-        add = [[(10.0, 0.0), (20.0, 0.0), (20.0, 10.0), (10.0, 10.0)]]
-        cut = [[(0.0, 0.0), (5.0, 0.0), (5.0, 5.0), (0.0, 5.0)]]
-        ring = loader.load("mesh_geometry").get_snapped_ring(area, add, cut, 0.05)
-        self.assertAlmostEqual(loader.load("non_rhino_utils").get_ring_area(ring), 175.0, 3)
-
 
 @unittest.skipUnless(READY, "numpy·shapely 번들 파이썬 + fixture DB에서만")
 class SidecarRunTest(unittest.TestCase):

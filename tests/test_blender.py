@@ -1,4 +1,4 @@
-"""Blender판 — 엔진 run(베이크·context.blend)·다시 넣기·필지 경계 맞추기·브라우저 패널 브리지. Blender 안에서만 돈다(python3 discover는 skip).
+"""Blender판 — 엔진 run(베이크·context.blend)·다시 넣기·브라우저 패널 브리지. Blender 안에서만 돈다(python3 discover는 skip).
 
     /Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup --python-exit-code 1 --python tests/test_blender.py
 """
@@ -107,17 +107,6 @@ class SteppedTerrainTest(unittest.TestCase):
         self.assertTrue(all(z == round(z) for z in zs), sorted(zs)[:5])
         level = counts["site_level"]   # 0.01 m 반올림 값
         self.assertTrue(all(abs(v[2] - level) <= 0.005 or v[2] == round(v[2]) for v in meshes["site_wall"][0]))
-
-
-@unittest.skipUnless(bpy is not None, "Blender 안에서만")
-class SnapTest(unittest.TestCase):
-    def test_union_minus_cut(self):
-        geometry = loader.load("mesh_geometry")
-        area = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)]
-        add = [[(10.0, 0.0), (20.0, 0.0), (20.0, 10.0), (10.0, 10.0)]]
-        cut = [[(0.0, 0.0), (5.0, 0.0), (5.0, 5.0), (0.0, 5.0)]]
-        ring = geometry.get_snapped_ring(area, add, cut, 0.05)
-        self.assertAlmostEqual(loader.load("non_rhino_utils").get_ring_area(ring), 175.0, 3)
 
 
 @unittest.skipUnless(bpy is not None and HAS_FIXTURES, "Blender 안에서만")

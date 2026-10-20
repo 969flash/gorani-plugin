@@ -141,7 +141,8 @@ def _ensure_layer(doc, full_path, rgb=None, layer_cache=None):
         if index < 0:
             layer = Rhino.DocObjects.Layer()
             layer.Name = name
-            if path.partition("::")[2] in constants.CTX_HIDDEN_LAYERS and path.startswith(constants.CTX_ROOT_LAYER + "::"):
+            hidden_bm = _get_bm_leaf(path) in constants.BM_HIDDEN_LAYERS
+            if hidden_bm or (path.partition("::")[2] in constants.CTX_HIDDEN_LAYERS and path.startswith(constants.CTX_ROOT_LAYER + "::")):
                 layer.IsVisible = False
             if path == constants.BM_ROOT_LAYER:   # 2D 도면은 3D와 겹쳐 어지럽다 — 루트만 끄면 Rhino가 자식을 숨기고, 루트를 켜면 자식도 켜진다
                 layer.IsVisible = False
@@ -150,6 +151,8 @@ def _ensure_layer(doc, full_path, rgb=None, layer_cache=None):
             index = doc.Layers.Add(layer)
             if index < 0:
                 raise RuntimeError("Rhino 레이어를 만들 수 없습니다: %s" % path)
+            if hidden_bm:   # BM 루트를 켜도 꺼진 채로 — 꺼진 부모를 켜면 자식은 PersistentVisibility로 돌아간다(Add 전에 넣으면 무시된다)
+                doc.Layers[index].SetPersistentVisibility(False)
         layer_cache[path] = index
         parent_id = doc.Layers[index].Id
     if rgb is not None:
@@ -368,12 +371,13 @@ def save_copy(doc, path, object_ids=None, timing=None):
         return path
     options.WriteSelectedObjectsOnly = True
     objects = [rhino_object for rhino_object in (doc.Objects.FindId(guid) for guid in object_ids) if rhino_object is not None]
-    saved = {}   # 숨김·잠금 레이어(BM 기본값)의 객체는 선택이 안 되므로 잠시 켜고 푼다 — Select의 ignoreLayer* 인자로는 WriteFile에 안 잡혔다(job 1007-221324-b346)
+    saved, persistent = {}, {}   # 숨김·잠금 레이어(BM 기본값)의 객체는 선택이 안 되므로 잠시 켜고 푼다 — Select의 ignoreLayer* 인자로는 WriteFile에 안 잡혔다(job 1007-221324-b346)
     redraw = doc.Views.RedrawEnabled
     doc.Views.RedrawEnabled = False
     try:
         for index in _get_layer_indexes_with_parents(doc, {rhino_object.Attributes.LayerIndex for rhino_object in objects}):
             saved[index] = (doc.Layers[index].IsVisible, doc.Layers[index].IsLocked)
+            persistent[index] = doc.Layers[index].GetPersistentVisibility()   # 켰다 끄면 켜짐으로 바뀐다(꺼 둔 BM 10b가 BM 루트를 켤 때 같이 켜졌다)
         _set_layer_states(doc, {index: (True, False) for index in saved})
         doc.Objects.UnselectAll()
         t = time.time()
@@ -392,6 +396,9 @@ def save_copy(doc, path, object_ids=None, timing=None):
     finally:
         doc.Objects.UnselectAll()
         _set_layer_states(doc, saved)
+        for index, visible in persistent.items():
+            if doc.Layers[index].GetPersistentVisibility() != visible:
+                doc.Layers[index].SetPersistentVisibility(visible)
         doc.Views.RedrawEnabled = redraw
         doc.Views.Redraw()
     if path.lower().endswith(".3dm"):   # .dwg는 레이어를 켠 채 둔다 — 2D만 따로 내보낸 파일이라 꺼 둘 이유가 없다

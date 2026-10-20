@@ -451,12 +451,12 @@ CTX_LAYERS = {   # 이름: (RGB)
     "Site": (220, 40, 40), "Parcels": (185, 185, 180), "Buildings": (128, 128, 128), "Terrain": (236, 232, 222),
     "Water": (46, 125, 224), "Roads": (168, 168, 162), "Green": (228, 235, 226), "Rail": (110, 110, 110),
     "Bridges": (150, 150, 150), "Zoning": (200, 120, 40), "QA::cadastre_mismatch": (255, 0, 255), "Ref": (0, 0, 0),
-    "Site::ground": (236, 150, 120), "Terrain::site_flat": (214, 196, 170), "Terrain::site_wall": (150, 140, 128), "Terrain::site_original": (236, 232, 222),
+    "Site::ground": (236, 150, 120), "Site::lots": (235, 140, 140), "Terrain::site_flat": (214, 196, 170), "Terrain::site_wall": (150, 140, 128), "Terrain::site_original": (236, 232, 222),
 }
 # CTX::Zoning 하위 레이어 — overlays theme → 'CTX::Zoning::<이름>::<종류>'. 종류는 용도지역이면 현황도 11 범례 이름, 나머지는 overlay.kind.
 # 색은 현황도 11~13 범례 색(context_baker.get_layer_rgb). 현황도에 없는 theme(건축선 notice_road)은 넣지 않는다.
 ZONING_LAYERS = {"zone": "용도지역", "district": "용도지구", "area": "용도구역", "facility": "도시계획시설", "plan": "지구단위계획"}
-CTX_HIDDEN_LAYERS = ("Terrain::site_original",)   # 처음 만들 때 끈다(평탄화 전 원지형 — 필요할 때 켜 본다). 사용자가 켠 뒤로는 건드리지 않는다
+CTX_HIDDEN_LAYERS = ("Terrain::site_original", "Site::lots")   # 처음 만들 때 끈다(평탄화 전 원지형·합필 전 필지 — 필요할 때 켜 본다). 사용자가 켠 뒤로는 건드리지 않는다
 # 베이스맵 레이어 순서·K톤(0~100)·선두께 mm(1:5000, 1:1000). fill=None이면 선만.
 BM_LAYERS = [
     ("00_frame_scale", "프레임·축척·방위", None, 100, (0.5, 0.5)),
@@ -475,6 +475,7 @@ BM_LAYERS = [
     ("08b_parcel_no", "지번", None, 60, (0, 0)),
     ("09_contour", "등고선", None, 35, (0.08, 0.1)),
     ("10_site", "대상지", None, 100, (0.7, 0.9)),
+    ("10b_site_lots", "합필 전 필지", None, 70, (0.1, 0.15)),
     ("11_zoning", "용도지역·지구단위", None, 70, (0.3, 0.4)),
     ("12_labels", "주기", None, 85, (0, 0)),
     ("13_grid", "격자", None, 25, (0.1, 0.1)),
@@ -488,10 +489,11 @@ BASEMAP_SCALE_LAYERS = {
 }
 BASEMAP_SCALES = (1000, 3000, 5000)
 BASEMAP_DEFAULT_OFF_LAYERS = ("02b_landuse", "05_road_center", "11_zoning")
+BM_HIDDEN_LAYERS = ("10b_site_lots",)   # 파일에는 넣되 꺼 둔다(.ai 레이어 보기 끔·3dm BM 하위 레이어 끔) — 합필 전 필지 외곽·지번
 PAPER_SIZES_MM = {"A3": (420, 297), "A1": (841, 594), "A0": (1189, 841)}   # A3 가로 = 보고서·분석도 기본, A1·A0 = 판넬
 # 베이스맵 .ai(basemap_ai) — 범위는 축척별 프레임 bbox. 객체는 bbox로 자른다.
 BM_CLIP_INSET = 0.01            # m — 구멍 링은 이만큼 안쪽 사각형으로 잘라 바깥 링과 변이 겹치지 않게(겹치면 Hatch.Create 실패). 1:1000에서 0.01 mm
-BM_TEXT_MM = {"08b_parcel_no": (1.5, 1000), "12_labels": (2.5, 3000)}   # (종이 mm, 기준 축척) → 모델 높이 m = mm × 축척 / 1000. 지번은 1:1000 전용, 주기는 1:3000 기준
+BM_TEXT_MM = {"08b_parcel_no": (1.5, 1000), "10b_site_lots": (1.5, 1000), "12_labels": (2.5, 3000)}   # (종이 mm, 기준 축척) → 모델 높이 m = mm × 축척 / 1000. 지번은 1:1000 전용, 주기는 1:3000 기준
 # basemap_ai — Illustrator 레거시 .ai 직접 쓰기(2026-10-08 Illustrator 2026 실측)
 # 한글은 CP949 바이트 + KSCms-UHC-H CMap 글꼴이어야 보인다(UTF-8 + Helvetica는 깨짐). 글꼴이 없는 PC에서도 대체 글꼴로 한글이 나온다.
 import sys as _sys
@@ -615,8 +617,8 @@ AREA_MIN = 100.0                # ㎡ — 이보다 작은 구역은 잘못 그�
 AREA_MAX_SPAN = 4000.0          # m — 구역 bbox 긴 변 상한(반경 상한 2 km와 같은 규모)
 AREA_MAX_VERTICES = 2000        # 구역 링 꼭짓점 상한(자기교차 검사가 n²)
 CURVE_POLYLINE_TOLERANCE = 0.05 # m — Rhino 곡선 구역 커브를 폴리라인으로 바꿀 때 허용오차
-UNION_TOLERANCE = 0.05          # m — '필지 경계에 맞추기' 필지 합집합 허용오차(필지 사이 틈 메움)
-AREA_SNAP_LINEAR_CATEGORIES = ("도로", "하천", "구거", "철도용지", "제방")   # 구역계가 가로질러도 되는 선형 지목 — 길게 뻗어 50 % 규칙에 안 걸린다(2026-10-10 성수 실측: 도로가 빠져 합집합이 덩어리 3개)
+UNION_TOLERANCE = 0.05          # m — 합필(필지 방식 여러 필지) 외곽선 허용오차: 이웃 필지 경계의 어긋난 정점·틈을 이만큼 붙인다(non_rhino_utils.get_merged_rings)
+UNION_AREA_GAP = 0.01           # 합필 면적 ÷ 필지 면적 합이 이만큼 넘게 어긋나면 합치기 실패로 보고 필지별 외곽선을 쓴다. 겹친 필지는 최대 0.5 % 어긋났다(2026-10-21 서울 2,800묶음)
 SEOUL_TM_BOUNDS = (179000.0, 536000.0, 217000.0, 567500.0)   # EPSG:5186 — 필지 DB 범위(2026-10-10 실측) — Rhino 커브가 실제 좌표인지 판정
 PLACEMENTS = ("origin", "world")   # 결과 좌표: origin = 대상지 중심(100 m 내림)을 (0,0)으로, world = EPSG:5186 그대로(문서 원점 0,0)
 TERRAIN_RESAMPLE = 4.0          # m — 등고선 리샘플 간격 (07 §1)

@@ -144,7 +144,7 @@ class SearchAndLotStateTest(unittest.TestCase):
         state = cmd_site.get_lot_state([constants.TEST_CONTEXT_PNU, HOLE_PNU], SITE_DB)
         self.assertEqual(state["lot_name"], "성수동2가_333-139외1")
         self.assertEqual([l["warn"] for l in state["lots"]], [None, "hole"])
-        self.assertEqual([w["code"] for w in state["warnings"]], ["multipart"])
+        self.assertEqual([w["code"] for w in state["warnings"]], ["multipart", "merge_apart"])   # 맞닿지 않은 두 필지 — 덩어리 둘
         self.assertEqual(set(state["warnings"][0]), WARNING_KEYS)
         self.assertEqual(len(state["target_geojson"]["features"]), 3)
         empty = cmd_site.get_lot_state([], SITE_DB)

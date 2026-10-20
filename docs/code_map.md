@@ -275,9 +275,8 @@ def get_progress_message(phase, fraction, text, skipped, details):
 
 - 지형: TIN = `mathutils.geometry.delaunay_2d_cdt`(볼록 껍질). 면 분할 대신 범위 링·분류 폴리곤 링(외곽·구멍)·대상지 링을 **제약 면**으로, TIN 점을 내부 정점으로 CDT 한 번 → 삼각형마다 품은 링 목록(`orig_faces`)으로 분류(외곽 안 + 같은 파트 구멍 밖, 우선순위 앞이 이김) → 정점 Z = TIN `BVHTree.ray_cast`(빗나가면 최근접 정점). 쿼드 격자가 아니라 TIN 점 + 경계 정점 삼각형이다. 성수 R=500 TIN 0.04 s·분류 CDT 0.06 s.
 - 건물: 발자국 정점 수직 투영 최저 Z, 뚜껑은 `tessellate_polygon`(구멍 포함). 동마다 객체 대신 **메시 하나 + 면 속성** `building_id`·`height`·`floors`(수천 객체는 Blender가 느리다).
-- 커브: 레이어마다 커브 객체 하나(POLY 스플라인 여럿). 대상 필지만 필지마다. 2D 도면(BM::)·구조물 표고점은 없다.
+- 커브: 레이어마다 커브 객체 하나(POLY 스플라인 여럿). 합필 전 필지(Site::lots)만 필지마다. 2D 도면(BM::)·구조물 표고점은 없다.
 - 베이커: 레이어 = 컬렉션 `CTX::…`(CTX 아래 한 단), 색 = 레이어 이름 재질. 원점은 장면 사용자 속성, 실제 좌표 방식은 객체 위치로 옮긴다(메시는 단정밀도라 로컬). 사본은 임시 장면에 CTX를 걸어 `bpy.data.libraries.write` → `context.blend`(새 장면 view layer를 update하지 않으면 5.2.2가 죽는다).
-- 필지 경계에 맞추기: 링 전부를 제약 면으로 CDT → (구역·더할 필지 안, 뺄 필지 밖) 삼각형의 바깥 변 고리 중 가장 넓은 것.
 - 성수 fixture R=500 전체(시트 25장 포함) 3.8 s, 건물 3,454동·지형 면 27,594(job 없음 — `tests/test_blender.py`).
 
 ### 5.y SketchUp판 (`cmd_sketchup`·`mesh_geometry`·`sketchup_baker`·`sketchup_ext.rb`, 2026-10-18)
@@ -321,7 +320,8 @@ SketchUp(Ruby, sketchup_ext.rb = bsh_gorani/main.rb)            사이드카(번
 
 | 레이어 | 타입 | 색 | UserString 키 | 우선 |
 |---|---|---|---|---|
-| `CTX::Site` | PolylineCurve | 220,40,40 | `PNU`, `GORANI_LOT_KEY` | P0 |
+| `CTX::Site` | PolylineCurve | 220,40,40 | `PNU`(합필이면 쉼표로)·`LOTS`·`AREA_M2`, `GORANI_LOT_KEY` | P0 — 여러 필지면 합필 외곽 |
+| `CTX::Site::lots` | PolylineCurve | 235,140,140 | `PNU` | 합필 전 필지(여러 필지일 때만, 레이어 꺼짐) |
 | `CTX::Parcels` | PolylineCurve(구멍 보존) | 185,185,180 | `PNU`·`JIMOK`·`ZONE` | P0 |
 | `CTX::Buildings` | Mesh(동당 1개) | 128,128,128 | `BLD_ID`·`PNU`·`PNU_SRC`·`GRND_FLR`·`FLR_SRC`·`UGRND_FLR`·`HEIGHT_M`·`HEIGHT_SRC`·`HEIGHT_GRADE`·`USABILITY`·`USEAPR_DAY`·`BLD_NM`·`STATUS`·`DEMOL_DAY`(14키) | P0 |
 | `CTX::Buildings::demolished` | Extrusion 외곽선(점선) | 160,160,160 | 위와 같음 | **P1** — `status`는 v1 전부 'active'(건축HUB 벌크가 있어야 채워짐). 레이어는 데이터가 있을 때만 생성, `counts.demolished`는 v1 항상 0 |
@@ -341,7 +341,7 @@ SketchUp(Ruby, sketchup_ext.rb = bsh_gorani/main.rb)            사이드카(번
 
 ### 7.2 베이스맵 레이어 (`constants.BM_LAYERS`, deliverables B.2 순서·K톤) — `.ai`와 3dm `BM::` 2D 레이어
 
-`00_frame_scale`·`01_water`·`02_green`·`02b_landuse`(off)·`03_road_surface`·`04_road_edge`·`05_road_center`(off)·`06_rail`·`07_bldg_low/mid/high/tower`·`08_parcel`·`08b_parcel_no`(1:1000만)·`09_contour`·`10_site`·`11_zoning`(off)·`12_labels`·`13_grid`. 3dm에도 같은 도면이 2D로 들어간다(2026-10-12): `context_geometry.build_basemap_2d`가 `basemap_ai.build_ai`를 `ShapeRecorder`로 받아 `BM::07_bldg_low 건물 1~4층` 같은 레이어에 Z=0 커브·텍스트(칠 없음, 레이어 색 = K톤 회색)로 만든다. 요청 축척 중 가장 상세한 한 장만, 범위는 그 프레임. `BM` 루트는 꺼진 채 만들어지고(자식은 PersistentVisibility 켜짐 — 루트만 켜면 전부 보인다), `save_copy`가 저장 뒤 파일 레이어 상태를 문서 상태로 되돌린다. 비용(성수 R=500, 1:3000): BM 객체 22,079 · write_3dm 1.6 → 5.2 s · context.3dm 18 → 38 MB. 옵션 `make_dwg`(기본 off, 패널 고급 > 3dm)이면 같은 BM 객체만 `save_copy`로 `basemap_<축척>.dwg`(레이어 `BM$…`, 켜진 채) — +1.1 s · 5.7 MB, 경로는 `done.context.dwg`. 레이어 이름은 `.ai`에 "`07_bldg_low` 건물 저층"처럼 이름 + 한글 설명(CP949)으로 들어간다. 꺼진 레이어(`BASEMAP_DEFAULT_OFF_LAYERS`)는 `basemap_layers_on` 옵션으로 켠다. 계곡선은 `BM_CONTOUR_INDEX_K`(K55).
+`00_frame_scale`·`01_water`·`02_green`·`02b_landuse`(off)·`03_road_surface`·`04_road_edge`·`05_road_center`(off)·`06_rail`·`07_bldg_low/mid/high/tower`·`08_parcel`·`08b_parcel_no`(1:1000만)·`09_contour`·`10_site`·`10b_site_lots`(합필 전 필지 외곽·지번 — 레이어 꺼짐, `BM_HIDDEN_LAYERS`)·`11_zoning`(off)·`12_labels`·`13_grid`. 3dm에도 같은 도면이 2D로 들어간다(2026-10-12): `context_geometry.build_basemap_2d`가 `basemap_ai.build_ai`를 `ShapeRecorder`로 받아 `BM::07_bldg_low 건물 1~4층` 같은 레이어에 Z=0 커브·텍스트(칠 없음, 레이어 색 = K톤 회색)로 만든다. 요청 축척 중 가장 상세한 한 장만, 범위는 그 프레임. `BM` 루트는 꺼진 채 만들어지고(자식은 PersistentVisibility 켜짐 — 루트만 켜면 전부 보인다), `save_copy`가 저장 뒤 파일 레이어 상태를 문서 상태로 되돌린다. 비용(성수 R=500, 1:3000): BM 객체 22,079 · write_3dm 1.6 → 5.2 s · context.3dm 18 → 38 MB. 옵션 `make_dwg`(기본 off, 패널 고급 > 3dm)이면 같은 BM 객체만 `save_copy`로 `basemap_<축척>.dwg`(레이어 `BM$…`, 켜진 채) — +1.1 s · 5.7 MB, 경로는 `done.context.dwg`. 레이어 이름은 `.ai`에 "`07_bldg_low` 건물 저층"처럼 이름 + 한글 설명(CP949)으로 들어간다. 꺼진 레이어(`BASEMAP_DEFAULT_OFF_LAYERS`)는 `basemap_layers_on` 옵션으로 켠다. 계곡선은 `BM_CONTOUR_INDEX_K`(K55).
 
 **basemap은 실제 phase다**: `run`의 phase `basemap`이 축척마다 `basemap_ai.write_basemap`을 부른다. `get_skipped_phases`는 `make_basemap=False`일 때만 `basemap`을 skipped에 넣는다. 패널의 다른 축척 [.ai 내보내기]는 `context_builder.export_basemap(result_dir, scale)` — `context.json`의 pnus·options로 DB에서 다시 `prepare`해 쓴다(문서 import 불필요, 1초 안팎).
 

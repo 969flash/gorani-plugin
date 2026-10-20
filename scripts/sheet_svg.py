@@ -213,7 +213,7 @@ class SheetData:
     stats: dict = field(default_factory=dict)
     lot_name: str = ""
     mode: str = "lots"                                 # 대상지 방식 — 라벨·카드 문구가 다르다
-    site_rings: list = field(default_factory=list)     # 대상지 경계(세계좌표) — lots = 필지 외곽, area = 구역, point = 없음
+    site_rings: list = field(default_factory=list)     # 대상지 경계(세계좌표) — lots = 합필 외곽, area = 구역, point = 없음
     frame: object = None                               # 마지막으로 계산한 지도 칸 Frame
     path_cache: dict = field(default_factory=dict, repr=False)   # id(geometry) → path d. 16장이 같은 필지·건물·도로를 다시 그리지 않게(2026-10-08: 5.1 s의 80 %)
     frame_key: tuple = field(default=None, repr=False)
@@ -1416,10 +1416,13 @@ def _draw_overlay_lines(data, style, frame, frame_bounds, subject, key, k):
             lines.append(_text(x, y - 1.5 * k, _get_range_label(data), constants.SHEET_FONT_MM["small"] * k * style["text_scale"],
                                fill=style["extent"], **{"text-anchor": "middle", "font-weight": "600", "id": "extent_label"}))
     site_style = {"fill": "none", "stroke": style["site"], "stroke-width": _fmt(constants.SHEET_LINE_MM["site"] * ls), "stroke-linejoin": "round"}
-    if data.site_rings:   # 대상지 경계(구역·필지 외곽). 예전 데이터(경계 없음)는 대상 필지 형상
+    if data.site_rings:   # 대상지 경계(구역·필지 외곽 — 여러 필지면 합필 외곽). 예전 데이터(경계 없음)는 대상 필지 형상
         lines.append('<g id="site"%s>' % _attrs(site_style))
         lines += ['<path d="%s"/>' % _ring_d(ring, frame, True) for ring in data.site_rings]
         lines.append("</g>")
+        if data.mode == "lots" and len(data.target_lots) > 1:   # 합필 전 필지 — 꺼 둔 그룹(.ai에서는 꺼진 레이어)
+            lines += _draw_items(data.target_lots, frame, dict(site_style, **{"stroke-width": _fmt(constants.SHEET_LINE_MM["parcel"] * ls), "display": "none"}),
+                                 "site_lots", frame_bounds, data.path_cache)
     else:
         lines += _draw_items(data.target_lots, frame, site_style, "site", frame_bounds, data.path_cache)
     return lines
@@ -1459,9 +1462,12 @@ def _draw_labels(data, style, frame, labels, key, k):
                                        **dict(halo, **{"font-weight": "700", "text-anchor": "start"})))
         lines.append("</g>")
         lines += names
-    for lot in data.target_lots if data.mode == "lots" else []:   # 구역 방식은 필지가 많아 지번을 달지 않는다
-        x, y = frame.to_paper(*_get_item_center(lot))
-        lines.append(_text(x, y, lot.lot_number, size, fill=ink, **dict(halo, **{"font-weight": "700"})))
+    spots = [(_get_item_center(lot), lot.lot_number) for lot in data.target_lots] if data.mode == "lots" else []   # 구역 방식은 필지가 많아 지번을 달지 않는다
+    if len(spots) > 1 and len(data.site_rings) == 1:   # 합필 — 덩어리 하나에 '333-139 외 1필지'(토지조서 관행)
+        spots = [(_get_ring_center(data.site_rings[0]), "%s 외 %d필지" % (data.target_lots[0].lot_number, len(spots) - 1))]
+    for (cx, cy), text in spots:
+        x, y = frame.to_paper(cx, cy)
+        lines.append(_text(x, y, text, size, fill=ink, **dict(halo, **{"font-weight": "700"})))
     for x, y, text in labels:
         mm_x, mm_y = frame.to_paper(x, y)
         lines.append(_text(mm_x, mm_y, text, size, fill=ink, **dict(halo, **{"font-weight": "700"})))
