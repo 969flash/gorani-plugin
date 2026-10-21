@@ -14,6 +14,7 @@ from dataclasses import asdict, dataclass, field
 
 import constants
 import lot_db
+from i18n import tr
 from lot_db import (
     DEFAULT_DATABASE_PATH,
     HOME_DIR,
@@ -257,9 +258,9 @@ def _vworld_response_items(query, category, api_key, api_domain):
         ) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as error:
-        return [], "online_unavailable", "VWorld 주소 검색 HTTP %s" % error.code
+        return [], "online_unavailable", tr("VWorld 주소 검색 HTTP {0}", error.code)
     except (urllib.error.URLError, TimeoutError, ValueError):
-        return [], "online_unavailable", "VWorld 주소 검색에 연결하지 못했습니다"
+        return [], "online_unavailable", tr("VWorld 주소 검색에 연결하지 못했습니다")
 
     response = payload.get("response") or {}
     status = response.get("status")
@@ -269,8 +270,8 @@ def _vworld_response_items(query, category, api_key, api_domain):
         return [], "not_found", ""
 
     error = response.get("error") or {}
-    message = error.get("text") or "알 수 없는 VWorld API 오류"
-    return [], "online_unavailable", "VWorld 주소 검색 오류: %s" % message
+    message = error.get("text") or tr("알 수 없는 VWorld API 오류")
+    return [], "online_unavailable", tr("VWorld 주소 검색 오류: {0}", message)
 
 
 def _vworld_matches(connection, query):
@@ -278,9 +279,9 @@ def _vworld_matches(connection, query):
     api_key = get_local_env_value(constants.VWORLD_API_KEY_ENV)
     api_domain = get_local_env_value(constants.VWORLD_API_DOMAIN_ENV)
     if not api_key:
-        return [], "online_unavailable", "VWORLD_API_KEY가 설정되지 않았습니다"
+        return [], "online_unavailable", tr("VWORLD_API_KEY가 설정되지 않았습니다")
     if not api_domain:
-        return [], "online_unavailable", "VWORLD_API_DOMAIN이 설정되지 않았습니다"
+        return [], "online_unavailable", tr("VWORLD_API_DOMAIN이 설정되지 않았습니다")
 
     candidate_pnus = []
     seen_pnus = set()
@@ -305,12 +306,12 @@ def _vworld_matches(connection, query):
             break
 
     if not candidate_pnus:
-        return [], "not_found", "VWorld 주소 검색 결과가 없습니다"
+        return [], "not_found", tr("VWorld 주소 검색 결과가 없습니다")
 
     matches = _matches_for_pnus(connection, candidate_pnus, source="vworld")
     if not matches:
-        return [], "not_in_local_db", "VWorld 후보가 현재 로컬 지적 DB에 없습니다"
-    return matches, "ok", "VWorld 주소 검색 후보 %d건" % len(matches)
+        return [], "not_in_local_db", tr("VWorld 후보가 현재 로컬 지적 DB에 없습니다")
+    return matches, "ok", tr("VWorld 주소 검색 후보 {0}건", len(matches))
 
 
 def resolve_addresses(address_queries, use_vworld=False, database_path=None):
@@ -328,8 +329,7 @@ def resolve_addresses(address_queries, use_vworld=False, database_path=None):
                     AddressResolution(
                         query=query,
                         status="invalid",
-                        message="숫자만 입력할 때는 %d자리 PNU여야 합니다"
-                        % constants.PNU_LENGTH,
+                        message=tr("숫자만 입력할 때는 {0}자리 PNU여야 합니다", constants.PNU_LENGTH),
                     )
                 )
                 continue
@@ -341,7 +341,7 @@ def resolve_addresses(address_queries, use_vworld=False, database_path=None):
                         query=query,
                         status="resolved" if matches else "not_in_local_db",
                         matches=matches,
-                        message="" if matches else "로컬 DB에 없는 PNU입니다",
+                        message="" if matches else tr("로컬 DB에 없는 PNU입니다"),
                     )
                 )
                 continue
@@ -361,8 +361,7 @@ def resolve_addresses(address_queries, use_vworld=False, database_path=None):
                         query=query,
                         status="ambiguous",
                         matches=local_matches,
-                        message="후보가 %d건입니다. 동·지번을 더 정확히 입력하세요"
-                        % len(local_matches),
+                        message=tr("후보가 {0}건입니다. 동·지번을 더 정확히 입력하세요", len(local_matches)),
                     )
                 )
                 continue
@@ -372,10 +371,7 @@ def resolve_addresses(address_queries, use_vworld=False, database_path=None):
                     AddressResolution(
                         query=query,
                         status="not_found",
-                        message=(
-                            "로컬 DB에서 찾지 못했습니다. "
-                            "도로명은 VWorld 보조 검색을 켜세요"
-                        ),
+                        message=tr("로컬 DB에서 찾지 못했습니다. 도로명은 VWorld 보조 검색을 켜세요"),
                     )
                 )
                 continue
@@ -392,7 +388,7 @@ def resolve_addresses(address_queries, use_vworld=False, database_path=None):
                         else ("ambiguous" if online_matches else online_status)
                     ),
                     matches=online_matches,
-                    message="VWorld 보조 검색 호출: " + online_message,
+                    message=tr("VWorld 보조 검색 호출: {0}", online_message),
                 )
             )
         return resolutions
@@ -409,7 +405,7 @@ def resolve_run(address_queries, use_vworld=False, database_path=None):
         indent=2,
     )
     if not resolutions:
-        return [], matches_json, "주소 또는 PNU를 한 줄 이상 입력하세요"
+        return [], matches_json, tr("주소 또는 PNU를 한 줄 이상 입력하세요")
 
     unresolved = [resolution for resolution in resolutions if resolution.status != "resolved"]
     logs = []
@@ -420,7 +416,7 @@ def resolve_run(address_queries, use_vworld=False, database_path=None):
         else:
             logs.append("%s: %s" % (resolution.query, resolution.message))
     if unresolved:
-        logs.append("미해결/모호한 입력이 있어 PNU를 출력하지 않았습니다")
+        logs.append(tr("미해결/모호한 입력이 있어 PNU를 출력하지 않았습니다"))
         return [], matches_json, "\n".join(logs)
 
     pnus = []
@@ -430,5 +426,5 @@ def resolve_run(address_queries, use_vworld=False, database_path=None):
         if pnu not in seen_pnus:
             seen_pnus.add(pnu)
             pnus.append(pnu)
-    logs.append("PNU %d건 확정" % len(pnus))
+    logs.append(tr("PNU {0}건 확정", len(pnus)))
     return pnus, matches_json, "\n".join(logs)

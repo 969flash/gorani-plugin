@@ -26,10 +26,11 @@ from dataclasses import dataclass, field
 from xml.sax.saxutils import escape
 
 import constants
+from i18n import get_lang, get_texts, tr
 from non_rhino_utils import (get_lnglat_from_tile, get_polygon_parts_from_geojson, get_ring_area, get_ring_orientation, get_text_width_em, get_tile_m_per_px,
                              get_tile_xy, get_tm_from_wgs84, get_wgs84_from_tm, is_local_projection, is_point_in_ring)
 
-SHEET_NAMES = {sheet_id: name for sheet_id, _key, name, _en, _needs in constants.SHEET_CATALOG}
+SHEET_NAMES = {sheet_id: name for sheet_id, _key, name, _en, _needs in constants.SHEET_CATALOG}   # 한국어 원문 — 그릴 때 tr(name)
 SHEET_KEYS = {sheet_id: key for sheet_id, key, _name, _en, _needs in constants.SHEET_CATALOG}
 SHEET_SUBTITLES = {sheet_id: en for sheet_id, _key, _name, en, _needs in constants.SHEET_CATALOG}
 _HEX = re.compile(r"#[0-9A-Fa-f]{6}$")
@@ -806,72 +807,73 @@ def _get_sheet_context(key, data, style, items):
     """(ctx, entries, extras). entries = 분류 키 범례(개수·비율을 단다), extras = 바탕 요소 범례(개수 없음) [(라벨, 견본 스타일)].
     고정 범례 시트는 constants 표 그대로, 나머지는 스타일 색·단계색·데이터로 만든다."""
     _subject, entries = constants.SHEET_LEGENDS[key]
+    entries = [(entry_key, tr(label), swatch) for entry_key, label, swatch in entries]   # 고정 범례 라벨(한국어 원문) → 지금 언어
     ctx = {"options": data.options, "year": int(data.options.get("today_year") or datetime.date.today().year)}
     muted = get_mixed_color(style["ink"], style["paper"], 0.45)
-    unknown = ("unknown", "미상", {"fill": style["paper"], "stroke": muted})
+    unknown = ("unknown", tr("미상"), {"fill": style["paper"], "stroke": muted})
     site = {"fill": "none", "stroke": style["site"], "stroke-width": constants.SHEET_LINE_MM["site"]}
     extent = {"fill": "none", "stroke": style["extent"], "stroke-width": constants.SHEET_LINE_MM["extent"], "stroke-dasharray": "2 1.2"}
     extras = []
     if key == "base":
-        entries = [("target", "대상지", {"fill": style["site"], "fill-opacity": "0.3", "stroke": style["site"]})]
-        extras = [("분석 범위", extent), ("건축물", {"fill": style["building"], "stroke": get_mixed_color(style["building"], style["ink"], 0.3)}),
-                  ("도로", {"fill": style["road"], "stroke": muted}), ("녹지·공원", {"fill": style["green"]}), ("수계", {"fill": style["water"]}),
-                  ("철도", {"fill": "none", "stroke": style["rail"], "stroke-width": constants.SHEET_LINE_MM["rail"]})]
+        entries = [("target", tr("대상지"), {"fill": style["site"], "fill-opacity": "0.3", "stroke": style["site"]})]
+        extras = [(tr("분석 범위"), extent), (tr("건축물"), {"fill": style["building"], "stroke": get_mixed_color(style["building"], style["ink"], 0.3)}),
+                  (tr("도로"), {"fill": style["road"], "stroke": muted}), (tr("녹지·공원"), {"fill": style["green"]}), (tr("수계"), {"fill": style["water"]}),
+                  (tr("철도"), {"fill": "none", "stroke": style["rail"], "stroke-width": constants.SHEET_LINE_MM["rail"]})]
     elif key == "aerial":
-        extras = [("대상지", site), ("분석 범위", extent)]
+        extras = [(tr("대상지"), site), (tr("분석 범위"), extent)]
     elif key == "axo":
-        entries = [("bld", "건축물", {"fill": style["building"], "stroke": get_mixed_color(style["building"], style["ink"], constants.AXO_EDGE_SHADE)})]
-        extras = [("대상지", {"fill": style["site"], "fill-opacity": "0.35", "stroke": style["site"]}), ("분석 범위", extent),
-                  ("도로", {"fill": style["road"], "stroke": muted}), ("녹지·공원", {"fill": style["green"]}), ("수계", {"fill": style["water"]})]
+        entries = [("bld", tr("건축물"), {"fill": style["building"], "stroke": get_mixed_color(style["building"], style["ink"], constants.AXO_EDGE_SHADE)})]
+        extras = [(tr("대상지"), {"fill": style["site"], "fill-opacity": "0.35", "stroke": style["site"]}), (tr("분석 범위"), extent),
+                  (tr("도로"), {"fill": style["road"], "stroke": muted}), (tr("녹지·공원"), {"fill": style["green"]}), (tr("수계"), {"fill": style["water"]})]
     elif key == "figure":
-        entries = [("bld", "건축물", {"fill": style["ink"]})]
-        extras = [("외부공간", {"fill": style["paper"], "stroke": muted}), ("대상지", site), ("분석 범위", extent)]
+        entries = [("bld", tr("건축물"), {"fill": style["ink"]})]
+        extras = [(tr("외부공간"), {"fill": style["paper"], "stroke": muted}), (tr("대상지"), site), (tr("분석 범위"), extent)]
     elif key == "transit":
         color = constants.SHEET_TRANSIT_COLOR
-        entries = [("station", "역(철도·지하철)", {"shape": "circle", "fill": style["paper"], "stroke": style["ink"], "stroke-width": constants.SHEET_LINE_MM["station"]})]
+        entries = [("station", tr("역(철도·지하철)"), {"shape": "circle", "fill": style["paper"], "stroke": style["ink"], "stroke-width": constants.SHEET_LINE_MM["station"]})]
         r1, r2 = constants.SHEET_TRANSIT_RADII_M
-        extras = [("철도 노선", {"fill": "none", "stroke": color, "stroke-width": 0.7}),
-                  ("1차 역세권 (%d m)" % r1, {"fill": color, "fill-opacity": "0.16", "stroke": color, "stroke-width": 0.3}),
-                  ("2차 역세권 (%d m)" % r2, {"fill": "none", "stroke": color, "stroke-width": 0.3, "stroke-dasharray": "1.5 1"}),
-                  ("대상지", site)]
+        extras = [(tr("철도 노선"), {"fill": "none", "stroke": color, "stroke-width": 0.7}),
+                  (tr("1차 역세권 ({0} m)", int(r1)), {"fill": color, "fill-opacity": "0.16", "stroke": color, "stroke-width": 0.3}),
+                  (tr("2차 역세권 ({0} m)", int(r2)), {"fill": "none", "stroke": color, "stroke-width": 0.3, "stroke-dasharray": "1.5 1"}),
+                  (tr("대상지"), site)]
     elif key in ("lot_size", "density"):
         breaks = constants.SHEET_LOT_SIZE_BREAKS if key == "lot_size" else constants.SHEET_DENSITY_BREAKS
-        unit, prefix = ("㎡", "a") if key == "lot_size" else ("%", "d")
-        labels = ["%s %s 미만" % ("{:,.0f}".format(breaks[0]), unit)] + \
-                 ["%s~%s %s" % ("{:,.0f}".format(breaks[i - 1]), "{:,.0f}".format(breaks[i]), unit) for i in range(1, len(breaks))] + \
-                 ["%s %s 이상" % ("{:,.0f}".format(breaks[-1]), unit)]
+        unit, prefix = (tr("㎡"), "a") if key == "lot_size" else ("%", "d")
+        labels = [tr("{0} {1} 미만", "{:,.0f}".format(breaks[0]), unit)] + \
+                 [tr("{0}~{1} {2}", "{:,.0f}".format(breaks[i - 1]), "{:,.0f}".format(breaks[i]), unit) for i in range(1, len(breaks))] + \
+                 [tr("{0} {1} 이상", "{:,.0f}".format(breaks[-1]), unit)]
         if key == "lot_size":
-            labels[0] += " (과소필지)"
+            labels[0] = tr("{0} (과소필지)", labels[0])
         ramp = get_ramp(style, len(labels))
         entries = [("%s%d" % (prefix, i), label, {"fill": ramp[i]}) for i, label in enumerate(labels)]
     elif key == "walk":
         speed = constants.SHEET_WALK_SPEED_M_PER_MIN
-        entries = [("m%d" % i, "%d분 (%s m)" % (minutes, "{:,.0f}".format(minutes * speed)),
+        entries = [("m%d" % i, tr("{0}분 ({1} m)", minutes, "{:,.0f}".format(minutes * speed)),
                     {"fill": "none", "stroke": constants.SHEET_WALK_COLORS[i], "stroke-width": _fmt(1.0 - 0.2 * i), "stroke-linecap": "round"})
                    for i, minutes in enumerate(constants.SHEET_WALK_MINUTES)]
-        extras = [("대상지", site)]
+        extras = [(tr("대상지"), site)]
     elif key == "floor":
         breaks = tuple(constants.SHEET_FLOOR_BANDS_FIXED) + tuple(data.options.get("floor_breaks") or constants.FLOOR_BREAKS_DEFAULT)
         ctx["floor_breaks"] = breaks
         labels, lower = [], 1
-        for upper in breaks:
-            labels.append("%d층" % upper if upper == lower else "%d~%d층" % (lower, upper))
+        for upper in breaks:   # 1층은 따로 — 영어·스페인어 단수(1 floor)
+            labels.append((tr("1층") if upper == 1 else tr("{0}층", int(upper))) if upper == lower else tr("{0}~{1}층", int(lower), int(upper)))
             lower = upper + 1
-        labels.append("%d층 이상" % lower)
+        labels.append(tr("{0}층 이상", int(lower)))
         ramp = get_ramp(style, len(labels))
         entries = [("f%d" % i, label, {"fill": ramp[i]}) for i, label in enumerate(labels)] + [unknown]
     elif key == "age":
         bands = constants.AGE_BANDS_YEARS
-        labels = ["%d년 미만" % bands[0]] + ["%d~%d년" % (bands[i - 1], bands[i] - 1) for i in range(1, len(bands))] + ["%d년 이상" % bands[-1]]
+        labels = [tr("{0}년 미만", bands[0])] + [tr("{0}~{1}년", bands[i - 1], bands[i] - 1) for i in range(1, len(bands))] + [tr("{0}년 이상", bands[-1])]
         ramp = get_ramp(style, len(labels))
-        entries = [("age%d" % i, label, {"fill": ramp[i]}) for i, label in enumerate(labels)] + [("unknown", "연도 미상", unknown[2])]
+        entries = [("age%d" % i, label, {"fill": ramp[i]}) for i, label in enumerate(labels)] + [("unknown", tr("연도 미상"), unknown[2])]
     elif key == "price":
         prices = sorted(float(lot.land_price_won) for lot in items if lot.land_price_won and float(lot.land_price_won) > 0)
         breaks = statistics.quantiles(prices, n=constants.SHEET_PRICE_QUANTILES) if len(prices) >= 2 else []
         ctx["price_breaks"] = breaks
         edges = [prices[0] if prices else 0.0] + list(breaks) + [prices[-1] if prices else 0.0]
         ramp = get_ramp(style, len(breaks) + 1)
-        entries = [("p%d" % i, "%s~%s 만원/㎡" % (_won(edges[i]), _won(edges[i + 1])), {"fill": ramp[i]}) for i in range(len(breaks) + 1)] + [unknown]
+        entries = [("p%d" % i, tr("{0}~{1} 만원/㎡", _won(edges[i]), _won(edges[i + 1])), {"fill": ramp[i]}) for i in range(len(breaks) + 1)] + [unknown]
     elif key == "elev":
         step = constants.ELEV_PRESETS.get(data.options.get("elev_preset"), list(constants.ELEV_PRESETS.values())[0])
         zs = [p[2] for tri in items for p in tri[:3]]
@@ -882,7 +884,7 @@ def _get_sheet_context(key, data, style, items):
                 ctx["elev_auto"] = True
             low, high = int(math.floor(min(zs) / step)), int(math.floor(max(zs) / step))
             ramp = get_ramp(style, high - low + 1)
-            entries = [("e%d" % k, "%g~%g m" % (k * step, (k + 1) * step), {"fill": ramp[k - low], "stroke": ramp[k - low], "stroke-width": "0.15"})
+            entries = [("e%d" % k, tr("{0:g}~{1:g} m", k * step, (k + 1) * step), {"fill": ramp[k - low], "stroke": ramp[k - low], "stroke-width": "0.15"})
                        for k in range(low, high + 1)]
         ctx["elev_step"] = step
     return ctx, entries, extras
@@ -1357,7 +1359,7 @@ def _draw_axo(key, subject, classify_fn, entries, items, data, style, frame, fra
     lines += ['<g id="labels">',
               '<path d="M%s %sL%s %sH%s" fill="none" stroke="%s" stroke-width="%s"/>' % (_fmt(sx), _fmt(sy), _fmt(lx), _fmt(ly), _fmt(lx + 3.0 * k), site, _fmt(0.3 * ls)),
               '<circle cx="%s" cy="%s" r="%s" fill="%s"/>' % (_fmt(sx), _fmt(sy), _fmt(0.9 * k), site),
-              _text(lx + 4.0 * k, ly + size * 0.35, "대상지", size, fill=site, **halo)]
+              _text(lx + 4.0 * k, ly + size * 0.35, tr("대상지"), size, fill=site, **halo)]
     if data.extent_ring and data.options.get("shape") != "frame":
         bx, by = scene["extent_bottom"]
         lines.append(_text(bx, min(by + 6.0 * k, frame.paper_mm[1] - 2.0 * k), _get_range_label(data), size * 0.8, fill=style["extent"],
@@ -1387,19 +1389,19 @@ def _draw_mask(frame, extent_ring, style):
 def _get_crs_short():
     # type: () -> str
     """축척 줄의 좌표계 — 해외 대상지는 대상지 중심 횡메르카토르(자세한 정의는 메타 줄)."""
-    return "현지 TM" if is_local_projection() else "EPSG:5186"
+    return tr("현지 TM") if is_local_projection() else "EPSG:5186"
 
 
 def _get_range_label(data):
     # type: (SheetData) -> str
     shape = data.options.get("shape", "")
     if shape == "frame":
-        return "용지 프레임"
+        return tr("용지 프레임")
     if shape == "site":
-        return "그린 경계"
+        return tr("그린 경계")
     if shape == "rect":   # 2026-10-19부터 기본 범위 — '반경 250 m'로 적혀 한 변 500 m 사각형과 어긋났다
-        return "사각형 한 변 {:,.0f} m".format(float(data.options.get("radius") or 0) * 2)
-    return "반경 %s m" % data.options.get("radius", "")
+        return tr("사각형 한 변 {0} m", "{:,.0f}".format(float(data.options.get("radius") or 0) * 2))
+    return tr("반경 {0} m", data.options.get("radius", ""))
 
 
 def _draw_overlay_lines(data, style, frame, frame_bounds, subject, key, k):
@@ -1474,7 +1476,7 @@ def _draw_labels(data, style, frame, labels, key, k):
         lines += names
     spots = [(_get_item_center(lot), lot.lot_number) for lot in data.target_lots] if data.mode == "lots" else []   # 구역 방식은 필지가 많아 지번을 달지 않는다
     if len(spots) > 1 and len(data.site_rings) == 1:   # 합필 — 덩어리 하나에 '333-139 외 1필지'(토지조서 관행)
-        spots = [(_get_ring_center(data.site_rings[0]), "%s 외 %d필지" % (data.target_lots[0].lot_number, len(spots) - 1))]
+        spots = [(_get_ring_center(data.site_rings[0]), tr("{0} 외 {1}필지", data.target_lots[0].lot_number, len(spots) - 1))]
     for (cx, cy), text in spots:
         x, y = frame.to_paper(cx, cy)
         lines.append(_text(x, y, text, size, fill=ink, **dict(halo, **{"font-weight": "700"})))
@@ -1520,127 +1522,129 @@ def _get_card_lines(key, data, items, counts, measures, ctx=None):
     if key == "base":
         lot_area = sum(_get_geometry_measure(lot.geometry) for lot in data.target_lots)
         if data.mode == "area":
-            lines = ["구역 %s ㎡" % fmt0(sum(get_ring_area(r) for r in data.site_rings)) + ("" if _is_osm(data) else " · 안의 필지 %d" % len(data.target_lots))]
+            zone_area = fmt0(sum(get_ring_area(r) for r in data.site_rings))
+            lines = [tr("구역 {0} ㎡", zone_area) if _is_osm(data) else tr("구역 {0} ㎡ · 안의 필지 {1}", zone_area, len(data.target_lots))]
         elif data.mode == "point":
-            lines = ["위치 중심 범위(대상지 경계 없음)"]
+            lines = [tr("위치 중심 범위(대상지 경계 없음)")]
         else:
-            lines = ["대상지 %d필지 · %s ㎡" % (len(data.target_lots), "{:,.1f}".format(lot_area))]
-        lines += ["범위 %s · %s ㎡" % (_get_range_label(data), fmt0(get_ring_area(data.extent_ring) if data.extent_ring else 0.0)),
-                  "범위 안 건물 %s동" % fmt0(len(_get_inside(data.buildings, data.extent_ring)))]
+            lines = [tr("대상지 {0}필지 · {1} ㎡", len(data.target_lots), "{:,.1f}".format(lot_area))]
+        lines += [tr("범위 {0} · {1} ㎡", _get_range_label(data), fmt0(get_ring_area(data.extent_ring) if data.extent_ring else 0.0)),
+                  tr("범위 안 건물 {0}동", fmt0(len(_get_inside(data.buildings, data.extent_ring))))]
     elif key == "figure":
         inside = _get_inside(data.buildings, data.extent_ring)
         footprint = sum(_get_geometry_measure(b.geometry) for b in inside)
         area = get_ring_area(data.extent_ring) if data.extent_ring else 0.0
-        lines = ["범위 안 건물 %s동" % fmt0(len(inside))]
+        lines = [tr("범위 안 건물 {0}동", fmt0(len(inside)))]
         if area:
-            lines.append("건물 바닥면적 비율 %.1f %%" % (100.0 * footprint / area))
+            lines.append(tr("건물 바닥면적 비율 {0:.1f} %", 100.0 * footprint / area))
         if inside:
-            lines.append("평균 바닥면적 %s ㎡" % fmt0(footprint / len(inside)))
+            lines.append(tr("평균 바닥면적 {0} ㎡", fmt0(footprint / len(inside))))
     elif key == "transit":
         cx, cy = data.center
         distances = sorted((math.hypot(s.geometry["coordinates"][0] - cx, s.geometry["coordinates"][1] - cy), s.name) for s in items)
         r1, r2 = constants.SHEET_TRANSIT_RADII_M
         if distances:
-            lines = ["가장 가까운 역 %s %s m" % (distances[0][1], fmt0(distances[0][0])),
-                     "%d m 안 역 %d · %d m 안 역 %d" % (r1, sum(1 for d, _ in distances if d <= r1), r2, sum(1 for d, _ in distances if d <= r2))]
+            lines = [tr("가장 가까운 역 {0} {1} m", distances[0][1], fmt0(distances[0][0])),
+                     tr("{0} m 안 역 {1} · {2} m 안 역 {3}", int(r1), sum(1 for d, _ in distances if d <= r1), int(r2), sum(1 for d, _ in distances if d <= r2))]
         else:
-            lines = ["도면 안 역 없음"]
-        lines.append("대상지 중심 기준 직선거리")
+            lines = [tr("도면 안 역 없음")]
+        lines.append(tr("대상지 중심 기준 직선거리"))
     elif key == "green":
-        lines = ["도면 안 공원 %d · 녹지 %d · 수계 %d" % (counts.get("park", 0), counts.get("green", 0), counts.get("water", 0))]
+        lines = [tr("도면 안 공원 {0} · 녹지 {1} · 수계 {2}", counts.get("park", 0), counts.get("green", 0), counts.get("water", 0))]
         area = get_ring_area(data.extent_ring) if data.extent_ring else 0.0
         if area:
             green = [item for item in _get_inside(items, data.extent_ring) if classify_green(item, {}) in ("park", "green")]
             green_area = sum(_get_geometry_measure(item.geometry) for item in green)
-            lines.append("범위 안 공원·녹지 %s ㎡ (%.1f %%, 중심점 기준)" % (fmt0(green_area), 100.0 * green_area / area))
+            lines.append(tr("범위 안 공원·녹지 {0} ㎡ ({1:.1f} %, 중심점 기준)", fmt0(green_area), 100.0 * green_area / area))
     elif key == "lot_size":
         areas = sorted(get_lot_area(lot) for lot in items if classify_lot_size(lot, {}) is not None and _intersects(_get_item_bounds(lot), data.frame.world_bounds()))
         small = counts.get("a0", 0)
-        lines = ["필지 %d · 과소필지(90 ㎡ 미만) %d (%d %%)" % (total_count, small, round(100.0 * small / total_count) if total_count else 0)]
+        lines = [tr("필지 {0} · 과소필지(90 ㎡ 미만) {1} ({2} %)", total_count, small, round(100.0 * small / total_count) if total_count else 0)]
         if areas:
-            lines.append("면적 중앙값 %s ㎡ · 평균 %s ㎡" % (fmt0(statistics.median(areas)), fmt0(sum(areas) / len(areas))))
-        lines.append("도로·하천 필지 제외, 대장 면적 기준")
+            lines.append(tr("면적 중앙값 {0} ㎡ · 평균 {1} ㎡", fmt0(statistics.median(areas)), fmt0(sum(areas) / len(areas))))
+        lines.append(tr("도로·하천 필지 제외, 대장 면적 기준"))
     elif key == "density":
         inside = _get_inside(items, data.extent_ring)
         area = sum(b.area for b in inside)
         if area:
-            lines = ["범위 안 블록 %d · 평균 용적률 %d %% · 건폐율 %d %%" % (len(inside), round(100.0 * sum(b.floor_area for b in inside) / area),
-                                                                 round(100.0 * sum(b.footprint for b in inside) / area))]
+            lines = [tr("범위 안 블록 {0} · 평균 용적률 {1} % · 건폐율 {2} %", len(inside), round(100.0 * sum(b.floor_area for b in inside) / area),
+                        round(100.0 * sum(b.footprint for b in inside) / area))]
         else:
-            lines = ["블록 경계 없음 — 도로 필지에 구멍(가구)이 없다"]
-        lines.append("블록 = 도로 필지 구멍 · 건물 = 대장 연면적(없으면 바닥면적×층수)")
+            lines = [tr("블록 경계 없음 — 도로 필지에 구멍(가구)이 없다")]
+        lines.append(tr("블록 = 도로 필지 구멍 · 건물 = 대장 연면적(없으면 바닥면적×층수)"))
     elif key == "walk":
         walk = get_walk(data)
         speed = constants.SHEET_WALK_SPEED_M_PER_MIN
-        lines = [" · ".join("%d분 %.1f km" % (minutes, measures.get("m%d" % i, 0.0) / 1000.0) for i, minutes in enumerate(constants.SHEET_WALK_MINUTES)) + " (도면 안 도로)"]
+        lines = [tr("{0} (도면 안 도로)", " · ".join(tr("{0}분 {1:.1f} km", minutes, measures.get("m%d" % i, 0.0) / 1000.0)
+                                                  for i, minutes in enumerate(constants.SHEET_WALK_MINUTES)))]
         if walk["stations"]:
             minutes, name = walk["stations"][0]
-            lines.append("가장 가까운 역 %s 보행 %d분" % (name, int(math.ceil(minutes))))
-        lines.append("대상지 중심 %d m 안 도로에서 출발 · %d m/분" % (constants.SHEET_WALK_START_M, speed))
+            lines.append(tr("가장 가까운 역 {0} 보행 {1}분", name, int(math.ceil(minutes))))
+        lines.append(tr("대상지 중심 {0} m 안 도로에서 출발 · {1} m/분", int(constants.SHEET_WALK_START_M), int(speed)))
     elif key == "public":
-        lines = ["교육 %d · 의료·노유자 %d · 문화·체육 %d동" % (counts.get("education", 0), counts.get("welfare", 0), counts.get("culture", 0)),
-                 "학교 부지 %d · 광장·공공공지 %d" % (counts.get("school_lot", 0), counts.get("plaza", 0)),
-                 "OSM 건물·시설(amenity) 태그 기준 — 태그 없는 시설은 빠진다" if _is_osm(data) else "건축물대장 용도 기준 — 공공청사는 업무시설과 섞여 따로 구분하지 않는다"]
+        lines = [tr("교육 {0} · 의료·노유자 {1} · 문화·체육 {2}동", counts.get("education", 0), counts.get("welfare", 0), counts.get("culture", 0)),
+                 tr("학교 부지 {0} · 광장·공공공지 {1}", counts.get("school_lot", 0), counts.get("plaza", 0)),
+                 tr("OSM 건물·시설(amenity) 태그 기준 — 태그 없는 시설은 빠진다") if _is_osm(data) else tr("건축물대장 용도 기준 — 공공청사는 업무시설과 섞여 따로 구분하지 않는다")]
     elif key == "axo":
         heights = ctx.get("axo_heights") or []
-        lines = ["%s 시점 · 범위 안 건물 %s동" % (constants.AXO_VIEWS[ctx.get("axo_view", "se")][0], fmt0(total_count))]
+        lines = [tr("{0} 시점 · 범위 안 건물 {1}동", tr(constants.AXO_VIEWS[ctx.get("axo_view", "se")][0]), fmt0(total_count))]
         if heights:
-            lines.append("최고 %.0f m · 평균 %.1f m" % (max(heights), sum(heights) / len(heights)))
-        lines.append("평행 투상(축척 없음) · 지형은 평탄 가정 · 시점은 도면 스타일에서")
+            lines.append(tr("최고 {0:.0f} m · 평균 {1:.1f} m", max(heights), sum(heights) / len(heights)))
+        lines.append(tr("평행 투상(축척 없음) · 지형은 평탄 가정 · 시점은 도면 스타일에서"))
     elif key == "aerial":
         if total_count:
-            lines = ["영상 %s" % ctx.get("aerial_attribution", ""), "지상 해상도 약 %.2f m/px · 촬영 시기 확인 필요" % ctx.get("aerial_m_per_px", 0.0)]
+            lines = [tr("영상 {0}", ctx.get("aerial_attribution", "")), tr("지상 해상도 약 {0:.2f} m/px · 촬영 시기 확인 필요", ctx.get("aerial_m_per_px", 0.0))]
         else:
-            lines = ["영상 타일을 받지 못함 — 인터넷 연결 확인 뒤 다시 생성"]
+            lines = [tr("영상 타일을 받지 못함 — 인터넷 연결 확인 뒤 다시 생성")]
     elif key in constants.SHEET_TEMPLATE_KEYS:
-        lines = ["직접 그리는 틀 — 범례 레이어마다 Illustrator에서 그린다",
-                 {"view": "조망점: 근경 250 m · 중경 500 m · 원경, 눈높이 1.5 m", "image": "케빈 린치 도시 이미지 5요소",
-                  "synthesis": "현황도를 겹쳐 제약과 기회를 나눠 적는다"}[key]]
+        lines = [tr("직접 그리는 틀 — 범례 레이어마다 Illustrator에서 그린다"),
+                 {"view": tr("조망점: 근경 250 m · 중경 500 m · 원경, 눈높이 1.5 m"), "image": tr("케빈 린치 도시 이미지 5요소"),
+                  "synthesis": tr("현황도를 겹쳐 제약과 기회를 나눠 적는다")}[key]]
     elif key in ("land_use", "land_category", "zone", "price"):
-        lines = ["필지 %d · %s ㎡" % (total_count, fmt0(total_measure))]
+        lines = [tr("필지 {0} · {1} ㎡", total_count, fmt0(total_measure))]
         if key == "price":
             prices = [float(lot.land_price_won) for lot in items if lot.land_price_won and float(lot.land_price_won) > 0]
             if prices:
-                lines += ["최고 %s · 최저 %s 만원/㎡" % (_won(max(prices)), _won(min(prices))), "평균 %s 만원/㎡" % _won(sum(prices) / len(prices))]
+                lines += [tr("최고 {0} · 최저 {1} 만원/㎡", _won(max(prices)), _won(min(prices))), tr("평균 {0} 만원/㎡", _won(sum(prices) / len(prices)))]
     elif key in ("district", "facility"):
-        lines = ["구역·시설 %d건" % total_count]
+        lines = [tr("구역·시설 {0}건", total_count)]
     elif key in ("use", "floor", "age"):
-        lines = ["건물 %d동 · 바닥면적 %s ㎡" % (total_count, fmt0(total_measure))]
+        lines = [tr("건물 {0}동 · 바닥면적 {1} ㎡", total_count, fmt0(total_measure))]
         if key == "floor":
             floors = [int(b.grnd_flr or 0) for b in items if int(b.grnd_flr or 0) > 0]
             if floors:
-                lines.append("평균 %.1f층 · 최고 %d층" % (sum(floors) / float(len(floors)), max(floors)))
+                lines.append(tr("평균 {0:.1f}층 · 최고 {1}층", sum(floors) / float(len(floors)), max(floors)))
             src = data.stats.get("height_src") or {}
             if src:
                 names = constants.SHEET_HEIGHT_SRC_LABELS
-                lines.append("높이 출처 " + " · ".join("%s %d %%" % (names.get(k, k), round(v * 100))
-                                                   for k, v in sorted(src.items(), key=lambda kv: -kv[1])))
+                lines.append(tr("높이 출처 {0}", " · ".join("%s %d %%" % (tr(names.get(k, k)), round(v * 100))
+                                                        for k, v in sorted(src.items(), key=lambda kv: -kv[1]))))
             grade = data.stats.get("height_grade") or {}
             if grade:
-                lines.append("높이 등급 " + " · ".join("%s %d %%" % (k, round(v * 100)) for k, v in sorted(grade.items())))
+                lines.append(tr("높이 등급 {0}", " · ".join("%s %d %%" % (k, round(v * 100)) for k, v in sorted(grade.items()))))
         if key == "age" and total_count:
             known = total_count - counts.get("unknown", 0)
             old20 = counts.get("age2", 0) + counts.get("age3", 0)
-            lines.append("20년 이상 %d동 (%d %%) · 30년 이상 %d동 (%d %%)"
-                         % (old20, round(100.0 * old20 / known) if known else 0, counts.get("age3", 0), round(100.0 * counts.get("age3", 0) / known) if known else 0))
-            lines.append("연도 미상 %d동" % counts.get("unknown", 0))
+            lines.append(tr("20년 이상 {0}동 ({1} %) · 30년 이상 {2}동 ({3} %)",
+                            old20, round(100.0 * old20 / known) if known else 0, counts.get("age3", 0), round(100.0 * counts.get("age3", 0) / known) if known else 0))
+            lines.append(tr("연도 미상 {0}동", counts.get("unknown", 0)))
     elif key == "road":
         lots = _get_subject_items("lot", data)
         lot_area = sum(_get_geometry_measure(lot.geometry) for lot in lots)
         road_area = sum(_get_geometry_measure(lot.geometry) for lot in lots if (lot.land_category or "") == "도로")
         road_length = sum(v for k, v in measures.items() if k.startswith("w_"))
-        lines = ["도로율 %.1f %% (지목 도로 %s ㎡ / 필지 %s ㎡)" % (100.0 * road_area / lot_area if lot_area else 0.0, fmt0(road_area), fmt0(lot_area)),
-                 "중심선 %.1f km · 맹지 %d필지" % (road_length / 1000.0, counts.get("landlocked", 0))]
+        lines = [tr("도로율 {0:.1f} % (지목 도로 {1} ㎡ / 필지 {2} ㎡)", 100.0 * road_area / lot_area if lot_area else 0.0, fmt0(road_area), fmt0(lot_area)),
+                 tr("중심선 {0:.1f} km · 맹지 {1}필지", road_length / 1000.0, counts.get("landlocked", 0))]
     elif key in ("elev", "slope"):
         zs = [p[2] for tri in items for p in tri[:3]]
-        lines = ["삼각형 %d · %s ㎡" % (total_count, fmt0(total_measure))]
+        lines = [tr("삼각형 {0} · {1} ㎡", total_count, fmt0(total_measure))]
         if zs:
-            lines.append("표고 %.1f~%.1f m · 평균 %.1f m" % (min(zs), max(zs), sum(zs) / len(zs)))
+            lines.append(tr("표고 {0:.1f}~{1:.1f} m · 평균 {2:.1f} m", min(zs), max(zs), sum(zs) / len(zs)))
         if key == "elev" and ctx.get("elev_step"):
-            lines.append("단계 %g m%s" % (ctx["elev_step"], " (평탄지라 자동으로 줄임)" if ctx.get("elev_auto") else ""))
+            lines.append(tr("단계 {0:g} m (평탄지라 자동으로 줄임)", ctx["elev_step"]) if ctx.get("elev_auto") else tr("단계 {0:g} m", ctx["elev_step"]))
         if key == "slope" and items:
             slopes = [get_slope_deg(tri) for tri in items]
-            lines.append("평균 경사 %.1f° · 최대 %.1f°" % (sum(slopes) / len(slopes), max(slopes)))
+            lines.append(tr("평균 경사 {0:.1f}° · 최대 {1:.1f}°", sum(slopes) / len(slopes), max(slopes)))
     return lines
 
 
@@ -1665,7 +1669,7 @@ def _draw_swatch(x, y, w, h, swatch):
 def _get_scale_text(frame):
     # type: (Frame) -> str
     """'1:5,000' — 입체 매스도(AxoFrame)는 평행 투상이라 축척이 없다."""
-    return "평행 투상(축척 없음)" if getattr(frame, "north", None) else "1:%s" % "{:,}".format(int(frame.scale))
+    return tr("평행 투상(축척 없음)") if getattr(frame, "north", None) else "1:%s" % "{:,}".format(int(frame.scale))
 
 
 def _draw_scale_north(x, y, frame, style, k):
@@ -1701,7 +1705,7 @@ def _draw_scale_north(x, y, frame, style, k):
 def _get_meta_lines(data):
     # type: (SheetData) -> list
     """여백 줄(context_report.get_meta_lines — 자료기준·출처·좌표계·정합·경고). 출처 줄은 끌 수 없다."""
-    return list(data.meta_lines) or ["자료기준 — (meta_lines 없음)"]
+    return list(data.meta_lines) or [tr("자료기준 — (meta_lines 없음)")]
 
 
 def _get_paper_label(paper_mm):
@@ -1726,7 +1730,7 @@ def _get_legend_rows(entries, extras, counts, measures):
 
 def _draw_head(x, y, sheet_id, name, style, k, avail_w):
     # type: (float, float, int, str, dict, float, float) -> tuple
-    """번호 + 영문 부제 + 제목. 반환 (svg 줄, 제목 아래 y)."""
+    """번호 + 영문 부제 + 제목(name = 지금 언어). 영어면 제목과 겹쳐 부제를 뺀다. 반환 (svg 줄, 제목 아래 y)."""
     ts, ink, muted = style["text_scale"], style["ink"], get_mixed_color(style["ink"], style["paper"], 0.45)
     fonts = constants.SHEET_FONT_MM
     number_size = fonts["number"] * k * ts
@@ -1737,7 +1741,7 @@ def _draw_head(x, y, sheet_id, name, style, k, avail_w):
     if get_text_width_em(name) * title_size > room:
         title_size = room / max(get_text_width_em(name), 1.0)
     lines = [_text(x, y + number_size * 0.82, number, number_size, fill=style["site"], **{"font-weight": "800", "id": "sheet_number"})]
-    if style["subtitle_en"]:
+    if style["subtitle_en"] and get_lang() != "en":
         lines.append(_text(x + offset, y + number_size * 0.82 - title_size * 1.15, SHEET_SUBTITLES[sheet_id].upper(), fonts["subtitle"] * k * ts,
                            fill=muted, **{"font-weight": "600", "letter-spacing": _fmt(0.25 * k)}))
     lines.append(_text(x + offset, y + number_size * 0.82, name, title_size, fill=ink, **{"font-weight": "800", "id": "sheet_title"}))
@@ -1765,7 +1769,7 @@ def _draw_info_side(data, style, sheet_id, name, frame, box, legend_rows, card_r
         lines.append(_text(x, y, style["project"], body, fill=muted))
     y += row * 1.8
     lines.append('<g id="legend">')
-    lines.append(_text(x, y, "범례", head_size, **{"font-weight": "700"}))
+    lines.append(_text(x, y, tr("범례"), head_size, **{"font-weight": "700"}))
     y += 2.0 * k
     lines.append('<rect x="%s" y="%s" width="%s" height="0.2" fill="%s"/>' % (_fmt(x), _fmt(y), _fmt(w), muted))
     y += row * 0.9
@@ -1779,7 +1783,7 @@ def _draw_info_side(data, style, sheet_id, name, frame, box, legend_rows, card_r
     if card_rows:
         y += row * 0.8
         lines.append('<g id="card">')
-        lines.append(_text(x, y, "주요 수치", head_size, **{"font-weight": "700"}))
+        lines.append(_text(x, y, tr("주요 수치"), head_size, **{"font-weight": "700"}))
         y += 2.0 * k
         lines.append('<rect x="%s" y="%s" width="%s" height="0.2" fill="%s"/>' % (_fmt(x), _fmt(y), _fmt(w), muted))
         y += row * 0.9
@@ -1793,7 +1797,7 @@ def _draw_info_side(data, style, sheet_id, name, frame, box, legend_rows, card_r
     meta = []
     for text in _get_meta_lines(data):
         meta += get_wrapped_lines(text, w, meta_size)
-    meta.append("%s · 정보제공용, 법적 효력 없음" % constants.TOOL_NAME)
+    meta.append(tr("{0} · 정보제공용, 법적 효력 없음", constants.TOOL_NAME))
     yy = data.paper_mm[1] - t["margin"] * k
     lines.append('<g id="meta" fill="%s">' % muted)
     for text in reversed(meta):
@@ -1850,7 +1854,7 @@ def _draw_info_bottom(data, style, sheet_id, name, frame, box, legend_rows, card
     meta = []
     for text in _get_meta_lines(data)[:2]:
         meta += get_wrapped_lines(text, side_w, meta_size)
-    meta.append("%s · 정보제공용, 법적 효력 없음 · %s %s" % (constants.TOOL_NAME, _get_scale_text(frame), _get_paper_label(data.paper_mm)))
+    meta.append(tr("{0} · 정보제공용, 법적 효력 없음 · {1} {2}", constants.TOOL_NAME, _get_scale_text(frame), _get_paper_label(data.paper_mm)))
     yb = data.paper_mm[1] - t["margin"] * k
     lines.append('<g id="meta" fill="%s">' % muted)
     for text in reversed(meta[-4:]):
@@ -1900,7 +1904,7 @@ def _hatch_defs():
 def render_sheet(sheet_id, data):
     # type: (int, SheetData) -> tuple
     """시트 한 장의 SVG 문자열과 (empty, reason). 데이터 없는 시트도 바탕만으로 그린다. 스타일은 data.options['style']."""
-    key, name = SHEET_KEYS[sheet_id], SHEET_NAMES[sheet_id]
+    key, name = SHEET_KEYS[sheet_id], tr(SHEET_NAMES[sheet_id])
     style = get_style(data.options)
     k = get_template_scale(data.paper_mm)
     width, height = data.paper_mm
@@ -1918,12 +1922,13 @@ def render_sheet(sheet_id, data):
     finally:
         data.options.pop("_ctx", None)
     empty = sum(counts.values()) == 0 and not (key == "base" and data.mode != "lots") and key not in constants.SHEET_TEMPLATE_KEYS   # 구역·위치 방식 베이스맵은 경계·범위만으로 쓴다(Global은 필지가 없다)
-    reason = ("영상 못 받음" if key == "aerial" else "지형 없음" if subject == "terrain" else "데이터 없음") if empty else ""
+    reason = (tr("영상 못 받음") if key == "aerial" else tr("지형 없음") if subject == "terrain" else tr("데이터 없음")) if empty else ""
 
     background = style["paper"] if base_mode in ("figure", "image", "axo") else _get_base_colors(style, base_mode)["block"]
     base_lines = _draw_base(data, style, base_mode, frame, frame_bounds, skip_buildings=subject == "building")
+    font_family = constants.STYLE_FONTS_CJK.get(get_lang(), {}).get(style["font"], "") + constants.STYLE_FONTS[style["font"]]
     body = ['<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="%smm" height="%smm" viewBox="0 0 %s %s" font-family="%s">'
-            % (_fmt(width), _fmt(height), _fmt(width), _fmt(height), escape(constants.STYLE_FONTS[style["font"]], {'"': "&quot;"})),
+            % (_fmt(width), _fmt(height), _fmt(width), _fmt(height), escape(font_family, {'"': "&quot;"})),
             "<!-- %02d %s | 1:%d | center E %.1f N %.1f | %s | style %s -->" % (sheet_id, name, frame.scale, frame.center[0], frame.center[1], _get_crs_short(), style["preset"]),
             '<defs><clipPath id="map_clip"><rect x="0" y="0" width="%s" height="%s"/></clipPath>%s</defs>' % (_fmt(box[2]), _fmt(box[3]), _hatch_defs()),
             '<rect id="paper" x="0" y="0" width="%s" height="%s" fill="%s"/>' % (_fmt(width), _fmt(height), style["paper"]),
@@ -2190,13 +2195,22 @@ def get_sheet_ai(svg_path, force=False):
 
 def get_sheet_file_name(sheet_id, name):
     # type: (int, str) -> str
-    return "%02d_%s.svg" % (sheet_id, re.sub(r"[^0-9A-Za-z가-힣]", "", name))
+    """'04_대중교통역세권.svg' — 이름(지금 언어)에서 글자·숫자만 남긴다(한글·가나·한자·악센트 라틴 포함). 라틴 낱말은 붙이기 전에 첫 글자를 대문자로(04_TransitCatchment)."""
+    return "%02d_%s.svg" % (sheet_id, re.sub(r"[\W_]", "", name.title()))
+
+
+def get_sheet_file_names(sheet_id):
+    # type: (int) -> set
+    """한 장이 언어마다 가질 수 있는 파일 이름(원문 + i18n.json 번역) — 언어를 바꿔 다시 쓸 때 옛 이름 파일을 지운다."""
+    name = SHEET_NAMES[sheet_id]
+    return {get_sheet_file_name(sheet_id, text) for text in [name] + list((get_texts().get(name) or {}).values())}
 
 
 def write_sheets(data, out_dir, sheet_ids=None, options=None):
     # type: (SheetData, str, list, dict) -> list
     """시트들을 out_dir에 쓴다 — 장마다 .svg + 썸네일 PNG data URI. 레이어 .ai는 패널 [모두 .ai로 저장]이 만든다(get_sheet_ai — 23장 다 쓰면 Rhino에서 10 s+).
     옆에 .ai가 이미 있으면 함께 새로 쓴다 — 다시 만든 뒤 폴더에서 연 .ai가 옛 스타일·옛 자료로 남아 있었다(2026-10-19).
+    파일 이름은 지금 언어 — 다른 언어로 쓴 같은 장(.svg·.ai)은 지운다(한 장에 파일 하나). name은 한국어 원문(패널이 tr(name)), reason은 지금 언어.
     반환 [{id, name, path(svg), thumb, empty, reason}] (panel_ui.md done.sheets 모양)."""
     if options:
         data.options = dict(data.options, **options)
@@ -2207,10 +2221,17 @@ def write_sheets(data, out_dir, sheet_ids=None, options=None):
         if sheet_id not in wanted:
             continue
         svg, empty, reason = render_sheet(sheet_id, data)
-        path = os.path.join(out_dir, get_sheet_file_name(sheet_id, name))
+        path = os.path.join(out_dir, get_sheet_file_name(sheet_id, tr(name)))
+        stem = os.path.splitext(path)[0]
+        for old_name in get_sheet_file_names(sheet_id) - {os.path.basename(path)}:
+            old_stem = os.path.join(out_dir, os.path.splitext(old_name)[0])
+            if os.path.exists(old_stem + ".svg"):
+                os.remove(old_stem + ".svg")
+            if os.path.exists(old_stem + ".ai"):   # 아래에서 새 이름·새 언어로 다시 쓴다
+                os.replace(old_stem + ".ai", stem + ".ai")
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(svg)
-        if os.path.exists(os.path.splitext(path)[0] + ".ai"):
+        if os.path.exists(stem + ".ai"):
             get_sheet_ai(path, force=True)   # 수정 시각 비교는 같은 초 안이면 놓친다
         results.append({"id": sheet_id, "name": name, "path": path, "thumb": render_thumbnail(sheet_id, data), "empty": empty, "reason": reason})
     return results

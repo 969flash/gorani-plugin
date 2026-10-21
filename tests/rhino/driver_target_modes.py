@@ -20,7 +20,8 @@ import context_builder
 import context_geometry
 import non_rhino_utils
 
-FIXTURE_DIR = os.path.join(JOB_DIR, "tests", "fixtures")   # noqa: F821 — dev_rhino_run 머리말 전역
+os.environ[constants.LANG_ENV] = "ko"   # 한국어 원문으로 검사
+FIXTURE_DIR =os.path.join(JOB_DIR, "tests", "fixtures")   # noqa: F821 — dev_rhino_run 머리말 전역
 SITE_DB = os.path.join(FIXTURE_DIR, "seongsu_site.db")
 CONTEXT_DB = os.path.join(FIXTURE_DIR, "seongsu_context.db")
 doc = Rhino.RhinoDoc.CreateHeadless(None)

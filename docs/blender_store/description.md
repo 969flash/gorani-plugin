@@ -34,7 +34,7 @@ Everything is saved in `~/Gorani/result/<site>_<date>/`.
 ## Requirements
 
 Blender 4.2 or later on Windows, macOS or Linux, and an internet connection. No Python packages to install.
-The panel is in Korean for now. The Blender buttons are in English, with Korean when Blender's interface language is Korean.
+The panel is in English, Korean, Spanish, Japanese and Chinese (pick it in the panel header). The Blender buttons follow Blender's interface language.
 
 ---
 
@@ -61,3 +61,4 @@ The panel is in Korean for now. The Blender buttons are in English, with Korean 
 참고
 - 결과와 데이터는 `~/Gorani` 폴더에 저장합니다. 라이노판과 같은 폴더를 씁니다.
 - 사용 통계는 보내지 않습니다.
+- 패널 언어는 위쪽 언어 단추에서 한국어로 바꿀 수 있습니다.

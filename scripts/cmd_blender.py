@@ -26,6 +26,7 @@ else:   # 저장소에서 경로로 읽을 때(tests/test_blender.py)
     sys.modules[_spec.name] = cmd_site
     _spec.loader.exec_module(cmd_site)
 loader = cmd_site.loader
+tr = cmd_site.tr   # 패널로 보내는 문구 — 패널 언어(i18n.json)
 
 _bridge = None   # 첫 [패널 열기]에 만든다
 
@@ -55,7 +56,7 @@ def get_curve_ring(obj, scale):
     첫 스플라인만. 베지어는 구간마다 resolution_u로 나눠 곡선을 따른다(제어점만 이으면 Bezier Circle이 사각형이 됐다), 폴리·NURBS는 점을 잇는다."""
     spline = obj.data.splines[0] if obj.data.splines else None
     if spline is None or not spline.use_cyclic_u:
-        return None, "닫힌 커브가 아닙니다. Cyclic(닫힘)을 켠 커브만 받습니다"
+        return None, tr("닫힌 커브가 아닙니다. Cyclic(닫힘)을 켠 커브만 받습니다")
     if spline.type == "BEZIER":
         knots = list(spline.bezier_points)
         points = []
@@ -65,7 +66,7 @@ def get_curve_ring(obj, scale):
         points = [p.co.xyz for p in spline.points]
     world = [obj.matrix_world @ p for p in points]
     if max(p.z for p in world) - min(p.z for p in world) > 1e-3:
-        return None, "XY 평면(Top)에 놓인 커브여야 합니다"
+        return None, tr("XY 평면(Top)에 놓인 커브여야 합니다")
     non_rhino_utils = loader.load("non_rhino_utils")
     ring = non_rhino_utils.get_clean_ring([(p.x * scale, p.y * scale) for p in world])
     problem = non_rhino_utils.get_ring_problem(ring)
@@ -108,7 +109,7 @@ class _BlenderController(cmd_site._SiteController):
         (상태 표시줄 안내, constants.BLENDER_CURVE_WAIT 뒤 멈춤 — 명령은 바로 돌아오고 타이머가 선택을 본다)."""
         curves = _get_selected_curves()
         if len(curves) > 1:
-            self.push({"type": "curve_shape", "ok": False, "text": "커브를 하나만 선택하세요(%d개 선택됨)" % len(curves)})
+            self.push({"type": "curve_shape", "ok": False, "text": tr("커브를 하나만 선택하세요({0}개 선택됨)", len(curves))})
         elif curves:
             self._send_curve(curves[0])
         elif not self._curve_wait:
@@ -125,7 +126,7 @@ class _BlenderController(cmd_site._SiteController):
                 if len(picked) == 1:
                     self._guard("select", lambda: self._send_curve(picked[0]))
                 else:
-                    self.push({"type": "curve_shape", "ok": False, "text": "커브를 고르지 않아 멈췄습니다. Blender에서 커브를 선택하고 다시 누르세요"})
+                    self.push({"type": "curve_shape", "ok": False, "text": tr("커브를 고르지 않아 멈췄습니다. Blender에서 커브를 선택하고 다시 누르세요")})
                 return None
 
             bpy.app.timers.register(poll, first_interval=0.3)
@@ -139,7 +140,7 @@ class _BlenderController(cmd_site._SiteController):
     def _import_context(self, msg):
         result_dir = str(msg.get("dir") or "")
         if not os.path.isdir(result_dir):
-            raise ValueError("결과 폴더가 없습니다: %s" % result_dir)
+            raise ValueError(tr("결과 폴더가 없습니다: {0}", result_dir))
         context_builder = loader.load("context_builder")
         baker = context_builder.get_host_modules()[1]
 
@@ -152,7 +153,7 @@ class _BlenderController(cmd_site._SiteController):
                 baker.zoom_to_site(scene, result_dir)
             _tag_redraw()
 
-        self._run_busy("장면에 넣는 중", "import", work)
+        self._run_busy(tr("장면에 넣는 중"), "import", work)
 
 
 def get_bridge():
@@ -212,20 +213,34 @@ def _tr(text):
     return bpy.app.translations.pgettext_iface(text)
 
 
-# Blender 화면 글은 영어가 기본, 인터페이스 언어가 한국어면 아래 번역(패널 HTML은 한국어 하나). 버튼 글은 연산자 맥락으로도 찾는다
-_KO = {
-    "Open Panel": "패널 열기",
-    "Closed the browser tab? Click again": "브라우저 탭을 닫았으면 다시 누르세요",
-    "Gorani Site Context": "Gorani 사이트 모델",
-    "Open the Gorani panel in your web browser. Pick a site on the map and build the city around it":
-        "Gorani 패널을 기본 브라우저로 엽니다. 지도에서 대상지를 고르면 주변 도시를 만듭니다",
-    "Gorani downloads maps and regional data. Turn on Preferences > System > Network > Allow Online Access":
-        "Gorani는 지도와 지역 데이터를 인터넷에서 받습니다. 환경 설정 > 시스템 > 네트워크 > 온라인 접근 허용을 켜세요",
-    "Could not open a web browser. Open this address:": "브라우저를 열지 못했습니다. 이 주소를 여세요:",
-    "Opened the Gorani panel in your web browser": "Gorani 패널을 브라우저로 열었습니다",
-    "Gorani: select a closed curve for the site area": "Gorani: 대상지 구역으로 쓸 닫힌 커브를 고르세요",
+# Blender 화면 글은 영어가 기본, Blender 인터페이스 언어가 아래면 번역(패널 HTML은 패널 언어 — i18n.json). 단추 글은 연산자 맥락으로도 찾는다
+_UI_TEXTS = {
+    "Open Panel": {"ko_KR": "패널 열기", "es": "Abrir panel", "ja_JP": "パネルを開く", "zh_HANS": "打开面板"},
+    "Closed the browser tab? Click again": {"ko_KR": "브라우저 탭을 닫았으면 다시 누르세요", "es": "¿Cerró la pestaña? Pulse de nuevo",
+                                            "ja_JP": "タブを閉じたらもう一度押してください", "zh_HANS": "关闭了浏览器标签页？请再点一次"},
+    "Gorani Site Context": {"ko_KR": "Gorani 사이트 모델", "es": "Contexto del sitio Gorani", "ja_JP": "Gorani 敷地モデル", "zh_HANS": "Gorani 场地模型"},
+    "Open the Gorani panel in your web browser. Pick a site on the map and build the city around it": {
+        "ko_KR": "Gorani 패널을 기본 브라우저로 엽니다. 지도에서 대상지를 고르면 주변 도시를 만듭니다",
+        "es": "Abre el panel de Gorani en el navegador. Elija un sitio en el mapa y construya la ciudad a su alrededor",
+        "ja_JP": "Gorani パネルをブラウザで開きます。地図で敷地を選ぶと周辺の街をつくります",
+        "zh_HANS": "在浏览器中打开 Gorani 面板。在地图上选择场地，生成周边城市"},
+    "Gorani downloads maps and regional data. Turn on Preferences > System > Network > Allow Online Access": {
+        "ko_KR": "Gorani는 지도와 지역 데이터를 인터넷에서 받습니다. 환경 설정 > 시스템 > 네트워크 > 온라인 접근 허용을 켜세요",
+        "es": "Gorani descarga mapas y datos regionales. Active Preferencias > Sistema > Red > Permitir acceso en línea",
+        "ja_JP": "Gorani は地図と地域データをダウンロードします。プリファレンス > システム > ネットワーク > オンラインアクセスを許可 をオンにしてください",
+        "zh_HANS": "Gorani 需要下载地图和地区数据。请开启 偏好设置 > 系统 > 网络 > 允许在线访问"},
+    "Could not open a web browser. Open this address:": {"ko_KR": "브라우저를 열지 못했습니다. 이 주소를 여세요:", "es": "No se pudo abrir el navegador. Abra esta dirección:",
+                                                       "ja_JP": "ブラウザを開けませんでした。このアドレスを開いてください:", "zh_HANS": "无法打开浏览器。请打开此地址："},
+    "Opened the Gorani panel in your web browser": {"ko_KR": "Gorani 패널을 브라우저로 열었습니다", "es": "Panel de Gorani abierto en el navegador",
+                                                    "ja_JP": "Gorani パネルをブラウザで開きました", "zh_HANS": "已在浏览器中打开 Gorani 面板"},
+    "Gorani: select a closed curve for the site area": {"ko_KR": "Gorani: 대상지 구역으로 쓸 닫힌 커브를 고르세요", "es": "Gorani: seleccione una curva cerrada para el área del sitio",
+                                                        "ja_JP": "Gorani: 敷地範囲にする閉じたカーブを選んでください", "zh_HANS": "Gorani：请选择作为场地范围的闭合曲线"},
 }
-TRANSLATIONS = {"ko_KR": {(context, en): ko for en, ko in _KO.items() for context in ("*", "Operator")}}
+TRANSLATIONS = {}
+for _en, _texts in _UI_TEXTS.items():
+    for _locale, _text in _texts.items():
+        for _context in ("*", "Operator"):
+            TRANSLATIONS.setdefault(_locale, {})[(_context, _en)] = _text
 _CLASSES = (GORANI_OT_open, GORANI_PT_panel)
 POLL_SECONDS = loader.load("constants").BLENDER_PANEL_POLL
 CURVE_WAIT_SECONDS = loader.load("constants").BLENDER_CURVE_WAIT

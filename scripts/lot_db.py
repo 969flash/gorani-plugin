@@ -15,6 +15,7 @@ from pathlib import Path
 
 import constants
 import data_pack
+from i18n import tr
 
 HOME_DIR = Path(constants.HOME_DIR)
 DEFAULT_DATABASE_PATH = HOME_DIR / constants.DATABASE_PATH
@@ -204,10 +205,10 @@ def _normalize_pnus(pnus):
     invalid = [pnu for pnu in normalized if not _PNU_PATTERN.fullmatch(pnu)]
     if invalid:
         raise ValueError(
-            "PNU는 %d자리 숫자여야 합니다: %s" % (constants.PNU_LENGTH, invalid)
+            tr("PNU는 {0}자리 숫자여야 합니다: {1}", constants.PNU_LENGTH, invalid)
         )
     if not normalized:
-        raise ValueError("PNU가 하나 이상 필요합니다")
+        raise ValueError(tr("PNU가 하나 이상 필요합니다"))
     return list(dict.fromkeys(normalized))
 
 
@@ -220,7 +221,7 @@ def _open_database(database_path=None, bounds=None, pnus=None):
         paths = data_pack.get_local_paths("site", bounds, {pnu[:2] for pnu in pnus} if pnus else None,
                                           sgg_codes={pnu[:5] for pnu in pnus} if pnus else None)
     if not paths:
-        raise FileNotFoundError("로컬 DB가 없습니다: %s" % (database_path or DEFAULT_DATABASE_PATH))
+        raise FileNotFoundError(tr("로컬 DB가 없습니다: {0}", database_path or DEFAULT_DATABASE_PATH))
     return data_pack.open_databases(paths)
 
 
@@ -294,7 +295,7 @@ def load(pnus, database_path=None):
         found_pnus = {row["pnu"] for row in lot_rows}
         missing_pnus = [pnu for pnu in pnus if pnu not in found_pnus]
         if missing_pnus:
-            raise KeyError("DB에 없는 PNU: %s" % missing_pnus)
+            raise KeyError(tr("DB에 없는 PNU: {0}", missing_pnus))
 
         lot_by_pnu = {row["pnu"]: row for row in lot_rows}
         lots = [_lot_info_from_row(lot_by_pnu[pnu]) for pnu in pnus]
@@ -364,9 +365,8 @@ def _require_bbox_index(connection):
         or not required_columns.issubset(lot_columns)
     ):
         raise RuntimeError(
-            "현재 로컬 DB가 스키마 v%d가 아닙니다(필지 경계상자·계획 오버레이). "
-            "dev_database_builder.py로 DB를 다시 구축하세요"
-            % constants.DATABASE_SCHEMA_VERSION
+            tr("현재 로컬 DB가 스키마 v{0}가 아닙니다(필지 경계상자·계획 오버레이). dev_database_builder.py로 DB를 다시 구축하세요",
+               constants.DATABASE_SCHEMA_VERSION)
         )
 
     # RTree는 SQLite 빌드에 따라 없다(Rhino 8 Windows CPython). 경계상자 컬럼에

@@ -36,7 +36,7 @@ REQUEST_TIMEOUT = 5      # s — 메인 스레드 판에서 느린 연결 하나
 
 def get_html():
     # type: () -> str
-    """site_ui.html에 vendor(Leaflet CSS·JS, Pretendard data URI)를 심은 문자열 — panel_host._get_ui_file_uri와 같은 주입.
+    """site_ui.html에 vendor(Leaflet CSS·JS, Pretendard data URI)와 다국어 사전(i18n.json)을 심은 문자열 — panel_host._get_ui_file_uri와 같은 주입.
     Blender 확장 설치본에는 Pretendard가 없다(약관 1.2 CC0만) — 빈 data URI로 두면 브라우저가 CSS의 다음 글꼴(시스템 한글 글꼴)로 그린다."""
     def read(*parts):
         with open(os.path.join(SCRIPTS_DIR, *parts), encoding="utf-8") as f:
@@ -44,6 +44,7 @@ def get_html():
     html = read("site_ui.html")
     html = html.replace("<!--VENDOR_CSS-->", "<style>" + read("vendor", "leaflet.css") + "</style>")
     html = html.replace("<!--VENDOR_JS-->", "<script>" + read("vendor", "leaflet.js") + "</script>")
+    html = html.replace("<!--I18N-->", "<script>window.I18N = " + read("i18n.json").replace("</", "<\\/") + ";</script>")   # 다국어 사전 — 패널 tr()
     font_path = os.path.join(SCRIPTS_DIR, "vendor", "PretendardVariable.woff2")
     if not os.path.exists(font_path):
         return html.replace("<!--FONT_WOFF2-->", "data:,")
