@@ -28,7 +28,7 @@ try:
     non_rhino_utils.set_projection(2.2945, 48.8584)
     x, y = non_rhino_utils.get_tm_from_wgs84(2.2945, 48.8584)
     request = {"target": {"mode": "point", "center": [x, y]}, "result_root": os.path.join(OUT_DIR, "result"),   # noqa: F821
-               "options": {"radius": 300, "shape": "circle", "scales": [1000], "paper": "A3", "make_basemap": True, "make_sheets": True,
+               "options": {"output_lang": "en", "radius": 300, "shape": "circle", "scales": [1000], "paper": "A3", "make_basemap": True, "make_sheets": True,
                            "make_tables": True}}
     t0 = time.time()
 

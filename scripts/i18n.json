@@ -2453,12 +2453,6 @@
   "ja": "拡張機能 → 拡張機能マネージャー",
   "zh": "扩展程序 → 扩展程序管理器"
  },
- "{0}외{1}": {
-  "en": "{0}+{1}",
-  "es": "{0}+{1}",
-  "ja": "{0}外{1}",
-  "zh": "{0}+{1}"
- },
  "일대": {
   "en": "Vicinity",
   "es": "Alrededores",
@@ -5392,5 +5386,29 @@
   "es": "Retícula",
   "ja": "グリッド",
   "zh": "网格"
+ },
+ "결과 언어": {
+  "en": "File names",
+  "es": "Nombres de archivo",
+  "ja": "ファイル名",
+  "zh": "文件名"
+ },
+ "결과 폴더와 파일 이름 언어": {
+  "en": "Language of result folder and file names",
+  "es": "Idioma de los nombres de carpetas y archivos",
+  "ja": "結果フォルダとファイル名の言語",
+  "zh": "结果文件夹和文件名的语言"
+ },
+ "결과 폴더, 2D 폴더, 도면과 조서 파일 이름을 이 언어로 만듭니다": {
+  "en": "Names the result folder, 2D folder, drawings and tables in this language",
+  "es": "Nombra en este idioma la carpeta de resultados, la carpeta 2D, las láminas y las tablas",
+  "ja": "結果フォルダ・2Dフォルダ・図面・調書のファイル名をこの言語で付けます",
+  "zh": "用此语言命名结果文件夹、2D 文件夹、图纸和统计表"
+ },
+ "결과 폴더와 파일 이름: {0}": {
+  "en": "Result folder and file names: {0}",
+  "es": "Nombres de carpetas y archivos: {0}",
+  "ja": "結果フォルダとファイル名: {0}",
+  "zh": "结果文件夹和文件名：{0}"
  }
 }

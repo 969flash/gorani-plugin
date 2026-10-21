@@ -24,7 +24,7 @@ TODAY = datetime.date(2026, 10, 7)
 HOLE_PNU = "1120011400100130219"   # 성수동1가 13-219 — 구멍 3개(test_context_builder와 같은 필지)
 
 # docs/panel_ui.md 푸시 정의의 키 집합
-INIT_KEYS = {"type", "version", "blocked", "paths", "generator", "host", "stats_consent", "links", "can_download", "sources", "warnings", "tile", "map", "options", "modes", "recent", "sheet_catalog",
+INIT_KEYS = {"type", "version", "blocked", "paths", "generator", "host", "stats_consent", "links", "output_langs", "can_download", "sources", "warnings", "tile", "map", "options", "modes", "recent", "sheet_catalog",
              "style_presets", "style_defaults", "style_ramps", "styles", "update", "notices"}
 SOURCE_KEYS = {"id", "label", "name", "date", "age_months", "level", "newer_date", "text"}
 SEARCH_KEYS = {"type", "query", "seq", "matches", "message"}

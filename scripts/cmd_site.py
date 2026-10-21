@@ -99,7 +99,7 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
     처리: 필지 DB 존재 → blocked, context_builder.get_sources/get_source_warnings, review_map 타일·지도, site_prefs 옵션·recent,
           SHEET_CATALOG, 매니페스트 업데이트·공지(data_pack.get_notice_state). 네트워크 접근 없음 — 매니페스트는 _init이 먼저 받아 둔다.
           generator는 항상 ok(서브프로세스 없음 — UI 호환 키).
-    출력: {"type": "init_state", version, blocked, paths, generator, host, stats_consent, links, sources, warnings, tile, map, options, modes, recent, sheet_catalog,
+    출력: {"type": "init_state", version, blocked, paths, generator, host, stats_consent, links, output_langs, sources, warnings, tile, map, options, modes, recent, sheet_catalog,
           style_presets, style_defaults, style_ramps, styles, update, notices}.
     """
     constants = loader.load("constants")
@@ -119,7 +119,8 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
         "generator": {"ok": True, "python": host["name"] + " Python", "text": tr("{0} 내장", host["name"])},
         "host": host,
         "stats_consent": site_prefs.get_stats_consent(),
-        "links": dict(constants.PANEL_LINKS),   # 메뉴가 주소를 그대로 보여 준다. 여는 건 open_url{key}
+        "links": dict(constants.PANEL_LINKS),
+        "output_langs": [list(x) for x in constants.OUTPUT_LANGS],   # 메뉴 '결과물 언어' 칸 — [코드, 이름]   # 메뉴가 주소를 그대로 보여 준다. 여는 건 open_url{key}
         "can_download": bool(constants.DATA_MANIFEST_URL),
         "sources": sources,
         "warnings": context_builder.get_source_warnings(sources),
@@ -906,9 +907,10 @@ class _SiteController:
         """도면 한 장(path) 또는 결과 폴더 전부(all)를 레이어 .ai로 — 하나면 쓰고 바로 연다."""
         result_dir = self._get_result_dir(msg)
         sheet_svg = loader.load("sheet_svg")
-        sheets_dir = loader.load("context_builder").get_sheets_dir(result_dir)
+        sheets_dir = loader.load("context_builder").get_sheets_dir(result_dir)   # [모두 .ai로 저장] = 마지막 2D 폴더
         paths = sorted(os.path.join(sheets_dir, n) for n in os.listdir(sheets_dir) if n.endswith(".svg")) if msg.get("all") else [str(msg.get("path") or "")]
-        if not all(p.startswith(sheets_dir) and os.path.exists(p) for p in paths):
+        inside = os.path.join(os.path.abspath(result_dir), "")   # 한 장은 그 결과 폴더 안 어느 2D 폴더든
+        if not all(os.path.abspath(p).startswith(inside) and p.endswith(".svg") and os.path.exists(p) for p in paths):
             raise ValueError(tr("도면 파일이 없습니다"))
 
         def work():
@@ -921,9 +923,9 @@ class _SiteController:
 
     def _sheet_view(self, msg):
         """도면 SVG 한 장의 내용을 패널 보기 창으로 — OS로 열면 .svg가 Illustrator에 묶인 PC가 많다(2026-10-19 Rhino QA)."""
-        sheets_dir = loader.load("context_builder").get_sheets_dir(self._get_result_dir(msg))
+        inside = os.path.join(os.path.abspath(self._get_result_dir(msg)), "")   # 그 결과 폴더 안 어느 2D 폴더든(2D_<스타일>_<HHMM>/sheets)
         path = str(msg.get("path") or "")
-        if not (os.path.abspath(path).startswith(os.path.join(os.path.abspath(sheets_dir), "")) and path.endswith(".svg") and os.path.exists(path)):
+        if not (os.path.abspath(path).startswith(inside) and path.endswith(".svg") and os.path.exists(path)):
             raise ValueError(tr("도면 파일이 없습니다"))
         with open(path, encoding="utf-8") as handle:
             self.push({"type": "sheet_view", "path": path, "svg": handle.read()})
