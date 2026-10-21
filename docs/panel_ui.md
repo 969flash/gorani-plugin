@@ -269,6 +269,20 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 - 공지 `id`는 바꾸지 않는다 — 바꾸면 닫은 사람에게 다시 뜬다. 목 패널: `site_ui.html?mock=1&step=1&update=soft|hard`(공지 견본 셋 포함), `&notice=1`은 공지만.
 - 버전은 `constants.PANEL_VERSION` 하나 — 배포할 때 올린다. 0.1.0 이전 설치본에는 이 확인이 없다(그 사용자는 막을 수 없다).
 
+## 언어 (2026-10-21)
+
+food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로 패널을 다섯 언어로 쓴다: 영어(기본)·한국어·스페인어·일본어·중국어 간체.
+
+- 사전은 `scripts/i18n.json` 하나 — `{"한국어 원문": {"en", "es", "ja", "zh"}}`. 패널 JS `tr("원문", a, b)`와 Python `i18n.tr("원문", a, b)`가 같은 사전을 쓴다. 원문(키)은 한국어 그대로라 한국어는 사전을 보지 않는다. 번역이 없으면 영어, 영어도 없으면 원문. 자리표시 `{0}`·`{1}`(Python은 `{0:.1f}`처럼 형식도).
+- 호스트(`panel_host`·`panel_server.get_html`)가 HTML의 `<!--I18N-->` 자리에 `window.I18N = {…}`를 심는다. 파일로 연 목(`?mock=1`)은 옆의 `i18n.json`을 읽는다. `&lang=ko|es|ja|zh`로 언어를 고른다.
+- 언어는 `options.lang`(prefs). 고르기는 헤더의 지구본 칸(언어 이름은 그 언어로). 바꾸면 `save_prefs` 후 지금 화면을 다시 그린다(대상지·결과는 그대로).
+- JS는 모든 명령에 `lang`을 붙이고, `cmd_site.handle`이 그 값으로 Python 언어(환경변수 `GORANI_LANG`)를 바꾼다 — 그 명령의 푸시 문구·로그·도면·CSV가 그 언어로 나온다. 첫 `init`은 패널도 모르므로 저장한 `options.lang`.
+- 처음 설치는 영어(`constants.DEFAULT_LANG`). 0.3.0 전에 쓰던 설치본(prefs에 options는 있고 `lang`이 없다)은 한국어 그대로(`site_prefs.get_options`).
+- 패널이 tr()로 바꾸는 Python 원문: `sheet_catalog[].name`, `style_presets[].name`, `done.sheets[].name·reason`, `host.name`(웹판 '브라우저'). 이미 번역돼 온 글은 사전에 없어 그대로 나온다.
+- 번역문에는 원문에 없는 `" & < >`를 쓰지 않는다 — 패널이 한국어 원문처럼 HTML에 그대로 넣는다. 매니페스트 공지·업데이트 글(`update.title·body·items·deadline`, `notices[].text`)은 문자열 또는 `{en, ko, …}`(패널 `pickLang`).
+- 웹페이지 링크: 한국어는 `PANEL_LINKS.website`, 그 밖은 `website_en`(영어 페이지).
+- 새 문구를 넣으면 `tr()`로 감싸고 `i18n.json`에 네 언어를 넣는다. `tests/test_i18n.py`가 빠진 번역·자리표시·특수문자·안 쓰는 키를 잡는다.
+
 ## 시군구 팩 (2026-10-13)
 
 - 배포 팩은 시군구 단위 `<시군구코드>_<site|context|terrain>.db.xz`(dev_deploy가 시도 DB를 200 m 격자·PNU로 나눈다, 경계 객체는 양쪽에). 런타임은 대상지 범위에 걸리는 파일만 열고 id로 중복을 걷어 낸다.
@@ -396,7 +410,7 @@ Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `r
 
 | 파일 | 내용 | 쓰는 쪽 | 읽는 쪽 |
 |---|---|---|---|
-| `~/.gorani/prefs.json` | `{"options":{…20키…}, "recent":[{pnus,label,total_area,date}×5]}` | `save_prefs`(options), `generate` 성공(recent 앞에 삽입·중복 제거·5개) | `init` |
+| `~/.gorani/prefs.json` | `{"options":{…20키…(lang 포함)}, "recent":[{pnus,label,total_area,date}×5]}` | `save_prefs`(options), `generate` 성공(recent 앞에 삽입·중복 제거·5개) | `init` |
 | `~/.gorani/source_news.json` | `{"checked_at":"2026-10-07","building":{"newer_date":"2026-09-09"},"lot":{…},"upis":{…}}` | `dev_check_sources.py`(P1. 없으면 `newer_date:null`) | `preflight`·`init`(배지)·생성기(`done.warnings`) |
 | `~/.gorani/client_id` | 무작위 UUID 한 줄(사용 통계 설치 식별) | `usage_stats.get_client_id`(없으면 생성) | `usage_stats` |
 | `.env`(`HOME_DIR`) | `VWORLD_API_KEY=…`(지도·위성 배경, 항공사진, 주소 보조 검색 — 없으면 OSM·Esri·지명 검색). `= ` 뒤 공백 금지 | 사용자(OS 편집기). 없으면 `open_path`가 한 줄 템플릿 생성 | `pnu_loader._read_local_env_value`(strip)·생성기 |
@@ -423,7 +437,7 @@ Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `r
 - `preflight`는 패널이 보내지 않는다(2026-10-19 — 범위가 원·사각형뿐이라 JS가 그린다). 명령은 남아 있다(Blender·SketchUp·예전 패널).
 - Leaflet 인스턴스 1개, 지도 화면에만 있다(결과 화면에서는 `#map_park`에 대피). `map.remove()` 금지. 줌 ≥ 17에서만 `map_lots`(moveend 250 ms 디바운스, `seq` 증가). `tileerror` 3회 → `fallback_url`로 `setUrl` 1회, 폴백 뒤에도 3회면 지도 위 칩.
 - `generate` 페이로드: `{target, options}` — 옵션 키 절의 고정값을 덮어 보낸다. `make_2d` 페이로드: `{dir: result.dir, options}`.
-- `?mock=1`: `send`를 콘솔 출력으로 바꾸고 `tests/fixtures/site_ui_mock.json`을 순서대로 흘린다(`init_state` → `search_result` → `lot_state` → `data_progress`·`progress`… → `done` → (`&step=2d`면) `progress`… → `made_2d`). `&step=1`은 지도까지, `&menu=1`은 메뉴를 연다.
+- `?mock=1`: `send`를 콘솔 출력으로 바꾸고 `tests/fixtures/site_ui_mock.json`을 순서대로 흘린다(`init_state` → `search_result` → `lot_state` → `data_progress`·`progress`… → `done` → (`&step=2d`면) `progress`… → `made_2d`). `&step=1`은 지도까지, `&menu=1`은 메뉴를 연다. `&lang=ko`처럼 언어를 고른다(기본 영어).
 
 ## 플랫폼 주의(기존 그대로)
 

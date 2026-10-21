@@ -65,6 +65,7 @@ else:   # cmd_install.py와 같은 방식 — 고유 모듈명으로 로더를 �
     _spec.loader.exec_module(loader)
 
 ROOT_DIR = loader.ROOT_DIR
+_i18n = loader.load("i18n")   # 모듈 객체는 loader가 다시 읽어도 같다 — tr은 부를 때 찾는다
 PANEL_STICKY_KEY = "gorani_site_panel"
 ENV_TEMPLATE = "VWORLD_API_KEY=\n"
 # 콜백이 오지 않는 phase의 행 오른쪽 글(panel_ui.md 진행률 규약)
@@ -72,6 +73,12 @@ SKIPPED_DETAILS = {"refresh": "건너뜀 — v1 미구현", "import": "건너뜀
 SKIPPED_OPTION_DETAIL = "건너뜀 — 옵션"
 SEARCH_MAX_MATCHES = 8
 _EMPTY_FC = {"type": "FeatureCollection", "features": []}
+
+
+def tr(text, *args):
+    # type: (str, object) -> str
+    """한국어 원문 → 지금 패널 언어(i18n.tr)."""
+    return _i18n.tr(text, *args)
 
 
 # ── 조립 함수 (Rhino 없음) ─────────────────────────────────
@@ -109,7 +116,7 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
         "blocked": not has_lot_db,
         "paths": {"root": constants.HOME_DIR, "lot_db": constants.DATABASE_PATH, "context_db": constants.CONTEXT_DATABASE_PATH,
                   "env": ".env", "install_doc": constants.INSTALL_DOC},
-        "generator": {"ok": True, "python": host["name"] + " Python", "text": host["name"] + " 내장"},
+        "generator": {"ok": True, "python": host["name"] + " Python", "text": tr("{0} 내장", host["name"])},
         "host": host,
         "stats_consent": site_prefs.get_stats_consent(),
         "links": dict(constants.PANEL_LINKS),   # 메뉴가 주소를 그대로 보여 준다. 여는 건 open_url{key}
@@ -147,13 +154,13 @@ def get_search_result(query, site_db=None, region=None):
         places = loader.load("osm_context").search_places(query, SEARCH_MAX_MATCHES)
         return {"type": "search_result", "query": query, "seq": None,
                 "matches": [{"pnu": "", "address": p["name"], "jibun": "", "land_category": "", "area": None, "center": p["center"]} for p in places],
-                "message": "지명 후보 %d건 (OpenStreetMap)" % len(places) if places else "찾지 못했습니다. 동 이름까지 적어 보세요"}
+                "message": tr("지명 후보 {0}건 (OpenStreetMap)", len(places)) if places else tr("찾지 못했습니다. 동 이름까지 적어 보세요")}
     centers = review_map.get_parcel_centers([m.pnu for m in matches], site_db) if matches else {}
     return {
         "type": "search_result", "query": query, "seq": None,
         "matches": [{"pnu": m.pnu, "address": m.address, "jibun": m.lot_number or _jibun(m.address), "land_category": m.land_category,
                      "area": m.geometry_area, "center": centers.get(m.pnu)} for m in matches],
-        "message": "후보 %d건" % len(matches) if matches else "찾지 못했습니다. 동 이름까지 적어 보세요",
+        "message": tr("후보 {0}건", len(matches)) if matches else tr("찾지 못했습니다. 동 이름까지 적어 보세요"),
     }
 
 
@@ -360,7 +367,7 @@ def get_skipped_details(options):
     """generate 시작 때의 (skipped phase 집합, phase_detail 초기값) — 옵션으로 끈 phase는 '건너뜀 — 옵션'."""
     context_builder = loader.load("context_builder")
     skipped = context_builder.get_skipped_phases(context_builder.get_request_with_defaults({"options": options})["options"])
-    return skipped, {phase: SKIPPED_DETAILS.get(phase, SKIPPED_OPTION_DETAIL) for phase in skipped}
+    return skipped, {phase: tr(SKIPPED_DETAILS.get(phase, SKIPPED_OPTION_DETAIL)) for phase in skipped}
 
 
 def get_skipped_details_2d(options):
@@ -369,7 +376,7 @@ def get_skipped_details_2d(options):
     skipped, details = get_skipped_details(options)
     for phase in ("terrain", "write_3dm"):
         skipped.add(phase)
-        details[phase] = "3D는 이미 만듦"
+        details[phase] = tr("3D는 이미 만듦")
     return skipped, details
 
 
@@ -395,8 +402,8 @@ def get_failed_progress(response, phase, skipped, details):
     """run 응답(ok=false) → progress{state: failed|cancelled, error}. phase는 마지막 콜백의 phase."""
     context_builder = loader.load("context_builder")
     state = "cancelled" if response.get("cancelled") else "failed"
-    error = response.get("error") or {"code": "exception", "title": "생성 실패", "detail": ""}
-    return context_builder.get_progress_message(phase, 1.0, "취소됨" if state == "cancelled" else error.get("title", ""),
+    error = response.get("error") or {"code": "exception", "title": tr("생성 실패"), "detail": ""}
+    return context_builder.get_progress_message(phase, 1.0, tr("취소됨") if state == "cancelled" else error.get("title", ""),
                                                 skipped, details, state=state, error=error)
 
 
@@ -406,7 +413,7 @@ def resolve_open_path(path, root=None):
     코드 루트(docs/ 등 배포 문서), .env가 없으면 두 줄 템플릿을 만든다. 없는 경로는 ValueError."""
     path = str(path or "").strip()
     if not path or "://" in path:
-        raise ValueError("열 수 없는 경로입니다: %s" % (path or "빈 값"))
+        raise ValueError(tr("열 수 없는 경로입니다: {0}", path or tr("빈 값")))
     root = root or loader.load("constants").HOME_DIR
     full = path if os.path.isabs(path) else os.path.join(root, path)
     if not os.path.exists(full) and not os.path.isabs(path) and path != ".env" and os.path.exists(os.path.join(ROOT_DIR, path)):
@@ -418,7 +425,7 @@ def resolve_open_path(path, root=None):
         with open(full, "w", encoding="utf-8") as f:
             f.write(ENV_TEMPLATE)
     if not os.path.exists(full):
-        raise ValueError("경로가 없습니다: %s" % full)
+        raise ValueError(tr("경로가 없습니다: {0}", full))
     return full
 
 
@@ -494,6 +501,10 @@ class _SiteController:
         """JS 명령 하나를 라우팅한다. 호스트가 UI 스레드에서 부른다."""
         msg = msg or {}
         cmd = msg.get("cmd", "")
+        if msg.get("lang"):   # 패널이 명령마다 지금 언어를 붙인다 — 이 명령의 문구·결과 파일이 그 언어로
+            _i18n.set_lang(msg["lang"])
+        elif cmd == "init":   # 패널을 막 열었을 때는 패널도 모른다 — 저장한 언어
+            _i18n.set_lang(loader.load("site_prefs").get_options().get("lang"))
         handlers = {
             "init": self._init, "search": self._search, "map_lots": self._map_lots, "select_lots": self._select_lots,
             "set_area": self._set_area, "set_point": self._set_point, "pick_curve": self._pick_curve,
@@ -505,7 +516,7 @@ class _SiteController:
         }
         handler = handlers.get(cmd)
         if handler is None:
-            self.push({"type": "error", "context": "init", "text": "알 수 없는 명령입니다: %s" % cmd, "detail": ""})
+            self.push({"type": "error", "context": "init", "text": tr("알 수 없는 명령입니다: {0}", cmd), "detail": ""})
             return
         self._guard(_ERROR_CONTEXTS.get(cmd, cmd), lambda: handler(msg))
 
@@ -519,7 +530,7 @@ class _SiteController:
             text = str(error) if isinstance(error, OSError) else (str(error.args[0]) if error.args else str(error))
             self.push({"type": "error", "context": context, "text": text, "detail": ""})
         except Exception:
-            self.push({"type": "error", "context": context, "text": "예상 밖 오류", "detail": traceback.format_exc()})
+            self.push({"type": "error", "context": context, "text": tr("예상 밖 오류"), "detail": traceback.format_exc()})
             self._send_stats("error", {"context": context, "error": type(sys.exc_info()[1]).__name__})
 
     # ── 호스트 연결 (Rhino) — cmd_blender가 같은 이름으로 바꿔 단다 ──
@@ -573,7 +584,7 @@ class _SiteController:
     def _search(self, msg):
         query = (msg.get("query") or "").strip()
         if not query:
-            raise ValueError("주소 또는 PNU를 입력하세요")
+            raise ValueError(tr("주소 또는 PNU를 입력하세요"))
         self.push(get_search_result(query, region=msg.get("region")))
 
     def _map_lots(self, msg):
@@ -599,18 +610,18 @@ class _SiteController:
         selected = [o for o in doc.Objects.GetSelectedObjects(False, False)]
         curves = [o for o in selected if isinstance(o.Geometry, Rhino.Geometry.Curve)]
         if len(curves) > 1:
-            self.push({"type": "curve_shape", "ok": False, "text": "커브를 하나만 선택하세요(%d개 선택됨)" % len(curves)})
+            self.push({"type": "curve_shape", "ok": False, "text": tr("커브를 하나만 선택하세요({0}개 선택됨)", len(curves))})
             return
         if curves:
             curve = curves[0].Geometry
         else:
             go = Rhino.Input.Custom.GetObject()
-            go.SetCommandPrompt("대상지 구역 커브 선택 (닫힌 평면 커브 하나)")
+            go.SetCommandPrompt(tr("대상지 구역 커브 선택 (닫힌 평면 커브 하나)"))
             go.GeometryFilter = Rhino.DocObjects.ObjectType.Curve
             go.GeometryAttributeFilter = Rhino.Input.Custom.GeometryAttributeFilter.ClosedCurve
             go.SubObjectSelect = False
             if go.Get() != Rhino.Input.GetResult.Object:
-                self.push({"type": "curve_shape", "ok": False, "text": "커브 선택을 취소했습니다"})
+                self.push({"type": "curve_shape", "ok": False, "text": tr("커브 선택을 취소했습니다")})
                 return
             curve = go.Object(0).Curve()
             doc.Objects.UnselectAll()
@@ -637,7 +648,7 @@ class _SiteController:
     def _generate(self, msg):
         """context_builder.run을 UI 스레드에서 동기 호출. 끝나면 done, 실패·취소면 progress{failed|cancelled}."""
         if self._running:
-            self.push({"type": "error", "context": "generate", "text": "이미 생성 중입니다", "detail": ""})
+            self.push({"type": "error", "context": "generate", "text": tr("이미 생성 중입니다"), "detail": ""})
             return
         context_builder = loader.load("context_builder")
         context_baker = context_builder.get_host_modules()[1]
@@ -675,7 +686,7 @@ class _SiteController:
         """3D 결과 폴더에 2D 자료(베이스맵 .ai·도면·조서 CSV)를 더한다 — context_builder.make_2d를 UI 스레드에서 동기 호출.
         생성 전에 2D 범위(가장 큰 프레임)의 팩을 받는다. 진행은 progress, 끝(성공·실패·취소)은 made_2d 하나. 문서는 건드리지 않는다."""
         if self._running:
-            self.push({"type": "error", "context": "generate", "text": "이미 만드는 중입니다", "detail": ""})
+            self.push({"type": "error", "context": "generate", "text": tr("이미 만드는 중입니다"), "detail": ""})
             return
         result_dir = self._get_result_dir(msg)
         context_builder = loader.load("context_builder")
@@ -720,7 +731,7 @@ class _SiteController:
         끝에 data_progress{done, ok, text}. 다 받았으면 True, 멈추거나 실패하면 False(받은 팩은 남는다). 호출자가 _running을 관리한다."""
         data_pack = loader.load("data_pack")
         names = list(dict.fromkeys(get_region_name(pack) for pack in packs))
-        region = names[0] + (" 외 %d곳" % (len(names) - 1) if len(names) > 1 else "")
+        region = tr("{0} 외 {1}곳", names[0], len(names) - 1) if len(names) > 1 else names[0]
         total_bytes = float(sum(pack.get("xz_size", 0) for pack in packs)) or 1.0
         client_id = loader.load("usage_stats").get_client_id()
         done, ok, offset, reason = [], True, 0.0, ""
@@ -732,7 +743,7 @@ class _SiteController:
                 fraction = (offset + pack.get("xz_size", 0) * read / max(total, 1)) / total_bytes
                 if int(fraction * 100) != last[0]:
                     last[0] = int(fraction * 100)
-                    self.push({"type": "data_progress", "text": "%s 지역 데이터 받는 중 %d%%" % (region, last[0]),
+                    self.push({"type": "data_progress", "text": tr("{0} 지역 데이터 받는 중 {1}%", region, last[0]),
                                "fraction": round(fraction, 3), "in_generate": in_generate})
                 self._pump()
                 return not self._cancel_requested
@@ -742,13 +753,13 @@ class _SiteController:
                     ok = False
                     break
             except Exception as exc:   # 오프라인·서버 오류 — 받은 데까지 쓴다
-                self.push({"type": "log", "level": "warn", "text": "지역 데이터 받기 실패 %s: %s" % (pack["name"], exc)})
+                self.push({"type": "log", "level": "warn", "text": tr("지역 데이터 받기 실패 {0}: {1}", pack["name"], exc)})
                 ok, reason = False, str(exc) if isinstance(exc, ValueError) else ""   # 하루 한도·sha256 불일치는 그 문장을 그대로
                 break
             done.append(pack["name"])
             offset += pack.get("xz_size", 0)
-        text = "" if ok else ("받기를 멈췄습니다. 받은 지역은 남습니다" if self._cancel_requested
-                              else reason or "지역 데이터를 다 받지 못했습니다. 인터넷 연결을 확인하세요")
+        text = "" if ok else (tr("받기를 멈췄습니다. 받은 지역은 남습니다") if self._cancel_requested
+                              else reason or tr("지역 데이터를 다 받지 못했습니다. 인터넷 연결을 확인하세요"))
         self.push({"type": "data_progress", "done": True, "ok": ok, "text": text, "in_generate": in_generate})
         self._send_stats("pack_download", {"packs": ",".join(dict.fromkeys(name.split("_")[0] for name in done)), "count": len(done),
                                            "requested": len(packs), "in_generate": in_generate})
@@ -757,7 +768,7 @@ class _SiteController:
     def _download_data(self, msg):
         """지도에서 고른 시군구 팩(names, 없으면 바뀐 팩 전부)을 받는다. 끝나면 init_state."""
         if self._running:
-            raise ValueError("다른 작업이 진행 중입니다")
+            raise ValueError(tr("다른 작업이 진행 중입니다"))
         data_pack = loader.load("data_pack")
         packs = data_pack.get_missing_packs(data_pack.get_manifest())
         if msg.get("names"):
@@ -803,7 +814,7 @@ class _SiteController:
     def _import_context(self, msg):
         result_dir = str(msg.get("dir") or "")
         if not os.path.isdir(result_dir):
-            raise ValueError("결과 폴더가 없습니다: %s" % result_dir)
+            raise ValueError(tr("결과 폴더가 없습니다: {0}", result_dir))
         context_baker = loader.load("context_baker")
         site_prefs = loader.load("site_prefs")
 
@@ -815,13 +826,13 @@ class _SiteController:
             if result["ok"] and site_prefs.get_options().get("zoom_after_import"):
                 context_baker.zoom_to_site(doc, result_dir)
 
-        self._run_busy("문서에 넣는 중", "import", work)
+        self._run_busy(tr("문서에 넣는 중"), "import", work)
 
     def _export_basemap(self, msg):
         result_dir = str(msg.get("dir") or "")
         scale = int(msg.get("scale") or 0)
         if not os.path.isdir(result_dir):
-            raise ValueError("결과 폴더가 없습니다: %s" % result_dir)
+            raise ValueError(tr("결과 폴더가 없습니다: {0}", result_dir))
         context_builder = loader.load("context_builder")
 
         def work():
@@ -832,12 +843,12 @@ class _SiteController:
             except (ValueError, KeyError, FileNotFoundError, RuntimeError) as exc:
                 self.push({"type": "exported", "ok": False, "dir": result_dir, "scale": scale, "path": "", "text": str(exc)})
 
-        self._run_busy("내보내는 중", "export", work)
+        self._run_busy(tr("내보내는 중"), "export", work)
 
     def _zoom_view(self, msg):
         context_baker = loader.load("context_builder").get_host_modules()[1]
         if not context_baker.zoom_to_site(self._get_doc(), str(msg.get("dir") or ""), msg.get("center")):
-            raise ValueError("대상지 3D가 문서에 없습니다. 먼저 Rhino에 불러오세요")
+            raise ValueError(tr("대상지 3D가 문서에 없습니다. 먼저 Rhino에 불러오세요"))
 
     def _open_path(self, msg):
         self._open(resolve_open_path(msg.get("path")))
@@ -847,7 +858,7 @@ class _SiteController:
         constants = loader.load("constants")
         pnu = str(msg.get("pnu") or "")
         if not (len(pnu) == constants.PNU_LENGTH and pnu.isdigit()):
-            raise ValueError("PNU 형식이 아닙니다: %s" % pnu)
+            raise ValueError(tr("PNU 형식이 아닙니다: {0}", pnu))
         self._open(constants.EUM_LAND_USE_URL % pnu)
 
     def _open_url(self, msg):
@@ -857,7 +868,7 @@ class _SiteController:
             return
         url = loader.load("constants").PANEL_LINKS.get(str(msg.get("key") or ""))
         if not url:
-            raise ValueError("알 수 없는 링크입니다: %s" % msg.get("key"))
+            raise ValueError(tr("알 수 없는 링크입니다: {0}", msg.get("key")))
         self._open(url)
 
     def _stats_consent(self, msg):
@@ -869,7 +880,7 @@ class _SiteController:
     def _get_result_dir(self, msg):
         result_dir = str(msg.get("dir") or "")
         if not os.path.isdir(result_dir):
-            raise ValueError("결과 폴더가 없습니다: %s" % result_dir)
+            raise ValueError(tr("결과 폴더가 없습니다: {0}", result_dir))
         return result_dir
 
     def _style_preview(self, msg):
@@ -889,7 +900,7 @@ class _SiteController:
             except (ValueError, KeyError, FileNotFoundError, RuntimeError) as exc:
                 self.push({"type": "style_applied", "ok": False, "dir": result_dir, "sheets": [], "basemaps": [], "kept": [], "text": str(exc)})
 
-        self._run_busy("도면 다시 그리는 중", "style", work)
+        self._run_busy(tr("도면 다시 그리는 중"), "style", work)
 
     def _sheet_ai(self, msg):
         """도면 한 장(path) 또는 결과 폴더 전부(all)를 레이어 .ai로 — 하나면 쓰고 바로 연다."""
@@ -898,7 +909,7 @@ class _SiteController:
         sheets_dir = loader.load("context_builder").get_sheets_dir(result_dir)
         paths = sorted(os.path.join(sheets_dir, n) for n in os.listdir(sheets_dir) if n.endswith(".svg")) if msg.get("all") else [str(msg.get("path") or "")]
         if not all(p.startswith(sheets_dir) and os.path.exists(p) for p in paths):
-            raise ValueError("도면 파일이 없습니다")
+            raise ValueError(tr("도면 파일이 없습니다"))
 
         def work():
             written = [sheet_svg.get_sheet_ai(p) for p in paths]
@@ -906,14 +917,14 @@ class _SiteController:
             if not msg.get("all"):
                 self._open(written[0])
 
-        self._run_busy("레이어 .ai 쓰는 중", "style", work)
+        self._run_busy(tr("레이어 .ai 쓰는 중"), "style", work)
 
     def _sheet_view(self, msg):
         """도면 SVG 한 장의 내용을 패널 보기 창으로 — OS로 열면 .svg가 Illustrator에 묶인 PC가 많다(2026-10-19 Rhino QA)."""
         sheets_dir = loader.load("context_builder").get_sheets_dir(self._get_result_dir(msg))
         path = str(msg.get("path") or "")
         if not (os.path.abspath(path).startswith(os.path.join(os.path.abspath(sheets_dir), "")) and path.endswith(".svg") and os.path.exists(path)):
-            raise ValueError("도면 파일이 없습니다")
+            raise ValueError(tr("도면 파일이 없습니다"))
         with open(path, encoding="utf-8") as handle:
             self.push({"type": "sheet_view", "path": path, "svg": handle.read()})
 
@@ -931,11 +942,12 @@ _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "s
 
 def _show_panel():
     """패널을 하나만 띄운다. 이미 떠 있으면 앞으로 가져온다."""
+    _i18n.set_lang(loader.load("site_prefs").get_options().get("lang"))   # 명령창 문구 — 패널이 언어를 보내기 전에는 저장한 언어
     existing = scriptcontext.sticky.get(PANEL_STICKY_KEY)
     if existing is not None:
         try:
             existing.bring_to_front()
-            print("[Gorani] 이미 열린 패널을 앞으로 가져왔습니다")
+            print("[Gorani] " + tr("이미 열린 패널을 앞으로 가져왔습니다"))
             return
         except Exception:
             scriptcontext.sticky.pop(PANEL_STICKY_KEY, None)   # 이미 닫혔거나 못 쓰는 패널 — 새로 연다

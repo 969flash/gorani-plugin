@@ -10,6 +10,7 @@ import re
 import tempfile
 
 import constants
+from i18n import tr
 
 PREFS_DIR = os.path.join(os.path.expanduser("~"), ".gorani")
 PREFS_PATH = os.path.join(PREFS_DIR, "prefs.json")
@@ -49,6 +50,8 @@ def get_options(path=PREFS_PATH):
     for key in options:
         if key in saved and not (old and key in _RESET_BEFORE_V2):
             options[key] = saved[key]
+    if saved and "lang" not in saved:   # 언어 고르기 전(0.3.0 전) 설치본 — 한국어 패널을 쓰던 사람이라 영어로 바꾸지 않는다
+        options["lang"] = "ko"
     return options
 
 
@@ -132,7 +135,7 @@ def save_style(name, style, styles_dir=None):
     """스타일 하나를 styles/<이름>.json으로 쓴다(같은 이름은 덮어쓴다). 이름의 경로 문자는 지운다. 반환 list_styles()."""
     clean = re.sub(r'[\\/:*?"<>|]', "", str(name or "")).strip()[:40]
     if not clean or clean.startswith("."):
-        raise ValueError("스타일 이름을 적어 주세요")
+        raise ValueError(tr("스타일 이름을 적어 주세요"))
     styles_dir = styles_dir or get_styles_dir()
     _write_json(os.path.join(styles_dir, clean + ".json"), dict(style or {}, name=clean))
     return list_styles(styles_dir)

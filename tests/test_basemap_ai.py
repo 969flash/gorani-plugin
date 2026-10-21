@@ -14,6 +14,8 @@ import sheet_svg
 import constants
 import context_builder
 
+os.environ[constants.LANG_ENV] = "ko"   # 한국어 원문으로 검사
+
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
 
 

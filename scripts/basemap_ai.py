@@ -13,10 +13,12 @@
 import math
 import os
 import re
+import unicodedata
 
 import constants
 import non_rhino_utils
 import sheet_svg
+from i18n import get_lang, tr
 
 MM_TO_PT = 72.0 / 25.4
 MIN_SEGMENT_MM = 0.05   # 종이에서 이보다 가까운 연속 정점은 버린다(SHEET_MIN_VERTEX_MM와 같은 값)
@@ -163,8 +165,37 @@ def get_line_width_mm(name, scale):
 def _ps_string(text):
     # type: (str) -> str
     """PostScript 문자열 리터럴. 한글은 CP949 바이트를 8진 이스케이프로(파일은 ASCII만 남는다). CP949에 없는 글자는 '?'."""
+    return _ps_bytes(text.encode("cp949", errors="replace"))
+
+
+def get_ai_text(text):
+    # type: (str) -> tuple
+    """텍스트 → (글꼴, 바이트). 패널 언어 → 한글 → 일본어 → 중국어 간체 순으로 글자를 다 담는 첫 글꼴. ASCII(지번·축척)와 한글·영어는 늘 CP949 그대로.
+    CP949에 없는 대시·©는 바꾸고 라틴 악센트는 뗀다(Área → Area — 어느 CMap에도 다 없다). 그래도 못 담으면 한글 글꼴에 '?'."""
+    chars = []
+    for ch in text:
+        try:
+            ch.encode("cp949")
+        except UnicodeEncodeError:
+            plain = "".join(c for c in unicodedata.normalize("NFKD", ch) if not unicodedata.combining(c))
+            ch = constants.AI_CHAR_SUBSTITUTES.get(ch) or (plain if plain.isascii() else ch)
+        chars.append(ch)
+    text = "".join(chars)
+    for lang in ("ko",) if text.isascii() else (get_lang(), "ko", "ja", "zh"):
+        if lang in constants.AI_FONTS:
+            font, codec = constants.AI_FONTS[lang]
+            try:
+                return font, text.encode(codec)
+            except UnicodeEncodeError:
+                pass
+    return constants.AI_FONT_CMAP, text.encode("cp949", errors="replace")
+
+
+def _ps_bytes(data):
+    # type: (bytes) -> str
+    """바이트 → PostScript 문자열 리터럴. 괄호·역슬래시는 이스케이프, ASCII 밖은 8진 이스케이프."""
     out = ["("]
-    for byte in text.encode("cp949", errors="replace"):
+    for byte in data:
         if byte in (0x28, 0x29, 0x5C):
             out.append("\\" + chr(byte))
         elif 32 <= byte < 127:
@@ -188,6 +219,7 @@ class AiWriter(object):
         self.layers = {}                                  # 이름 → [조각]
         self.counts = {}
         self.hidden = set(constants.BM_HIDDEN_LAYERS)     # 꺼 둔 채 쓰는 레이어(SVG display="none" 그룹도 여기에)
+        self.fonts = []                                   # 텍스트가 쓴 글꼴(get_ai_text) — 헤더 DocumentFonts·IncludeFont
 
     def _pt(self, x, y):
         return (x - self.x0) * self.k, (y - self.y0) * self.k
@@ -258,27 +290,30 @@ class AiWriter(object):
 
     def text(self, layer, content, x, y, size_mm, k=100.0, anchor="middle", baseline=False):
         # type: (str, str, float, float, float, object, str, bool) -> None
-        """가운데 정렬 점 텍스트. 글꼴은 한글 CMap(AI_FONT_CMAP) — 레거시 텍스트로 열리고, 편집하려면 Illustrator '레거시 텍스트 업데이트'."""
+        """가운데 정렬 점 텍스트. 글꼴은 CMap 글꼴(get_ai_text — 한글은 AI_FONT_CMAP) — 레거시 텍스트로 열리고, 편집하려면 Illustrator '레거시 텍스트 업데이트'."""
         size_pt = size_mm * MM_TO_PT / constants.AI_CAP_HEIGHT_RATIO
         px, py = self._pt(x, y)
         px -= non_rhino_utils.get_text_width_em(content) * size_pt * {"start": 0.0, "end": 1.0}.get(anchor, 0.5)
         if not baseline:
             py -= size_mm * MM_TO_PT * 0.5
+        font, data = get_ai_text(content)
+        if font not in self.fonts:
+            self.fonts.append(font)
         self._add(layer, "%.4f %.4f %.4f %.4f k\n0 i 1 J 1 j 1 w 4 M []0 d\n0 D\nu\n0 To\n1 0 0 1 %.2f %.2f 0 Tp\nTP\n0 Tr\n/_%s %.2f Tf\n%s Tx\nTO\nU\n"
-                  % (get_cmyk(k) + (px, py, constants.AI_FONT_CMAP, size_pt, _ps_string(content))))
+                  % (get_cmyk(k) + (px, py, font, size_pt, _ps_bytes(data))))
 
     def write(self, path, title, order=None):
         # type: (str, str, list) -> int
         """레이어를 순서대로 써서 파일 하나 — 기본 BM_LAYERS(빈 레이어는 뺀다), order = [(이름, 라벨)]면 그 순서(빈 레이어도 쓴다 — 틀 시트). 반환: 쓴 레이어 수."""
         w, h = int(round(self.paper_pt[0])), int(round(self.paper_pt[1]))
-        font = constants.AI_FONT_CMAP
+        fonts = self.fonts or [constants.AI_FONT_CMAP]
         if order is None:
             order = [(name, label) for name, label, *_ in constants.BM_LAYERS if self.layers.get(name)]
         names = [name for name, _label in order]
         out = [
             "%!PS-Adobe-3.0", "%%Creator: " + constants.TOOL_NAME, "%%Title: " + _ps_string(title),
             "%%%%BoundingBox: 0 0 %d %d" % (w, h), "%%%%HiResBoundingBox: 0 0 %.4f %.4f" % self.paper_pt,
-            "%%DocumentProcessColors: Cyan Magenta Yellow Black", "%%DocumentFonts: " + font,
+            "%%DocumentProcessColors: Cyan Magenta Yellow Black", "%%DocumentFonts: " + " ".join(fonts),
             "%%DocumentNeededResources: procset Adobe_packedarray 2.0 0", "%%+ procset Adobe_cmykcolor 1.1 0", "%%+ procset Adobe_cshow 1.1 0",
             "%%+ procset Adobe_customcolor 1.0 0", "%%+ procset Adobe_typography_AI3 1.0 0", "%%+ procset Adobe_IllustratorA_AI3 1.0 0",
             "%AI3_ColorUsage: Color", "%%AI3_TemplateBox: %d %d %d %d" % (w // 2, h // 2, w // 2, h // 2), "%%AI3_TileBox: 0 0 %d %d" % (w, h),
@@ -287,7 +322,7 @@ class AiWriter(object):
             "%%IncludeResource: procset Adobe_packedarray 2.0 0", "Adobe_packedarray /initialize get exec",
             "%%IncludeResource: procset Adobe_cmykcolor 1.1 0", "%%IncludeResource: procset Adobe_cshow 1.1 0",
             "%%IncludeResource: procset Adobe_customcolor 1.0 0", "%%IncludeResource: procset Adobe_typography_AI3 1.0 0",
-            "%%IncludeResource: procset Adobe_IllustratorA_AI3 1.0 0", "%%EndProlog", "%%BeginSetup", "%%IncludeFont: " + font,
+            "%%IncludeResource: procset Adobe_IllustratorA_AI3 1.0 0", "%%EndProlog", "%%BeginSetup", "\n".join("%%IncludeFont: " + font for font in fonts),
             "Adobe_cmykcolor /initialize get exec", "Adobe_cshow /initialize get exec", "Adobe_customcolor /initialize get exec",
             "Adobe_typography_AI3 /initialize get exec", "Adobe_IllustratorA_AI3 /initialize get exec", "%%EndSetup",
         ]
@@ -297,7 +332,7 @@ class AiWriter(object):
             gray = 255 - int(round(255 * self._layer_k(name) / 100.0))
             visible = 0 if name in self.hidden else 1   # Lb 첫 값 = 보이기
             parts.append("%%AI5_BeginLayer\n%d 1 1 1 0 0 -1 %d %d %d Lb\n%s Ln\n0 A\n0 R\n"
-                         % (visible, gray, gray, gray, _ps_string(("%s %s" % (name, labels[name])).strip())))
+                         % (visible, gray, gray, gray, _ps_string(("%s %s" % (name, labels[name] if get_lang() == "ko" else "")).strip())))   # 한국어 설명은 한국어 패널만 — CP949라 다른 언어 Illustrator에서 깨져 보인다
             parts.append("".join(self.layers.get(name, [])))
             parts.append("LB\n%AI5_EndLayer--\n")
         parts.append("%%PageTrailer\ngsave annotatepage grestore showpage\n%%Trailer\n"
@@ -476,7 +511,7 @@ def build_ai(prepared, scale, writer=None):
     for ring in site_rings:
         polygon(None, "10_site", {"type": "Polygon", "coordinates": [ring]})
     if merged and len(site_rings) == 1:   # 합필 지번 — '333-139 외 1필지'(토지조서 관행)
-        text("08b_parcel_no", "%s 외 %d필지" % (prepared.target_lots[0].lot_number, len(merged) - 1), *get_ring_centroid(site_rings[0]))
+        text("08b_parcel_no", tr("{0} 외 {1}필지", prepared.target_lots[0].lot_number, len(merged) - 1), *get_ring_centroid(site_rings[0]))
     polygon(None, "10_site", {"type": "Polygon", "coordinates": [prepared.extent_ring]})
     # 건물 — 층수 구간마다 칠 + 외곽
     for bld in prepared.buildings:

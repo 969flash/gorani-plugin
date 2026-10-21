@@ -17,6 +17,7 @@ import zlib
 import constants
 import non_rhino_utils
 from context_db import BuildingInfo, ContextData, DataSource, FeatureInfo
+from i18n import tr
 
 _CACHE = {}   # (질의 종류, bbox) → 응답 — 같은 대상지를 다시 생성할 때 Overpass를 또 부르지 않는다
 
@@ -53,7 +54,7 @@ def get_overpass_elements(bounds):
             return _CACHE[key]
         except Exception as error:   # 미러 하나가 막혀도 다음 것을 쓴다
             errors.append("%s: %s" % (endpoint, error))
-    raise RuntimeError("OSM(Overpass) 데이터를 받지 못했습니다. 인터넷 연결을 확인하세요\n" + "\n".join(errors))
+    raise RuntimeError(tr("OSM(Overpass) 데이터를 받지 못했습니다. 인터넷 연결을 확인하세요") + "\n" + "\n".join(errors))
 
 
 # ── 도형 ────────────────────────────────────────────────
@@ -263,7 +264,7 @@ def decode_png(data):
     # type: (bytes) -> tuple
     """8비트 RGB/RGBA 비인터레이스 PNG → (폭, 높이, 채널 수, 행 목록 bytes). 지형 타일 전용 최소 디코더."""
     if data[:8] != b"\x89PNG\r\n\x1a\n":
-        raise ValueError("PNG가 아닙니다")
+        raise ValueError(tr("PNG가 아닙니다"))
     pos, idat, width = 8, b"", 0
     while pos < len(data):
         length, kind = struct.unpack(">I4s", data[pos:pos + 8])
@@ -271,7 +272,7 @@ def decode_png(data):
         if kind == b"IHDR":
             width, height, depth, color = struct.unpack(">IIBB", chunk[:10])
             if depth != 8 or color not in (2, 6):
-                raise ValueError("지원하지 않는 PNG 형식(비트 %d, 색 %d)" % (depth, color))
+                raise ValueError(tr("지원하지 않는 PNG 형식(비트 {0}, 색 {1})", depth, color))
             channels = 3 if color == 2 else 4
         elif kind == b"IDAT":
             idat += chunk
@@ -354,9 +355,9 @@ def load(bounds, today):
     elements = get_overpass_elements(bounds)
     sources = [
         DataSource("osm", "OpenStreetMap (Overpass API)", "https://www.openstreetmap.org/copyright", today, today,
-                   non_rhino_utils.get_crs_label(), "ODbL 1.0 — © OpenStreetMap contributors", "건물 높이는 height·building:levels 태그, 없으면 기본값"),
+                   non_rhino_utils.get_crs_label(), "ODbL 1.0 — © OpenStreetMap contributors", tr("건물 높이는 height·building:levels 태그, 없으면 기본값")),
         DataSource("aws_terrain", "Terrain Tiles (AWS Open Data, terrarium)", "https://registry.opendata.aws/terrain-tiles/", "", today,
-                   non_rhino_utils.get_crs_label(), "공개(출처 표기)", "SRTM·GMTED 등 혼합 DEM, 해상도 지역별 상이(약 30 m)"),
+                   non_rhino_utils.get_crs_label(), tr("공개(출처 표기)"), tr("SRTM·GMTED 등 혼합 DEM, 해상도 지역별 상이(약 30 m)")),
     ]
     buildings = _get_buildings(elements, today)
     _apply_public_use(buildings, elements)

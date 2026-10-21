@@ -16,6 +16,8 @@ if str(SCRIPTS_DIR) not in sys.path:
 import constants
 import sheet_svg
 
+os.environ[constants.LANG_ENV] = "ko"   # 한국어 원문으로 검사
+
 SVG = "{http://www.w3.org/2000/svg}"
 FAKE_TILE = b"\xff\xd8\xff\xe0fake"
 _NO_NETWORK = patch.object(sheet_svg, "_fetch_tile", lambda url: FAKE_TILE)   # 테스트는 영상 타일을 받지 않는다(항공사진 시트)
