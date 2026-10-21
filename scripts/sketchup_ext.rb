@@ -13,7 +13,7 @@ require "fileutils"
 
 module BSH
   module Gorani
-    ROOT = File.dirname(__FILE__)
+    ROOT = File.dirname(__FILE__.dup.force_encoding("UTF-8"))   # Windows에서 경로에 한글(사용자 이름)이 있으면 __FILE__ 인코딩이 틀려 번들 파이썬을 못 찾는다(rubocop-sketchup FileEncoding, EW 검사 2026-10-22)
     DICT = "Gorani"                      # 속성 사전 — 모델(원점)·대상지 그룹·항목 그룹
     MANAGED_KEY = "GORANI_MANAGED"       # constants.UDT_MANAGED_KEY
     LOT_KEY = "GORANI_LOT_KEY"           # constants.UDT_LOT_KEY
