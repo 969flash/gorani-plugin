@@ -134,10 +134,11 @@ def _get_abroad_meta_lines(prepared):
             tr("정합 오차: — (필지 자료 없음)"),
             tr("건물 높이: OSM height 태그(B)·층수(C)·기본값 {0:.1f} m(D)", constants.DEFAULT_BUILDING_HEIGHT_M),
         ]
-    data = (["PLATEAU %s" % plateau.reference_date] if plateau else []) + ["OpenStreetMap %s" % (sources["osm"].reference_date if "osm" in sources else "")]
+    osm = sources.get("osm")   # Overpass가 막히면 없다(osm_context.load)
+    data = (["PLATEAU %s" % plateau.reference_date] if plateau else []) + (["OpenStreetMap %s" % osm.reference_date] if osm else [])
     data.append("国土地理院 標高タイル" if gsi else "Terrain Tiles")
-    credits = ([tr("{0}、国土交通省 (CC BY 4.0, Gorani 가공)", plateau.name)] if plateau else []) + [
-        "© OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright)",
+    credits = ([tr("{0}、国土交通省 (CC BY 4.0, Gorani 가공)", plateau.name)] if plateau else []) + (
+        ["© OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright)"] if osm else []) + [
         tr("지형 国土地理院 標高タイル (加工)") if gsi else tr("지형 Terrain Tiles (Mapzen·AWS Open Data, SRTM 등 공개 DEM)")]
     return [
         tr("자료기준 — {0} · {1} · 생성 {2} · {3} v{4}", " · ".join(data), non_rhino_utils.get_crs_label(), _built_at(prepared)[:10],
@@ -154,7 +155,7 @@ def get_meta_lines(prepared):
     # type: (object) -> list
     """deliverables §C 공통 ①자료기준 ②출처·라이선스 ③좌표계·정확도 ④정합 오차 ⑤기준일 경고 — 5줄.
     SVG 여백·context.json·CTX::Ref META_LINES가 모두 이 문자열을 쓴다."""
-    if any(getattr(s, "source_id", "") == "osm" for s in getattr(prepared, "sources", None) or []):   # Global — 한국 안이어도 출처는 OSM(ODbL 표기)
+    if any(getattr(s, "source_id", "") in constants.GLOBAL_SOURCE_IDS for s in getattr(prepared, "sources", None) or []):   # Global — 한국 안이어도 출처는 OSM(ODbL 표기)
         return _get_abroad_meta_lines(prepared)
     dates = get_source_dates(prepared)
     sheets = get_sheet_codes(prepared)

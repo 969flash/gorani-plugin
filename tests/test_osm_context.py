@@ -182,6 +182,26 @@ class JapanTest(unittest.TestCase):
             self.assertEqual(sources[0].reference_date, "2024-03-31")   # 기준일은 가장 오래된 도시
             self.assertEqual(osm_context.load_plateau_buildings((130.0, 33.0, 130.1, 33.1), os.path.join(data_dir, "none")), ([], []))
 
+    def test_overpass_down_keeps_plateau(self):
+        """Overpass가 모두 막혀도 일본 팩이 있으면 PLATEAU 건물로 만든다(출처에 osm 없음). 팩이 없으면 그대로 실패."""
+        def down(bounds):
+            raise RuntimeError("Overpass down")
+        saved = osm_context.get_overpass_elements, osm_context.get_terrain_spots, osm_context.data_pack.get_data_dir
+        with tempfile.TemporaryDirectory() as data_dir:
+            _write_jp_pack(data_dir, "13104", [("a", _square(139.700, 35.690), "412")], 2025)
+            osm_context.get_overpass_elements, osm_context.get_terrain_spots = down, lambda bounds, today: ([], set())
+            osm_context.data_pack.get_data_dir = lambda: data_dir
+            try:
+                x, y = non_rhino_utils.get_tm_from_wgs84(139.7001, 35.6901)
+                context = osm_context.load((x - 50, y - 50, x + 50, y + 50), "2026-10-21")
+                self.assertEqual([b.src_key for b in context.buildings], ["plateau:a"])
+                self.assertEqual([s.source_id for s in context.sources], ["plateau"])
+                x, y = non_rhino_utils.get_tm_from_wgs84(139.80, 35.60)   # 팩 범위 밖(packs.json 범위는 넓지만 건물 없음)
+                with self.assertRaises(RuntimeError):
+                    osm_context.load((x - 50, y - 50, x + 50, y + 50), "2026-10-21")
+            finally:
+                osm_context.get_overpass_elements, osm_context.get_terrain_spots, osm_context.data_pack.get_data_dir = saved
+
     def test_osm_fills_gaps(self):
         def building(ring, key):
             geometry = {"type": "Polygon", "coordinates": [[list(non_rhino_utils.get_tm_from_wgs84(*p)) for p in ring]]}

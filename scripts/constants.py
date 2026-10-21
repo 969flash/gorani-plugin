@@ -721,6 +721,7 @@ RESULT_SHEETS_DIRNAME = "sheets"
 SOURCE_ID_ROLES = {"vworld_land_char": "lot", "vworld_building": "building", "ngii_topo_5000": "terrain", "seoul_zoning": "upis",
                    "osm": "building", "aws_terrain": "terrain",   # osm·aws_terrain = 해외 대상지(osm_context)
                    "plateau": "building", "gsi_dem": "terrain"}   # 일본 — PLATEAU 건물 팩·지리원 표고 타일(뒤에 둔 것이 역할을 차지한다)
+GLOBAL_SOURCE_IDS = ("osm", "aws_terrain", "plateau", "gsi_dem")   # 이 출처가 하나라도 있으면 Global 산출물(메타 줄·도면 문구) — 일본은 OSM 없이도 만든다
 META_SOURCE_NAMES = {"lot": "필지 토지특성정보", "building": "건물 GIS건물통합정보", "upis": "도시계획 서울시 UPIS", "terrain": "지형 수치지형도 1:5,000"}
 # ② 출처·라이선스 — 토지특성·토지이용계획은 '이용허락범위 제한 없음'(공공누리 1유형/CC BY로 적지 않는다, data_sources §3)
 META_SOURCE_LINE = ("출처: 국토교통부(GIS건물통합정보 — CC BY/공공누리 1유형; 토지특성정보·토지이용계획정보 — 이용허락범위 제한 없음), "

@@ -5500,5 +5500,17 @@
   "es": "Elaborado procesando teselas de elevación. Malla de 5 m, cotas referidas a T.P. (nivel medio del mar de la bahía de Tokio)",
   "ja": "標高タイルを加工して作成。5 m格子、標高基準 T.P.（東京湾平均海面）",
   "zh": "由高程瓦片加工而成。5 m 格网，高程基准 T.P.（东京湾平均海面）"
+ },
+ "OpenStreetMap을 받지 못해 도로·수계·녹지 없이 만들었습니다": {
+  "en": "OpenStreetMap could not be downloaded, so roads, water and green areas are missing",
+  "es": "No se pudo descargar OpenStreetMap, así que faltan calles, agua y zonas verdes",
+  "ja": "OpenStreetMapを取得できなかったため、道路・水系・緑地なしで作成しました",
+  "zh": "无法下载 OpenStreetMap，因此生成结果中没有道路、水系和绿地"
+ },
+ "PLATEAU 건물과 지형만 들어 있습니다. 잠시 뒤 다시 만들면 도로·수계·녹지가 들어갑니다.": {
+  "en": "Only PLATEAU buildings and terrain are included. Create again in a little while to add roads, water and green areas.",
+  "es": "Solo incluye edificios de PLATEAU y el terreno. Vuelva a crear dentro de un rato para añadir calles, agua y zonas verdes.",
+  "ja": "PLATEAUの建物と地形だけが入っています。しばらくしてから作り直すと道路・水系・緑地が入ります。",
+  "zh": "只包含 PLATEAU 建筑和地形。稍后重新生成即可加入道路、水系和绿地。"
  }
 }

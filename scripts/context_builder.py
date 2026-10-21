@@ -821,6 +821,9 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
     prepared.stats = {"height_src": height["height_src"], "height_grade": height["height_grade"], "grade_ab": round(grade_ab, 4),
                       "buildings": height["n"], "lots": 0, "sheets": [], "sheets_needed": [], "align": _get_align_stats([]), "mismatch_count": 0}
     source_ids = {s.source_id for s in context.sources}
+    if "osm" not in source_ids:   # 일본에서 Overpass가 막혔다 — PLATEAU 건물·지형만(osm_context.load)
+        warnings.append(_warning("warn", "osm_missing", tr("OpenStreetMap을 받지 못해 도로·수계·녹지 없이 만들었습니다"),
+                                 tr("PLATEAU 건물과 지형만 들어 있습니다. 잠시 뒤 다시 만들면 도로·수계·녹지가 들어갑니다.")))
     if source_ids & {"plateau", "gsi_dem"}:   # 일본 — PLATEAU 건물 팩·지리원 지형
         warnings.append(_warning("info", "abroad", tr("Global — {0} 건물 {1}동·{2}", "PLATEAU·OpenStreetMap" if "plateau" in source_ids else "OpenStreetMap",
                                                      height["n"], tr("지리원 5 m 지형") if "gsi_dem" in source_ids else tr("지형 타일")),

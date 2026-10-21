@@ -509,14 +509,19 @@ def load(bounds, today):
     # type: (tuple, str) -> ContextData
     """bounds(TM m) 안 OSM 건물·피처 + 지형 표고점 → ContextData. 받는 날짜를 OSM·지형 기준일로 적는다.
     일본: 받아 둔 PLATEAU 팩 건물을 먼저 쓰고 OSM 건물은 그와 겹치지 않는 것만, 지형은 지리원 5 m 타일. 출처는 실제로 쓴 것만(역할은 뒤의 것이 차지)."""
-    elements = get_overpass_elements(bounds)
     plateau, plateau_sources = load_plateau_buildings(get_lnglat_bounds(bounds))
+    try:
+        elements, osm_ok = get_overpass_elements(bounds), True
+    except RuntimeError:   # 공개 Overpass 서버가 모두 막힘(2026-10-21 Rhino 실측: 502·504·시간 초과) — 일본은 PLATEAU 건물·지리원 지형만으로 만든다
+        if not plateau:
+            raise
+        elements, osm_ok = [], False   # 출처에 osm이 빠진 것을 context_builder가 보고 알린다
     buildings = plateau + get_buildings_apart(_get_buildings(elements, today), plateau)
     _apply_public_use(buildings, elements)
     spots, terrain_ids = get_terrain_spots(bounds, today)
     crs = non_rhino_utils.get_crs_label()
     sources = [DataSource("osm", "OpenStreetMap (Overpass API)", "https://www.openstreetmap.org/copyright", today, today, crs,
-                          "ODbL 1.0 — © OpenStreetMap contributors", tr("건물 높이는 height·building:levels 태그, 없으면 기본값"))]
+                          "ODbL 1.0 — © OpenStreetMap contributors", tr("건물 높이는 height·building:levels 태그, 없으면 기본값"))] if osm_ok else []
     if "aws_terrain" in terrain_ids:
         sources.append(DataSource("aws_terrain", "Terrain Tiles (AWS Open Data, terrarium)", "https://registry.opendata.aws/terrain-tiles/", "", today,
                                   crs, tr("공개(출처 표기)"), tr("SRTM·GMTED 등 혼합 DEM, 해상도 지역별 상이(약 30 m)")))

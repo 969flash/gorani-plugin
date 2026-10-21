@@ -1498,7 +1498,7 @@ def _get_inside(items, ring):
 def _is_osm(data):
     # type: (SheetData) -> bool
     """Global(OSM) 데이터인지 — 필지·대장 문구를 빼고 OSM 기준으로 적는다."""
-    return any(getattr(s, "source_id", "") == "osm" for s in data.sources)
+    return any(getattr(s, "source_id", "") in constants.GLOBAL_SOURCE_IDS for s in data.sources)
 
 
 def _get_card_lines(key, data, items, counts, measures, ctx=None):
