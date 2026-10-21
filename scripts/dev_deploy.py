@@ -71,8 +71,10 @@ version: %(version)s
 authors:
 - %(author)s
 description: |-
-  필지를 고르면 주변 건물·도로·지형이 라이노에 3D로 들어옵니다.
-  무료이고, 그래스호퍼나 회원가입 없이 바로 씁니다.
+  한 번에 쉽게 하는 사이트 모델링 및 사이트 분석
+
+  The city around your site, modeled in Rhino.
+  It's free.
 
   사용 방법
   1. 설치 후 라이노를 다시 켭니다.
@@ -83,13 +85,6 @@ description: |-
   - 3D: 건물 매스, 도로, 지형, 하천, 녹지, 철도 (레이어별)
   - 2D: 일러스트레이터 베이스맵, 현황도·분석도, DWG, 조서 CSV
 
-  데이터
-  - 국내: 전국 필지·용도지역·1:5,000 등고선
-  - 해외: OpenStreetMap 건물·도로와 지형
-
-  The city around your site, modeled in Rhino.
-  It's free, and you don't need Grasshopper or an account.
-
   How to use
   1. Restart Rhino after installing.
   2. Type Gorani.
@@ -98,10 +93,6 @@ description: |-
   What you get
   - 3D: buildings, roads, terrain, rivers, parks and railways on separate layers
   - 2D: Illustrator basemap, urban analysis maps, DWG, CSV tables
-
-  Data
-  - Worldwide: OpenStreetMap buildings and roads, public terrain
-  - Korea: nationwide parcels, zoning and 1:5,000 contours
 license: MIT
 url: %(url)s
 icon: icon.png
