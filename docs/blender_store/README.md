@@ -40,15 +40,17 @@ https://developer.blender.org/docs/features/extensions/moderation/guidelines/ ·
 - `sys.path`·`sys.modules` 조작·모듈 다시 읽기 금지 — 패키지의 `loader.py`는 상대 import만, 진입 분기는 패키지 쪽만 남긴다.
 - 상용·키 필요 서비스 금지 — Esri 위성 영상을 끈다(지도 [위성]·항공사진 도면 없음). OSM·Overpass·Nominatim·지형 타일은 무료·무가입이라 된다.
 - 자체 업데이터 금지 — 매니페스트 업데이트 모달을 끈다(공지 띠는 남김). 코드 내려받기 없음(데이터 팩만).
+- 영어 기본(심사 약 39건) — 패널은 첫 설치가 영어(0.3.0 다국어: 한·영·서·일·중), Blender 단추·메시지는 영어 + Blender 번역 시스템(ko_KR·es·ja_JP·zh_HANS).
+- 사용자가 하지 않은 제3자 전송 금지 — 지도 첫 위치 IP 짐작(ipinfo.io)을 끈다(`HOST_LABELS` `ip_center`).
 - `bpy.app.online_access`가 꺼져 있으면 패널을 열지 않는다. 파일·폴더 열기는 `wm.path_open`·`wm.url_open`.
 - 매니페스트: 태그 `Import-Export`·`Scene`('3D View'는 자주 빼라고 한다), `support` = GitHub 이슈(스토어 'Report Issues'), tagline 64자 이하.
 - 업로드는 Blender ID 2단계 인증이 켜져 있어야 한다.
 
 남은 위험(심사 댓글이 오면 고친다):
-- **영어 기본** — 심사는 '모든 사용자 글은 영어가 기본, 다른 언어는 Blender 번역 시스템으로'를 요구한다(약 39건). Blender 단추·메시지는 영어 + 한국어 번역이지만 브라우저 패널은 아직 한국어뿐이다.
 - 데이터 팩(Hugging Face·국내 서버)을 받는 것 — 무료·무가입 데이터라 OSM과 같다고 보지만 '외부 에셋 팩'으로 볼 수도 있다. 국내 서버 요청에는 설치 ID가 붙는다(하루 한도) — 설명에 적어 두었다.
 - 패키지에 Rhino 코드가 섞여 있다(`context_baker`·`context_geometry`의 공용 함수를 쓴다 — RhinoCommon import는 try 안).
 - 쓰는 위치 `~/Gorani`·`~/.gorani` — 금지는 아니지만 '결과 폴더를 고르는 설정'을 권할 수 있다.
+- 도면·조서의 지명(OSM 이름·국내 주소)은 데이터 그대로라 번역되지 않는다.
 
 심사 질문에 답할 때(영어):
 - Threading: "The add-on itself never starts a thread in Blender. The panel server runs on Blender's main thread with non-blocking sockets polled from a timer and from the progress callback. The threaded branch in panel_server.py is used only by our SketchUp sidecar, a separate process."

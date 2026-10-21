@@ -125,7 +125,7 @@ Blender는 기본 브라우저(`cmd_blender.py`), SketchUp은 `UI::HtmlDialog`(`
 이벤트 줄이 열린 뒤(`onopen`) `init`을 보낸다 — 다시 연결돼도 init으로 전부 다시 받는다. 새 이벤트 줄이 열리면 앞 줄로는 보내지 않는다(탭 하나) —
 앞 줄에는 마지막으로 `{"type":"superseded"}`를 보내고, 그 탭은 이벤트 줄을 닫고(다시 붙지 않음) '새 탭에서 열렸습니다' + [이 탭에서 계속](새로 고침)만 보인다.
 명령은 호스트 메인 스레드(Blender = bpy.app.timers, SketchUp 사이드카 = 메인 루프)에서 처리하고, `cancel`·`host_reply`만 바로 받는다(SketchUp = 서버 스레드, Blender = 스레드 없이 메인 스레드 `poll` — 생성 중에는 진행 콜백이 `poll`을 불러 cancel·새 탭을 받는다). 토큰이 틀리면 403.
-Blender판 `init_state.host`는 `ask_stats:false`(통계 없음)·`aerial:false`(`tile`의 영상 주소가 비고 [위성]·항공사진 도면 없음)·`update_notice:false`(`update` 늘 null)다.
+Blender판 `init_state.host`는 `ask_stats:false`(통계 없음)·`aerial:false`(`tile`의 영상 주소가 비고 [위성]·항공사진 도면 없음)·`update_notice:false`(`update` 늘 null)·`ip_center:false`(`map`은 늘 서울시청)다.
 
 SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지지 못해 패널을 거쳐 Ruby를 부른다(엔진 `run`은 응답을 기다리며 막혀 있다):
 

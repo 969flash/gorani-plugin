@@ -22,7 +22,6 @@
 
 ## 코드
 
-- [ ] 패널 영어판 — Blender 확장 심사가 '사용자 글은 영어가 기본(다른 언어는 번역)'을 요구한다(`docs/blender_store/README.md` 남은 위험). 패널 HTML·파이썬이 보내는 문구 전부라 Rhino·SketchUp도 함께 바뀐다.
 - [ ] 원 범위에서 건물이 범위 밖(경계상자 모서리)까지 들어와 지형 밖에 떠 보인다 — `context_report.get_buildings_in_extent`가 경계상자로만 거른다. 해외 OSM·국내 모두(2026-10-21 Blender 렌더에서 발견, 기본 범위는 사각형이라 덜 보인다).
 - [ ] `tests/test_3dm_readback.test_layer_full_paths`: 3dm 레이어 47 ≠ 응답 `context.layers` 41. 차이 6 = `CTX::Zoning` 아래 부모 레이어 수. `context_baker`의 레이어 셈과 테스트 중 하나를 맞춘다(2026-10-19 driver_full_run job 1019-004730-a73c).
 - [ ] 춘천 문지기 VM은 2026-10-19부터 web 브랜치의 `server_gate.py`로 돈다(웹판용 HTTPS 443·CORS, Let's Encrypt IP 인증서). main의 `scripts/server_gate.py`로 `install`을 다시 돌리면 443·CORS가 빠진다 — 웹판을 합칠 때까지 문지기를 고칠 일은 web 워크트리 판과 그 `docs/domestic_gate.md` 'HTTPS·CORS' 절로 한다. main 판은 systemd Description만 Gorani로 바뀌어 있다.
