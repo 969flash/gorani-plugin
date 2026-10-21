@@ -114,6 +114,11 @@ class I18nTest(unittest.TestCase):
             site_prefs.save_options({"lang": "ja"}, path)
             self.assertEqual(site_prefs.get_options(path)["lang"], "ja")
 
+    def test_height_source_labels(self):
+        # 도면 층수 카드는 tr(constants.SHEET_HEIGHT_SRC_LABELS[출처])로 바꾼다 — 상수 값이라 tr("…") 검사에 걸리지 않는다(PLATEAU 라벨이 빠졌던 것, 2026-10-22)
+        missing = [label for label in constants.SHEET_HEIGHT_SRC_LABELS.values() if label not in self.texts]
+        self.assertEqual(missing, [], "도면 높이 출처 라벨의 번역이 없다")
+
     def test_tr_fallbacks(self):
         old = os.environ.get(constants.LANG_ENV)
         try:

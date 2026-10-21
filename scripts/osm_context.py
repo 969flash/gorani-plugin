@@ -1,25 +1,32 @@
 """해외 대상지 컨텍스트 — OSM(Overpass API) 건물·도로·철도·수계·녹지 + AWS Terrain Tiles 지형을 context_db와 같은 형식으로.
 
 국내는 로컬 DB(context_db)를 쓰고, 대상지가 한국 밖이면(non_rhino_utils.is_local_projection) context_builder가 이 모듈을 부른다.
-좌표는 non_rhino_utils의 지금 투영(대상지 중심 지역 횡메르카토르) m. 표준 라이브러리만 쓴다(urllib·json·zlib).
+좌표는 non_rhino_utils의 지금 투영(대상지 중심 지역 횡메르카토르) m. 표준 라이브러리만 쓴다(urllib·json·zlib·sqlite3).
+일본은 받아 둔 PLATEAU 건물 팩(jp<시구정촌코드>_context.db — cmd_site가 생성 직전에 받는다)을 먼저 쓰고 OSM 건물은 그와 겹치지 않는
+것만 보탠다. 지형은 국토지리원(GSI) 5 m 표고 타일. 근거 docs/research/japan.md.
 
 출처 표기: 건물·도로 등 "© OpenStreetMap contributors"(ODbL — 산출물은 출처 표기만, DB로 재배포하지 않는다),
-지형 "Terrain Tiles, Mapzen/AWS Open Data(SRTM·GMTED 등 공개 DEM)".
+지형 "Terrain Tiles, Mapzen/AWS Open Data(SRTM·GMTED 등 공개 DEM)", 일본 건물 "3D都市モデル（Project PLATEAU）<도시>（<연도>年度）"
+(CC BY 4.0), 일본 지형 "国土地理院 標高タイル".
 """
 
 import json
 import math
+import re
 import struct
+import urllib.error
 import urllib.parse
 import urllib.request
 import zlib
 
 import constants
+import context_db
+import data_pack
 import non_rhino_utils
 from context_db import BuildingInfo, ContextData, DataSource, FeatureInfo
 from i18n import tr
 
-_CACHE = {}   # (질의 종류, bbox) → 응답 — 같은 대상지를 다시 생성할 때 Overpass를 또 부르지 않는다
+_CACHE = {}   # (질의 종류, bbox) → 응답 — 같은 대상지를 다시 생성할 때 Overpass를 또 부르지 않는다. OSM_CACHE_MAX를 넘으면 비운다(_keep)
 
 
 # ── 받기 ────────────────────────────────────────────────
@@ -31,6 +38,21 @@ def _get_lnglat_bbox(bounds):
     return (min(c[1] for c in corners), min(c[0] for c in corners), max(c[1] for c in corners), max(c[0] for c in corners))
 
 
+def get_lnglat_bounds(bounds):
+    # type: (tuple) -> tuple
+    """TM bounds → (서, 남, 동, 북) 경위도 — 일본 건물 팩 범위(매니페스트·packs.json bounds)와 같은 순서."""
+    south, west, north, east = _get_lnglat_bbox(bounds)
+    return west, south, east, north
+
+
+def is_japan(lng, lat):
+    # type: (float, float) -> bool
+    """경위도가 일본인지(대략) — 지리원 지형 타일을 먼저 받을지. 일본 상자 안이고 한국(non_rhino_utils.is_korea — 북규슈·쓰시마는 뺀다)이 아니면.
+    틀려도 지리원 타일이 404라 AWS 타일로 돌아간다."""
+    west, south, east, north = constants.JP_BOUNDS
+    return west <= lng <= east and south <= lat <= north and not non_rhino_utils.is_korea(lng, lat)
+
+
 def _fetch(url, data=None):
     # type: (str, bytes) -> bytes
     request = urllib.request.Request(url, data=data, headers={"User-Agent": constants.OSM_USER_AGENT})
@@ -38,20 +60,29 @@ def _fetch(url, data=None):
         return response.read()
 
 
-def get_overpass_elements(bounds):
-    # type: (tuple) -> list
-    """bounds 안 OSM 요소(out geom). 미러를 차례로 시도한다. 실패하면 RuntimeError."""
+def _keep(key, value):
+    # type: (tuple, object) -> object
+    """응답 하나를 캐시에 넣고 돌려준다. 항목이 OSM_CACHE_MAX를 넘으면 먼저 비운다 — 긴 Blender 세션에서 Overpass 응답(대상지마다 수십 MB)이 쌓이지 않게."""
+    if len(_CACHE) >= constants.OSM_CACHE_MAX:
+        _CACHE.clear()
+    _CACHE[key] = value
+    return value
+
+
+def get_overpass_elements(bounds, query=None, endpoints=None):
+    # type: (tuple, str, tuple) -> list
+    """bounds 안 OSM 요소(out geom). query = Overpass 질의 틀({bbox} 자리, 기본 constants.OSM_OVERPASS_QUERY), endpoints = 미러(기본 전부).
+    미러를 차례로 시도한다. 실패하면 RuntimeError."""
     bbox = "%.6f,%.6f,%.6f,%.6f" % _get_lnglat_bbox(bounds)
-    key = ("overpass", bbox)
+    query = (query or constants.OSM_OVERPASS_QUERY).replace("{bbox}", bbox)
+    key = ("overpass", query)
     if key in _CACHE:
         return _CACHE[key]
-    query = constants.OSM_OVERPASS_QUERY.replace("{bbox}", bbox)
     errors = []
-    for endpoint in constants.OSM_OVERPASS_URLS:
+    for endpoint in endpoints or constants.OSM_OVERPASS_URLS:
         try:
             body = _fetch(endpoint, urllib.parse.urlencode({"data": query}).encode("utf-8"))
-            _CACHE[key] = json.loads(body.decode("utf-8"))["elements"]
-            return _CACHE[key]
+            return _keep(key, json.loads(body.decode("utf-8"))["elements"])
         except Exception as error:   # 미러 하나가 막혀도 다음 것을 쓴다
             errors.append("%s: %s" % (endpoint, error))
     raise RuntimeError(tr("OSM(Overpass) 데이터를 받지 못했습니다. 인터넷 연결을 확인하세요") + "\n" + "\n".join(errors))
@@ -182,6 +213,107 @@ def _get_buildings(elements, reference_date):
     return buildings
 
 
+# ── 일본 건물 (PLATEAU 팩) ──────────────────────────────
+
+def _get_tm_geometry(geometry):
+    # type: (dict) -> dict
+    """경위도 GeoJSON (Multi)Polygon → 지금 투영 m(소수 3자리)."""
+    def ring(points):
+        return [[round(v, 3) for v in non_rhino_utils.get_tm_from_wgs84(lng, lat)] for lng, lat in points]
+    if geometry["type"] == "Polygon":
+        return {"type": "Polygon", "coordinates": [ring(r) for r in geometry["coordinates"]]}
+    return {"type": "MultiPolygon", "coordinates": [[ring(r) for r in polygon] for polygon in geometry["coordinates"]]}
+
+
+def load_plateau_buildings(lnglat_bounds, data_dir=None):
+    # type: (tuple, str) -> tuple
+    """경위도 범위(서, 남, 동, 북)에 걸리는 받아 둔 일본 건물 팩의 건물 → (BuildingInfo 목록(지금 투영 m), DataSource 목록). 팩이 없으면 ([], []).
+
+    처리: 팩마다 data_sources 한 줄(도시·연도). 새 연도 팩부터 — 같은 gml:id는 한 번만(도쿄도 팩끼리 경계 3차 메시를 함께 담는다:
+          국립·국분지 13,245동 2026-10-21), 다른 도시 팩의 같은 자리 건물은 먼저 넣은 것을 남긴다(get_buildings_apart).
+          용도는 원천 코드(ngii_kind) → 국내 대분류(constants.PLATEAU_USE).
+    출력: 출처는 건물이 실제로 들어간 도시만 묶은 DataSource 하나(plateau).
+    """
+    paths = data_pack.get_jp_paths(lnglat_bounds, data_dir)
+    if not paths:
+        return [], []
+    west, south, east, north = lnglat_bounds
+    connection = data_pack.open_databases(paths)
+    try:
+        rows = connection.execute("SELECT * FROM buildings WHERE min_x BETWEEN ? AND ? AND max_x >= ? AND min_y <= ? AND max_y >= ?",
+                                  (west - constants.PLATEAU_MAX_EXTENT_DEG, east, west, north, south)).fetchall()
+        source_rows = connection.execute("SELECT * FROM data_sources").fetchall()
+    finally:
+        connection.close()
+    cities = {}   # 시구정촌 코드 → data_sources 행
+    for row in source_rows:
+        match = re.search(r"plateau-(\d{5})-", row["page_url"] or "")
+        if match:
+            cities[match.group(1)] = row
+    groups = {}   # 코드 → 그 팩의 건물(building_id = 코드 × 10⁷ + 순번)
+    for row in rows:
+        groups.setdefault("%05d" % (row["building_id"] // 10 ** 7), []).append(row)
+    order = sorted(groups, key=lambda code: (cities[code]["reference_date"] or "") if code in cities else "", reverse=True)
+    buildings, seen, used = [], set(), []
+    for code in order:
+        date = (cities[code]["reference_date"] or "") if code in cities else ""
+        group = []
+        for row in groups[code]:
+            if row["src_key"] in seen:
+                continue
+            seen.add(row["src_key"])
+            building = context_db._building_from_row(row)
+            building.geometry = _get_tm_geometry(building.geometry)
+            building.min_x, building.max_x, building.min_y, building.max_y = _get_bounds(building.geometry)
+            building.usability = constants.PLATEAU_USE.get(building.ngii_kind, "")
+            building.reference_date = date
+            group.append(building)
+        group = get_buildings_apart(group, buildings)
+        if group and code in cities:
+            used.append(cities[code])
+        buildings += group
+    if not used:
+        return buildings, []
+    names = "・".join(row["name"].replace("3D都市モデル（Project PLATEAU）", "") for row in used)   # 国立市（2025年度）・国分寺市（2025年度）
+    source = DataSource("plateau", "3D都市モデル（Project PLATEAU）" + names, "https://www.mlit.go.jp/plateau/open-data/",
+                        min(row["reference_date"] or "" for row in used), used[0]["acquired_at"], non_rhino_utils.get_crs_label(),
+                        used[0]["license"], "出典：3D都市モデル（Project PLATEAU）%s、国土交通省。" % names
+                        + tr("Gorani에서 건물 외곽·높이를 추출·가공. 높이는 measuredHeight(항공측량 실측, B)·층수(C)·기본값(D)"))
+    return buildings, [source]
+
+
+def get_buildings_apart(buildings, others):
+    # type: (list, list) -> list
+    """others와 겹치지 않는 buildings만(새 목록). 중심점(bbox 가운데)이 다른 쪽 외곽 안이거나 다른 쪽 중심점을 품으면 같은 건물로 본다.
+    PLATEAU를 OSM으로 메울 때(도시 경계 밖·PLATEAU 이후 신축)와 다른 도시 PLATEAU 팩의 같은 자리 건물을 거를 때 쓴다."""
+    if not others:
+        return list(buildings)
+    cell = constants.CLASSIFY_GRID
+    shapes, centers = non_rhino_utils.GridIndex(cell), non_rhino_utils.GridIndex(cell)
+    for other in others:
+        x, y = (other.min_x + other.max_x) * 0.5, (other.min_y + other.max_y) * 0.5
+        shapes.add((other.min_x, other.min_y, other.max_x, other.max_y), other)
+        centers.add((x, y, x, y), (x, y))
+    kept = []
+    for building in buildings:
+        x, y = (building.min_x + building.max_x) * 0.5, (building.min_y + building.max_y) * 0.5
+        if any(o.min_x <= x <= o.max_x and o.min_y <= y <= o.max_y and _is_inside(x, y, o.geometry) for o in shapes.query(x, y)):
+            continue
+        inner = [p for ix in range(int(math.floor(building.min_x / cell)), int(math.floor(building.max_x / cell)) + 1)
+                 for iy in range(int(math.floor(building.min_y / cell)), int(math.floor(building.max_y / cell)) + 1)
+                 for p in centers.query((ix + 0.5) * cell, (iy + 0.5) * cell)
+                 if building.min_x <= p[0] <= building.max_x and building.min_y <= p[1] <= building.max_y]
+        if any(_is_inside(px, py, building.geometry) for px, py in inner):
+            continue
+        kept.append(building)
+    return kept
+
+
+def _is_inside(x, y, geometry):
+    # type: (float, float, dict) -> bool
+    return any(non_rhino_utils.is_point_in_polygon(x, y, part) for part in non_rhino_utils.get_polygon_parts_from_geojson(geometry))
+
+
 # ── 피처 ────────────────────────────────────────────────
 
 def get_feature_kind(tags, is_area):
@@ -302,35 +434,64 @@ def decode_png(data):
     return width, height, channels, rows
 
 
+def get_elevation(source_id, r, g, b):
+    # type: (str, int, int, int) -> float
+    """화소 → 표고 m. 지리원(gsi_dem): x = R·2¹⁶ + G·2⁸ + B를 0.01 m 단위로, x = 2²³은 값 없음(None), 2²³보다 크면 음수(x − 2²⁴).
+    AWS terrarium: R·256 + G + B/256 − 32768."""
+    if source_id == "gsi_dem":
+        value = (r << 16) + (g << 8) + b
+        if value == constants.GSI_NO_DATA:
+            return None
+        return (value - (1 << 24) if value > constants.GSI_NO_DATA else value) * 0.01
+    return r * 256.0 + g + b / 256.0 - 32768.0
+
+
+def _get_terrain_tile(zoom, tx, ty, japan):
+    # type: (int, int, int, bool) -> tuple
+    """타일 하나 → (source_id, decode_png 결과). 일본이면 지리원 5 m(5A → 5B → 5C, 없는 타일은 404)를 먼저, 다 없거나 일본 밖이면 같은 타일의 AWS terrarium."""
+    key = ("terrain", zoom, tx, ty, japan)
+    if key not in _CACHE:
+        tile = None
+        for url in constants.GSI_TERRAIN_URLS if japan else ():
+            try:
+                tile = ("gsi_dem", decode_png(_fetch(url.format(z=zoom, x=tx, y=ty))))
+                break
+            except Exception:   # 404(없는 타일)뿐 아니라 5xx·시간 초과도 '없음'으로 — 지리원이 잠깐 막혀도 일본 생성이 통째로 죽지 않게 AWS로 간다(2026-10-22 통합 리뷰)
+                continue
+        _keep(key, tile or ("aws_terrain", decode_png(_fetch(constants.OSM_TERRAIN_URL.format(z=zoom, x=tx, y=ty)))))
+    return _CACHE[key]
+
+
 def get_terrain_spots(bounds, reference_date):
-    # type: (tuple, str) -> list
-    """bounds를 덮는 지형 타일을 받아 표고점(theme terrain, kind spot)으로. 간격 = 타일 픽셀 × OSM_TERRAIN_STEP."""
+    # type: (tuple, str) -> tuple
+    """bounds를 덮는 지형 타일을 받아 표고점(theme terrain, kind spot)으로. 일본이면 지리원 5 m 타일(z15, 약 8 m 간격), 아니면 AWS terrarium
+    (z13, 약 30 m). 출력: (표고점 목록, 실제로 쓴 원천 id 집합 — gsi_dem·aws_terrain)."""
     south, west, north, east = _get_lnglat_bbox(bounds)
-    zoom = constants.OSM_TERRAIN_ZOOM
+    japan = is_japan((west + east) * 0.5, (south + north) * 0.5)
+    zoom, step = (constants.GSI_TERRAIN_ZOOM, constants.GSI_TERRAIN_STEP) if japan else (constants.OSM_TERRAIN_ZOOM, constants.OSM_TERRAIN_STEP)
     x0, y0 = non_rhino_utils.get_tile_xy(west, north, zoom)
     x1, y1 = non_rhino_utils.get_tile_xy(east, south, zoom)
-    spots = []
+    spots, used = [], set()
     for tx in range(int(x0), int(x1) + 1):
         for ty in range(int(y0), int(y1) + 1):
-            key = ("terrain", zoom, tx, ty)
-            if key not in _CACHE:
-                _CACHE[key] = decode_png(_fetch(constants.OSM_TERRAIN_URL.format(z=zoom, x=tx, y=ty)))
-            width, height, channels, rows = _CACHE[key]
-            for py in range(0, height, constants.OSM_TERRAIN_STEP):
+            source_id, (width, height, channels, rows) = _get_terrain_tile(zoom, tx, ty, japan)
+            used.add(source_id)
+            for py in range(0, height, step):
                 lat = math.degrees(math.atan(math.sinh(math.pi * (1.0 - 2.0 * (ty + (py + 0.5) / height) / 2 ** zoom))))
-                for px in range(0, width, constants.OSM_TERRAIN_STEP):
+                for px in range(0, width, step):
                     lng = (tx + (px + 0.5) / width) / 2 ** zoom * 360.0 - 180.0
                     if not (west <= lng <= east and south <= lat <= north):
                         continue
-                    r, g, b = rows[py][px * channels:px * channels + 3]
-                    elevation = r * 256.0 + g + b / 256.0 - 32768.0
+                    elevation = get_elevation(source_id, *rows[py][px * channels:px * channels + 3])
+                    if elevation is None:   # 지리원 수면 — 수계 평탄화가 경계 Z로 메운다
+                        continue
                     x, y = non_rhino_utils.get_tm_from_wgs84(lng, lat)
                     spots.append(FeatureInfo(
                         feature_id=10 ** 9 + len(spots), theme="terrain", kind="spot", code="", name="", value=round(elevation, 2), attrs={},
-                        sheet="", geometry={"type": "Point", "coordinates": [round(x, 3), round(y, 3)]}, source_id="aws_terrain",
+                        sheet="", geometry={"type": "Point", "coordinates": [round(x, 3), round(y, 3)]}, source_id=source_id,
                         reference_date=reference_date, min_x=x, max_x=x, min_y=y, max_y=y,
                     ))
-    return spots
+    return spots, used
 
 
 # ── 지명 검색 (Nominatim) ───────────────────────────────
@@ -351,18 +512,36 @@ def search_places(query, limit):
 
 def load(bounds, today):
     # type: (tuple, str) -> ContextData
-    """bounds(TM m) 안 OSM 건물·피처 + 지형 표고점 → ContextData. 받는 날짜를 기준일로 적는다."""
-    elements = get_overpass_elements(bounds)
-    sources = [
-        DataSource("osm", "OpenStreetMap (Overpass API)", "https://www.openstreetmap.org/copyright", today, today,
-                   non_rhino_utils.get_crs_label(), "ODbL 1.0 — © OpenStreetMap contributors", tr("건물 높이는 height·building:levels 태그, 없으면 기본값")),
-        DataSource("aws_terrain", "Terrain Tiles (AWS Open Data, terrarium)", "https://registry.opendata.aws/terrain-tiles/", "", today,
-                   non_rhino_utils.get_crs_label(), tr("공개(출처 표기)"), tr("SRTM·GMTED 등 혼합 DEM, 해상도 지역별 상이(약 30 m)")),
-    ]
-    buildings = _get_buildings(elements, today)
+    """bounds(TM m) 안 OSM 건물·피처 + 지형 표고점 → ContextData. 받는 날짜를 OSM·지형 기준일로 적는다.
+    일본: 받아 둔 PLATEAU 팩 건물을 먼저 쓰고 OSM 건물은 그와 겹치지 않는 것만, 지형은 지리원 5 m 타일. 출처는 실제로 쓴 것만(역할은 뒤의 것이 차지)."""
+    plateau, plateau_sources = load_plateau_buildings(get_lnglat_bounds(bounds))
+    if plateau:   # 일본 — 도로·수계·녹지 먼저(건물 줄 뺀 질의), OSM 건물은 따로 첫 미러에만(constants.OSM_OVERPASS_BUILDING_QUERY 주석)
+        try:
+            elements, osm_ok = get_overpass_elements(bounds, constants.OSM_OVERPASS_QUERY.replace(constants.OSM_OVERPASS_BUILDINGS, "")), True
+        except RuntimeError:   # 공개 Overpass 서버가 모두 막힘(2026-10-21 Rhino 실측: 502·504·시간 초과) — PLATEAU 건물·지리원 지형만으로 만든다
+            elements, osm_ok = [], False   # 출처에 osm이 빠진 것을 context_builder가 보고 알린다
+        try:
+            osm_buildings = _get_buildings(get_overpass_elements(bounds, constants.OSM_OVERPASS_BUILDING_QUERY, constants.OSM_OVERPASS_URLS[:1]), today) if osm_ok else []
+        except RuntimeError:   # 메우기용이라 못 받아도 넘어간다
+            osm_buildings = []
+    else:
+        elements, osm_ok = get_overpass_elements(bounds), True
+        osm_buildings = _get_buildings(elements, today)
+    buildings = plateau + get_buildings_apart(osm_buildings, plateau)
     _apply_public_use(buildings, elements)
-    return ContextData(bounds=tuple(bounds), buildings=buildings,
-                       features=_get_features(elements, today) + get_terrain_spots(bounds, today), sources=sources)
+    spots, terrain_ids = get_terrain_spots(bounds, today)
+    crs = non_rhino_utils.get_crs_label()
+    sources = [DataSource("osm", "OpenStreetMap (Overpass API)", "https://www.openstreetmap.org/copyright", today, today, crs,
+                          "ODbL 1.0 — © OpenStreetMap contributors", tr("건물 높이는 height·building:levels 태그, 없으면 기본값"))] if osm_ok else []
+    if "aws_terrain" in terrain_ids:
+        sources.append(DataSource("aws_terrain", "Terrain Tiles (AWS Open Data, terrarium)", "https://registry.opendata.aws/terrain-tiles/", "", today,
+                                  crs, tr("공개(출처 표기)"), tr("SRTM·GMTED 등 혼합 DEM, 해상도 지역별 상이(약 30 m)")))
+    sources += plateau_sources
+    if "gsi_dem" in terrain_ids:   # 이름은 지리원 출처 표기 그대로(일본어)
+        sources.append(DataSource("gsi_dem", "国土地理院 標高タイル（基盤地図情報数値標高モデル DEM5A・5B・5C）", "https://maps.gsi.go.jp/development/ichiran.html",
+                                  "", today, crs, tr("국토지리원 콘텐츠 이용규약(공공데이터 이용규약 제1.0판 호환) — 출처 표기"),
+                                  tr("표고 타일을 가공해 만듦. 5 m 격자, 표고 기준 T.P.(도쿄만 평균해면)")))
+    return ContextData(bounds=tuple(bounds), buildings=buildings, features=_get_features(elements, today) + spots, sources=sources)
 
 
 def _apply_public_use(buildings, elements):

@@ -182,6 +182,18 @@ class BridgeTest(unittest.TestCase):
         finally:
             bridge.close()
 
+    def test_panel_closed_ends_wait(self):
+        """패널을 닫으면(Ruby → stdin panel_closed) 생성은 취소, 답이 오지 않는 호스트 호출은 30분이 아니라 바로 끝난다. init이면 다시 연다."""
+        controller = cmd_sketchup._SketchUpController("test")
+        controller._running = True
+        controller.handle({"cmd": "panel_closed"})
+        self.assertTrue(controller._cancel_requested)
+        with self.assertRaises(cmd_sketchup.HostError):
+            controller.host.call("bake", path="x")
+        controller._init = lambda msg: None   # 매니페스트·통계 없이 열림 표시만
+        controller.handle({"cmd": "init"})
+        self.assertTrue(controller.panel_open)
+
 
 if __name__ == "__main__":
     unittest.main()

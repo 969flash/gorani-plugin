@@ -119,15 +119,35 @@ def _built_at(prepared):
 
 def _get_abroad_meta_lines(prepared):
     # type: (object) -> list
-    """Global(OSM) 메타 5줄 — OSM·지형 타일 출처와 좌표계(해외 = 지역 횡메르카토르, 한국 = EPSG:5186)."""
+    """Global(OSM) 메타 5줄 — OSM·지형 타일 출처와 좌표계(해외 = 지역 횡메르카토르, 한국 = EPSG:5186).
+    일본은 PLATEAU 건물(도시·연도, CC BY 4.0 가공 표기)과 지리원 표고 타일을 쓴 만큼 적는다."""
     dates = get_source_dates(prepared)
+    sources = {getattr(s, "source_id", ""): s for s in getattr(prepared, "sources", None) or []}
+    plateau, gsi = sources.get("plateau"), "gsi_dem" in sources
+    crs_name = tr("대상지 중심 횡메르카토르(GRS80, 축척 1)") if non_rhino_utils.is_local_projection() else "EPSG:5186"
+    if not plateau and not gsi:
+        return [
+            tr("자료기준 — OpenStreetMap {0} · Terrain Tiles · {1} · 생성 {2} · {3} v{4}", dates["building"], non_rhino_utils.get_crs_label(),
+               _built_at(prepared)[:10], constants.TOOL_NAME, constants.PANEL_VERSION),
+            tr("출처: © OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright); 지형 Terrain Tiles (Mapzen·AWS Open Data, SRTM 등 공개 DEM)"),
+            tr("좌표계: {0} · 지형 약 30 m 격자 — 실측·법정 자료 아님", crs_name),
+            tr("정합 오차: — (필지 자료 없음)"),
+            tr("건물 높이: OSM height 태그(B)·층수(C)·기본값 {0:.1f} m(D)", constants.DEFAULT_BUILDING_HEIGHT_M),
+        ]
+    osm = sources.get("osm")   # Overpass가 막히면 없다(osm_context.load)
+    data = (["PLATEAU %s" % plateau.reference_date] if plateau else []) + (["OpenStreetMap %s" % osm.reference_date] if osm else [])
+    data.append("国土地理院 標高タイル" if gsi else "Terrain Tiles")
+    credits = ([tr("{0}、国土交通省 (CC BY 4.0, Gorani 가공)", plateau.name)] if plateau else []) + (
+        ["© OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright)"] if osm else []) + [
+        tr("지형 国土地理院 標高タイル (加工)") if gsi else tr("지형 Terrain Tiles (Mapzen·AWS Open Data, SRTM 등 공개 DEM)")]
     return [
-        tr("자료기준 — OpenStreetMap {0} · Terrain Tiles · {1} · 생성 {2} · {3} v{4}", dates["building"], non_rhino_utils.get_crs_label(),
-           _built_at(prepared)[:10], constants.TOOL_NAME, constants.PANEL_VERSION),
-        tr("출처: © OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright); 지형 Terrain Tiles (Mapzen·AWS Open Data, SRTM 등 공개 DEM)"),
-        tr("좌표계: {0} · 지형 약 30 m 격자 — 실측·법정 자료 아님", tr("대상지 중심 횡메르카토르(GRS80, 축척 1)") if non_rhino_utils.is_local_projection() else "EPSG:5186"),
+        tr("자료기준 — {0} · {1} · 생성 {2} · {3} v{4}", " · ".join(data), non_rhino_utils.get_crs_label(), _built_at(prepared)[:10],
+           constants.TOOL_NAME, constants.PANEL_VERSION),
+        tr("출처: {0}", "; ".join(credits)),
+        tr("좌표계: {0} · 지형 5 m 격자(표고 T.P.) — 실측·법정 자료 아님", crs_name) if gsi else tr("좌표계: {0} · 지형 약 30 m 격자 — 실측·법정 자료 아님", crs_name),
         tr("정합 오차: — (필지 자료 없음)"),
-        tr("건물 높이: OSM height 태그(B)·층수(C)·기본값 {0:.1f} m(D)", constants.DEFAULT_BUILDING_HEIGHT_M),
+        tr("건물 높이: PLATEAU 실측 높이(B)·층수(C), 없는 곳은 OSM height 태그(B)·층수(C)·기본값 {0:.1f} m(D)", constants.DEFAULT_BUILDING_HEIGHT_M) if plateau
+        else tr("건물 높이: OSM height 태그(B)·층수(C)·기본값 {0:.1f} m(D)", constants.DEFAULT_BUILDING_HEIGHT_M),
     ]
 
 
@@ -135,7 +155,7 @@ def get_meta_lines(prepared):
     # type: (object) -> list
     """deliverables §C 공통 ①자료기준 ②출처·라이선스 ③좌표계·정확도 ④정합 오차 ⑤기준일 경고 — 5줄.
     SVG 여백·context.json·CTX::Ref META_LINES가 모두 이 문자열을 쓴다."""
-    if any(getattr(s, "source_id", "") == "osm" for s in getattr(prepared, "sources", None) or []):   # Global — 한국 안이어도 출처는 OSM(ODbL 표기)
+    if any(getattr(s, "source_id", "") in constants.GLOBAL_SOURCE_IDS for s in getattr(prepared, "sources", None) or []):   # Global — 한국 안이어도 출처는 OSM(ODbL 표기)
         return _get_abroad_meta_lines(prepared)
     dates = get_source_dates(prepared)
     sheets = get_sheet_codes(prepared)

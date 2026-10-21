@@ -37,30 +37,31 @@ Rhino 8 명령창에 `PackageManager` → `Gorani` 검색 → 설치 → Rhino�
 
 ## Blender
 
-1. 설치 — Blender 환경 설정 > Get Extensions > 오른쪽 위 ⌄ > Repositories > [+] Add Remote Repository에
-   `https://969flash.github.io/gorani/blender/index.json` → 목록에서 Gorani [Install]. 새 판도 여기서 받는다.
-   zip 파일을 받았으면 Get Extensions > ⌄ > Install from Disk.
+1. 설치 — Blender 환경 설정 > Get Extensions에서 Gorani를 검색해 [Install](공식 확장 저장소 extensions.blender.org — 심사 통과 뒤). 새 판도 여기서 받는다.
+   zip 파일을 받았으면 Get Extensions > 오른쪽 위 ⌄ > Install from Disk.
 2. 명령줄·AI 에이전트:
    ```
-   blender -c extension repo-add --name Gorani --url https://969flash.github.io/gorani/blender/index.json gorani
    blender -c extension install -s -e gorani
    ```
    zip이면 `blender -c extension install-file -r user_default -e gorani-<버전>.zip`.
-3. 환경 설정 > 시스템 > 네트워크 > **온라인 접근 허용**을 켠다(지도·지역 데이터를 받는다).
-4. 3D 뷰 사이드바(N) > Gorani > [패널 열기] — 패널이 기본 브라우저 탭으로 열린다(Blender 안에는 웹 창이 없다). 쓰는 법은 Rhino와 같다.
-   생성 중에는 Blender 화면이 멈추고 진행률은 브라우저에 보인다. 탭을 닫았으면 [패널 열기]를 다시 누른다.
+3. 환경 설정 > 시스템 > 네트워크 > **온라인 접근 허용**(Allow Online Access)을 켠다(지도·지역 데이터를 받는다).
+4. 3D 뷰 사이드바(N) > Gorani > [Open Panel](한국어 인터페이스면 [패널 열기]) 또는 파일 > 가져오기 > Gorani Site Context —
+   패널이 기본 브라우저 탭으로 열린다(Blender 안에는 웹 창이 없다). 쓰는 법은 Rhino와 같다. 브라우저 창이 넓으면 지도가 왼쪽, 설정이 오른쪽에 온다.
+   생성 중에는 Blender 화면이 멈추고 진행률은 브라우저에 보인다. 탭을 닫았으면 [Open Panel]을 다시 누른다(앞 탭은 '새 탭에서 열렸습니다'로 멈춘다).
 
 - 데이터·결과 폴더는 Rhino와 같다(`~/Gorani`) — 한쪽에서 받은 지역은 다른 쪽도 쓴다.
 - 3D는 장면의 컬렉션 `CTX::…`와 사본 `context.blend`(열면 'Gorani' 장면). 건물은 메시 하나이고 면 속성 `height`·`floors`·`building_id`가 있다(지오메트리 노드로 색칠). 필지는 레이어마다 커브 하나로 묶여 PNU 속성이 없다(대상 필지 `CTX::Site`만 필지마다).
 - 장면 단위는 m로 둔다(Blender 기본). Rhino판의 2D 도면 레이어(BM::)·DWG 저장은 없다 — `basemap_<축척>.ai`·`sheets/*.svg`를 쓴다.
-- Rhino 커브 가져오기 대신 닫힌 커브 객체 하나를 선택하고 [Blender 커브 가져오기].
+- 위성 영상(지도 [위성]·항공사진 도면)은 없다 — 확장 스토어 약관이 상용 영상 서비스(Esri)를 막는다. 업데이트 안내 창도 띄우지 않는다(Blender가 확장 업데이트를 알린다).
+- [Blender 커브 가져오기]는 닫힌(Cyclic) 커브 객체 하나를 쓴다. 미리 선택해 두면 바로, 아니면 누른 뒤 1분 안에 Blender에서 고르면 가져온다(Rhino 고르기와 같다). 베지어는 곡선을 따라 나눈다.
 
 ## SketchUp
 
-1. 설치 — 확장 > Extension Warehouse에서 Gorani [설치]. `.rbz` 파일을 받았으면 확장 > Extension Manager > [Install Extension]으로 고른다.
-   Extension Warehouse를 거치지 않은 `.rbz`(서명 없음)는 Extension Manager 왼쪽 아래 톱니 > Loading Policy를 **Unrestricted**로 둬야 켜진다.
+1. 설치 — 확장 > Extension Warehouse에서 Gorani [설치]. `.rbz` 파일을 받았으면 확장 > 확장 관리자(Extension Manager) > [Install Extension]으로 고른다.
+   Extension Warehouse를 거치지 않은 `.rbz`(서명 없음)는 확장 관리자 왼쪽 아래 톱니 > Loading Policy를 **Unrestricted**로 둬야 켜진다.
 2. 확장 > Gorani(또는 Gorani 도구 막대 단추) — 패널 창이 열린다. 쓰는 법은 Rhino와 같다.
    생성 중 모델에 넣는 동안(몇 초~수십 초) SketchUp 화면이 멈춘다. 계산은 확장에 든 파이썬이 따로 돌린다.
+   만드는 중에 패널 창을 닫으면 Rhino처럼 멈춘다(넣다 만 3D는 다시 만들면 지워진다).
 
 - 데이터·결과 폴더는 Rhino·Blender와 같다(`~/Gorani`) — 한쪽에서 받은 지역은 다른 쪽도 쓴다.
 - 3D는 대상지마다 그룹 `Gorani <대상지명>` 하나. 안에 태그 `CTX::…`(태그 폴더 CTX)마다 그룹이 있고, 건물은 동마다 솔리드 그룹이다(속성 사전 `Gorani`에 높이·층수·PNU — Entity Info > 고급 속성 또는 속성 확장으로 본다). 한 번의 생성은 실행 취소 한 번으로 지운다.
@@ -72,12 +73,13 @@ Rhino 8 명령창에 `PackageManager` → `Gorani` 검색 → 설치 → Rhino�
 ## 5. 사용 통계
 
 도구를 고치고 어디서 얼마나 쓰이는지 알기 위해 Google Analytics로 아래를 보낸다. 이름·파일 경로·도면 내용은 보내지 않는다.
-Blender·SketchUp판은 패널에서 [보내기]를 고른 사람만 보낸다(처음 한 번 묻고, 더보기 메뉴 > 설정 > 사용 통계에서 바꾼다).
+SketchUp판은 패널에서 [보내기]를 고른 사람만 보낸다(처음 한 번 묻고, 더보기 메뉴 > 설정 > 사용 통계에서 바꾼다).
+Blender판은 보내지 않는다(확장 스토어 심사가 동의를 받아도 분석 전송을 받지 않는다).
 
-- 설치마다 만든 무작위 ID, 패널·Rhino(또는 Blender·SketchUp) 버전, OS·언어
+- 설치마다 만든 무작위 ID, 패널·Rhino(또는 SketchUp) 버전, OS·언어
 - 생성한 대상지 — 필지 PNU·중심 좌표, 구역은 중심·면적·크기, 위치는 그 좌표
 - 범위·결과·걸린 시간·건물 수, 받은 데이터 팩 지역, 예상 밖 오류 종류
 
 국내 지역 데이터(건물·도로·등고선)를 받을 때는 같은 무작위 ID를 국내 서버(Oracle 춘천)에 함께 보낸다. 하루 받기 한도를 설치마다 세는 데만 쓴다.
 
-패널을 열 때 지도 첫 위치를 정하려고 ipinfo.io에 한 번 접속한다. 접속 IP로 도시를 짐작할 뿐 그 위치를 저장하거나 보내지 않는다.
+패널을 열 때 지도 첫 위치를 정하려고 ipinfo.io에 한 번 접속한다. 접속 IP로 도시를 짐작할 뿐 그 위치를 저장하거나 보내지 않는다. Blender판은 접속하지 않는다(서울시청에서 연다 — 확장 스토어 약관).

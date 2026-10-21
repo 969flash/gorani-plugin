@@ -19,6 +19,7 @@ import bpy
 import constants
 import non_rhino_utils
 from context_baker import get_layer_rgb, get_lot_key, get_ref_attrs, read_meta
+from i18n import tr
 
 LAYER_KEY = "GORANI_LAYER"   # 객체가 속한 레이어(컬렉션) 이름 — .blend에서 다시 넣을 때 제자리를 찾는다
 
@@ -134,7 +135,13 @@ def _make_data(item):
     if item.faces:
         mesh = bpy.data.meshes.new(item.name)
         mesh.from_pydata(item.verts, [], item.faces)
-        for name, values in (item.face_attrs or {}).items():
+        attrs = dict(item.face_attrs or {})
+        for name, values in list(attrs.items()):
+            # INT 속성은 32비트 — 한국 시도 팩(시도 × 10⁹)·일본 팩(시구정촌 × 10⁷) 건물 id는 넘는다(foreach_set이 TypeError).
+            # 아래 9자리는 그 이름 그대로, 위 자리는 <이름>_high로 나눠 담는다(id = high × 10⁹ + 아래). 서울·OSM id는 high가 없다
+            if values and isinstance(values[0], int) and max(abs(v) for v in values) >= 2 ** 31:
+                attrs[name], attrs[name + "_high"] = [v % 10 ** 9 for v in values], [v // 10 ** 9 for v in values]
+        for name, values in attrs.items():
             attribute = mesh.attributes.new(name, "INT" if values and isinstance(values[0], int) else "FLOAT", "FACE")
             attribute.data.foreach_set("value", values)
         mesh.validate(clean_customdata=False)
@@ -214,7 +221,7 @@ def save_copy(scene, path, names=None, timing=None):
     timing = timing if timing is not None else {}
     root = bpy.data.collections.get(constants.CTX_ROOT_LAYER)
     if root is None:
-        raise RuntimeError("저장할 CTX 컬렉션이 없습니다")
+        raise RuntimeError(tr("저장할 CTX 컬렉션이 없습니다"))
     t = time.time()
     copy = bpy.data.scenes.new(constants.TOOL_NAME)
     try:
@@ -240,16 +247,16 @@ def import_blend(scene, result_dir):
     path = os.path.join(result_dir, constants.BLENDER_MODEL_FILE_NAME)
     result = {"ok": False, "layers": 0, "objects": 0, "replaced": False, "text": "", "shift": [0.0, 0.0]}
     if not os.path.exists(path):
-        result["text"] = "파일이 없습니다: %s" % path
+        result["text"] = tr("파일이 없습니다: {0}", path)
         return result
     meta = read_meta(result_dir)
     file_origin = tuple(float(v) for v in (meta.get("doc_origin") or meta.get("origin") or [])) or None
     doc_origin = get_doc_origin(scene)
     if file_origin and doc_origin and (file_origin == (0.0, 0.0)) != (doc_origin == (0.0, 0.0)):
-        result["text"] = "좌표 방식이 다른 장면입니다(원점 이동 / 실제 좌표) — 새 장면에서 넣으세요"
+        result["text"] = tr("좌표 방식이 다른 장면입니다(원점 이동 / 실제 좌표) — 새 장면에서 넣으세요")
         return result
     if file_origin and doc_origin and math.hypot(file_origin[0] - doc_origin[0], file_origin[1] - doc_origin[1]) > constants.ORIGIN_MAX_OFFSET:
-        result["text"] = "다른 지역 장면입니다 — 새 장면에서 넣으세요 (원점 차이 > %.0f m)" % constants.ORIGIN_MAX_OFFSET
+        result["text"] = tr("다른 지역 장면입니다 — 새 장면에서 넣으세요 (원점 차이 > {0:.0f} m)", constants.ORIGIN_MAX_OFFSET)
         return result
     lot_key = meta.get("lot_key") or (get_lot_key(meta["pnus"]) if meta.get("pnus") else None)
     if lot_key:
@@ -270,7 +277,7 @@ def import_blend(scene, result_dir):
     if file_origin and not doc_origin:
         _set_doc_origin(scene, file_origin)
     result.update(ok=result["objects"] > 0, layers=len(layers), shift=list(shift),
-                  text="" if result["objects"] else "파일에 객체가 없습니다: %s" % path)
+                  text="" if result["objects"] else tr("파일에 객체가 없습니다: {0}", path))
     return result
 
 

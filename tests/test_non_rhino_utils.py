@@ -56,6 +56,17 @@ def _assert_simple_convex(test, ring):
             test.assertFalse(_segments_cross(ring[i], ring[(i + 1) % n], ring[j], ring[(j + 1) % n]), "자기교차 %d-%d" % (i, j))
 
 
+class KoreaTest(unittest.TestCase):
+    def test_korea_box_without_japan_corner(self):
+        """한국 판정 사각형에서 남동쪽 일본 모서리(후쿠오카·기타큐슈·쓰시마)를 뺀다. 부산·제주·울릉은 한국 그대로."""
+        for name, lng, lat in (("서울", 126.98, 37.57), ("부산역", 129.04, 35.12), ("태종대", 129.08, 35.05), ("제주", 126.53, 33.50),
+                               ("울릉도", 130.90, 37.50), ("독도", 131.87, 37.24)):
+            self.assertTrue(u.is_korea(lng, lat), name)
+        for name, lng, lat in (("후쿠오카", 130.40, 33.59), ("기타큐슈", 130.88, 33.88), ("쓰시마", 129.30, 34.40), ("사세보", 129.72, 33.18),
+                               ("시모노세키", 130.94, 33.96), ("도쿄", 139.70, 35.69)):
+            self.assertFalse(u.is_korea(lng, lat), name)
+
+
 class PointInPolygonTest(unittest.TestCase):
     def test_donut_hole_is_outside(self):
         rings = [SQUARE, HOLE]

@@ -426,6 +426,18 @@ footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-
   .modes .t { display: none; }
   .sheet-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+/* 넓은 창(Blender 브라우저 탭, 키운 Rhino·SketchUp 창) — 지도는 왼쪽을 다 쓰고 도구줄·트레이는 오른쪽 한 열(448 = Rhino 창 480 − 여백 32).
+   그대로 두면 지도가 가로로 납작해지고 트레이 줄이 화면 끝까지 퍼졌다(2026-10-21 Blender 1440×900) */
+@media (min-width: 960px) {
+  body[data-screen="map"] section[data-screen="map"] { padding-bottom: 16px; }
+  section[data-screen="map"] fieldset { display: grid; grid-template-columns: minmax(0, 1fr) 448px; grid-template-rows: auto auto minmax(0, 1fr); column-gap: 16px; }
+  .map-slot { grid-column: 1; grid-row: 1 / -1; min-height: 0; }
+  .toolrow { grid-column: 2; grid-row: 1; }
+  #search_msg { grid-column: 2; grid-row: 2; }
+  .tray { grid-column: 2; grid-row: 3; height: auto; margin-top: 0; }
+  #menu { left: auto; width: 480px; }
+  body[data-screen="result"] footer { padding-left: max(16px, calc((100% - 880px) / 2)); padding-right: max(16px, calc((100% - 880px) / 2)); }
+}
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
@@ -548,7 +560,7 @@ function applyStaticText() {
   document.querySelector('section[data-screen="result"]').setAttribute("aria-label", tr("결과"));
   if (!$("chip_trunc")) return;   // 지도 칩은 initMap이 만든다
   $("chip_trunc").textContent = tr("일부만 표시했습니다. 더 확대하세요"); $("chip_offline").textContent = tr("지도 배경을 받지 못해 필지선만 보입니다");
-  $("aerial_btn").textContent = tr("위성"); $("aerial_btn").title = tr("위성 영상 배경");
+  var ab = $("aerial_btn"); if (ab) { ab.textContent = tr("위성"); ab.title = tr("위성 영상 배경"); }   // Blender는 [위성]이 없다
 }
 function setLang(lang) {   // 헤더 언어 고르기 — 저장하고 지금 화면을 그 언어로 다시 그린다(대상지·결과는 그대로)
   if (!LANG_NAMES[lang] || lang === LANG) return;
@@ -670,7 +682,10 @@ function busyTarget() { return draw.on || stamp.on; }
 // ── 데이터 모드 — 위치로 정한다(docs/ui_spec.md §5). 대상지(없으면 지도 중심)가 한국 밖이면 Global(OSM).
 // options.region = "global"은 메뉴 설정 '한국에서도 OpenStreetMap 쓰기'. 좌표계는 엔진이 위치로 정한다(context_builder.is_global) ──
 function forceOsm() { return state.options.region === "global"; }
-function isAbroad(c) { var b = state.init && state.init.map.korea_bounds; return !!(b && c) && (c[0] < b[0] || c[0] > b[2] || c[1] < b[1] || c[1] > b[3]); }
+function isAbroad(c) {   // 한국 사각형 밖이거나 그 안의 일본 모서리(korea_cut — 후쿠오카·쓰시마) — non_rhino_utils.is_korea와 같다
+  var b = state.init && state.init.map.korea_bounds, k = state.init && state.init.map.korea_cut;
+  return !!(b && c) && (c[0] < b[0] || c[0] > b[2] || c[1] < b[1] || c[1] > b[3] || (!!k && c[0] > k[0] && c[1] < k[1]));
+}
 function mapCenter() { if (!map) return null; var c = map.getCenter(); return [c.lng, c.lat]; }
 function region() { return forceOsm() || isAbroad(targetCenter() || mapCenter()) ? "global" : "kr"; }
 function isGlobal() { return region() === "global"; }
@@ -1087,8 +1102,8 @@ function doSearch() {
 
 // ── 지도 ──
 function getTileSource() {   // [url, 출처] — 화면 중심이 한국 밖이면 해외 배경(VWorld는 국내만), 폴백 뒤면 폴백, 위성이면 영상(폴백·해외 = Esri)
-  var t = state.init.tile, b = state.init.map.korea_bounds, c = map.getCenter();
-  var abroad = !!b && (c.lng < b[0] || c.lng > b[2] || c.lat < b[1] || c.lat > b[3]);
+  var t = state.init.tile, c = map.getCenter();
+  var abroad = isAbroad([c.lng, c.lat]);
   if (aerial) return abroad || tileFallback ? [t.abroad_aerial_url, t.abroad_aerial_attribution] : [t.aerial_url, t.aerial_attribution];
   if (abroad) return [t.abroad_url, t.abroad_attribution];
   return tileFallback ? [t.fallback_url, "© OpenStreetMap contributors"] : [t.url, t.attribution];
@@ -1128,7 +1143,7 @@ function initMap(init) {
     L.DomEvent.on(bar.firstChild, "click", function (e) { L.DomEvent.preventDefault(e); setAerial(!aerial); });
     return bar;
   };
-  aerialCtl.addTo(map);
+  if (init.tile.abroad_aerial_url) aerialCtl.addTo(map);   // Blender는 위성 영상이 없다(review_map.get_tile_config)
   tiles = L.tileLayer(init.tile.url, { attribution: init.tile.attribution, maxZoom: 21, maxNativeZoom: 19 }).addTo(map);   // 타일은 19까지 — 20·21은 확대해 보여 준다(작은 필지 고르기)
   map.attributionControl.setPrefix("");
   tiles.on("tileerror", function () {
@@ -2253,6 +2268,11 @@ var handlers = {
     if (!state.result || !state.made2d) return;
     if (m.ok) { var ex = state.made2d.basemap.exported; if (ex.indexOf(m.path) < 0) ex.push(m.path); renderExportedList(); toast(tr("{0}을 만들었습니다", m.path.split(/[\\/]/).pop())); }
     else slotError("bm_err", (m.text || tr("내보내기 실패")) + " " + tr("(log.txt 확인)"));
+  },
+  superseded: function () {   // 브라우저 패널 — 같은 패널을 새 탭에서 열었다. 이 탭은 다시 붙지 않는다(panel_server.Bridge.subscribe)
+    events.close();
+    document.body.innerHTML = '<div style="margin:auto;padding:24px;text-align:center"><h2>' + tr("패널이 새 탭에서 열렸습니다") + '</h2><p class="hint">' + tr("이 탭은 닫아도 됩니다.") + "</p>" +
+      '<button type="button" class="btn" onclick="location.reload()">' + tr("이 탭에서 계속") + "</button></div>";
   },
   error: function (m) {
     appendLog(tr("오류") + " " + m.context + ": " + m.text + (m.detail ? "\n" + m.detail : ""), "error");

@@ -77,6 +77,7 @@ class MapInitTest(unittest.TestCase):
                 self.assertIsNone(review_map.get_ip_center())
         self.assertEqual(review_map.get_map_init(None)["center"], review_map.MAP_CENTER)
         self.assertEqual(review_map.get_map_init(None)["zoom"], review_map.MAP_ZOOM)
+        self.assertEqual(review_map.get_map_init(None)["korea_cut"], list(review_map.non_rhino_utils.KOREA_JAPAN_CORNER))   # 패널 isAbroad가 같은 모서리를 뺀다
 
 
 class GeojsonConversionTest(unittest.TestCase):

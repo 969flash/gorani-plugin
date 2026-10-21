@@ -109,6 +109,8 @@
 | `dev_context_builder.py` | 있음+ | 개발 python3 | 도엽 features + GIS건물 병합·높이 규칙(`decide_height`). 139도엽 전체 빌드 완료(372 s). 추가: 정합 샘플(theme `qa`) 적재 | geopandas·pyogrio·shapely·pandas·numpy, constants |
 | `dev_make_fixture.py` | 신규(≈30줄) | 개발 python3(sqlite3만) | 전체 DB 2개를 `ATTACH`하고 `INSERT INTO … SELECT … WHERE bbox 교차`로 `tests/fixtures/seongsu_context.db`(buildings·features·data_sources·source_files)와 `seongsu_site.db`(parcels·overlays·parcel_overlays·parcel_land_use·data_sources, 스키마 v5, `user_version 5`, bbox 인덱스 포함) 생성 | constants |
 | `dev_deploy.py` | 신규 | 개발 | `yak`: rhinocode로 Gorani .rhp 빌드 + scripts/(평문 loader·cmd_site, 로직 .pyc optimize=2) → yak CLI. `packs`: 필지(rtree 제거)·컨텍스트(등고선 제외)·등고선 DB → xz + manifest.json. 받는 쪽은 `data_pack.py` | — |
+| `osm_context.py` | (2026-10-13) | Rhino | Global 모드 컨텍스트 — Overpass 건물·피처 + 지형 타일 → `ContextData`(context_db와 같은 꼴). 일본(2026-10-21): 받아 둔 PLATEAU 팩 건물을 먼저, OSM 건물은 겹치지 않는 것만(`get_buildings_apart`), 지형은 지리원 5 m 타일(없으면 AWS). Overpass가 막혀도 PLATEAU가 있으면 건물·지형만으로 만든다 | `data_pack`·`context_db` |
+| `dev_plateau.py` | (2026-10-21) | 개발 | 일본 건물 팩 — CKAN 목록 → zip을 HTTP Range로 열어 `udx/bldg` GML만 읽고 시구정촌마다 `jp<코드>_context.db.xz` + `jp/manifest.json` → HF `jp/` | — |
 | `dev_rhino_run.py` | 보유+ | 개발 | 128–130행: `data/*.db` 전부 심링크 | constants |
 | `dev_database_builder.py`·`dev_probe_*.py` | 보유 | 개발 | 필지 DB·08 실측 재현 | — |
 
@@ -279,6 +281,8 @@ def get_progress_message(phase, fraction, text, skipped, details):
 - 커브: 레이어마다 커브 객체 하나(POLY 스플라인 여럿). 합필 전 필지(Site::lots)만 필지마다. 2D 도면(BM::)·구조물 표고점은 없다.
 - 베이커: 레이어 = 컬렉션 `CTX::…`(CTX 아래 한 단), 색 = 레이어 이름 재질. 원점은 장면 사용자 속성, 실제 좌표 방식은 객체 위치로 옮긴다(메시는 단정밀도라 로컬). 사본은 임시 장면에 CTX를 걸어 `bpy.data.libraries.write` → `context.blend`(새 장면 view layer를 update하지 않으면 5.2.2가 죽는다).
 - 성수 fixture R=500 전체(시트 25장 포함) 3.8 s, 건물 3,454동·지형 면 27,594(job 없음 — `tests/test_blender.py`).
+- 패널: `panel_server.Bridge(threaded=False)` — 스레드 없이 메인 스레드가 소켓을 돌린다(타이머 `pump` + 생성 진행 콜백의 `_pump` → `poll`, Rhino의 `RhinoApp.Wait` 자리). 확장 심사가 Blender 안 스레드를 막는다(2026-10-21). 이벤트 줄 소켓은 브리지가 들고 `push`가 바로 쓴다. 새 탭이 열리면 앞 탭에 `superseded`.
+- 패키지(`dev_deploy.py blender`): `loader.py`·`usage_stats.py`는 Blender 판으로 바꿔 넣는다(패키지 상대 import만·다시 읽기 없음 / 통계 없이 설치 ID만), `if __package__:` 진입 분기는 앞쪽만 남긴다. 위성 영상(Esri)·업데이트 모달은 `HOST_LABELS["blender"]`의 `aerial`·`update_notice`로 끈다. 사용 통계 없음(`GA_STREAMS`에 blender 없음).
 
 ### 5.y SketchUp판 (`cmd_sketchup`·`mesh_geometry`·`sketchup_baker`·`sketchup_ext.rb`, 2026-10-18)
 
@@ -296,7 +300,7 @@ SketchUp(Ruby, sketchup_ext.rb = bsh_gorani/main.rb)            사이드카(번
 - 건물: 면 채우기가 없어 동마다 각기둥(`BakeItem.prisms` = 파트 링·바닥 Z·높이·Rhino판과 같은 14키 속성) → Ruby가 `Entities#build`(EntitiesBuilder, 2022+)로 구멍 있는 바닥·지붕·옆면 = 동마다 솔리드 그룹.
 - 모델 모양: 대상지마다 최상위 그룹 `Gorani <대상지명>`(속성 사전 `Gorani`의 `GORANI_LOT_KEY`) 안에 태그 `CTX::…`(태그 폴더 CTX)마다 그룹, 색 = 태그 색 + 같은 이름 재질. 지형은 `PolygonMesh` → `fill_from_mesh`(자동 부드럽게), 커브는 `add_edges`. 원점은 모델 속성, 실제 좌표 방식은 대상지 그룹을 옮긴다. 한 번의 생성 = Undo 한 번(clear가 작업을 열고 뒤 호출은 투명 작업).
 - 사본: 대상지 그룹 정의 `save_copy` → `context.skp`(로컬 좌표, 원점 = context.json `origin`). 다시 넣기는 `definitions.load` + 원점 차이만큼 옮긴 인스턴스.
-- 사이드카는 `-B`(확장 폴더에 `__pycache__`를 쓰면 서명 파일 목록이 바뀐다), stdout 첫 줄만 주소·그 뒤는 stderr = `~/Gorani/sketchup_sidecar.log`, stdin EOF(SketchUp 종료)에 끝난다. 패널을 닫으면 진행 중인 host_call은 `SKETCHUP_HOST_TIMEOUT` 뒤 실패.
+- 사이드카는 `-B`(확장 폴더에 `__pycache__`를 쓰면 서명 파일 목록이 바뀐다), stdout 첫 줄만 주소·그 뒤는 stderr = `~/Gorani/sketchup_sidecar.log`, stdin 한 줄은 Ruby 알림(패널 닫힘 `panel_closed` → Rhino 창 닫기처럼 생성 취소, 기다리던 host_call은 바로 실패), stdin EOF(SketchUp 종료)에 끝난다. 응답 없는 host_call은 `SKETCHUP_HOST_TIMEOUT` 뒤 실패.
 - 배포: `dev_deploy.py sketchup` → `build/bsh_gorani-<버전>.rbz`(약 90 MB — 런타임 셋, numpy OpenBLAS가 절반). 올리기는 `docs/sketchup_store.md`.
 
 ---
