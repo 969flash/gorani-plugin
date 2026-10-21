@@ -32,7 +32,7 @@ Upload A New Extension → **Overview**(제목·요약) → **Categories**(3개�
 - Categories: Architecture · Landscape Architecture · Import & Export
 
 **Extension File 탭**
-- Extension File: `build/bsh_gorani-<버전>.rbz`(500 MB까지). Version Number = `constants.PANEL_VERSION`
+- Extension File: `build/bsh_gorani-<버전>.rbz`(500 MB까지). Version Number = `constants.PANEL_VERSION`. 2026-10-22 초안 = origin/main 0cda78b 빌드(sha256 ad79c93d…)
 - Encryption Type: **None**(소스가 공개라 암호화가 필요 없고, 암호화가 로더 경로를 깨뜨릴 위험만 있다)
 - SketchUp Compatibility: 2022~2026 · OS: Windows, Mac OS X · Supported Languages: English, Spanish, Japanese, Korean, Simplified Chinese
 - Release Notes(1000자):
@@ -51,12 +51,13 @@ First release on the Extension Warehouse.
 - Testing instructions(1000자, 심사팀용):
 
 ```
-1) Open Extensions > Gorani. The panel opens in English (the globe button at the top switches language).
+1) Open Extensions > Gorani. The panel opens in English (the globe button switches language).
 2) Click "Point" at the top left, type "Flatiron Building, New York" (or "Ginza, Tokyo") in the search box and press Enter.
-3) Press "Create 3D model" at the bottom right. It takes 30-60 seconds because the data is downloaded on the fly. The context appears as one group "Gorani ..."; one Undo removes it.
+3) Press "Create 3D model" at the bottom right. It takes 30-70 seconds because the data is downloaded on the fly. The context appears as one group "Gorani ..."; one Undo removes it.
 4) Optional: "Create 2D material" writes drawings to ~/Gorani/result. It does not touch the model.
 
-Why the package contains executables: SketchUp has no Python, so Gorani bundles CPython 3.12 (python-build-standalone, PSF license) with numpy and shapely (BSD). It runs as a helper process started with -I -B and writes nothing into the extension folder. The panel (HtmlDialog) talks to it only on 127.0.0.1 with a per-session token. Usage statistics are sent only after the user opts in.
+Executables: SketchUp has no Python, so Gorani bundles CPython 3.12 (python-build-standalone, PSF) with numpy and shapely (BSD). It runs as a helper process (-I -B) and writes nothing into the extension folder. The panel (HtmlDialog) talks to it only on 127.0.0.1 with a per-session token.
+Network: data packs (Hugging Face, a Korean server), OpenStreetMap, PLATEAU/GSI in Japan, ipinfo.io once for the first map position, Esri imagery for the satellite view, Google Analytics only after opt-in.
 ```
 
 **Extension Details 탭**
@@ -94,7 +95,7 @@ It's free.
 - The panel speaks English, Korean, Spanish, Japanese and Chinese. Switch it with the globe button.
 - Gorani brings its own Python engine. It runs as a helper process, and the panel talks to it only on your computer (127.0.0.1).
 - Data is downloaded when you generate, so you need an internet connection.
-- Usage statistics are sent only if you opt in.
+- Privacy: usage statistics go to Google Analytics only if you opt in. To center the map the first time, the panel asks ipinfo.io for your approximate city by IP. The satellite map and the aerial photo sheet load Esri World Imagery tiles. No names, file paths or model contents are sent.
 - Sources: © OpenStreetMap contributors (ODbL), PLATEAU (MLIT, CC BY 4.0), GSI tiles, Korean public data (MOLIT, NGII, Seoul).
 - Results with Korean contours or elevations must not be posted online (NGII security rules).
 
