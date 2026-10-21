@@ -5,13 +5,13 @@
 ## 배포
 
 - [ ] 다른 컴퓨터(Windows일 수 있음)에서 Rhino판 실기 시험 — Mac에서 빌드한 .rhp·.pyc가 Windows Rhino 8에서 처음 도는 것일 수 있다.
-- [ ] Blender 공식 스토어 — 초안 0.3.1을 다 채워 두었다(2026-10-22, https://extensions.blender.org/add-ons/gorani/draft/). 남은 건 사용자가 [Submit for Approval]을 누르고 심사 댓글에 답하는 것(답변 문안 `docs/blender_store/README.md`).
-- [ ] SketchUp Extension Warehouse 심사 제출 — 개발자 신청 2026-10-22 접수, 승인 메일이 오면 My Extensions > Upload. 칸·이미지·심사 메모는 `docs/sketchup_store.md`. Windows 실기 시험 전이다.
+- [ ] Blender 공식 스토어 — 2026-10-22 03시 0.3.1(main 0cda78b 빌드) [Submit for Approval] 눌러 Awaiting Review(https://extensions.blender.org/add-ons/gorani/manage/). 심사 댓글은 Blender ID 메일로 온다 — 답변 문안 `docs/blender_store/README.md`.
+- [ ] SketchUp Extension Warehouse — 2026-10-22 03시 초안(0cda78b rbz)에 [Submit For Review]를 눌렀더니 RuboCop 검사(SketchupSuggestions 6건, 제출 요건 아님)가 떴고 FileEncoding 1건은 main 68ab551(PR #17)로 고쳤다. [Cancel Submission] 직후 Trimble 세션이 만료돼 취소가 들어갔는지 확인 못 함 — 로그인해서 Draft면 68ab551 rbz로 바꿔 다시 제출, In Review면 그대로 둔다(다음 판에 반영). 칸·심사 메모는 `docs/sketchup_store.md`.
 - [ ] `docs/install.md`(yak 패키지에 들어가 패널 [문서 열기]로 열린다)의 SketchUp 절이 아직 없는 설치 경로(Extension Warehouse)를 안내한다. 스토어에 오를 때까지 '준비 중'으로 바꾸거나 스토어 주소로 고친다(Blender 절은 2026-10-21 스토어 기준으로 고침).
 
 ## 웹사이트 (저장소 `~/Documents/GitHub/gorani`)
 
-- [ ] SketchUp·Blender가 스토어에 오르면 설치 칸 두 곳(`index.html`·`en/index.html`)과 `llms.txt`·`README.md`의 '준비 중' 문구를 설치 방법으로 바꾼다.
+- [ ] SketchUp·Blender가 스토어에 오르면 설치 칸(`index.html`·`en/index.html`·`ja/index.html`)과 `llms.txt`·`README.md`가 이미 스토어 설치 절차를 적고 있으니 주소만 확인한다(2026-10-22 일본어 페이지 `ja/` 추가, 버전 0.3.1).
 - [ ] 웹사이트 패널 스크린샷 세 장(`assets/panel-*.webp`)과 '이렇게 생겼습니다'·설치 4단계 문구가 옛 4단계 패널이다 — 패널이 2화면(지도 → 결과)으로 바뀌었다(PR #4). `site_ui.html?mock=1&step=1|3d|2d`로 다시 찍고(`build/food4rhino/panel_*.png`가 지금 화면) 문구를 고친다.
 - [ ] (옛 4단계 스크린샷 기준) 범위 단계(`assets/panel-extent.webp`): 용지는 A3가 골라져 있는데 지도 표시는 "A1 1:3000"이다. 목 데이터(`tests/fixtures/site_ui_mock.json`) 옵션과 preflight 결과를 맞추고 다시 찍는다(찍는 법은 메모리 project-website).
 - [ ] 후원 링크: GitHub Sponsors 미가입이라 `github.com/sponsors/969flash`가 다른 곳으로 넘어간다. 토스 링크 자리 `#todo-toss`.
