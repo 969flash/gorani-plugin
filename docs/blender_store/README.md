@@ -19,10 +19,13 @@
    이름·한 줄 소개·버전·라이선스·권한·태그·웹사이트는 zip의 `blender_manifest.toml`에서 채워진다.
 2. 만들어진 초안 페이지(Edit)에서
    - Description = `description.md`(맨 위 주석 줄 빼고 그대로, 마크다운)
-   - Icon = `icon.png`, Featured image = `featured.png`, Preview images = `preview_1_blender.png`·`preview_2_map.png`·`preview_3_2d.png` 순
+   - Icon = `icon.png`, Featured image = `featured.png`, Preview images = `preview_1_blender.png`·`preview_2_map.png`·`preview_3_2d.png` 순(패널 화면은 영어로 — 첫 설치 언어)
    - Support = https://github.com/969flash/gorani-plugin/issues (없으면 웹사이트)
 3. Save → 미리보기 확인 → **[Submit for Approval]** (이것만 사용자가 누른다).
 4. 심사 댓글은 Blender ID 메일로 온다. 고칠 것이 오면 버전을 올려 다시 빌드하고 같은 페이지에서 새 버전을 올린다.
+
+초안(Draft)은 처음 올린 zip에 묶인다 — 초안이 있는 동안 Upload Extension·Upload New Version은 초안 페이지로 되돌아간다(2026-10-21 확인).
+zip을 바꾸려면 [Submit for Approval] 뒤 Upload New Version(심사는 최신 판을 본다)이나, 초안을 지우고(Delete Extension) 다시 올린다.
 
 ## 새 판
 
