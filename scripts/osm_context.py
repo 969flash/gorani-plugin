@@ -24,6 +24,7 @@ import context_db
 import data_pack
 import non_rhino_utils
 from context_db import BuildingInfo, ContextData, DataSource, FeatureInfo
+from i18n import tr
 
 _CACHE = {}   # (질의 종류, bbox) → 응답 — 같은 대상지를 다시 생성할 때 Overpass를 또 부르지 않는다
 
@@ -78,7 +79,7 @@ def get_overpass_elements(bounds):
             return _CACHE[key]
         except Exception as error:   # 미러 하나가 막혀도 다음 것을 쓴다
             errors.append("%s: %s" % (endpoint, error))
-    raise RuntimeError("OSM(Overpass) 데이터를 받지 못했습니다. 인터넷 연결을 확인하세요\n" + "\n".join(errors))
+    raise RuntimeError(tr("OSM(Overpass) 데이터를 받지 못했습니다. 인터넷 연결을 확인하세요") + "\n" + "\n".join(errors))
 
 
 # ── 도형 ────────────────────────────────────────────────
@@ -270,8 +271,8 @@ def load_plateau_buildings(lnglat_bounds, data_dir=None):
     names = "・".join(row["name"].replace("3D都市モデル（Project PLATEAU）", "") for row in used)   # 国立市（2025年度）・国分寺市（2025年度）
     source = DataSource("plateau", "3D都市モデル（Project PLATEAU）" + names, "https://www.mlit.go.jp/plateau/open-data/",
                         min(row["reference_date"] or "" for row in used), used[0]["acquired_at"], non_rhino_utils.get_crs_label(),
-                        used[0]["license"], "出典：3D都市モデル（Project PLATEAU）%s、国土交通省。Gorani에서 건물 외곽·높이를 추출·가공. "
-                        "높이는 measuredHeight(항공측량 실측, B)·층수(C)·기본값(D)" % names)
+                        used[0]["license"], "出典：3D都市モデル（Project PLATEAU）%s、国土交通省。" % names
+                        + tr("Gorani에서 건물 외곽·높이를 추출·가공. 높이는 measuredHeight(항공측량 실측, B)·층수(C)·기본값(D)"))
     return buildings, [source]
 
 
@@ -389,7 +390,7 @@ def decode_png(data):
     # type: (bytes) -> tuple
     """8비트 RGB/RGBA 비인터레이스 PNG → (폭, 높이, 채널 수, 행 목록 bytes). 지형 타일 전용 최소 디코더."""
     if data[:8] != b"\x89PNG\r\n\x1a\n":
-        raise ValueError("PNG가 아닙니다")
+        raise ValueError(tr("PNG가 아닙니다"))
     pos, idat, width = 8, b"", 0
     while pos < len(data):
         length, kind = struct.unpack(">I4s", data[pos:pos + 8])
@@ -397,7 +398,7 @@ def decode_png(data):
         if kind == b"IHDR":
             width, height, depth, color = struct.unpack(">IIBB", chunk[:10])
             if depth != 8 or color not in (2, 6):
-                raise ValueError("지원하지 않는 PNG 형식(비트 %d, 색 %d)" % (depth, color))
+                raise ValueError(tr("지원하지 않는 PNG 형식(비트 {0}, 색 {1})", depth, color))
             channels = 3 if color == 2 else 4
         elif kind == b"IDAT":
             idat += chunk
@@ -515,15 +516,15 @@ def load(bounds, today):
     spots, terrain_ids = get_terrain_spots(bounds, today)
     crs = non_rhino_utils.get_crs_label()
     sources = [DataSource("osm", "OpenStreetMap (Overpass API)", "https://www.openstreetmap.org/copyright", today, today, crs,
-                          "ODbL 1.0 — © OpenStreetMap contributors", "건물 높이는 height·building:levels 태그, 없으면 기본값")]
+                          "ODbL 1.0 — © OpenStreetMap contributors", tr("건물 높이는 height·building:levels 태그, 없으면 기본값"))]
     if "aws_terrain" in terrain_ids:
         sources.append(DataSource("aws_terrain", "Terrain Tiles (AWS Open Data, terrarium)", "https://registry.opendata.aws/terrain-tiles/", "", today,
-                                  crs, "공개(출처 표기)", "SRTM·GMTED 등 혼합 DEM, 해상도 지역별 상이(약 30 m)"))
+                                  crs, tr("공개(출처 표기)"), tr("SRTM·GMTED 등 혼합 DEM, 해상도 지역별 상이(약 30 m)")))
     sources += plateau_sources
-    if "gsi_dem" in terrain_ids:
+    if "gsi_dem" in terrain_ids:   # 이름은 지리원 출처 표기 그대로(일본어)
         sources.append(DataSource("gsi_dem", "国土地理院 標高タイル（基盤地図情報数値標高モデル DEM5A・5B・5C）", "https://maps.gsi.go.jp/development/ichiran.html",
-                                  "", today, crs, "国土地理院コンテンツ利用規約(公共データ利用規約 第1.0版 호환) — 출처 표기",
-                                  "標高タイルを加工して作成. 5 m 격자, 표고 기준 T.P.(도쿄만 평균해면)"))
+                                  "", today, crs, tr("국토지리원 콘텐츠 이용규약(공공데이터 이용규약 제1.0판 호환) — 출처 표기"),
+                                  tr("표고 타일을 가공해 만듦. 5 m 격자, 표고 기준 T.P.(도쿄만 평균해면)")))
     return ContextData(bounds=tuple(bounds), buildings=buildings, features=_get_features(elements, today) + spots, sources=sources)
 
 

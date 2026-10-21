@@ -38,6 +38,7 @@ import osm_context
 import pnu_loader
 import site_prefs
 import sheet_svg
+from i18n import tr
 from sheet_svg import Frame
 
 
@@ -210,7 +211,7 @@ def get_lot_name(lots):
     parts = (first.address or "").split()
     dong = parts[-2] if len(parts) >= 2 else ""
     name = "%s_%s" % (dong, first.lot_number or first.pnu) if dong else (first.lot_number or first.pnu)
-    return name + ("외%d" % (len(lots) - 1) if len(lots) > 1 else "")
+    return tr("{0}외{1}", name, len(lots) - 1) if len(lots) > 1 else name
 
 
 def get_target_rings(lots):
@@ -227,9 +228,9 @@ def get_target_rings(lots):
         polygon = max(parts, key=lambda part: non_rhino_utils.get_ring_area(part[0]))
         holes = sum(len(part) - 1 for part in parts)
         if len(parts) > 1 or holes:
-            what = " · ".join(s for s in (("조각 %d개" % len(parts)) if len(parts) > 1 else "", ("구멍 %d개" % holes) if holes else "") if s)
-            warnings.append(_warning("warn", "multipart", "%s 필지 %s — 가장 넓은 조각 외곽선만 씁니다" % (lot.lot_number or lot.pnu, what),
-                                     "대상 필지는 닫힌 커브 하나여야 합니다. 조각·구멍은 CTX::Site에서 빠지고 면적은 대장값을 그대로 씁니다.",
+            what = " · ".join(s for s in (tr("조각 {0}개", len(parts)) if len(parts) > 1 else "", tr("구멍 {0}개", holes) if holes else "") if s)
+            warnings.append(_warning("warn", "multipart", tr("{0} 필지 {1} — 가장 넓은 조각 외곽선만 씁니다", lot.lot_number or lot.pnu, what),
+                                     tr("대상 필지는 닫힌 커브 하나여야 합니다. 조각·구멍은 CTX::Site에서 빠지고 면적은 대장값을 그대로 씁니다."),
                                      center=_lnglat((lot.min_x + lot.max_x) * 0.5, (lot.min_y + lot.max_y) * 0.5)))
         polygons.append([[(float(p[0]), float(p[1])) for p in ring] for ring in polygon])
     rings = [non_rhino_utils.get_clean_ring(polygon[0]) for polygon in polygons]
@@ -239,14 +240,14 @@ def get_target_rings(lots):
     want = sum(non_rhino_utils.get_ring_area(ring) * (1 if i == 0 else -1) for polygon in polygons for i, ring in enumerate(polygon))
     got = sum(map(non_rhino_utils.get_ring_area, outers)) - sum(map(non_rhino_utils.get_ring_area, holes))
     if not outers or abs(got - want) > constants.UNION_AREA_GAP * want:
-        warnings.append(_warning("warn", "merge_failed", "합필 외곽선을 만들지 못해 필지별 외곽선을 씁니다",
-                                 "합친 면적 %.1f ㎡ · 필지 면적 합 %.1f ㎡. 필지 경계가 크게 어긋난 곳입니다." % (got, want)))
+        warnings.append(_warning("warn", "merge_failed", tr("합필 외곽선을 만들지 못해 필지별 외곽선을 씁니다"),
+                                 tr("합친 면적 {0:.1f} ㎡ · 필지 면적 합 {1:.1f} ㎡. 필지 경계가 크게 어긋난 곳입니다.", got, want)))
         return rings, warnings
     if len(outers) > 1:
-        warnings.append(_warning("info", "merge_apart", "맞닿지 않은 필지가 있어 대상지가 %d덩어리입니다" % len(outers)))
+        warnings.append(_warning("info", "merge_apart", tr("맞닿지 않은 필지가 있어 대상지가 {0}덩어리입니다", len(outers))))
     if len(holes) > sum(len(polygon) - 1 for polygon in polygons):   # 필지 자체 구멍은 multipart가 이미 알렸다
-        warnings.append(_warning("warn", "merge_hole", "합친 대상지 안에 고르지 않은 땅이 있습니다 — 바깥 외곽선만 씁니다",
-                                 "가운데 필지도 대상지라면 지도에서 함께 고르세요."))
+        warnings.append(_warning("warn", "merge_hole", tr("합친 대상지 안에 고르지 않은 땅이 있습니다 — 바깥 외곽선만 씁니다"),
+                                 tr("가운데 필지도 대상지라면 지도에서 함께 고르세요.")))
     return outers, warnings
 
 
@@ -263,8 +264,9 @@ def _get_origin(center, doc_origin):
     if doc_origin:
         origin = (float(doc_origin[0]), float(doc_origin[1]))
         if math.hypot(center[0] - origin[0], center[1] - origin[1]) > constants.ORIGIN_MAX_OFFSET:
-            raise DomainError("origin_mismatch", "다른 지역 문서입니다. 새 문서에서 생성하세요 (문서 원점과 대상지 중심 거리 %.0f m > %.0f m)"
-                              % (math.hypot(center[0] - origin[0], center[1] - origin[1]), constants.ORIGIN_MAX_OFFSET))
+            # 패널이 ' m >' 앞의 거리 숫자를 읽는다 — 번역마다 '{0:.0f} m > {1:.0f} m'를 그대로 둔다
+            raise DomainError("origin_mismatch", tr("다른 지역 문서입니다. 새 문서에서 생성하세요 (문서 원점과 대상지 중심 거리 {0:.0f} m > {1:.0f} m)",
+                                                    math.hypot(center[0] - origin[0], center[1] - origin[1]), constants.ORIGIN_MAX_OFFSET))
         return origin, True
     snap = constants.ORIGIN_SNAP
     return (math.floor(center[0] / snap) * snap, math.floor(center[1] / snap) * snap), False
@@ -276,9 +278,10 @@ def _get_origins(center, doc_origin, placement):
     world는 형상을 대상지 근처 로컬로 만들고(단정밀도 메시 오차 방지) 베이커가 계산 원점만큼 옮긴다."""
     world_doc = doc_origin is not None and abs(float(doc_origin[0])) < 1e-6 and abs(float(doc_origin[1])) < 1e-6
     if doc_origin is not None and world_doc != (placement == "world"):
-        doc_text, want_text = ("실제 좌표", "원점 이동") if world_doc else ("원점 이동", "실제 좌표")
-        raise DomainError("placement_mismatch", "이 문서는 '%s' 방식으로 생성된 문서입니다. '%s'로 바꾸거나 새 문서에서 생성하세요"
-                          % (doc_text, want_text))
+        # 방식 이름은 패널 라벨 그대로(GIS 좌표·원점(0,0)) — 패널이 따옴표 안 두 값을 차례로 읽는다
+        doc_text, want_text = (tr("GIS 좌표"), tr("원점(0,0)")) if world_doc else (tr("원점(0,0)"), tr("GIS 좌표"))
+        raise DomainError("placement_mismatch", tr("이 문서는 '{0}' 방식으로 생성된 문서입니다. '{1}'로 바꾸거나 새 문서에서 생성하세요",
+                                                   doc_text, want_text))
     if placement == "world":
         origin, _reused = _get_origin(center, None)
         return origin, False, (0.0, 0.0)
@@ -411,24 +414,24 @@ def resolve_target(request, with_lots=True):
         center = ((min_x + max_x) * 0.5, (min_y + max_y) * 0.5)
         target = Target(mode, spec, get_target_key(spec), "", center, [ring], [])
         if with_lots and abroad:
-            target.name = _get_place_label(center, "구역", site_db)
+            target.name = _get_place_label(center, tr("구역"), site_db)
         elif with_lots:
             lots = get_area_lots(ring, site_db)
             target.lot_data = _load_lots([lot.pnu for lot in lots], site_db) if lots else None
             target.lots = list(target.lot_data.lots) if target.lot_data else []
-            target.name = _get_place_label(center, "구역", site_db)
+            target.name = _get_place_label(center, tr("구역"), site_db)
             if not lots:
-                target.warnings.append(_warning("warn", "area_no_lots", "구역 안 필지 0 — 대상지 조서가 비어 나옵니다",
-                                                "필지 면적의 %d %% 이상이 구역 안에 있어야 대상 필지로 셉니다." % round(constants.AREA_LOT_MIN_FRACTION * 100)))
+                target.warnings.append(_warning("warn", "area_no_lots", tr("구역 안 필지 0 — 대상지 조서가 비어 나옵니다"),
+                                                tr("필지 면적의 {0} % 이상이 구역 안에 있어야 대상 필지로 셉니다.", round(constants.AREA_LOT_MIN_FRACTION * 100))))
         return target
     center = spec.get("center")
     if not center or len(center) != 2:
-        raise ValueError("위치(중심점)가 없습니다")
+        raise ValueError(tr("위치(중심점)가 없습니다"))
     center = (float(center[0]), float(center[1]))
     spec["center"] = [round(center[0], 2), round(center[1], 2)]
     target = Target(mode, spec, get_target_key(spec), "", center, [], [])
     if with_lots:
-        target.name = _get_place_label(center, "일대", site_db)
+        target.name = _get_place_label(center, tr("일대"), site_db)
     return target
 
 
@@ -438,7 +441,7 @@ def get_target_extent_ring(target, radius, shape, paper_mm, scales):
     필지가 여럿이면 볼록껍질), 나머지는 get_extent_ring(경계 링, 없으면 중심점)."""
     if shape == "site":
         if not target.site_rings:
-            raise ValueError("대상지 경계가 없어 '경계 그대로' 범위를 쓸 수 없습니다")
+            raise ValueError(tr("대상지 경계가 없어 '경계 그대로' 범위를 쓸 수 없습니다"))
         if len(target.site_rings) == 1:
             return [tuple(p) for p in target.site_rings[0]]
         return non_rhino_utils.get_clean_ring(non_rhino_utils._get_convex_hull([p for ring in target.site_rings for p in ring]))
@@ -473,11 +476,11 @@ def _get_paper_and_scales(options):
     """options → (paper_mm, scales). 용지 mm 양수·scales ⊂ BASEMAP_SCALES 검증."""
     paper_mm = tuple(options.get("paper_mm") or constants.PAPER_SIZES_MM.get(options.get("paper"), constants.PAPER_SIZES_MM["A1"]))
     if len(paper_mm) != 2 or min(float(v) for v in paper_mm) <= 0:
-        raise ValueError("용지 크기(mm)는 양수 두 개여야 합니다: %s" % (paper_mm,))
+        raise ValueError(tr("용지 크기(mm)는 양수 두 개여야 합니다: {0}", paper_mm))
     scales = sorted({int(s) for s in (options.get("scales") or constants.PANEL_DEFAULT_OPTIONS["scales"])})
     bad = [s for s in scales if s not in constants.BASEMAP_SCALES]
     if bad:
-        raise ValueError("지원하지 않는 축척 %s입니다. 가능한 값 %s" % (bad, list(constants.BASEMAP_SCALES)))
+        raise ValueError(tr("지원하지 않는 축척 {0}입니다. 가능한 값 {1}", bad, list(constants.BASEMAP_SCALES)))
     return (float(paper_mm[0]), float(paper_mm[1])), scales
 
 
@@ -499,10 +502,10 @@ def _get_sheet_coverage(bounds, have, center):
 
 def _get_coverage_warning(needed, missing):
     # type: (list, list) -> dict
-    where = ", ".join("%s(%s쪽)" % (m["topo_sheet"], m["dir"]) for m in missing[:4])
-    return _warning("warn", "coverage", "도엽 %d/%d장 없음 — %s" % (len(missing), len(needed), where),
-                    "그 구역은 지형·도로면·건물 층수 보완이 빠집니다. 브이월드에서 도엽을 받아 data/raw/수치지형도_5000/에 두고 dev_context_builder.py를 다시 돌리세요.",
-                    {"label": "절차 열기", "path": "docs/data_sources.md"}, missing[0]["center"])
+    where = ", ".join(tr("{0}({1}쪽)", m["topo_sheet"], tr(m["dir"])) for m in missing[:4])
+    return _warning("warn", "coverage", tr("도엽 {0}/{1}장 없음 — {2}", len(missing), len(needed), where),
+                    tr("그 구역은 지형·도로면·건물 층수 보완이 빠집니다. 브이월드에서 도엽을 받아 data/raw/수치지형도_5000/에 두고 dev_context_builder.py를 다시 돌리세요."),
+                    {"label": tr("절차 열기"), "path": "docs/data_sources.md"}, missing[0]["center"])
 
 
 def _get_align_stats(samples):
@@ -536,11 +539,11 @@ def get_abroad_sources(today=None, japan=False):
     일본이면 건물은 PLATEAU 팩(있는 도시만)·OSM, 지형은 지리원 5 m 타일."""
     today = (today or datetime.date.today()).isoformat()
     def row(source_id, name, level, text):
-        return {"id": source_id, "label": constants.SOURCE_LABELS[source_id], "name": name, "date": today if level == "ok" else "",
+        return {"id": source_id, "label": tr(constants.SOURCE_LABELS[source_id]), "name": name, "date": today if level == "ok" else "",
                 "age_months": 0.0 if level == "ok" else None, "level": level, "newer_date": None, "text": text}
-    return [row("lot", "해외 — 필지 자료 없음", "missing", "해외"),
-            row("building", "PLATEAU·OpenStreetMap" if japan else "OpenStreetMap", "ok", "생성 때 받음"),
-            row("terrain", "국토지리원 5 m DEM" if japan else "Terrain Tiles (약 30 m DEM)", "ok", "생성 때 받음"), row("api", "필요 없음", "ok", "")]
+    return [row("lot", tr("해외 — 필지 자료 없음"), "missing", tr("해외")),
+            row("building", "PLATEAU·OpenStreetMap" if japan else "OpenStreetMap", "ok", tr("생성 때 받음")),
+            row("terrain", tr("국토지리원 5 m DEM") if japan else tr("Terrain Tiles (약 30 m DEM)"), "ok", tr("생성 때 받음")), row("api", tr("필요 없음"), "ok", "")]
 
 
 def get_sources(lot_database_path=None, context_database_path=None, today=None):
@@ -554,7 +557,7 @@ def get_sources(lot_database_path=None, context_database_path=None, today=None):
     news = site_prefs.get_source_news()
     sources = []
     # 필지
-    lot_date, lot_name = "", "토지특성정보"
+    lot_date, lot_name = "", tr("토지특성정보")
     try:
         for src in lot_db.load_sources(lot_database_path):
             if src.source_id == "vworld_land_char":
@@ -564,14 +567,14 @@ def get_sources(lot_database_path=None, context_database_path=None, today=None):
         lot_level = "missing"
     age = _get_months_since(lot_date, today)
     newer = (news.get("lot") or {}).get("newer_date")
-    sources.append({"id": "lot", "label": constants.SOURCE_LABELS["lot"], "name": lot_name, "date": lot_date, "age_months": age,
+    sources.append({"id": "lot", "label": tr(constants.SOURCE_LABELS["lot"]), "name": lot_name, "date": lot_date, "age_months": age,
                     "level": lot_level or _get_level(age, constants.SOURCE_AGE_THRESHOLDS["lot"], newer), "newer_date": newer,
-                    "text": "%.1f개월" % age if age is not None else ""})
+                    "text": tr("{0:.1f}개월", age) if age is not None else ""})
     # 건물·지형 (컨텍스트 DB)
-    building = {"id": "building", "label": constants.SOURCE_LABELS["building"], "name": "GIS건물통합정보", "date": "", "age_months": None,
-                "level": "missing", "newer_date": None, "text": "DB 없음"}
-    terrain = {"id": "terrain", "label": constants.SOURCE_LABELS["terrain"], "name": "수치지형도 1:5,000", "date": "", "age_months": None,
-               "level": "missing", "newer_date": None, "text": "DB 없음"}
+    building = {"id": "building", "label": tr(constants.SOURCE_LABELS["building"]), "name": tr("GIS건물통합정보"), "date": "", "age_months": None,
+                "level": "missing", "newer_date": None, "text": tr("DB 없음")}
+    terrain = {"id": "terrain", "label": tr(constants.SOURCE_LABELS["terrain"]), "name": tr("수치지형도 1:5,000"), "date": "", "age_months": None,
+               "level": "missing", "newer_date": None, "text": tr("DB 없음")}
     try:
         for src in context_db.load_sources(context_database_path):
             if src.source_id == "vworld_building":
@@ -579,21 +582,21 @@ def get_sources(lot_database_path=None, context_database_path=None, today=None):
                 newer = (news.get("building") or {}).get("newer_date")
                 building.update({"date": src.reference_date or "", "age_months": age,
                                  "level": _get_level(age, constants.SOURCE_AGE_THRESHOLDS["building"], newer), "newer_date": newer,
-                                 "text": "%.1f개월" % age if age is not None else ""})
+                                 "text": tr("{0:.1f}개월", age) if age is not None else ""})
             elif src.source_id == "ngii_topo_5000":
                 sheets = context_db.load_sheet_codes(context_database_path)
                 years = sorted({(d or "")[:4] for d in sheets.values() if (d or "")[:4].isdigit()})
                 date = years[0] if len(years) == 1 else ("%s~%s" % (years[0], years[-1]) if years else "")
                 age = _get_months_since(years[0] + "0101", today) if years else None
                 terrain.update({"date": date, "age_months": age, "level": _get_level(age, constants.SOURCE_AGE_THRESHOLDS["terrain"], None),
-                                "text": "도엽 %d장" % len(sheets)})
+                                "text": tr("도엽 {0}장", len(sheets))})
     except (FileNotFoundError, RuntimeError):
         pass
     sources += [building, terrain]
     # 키 — VWorld 하나(지도·위성 배경, 항공사진, 주소 보조 검색). 없으면 OSM 지도·Esri 영상·지명 검색으로 같은 일을 한다
     vworld = bool(pnu_loader.get_local_env_value(constants.VWORLD_API_KEY_ENV))
-    sources.append({"id": "api", "label": constants.SOURCE_LABELS["api"], "name": "VWorld", "date": "", "age_months": None,
-                    "level": "ok" if vworld else "missing", "newer_date": None, "keys": {"vworld": vworld}, "text": "있음" if vworld else "없음"})
+    sources.append({"id": "api", "label": tr(constants.SOURCE_LABELS["api"]), "name": "VWorld", "date": "", "age_months": None,
+                    "level": "ok" if vworld else "missing", "newer_date": None, "keys": {"vworld": vworld}, "text": tr("있음") if vworld else tr("없음")})
     return sources
 
 
@@ -603,9 +606,9 @@ def _get_upis_source(lot_sources, today):
     date = next((src.reference_date or "" for src in lot_sources if src.source_id == "seoul_zoning"), "")
     age = _get_months_since(date, today)
     newer = (site_prefs.get_source_news().get("upis") or {}).get("newer_date")
-    return {"id": "upis", "label": "도시계획", "name": constants.META_SOURCE_NAMES["upis"], "date": date, "age_months": age,
+    return {"id": "upis", "label": tr("도시계획"), "name": tr(constants.META_SOURCE_NAMES["upis"]), "date": date, "age_months": age,
             "level": _get_level(age, constants.SOURCE_AGE_THRESHOLDS["upis"], newer), "newer_date": newer,
-            "text": "%.1f개월" % age if age is not None else ""}
+            "text": tr("{0:.1f}개월", age) if age is not None else ""}
 
 
 def mark_downloadable(sources, pending=True):
@@ -614,7 +617,7 @@ def mark_downloadable(sources, pending=True):
     if constants.DATA_MANIFEST_URL and pending:
         for src in sources:
             if src["id"] in ("building", "terrain") and src["level"] == "missing":
-                src.update(level="ok", text="생성할 때 받음", pending=True)
+                src.update(level="ok", text=tr("생성할 때 받음"), pending=True)
     return sources
 
 
@@ -638,19 +641,19 @@ def get_source_warnings(sources):
             continue
         if src["level"] == "missing" and src["id"] in ("building", "terrain"):
             if not any(w["code"] == "no_context_db" for w in warnings):
-                warnings.append(_warning("danger", "no_context_db", "지형·건물 DB 없음 — 필지·대상지만 생성됩니다",
-                                         "data/seoul_context.db가 없습니다. python3 scripts/dev_context_builder.py 로 만들거나 복사하세요. 시트 7~10·12·13이 비어 나옵니다.",
-                                         {"label": "절차 열기", "path": "docs/data_sources.md"}))
+                warnings.append(_warning("danger", "no_context_db", tr("지형·건물 DB 없음 — 필지·대상지만 생성됩니다"),
+                                         tr("data/seoul_context.db가 없습니다. python3 scripts/dev_context_builder.py 로 만들거나 복사하세요. 시트 7~10·12·13이 비어 나옵니다."),
+                                         {"label": tr("절차 열기"), "path": "docs/data_sources.md"}))
             continue
         if src["level"] in ("warn", "danger"):
             age = src["age_months"]
             newer = src.get("newer_date")
-            tail = ("브이월드에서 새 판(기준일 %s)이 확인됨 → docs/data_sources.md §0 절차로 교체하세요" % newer if newer
-                    else "새 판 미확인(목록 조회 실패 또는 게시 지연)")
+            tail = (tr("브이월드에서 새 판(기준일 {0})이 확인됨 → docs/data_sources.md §0 절차로 교체하세요", newer) if newer
+                    else tr("새 판 미확인(목록 조회 실패 또는 게시 지연)"))
             warnings.append(_warning(src["level"], "stale_%s" % src["id"],
-                                     "%s 자료 %.1f개월 경과%s" % (src["label"], age, " · 새 판 있음" if newer else ""),
-                                     "⚠ %s 자료가 %.1f개월 지났습니다(%s %s). %s" % (src["label"], age, src["name"], src["date"], tail),
-                                     {"label": "절차 열기", "path": "docs/data_sources.md"}))
+                                     tr("{0} 자료 {1:.1f}개월 경과", src["label"], age) + (" · " + tr("새 판 있음") if newer else ""),
+                                     tr("⚠ {0} 자료가 {1:.1f}개월 지났습니다({2} {3}). {4}", src["label"], age, src["name"], src["date"], tail),
+                                     {"label": tr("절차 열기"), "path": "docs/data_sources.md"}))
     return warnings
 
 
@@ -716,12 +719,12 @@ def prepare(request, progress=None, today=None):
     today = today or datetime.date.today()
     radius = float(options.get("radius") or constants.CONTEXT_RADIUS)
     if not constants.RADIUS_MIN <= radius <= constants.RADIUS_MAX:
-        raise ValueError("반경은 %d~%d m여야 합니다: %s" % (constants.RADIUS_MIN, constants.RADIUS_MAX, radius))
+        raise ValueError(tr("반경은 {0}~{1} m여야 합니다: {2}", constants.RADIUS_MIN, constants.RADIUS_MAX, radius))
     shape = options.get("shape") or "circle"
     paper_mm, scales = _get_paper_and_scales(options)
     placement = options.get("placement") or "origin"
 
-    _report(progress, "query", 0.0, "대상지 조회")
+    _report(progress, "query", 0.0, tr("대상지 조회"))
     target = resolve_target(request)                   # 방식별 경계·필지 — DomainError(no_lots|site_db_missing|area_invalid)
     request["target"] = target.spec
     request["pnus"] = [lot.pnu for lot in target.lots]
@@ -731,8 +734,8 @@ def prepare(request, progress=None, today=None):
     center = target.center
     origin, origin_reused, doc_origin = _get_origins(center, request.get("doc_origin"), placement)
     if origin_reused:
-        warnings.append(_warning("info", "origin_reused", "문서 원점 재사용 E %.0f / N %.0f" % origin,
-                                 "같은 문서에 이미 생성된 대상지가 있어 그 원점을 씁니다. 새 문서에서 생성하면 대상지 중심으로 원점이 잡힙니다."))
+        warnings.append(_warning("info", "origin_reused", tr("문서 원점 재사용 E {0:.0f} / N {1:.0f}", *origin),
+                                 tr("같은 문서에 이미 생성된 대상지가 있어 그 원점을 씁니다. 새 문서에서 생성하면 대상지 중심으로 원점이 잡힙니다.")))
 
     extent_ring, extent_bounds, frame_bounds, bounds = _get_query_extent(target, radius, shape, paper_mm, scales, has_2d(options))
 
@@ -740,12 +743,12 @@ def prepare(request, progress=None, today=None):
         return _prepare_abroad(request, options, today, target, lot_name, warnings, origin, origin_reused, doc_origin, radius, shape,
                                extent_ring, extent_bounds, scales, bounds, frame_bounds, center, placement, progress)
 
-    _report(progress, "query", 0.3, "주변 필지 조회")
+    _report(progress, "query", 0.3, tr("주변 필지 조회"))
     target_pnus = {lot.pnu for lot in target_lots}
     near_lots, truncated = lot_db.load_parcels_in_bounds(*bounds, limit=None, database_path=request["site_db"])
     near_lots = [lot for lot in near_lots if lot.pnu not in target_pnus]
     if truncated:
-        warnings.append(_warning("warn", "lots_truncated", "주변 필지가 잘렸습니다 — 범위를 줄이세요", ""))
+        warnings.append(_warning("warn", "lots_truncated", tr("주변 필지가 잘렸습니다 — 범위를 줄이세요"), ""))
     span = max(bounds[2] - center[0], center[0] - bounds[0], bounds[3] - center[1], center[1] - bounds[1])
     lot_data = target.lot_data
     overlays = list(lot_data.overlays) if lot_data else []
@@ -754,7 +757,7 @@ def prepare(request, progress=None, today=None):
     anchors = target_lots or [types.SimpleNamespace(min_x=center[0], max_x=center[0], min_y=center[1], max_y=center[1])]
     overlays += [o for o in lot_db.load_near_overlays(anchors, span, database_path=request["site_db"]) if o.overlay_id not in seen]
 
-    _report(progress, "query", 0.6, "건물·지형 조회")
+    _report(progress, "query", 0.6, tr("건물·지형 조회"))
     context = _load_context(bounds, request["context_db"], bool(options.get("include_minor_buildings")))
     align_samples = context.get_features("qa", "align_sample") + context.get_features("qa", "align_sheet")
     lot_sources = lot_data.sources if lot_data else lot_db.load_sources(request["site_db"])
@@ -781,16 +784,16 @@ def prepare(request, progress=None, today=None):
                       "sheets": context_report.get_sheet_codes(prepared), "sheets_needed": needed,
                       "align": _get_align_stats(align_samples), "mismatch_count": 0}
     if height["n"] and grade_ab < constants.HEIGHT_GRADE_AB_MIN:
-        warnings.append(_warning("warn", "height_estimate", "높이 추정 비중 큼 — 등급 A+B %d %%" % round(grade_ab * 100),
-                                 "대장 높이·층수(A·B)가 %d %% 미만입니다. 나머지는 수치지형도 층수나 기본값으로 추정한 높이입니다." % round(constants.HEIGHT_GRADE_AB_MIN * 100)))
+        warnings.append(_warning("warn", "height_estimate", tr("높이 추정 비중 큼 — 등급 A+B {0} %", round(grade_ab * 100)),
+                                 tr("대장 높이·층수(A·B)가 {0} % 미만입니다. 나머지는 수치지형도 층수나 기본값으로 추정한 높이입니다.", round(constants.HEIGHT_GRADE_AB_MIN * 100))))
     if not height["n"]:
-        warnings.append(_warning("warn", "empty_buildings", "범위 안 건물 0동 — 컨텍스트 DB 범위·반경 확인", ""))
+        warnings.append(_warning("warn", "empty_buildings", tr("범위 안 건물 0동 — 컨텍스트 DB 범위·반경 확인"), ""))
     if missing:
         warnings.append(_get_coverage_warning(needed, missing))
     prepared.meta = {"built_at": datetime.datetime.now().isoformat(timespec="seconds"), "today": today.isoformat(),
                      "sources": context_report.get_sources_by_role(prepared), "dates": context_report.get_source_dates(prepared)}
     prepared.meta["meta_lines"] = context_report.get_meta_lines(prepared)
-    _report(progress, "query", 1.0, "건물 %d동 · 필지 %d" % (height["n"], prepared.stats["lots"]))
+    _report(progress, "query", 1.0, tr("건물 {0}동 · 필지 {1}", height["n"], prepared.stats["lots"]))
     return prepared
 
 
@@ -798,7 +801,7 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
                     extent_ring, extent_bounds, scales, bounds, frame_bounds, center, placement, progress):
     # type: (...) -> Prepared
     """prepare의 해외 갈래 — 필지·계획 없이 OSM 건물·피처 + 지형 타일 표고점(osm_context). 인터넷이 안 되면 DomainError(osm_failed)."""
-    _report(progress, "query", 0.3, "OpenStreetMap·지형 타일 받는 중")
+    _report(progress, "query", 0.3, tr("OpenStreetMap·지형 타일 받는 중"))
     try:
         context = osm_context.load(bounds, today.isoformat())
     except RuntimeError as exc:
@@ -818,16 +821,21 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
     prepared.stats = {"height_src": height["height_src"], "height_grade": height["height_grade"], "grade_ab": round(grade_ab, 4),
                       "buildings": height["n"], "lots": 0, "sheets": [], "sheets_needed": [], "align": _get_align_stats([]), "mismatch_count": 0}
     source_ids = {s.source_id for s in context.sources}
-    building_name = "PLATEAU·OpenStreetMap" if "plateau" in source_ids else "OpenStreetMap"
-    warnings.append(_warning("info", "abroad", "Global — %s 건물 %d동·%s" % (building_name, height["n"], "지리원 5 m 지형" if "gsi_dem" in source_ids else "지형 타일"),
-                             "필지·용도지역 도면은 Korea 모드에만 있고, 실측 높이·높이 태그가 있는 건물은 %d %%입니다(나머지 %.1f m 또는 층수 추정)."
-                             % (round(grade_ab * 100), constants.DEFAULT_BUILDING_HEIGHT_M)))
+    if source_ids & {"plateau", "gsi_dem"}:   # 일본 — PLATEAU 건물 팩·지리원 지형
+        warnings.append(_warning("info", "abroad", tr("Global — {0} 건물 {1}동·{2}", "PLATEAU·OpenStreetMap" if "plateau" in source_ids else "OpenStreetMap",
+                                                     height["n"], tr("지리원 5 m 지형") if "gsi_dem" in source_ids else tr("지형 타일")),
+                                 tr("필지·용도지역 도면은 Korea 모드에만 있고, 실측 높이·높이 태그가 있는 건물은 {0} %입니다(나머지 {1:.1f} m 또는 층수 추정).",
+                                    round(grade_ab * 100), constants.DEFAULT_BUILDING_HEIGHT_M)))
+    else:
+        warnings.append(_warning("info", "abroad", tr("Global — OpenStreetMap 건물 {0}동·지형 타일", height["n"]),
+                                 tr("필지·용도지역 도면은 Korea 모드에만 있고, 높이 태그가 있는 건물은 {0} %입니다(나머지 {1:.1f} m 또는 층수 추정).",
+                                    round(grade_ab * 100), constants.DEFAULT_BUILDING_HEIGHT_M)))
     if not height["n"]:
-        warnings.append(_warning("warn", "empty_buildings", "범위 안 OSM 건물 0동 — 지도에 건물이 그려진 곳인지 확인", ""))
+        warnings.append(_warning("warn", "empty_buildings", tr("범위 안 OSM 건물 0동 — 지도에 건물이 그려진 곳인지 확인"), ""))
     prepared.meta = {"built_at": datetime.datetime.now().isoformat(timespec="seconds"), "today": today.isoformat(),
                      "sources": context_report.get_sources_by_role(prepared), "dates": context_report.get_source_dates(prepared)}
     prepared.meta["meta_lines"] = context_report.get_meta_lines(prepared)
-    _report(progress, "query", 1.0, "건물 %d동 (%s)" % (height["n"], "PLATEAU" if "plateau" in source_ids else "OSM"))
+    _report(progress, "query", 1.0, tr("건물 {0}동 (PLATEAU)", height["n"]) if "plateau" in source_ids else tr("건물 {0}동 (OSM)", height["n"]))
     return prepared
 
 
@@ -926,7 +934,7 @@ def _list_files(result_dir):
 def _phase_failed(response, phase, exc):
     # type: (dict, str, Exception) -> None
     """phase 단위 예외(panel_ui.md) — 경고 skipped(danger) 하나 남기고 다음 phase로 간다."""
-    response["warnings"].append(_warning("danger", "skipped", "%s 실패 — %s" % (constants.PHASE_LABELS.get(phase, phase), str(exc)[:120]),
+    response["warnings"].append(_warning("danger", "skipped", tr("{0} 실패 — {1}", tr(constants.PHASE_LABELS.get(phase, phase)), str(exc)[:120]),
                                          traceback.format_exc()))
 
 
@@ -1004,7 +1012,7 @@ def run(request, progress=None, doc=None, keep=None):
         response["ok"] = True
     except Cancelled as exc:
         response["cancelled"] = True
-        response["error"] = {"code": "cancelled", "title": "취소됨", "detail": str(exc)}
+        response["error"] = {"code": "cancelled", "title": tr("취소됨"), "detail": str(exc)}
         if doc is not None and state["baked"]:
             get_host_modules()[1].clear_previous(doc, state["lot_key"])
     except (ValueError, KeyError, FileNotFoundError, RuntimeError) as exc:
@@ -1030,24 +1038,24 @@ def _get_log_lines(response, state):
     # type: (dict, dict) -> list
     """log.txt 한 번 실행 요약 — 결과·소요·수·건너뛴 건물 id 전부·경고 코드·오류(또는 cancelled at <phase>)."""
     geo = state["geo"]
-    lines = ["%s %s · %.1f s · 반경 %s m" % ("OK" if response["ok"] else ("CANCELLED" if response["cancelled"] else "FAILED"),
-                                            response["lot_name"], response["elapsed_s"], response["options"].get("radius"))]
+    lines = [tr("{0} {1} · {2:.1f} s · 반경 {3} m", "OK" if response["ok"] else ("CANCELLED" if response["cancelled"] else "FAILED"),
+                response["lot_name"], response["elapsed_s"], response["options"].get("radius"))]
     if response["cancelled"]:
         lines.append("cancelled at %s" % state["phase"])
     if geo is not None:
         c = geo.counts
-        lines.append("지형 점 %s · 면 %s · 건물 %s동(투영 폴백 %s · 건너뜀 %s · 압출 실패 %s) · 커브 %s" % (
-            c.get("tin_points"), c.get("faces"), c.get("buildings"), c.get("fallback_nearest"), c.get("fallback_skipped"), c.get("extrude_failed"), c.get("curves")))
-        lines += ["건너뜀: " + s for s in geo.skipped]
+        lines.append(tr("지형 점 {0} · 면 {1} · 건물 {2}동(투영 폴백 {3} · 건너뜀 {4} · 압출 실패 {5}) · 커브 {6}",
+                        c.get("tin_points"), c.get("faces"), c.get("buildings"), c.get("fallback_nearest"), c.get("fallback_skipped"), c.get("extrude_failed"), c.get("curves")))
+        lines += [tr("건너뜀: {0}", s) for s in geo.skipped]
     if state.get("save_timing"):
         t = state["save_timing"]
-        lines.append("%s 저장 — 선택 %s s · 쓰기 %s s · 객체 %s · %s bytes" % (os.path.basename(response["context"]["path"] or constants.CONTEXT_MODEL_FILE_NAME),
-                                                                    t.get("select_s"), t.get("write_s"), t.get("objects"), t.get("bytes")))
+        lines.append(tr("{0} 저장 — 선택 {1} s · 쓰기 {2} s · 객체 {3} · {4} bytes", os.path.basename(response["context"]["path"] or constants.CONTEXT_MODEL_FILE_NAME),
+                        t.get("select_s"), t.get("write_s"), t.get("objects"), t.get("bytes")))
     for scale, r in sorted((state.get("ai_results") or {}).items()):
-        lines.append("basemap_%d.ai — 레이어 %d · %s bytes · %s" % (scale, r["layers"], r["bytes"], " ".join("%s=%d" % kv for kv in sorted(r["counts"].items()))))
-    lines += ["경고 %s: %s" % (w["code"], w["text"]) for w in response["warnings"]]
+        lines.append(tr("basemap_{0}.ai — 레이어 {1} · {2} bytes · {3}", scale, r["layers"], r["bytes"], " ".join("%s=%d" % kv for kv in sorted(r["counts"].items()))))
+    lines += [tr("경고 {0}: {1}", w["code"], w["text"]) for w in response["warnings"]]
     if response["error"]:
-        lines.append("오류 %s: %s\n%s" % (response["error"]["code"], response["error"]["title"], response["error"]["detail"]))
+        lines.append(tr("오류 {0}: {1}", response["error"]["code"], response["error"]["title"]) + "\n" + str(response["error"]["detail"]))
     return lines
 
 
@@ -1066,18 +1074,18 @@ def _run_phases(request, progress, doc, response, state):
 
     # terrain — TIN·분류·투영·압출·커브 전부 (문서 변경 없음)
     state["phase"] = "terrain"
-    _report(progress, "terrain", 0.0, "지형 TIN · 건물 압출")
+    _report(progress, "terrain", 0.0, tr("지형 TIN · 건물 압출"))
     geo = context_geometry.build(prepared)
     state["geo"] = geo
     response["warnings"] += geo.warnings
     response["quality"]["skipped"] = {"buildings": len(geo.skipped), "lots": 0}
-    _report(progress, "terrain", 1.0, "면 %d · 건물 %d동" % (geo.counts["faces"], geo.counts["buildings"]))
+    _report(progress, "terrain", 1.0, tr("면 {0} · 건물 {1}동", geo.counts["faces"], geo.counts["buildings"]))
 
     # write_3dm — 이전 베이크 정리 → CTX 베이크(청크마다 콜백) → Ref·원점 → context.3dm 사본(베이스맵은 문서에 굽지 않는다 — basemap_ai가 .ai를 직접 쓴다)
     state["phase"] = "write_3dm"
     lot_key = prepared.target_key
     state["lot_key"] = lot_key
-    _report(progress, "write_3dm", 0.0, "이전 베이크 정리")
+    _report(progress, "write_3dm", 0.0, tr("이전 베이크 정리"))
     prepared.result_dir = get_free_result_dir(prepared.result_dir)   # 이전 결과가 있으면 새 폴더 — 첫 베이크 직전에 정해 query·terrain 중 취소·실패는 빈 폴더를 남기지 않는다
     response["dir"] = prepared.result_dir
     _reset_result_dir(prepared.result_dir)
@@ -1086,12 +1094,12 @@ def _run_phases(request, progress, doc, response, state):
     ids, items, chunk = [], geo.items, constants.RUN_BAKE_CHUNK
     for start in range(0, len(items), chunk):
         ids += context_baker.bake(doc, items[start:start + chunk], prepared, lot_key)
-        _report(progress, "write_3dm", 0.7 * min(1.0, (start + chunk) / float(len(items) or 1)), "베이크 %d/%d" % (min(start + chunk, len(items)), len(items)))
+        _report(progress, "write_3dm", 0.7 * min(1.0, (start + chunk) / float(len(items) or 1)), tr("베이크 {0}/{1}", min(start + chunk, len(items)), len(items)))
     ids += context_baker.write_ref_and_origin(doc, prepared, lot_key)
     if len(ids) < len(items) + 2:
-        response["warnings"].append(_warning("warn", "skipped", "베이크 실패 %d건" % (len(items) + 2 - len(ids)), ""))
+        response["warnings"].append(_warning("warn", "skipped", tr("베이크 실패 {0}건", len(items) + 2 - len(ids)), ""))
     layers = {item.layer for item in items} | {constants.CTX_ROOT_LAYER + "::Ref"}
-    _report(progress, "write_3dm", 0.85, "%s 저장" % constants.HOST_LABELS[get_host()]["model"])
+    _report(progress, "write_3dm", 0.85, tr("{0} 저장", constants.HOST_LABELS[get_host()]["model"]))
     state["save_timing"] = {}
     path = context_baker.save_copy(doc, os.path.join(prepared.result_dir, constants.CONTEXT_MODEL_FILE_NAME), ids, state["save_timing"])
     response["context"].update(path=path, layers=len(layers), buildings=geo.counts["buildings"], lots=prepared.stats["lots"],
@@ -1099,14 +1107,14 @@ def _run_phases(request, progress, doc, response, state):
                                origin_reused=prepared.origin_reused, placement=prepared.placement, doc_origin=list(prepared.doc_origin),
                                model_unit=str(getattr(doc, "ModelUnitSystem", "Meters")), imported=True, import_text="")   # Blender 장면은 m 고정
     if options.get("make_dwg") and constants.DWG_EXPORT_ENABLED and hasattr(context_baker, "save_dwg_from_3dm"):   # DWG는 Rhino만   # 2D 도면(BM::)만 .dwg로 — 실패해도 3dm은 남긴다
-        _report(progress, "write_3dm", 0.95, ".dwg 저장")
+        _report(progress, "write_3dm", 0.95, tr(".dwg 저장"))
         try:   # 방금 쓴 3dm을 헤드리스로 열어 쓴다 — 활성 문서에서 쓰면 Mac에서 멈춘다(context_baker.save_dwg_from_3dm)
             os.makedirs(get_2d_dir(prepared.result_dir), exist_ok=True)
             dwg_path = os.path.join(get_2d_dir(prepared.result_dir), constants.DWG_FILE_FORMAT % min(prepared.scales))
             response["context"]["dwg"] = context_baker.save_dwg_from_3dm(path, dwg_path, constants.BM_ROOT_LAYER)
         except Exception as exc:   # noqa: BLE001
             _phase_failed(response, "write_3dm", exc)
-    _report(progress, "write_3dm", 1.0, "객체 %d · 레이어 %d" % (len(ids), len(layers)))
+    _report(progress, "write_3dm", 1.0, tr("객체 {0} · 레이어 {1}", len(ids), len(layers)))
 
     _run_2d_phases(prepared, options, geo.terrain_tris_world, progress, response, state)
 
@@ -1116,7 +1124,7 @@ def _write_dwg(prepared):
     """make_2d의 DWG — 가장 상세한 축척의 2D 선 도면(BM::)을 헤드리스 문서에 구워 basemap_<축척>.dwg로(Rhino만, context_baker.save_dwg)."""
     context_geometry, context_baker = get_host_modules()
     if not hasattr(context_baker, "save_dwg"):
-        raise RuntimeError("DWG는 Rhino에서만 저장할 수 있습니다")
+        raise RuntimeError(tr("DWG는 Rhino에서만 저장할 수 있습니다"))
     scale = min(prepared.scales)
     items = context_geometry.build_basemap_2d(prepared, scale)
     os.makedirs(get_2d_dir(prepared.result_dir), exist_ok=True)
@@ -1145,12 +1153,12 @@ def _run_2d_phases(prepared, options, terrain_tris, progress, response, state, d
                 _phase_failed(response, "basemap", exc)
         response["basemap"].update(ready=len(exported) == len(prepared.scales), layers=layer_count, scales=list(prepared.scales), exported=exported)
         if dwg:
-            _report(progress, "basemap", 0.95, ".dwg 저장")
+            _report(progress, "basemap", 0.95, tr(".dwg 저장"))
             try:
                 response["basemap"]["dwg"] = _write_dwg(prepared)
             except Exception as exc:   # noqa: BLE001 — .ai는 남긴다
                 _phase_failed(response, "basemap", exc)
-        _report(progress, "basemap", 1.0, ".ai %d장" % len(exported) + (" · .dwg" if response["basemap"].get("dwg") else ""))
+        _report(progress, "basemap", 1.0, tr(".ai {0}장", len(exported)) + (" · .dwg" if response["basemap"].get("dwg") else ""))
 
     # sheets — 한 장마다 콜백, 한 장의 실패는 empty+reason '오류'
     if "sheets" not in skipped:
@@ -1165,25 +1173,25 @@ def _run_2d_phases(prepared, options, terrain_tris, progress, response, state, d
             _phase_failed(response, "sheets", exc)
             data = None
         for n, sheet_id in enumerate(sheet_ids):
-            _report(progress, "sheets", n / float(len(sheet_ids)), "시트 %d %s" % (sheet_id, names.get(sheet_id, "")))
+            _report(progress, "sheets", n / float(len(sheet_ids)), tr("시트 {0} {1}", sheet_id, tr(names.get(sheet_id, ""))))
             try:
                 if data is None:
-                    raise RuntimeError("시트 데이터 준비 실패")
+                    raise RuntimeError(tr("시트 데이터 준비 실패"))
                 response["sheets"] += sheet_svg.write_sheets(data, sheets_dir, [sheet_id])
             except Exception as exc:   # noqa: BLE001
-                response["sheets"].append({"id": sheet_id, "name": names.get(sheet_id, ""), "path": None, "empty": True, "reason": "오류"})
+                response["sheets"].append({"id": sheet_id, "name": names.get(sheet_id, ""), "path": None, "empty": True, "reason": tr("오류")})
                 _phase_failed(response, "sheets", exc)
-        _report(progress, "sheets", 1.0, "시트 %d장" % len(sheet_ids))
+        _report(progress, "sheets", 1.0, tr("시트 {0}장", len(sheet_ids)))
 
     # tables — CSV 5개
     if "tables" not in skipped:
         state["phase"] = "tables"
-        _report(progress, "tables", 0.0, "조서 CSV")
+        _report(progress, "tables", 0.0, tr("조서 CSV"))
         try:
             response["tables"] = context_report.write_tables(prepared, get_2d_dir(prepared.result_dir))
         except Exception as exc:   # noqa: BLE001
             _phase_failed(response, "tables", exc)
-        _report(progress, "tables", 1.0, "CSV %d개" % len(response["tables"]))
+        _report(progress, "tables", 1.0, tr("CSV {0}개", len(response["tables"])))
 
 
 # ── preflight ──────────────────────────────────────────────
@@ -1196,12 +1204,17 @@ def _get_abroad_preflight(sources, features, warnings, scales, paper_mm, paper, 
         features.append(_ring_feature([(f_min_x, f_min_y), (f_max_x, f_min_y), (f_max_x, f_max_y), (f_min_x, f_max_y)],
                                       {"role": "frame", "scale": scale, "paper": paper, "over": False}))
     names = {s["id"]: s["name"] for s in sources}
-    warnings.append(_warning("info", "abroad", "Global — %s·%s를 생성 때 받습니다" % (names["building"], names["terrain"]),
-                             "필지·용도지역 도면은 Korea 모드에만 있고, 건물 높이는 실측·태그 값(없으면 %.1f m)입니다. 인터넷 연결이 필요합니다."
-                             % constants.DEFAULT_BUILDING_HEIGHT_M))
+    if names["building"] != "OpenStreetMap":   # 일본 — get_abroad_sources(japan=True)
+        warnings.append(_warning("info", "abroad", tr("Global — {0}·{1}를 생성 때 받습니다", names["building"], names["terrain"]),
+                                 tr("필지·용도지역 도면은 Korea 모드에만 있고, 건물 높이는 실측·태그 값(없으면 {0:.1f} m)입니다. 인터넷 연결이 필요합니다.",
+                                    constants.DEFAULT_BUILDING_HEIGHT_M)))
+    else:
+        warnings.append(_warning("info", "abroad", tr("Global — OpenStreetMap·지형 타일을 생성 때 받습니다"),
+                                 tr("필지·용도지역 도면은 Korea 모드에만 있고, 건물 높이는 OSM 태그(없으면 {0:.1f} m)입니다. 인터넷 연결이 필요합니다.",
+                                    constants.DEFAULT_BUILDING_HEIGHT_M)))
     empty_sheets = [sheet_id for sheet_id, key, _name, _en, _needs in constants.SHEET_CATALOG if key in constants.SHEET_KOREA_ONLY]
     estimate = {"buildings": 0, "lots": 0, "topo_have": 0, "topo_total": 0, "seconds": int(constants.ESTIMATE_SECONDS_BASE) + 20,
-                "mb": 1, "note": "건물 수는 OSM에서 받은 뒤 알 수 있습니다"}
+                "mb": 1, "note": tr("건물 수는 OSM에서 받은 뒤 알 수 있습니다")}
     return {"sources": sources, "extent_geojson": {"type": "FeatureCollection", "features": features}, "estimate": estimate,
             "empty_sheets": empty_sheets, "warnings": warnings, "bounds": list(bounds), "center": list(center)}
 
@@ -1235,7 +1248,7 @@ def preflight(request, today=None):
     if pending:   # 이 범위의 건물·지형은 생성할 때 받는다 — 지금 이 PC에 있는 것만으로 '없음'·도엽 부족을 말하지 않는다
         for src in sources:
             if src["id"] in ("building", "terrain"):
-                src.update(level="ok", text="생성할 때 받음 (%.0f MB)" % (sum(p.get("xz_size", 0) for p in pending) / 1048576.0), pending=True)
+                src.update(level="ok", text=tr("생성할 때 받음 ({0:.0f} MB)", sum(p.get("xz_size", 0) for p in pending) / 1048576.0), pending=True)
     warnings += [] if abroad else get_source_warnings(sources)
     features = [_ring_feature(ring, {"role": "extent", "radius": radius, "shape": shape})]
     if abroad:   # 해외 — 도엽·DB 개수가 없다. 건물 수는 생성 때 OSM에서 받아야 안다
@@ -1281,14 +1294,14 @@ def preflight(request, today=None):
                                       {"role": "frame", "scale": scale, "paper": paper, "over": over}))
         if over:
             warnings.append(_warning("info", "frame_over",
-                                     "1:%d %s 프레임(%.1f×%.1f km)이 범위를 넘음 — 가장자리 빈 곳" % (scale, paper, frame.width_m / 1000, frame.height_m / 1000),
-                                     "반경을 키우거나 축척을 줄이면 프레임이 채워집니다."))
+                                     tr("1:{0} {1} 프레임({2:.1f}×{3:.1f} km)이 범위를 넘음 — 가장자리 빈 곳", scale, paper, frame.width_m / 1000, frame.height_m / 1000),
+                                     tr("반경을 키우거나 축척을 줄이면 프레임이 채워집니다.")))
     if max(scales) >= max(constants.BASEMAP_SCALES):
         # 실측 외삽(code_map §5.8): 1:5000 A1 프레임은 건물 4만 동·필지 10만 급 → 수십 초
-        estimate["note"] = "1:%d 프레임은 건물·필지가 수만 건이라 수십 초 걸립니다" % max(scales)
-        warnings.append(_warning("info", "slow_frame", "1:%d 프레임 — 생성에 수십 초" % max(scales), estimate["note"]))
+        estimate["note"] = tr("1:{0} 프레임은 건물·필지가 수만 건이라 수십 초 걸립니다", max(scales))
+        warnings.append(_warning("info", "slow_frame", tr("1:{0} 프레임 — 생성에 수십 초", max(scales)), estimate["note"]))
     if buildings == 0 and terrain["level"] != "missing" and not pending:   # 받기 전에는 0동으로 센다
-        warnings.append(_warning("warn", "empty_buildings", "반경 안 건물 0동 — 컨텍스트 DB 범위·반경 확인", ""))
+        warnings.append(_warning("warn", "empty_buildings", tr("반경 안 건물 0동 — 컨텍스트 DB 범위·반경 확인"), ""))
     return {"sources": sources, "extent_geojson": {"type": "FeatureCollection", "features": features},
             "estimate": estimate, "empty_sheets": empty_sheets, "warnings": warnings,
             "bounds": [min_x, min_y, max_x, max_y], "center": list(center)}
@@ -1444,7 +1457,7 @@ def make_2d(result_dir, options, progress=None, keep=None, site_db=None, context
     prepared = None
     try:
         if not has_2d(request["options"]) and not request["options"].get("make_tables"):
-            raise ValueError("만들 2D 자료를 하나 이상 고르세요")
+            raise ValueError(tr("만들 2D 자료를 하나 이상 고르세요"))
         prepared = prepare(request, progress)
         prepared.result_dir = result_dir   # prepare는 오늘 날짜 폴더를 고른다 — 어제 만든 3D 폴더에 더할 수 있게
         response.update(options=dict(prepared.request["options"]), warnings=list(prepared.warnings))
@@ -1463,7 +1476,7 @@ def make_2d(result_dir, options, progress=None, keep=None, site_db=None, context
             keep.update(dir=result_dir, data=state.get("sheet_data"), prepared=prepared, terrain_tris=terrain_tris)
     except Cancelled as exc:
         response["cancelled"] = True
-        response["error"] = {"code": "cancelled", "title": "취소됨", "detail": str(exc)}
+        response["error"] = {"code": "cancelled", "title": tr("취소됨"), "detail": str(exc)}
     except (ValueError, KeyError, FileNotFoundError, RuntimeError) as exc:
         response["error"] = _get_error(exc)
     except Exception as exc:   # noqa: BLE001 — 패널에 traceback을 전한다
@@ -1477,11 +1490,11 @@ def make_2d(result_dir, options, progress=None, keep=None, site_db=None, context
                 meta[key] = response[key]
         with open(os.path.join(result_dir, constants.CONTEXT_META_FILE_NAME), "w", encoding="utf-8") as handle:
             json.dump(meta, handle, ensure_ascii=False, indent=1, default=str)
-    lines = ["2D %s · %.1f s · 베이스맵 %d · 도면 %d · CSV %d" % ("OK" if response["ok"] else ("CANCELLED" if response["cancelled"] else "FAILED"),
-                                                          response["elapsed_s"], len(response["basemap"]["exported"]), len(response["sheets"]), len(response["tables"]))]
-    lines += ["경고 %s: %s" % (w["code"], w["text"]) for w in response["warnings"]]
+    lines = [tr("2D {0} · {1:.1f} s · 베이스맵 {2} · 도면 {3} · CSV {4}", "OK" if response["ok"] else ("CANCELLED" if response["cancelled"] else "FAILED"),
+                response["elapsed_s"], len(response["basemap"]["exported"]), len(response["sheets"]), len(response["tables"]))]
+    lines += [tr("경고 {0}: {1}", w["code"], w["text"]) for w in response["warnings"]]
     if response["error"]:
-        lines.append("오류 %s: %s\n%s" % (response["error"]["code"], response["error"]["title"], response["error"]["detail"]))
+        lines.append(tr("오류 {0}: {1}", response["error"]["code"], response["error"]["title"]) + "\n" + str(response["error"]["detail"]))
     context_report.append_log(result_dir, lines)
     response["files"] = _list_files(result_dir)
     return response

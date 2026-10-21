@@ -85,6 +85,7 @@ class LoaderTest(unittest.TestCase):
         """
         purger = types.ModuleType("lot_db")   # 프로젝트 이름을 쓴 가짜 러너
         purger.__file__ = str(SCRIPTS_DIR / "lot_db.py")
+        purger._loaded_mtime = 0.0   # 읽은 뒤 파일을 고친 것처럼 — reload 루프가 돈다
 
         def purge():
             sys.modules.pop("constants", None)
@@ -102,6 +103,19 @@ class LoaderTest(unittest.TestCase):
             Path(module.__file__).resolve(),
             (SCRIPTS_DIR / "constants.py").resolve(),
         )
+
+    def test_파일이_그대로면_다시_읽지_않아_모듈_캐시가_남는다(self):
+        """2026-10-21: load마다 전부 reload해 data_pack._MANIFEST가 지워졌다 — 패널에 공지·업데이트 띠가 뜨지 않았다."""
+        data_pack = self.loader.load("data_pack")
+        data_pack._MANIFEST["test://manifest"] = {"packs": []}
+        self.addCleanup(data_pack._MANIFEST.pop, "test://manifest", None)
+
+        self.loader.load("constants")
+        self.assertIn("test://manifest", self.loader.load("data_pack")._MANIFEST)
+
+        data_pack._loaded_mtime = 0.0   # 파일을 고치면 예전처럼 다시 읽는다(전역 초기화)
+        self.loader.load("constants")
+        self.assertNotIn("test://manifest", data_pack._MANIFEST)
 
     def test_pyc만_있는_모듈도_이름에_들어간다(self):
         """배포판은 로직 모듈이 .pyc뿐이다."""

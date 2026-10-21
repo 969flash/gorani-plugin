@@ -4,6 +4,7 @@ import csv
 import datetime
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -17,6 +18,8 @@ if str(SCRIPTS_DIR) not in sys.path:
 import constants
 import context_report
 import lot_db
+
+os.environ[constants.LANG_ENV] = "ko"   # 한국어 원문으로 검사
 
 TODAY = datetime.date(2026, 10, 7)
 
@@ -85,6 +88,14 @@ class MetaLinesTest(unittest.TestCase):
         self.assertEqual(lines[2], constants.META_CRS_LINE)
         self.assertEqual(lines[3], "정합 오차 중앙값 1.2 m, p90 3.9 m (n=1431, 도로경계 자동 비교) · 지적–지형 불일치 의심 2건(현장 확인 대상, 레이어 qa_mismatch)")
         self.assertTrue(lines[4].startswith("⚠ 지형 자료가 33.0개월"))
+
+    def test_english_lines_have_no_hangul(self):
+        os.environ[constants.LANG_ENV] = "en"
+        try:
+            lines = context_report.get_meta_lines(_prepared(warnings=[]))
+        finally:
+            os.environ[constants.LANG_ENV] = "ko"
+        self.assertEqual([line for line in lines if re.search("[가-힣]", line)], [])
 
     def test_missing_values_are_dashes(self):
         lines = context_report.get_meta_lines(_prepared(sources=[], features=[], stats={}, warnings=[], meta={}))

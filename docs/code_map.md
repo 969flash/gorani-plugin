@@ -94,6 +94,7 @@
 | `site_ui.html` | 신규(패널 워크플로 소관) | — | 프런트 전부 | — |
 | `panel_host.py` | 보유 | Rhino | Eto WebView 호스트·브리지·`push()` | — |
 | `loader.py` | 보유 | Rhino | 로직 모듈 로더·리로드 | — |
+| `i18n.py`·`i18n.json` | 보유(2026-10-21) | 공통 | 다국어: `tr("한국어 원문", …)` → 지금 언어(en·ko·es·ja·zh). 사전 `i18n.json`은 패널 JS `tr()`와 공용, 언어는 환경변수 `GORANI_LANG`(cmd_site가 명령마다 바꾼다). `docs/panel_ui.md` '언어' | constants |
 | `constants.py` | 보유+ | 공통 | 추가: `CONTEXT_RADIUS=500`, `ORIGIN_SNAP=100`, `ORIGIN_MAX_OFFSET=20000`, `TOPO_MINOR_KINDS`, `EXTENT_ARC_SEGMENTS=12`, `CTX_LAYERS`, `BM_LAYERS`, `PHASES`·`PHASE_WEIGHTS`, `AI_FONT_CMAP`, `CONTEXT_MAX_EXTENT`(bbox 질의 창), `TERRAIN_RESAMPLE=4.0`, `CLASSIFY_GRID=50.0`, `WATER_LIFT=0.02`, `TEST_CONTEXT_PNU`, 시트 범례 표 | — |
 | `non_rhino_utils.py` | 보유+ | 공통 | 추가 6함수: `is_point_in_ring`(ray casting), `GridIndex`(50 m 버킷), `get_resampled_ring`(선형보간), `get_ring_orientation`(신발끈 부호), **`get_bbox(geometry) -> (min_x, min_y, max_x, max_y)`**(새 코드는 전부 이것만; 기존 `get_bounds_from_geojson`은 (min_x, max_x, min_y, max_y) '구 순서' — review_map 호환으로만 남기고 docstring 표기), **`get_extent_ring(lots_rings, radius, shape) -> ring`**(범위 폴리곤의 유일한 정의, §5.0) | constants |
 | `lot_db.py` | 보유+ | 공통 | 필지·오버레이 bbox 질의(`load`, `load_parcels_in_bounds`, `load_near_overlays`). 추가 1줄: `load_parcels_in_bounds(…, limit=None)`이면 `LIMIT`을 붙이지 않는다(지도 뷰포트는 기존 5000 유지, `prepare`는 None) | constants |
