@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from xml.sax.saxutils import escape
 
 import constants
+import non_rhino_utils
 from i18n import get_lang, get_texts, tr
 from non_rhino_utils import (get_lnglat_from_tile, get_polygon_parts_from_geojson, get_ring_area, get_ring_orientation, get_text_width_em, get_tile_m_per_px,
                              get_tile_xy, get_tm_from_wgs84, get_wgs84_from_tm, is_local_projection, is_point_in_ring)
@@ -2185,8 +2186,8 @@ def get_sheet_ai(svg_path, force=False):
 
 def get_sheet_file_name(sheet_id, name):
     # type: (int, str) -> str
-    """'04_대중교통역세권.svg' — 이름(지금 언어)에서 글자·숫자만 남긴다(한글·가나·한자·악센트 라틴 포함). 라틴 낱말은 붙이기 전에 첫 글자를 대문자로(04_TransitCatchment)."""
-    return "%02d_%s.svg" % (sheet_id, re.sub(r"[\W_]", "", name.title()))
+    """'09_토지이용현황.svg'·'09_Land_use.svg' — 이름은 결과물 언어로 넘긴다(non_rhino_utils.get_sheet_label)."""
+    return "%02d_%s.svg" % (sheet_id, non_rhino_utils.get_safe_file_part(name))
 
 
 def get_sheet_file_names(sheet_id):
@@ -2207,11 +2208,12 @@ def write_sheets(data, out_dir, sheet_ids=None, options=None):
     wanted = set(int(v) for v in (sheet_ids if sheet_ids is not None else SHEET_NAMES))
     os.makedirs(out_dir, exist_ok=True)
     results = []
-    for sheet_id, _key, name, _en, _needs in constants.SHEET_CATALOG:
+    lang = non_rhino_utils.get_output_lang(data.options)
+    for sheet_id, key, name, _en, _needs in constants.SHEET_CATALOG:
         if sheet_id not in wanted:
             continue
         svg, empty, reason = render_sheet(sheet_id, data)
-        path = os.path.join(out_dir, get_sheet_file_name(sheet_id, tr(name)))
+        path = os.path.join(out_dir, get_sheet_file_name(sheet_id, non_rhino_utils.get_sheet_label(key, lang)))
         stem = os.path.splitext(path)[0]
         for old_name in get_sheet_file_names(sheet_id) - {os.path.basename(path)}:
             old_stem = os.path.join(out_dir, os.path.splitext(old_name)[0])

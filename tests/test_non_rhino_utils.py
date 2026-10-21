@@ -268,3 +268,15 @@ class SteppedMeshTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OutputNameTest(unittest.TestCase):
+    def test_lang_fallback_and_names(self):
+        self.assertEqual(u.get_output_lang({}), constants.OUTPUT_LANG_DEFAULT)
+        self.assertEqual(u.get_output_lang({"output_lang": "xx"}), constants.OUTPUT_LANG_DEFAULT)
+        self.assertEqual(u.get_output_name("more", "en") % 1, "+1")
+        self.assertEqual(u.get_output_name("styles", "ko", "vivid"), "선명")
+        self.assertEqual(u.get_output_name("styles", "ja", "vivid"), "Vivid")   # 아직 없는 언어 → 영어
+        self.assertEqual(u.get_sheet_label("land_use", "ko"), "토지이용현황")
+        self.assertEqual(u.get_safe_file_part("Land use / 2"), "Land_use_2")
+        self.assertEqual(u.get_safe_file_part("녹지·수계"), "녹지수계")
