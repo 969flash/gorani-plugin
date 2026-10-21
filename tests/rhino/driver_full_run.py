@@ -24,7 +24,7 @@ doc.ModelUnitSystem = Rhino.UnitSystem.Millimeters
 res = {"doc_unit": str(doc.ModelUnitSystem), "checks": {}}
 request = {"pnus": [constants.TEST_CONTEXT_PNU], "site_db": os.path.join(FIXTURE_DIR, "seongsu_site.db"),
            "context_db": os.path.join(FIXTURE_DIR, "seongsu_context.db"), "result_root": os.path.join(OUT_DIR, "result"),   # noqa: F821
-           "options": {"radius": 500, "scales": [3000], "make_basemap": True, "make_sheets": True, "make_tables": True, "make_dwg": True}}
+           "options": {"output_lang": "en", "radius": 500, "scales": [3000], "make_basemap": True, "make_sheets": True, "make_tables": True, "make_dwg": True}}
 lot_key = context_baker.get_lot_key(request["pnus"])
 had_origin = context_baker.get_doc_origin(doc)
 

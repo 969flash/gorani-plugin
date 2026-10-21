@@ -617,7 +617,7 @@ class Make2dTest(unittest.TestCase):
                                              lambda phase, fraction, text: phases.append(phase) or True, {}, SITE_DB, CONTEXT_DB)
             self.assertTrue(result["ok"], result["error"])
             self.assertEqual(result["dir"], tmp)
-            self.assertEqual([os.path.basename(p) for p in result["basemap"]["exported"]], ["basemap_3000.ai"])
+            self.assertEqual([os.path.basename(p) for p in result["basemap"]["exported"]], ["베이스맵_3000.ai"])   # 결과물 언어 기본 = 한국어(OUTPUT_LANG_DEFAULT)
             self.assertEqual([s["id"] for s in result["sheets"]], ids)
             self.assertEqual(result["tables"], [])
             self.assertEqual(set(phases), {"query", "basemap", "sheets"})
@@ -633,7 +633,7 @@ class Make2dTest(unittest.TestCase):
             self.assertNotEqual(more["folder"], result["folder"])
             self.assertTrue(os.path.basename(more["folder"]).startswith("2D_선명_"))
             self.assertTrue(all(os.path.exists(s["path"]) for s in result["sheets"] if s["path"]))
-            self.assertEqual(context_builder.get_sheets_dir(tmp), os.path.join(more["folder"], constants.RESULT_SHEETS_DIRNAME))
+            self.assertEqual(context_builder.get_sheets_dir(tmp), os.path.join(more["folder"], constants.OUTPUT_NAMES[constants.OUTPUT_LANG_DEFAULT]["sheets_dir"]))
 
     def test_new_2d_dir_name_and_collision(self):
         with tempfile.TemporaryDirectory() as tmp:

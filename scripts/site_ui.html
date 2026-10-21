@@ -1818,7 +1818,7 @@ function renderMenu() {
           segBtn("force_osm", ' data-v="0" title="' + tr("필지, 건축물대장, 용도지역") + '"' + (lock ? " disabled" : ""), !forceOsm(), tr("국가 DB")) +
           segBtn("force_osm", ' data-v="1" title="' + tr("한국 안에서도 OpenStreetMap으로 만듭니다(필지, 용도지역 없음)") + '"' + (lock ? " disabled" : ""), forceOsm(), "OSM") + "</div>", "") +
       row(tr("결과 언어"), '<div class="seg" role="group" aria-label="' + tr("결과 폴더와 파일 이름 언어") + '">' + ((init.output_langs || [["ko", "한국어"], ["en", "English"]]).map(function (x) {
-          return segBtn("output_lang", ' data-v="' + esc(x[0]) + '" title="결과 폴더, 2D 폴더, 도면과 조서 파일 이름을 이 언어로 만듭니다"' + (lock ? " disabled" : ""), state.options.output_lang === x[0], esc(x[1]));
+          return segBtn("output_lang", ' data-v="' + esc(x[0]) + '" title="' + tr("결과 폴더, 2D 폴더, 도면과 조서 파일 이름을 이 언어로 만듭니다") + '"' + (lock ? " disabled" : ""), state.options.output_lang === x[0], esc(x[1]));
         }).join("")) + "</div>", "") +
       (HOST.ask_stats ? row(tr("사용 통계"), init.stats_consent ? tr("보냄") : tr("보내지 않음"), '<button type="button" class="btn sm" data-act="stats" data-on="' + (init.stats_consent ? "0" : "1") + '">' + (init.stats_consent ? tr("끄기") : tr("켜기")) + "</button>", tr(STATS_TEXT)) : "") +
     "</div>" +
@@ -1910,7 +1910,7 @@ function requestCancel() {
 var ACTIONS = {
   init: function () { send({ cmd: "init" }); },
   abroad: function () { setForceOsm(true); },
-  output_lang: function (b) { state.options.output_lang = b.dataset.v; send({ cmd: "save_prefs", options: state.options }); renderMenu(); toast("결과 폴더와 파일 이름: " + b.textContent); },
+  output_lang: function (b) { state.options.output_lang = b.dataset.v; send({ cmd: "save_prefs", options: state.options }); renderMenu(); toast(tr("결과 폴더와 파일 이름: {0}", b.textContent)); },
   force_osm: function (b) { var on = b.dataset.v ? b.dataset.v === "1" : !forceOsm(); if (on !== forceOsm()) setForceOsm(on); },
   menu: function () { if (state.menuOpen) closeMenu(true); else openMenu(); },
   recent: function (b) { loadRecent(+b.dataset.i); },
