@@ -5,6 +5,7 @@
 # 여기는 SketchUp 모델을 만지는 호스트 호출(host_call → rpc_<method>)만 한다. 응답은 패널 JS의 send({cmd: "host_reply"}).
 # 모양: 대상지마다 최상위 그룹 하나(속성 GORANI_LOT_KEY) 안에 태그('CTX::Buildings')마다 그룹, 건물은 동마다 그룹.
 # 좌표는 사이드카가 로컬 m로 주고 여기서 인치로 바꾼다. 원점·사본 규칙은 scripts/sketchup_baker.py.
+# 사용자에게 보이는 Ruby 문구는 영어 하나다(번역 사전 i18n.json은 사이드카 몫 — 패널 문구는 사이드카가 tr()로 만든다).
 # EntitiesBuilder(구멍 있는 면·빠른 일괄 생성)가 SketchUp 2022부터라 그 아래는 받지 않는다.
 
 require "json"
@@ -42,37 +43,46 @@ module BSH
     def self.sidecar_url
       return @url if sidecar_alive?
       python = python_path
-      raise "번들 파이썬이 없습니다: #{python}" unless File.exist?(python)
+      raise "Bundled Python not found: #{python}" unless File.exist?(python)
       File.chmod(0o755, python) unless File.executable?(python)   # 압축을 풀며 실행 권한을 잃는 경우
       FileUtils.mkdir_p(LOG_DIR)
       log = File.join(LOG_DIR, "sketchup_sidecar.log")
       script = File.join(ROOT, "scripts", "cmd_sketchup.py")
       @io = IO.popen([python, "-I", "-B", "-X", "utf8", script, Sketchup.version], "r+", err: [log, "w"])
+      @io.sync = true
       @url = @io.gets.to_s.strip
-      raise "사이드카가 시작하지 못했습니다 — #{log}" unless @url.start_with?("http://127.0.0.1:")
+      raise "The Gorani engine did not start. See #{log}" unless @url.start_with?("http://127.0.0.1:")
       @url
     end
 
     # 패널을 하나만 띄운다. 사이드카가 죽어 새로 떴으면(주소가 바뀌면) 열린 창도 새 주소로
     def self.show_panel
-      raise "SketchUp 2022 이상이 필요합니다(EntitiesBuilder)" if Sketchup.version.to_i < 22
+      raise "Gorani needs SketchUp 2022 or later" if Sketchup.version.to_i < 22   # EntitiesBuilder
       url = sidecar_url
       unless @dialog && @dialog.visible?
         @dialog = UI::HtmlDialog.new(dialog_title: "Gorani", preferences_key: "BSH_Gorani", scrollable: true, resizable: true,
                                      width: 480, height: 900, min_width: 380, min_height: 500, style: UI::HtmlDialog::STYLE_DIALOG)
         @dialog.add_action_callback("host_call") { |_context, json| host_call(json) }
+        @dialog.set_on_closed { tell_sidecar("panel_closed") }
         @dialog_url = nil
       end
       @dialog.set_url(url) unless @dialog_url == url
       @dialog_url = url
       @dialog.visible? ? @dialog.bring_to_front : @dialog.show
     rescue StandardError => e
-      UI.messagebox("Gorani를 열지 못했습니다.\n#{e.message}")
+      UI.messagebox("Could not open Gorani.\n#{e.message}")
+    end
+
+    # 패널을 거치지 않는 알림 — 사이드카 stdin 한 줄(cmd_sketchup._read_parent). 패널을 닫으면 생성을 멈추고 기다리던 호스트 호출을 끝낸다
+    def self.tell_sidecar(cmd)
+      @io.puts(JSON.generate(cmd: cmd)) if sidecar_alive?
+    rescue IOError, SystemCallError
+      nil
     end
 
     def self.host_call(json)
       msg = JSON.parse(json)
-      raise ArgumentError, "모르는 호출: #{msg['method']}" unless RPC.include?(msg["method"])
+      raise ArgumentError, "Unknown call: #{msg['method']}" unless RPC.include?(msg["method"])
       reply(msg["id"], true, send("rpc_#{msg['method']}", msg["args"] || {}), "")
     rescue StandardError => e
       warn "[Gorani] #{e.class}: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
@@ -187,7 +197,7 @@ module BSH
         end
       rescue ArgumentError => e   # 자기교차 발자국 등
         failed += 1
-        warn "[Gorani] 건물 #{name}: #{e.message}"
+        warn "[Gorani] building #{name}: #{e.message}"
         group.erase! if group && group.valid?
       end
       failed
@@ -248,8 +258,8 @@ module BSH
     end
 
     def self.rpc_save(args)
-      raise "저장할 대상지 그룹이 없습니다" unless @last_wrapper && @last_wrapper.valid?
-      raise "context.skp를 쓰지 못했습니다: #{args['path']}" unless @last_wrapper.definition.save_copy(args["path"])
+      raise "No site group to save" unless @last_wrapper && @last_wrapper.valid?
+      raise "Could not write context.skp: #{args['path']}" unless @last_wrapper.definition.save_copy(args["path"])
       @last_wrapper.entities.size
     end
 
@@ -270,31 +280,40 @@ module BSH
       { "objects" => definition.entities.size, "layers" => tags.size }
     end
 
-    # 남서쪽 위에서 bounds 가운데를 본다. 대상지 커브는 Z = 0이고 지형은 표고 그대로라 Z 가운데는 대상지 그룹 전체에서 잡는다
-    def self.look_at(view, bounds, z_mid)
-      center = Geom::Point3d.new(bounds.center.x, bounds.center.y, z_mid)
-      size = [bounds.width, bounds.height, 200 * M].max * 2   # 대상지만이 아니라 주변 맥락까지
-      eye = center.offset(Geom::Vector3d.new(-0.6 * size, -1.0 * size, 0.9 * size))
-      view.camera = Sketchup::Camera.new(eye, center, Z_AXIS)
+    # 남서쪽 위에서 bounds가 화면 너비에 들어오게 본다(Rhino ZoomBoundingBox처럼 범위로 거리를 정한다). z = 바라볼 높이
+    def self.look_at(view, bounds, z)
+      target = Geom::Point3d.new(bounds.center.x, bounds.center.y, z)
+      camera = Sketchup::Camera.new   # 투시, 세로 시야 30°
+      half = Math.atan(Math.tan(camera.fov.degrees / 2) * view.vpwidth / view.vpheight)   # 가로 시야 반각
+      offset = Geom::Vector3d.new(-0.6, -1.0, 2.0)   # 남남서 위 60° — 낮으면 도심 고층 건물이 대상지를 가린다(을지로1가 87 시험)
+      offset.length = [bounds.width, bounds.height].max / 2 / Math.tan(half)
+      camera.set(target.offset(offset), target, Z_AXIS)
+      view.camera = camera
     end
 
+    # 대상지(CTX::Site) + 사방 대각선 반 여백(Rhino zoom_to_site와 같다, 한 변 min_span 이상), 대상지가 없으면(위치 방식) box = 중심 ± half.
+    # 바라볼 높이는 지형 가운데 — 대상지 선은 Z = 0이고 지형은 표고 그대로다
     def self.rpc_zoom(args)
       model = Sketchup.active_model
       wrapper = @wrappers[args["lot_key"]] if args["lot_key"]
       wrapper ||= model.entities.find { |e| managed?(e, args["lot_key"]) } if args["lot_key"]
-      if wrapper && wrapper.valid?
-        site = wrapper.definition.entities.find { |e| e.get_attribute(DICT, LAYER_KEY) == "#{TAG_FOLDER}::Site" }
-        box = site ? site.bounds : wrapper.definition.bounds
-        bounds = Geom::BoundingBox.new
-        8.times { |i| bounds.add(box.corner(i).transform(wrapper.transformation)) }
-        look_at(model.active_view, bounds, wrapper.bounds.center.z)
-        return true
-      end
-      return false unless args["box"]
-      x, y, half = args["box"]
+      wrapper = nil unless wrapper && wrapper.valid?
+      items = wrapper ? wrapper.definition.entities.to_a : []
+      site = items.find { |e| e.get_attribute(DICT, LAYER_KEY) == "#{TAG_FOLDER}::Site" }
+      terrain = items.find { |e| e.get_attribute(DICT, LAYER_KEY) == "#{TAG_FOLDER}::Terrain" }
+      z = terrain ? terrain.bounds.center.transform(wrapper.transformation).z : 0
       bounds = Geom::BoundingBox.new
-      bounds.add(point(x - half, y - half, 0), point(x + half, y + half, 0))
-      look_at(model.active_view, bounds, 0)
+      if site
+        8.times { |i| bounds.add(site.bounds.corner(i).transform(wrapper.transformation)) }
+        margin = [bounds.diagonal / 2, (args["min_span"].to_f * M - [bounds.width, bounds.height].max) / 2].max
+        bounds.add(bounds.min.offset([-margin, -margin, 0]), bounds.max.offset([margin, margin, 0]))
+      elsif args["box"]
+        x, y, half = args["box"]
+        bounds.add(point(x - half, y - half, 0), point(x + half, y + half, 0))
+      else
+        return false
+      end
+      look_at(model.active_view, bounds, z)
       true
     end
 
@@ -309,9 +328,9 @@ module BSH
         elsif faces.empty? && !edges.empty?
           get_loop(edges)
         end
-      return { "ring" => nil, "text" => "면 하나 또는 한 바퀴 닫힌 선들을 먼저 선택하세요" } unless positions && positions.size >= 3
+      return { "ring" => nil } unless positions && positions.size >= 3   # 안내 문구는 사이드카(tr)가 붙인다
       transform = model.edit_transform
-      { "ring" => positions.map { |p| q = p.transform(transform); [q.x.to_m, q.y.to_m, q.z.to_m] }, "text" => "" }
+      { "ring" => positions.map { |p| q = p.transform(transform); [q.x.to_m, q.y.to_m, q.z.to_m] } }
     end
 
     def self.get_loop(edges)
@@ -332,7 +351,7 @@ module BSH
     unless file_loaded?(__FILE__)
       command = UI::Command.new("Gorani") { show_panel }
       command.tooltip = "Gorani"
-      command.status_bar_text = "대상지 패널 — 주변 건물·도로·지형·수계 3D와 베이스맵·현황도"
+      command.status_bar_text = "Gorani: buildings, roads, terrain and water around your site in 3D, plus basemaps and analysis maps"
       # 아이콘: Windows는 SVG(벡터), macOS는 PNG — 맥 SketchUp의 벡터 아이콘은 PDF뿐이다
       icon = File.join(ROOT, "icons", Sketchup.platform == :platform_win ? "gorani.svg" : "gorani.png")
       command.small_icon = command.large_icon = icon if File.exist?(icon)

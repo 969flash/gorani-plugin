@@ -20,6 +20,7 @@ import time
 import constants
 import non_rhino_utils
 from context_baker import get_layer_rgb, get_lot_key, get_ref_attrs, read_meta
+from i18n import tr
 
 
 # ── 원점 ───────────────────────────────────────────────────
@@ -118,17 +119,17 @@ def import_skp(host, result_dir):
     path = os.path.join(result_dir, constants.SKETCHUP_MODEL_FILE_NAME)
     result = {"ok": False, "layers": 0, "objects": 0, "replaced": False, "text": "", "shift": [0.0, 0.0]}
     if not os.path.exists(path):
-        result["text"] = "파일이 없습니다: %s" % path
+        result["text"] = tr("파일이 없습니다: {0}", path)
         return result
     meta = read_meta(result_dir)
     origin = tuple(float(v) for v in (meta.get("origin") or [])) or None
     file_doc_origin = tuple(float(v) for v in (meta.get("doc_origin") or [])) or origin
     doc_origin = get_doc_origin(host)
     if file_doc_origin and doc_origin and (file_doc_origin == (0.0, 0.0)) != (doc_origin == (0.0, 0.0)):
-        result["text"] = "좌표 방식이 다른 모델입니다(원점 이동 / 실제 좌표) — 새 모델에서 넣으세요"
+        result["text"] = tr("좌표 방식이 다른 모델입니다(원점 이동 / 실제 좌표) — 새 모델에서 넣으세요")
         return result
     if file_doc_origin and doc_origin and math.hypot(file_doc_origin[0] - doc_origin[0], file_doc_origin[1] - doc_origin[1]) > constants.ORIGIN_MAX_OFFSET:
-        result["text"] = "다른 지역 모델입니다 — 새 모델에서 넣으세요 (원점 차이 > %.0f m)" % constants.ORIGIN_MAX_OFFSET
+        result["text"] = tr("다른 지역 모델입니다 — 새 모델에서 넣으세요 (원점 차이 > {0:.0f} m)", constants.ORIGIN_MAX_OFFSET)
         return result
     lot_key = meta.get("lot_key") or (get_lot_key(meta["pnus"]) if meta.get("pnus") else "")
     if lot_key:
@@ -139,13 +140,13 @@ def import_skp(host, result_dir):
     if file_doc_origin and not doc_origin:
         _set_doc_origin(host, file_doc_origin)
     result.update(ok=placed["objects"] > 0, layers=placed["layers"], objects=placed["objects"], shift=shift,
-                  text="" if placed["objects"] else "파일에 객체가 없습니다: %s" % path)
+                  text="" if placed["objects"] else tr("파일에 객체가 없습니다: {0}", path))
     return result
 
 
 def zoom_to_site(host, result_dir, center_lng_lat=None):
     # type: (object, str, list) -> bool
-    """이번 결과의 CTX::Site(없으면 context.json 중심 500 m, 경위도를 주면 그 주변 100 m)로 카메라를 옮긴다."""
+    """이번 결과의 CTX::Site + 여백(없으면 context.json 중심 500 m, 경위도를 주면 그 주변 100 m)이 화면에 들어오게 카메라를 옮긴다."""
     meta = read_meta(result_dir)
     box = None
     origin = get_doc_origin(host) or meta.get("doc_origin") or meta.get("origin") or [0.0, 0.0]
@@ -155,4 +156,4 @@ def zoom_to_site(host, result_dir, center_lng_lat=None):
         world, half = meta.get("center"), 500.0
     if world:
         box = [world[0] - origin[0], world[1] - origin[1], half]
-    return bool(host.call("zoom", lot_key=None if center_lng_lat else meta.get("lot_key"), box=box))
+    return bool(host.call("zoom", lot_key=None if center_lng_lat else meta.get("lot_key"), box=box, min_span=constants.SKETCHUP_ZOOM_MIN_SPAN))

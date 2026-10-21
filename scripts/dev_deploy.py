@@ -488,8 +488,9 @@ module BSH
   module Gorani
     unless file_loaded?(__FILE__)
       extension = SketchupExtension.new("Gorani", "%(id)s/main")
-      extension.description = "필지·주소로 대상지를 고르면 주변 건물·도로·지형·수계를 3D로 만들고 베이스맵(.ai)·현황도(SVG)를 냅니다. " \\
-                              "한국은 공공데이터, 해외는 OpenStreetMap. Extensions > Gorani"
+      extension.description = "The city around your site, modeled in SketchUp: buildings, roads, terrain and water, " \\
+                              "plus an Illustrator basemap and analysis maps. Extensions > Gorani. " \\
+                              "한 번에 쉽게 하는 사이트 모델링 및 사이트 분석. 확장 > Gorani"
       extension.version = "%(version)s"
       extension.creator = "%(creator)s"
       extension.copyright = "%(year)s %(creator)s"
