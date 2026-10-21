@@ -122,6 +122,14 @@ class FrameTest(unittest.TestCase):
         self.assertEqual(tuple(round(v, 6) for v in frame.to_world(x, y)), (CENTER[0] + 100, CENTER[1] + 100))
 
 
+class RangeLabelTest(unittest.TestCase):
+    def test_rect_reads_side_length(self):
+        """사각형 범위(기본)는 한 변으로 적는다 — radius 250을 '반경 250 m'로 적어 500 m 사각형과 어긋났다."""
+        label = lambda **options: sheet_svg._get_range_label(SimpleNamespace(options=options))
+        self.assertEqual(label(shape="rect", radius=850), "사각형 한 변 1,700 m")
+        self.assertEqual(label(shape="circle", radius=250), "반경 250 m")
+
+
 class TemplateStyleTest(unittest.TestCase):
     def test_map_box_per_layout(self):
         self.assertEqual(sheet_svg.get_map_box((420, 297), "side"), (12.0, 12.0, 273.0, 273.0))   # A3 = 정사각 지도 칸

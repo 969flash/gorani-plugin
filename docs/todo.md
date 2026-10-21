@@ -5,10 +5,10 @@
 ## 배포
 
 - [ ] 다른 컴퓨터(Windows일 수 있음)에서 Rhino판 실기 시험 — Mac에서 빌드한 .rhp·.pyc가 Windows Rhino 8에서 처음 도는 것일 수 있다.
-- [ ] Blender 공식 스토어(extensions.blender.org)에 올리기 — 사용자 Blender ID. 절차 `docs/blender_store/README.md`.
+- [ ] Blender 공식 스토어 — 초안 0.3.1을 다 채워 두었다(2026-10-22, https://extensions.blender.org/add-ons/gorani/draft/). 남은 건 사용자가 [Submit for Approval]을 누르고 심사 댓글에 답하는 것(답변 문안 `docs/blender_store/README.md`).
 - [ ] SketchUp Extension Warehouse에 올리기 — 사용자 개발자 계정. 절차 `docs/sketchup_store.md`. Windows 실기 시험 전이다.
 - [ ] SketchUp용 GA4 속성(`constants.GA_STREAMS["sketchup"]`) — 없으면 통계를 묻지도 보내지도 않는다.
-- [ ] `docs/install.md`(yak 패키지에 들어가 패널 [문서 열기]로 열린다)의 Blender·SketchUp 절이 아직 없는 설치 경로를 안내한다 — `969flash.github.io/gorani/blender/index.json`은 없다. 스토어에 오를 때까지 '준비 중'으로 바꾸거나 스토어 주소로 고친다.
+- [ ] `docs/install.md`(yak 패키지에 들어가 패널 [문서 열기]로 열린다)의 SketchUp 절이 아직 없는 설치 경로(Extension Warehouse)를 안내한다. 스토어에 오를 때까지 '준비 중'으로 바꾸거나 스토어 주소로 고친다(Blender 절은 2026-10-21 스토어 기준으로 고침).
 
 ## 웹사이트 (저장소 `~/Documents/GitHub/gorani`)
 
@@ -22,6 +22,7 @@
 
 ## 코드
 
+- [ ] 원 범위에서 건물이 범위 밖(경계상자 모서리)까지 들어와 지형 밖에 떠 보인다 — `context_report.get_buildings_in_extent`가 경계상자로만 거른다. 해외 OSM·국내 모두(2026-10-21 Blender 렌더에서 발견, 기본 범위는 사각형이라 덜 보인다).
 - [ ] `tests/test_3dm_readback.test_layer_full_paths`: 3dm 레이어 47 ≠ 응답 `context.layers` 41. 차이 6 = `CTX::Zoning` 아래 부모 레이어 수. `context_baker`의 레이어 셈과 테스트 중 하나를 맞춘다(2026-10-19 driver_full_run job 1019-004730-a73c).
 - [ ] 춘천 문지기 VM은 2026-10-19부터 web 브랜치의 `server_gate.py`로 돈다(웹판용 HTTPS 443·CORS, Let's Encrypt IP 인증서). main의 `scripts/server_gate.py`로 `install`을 다시 돌리면 443·CORS가 빠진다 — 웹판을 합칠 때까지 문지기를 고칠 일은 web 워크트리 판과 그 `docs/domestic_gate.md` 'HTTPS·CORS' 절로 한다. main 판은 systemd Description만 Gorani로 바뀌어 있다.
 
@@ -29,5 +30,5 @@
 
 - [ ] AutoCAD 워크트리(`.claude/worktrees/autocad`, 커밋 안 됨)를 다시 열 때 main을 합치기 전에 같은 치환(UrbanSite→Gorani, urbansite→gorani, URBANSITE→GORANI)을 먼저 한다. 명령 `URBANSITE`→`GORANI`, DXF 레이어 접두사 `US-*`도 바꿀지 정한다.
 - [ ] GA 속성 표시 이름(UrbanSite Rhino·Blender·SketchUp)을 GA 화면에서 Gorani로 바꾼다. 측정 ID는 그대로.
-- [ ] 이 Mac의 옛 설치본 지우기: Blender 확장 `urbansite`, SketchUp `Plugins/bsh_urbansite`. 옛 결과·로그 `~/UrbanSite/`(result·*.log)는 확인 뒤 지우거나 `~/Gorani/`로 옮긴다.
+- [ ] 이 Mac의 옛 설치본 지우기: SketchUp `Plugins/bsh_urbansite`(Blender 확장 `urbansite`는 없음 — 2026-10-21 확인). 옛 결과·로그 `~/UrbanSite/`(result·*.log)는 확인 뒤 지우거나 `~/Gorani/`로 옮긴다.
 - [ ] Hugging Face 데이터셋(`hooooooooon/urbandesigntool-data`) 카드에 옛 이름이 있는지 확인(저장소 이름은 그대로 둔다).

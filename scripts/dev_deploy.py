@@ -157,7 +157,54 @@ def register():
 def unregister():
     cmd_blender.unregister()
 '''
-# 확장 매니페스트 — 칸 규칙은 Blender 매뉴얼 Extensions > Getting started(tagline·permissions 사유 64자 이하, 끝 마침표 없음)
+# Blender 패키지에만 들어가는 판 — 확장 심사(2026-10-21 조사: docs/blender_store/README.md)가 sys.path·sys.modules 조작, 모듈 다시 읽기,
+# Blender 안 스레드, 분석 전송을 막는다. Rhino판 loader(공유 인터프리터 이름 충돌·편집 반영)와 GA 통계는 패키지에 넣지 않는다.
+BLENDER_LOADER_SOURCE = '''"""로직 모듈 로더 — Blender 확장판(dev_deploy.py blender가 scripts/loader.py 대신 넣는다).
+패키지 상대 import만 쓰고 sys.path·sys.modules는 건드리지 않는다. 모듈은 한 번 읽고, 다시 읽기는 Blender가 확장을 껐다 켤 때 한다.
+"""
+
+import importlib
+import os
+
+SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(SCRIPTS_DIR)
+
+
+def load(module_name):
+    # type: (str) -> object
+    return importlib.import_module("." + module_name, __package__)
+'''
+BLENDER_USAGE_STATS_SOURCE = '''"""사용 통계 — Blender 확장판은 보내지 않는다(확장 약관 4.5·심사 관행). dev_deploy.py blender가 scripts/usage_stats.py 대신 넣는 빈 판.
+설치 ID만 남긴다 — 국내 데이터 팩 서버가 설치마다 하루 받기 한도를 센다(docs/install.md 5).
+"""
+
+from site_prefs import get_client_id  # noqa: F401
+
+
+def is_configured():
+    # type: () -> bool
+    return False
+
+
+def is_enabled():
+    # type: () -> bool
+    return False
+
+
+def send_event(name, params=None):
+    # type: (str, dict) -> bool
+    return False
+
+
+def get_target_params(target, lots=None):
+    # type: (dict, list) -> dict
+    return {}
+'''
+BLENDER_SOURCE_OVERRIDES = {"loader.py": BLENDER_LOADER_SOURCE, "usage_stats.py": BLENDER_USAGE_STATS_SOURCE}
+# `if __package__:` … `else:` 진입 분기(cmd_site·cmd_blender) — 패키지에서는 앞쪽만 남긴다(뒤쪽은 Rhino·저장소 시험용 sys.modules 넣기)
+PACKAGE_BRANCH = re.compile(r"^if __package__:[^\n]*\n((?:    [^\n]*\n)+)else:[^\n]*\n(?:    [^\n]*\n)+", re.M)
+# 확장 매니페스트 — 칸 규칙은 Blender 매뉴얼 Extensions > Getting started(tagline·permissions 사유 64자 이하, 끝 마침표 없음).
+# 태그: 심사가 '3D View'를 자주 빼라고 한다. support = 스토어 'Report Issues' 칸(공개 이슈 트래커). Leaflet(BSD-2-Clause)을 넣어 라이선스·저작권에 적는다
 BLENDER_MANIFEST = '''schema_version = "1.0.0"
 id = "%(id)s"
 version = "%(version)s"
@@ -166,13 +213,14 @@ tagline = "Site context for urban design: buildings, roads, terrain"
 maintainer = "%(maintainer)s"
 type = "add-on"
 website = "https://969flash.github.io/gorani/"
-tags = ["Import-Export", "3D View"]
+support = "https://github.com/969flash/gorani-plugin/issues"
+tags = ["Import-Export", "Scene"]
 blender_version_min = "4.2.0"
-license = ["SPDX:GPL-3.0-or-later"]
+license = ["SPDX:GPL-3.0-or-later", "SPDX:BSD-2-Clause"]
 copyright = ["2026 sanghoon", "2010-2023 Volodymyr Agafonkin (Leaflet)", "2010-2011 CloudMade (Leaflet)"]
 
 [permissions]
-network = "Map tiles, data packs, OpenStreetMap context and IP geolocation"
+network = "Map tiles, regional data packs and OpenStreetMap context"   # IP 위치 조회는 Blender판에서 끈다(HOST_LABELS ip_center)
 files = "Write results and data packs to the Gorani home folder"
 '''
 
@@ -358,8 +406,9 @@ def build_yak():
 def get_package_source(source, module_names):
     # type: (str, list) -> str
     """프로젝트 모듈 import를 패키지 상대 import로 바꾼 소스(`import constants` → `from . import constants`,
-    `from context_builder import X` → `from .context_builder import X`). Blender 확장 정책이 최상위 모듈·sys.path 변경을 막는다 —
-    Rhino판은 scripts/를 sys.path에 넣는 평범한 import 그대로 둔다."""
+    `from context_builder import X` → `from .context_builder import X`)이고, `if __package__:` 진입 분기는 앞쪽만 남긴다.
+    Blender 확장 정책이 최상위 모듈·sys.path·sys.modules 변경을 막는다 — Rhino판은 scripts/를 sys.path에 넣는 평범한 import 그대로 둔다."""
+    source = PACKAGE_BRANCH.sub(lambda m: re.sub(r"^    ", "", m.group(1), flags=re.M), source)
     pattern = re.compile(r"^(\s*)(import|from) (%s)\b" % "|".join(sorted(module_names, key=len, reverse=True)), re.M)
     return pattern.sub(lambda m: "%sfrom . import %s" % (m.group(1), m.group(3)) if m.group(2) == "import" else "%sfrom .%s" % (m.group(1), m.group(3)), source)
 
@@ -385,7 +434,7 @@ def build_blender():
              and not n.startswith(("dev_", "probe_", "server_", "sketchup_", "web_"))]
     for name in names:
         with open(os.path.join(SCRIPTS_DIR, name), encoding="utf-8") as f:
-            source = get_package_source(f.read(), [n[:-3] for n in names])
+            source = get_package_source(BLENDER_SOURCE_OVERRIDES.get(name) or f.read(), [n[:-3] for n in names])
         with open(os.path.join(target, name), "w", encoding="utf-8") as f:
             f.write(source)
     with open(os.path.join(target, "__init__.py"), "w", encoding="utf-8") as f:
@@ -1000,24 +1049,35 @@ def _fill_manifest(pack_dir):
 
 DATASET_CARD = """---
 license: other
-license_name: kogl-type1-cc-by
-pretty_name: Gorani 시군구 데이터 팩
-language: [ko]
-tags: [geospatial, korea, cadastral, buildings, rhino]
+license_name: kogl-type1-cc-by-and-cc-by-4.0
+pretty_name: Gorani 데이터 팩
+language: [ko, ja]
+tags: [geospatial, korea, japan, plateau, cadastral, buildings, rhino]
 ---
 # Gorani 데이터 팩
 
-Rhino 플러그인 Gorani가 대상지 주변만 받아 쓰는 시군구 단위 SQLite 팩(xz 압축). 좌표계 EPSG:5186.
+Rhino 플러그인 Gorani가 대상지 주변만 받아 쓰는 지역 단위 SQLite 팩(xz 압축)입니다.
+
+## 한국 — 시군구 팩 (좌표계 EPSG:5186)
 
 - `<시군구코드>_site.db.xz` — 필지(토지특성정보 도형·속성), 토지이용계획 지정 현황, 계획 도형(서울 UPIS / 그 외 지정 코드로 필지를 합친 것)
 - `manifest.json` — 팩 목록·sha256·범위. 플러그인이 읽는다.
 - 건물·도로·수계·등고선 팩(`*_context`·`*_terrain`)은 여기 두지 않는다. 수치지형도(기본측량성과)에서 나온 자료라 국외 서버에 둘 수 없어
   (공간정보관리법 제16조) 국내 서버에 있고, 매니페스트에 그 주소가 적혀 있다.
 
-## 출처·라이선스 (원천 그대로 — 가공: 재투영·병합·단순화·시군구 분할)
+출처·라이선스 (원천 그대로 — 가공: 재투영·병합·단순화·시군구 분할)
 - 국토교통부 토지특성정보·토지이용계획정보 — 이용허락범위 제한 없음(공공데이터포털 15048121·15045900)
 - 서울특별시 도시계획정보(UPIS) — 공공누리 제1유형
 - 본 데이터는 정보제공 목적이며 법적 효력이 없다(국토교통부 국가중점데이터 안내).
+
+## 일본 — 시구정촌 건물 팩 (`jp/`, 경위도) / 日本 — 市区町村の建物パック
+
+- `jp/jp<시구정촌코드>_context.db.xz` — 국토교통성 3D 도시모델(PLATEAU)의 건물만: LOD0 외곽, LOD1 실측 높이(measuredHeight), 층수, 용도 코드. 306개 시구정촌, 도시마다 최신 연도판.
+- `jp/manifest.json` — 일본 팩 목록·sha256·범위(경위도 [서, 남, 동, 북]).
+- 각 팩의 `data_sources` 표에 도시 이름·연도·데이터셋 주소가 있다. 도시 경계의 3차 메시는 이웃 도시 팩에도 들어 있어 같은 건물이 두 팩에 있을 수 있다(gml:id로 걸러 낸다).
+
+出典：3D都市モデル（Project PLATEAU）各市区町村（各年度）、国土交通省。CC BY 4.0（公共データ利用規約 第1.0版と互換）。著作権は各地方公共団体にあります。
+加工：Gorani が建物の外形・高さ・階数・用途コードだけを抽出し、経緯度（小数6桁）に変換して市区町村ごとの SQLite にしました。国土交通省・地方公共団体が作成したものではありません。
 """
 
 
