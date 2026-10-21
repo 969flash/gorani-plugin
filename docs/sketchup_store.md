@@ -22,115 +22,115 @@
 - Company Home Page: https://969flash.github.io/gorani/en/(신청에 넣음)
 - Support URL: https://github.com/969flash/gorani/issues
 
-## 칸
+## 칸(2026-10-22 실제 양식 — 초안 extensions.sketchup.com/extension/be1e8d52-c032-40d5-a891-cc16b8caa8ab/edit)
 
-**Title**: Gorani
+Upload A New Extension → **Overview**(제목·요약) → **Categories**(3개까지) → **Create**가 초안을 만든다(제출 아님). 초안 화면은 탭 셋이고 위 **Save Draft**·**Submit For Review**(사용자가 누른다).
 
-**Version**: rbz와 같은 값(`constants.PANEL_VERSION`)
+**Overview**
+- Extension Title: `Gorani`(rbz `SketchupExtension` 이름과 같아야 한다)
+- Extension Summary(120자): `Pick a site anywhere on the map. The city around it (buildings, roads, terrain, water) comes into SketchUp in 3D. Free.`
+- Categories: Architecture · Landscape Architecture · Import & Export
 
-**Short description**(영어 다음 줄에 한국어):
-
-The city around your site, modeled in SketchUp. Free 3D buildings, roads and terrain from OpenStreetMap, plus parcels, zoning and contours in Korea.
-지도에서 대상지를 고르면 주변 건물·도로·지형이 SketchUp에 3D로 들어옵니다. 무료입니다.
-
-**Description**(영어 다음에 한국어를 이어 쓴다. 두괄식, 한 줄에 한 가지):
+**Extension File 탭**
+- Extension File: `build/bsh_gorani-<버전>.rbz`(500 MB까지). Version Number = `constants.PANEL_VERSION`
+- Encryption Type: **None**(소스가 공개라 암호화가 필요 없고, 암호화가 로더 경로를 깨뜨릴 위험만 있다)
+- SketchUp Compatibility: 2022~2026 · OS: Windows, Mac OS X · Supported Languages: English, Spanish, Japanese, Korean, Simplified Chinese
+- Release Notes(1000자):
 
 ```
-The city around your site, modeled in SketchUp.
-Pick a site on the map and the buildings, roads and terrain around it come into your open model. It's free.
+First release on the Extension Warehouse.
 
-How to use
-1. Install Gorani and click Extensions > Gorani (or the Gorani toolbar button).
-2. Pick a site on the map: click parcels, draw an area or drop a point.
-3. Choose the extent and press the 3D button.
+- Pick a site on the map and get the city around it in 3D: buildings, terrain, roads, parks, water and railways, each on its own tag.
+- Works worldwide with OpenStreetMap and public terrain data.
+- Korea: nationwide parcels, zoning and 1:5,000 contours.
+- Japan: PLATEAU buildings with measured heights and GSI 5 m terrain.
+- Optional 2D: layered Illustrator basemap, analysis maps (SVG, AI) and CSV tables.
+- Panel in English, Korean, Spanish, Japanese and Chinese.
+```
 
-What you get
-- 3D: building masses, terrain, roads, parks, water and railways. Each layer is a tag in the CTX folder.
-- Buildings: one solid group per building with height and floors attached.
-- 2D (optional): layered Illustrator basemap (1:1,000 to 1:5,000), urban analysis maps (SVG, AI) and CSV tables.
-- Every run is one Undo step, and a copy is saved as context.skp in ~/Gorani/result.
+- Testing instructions(1000자, 심사팀용):
 
-Data
-- Worldwide: OpenStreetMap buildings and roads with public terrain data. Needs an internet connection.
-- Korea: nationwide parcels, zoning, buildings and 1:5,000 contours. Each district is downloaded once.
+```
+1) Open Extensions > Gorani. The panel opens in English (the globe button at the top switches language).
+2) Click "Point" at the top left, type "Flatiron Building, New York" (or "Ginza, Tokyo") in the search box and press Enter.
+3) Press "Create 3D model" at the bottom right. It takes 30-60 seconds because the data is downloaded on the fly. The context appears as one group "Gorani ..."; one Undo removes it.
+4) Optional: "Create 2D material" writes drawings to ~/Gorani/result. It does not touch the model.
 
-Good to know
+Why the package contains executables: SketchUp has no Python, so Gorani bundles CPython 3.12 (python-build-standalone, PSF license) with numpy and shapely (BSD). It runs as a helper process started with -I -B and writes nothing into the extension folder. The panel (HtmlDialog) talks to it only on 127.0.0.1 with a per-session token. Usage statistics are sent only after the user opts in.
+```
+
+**Extension Details 탭**
+- Screenshots(5장, 940×470 권장, 3 MB 이하): `build/sketchup_store/ew_hero.png` → `ew_steps` → `ew_window` → `ew_world` → `ew_twod` 순. 올리면 순서가 뒤집혀 들어가 끌어서 바로잡았다.
+- Promo Video: YouTube 주소만 받는다. 영상 파일 `build/sketchup_store/gorani_sketchup_demo.mp4`(22초, 1920×1080) — 사용자가 YouTube에 올리고 주소를 넣는다.
+- Website: `https://969flash.github.io/gorani/en/`
+- Keywords(띄어쓰기가 나눔 기호라 한 낱말씩): site, context, urban, design, analysis, city, model, OpenStreetMap, GIS, terrain, buildings, basemap, Korea, Japan, PLATEAU, topography, contours, zoning, masterplan, Illustrator
+- Description(Markdown, 5000자):
+
+```markdown
+## The city around your site, modeled in SketchUp
+
+Pick a site on the map. The buildings, roads, terrain and parks around it come into your open model in 3D.
+It's free.
+
+### How to use
+1. Click **Extensions > Gorani** (or the Gorani toolbar button).
+2. Pick a site on the map: search a place, then click parcels, draw an area or drop a point.
+3. Choose the extent (250 m to 2 km) and press **Create 3D model**.
+4. Need drawings? Press **Create 2D material** on the result screen.
+
+### What you get
+- **3D context**: building masses, terrain, roads, parks, water and railways. Each layer is a tag in the **CTX** folder.
+- **Buildings**: one solid group per building, with height and floors as attributes.
+- **2D (optional)**: a layered Illustrator basemap (1:1,000 to 1:5,000), analysis maps as SVG and AI (figure-ground, street hierarchy, building height, elevation, transit and walking catchments, aerial photo) and CSV tables.
+- Every run is one Undo step, and a copy is saved as `context.skp` in `~/Gorani/result`.
+
+### Data
+- **Worldwide**: OpenStreetMap buildings, roads and water with public terrain data. Heights come from OpenStreetMap tags.
+- **Japan**: PLATEAU buildings (MLIT 3D city models) with measured heights, and GSI 5 m terrain.
+- **Korea**: nationwide parcels, zoning, buildings and 1:5,000 contours. Pick sites parcel by parcel. Each district is downloaded once.
+
+### Good to know
 - SketchUp 2022 or later, Windows and macOS. Nothing else to install.
+- The panel speaks English, Korean, Spanish, Japanese and Chinese. Switch it with the globe button.
 - Gorani brings its own Python engine. It runs as a helper process, and the panel talks to it only on your computer (127.0.0.1).
-- The panel is in English, Korean, Spanish, Japanese and Chinese. Pick the language from the globe button at the top.
-- Usage statistics are sent only if you opt in from the panel.
-- Results with Korean contours or elevations must not be posted online (National Geographic Information Institute security rules).
+- Data is downloaded when you generate, so you need an internet connection.
+- Usage statistics are sent only if you opt in.
+- Sources: © OpenStreetMap contributors (ODbL), PLATEAU (MLIT, CC BY 4.0), GSI tiles, Korean public data (MOLIT, NGII, Seoul).
+- Results with Korean contours or elevations must not be posted online (NGII security rules).
 
-한국어
+Website: https://969flash.github.io/gorani/en/
+Support: https://github.com/969flash/gorani/issues
 
-지도에서 대상지를 고르면 주변 건물·도로·지형이 SketchUp에 3D로 들어옵니다.
-대지 주변 현황 모델을 직접 그릴 필요가 없습니다. 무료입니다.
+---
 
-사용 방법
-1. 설치하고 확장 > Gorani(또는 Gorani 도구 막대 단추)를 누릅니다.
-2. 지도에서 대상지를 고릅니다. 필지 클릭, 구역 그리기, 위치 찍기 중 하나입니다.
-3. 범위를 정하고 [3D 모델 만들기]를 누릅니다.
+### 한국어
+지도에서 대상지를 고르면 주변 건물·도로·지형·녹지가 SketchUp에 3D로 들어옵니다. 무료입니다.
+- **사용 방법**: 확장 > Gorani를 누르고, 지도에서 필지·구역·위치로 대상지를 고른 뒤 [3D 모델 만들기]를 누릅니다.
+- **결과물**: 레이어마다 CTX 태그로 정리된 3D가 들어오고, 건물은 동마다 솔리드 그룹(높이·층수)입니다. 필요하면 일러스트레이터 베이스맵, 현황도·분석도, 조서 CSV도 만듭니다.
+- **데이터**: 국내는 전국 필지·용도지역·1:5,000 등고선, 일본은 PLATEAU 실측 높이와 국토지리원(GSI) 5 m 지형, 그 밖은 OpenStreetMap을 씁니다.
+- **언어**: 패널은 영어·한국어·스페인어·일본어·중국어를 지원합니다.
 
-결과물
-- 3D: 건물 매스, 지형, 도로, 녹지, 하천, 철도가 CTX 태그 폴더에 태그별로 들어옵니다.
-- 건물: 동마다 솔리드 그룹이고 높이·층수 속성이 붙습니다.
-- 2D(필요할 때만): 일러스트레이터 베이스맵(1:1,000~1:5,000), 현황도·분석도(SVG·AI), 조서 CSV를 만듭니다.
-- 한 번 만든 것은 실행 취소 한 번으로 지워지고, 사본이 ~/Gorani/result에 context.skp로 남습니다.
-
-데이터
-- 국내: 전국 필지 경계·용도지역·건물·1:5,000 등고선. 지역 데이터는 처음 한 번 받습니다(구 하나에 수십 MB).
-- 해외: OpenStreetMap 건물·도로와 공개 지형 데이터. 만들 때 인터넷이 필요합니다.
-
-참고
-- SketchUp 2022 이상(윈도우·맥)에서 씁니다. 따로 설치할 것은 없습니다.
-- 계산 엔진(파이썬)이 확장에 들어 있습니다. 내 컴퓨터 안(127.0.0.1)에서만 패널과 주고받습니다.
-- 패널은 영어·한국어·스페인어·일본어·중국어를 지원합니다. 위쪽 지구본 단추에서 고릅니다.
-- 사용 통계는 패널에서 동의한 사람만 보냅니다.
-- 등고선·표고가 들어간 국내 결과물은 인터넷에 올리면 안 됩니다(국토지리정보원 보안관리규정).
+### 日本語
+地図で敷地を選ぶと、周辺の建物・道路・地形・緑地がSketchUpに3Dで入ります。無料です。
+- **使い方**: 拡張機能 > Gorani を開き、地図で敷地を選んで（エリアを描く・地点を置く）［3Dモデル作成］を押します。
+- **日本のデータ**: PLATEAUの建物（実測高さ）と国土地理院の5 m標高。その他の地域はOpenStreetMapです。
+- **2D（任意）**: Illustratorのベースマップ、分析図（SVG・AI）、CSV表を作成します。
+- **言語**: パネルは英語・韓国語・スペイン語・日本語・中国語に対応しています。
 ```
 
-**Price**: Free
+**Pricing & Support 탭**: Customer Support = `bsh969flash@gmail.com`. 개발자(Developer) 계정은 무료 확장만 올린다.
 
-**SketchUp versions / OS**: 2022, 2023, 2024, 2025, 2026 / Windows, macOS
+## 이미지·영상
 
-**Category**(있는 것 중에서): Architecture, Urban Planning, Landscape, GIS/Mapping, Modeling
+3D 그림은 해외(OpenStreetMap·PLATEAU) 대상지만 쓴다 — 수치지형도에서 나온 국내 3D·도면·등고선은 해외 사이트에 올리지 않는다(공간정보관리법 제16조). 한국은 필지 고르기 패널 화면만.
 
-**Tags**: site context, urban design, city model, OpenStreetMap, GIS, terrain, topography, contours, basemap, site analysis, Korea
-
-**Release notes**: First release.
-
-**Images**(1920×1080, `build/sketchup_store/`): `card_hero.png`(대표) · `card_window.png` · `card_twod.png`. 아이콘 `icon_512.png`·`icon_256.png`.
-`card_world.png`(도쿄 긴자)는 2026-10-21 Overpass 장애로 못 만들었다 — `render_world.png`를 만들면 넣는다.
-
-**Notes for reviewers**(칸이 있으면, 없으면 설명 끝에):
-
-```
-How to test:
-1. Extensions > Gorani opens the panel (English by default).
-2. Click "Point" at the top left, type "Flatiron Building, New York" in the search box and press Enter.
-3. Press "Create 3D model" at the bottom right. It takes 30-60 seconds, depending on the OpenStreetMap servers,
-   and the context appears as one group "Gorani N40.74…". One Undo removes it.
-4. Optional: "Create 2D material" writes drawings to ~/Gorani/result. Nothing else touches the model.
-
-Why there are executables:
-- SketchUp has no Python, so the geometry engine runs in a bundled CPython 3.12 (python-build-standalone, PSF license)
-  with numpy and shapely (BSD). It is started with -I -B and writes nothing into the extension folder.
-  Data packs, results and logs go to ~/Gorani.
-- The panel (UI::HtmlDialog) is served by that process on 127.0.0.1 with a random per-session token.
-- All model changes happen in Ruby (BSH::Gorani), wrapped in one start_operation/commit_operation per run.
-- Network: map tiles, an approximate start position for the map (ipinfo.io), regional data packs (Hugging Face and
-  a Korean server), OpenStreetMap Overpass/Nominatim for sites outside Korea, and Google Analytics only after the user opts in.
-```
-
-## 이미지
-
-해외(OpenStreetMap) 대상지만 쓴다 — 수치지형도에서 나온 국내 3D·도면·등고선은 해외 사이트에 올리지 않는다(공간정보관리법 제16조).
-
-1. SketchUp에서 뉴욕 플랫아이언(구역, 원 250 m)·도쿄 긴자(위치, 원 250 m)를 만들고, 흰 매스·그림자 보기로 `view.write_image(transparent: true)` →
-   `build/sketchup_store/render_nyc.png`·`render_world.png`(2400×1500). 실제 화면(패널 + 모델)은 `window.png`.
-2. 2D 카드 그림은 뉴욕 결과의 `2D/sheets/*.svg`를 `build/sketchup_store/sheets/s<번호>.svg`로 복사한다.
-3. 카드: `docs/sketchup_store/cards.html` 머리 주석의 Chrome 명령(`?card=hero|window|twod|world`) → `card_*.png`.
-4. 아이콘: `docs/blender_store/icon.html`을 Chrome으로 256(그대로)·512(`--force-device-scale-factor=2`).
+1. SketchUp에서 뉴욕 플랫아이언(구역, 원 250 m)·도쿄 긴자(위치, 원 250 m — PLATEAU)를 만들고, 흰 매스·그림자 보기로 `view.write_image(transparent: true)` →
+   `build/sketchup_store/render_nyc.png`·`render_tokyo.png`(2400×1500).
+2. 영어 패널 화면(`screencapture -l`): `panel_map_en.png`(뉴욕 구역)·`panel_result_en.png`(긴자 3D·2D 완료)·`panel_lots_en.png`(서울 필지), 실제 SketchUp 창 `window.png`.
+3. 2D 카드 그림은 뉴욕 결과의 `2D/sheets/*.svg`를 `build/sketchup_store/sheets/s<번호>.svg`로 복사한다.
+4. 카드 5장(1880×940): `docs/sketchup_store/cards.html` 머리 주석의 Chrome 명령 → `ew_hero|steps|window|world|twod.png`.
+5. 영상: 긴자 모델을 `write_image`로 72장 돌려 찍고(남쪽 위 30°, 방위 10°→130°) 카드와 함께 ffmpeg로 묶는다(30 fps, 장면 사이 0.5초 겹침) → `gorani_sketchup_demo.mp4`.
+6. 아이콘: `docs/blender_store/icon.html`을 Chrome으로 256(그대로)·512(`--force-device-scale-factor=2`).
 
 ## 심사 규칙에 맞춘 것(이미 반영)
 
