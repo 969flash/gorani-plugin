@@ -15,7 +15,6 @@ panel_host.PanelHost(Eto WebView)와 로직 모듈을 잇는다. JS 명령(dict)
     set_area        → get_area_state (구역 링 → context_builder.resolve_target: 안전장치·안의 필지)
     set_point       → get_point_state (위치 → 이름)
     pick_curve      → Rhino 선택(또는 고르기) 커브 → context_geometry.get_curve_ring → curve_shape
-    snap_area       → 구역 안 필지 합집합(context_geometry.get_union_ring) → area_state
     preflight       → context_builder.preflight (메모이즈, seq 에코)
     generate        → context_builder.run (콜백 = push + Wait + 취소 플래그) → done / progress{failed|cancelled}
     cancel          → 플래그만
@@ -84,15 +83,16 @@ def _jibun(address):
     return parts[-1] if parts else ""
 
 
-def get_init_state(site_db=None, context_db=None, today=None):
-    # type: (str, str, datetime.date) -> dict
+def get_init_state(site_db=None, context_db=None, today=None, manifest=None):
+    # type: (str, str, datetime.date, dict) -> dict
     """init_state 페이로드(panel_ui.md).
 
-    입력: DB 경로 override 2개(테스트가 fixture를 꽂는다. None = constants 경로), today(테스트용).
+    입력: DB 경로 override 2개(테스트가 fixture를 꽂는다. None = constants 경로), today(테스트용), manifest(테스트용. None = 이번 세션에 받은 것).
     처리: 필지 DB 존재 → blocked, context_builder.get_sources/get_source_warnings, review_map 타일·지도, site_prefs 옵션·recent,
-          SHEET_CATALOG. 네트워크 접근 없음. generator는 항상 ok(서브프로세스 없음 — UI 호환 키).
+          SHEET_CATALOG, 매니페스트 업데이트·공지(data_pack.get_notice_state). 네트워크 접근 없음 — 매니페스트는 _init이 먼저 받아 둔다.
+          generator는 항상 ok(서브프로세스 없음 — UI 호환 키).
     출력: {"type": "init_state", version, blocked, paths, generator, host, stats_consent, links, sources, warnings, tile, map, options, modes, recent, sheet_catalog,
-          style_presets, style_defaults, style_ramps, styles}.
+          style_presets, style_defaults, style_ramps, styles, update, notices}.
     """
     constants = loader.load("constants")
     context_builder = loader.load("context_builder")
@@ -102,7 +102,7 @@ def get_init_state(site_db=None, context_db=None, today=None):
     sources = context_builder.mark_downloadable(context_builder.get_sources(site_db, context_db, today), not site_db)
     host = dict(constants.HOST_LABELS[context_builder.get_host()])
     host["ask_stats"] = host["ask_stats"] and loader.load("usage_stats").is_configured()   # 보낼 곳이 없으면 묻지 않는다
-    return {
+    return dict({
         "type": "init_state",
         "version": constants.PANEL_VERSION,
         "blocked": not has_lot_db,
@@ -127,7 +127,7 @@ def get_init_state(site_db=None, context_db=None, today=None):
         "style_defaults": dict(constants.STYLE_DEFAULTS),
         "style_ramps": {key: list(ramp) for key, ramp in constants.STYLE_RAMPS.items()},
         "styles": site_prefs.list_styles(),
-    }
+    }, **loader.load("data_pack").get_notice_state(manifest))
 
 
 def get_search_result(query, site_db=None, region=None):
@@ -173,7 +173,7 @@ def get_lot_state(pnus, site_db=None):
     """lot_state 페이로드.
 
     입력: 현재 대상 PNU 전체(빈 목록 = 모두 지움).
-    처리: lot_db.load → 필지별 Feature(role lot) + 대상 합집합 1개(role target — 각 필지의 가장 넓은 외곽 링 MultiPolygon),
+    처리: lot_db.load → 필지별 Feature(role lot) + 대상 합집합 1개(role target — 합필 외곽 MultiPolygon, context_builder.get_target_rings),
           lot_name·중심(100 m 내림 전)·multipart 경고는 context_builder의 같은 규칙을 쓴다.
           필지 정보 = 용도지역(+법정 건폐·용적)·지역지구등(포함·저촉)·대장/도형 면적 차이·기준일.
     출력: {"type": "lot_state", lots[{pnu, address, jibun, land_category, area, warn, zones, designations, registered_area,
@@ -221,7 +221,7 @@ def get_lot_state(pnus, site_db=None):
 def _empty_area_state(text=""):
     # type: (str) -> dict
     return {"type": "area_state", "ok": not text, "text": text, "ring_tm": [], "ring_lnglat": [], "center": None, "center_tm": None,
-            "offsets": [], "area": 0.0, "lots": 0, "lots_area": 0.0, "lot_name": "", "target_geojson": _EMPTY_FC, "warnings": [], "snapped": False}
+            "offsets": [], "area": 0.0, "lots": 0, "lots_area": 0.0, "lot_name": "", "target_geojson": _EMPTY_FC, "warnings": []}
 
 
 def get_area_state(msg, site_db=None):
@@ -232,7 +232,7 @@ def get_area_state(msg, site_db=None):
           (Rhino 커브를 지도에서 옮겨 놓은 것 — 모양은 m로 그대로, 위치만 지도에서). 아무것도 없으면 빈 상태(지움).
     처리: context_builder.resolve_target(area) — 안전장치(get_ring_problem)·안의 필지(50 % 규칙)·이름.
     출력: {"type": "area_state", ok, text, ring_tm, ring_lnglat(닫힘), center, center_tm, offsets, area, lots, lots_area, lot_name,
-          target_geojson(role area 1 + role target 필지), warnings, snapped}. 링 문제는 ok=false + text(사용자용 한 줄).
+          target_geojson(role area 1 + role target 필지), warnings}. 링 문제는 ok=false + text(사용자용 한 줄).
     """
     context_builder = loader.load("context_builder")
     non_rhino_utils = loader.load("non_rhino_utils")
@@ -265,7 +265,7 @@ def get_area_state(msg, site_db=None):
         "center": review_map.get_wgs84_ring([target.center])[0], "center_tm": [cx, cy],
         "offsets": [[round(x - cx, 3), round(y - cy, 3)] for x, y in ring], "area": round(non_rhino_utils.get_ring_area(ring), 1),
         "lots": len(target.lots), "lots_area": round(sum(lot.area for lot in target.lots), 1), "lot_name": target.name,
-        "target_geojson": geojson, "warnings": target.warnings, "snapped": bool(msg.get("snapped")),
+        "target_geojson": geojson, "warnings": target.warnings,
     }
 
 
@@ -494,7 +494,7 @@ class _SiteController:
         cmd = msg.get("cmd", "")
         handlers = {
             "init": self._init, "search": self._search, "map_lots": self._map_lots, "select_lots": self._select_lots,
-            "set_area": self._set_area, "set_point": self._set_point, "pick_curve": self._pick_curve, "snap_area": self._snap_area,
+            "set_area": self._set_area, "set_point": self._set_point, "pick_curve": self._pick_curve,
             "preflight": self._preflight, "generate": self._generate, "make_2d": self._make_2d, "cancel": self._cancel,
             "import_context": self._import_context, "export_basemap": self._export_basemap, "zoom_view": self._zoom_view,
             "open_path": self._open_path, "open_eum": self._open_eum, "open_url": self._open_url, "save_prefs": self._save_prefs, "download_data": self._download_data,
@@ -555,6 +555,10 @@ class _SiteController:
 
     def _init(self, msg):
         self._preflight_memo.clear()   # 키 유무·새 판은 메모 키에 없으므로 init마다 비운다
+        try:   # 공지·업데이트 — 처음 한 번만 짧게 기다린다. 오프라인·서버 장애면 공지 없이 연다(사용자를 막지 않는다)
+            loader.load("data_pack").get_manifest(timeout=loader.load("constants").NOTICE_TIMEOUT_SECONDS)
+        except Exception:
+            pass
         state = get_init_state()
         self.push(state)
         if not self._opened:   # init은 배지 [다시 확인]에도 온다 — 패널 열기는 한 번만
@@ -610,25 +614,6 @@ class _SiteController:
         unit_scale = 1.0 / context_baker.get_model_unit_scale(doc)   # 문서 단위 → m
         ring, problem = context_geometry.get_curve_ring(curve, unit_scale, doc.ModelAbsoluteTolerance)
         self.push(get_curve_shape(ring, problem, context_baker.get_doc_origin(doc)))
-
-    def _snap_area(self, msg):
-        """구역계를 필지 경계에 맞춘다 — 걸친 일반 필지는 50 % 규칙대로 넣거나 빼고, 도로·하천은 그린 선대로 가로지른다."""
-        context_builder = loader.load("context_builder")
-        context_geometry = context_builder.get_host_modules()[0]
-        constants = loader.load("constants")
-        current = get_area_state({"ring_tm": msg.get("ring_tm")})
-        if not current["ok"]:
-            self.push(current)
-            return
-        add, cut = context_builder.get_snap_rings([tuple(p) for p in current["ring_tm"]])
-        if not add and not cut:
-            self.push(dict(current, ok=False, text="걸친 필지가 없어 맞출 게 없습니다"))
-            return
-        snapped = context_geometry.get_snapped_ring([tuple(p) for p in current["ring_tm"]], add, cut, constants.UNION_TOLERANCE)
-        if not snapped:
-            self.push(dict(current, ok=False, text="필지 경계에 맞추지 못했습니다. 구역을 조금 다르게 그려 보세요"))
-            return
-        self.push(get_area_state({"ring_tm": snapped, "snapped": True}))
 
     def _preflight(self, msg):
         key = get_preflight_key(msg)
@@ -862,7 +847,10 @@ class _SiteController:
         self._open(constants.EUM_LAND_USE_URL % pnu)
 
     def _open_url(self, msg):
-        # 임의 URL은 받지 않는다 — 키(constants.PANEL_LINKS)만 받아 정해진 주소를 연다
+        # 임의 URL은 받지 않는다 — 키(constants.PANEL_LINKS)나 공지 id(매니페스트 notices)만 받아 정해진 주소를 연다
+        if msg.get("notice"):
+            self._open(loader.load("data_pack").get_notice_url(str(msg["notice"])))
+            return
         url = loader.load("constants").PANEL_LINKS.get(str(msg.get("key") or ""))
         if not url:
             raise ValueError("알 수 없는 링크입니다: %s" % msg.get("key"))
@@ -932,7 +920,7 @@ class _SiteController:
 
 # error.context — JS가 표시 자리를 고른다(panel_ui.md 오류 규약)
 _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "select", "set_point": "select", "pick_curve": "select",
-                   "snap_area": "select", "import_context": "import", "export_basemap": "export",
+                   "import_context": "import", "export_basemap": "export",
                    "zoom_view": "open", "open_path": "open", "open_eum": "open", "open_url": "open", "save_prefs": "init", "stats_consent": "init", "cancel": "generate", "make_2d": "generate", "download_data": "init",
                    "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style", "sheet_view": "view"}
 

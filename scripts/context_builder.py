@@ -91,7 +91,7 @@ class Prepared:
     result_dir: str = ""
     lots_truncated: bool = False
     mode: str = "lots"              # 대상지 방식 lots|area|point
-    site_rings: list = field(default_factory=list)   # 대상지 경계 링(lots = 필지 외곽들, area = 구역 링 1개, point = 없음)
+    site_rings: list = field(default_factory=list)   # 대상지 경계 링(lots = 합필 외곽 — 떨어진 덩어리마다, area = 구역 링 1개, point = 없음)
     center: tuple = None            # 대상지 중심(세계좌표) — 프레임·원점의 기준
     target_key: str = ""            # UDT_LOT_KEY 값(resolve_target)
     placement: str = "origin"       # origin = 로컬(원점 이동), world = EPSG:5186 그대로
@@ -215,22 +215,39 @@ def get_lot_name(lots):
 
 def get_target_rings(lots):
     # type: (list) -> tuple
-    """대상 필지 → 외곽 링 목록 + multipart 경고. 조각이 여럿이면 가장 넓은 조각, 구멍은 버린다(CLAUDE.md '필지 하나는 닫힌 커브 하나').
+    """대상 필지 → 대상지 외곽 링 목록 + 경고. 필지는 가장 넓은 조각, 구멍은 버린다(CLAUDE.md '필지 하나는 닫힌 커브 하나').
+    여러 필지면 합필 — 합친 덩어리가 곧 대상지 필지다(non_rhino_utils.get_merged_rings). 맞닿지 않은 필지는 덩어리마다 링 하나.
+    합치기가 면적 검사(UNION_AREA_GAP)에 걸리면 필지별 외곽선 + 경고.
 
     실측: 성수동1가 13-219(1120011400100130219)는 구멍 3개 — 도로 필지라 구멍을 버려도 대상지로는 무방하다.
     """
-    rings, warnings = [], []
+    polygons, warnings = [], []
     for lot in lots:
         parts = non_rhino_utils.get_polygon_parts_from_geojson(lot.geometry)
-        outer = max((part[0] for part in parts), key=non_rhino_utils.get_ring_area)
+        polygon = max(parts, key=lambda part: non_rhino_utils.get_ring_area(part[0]))
         holes = sum(len(part) - 1 for part in parts)
         if len(parts) > 1 or holes:
             what = " · ".join(s for s in (("조각 %d개" % len(parts)) if len(parts) > 1 else "", ("구멍 %d개" % holes) if holes else "") if s)
             warnings.append(_warning("warn", "multipart", "%s 필지 %s — 가장 넓은 조각 외곽선만 씁니다" % (lot.lot_number or lot.pnu, what),
                                      "대상 필지는 닫힌 커브 하나여야 합니다. 조각·구멍은 CTX::Site에서 빠지고 면적은 대장값을 그대로 씁니다.",
                                      center=_lnglat((lot.min_x + lot.max_x) * 0.5, (lot.min_y + lot.max_y) * 0.5)))
-        rings.append([(float(p[0]), float(p[1])) for p in outer])
-    return rings, warnings
+        polygons.append([[(float(p[0]), float(p[1])) for p in ring] for ring in polygon])
+    rings = [non_rhino_utils.get_clean_ring(polygon[0]) for polygon in polygons]
+    if len(polygons) < 2:
+        return rings, warnings
+    outers, holes = non_rhino_utils.get_merged_rings(polygons, constants.UNION_TOLERANCE)
+    want = sum(non_rhino_utils.get_ring_area(ring) * (1 if i == 0 else -1) for polygon in polygons for i, ring in enumerate(polygon))
+    got = sum(map(non_rhino_utils.get_ring_area, outers)) - sum(map(non_rhino_utils.get_ring_area, holes))
+    if not outers or abs(got - want) > constants.UNION_AREA_GAP * want:
+        warnings.append(_warning("warn", "merge_failed", "합필 외곽선을 만들지 못해 필지별 외곽선을 씁니다",
+                                 "합친 면적 %.1f ㎡ · 필지 면적 합 %.1f ㎡. 필지 경계가 크게 어긋난 곳입니다." % (got, want)))
+        return rings, warnings
+    if len(outers) > 1:
+        warnings.append(_warning("info", "merge_apart", "맞닿지 않은 필지가 있어 대상지가 %d덩어리입니다" % len(outers)))
+    if len(holes) > sum(len(polygon) - 1 for polygon in polygons):   # 필지 자체 구멍은 multipart가 이미 알렸다
+        warnings.append(_warning("warn", "merge_hole", "합친 대상지 안에 고르지 않은 땅이 있습니다 — 바깥 외곽선만 씁니다",
+                                 "가운데 필지도 대상지라면 지도에서 함께 고르세요."))
+    return outers, warnings
 
 
 def get_lots_center(lots):
@@ -333,19 +350,6 @@ def get_area_lots(ring, site_db=None):
     # type: (list, str) -> list
     """구역 링 안 필지 — 필지 면적의 AREA_LOT_MIN_FRACTION 이상이 구역 안."""
     return [lot for lot, fraction in get_area_lot_fractions(ring, site_db) if fraction >= constants.AREA_LOT_MIN_FRACTION]
-
-
-def get_snap_rings(ring, site_db=None):
-    # type: (list, str) -> tuple
-    """'필지 경계에 맞추기' 입력 — (더할 필지 외곽들, 뺄 필지 외곽들). 선형 지목(AREA_SNAP_LINEAR_CATEGORIES)은 둘 다 아니다
-    (구역계가 도로·하천은 그린 선대로 가로지른다). 더할 = 50 % 이상 안, 뺄 = 걸쳤지만 50 % 미만."""
-    add, cut = [], []
-    for lot, fraction in get_area_lot_fractions(ring, site_db):
-        if lot.land_category in constants.AREA_SNAP_LINEAR_CATEGORIES:
-            continue
-        outer = max((part[0] for part in non_rhino_utils.get_polygon_parts_from_geojson(lot.geometry) if part), key=non_rhino_utils.get_ring_area)
-        (add if fraction >= constants.AREA_LOT_MIN_FRACTION else cut).append([(float(p[0]), float(p[1])) for p in outer])
-    return add, cut
 
 
 def get_place_name(center, site_db=None):
@@ -938,7 +942,7 @@ def get_host_modules():
     # type: () -> tuple
     """(지오메트리, 베이커) 모듈. Rhino = context_geometry·context_baker, Blender = mesh_geometry·blender_baker,
     SketchUp = mesh_geometry·sketchup_baker(사이드카 → SketchUp 호출), 웹 = mesh_geometry·web_baker(context.glb). 베이커 함수(get_doc_origin·clear_previous·bake·write_ref_and_origin·
-    save_copy·zoom_to_site)와 build·get_snapped_ring은 이름이 같다."""
+    save_copy·zoom_to_site)와 build는 이름이 같다."""
     host = get_host()
     if host == "blender":
         import blender_baker

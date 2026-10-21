@@ -288,6 +288,7 @@ DATA_DOMESTIC_BUCKET_URL = "https://objectstorage.ap-chuncheon-1.oraclecloud.com
 DATA_DOMESTIC_BASE_URL = "http://150.230.249.1/"   # 문지기 VM udt-gate(2026-10-14, VM.Standard.E2.1.Micro)
 DATA_STATE_FILE_NAME = "packs.json"    # data/ 안. 받은 팩의 sha256 — 바뀐 팩만 다시 받는다
 DATA_TIMEOUT_SECONDS = 30              # 연결·조각 읽기 제한
+NOTICE_LEVELS = ("warn", "info")      # 매니페스트 notices[].level — warn = 주황 띠(꼭 알아야 할 것), info = 파랑 띠
 DATA_CHUNK_BYTES = 1024 * 1024         # 압축 스트림을 1 MB씩 읽어 풀고 진행률을 알린다
 DATA_MAX_OPEN_FILES = 11               # 한 연결에 여는 지역 DB 수 상한 — SQLite ATTACH 기본 상한 10 + main(2026-10-12 실측)
 # 팩 범위(매니페스트 bounds) — 시군구 필지 중심점의 핵심 범위(0.5~99.5 %)를 각 변마다 그 폭의 절반(최소 5 km)까지 넓힌 창 안의 필지만으로 잰다.
@@ -424,7 +425,8 @@ HEIGHT_GRADES = ("A", "B", "C", "D")
 # ═════════════════════════════════════════════════════════
 # 패널 — docs/panel_ui.md·docs/ui_spec.md
 # ═════════════════════════════════════════════════════════
-PANEL_VERSION = "0.1"
+PANEL_VERSION = "0.2.0"   # 배포 버전 하나(Yak·Blender·SketchUp 패키지 버전 = dev_deploy.PACKAGE_VERSION). 매니페스트 update.latest·min과 비교한다
+NOTICE_TIMEOUT_SECONDS = 3   # 패널을 열 때 매니페스트(공지·업데이트)를 기다리는 한도 — 못 받으면 공지 없이 연다
 INSTALL_DOC = "docs/install.md"
 PREFS_DIRNAME = ".gorani"            # 사용자 홈 아래. prefs.json·source_news.json
 RESULT_TIME_FORMAT = "%H%M"                    # 같은 날 같은 대상지를 다시 만들면 result/<대상지명>_<YYYYMMDD>_<HHMM>/ — 이전 결과를 지우지 않는다(2026-10-19)
@@ -449,12 +451,12 @@ CTX_LAYERS = {   # 이름: (RGB)
     "Site": (220, 40, 40), "Parcels": (185, 185, 180), "Buildings": (128, 128, 128), "Terrain": (236, 232, 222),
     "Water": (46, 125, 224), "Roads": (168, 168, 162), "Green": (228, 235, 226), "Rail": (110, 110, 110),
     "Bridges": (150, 150, 150), "Zoning": (200, 120, 40), "QA::cadastre_mismatch": (255, 0, 255), "Ref": (0, 0, 0),
-    "Site::ground": (236, 150, 120), "Terrain::site_flat": (214, 196, 170), "Terrain::site_wall": (150, 140, 128), "Terrain::site_original": (236, 232, 222),
+    "Site::ground": (236, 150, 120), "Site::lots": (235, 140, 140), "Terrain::site_flat": (214, 196, 170), "Terrain::site_wall": (150, 140, 128), "Terrain::site_original": (236, 232, 222),
 }
 # CTX::Zoning 하위 레이어 — overlays theme → 'CTX::Zoning::<이름>::<종류>'. 종류는 용도지역이면 현황도 11 범례 이름, 나머지는 overlay.kind.
 # 색은 현황도 11~13 범례 색(context_baker.get_layer_rgb). 현황도에 없는 theme(건축선 notice_road)은 넣지 않는다.
 ZONING_LAYERS = {"zone": "용도지역", "district": "용도지구", "area": "용도구역", "facility": "도시계획시설", "plan": "지구단위계획"}
-CTX_HIDDEN_LAYERS = ("Terrain::site_original",)   # 처음 만들 때 끈다(평탄화 전 원지형 — 필요할 때 켜 본다). 사용자가 켠 뒤로는 건드리지 않는다
+CTX_HIDDEN_LAYERS = ("Terrain::site_original", "Site::lots")   # 처음 만들 때 끈다(평탄화 전 원지형·합필 전 필지 — 필요할 때 켜 본다). 사용자가 켠 뒤로는 건드리지 않는다
 # 베이스맵 레이어 순서·K톤(0~100)·선두께 mm(1:5000, 1:1000). fill=None이면 선만.
 BM_LAYERS = [
     ("00_frame_scale", "프레임·축척·방위", None, 100, (0.5, 0.5)),
@@ -473,6 +475,7 @@ BM_LAYERS = [
     ("08b_parcel_no", "지번", None, 60, (0, 0)),
     ("09_contour", "등고선", None, 35, (0.08, 0.1)),
     ("10_site", "대상지", None, 100, (0.7, 0.9)),
+    ("10b_site_lots", "합필 전 필지", None, 70, (0.1, 0.15)),
     ("11_zoning", "용도지역·지구단위", None, 70, (0.3, 0.4)),
     ("12_labels", "주기", None, 85, (0, 0)),
     ("13_grid", "격자", None, 25, (0.1, 0.1)),
@@ -486,10 +489,11 @@ BASEMAP_SCALE_LAYERS = {
 }
 BASEMAP_SCALES = (1000, 3000, 5000)
 BASEMAP_DEFAULT_OFF_LAYERS = ("02b_landuse", "05_road_center", "11_zoning")
+BM_HIDDEN_LAYERS = ("10b_site_lots",)   # 파일에는 넣되 꺼 둔다(.ai 레이어 보기 끔·3dm BM 하위 레이어 끔) — 합필 전 필지 외곽·지번
 PAPER_SIZES_MM = {"A3": (420, 297), "A1": (841, 594), "A0": (1189, 841)}   # A3 가로 = 보고서·분석도 기본, A1·A0 = 판넬
 # 베이스맵 .ai(basemap_ai) — 범위는 축척별 프레임 bbox. 객체는 bbox로 자른다.
 BM_CLIP_INSET = 0.01            # m — 구멍 링은 이만큼 안쪽 사각형으로 잘라 바깥 링과 변이 겹치지 않게(겹치면 Hatch.Create 실패). 1:1000에서 0.01 mm
-BM_TEXT_MM = {"08b_parcel_no": (1.5, 1000), "12_labels": (2.5, 3000)}   # (종이 mm, 기준 축척) → 모델 높이 m = mm × 축척 / 1000. 지번은 1:1000 전용, 주기는 1:3000 기준
+BM_TEXT_MM = {"08b_parcel_no": (1.5, 1000), "10b_site_lots": (1.5, 1000), "12_labels": (2.5, 3000)}   # (종이 mm, 기준 축척) → 모델 높이 m = mm × 축척 / 1000. 지번은 1:1000 전용, 주기는 1:3000 기준
 # basemap_ai — Illustrator 레거시 .ai 직접 쓰기(2026-10-08 Illustrator 2026 실측)
 # 한글은 CP949 바이트 + KSCms-UHC-H CMap 글꼴이어야 보인다(UTF-8 + Helvetica는 깨짐). 글꼴이 없는 PC에서도 대체 글꼴로 한글이 나온다.
 import sys as _sys
@@ -573,6 +577,8 @@ PANEL_DEFAULT_OPTIONS = {
     "terrain_step": 0,   # 지형 표현: 0 = 매끈(TIN), > 0 = 계단형(등고 모형) 단 간격 m — 패널은 1·2·5 m. 국내 원천 등고선은 5 m 간격이라 1·2 m 단은 보간값
     "make_dwg": False,   # 2D 도면(BM::)을 .dwg로도 — CAD 사용자용. 기본 off
     "zoom_after_import": True,
+    "update_later_date": "",   # 권장 업데이트 모달에서 [나중에]를 누른 날(YYYY-MM-DD) — 그날은 다시 띄우지 않는다
+    "closed_notices": [],   # 패널 공지 띠에서 닫은 공지 id(매니페스트 notices) — 더보기 메뉴에서는 계속 보인다
     "style": {"preset": "std"},   # 도면 스타일 — 사용자가 바꾼 값만. 해석은 sheet_svg.get_style(STYLE_*)
 }
 
@@ -611,8 +617,8 @@ AREA_MIN = 100.0                # ㎡ — 이보다 작은 구역은 잘못 그�
 AREA_MAX_SPAN = 4000.0          # m — 구역 bbox 긴 변 상한(반경 상한 2 km와 같은 규모)
 AREA_MAX_VERTICES = 2000        # 구역 링 꼭짓점 상한(자기교차 검사가 n²)
 CURVE_POLYLINE_TOLERANCE = 0.05 # m — Rhino 곡선 구역 커브를 폴리라인으로 바꿀 때 허용오차
-UNION_TOLERANCE = 0.05          # m — '필지 경계에 맞추기' 필지 합집합 허용오차(필지 사이 틈 메움)
-AREA_SNAP_LINEAR_CATEGORIES = ("도로", "하천", "구거", "철도용지", "제방")   # 구역계가 가로질러도 되는 선형 지목 — 길게 뻗어 50 % 규칙에 안 걸린다(2026-10-10 성수 실측: 도로가 빠져 합집합이 덩어리 3개)
+UNION_TOLERANCE = 0.05          # m — 합필(필지 방식 여러 필지) 외곽선 허용오차: 이웃 필지 경계의 어긋난 정점·틈을 이만큼 붙인다(non_rhino_utils.get_merged_rings)
+UNION_AREA_GAP = 0.01           # 합필 면적 ÷ 필지 면적 합이 이만큼 넘게 어긋나면 합치기 실패로 보고 필지별 외곽선을 쓴다. 겹친 필지는 최대 0.5 % 어긋났다(2026-10-21 서울 2,800묶음)
 SEOUL_TM_BOUNDS = (179000.0, 536000.0, 217000.0, 567500.0)   # EPSG:5186 — 필지 DB 범위(2026-10-10 실측) — Rhino 커브가 실제 좌표인지 판정
 PLACEMENTS = ("origin", "world")   # 결과 좌표: origin = 대상지 중심(100 m 내림)을 (0,0)으로, world = EPSG:5186 그대로(문서 원점 0,0)
 TERRAIN_RESAMPLE = 4.0          # m — 등고선 리샘플 간격 (07 §1)

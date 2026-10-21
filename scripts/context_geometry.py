@@ -725,7 +725,7 @@ def build_curves(prepared):
     # type: (object) -> list
     """Site·Parcels(구멍 보존)·Roads::centerline·Ref 범위·도엽 경계·(옵션) Zoning PolylineCurve Z=0 (code_map §5.6·§7.1).
 
-    입력: Prepared. 처리: 대상 필지는 가장 넓은 조각 외곽선 하나(CLAUDE.md), 주변 필지는 범위 bbox와 겹치는 것 전부 링마다 커브,
+    입력: Prepared. 처리: 대상지 = site_rings(여러 필지면 합필 외곽 — 합필 전 필지는 Site::lots, 기본 끔), 주변 필지는 범위 bbox와 겹치는 것 전부 링마다 커브,
           도로중심선 = features road/centerline LineString(범위 bbox와 겹치는 것) → 열린 PolylineCurve, UserString WIDTH_M·LANES·NAME,
           Ref = extent_ring + prepared.stats['sheets'] 도엽 사각형(경위도 → TM),
           Zoning = options.include_zoning일 때 overlays(용도지역·지구·구역·시설·지구단위) → 'CTX::Zoning::<구분>::<종류>', 범위 bbox로 자름(get_zoning_rings).
@@ -734,13 +734,16 @@ def build_curves(prepared):
     origin = prepared.origin
     mode = getattr(prepared, "mode", "lots")
     items = []
-    targets = set()
-    if mode == "lots":   # 필지 방식 — 대상 필지마다 Site 커브(가장 넓은 조각 외곽)
-        for lot in prepared.target_lots:
-            targets.add(lot.pnu)
-            parts = get_parts(lot.geometry)
-            outer = max((part[0] for part in parts if part), key=non_rhino_utils.get_ring_area)
-            items.append(BakeItem(_layer("Site"), _get_ring_crv(outer, origin, 0.0), {"PNU": lot.pnu}, lot.lot_number))
+    targets = {lot.pnu for lot in prepared.target_lots} if mode == "lots" else set()
+    if mode == "lots":   # 필지 방식 — 대상지 외곽(여러 필지면 합필한 외곽, context_builder.get_target_rings). 합필 전 필지는 Site::lots(기본 끔)
+        merged = len(prepared.target_lots) > 1
+        for ring in prepared.site_rings or []:
+            attrs = {"PNU": ",".join(sorted(targets)), "LOTS": str(len(targets)), "AREA_M2": "%.1f" % non_rhino_utils.get_ring_area(ring)}
+            items.append(BakeItem(_layer("Site"), _get_ring_crv(ring, origin, 0.0), attrs,
+                                  prepared.lot_name if merged else prepared.target_lots[0].lot_number))
+        for lot in prepared.target_lots if merged else []:
+            outer = max((part[0] for part in get_parts(lot.geometry) if part), key=non_rhino_utils.get_ring_area)
+            items.append(BakeItem(_layer("Site::lots"), _get_ring_crv(outer, origin, 0.0), {"PNU": lot.pnu}, lot.lot_number))
     for ring in (prepared.site_rings or []) if mode == "area" else []:   # 구역 방식 — 구역 링 하나, 안의 필지는 Parcels에 IN_SITE=1
         items.append(BakeItem(_layer("Site"), _get_ring_crv(ring, origin, 0.0),
                               {"KIND": "area", "AREA_M2": "%.1f" % non_rhino_utils.get_ring_area(ring), "LOTS": str(len(prepared.target_lots))}, "area"))
@@ -837,48 +840,6 @@ def get_curve_ring(curve, unit_scale, tolerance):
     ring = non_rhino_utils.get_clean_ring([(pt.X * unit_scale, pt.Y * unit_scale) for pt in polyline])
     problem = non_rhino_utils.get_ring_problem(ring)
     return (None, problem) if problem else (ring, "")
-
-
-def _get_local_crv(ring, ox, oy):
-    # type: (list, float, float) -> rg.PolylineCurve
-    pts = [rg.Point3d(x - ox, y - oy, 0.0) for x, y in ring]
-    return rg.PolylineCurve(pts + [pts[0]])
-
-
-def _get_largest_ring(curves, ox, oy, tolerance):
-    # type: (list, float, float, float) -> list
-    """닫힌 커브들 중 가장 넓은 것의 세계좌표 링(구멍·작은 조각은 버린다). 없으면 None."""
-    best, best_area = None, 0.0
-    for crv in curves or []:
-        ok, polyline = crv.TryGetPolyline()
-        if not ok:
-            polyline = crv.ToPolyline(tolerance, math.radians(2.0), 0.0, 0.0).ToPolyline()
-        ring = [(pt.X + ox, pt.Y + oy) for pt in polyline]
-        area = non_rhino_utils.get_ring_area(ring)
-        if area > best_area:
-            best, best_area = ring, area
-    return non_rhino_utils.get_clean_ring(best) if best else None
-
-
-def get_snapped_ring(area_ring, add_rings, cut_rings, tolerance):
-    # type: (list, list, list, float) -> list
-    """구역계를 필지 경계에 맞춘다 — (구역 ∪ 더할 필지) − 뺄 필지, 가장 넓은 조각의 바깥 경계(세계좌표 m).
-
-    입력: context_builder.get_snap_rings 결과. 처리: 큰 좌표의 불리언 오차를 피하려고 구역 첫 정점 기준 로컬에서
-          Curve.CreateBooleanUnion → CreateBooleanDifference. 도로·하천(선형 지목)은 입력에 없어 그린 선이 그대로 남는다.
-    출력: 링 또는 None(불리언 실패).
-    """
-    ox, oy = area_ring[0]
-    current = [_get_local_crv(area_ring, ox, oy)]
-    if add_rings:
-        union = rg.Curve.CreateBooleanUnion(List[rg.Curve](current + [_get_local_crv(r, ox, oy) for r in add_rings]), tolerance)
-        if union:
-            current = [max(union, key=lambda c: abs(rg.AreaMassProperties.Compute(c).Area) if rg.AreaMassProperties.Compute(c) else 0.0)]
-    if cut_rings:
-        diff = rg.Curve.CreateBooleanDifference(current[0], List[rg.Curve]([_get_local_crv(r, ox, oy) for r in cut_rings]), tolerance)
-        if diff:
-            current = list(diff)
-    return _get_largest_ring(current, ox, oy, tolerance)
 
 
 # ── 전체 ───────────────────────────────────────────────────

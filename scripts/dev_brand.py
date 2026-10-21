@@ -37,7 +37,6 @@ ICONS = [
   # 대상지 도구
   ("pen", "지도에 그리기·다시 그리기", '<path d="M11 2.6a1.6 1.6 0 0 1 2.4 2.4L5 13.4l-3 .6.6-3z"/><path d="M9.5 4l2.5 2.5"/>'),
   ("curve", "Rhino 커브 가져오기", '<path d="M4.5 11.5C5.5 7.5 8.5 5 11.5 4.5"/><circle cx="3.5" cy="12.5" r="1.5"/><circle cx="12.5" cy="3.5" r="1.5"/>'),
-  ("magnet", "필지 경계에 맞추기", '<path d="M3.5 2.5h3v5.5a1.5 1.5 0 0 0 3 0V2.5h3v5.5a4.5 4.5 0 0 1-9 0z"/><path d="M3.5 5.5h3M9.5 5.5h3"/>'),
   ("move", "구역 옮기기·위치 놓기", '<path d="M8 1.5v13M1.5 8h13M6 3.5l2-2 2 2M6 12.5l2 2 2-2M3.5 6l-2 2 2 2M12.5 6l2 2-2 2"/>'),
   ("trash", "지우기", '<path d="M2.5 4h11M6.5 4V2.5h3V4M3.8 4l.6 8.6a1 1 0 0 0 1 .9h5.2a1 1 0 0 0 1-.9l.6-8.6M6.5 7v4M9.5 7v4"/>'),
   ("focus", "대상지로 줌", '<path d="M2 5.5v-2A1.5 1.5 0 0 1 3.5 2h2M10.5 2h2A1.5 1.5 0 0 1 14 3.5v2M14 10.5v2a1.5 1.5 0 0 1-1.5 1.5h-2M5.5 14h-2A1.5 1.5 0 0 1 2 12.5v-2"/><circle cx="8" cy="8" r="2"/>'),
@@ -127,7 +126,6 @@ MAP = [  # (화면, 버튼 문구, data-act, 아이콘, 버튼 종류)
   ("지도", "더보기", "menu", "menu", "아이콘 버튼"),
   ("지도", "지도에 그리기 · 다시 그리기", "draw_start", "pen", "작은 버튼"),
   ("지도", "Rhino 커브 가져오기", "pick_curve", "curve", "작은 버튼"),
-  ("지도", "필지 경계에 맞추기", "snap", "magnet", "작은 버튼"),
   ("지도", "옮기기 · 여기에 놓기", "area_move · stamp_place", "move", "작은 버튼"),
   ("지도", "완료(그리기 닫기)", "draw_done", "check", "작은 주 버튼"),
   ("지도", "취소(그리기·놓기)", "draw_cancel · stamp_cancel", "— (글자)", "작은 고스트"),
@@ -172,7 +170,7 @@ def comp_block():
       '<div class="crow"><h4>주 버튼</h4>%s</div>' % st("b primary", "3D 모델 만들기", "cube") +
       '<div class="crow"><h4>보조 버튼</h4>%s</div>' % st("b", "파일 위치 열기", "folder") +
       '<div class="crow"><h4>고스트</h4>%s</div>' % st("b ghost", "지도로", "back") +
-      '<div class="crow"><h4>작은 버튼</h4>%s</div>' % st("b sm", "필지 경계에 맞추기", "magnet") +
+      '<div class="crow"><h4>작은 버튼</h4>%s</div>' % st("b sm", "다시 그리기", "pen") +
       '<div class="crow"><h4>위험</h4>%s</div>' % st("b ghost danger sm", "지우기", "trash") +
       '<div class="crow"><h4>아이콘 버튼</h4><div class="st"><span class="sl">기본</span><div class="row"><button class="ib">%s</button><button class="ib">%s</button><button class="ib sm">%s</button></div></div><div class="st"><span class="sl">올림</span><button class="ib is-hover">%s</button></div><div class="st"><span class="sl">누름</span><button class="ib is-active">%s</button></div><div class="st"><span class="sl">포커스</span><button class="ib is-focus">%s</button></div></div>' % (ico("menu"), ico("search"), ico("x"), ico("menu"), ico("menu"), ico("menu")) +
       '<div class="crow"><h4>링크</h4><div class="st"><span class="sl">기본</span><a class="lk">토지이음%s</a></div><div class="st"><span class="sl">올림</span><a class="lk is-hover">토지이음%s</a></div><div class="st"><span class="sl">파일</span><a class="lk">%slog.txt</a></div></div>' % (ico("ext"), ico("ext"), ico("file")) +

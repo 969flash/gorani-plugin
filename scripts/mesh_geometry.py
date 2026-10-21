@@ -4,7 +4,6 @@
     build_terrain(prepared) -> (meshes, tris, counts)
     build_buildings(prepared, ground) -> (items, counts, skipped, warnings)
     build_curves(prepared) -> items
-    get_snapped_ring(area_ring, add_rings, cut_rings, tolerance) -> ring   패널 '필지 경계에 맞추기'
 
 호스트 문서는 쓰지 않는다 — 정점·면 목록만 만들고 장면·모델은 blender_baker·sketchup_baker가 만진다.
 CDT·지반 높이 조회 백엔드는 둘이다(같은 입력 → 같은 모양의 출력):
@@ -544,19 +543,22 @@ def build_buildings(prepared, ground):
 def build_curves(prepared):
     # type: (object) -> list
     """Site·Parcels·Roads::centerline·Ref(범위·도엽)·(옵션) Zoning::<구분>::<종류> 커브 Z=0 (context_geometry.build_curves와 같은 대상).
-    Rhino는 필지마다 커브(PNU 속성)지만 여기는 레이어마다 객체 하나에 폴리라인 여럿 — 대상 필지(Site)만 필지마다 객체."""
+    Rhino는 필지마다 커브(PNU 속성)지만 여기는 레이어마다 객체 하나에 폴리라인 여럿 — 합필 전 필지(Site::lots)만 필지마다 객체."""
     origin = prepared.origin
     mode = getattr(prepared, "mode", "lots")
 
     def closed(ring):
         return get_local_pts(ring, origin, 0.0), True
 
-    items, targets = [], set()
-    if mode == "lots":   # 필지 방식 — 대상 필지마다 Site 객체(가장 넓은 조각 외곽)
-        for lot in prepared.target_lots:
-            targets.add(lot.pnu)
+    items = []
+    targets = {lot.pnu for lot in prepared.target_lots} if mode == "lots" else set()
+    if mode == "lots":   # 필지 방식 — 대상지 외곽(여러 필지면 합필한 외곽). 합필 전 필지는 Site::lots(기본 끔)
+        merged = len(prepared.target_lots) > 1
+        items.append(BakeItem(_layer("Site"), prepared.lot_name if merged else (prepared.target_lots[0].lot_number or prepared.target_lots[0].pnu),
+                              polylines=[closed(ring) for ring in prepared.site_rings or []], attrs={"PNU": ",".join(sorted(targets)), "LOTS": str(len(targets))}))
+        for lot in prepared.target_lots if merged else []:
             outer = max((part[0] for part in get_parts(lot.geometry) if part), key=non_rhino_utils.get_ring_area)
-            items.append(BakeItem(_layer("Site"), lot.lot_number or lot.pnu, polylines=[closed(outer)], attrs={"PNU": lot.pnu}))
+            items.append(BakeItem(_layer("Site::lots"), lot.lot_number or lot.pnu, polylines=[closed(outer)], attrs={"PNU": lot.pnu}))
     if mode == "area":   # 구역 방식 — 구역 링 하나, 안의 필지는 Parcels의 'parcels_in_site' 객체
         for ring in prepared.site_rings or []:
             items.append(BakeItem(_layer("Site"), "area", polylines=[closed(ring)],
@@ -593,37 +595,6 @@ def build_curves(prepared):
         for layer, rings in zoning.items():
             items.append(BakeItem(_layer(layer), layer.rpartition("::")[2], polylines=rings))
     return items
-
-
-# ── 구역 커브 (패널 '필지 경계에 맞추기') ───────────────────────
-
-def get_snapped_ring(area_ring, add_rings, cut_rings, tolerance):
-    # type: (list, list, list, float) -> list
-    """구역계를 필지 경계에 맞춘다 — (구역 ∪ 더할 필지) − 뺄 필지, 가장 넓은 조각의 바깥 경계(세계좌표 m). context_geometry판과 같은 출력.
-
-    입력: context_builder.get_snap_rings 결과. 처리: 구역 첫 정점 기준 로컬에서 링 전부를 제약 면으로 CDT(근접 판정 tolerance — 필지 사이 틈 메움)
-          → (구역·더할 필지 중 하나 안) 이고 (뺄 필지 밖)인 삼각형 → 반대 방향 변이 없는 변을 이어 고리 → 가장 넓은 고리.
-    출력: 링 또는 None. ponytail: 두 고리가 한 점에서 만나면 잇기가 엉킬 수 있다 — 그러면 넓이가 작게 나와 다른 고리가 뽑힌다.
-    """
-    ox, oy = area_ring[0]
-    rings = [non_rhino_utils.get_clean_ring([(x - ox, y - oy) for x, y in ring]) for ring in [area_ring] + list(add_rings) + list(cut_rings)]
-    n_keep = 1 + len(add_rings)
-    xy, tris, inside = _get_cdt(rings, [], tolerance)
-    kept = [tri for tri, rings_in in zip(tris, inside) if any(i < n_keep for i in rings_in) and not any(i >= n_keep for i in rings_in)]
-    edges = {(t[k], t[(k + 1) % 3]) for t in kept for k in range(3)}
-    following = {a: b for a, b in edges if (b, a) not in edges}
-    best, best_area = None, 0.0
-    while following:
-        start, nxt = following.popitem()
-        loop = [start]
-        while nxt != start and nxt in following:
-            loop.append(nxt)
-            nxt = following.pop(nxt)
-        ring = [(xy[i][0] + ox, xy[i][1] + oy) for i in loop]
-        area = non_rhino_utils.get_ring_area(ring) if len(ring) >= 3 else 0.0
-        if nxt == start and area > best_area:
-            best, best_area = ring, area
-    return non_rhino_utils.get_clean_ring(best) if best else None
 
 
 # ── 전체 ───────────────────────────────────────────────────

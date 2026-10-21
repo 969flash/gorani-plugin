@@ -84,6 +84,24 @@ class WriteTest(unittest.TestCase):
         self.assertTrue(all(recorder.counts[k] >= v for k, v in result["counts"].items()))
         self.assertEqual({kind for _layer, kind, _data in recorder.shapes}, {"polygon", "line", "text"})
 
+    def test_merged_lots(self):
+        # 합필(333-139 + 333-132) — 대상지는 합친 외곽 하나, 지번은 '외 1필지', 합필 전 필지는 꺼진 레이어(.ai·도면 SVG 모두)
+        request = {"pnus": [constants.TEST_CONTEXT_PNU, "1120011500103330132"], "site_db": str(FIXTURE_DIR / "seongsu_site.db"),
+                   "context_db": str(FIXTURE_DIR / "seongsu_context.db"), "options": {"radius": 300, "scales": [1000], "make_basemap": True}}
+        prepared = context_builder.prepare(request)
+        self.assertEqual(len(prepared.site_rings), 1)
+        with tempfile.TemporaryDirectory() as tmp:
+            result = basemap_ai.write_basemap(prepared, 1000, tmp)
+            with open(result["path"], encoding="ascii") as handle:
+                text = handle.read()
+        self.assertEqual(result["counts"]["10_site"], 2)   # 합필 외곽 + 범위
+        self.assertIn("0 1 1 1 0 0 -1 %d %d %d Lb\n" % ((255 - round(255 * 0.7),) * 3) + basemap_ai._ps_string("10b_site_lots 합필 전 필지"), text)
+        self.assertIn(basemap_ai._ps_string("333-139 외 1필지"), text)
+        svg = sheet_svg.render_sheet(1, sheet_svg.SheetData.from_prepared(prepared))[0]
+        self.assertIn('id="site_lots"', svg)
+        self.assertIn('display="none"', svg)
+        self.assertIn("333-139 외 1필지", svg)
+
 
 if __name__ == "__main__":
     unittest.main()

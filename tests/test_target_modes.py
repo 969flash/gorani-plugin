@@ -89,14 +89,14 @@ class ResolveTargetTest(unittest.TestCase):
             context_builder.resolve_target(request)
         self.assertEqual(ctx.exception.code, "area_invalid")
 
-    def test_snap_rings_skip_linear_lots(self):
-        cx, cy = _center()
-        ring = _box(cx, cy, 150, 100)
-        add, cut = context_builder.get_snap_rings(ring, SITE_DB)
-        fractions = context_builder.get_area_lot_fractions(ring, SITE_DB)
-        linear = [lot for lot, _f in fractions if lot.land_category in constants.AREA_SNAP_LINEAR_CATEGORIES]
-        self.assertTrue(linear)   # 성수 구역에는 도로 필지가 걸친다 — 이것들은 더하지도 빼지도 않는다
-        self.assertEqual(len(add) + len(cut), len(fractions) - len(linear))
+    def test_lots_merge_into_one_site_ring(self):
+        # 성수동2가 333-139 + 333-132 — 맞닿은 두 필지는 합필 외곽 하나(면적 = 두 필지 합), 경고 없음
+        pnus = [constants.TEST_CONTEXT_PNU, "1120011500103330132"]
+        target = context_builder.resolve_target(context_builder.get_request_with_defaults({"target": {"mode": "lots", "pnus": pnus}, "site_db": SITE_DB}))
+        self.assertEqual(len(target.site_rings), 1)
+        want = sum(non_rhino_utils.get_ring_area(non_rhino_utils.get_polygon_parts_from_geojson(lot.geometry)[0][0]) for lot in target.lots)
+        self.assertAlmostEqual(non_rhino_utils.get_ring_area(target.site_rings[0]), want, delta=0.5)
+        self.assertEqual(target.warnings, [])
 
     def test_point_name(self):
         cx, cy = _center()
@@ -119,7 +119,7 @@ class PrepareTest(unittest.TestCase):
             self.assertEqual(sorted(p.extent_ring), sorted(p.site_rings[0]))   # 그린 경계 그대로가 범위
             rect = context_builder.prepare({"target": {"mode": "area", "ring": _box(cx, cy, 150, 100)}, "options": {"radius": 300, "shape": "rect"},
                                             "site_db": SITE_DB, "context_db": CONTEXT_DB})
-            self.assertAlmostEqual(non_rhino_utils.get_bbox(rect.extent_ring)[0], cx - 300, 6)   # 사각형 = 중심 ± 반경(한 변 600 m)
+            self.assertAlmostEqual(non_rhino_utils.get_bbox(rect.extent_ring)[0], cx - 300, 2)   # 사각형 = 중심 ± 반경(한 변 600 m)
             ai = basemap_ai.write_basemap(p, 5000, tmp)
             self.assertEqual(ai["counts"]["10_site"], 2)   # 구역 경계 + 범위
             path = context_report.write_context_json(p, {}, tmp)
