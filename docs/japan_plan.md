@@ -76,7 +76,7 @@ python3 scripts/dev_plateau.py upload           # HF jp/ 팩 → jp/manifest.jso
 | J2 런타임 | `osm_context`(PLATEAU 읽기·OSM 메우기·지리원 지형·Overpass가 막혀도 건물·지형), `cmd_site`(생성 직전 일본 팩 받기), `data_pack`(일본 팩은 한국 조회에서 빼고 설치 ID를 HF로 보내지 않음), 메타 줄·출처(도시·연도), `blender_baker`(32비트를 넘는 건물 id — 한국 비서울 팩도 이미 깨지던 것) |
 | J2 실측 | Rhino 신주쿠역 반경 300 m: PLATEAU 515동(실측 높이 B 90 %), 지리원 지형 4.4만 면(표고 32~44 m), 3dm·도면 4장·CSV 3개, 32초(그중 Overpass 29초). 국립역은 PLATEAU 1,157동·표고 73~87 m |
 | J3 화면 | 다국어 0.3.0(영어 기본 + 한·스·일·중)을 합쳤다. 일본 문구는 `tr()` + `i18n.json` 20개 |
-| J4 배포 | **대기** — main 합치기(브랜치 이름에서 `hoon-pcp/`를 빼고 PR), 버전, Yak·Blender·SketchUp 빌드, 웹사이트·스토어 일본어 설명 |
+| J4 배포 | **대기** — main 합치기(브랜치 이름에서 `hoon-pcp/`를 빼고 PR), 버전 0.3.1(0.3.0은 다국어로 이미 배포됨, main 1bc86ff), Yak·Blender·SketchUp 빌드, 웹사이트·스토어 일본어 설명 |
 
 - 데이터를 플러그인보다 먼저 올렸다. 구버전은 일본 매니페스트를 모르고, 새 플러그인이 나오면 바로 쓴다.
 
