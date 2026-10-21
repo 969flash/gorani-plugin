@@ -318,7 +318,6 @@ PLATEAU_USE = {   # PLATEAU 용도 코드(zip 안 codelists/Building_usage.xml, 
     "421": "14000", "422": "10000", "431": "18000", "441": "17000",                   # 官公庁·文教厚生·運輸倉庫施設·工場
     "451": "21000", "452": "22000", "453": "23000",                                   # 農林漁業用·供給処理·防衛施設
 }
-JP_KYUSHU_CORNER = (129.2, 35.0)       # 한국 판정 상자(non_rhino_utils.KOREA_LNGLAT_BOUNDS) 안의 일본 = 이 경도 동쪽·위도 남쪽(북규슈·야마구치·쓰시마)
 # 일본 지형 — 국토지리원(GSI, 国土地理院) 표고 타일. 앱이 실시간으로 읽는 것은 출처 표기만으로 쓴다(地理院タイル一覧). 저장·재배포하지 않는다.
 # 같은 지점에서 AWS terrarium이 평균 3.8 m(평지)~12.9 m(산지) 높았다(research §9.3). 표고 기준 T.P.로 PLATEAU 건물과 같다
 GSI_TERRAIN_URLS = tuple("https://cyberjapandata.gsi.go.jp/xyz/%s/{z}/{x}/{y}.png" % kind

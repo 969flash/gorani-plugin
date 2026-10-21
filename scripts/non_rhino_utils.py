@@ -138,6 +138,9 @@ A_GRS80 = 6378137.0  # GRS80 장반경 m
 F_GRS80 = 1.0 / 298.257222101  # GRS80 편평률
 KOREA_TM = (38.0, 127.0, 200000.0, 600000.0)   # EPSG:5186 원점 위도·경도, 가산치 E·N
 KOREA_LNGLAT_BOUNDS = (124.0, 33.0, 132.0, 39.0)  # 한국 판정 경위도 사각형(서·남·동·북) — 제주·울릉 포함, 북한 일부도 들어간다
+# 사각형 안의 일본(후쿠오카·기타큐슈·사가·사세보·야마구치·쓰시마 — PLATEAU 도시) = 이 경도 동쪽·위도 남쪽. 그 안에 한국 땅은 없다
+# (부산 태종대 북위 35.05°·동경 129.08°, 쓰시마 서해안 동경 129.17°). 2026-10-21 — 후쿠오카를 한국으로 보고 국가 DB로 만들려 했다
+KOREA_JAPAN_CORNER = (129.1, 35.0)
 LAT0, LON0, FALSE_E, FALSE_N = KOREA_TM  # 지금 투영 원점 (도)·가산치 m — set_projection이 바꾼다
 n = F_GRS80 / (2.0 - F_GRS80)  # 제3편평률
 A_BAR = A_GRS80 / (1.0 + n) * (1.0 + n**2/4.0 + n**4/64.0 + n**6/256.0)
@@ -253,9 +256,10 @@ def get_tile_m_per_px(lat, zoom):
 
 def is_korea(lng, lat):
     # type: (float, float) -> bool
-    """경위도가 한국(국내 DB·EPSG:5186 범위) 안인지. 대략의 경위도 사각형으로만 본다."""
+    """경위도가 한국(국내 DB·EPSG:5186 범위) 안인지. 대략의 경위도 사각형에서 남동쪽 일본 모서리(KOREA_JAPAN_CORNER)를 뺀다."""
     west, south, east, north = KOREA_LNGLAT_BOUNDS
-    return west <= lng <= east and south <= lat <= north
+    corner_lng, corner_lat = KOREA_JAPAN_CORNER
+    return west <= lng <= east and south <= lat <= north and not (lng > corner_lng and lat < corner_lat)
 
 
 def set_projection(lng=None, lat=None):

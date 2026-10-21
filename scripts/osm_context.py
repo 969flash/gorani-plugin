@@ -47,13 +47,10 @@ def get_lnglat_bounds(bounds):
 
 def is_japan(lng, lat):
     # type: (float, float) -> bool
-    """경위도가 일본인지(대략) — 지리원 지형 타일을 먼저 받을지. 한국 판정 상자(non_rhino_utils.is_korea)와 겹치는 북규슈·야마구치·쓰시마는
-    일본으로 본다(constants.JP_KYUSHU_CORNER). 틀려도 지리원 타일이 404라 AWS 타일로 돌아간다."""
+    """경위도가 일본인지(대략) — 지리원 지형 타일을 먼저 받을지. 일본 상자 안이고 한국(non_rhino_utils.is_korea — 북규슈·쓰시마는 뺀다)이 아니면.
+    틀려도 지리원 타일이 404라 AWS 타일로 돌아간다."""
     west, south, east, north = constants.JP_BOUNDS
-    if not (west <= lng <= east and south <= lat <= north):
-        return False
-    corner_lng, corner_lat = constants.JP_KYUSHU_CORNER
-    return not non_rhino_utils.is_korea(lng, lat) or (lng > corner_lng and lat < corner_lat)
+    return west <= lng <= east and south <= lat <= north and not non_rhino_utils.is_korea(lng, lat)
 
 
 def _fetch(url, data=None):
