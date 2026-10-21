@@ -456,9 +456,8 @@ def _get_terrain_tile(zoom, tx, ty, japan):
             try:
                 tile = ("gsi_dem", decode_png(_fetch(url.format(z=zoom, x=tx, y=ty))))
                 break
-            except urllib.error.HTTPError as error:
-                if error.code != 404:
-                    raise
+            except Exception:   # 404(없는 타일)뿐 아니라 5xx·시간 초과도 '없음'으로 — 지리원이 잠깐 막혀도 일본 생성이 통째로 죽지 않게 AWS로 간다(2026-10-22 통합 리뷰)
+                continue
         _keep(key, tile or ("aws_terrain", decode_png(_fetch(constants.OSM_TERRAIN_URL.format(z=zoom, x=tx, y=ty)))))
     return _CACHE[key]
 

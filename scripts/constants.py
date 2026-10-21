@@ -235,7 +235,7 @@ TERRAIN_THEME = "terrain"
 # 해외 대상지(osm_context.py) — OSM Overpass + AWS Terrain Tiles. 사용자 PC가 직접 부른다(서버 없음).
 # Overpass 이용 기준: IP당 하루 1만 질의·1 GB 미만(https://wiki.openstreetmap.org/wiki/Overpass_API) — 대상지 1회 1질의
 OSM_USER_AGENT = "Gorani/0.1 (Rhino plugin; https://www.openstreetmap.org/copyright)"
-OSM_CACHE_MAX = 64               # osm_context 응답 캐시 항목 상한(넘으면 비운다) — Blender판은 모듈을 다시 읽지 않아 세션 내내 쌓인다(대상지 하나 ≈ Overpass 1 + 지형 타일 수 장)
+OSM_CACHE_MAX = 8                # osm_context 응답 캐시 항목 상한(넘으면 비운다) — Blender판은 모듈을 다시 읽지 않아 세션 내내 쌓인다. 같은 대상지 다시 만들기(Overpass 1~2 + 지형 타일 수 장)만 덮으면 된다(도심 Overpass 응답은 수십 MB)
 OSM_TIMEOUT_SECONDS = 60         # 미러 하나당. 공개 Overpass는 자주 붐빈다(2026-10-13 파리 900 m: 독일 504, kumi·coffee 120 s 초과, mail.ru 22 s)
 OSM_OVERPASS_URLS = ("https://overpass-api.de/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
                      "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter")
