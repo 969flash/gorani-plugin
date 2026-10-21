@@ -8,6 +8,7 @@ import constants
 import lot_db
 import non_rhino_utils
 import pnu_loader
+from i18n import tr
 
 # 지도 전용 상수 — 패널 지도와 항공사진 시트(sheet_svg가 get_tile_config를 부른다)만 쓰므로 constants.py가 아니라 여기 둔다.
 VWORLD_TILE_URL_TEMPLATE = (
@@ -52,7 +53,7 @@ def get_tile_config():
     api_key = pnu_loader.get_local_env_value(constants.VWORLD_API_KEY_ENV)
     if api_key:
         config.update(url=VWORLD_TILE_URL_TEMPLATE % api_key, attribution=VWORLD_ATTRIBUTION,
-                      aerial_url=VWORLD_AERIAL_URL_TEMPLATE % api_key, aerial_attribution=VWORLD_AERIAL_ATTRIBUTION)
+                      aerial_url=VWORLD_AERIAL_URL_TEMPLATE % api_key, aerial_attribution=tr(VWORLD_AERIAL_ATTRIBUTION))
     return config
 
 

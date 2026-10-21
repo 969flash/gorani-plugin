@@ -32,6 +32,7 @@ import context_report
 import non_rhino_utils
 from context_geometry import (CLASS_LAYERS, SITE_LAYERS, TOPO_SOURCE_ID, ContextGeo, NearestXYZ, get_building_attrs, get_class_polygons, get_parts,
                               get_tin_points, get_zoning_rings)
+from i18n import tr
 
 _DOWN = Vector((0.0, 0.0, -1.0)) if geometry is not None else None
 
@@ -289,7 +290,7 @@ def build_terrain(prepared):
     local_pts = get_local_pts(points, origin)
     tin_verts, tin_faces = _get_tin(local_pts, eps)
     if not tin_faces:
-        raise RuntimeError("지형 TIN 생성 실패 — 입력점 %d" % len(points))
+        raise RuntimeError(tr("지형 TIN 생성 실패 — 입력점 {0}", len(points)))
     tin = _Ground(tin_verts, tin_faces)
     counts.update(tin_s=round(time.time() - t, 3), tin_faces=len(tin_faces))
 
@@ -392,7 +393,7 @@ def build_terrain(prepared):
             edge_zs = [tin.get_z(x, y) for ring in rings[site_start:]
                        for x, y in non_rhino_utils.get_resampled_ring(ring, constants.TERRAIN_GRID, True)]
             if not edge_zs:
-                raise RuntimeError("대상지 경계에서 지반 높이를 읽지 못했습니다")
+                raise RuntimeError(tr("대상지 경계에서 지반 높이를 읽지 못했습니다"))
             level = min(edge_zs) if how == "min" else max(edge_zs) if how == "max" else sum(edge_zs) / len(edge_zs)
             meshes.update(site_ground=_get_mesh(site_tris, xy, zs, level), site_wall=_get_site_wall(site_tris, xy, zs, level, step),
                           site_original=_get_mesh(site_tris, xy, zs))
@@ -405,7 +406,7 @@ def build_terrain(prepared):
         ground_parts.append(meshes["site_ground"])
     meshes["all"] = _join(ground_parts)
     if not meshes["all"][1]:
-        raise RuntimeError("범위 안 지형 면이 없습니다")
+        raise RuntimeError(tr("범위 안 지형 면이 없습니다"))
     surfaces = ("terrain", "road", "green", "rail", "site_ground")
     counts["faces"] = sum(len(m[1]) for k, m in meshes.items() if k in surfaces)
     counts["quads"] = 0
@@ -493,7 +494,7 @@ def build_buildings(prepared, ground):
     for b in buildings:
         parts = [[_get_local_ring(ring, origin) for ring in part] for part in get_parts(b.geometry)]
         if not parts or b.height_m <= 0:
-            skipped.append("%s(빈 발자국·높이 0)" % b.building_id)
+            skipped.append(tr("{0}(빈 발자국·높이 0)", b.building_id))
             counts["fallback_skipped"] += 1
             continue
         zs = [z for part in parts for ring in part for z in (surface.hit_z(x, y) for x, y in ring) if z is not None]
@@ -520,7 +521,7 @@ def build_buildings(prepared, ground):
                 made += 1
         counts["parts"] += made
         if not made:
-            skipped.append("%s(압출 실패)" % b.building_id)
+            skipped.append(tr("{0}(압출 실패)", b.building_id))
             counts["extrude_failed"] += 1
     counts["extrude_s"] = round(time.time() - t, 3)
     counts["buildings"] = len(buildings) - counts["fallback_skipped"] - counts["extrude_failed"]
@@ -533,7 +534,7 @@ def build_buildings(prepared, ground):
                               face_attrs={"building_id": ids, "height": heights, "floors": floors}))
     warnings = []
     if skipped:
-        warnings.append({"level": "warn", "code": "skipped", "text": "건물 %d동 건너뜀 — 투영·압출 실패" % len(skipped),
+        warnings.append({"level": "warn", "code": "skipped", "text": tr("건물 {0}동 건너뜀 — 투영·압출 실패", len(skipped)),
                          "detail": ", ".join(skipped[:20]), "action": None, "center": None})
     return items, counts, skipped, warnings
 

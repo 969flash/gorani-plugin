@@ -1,0 +1,5396 @@
+{
+ "지도로": {
+  "en": "Back to map",
+  "es": "Volver al mapa",
+  "ja": "地図へ",
+  "zh": "返回地图"
+ },
+ "최근 대상지, 설정, 도움": {
+  "en": "Recent sites, settings, help",
+  "es": "Sitios recientes, ajustes, ayuda",
+  "ja": "最近の対象地、設定、ヘルプ",
+  "zh": "最近场地、设置、帮助"
+ },
+ "더보기": {
+  "en": "More",
+  "es": "Más",
+  "ja": "その他",
+  "zh": "更多"
+ },
+ "다이어그램 보기": {
+  "en": "Diagram viewer",
+  "es": "Visor de diagramas",
+  "ja": "ダイアグラムビューア",
+  "zh": "分析图查看器"
+ },
+ "대상지와 범위": {
+  "en": "Site and extent",
+  "es": "Sitio y ámbito",
+  "ja": "対象地と範囲",
+  "zh": "场地与范围"
+ },
+ "결과": {
+  "en": "Results",
+  "es": "Resultados",
+  "ja": "結果",
+  "zh": "结果"
+ },
+ "일부만 표시했습니다. 더 확대하세요": {
+  "en": "Showing only some parcels. Zoom in further",
+  "es": "Solo se muestran algunas parcelas. Amplía más el mapa",
+  "ja": "一部の区画のみ表示しています。さらに拡大してください",
+  "zh": "仅显示部分地块。请进一步放大"
+ },
+ "지도 배경을 받지 못해 필지선만 보입니다": {
+  "en": "Couldn't load the base map; only parcel lines are shown",
+  "es": "No se pudo cargar el fondo del mapa; solo se ven las líneas de parcelas",
+  "ja": "地図の背景を読み込めないため、区画線のみ表示しています",
+  "zh": "无法加载地图背景，仅显示地块线"
+ },
+ "위성": {
+  "en": "Satellite",
+  "es": "Satélite",
+  "ja": "航空写真",
+  "zh": "卫星"
+ },
+ "위성 영상 배경": {
+  "en": "Satellite imagery background",
+  "es": "Fondo de imagen satelital",
+  "ja": "航空写真の背景",
+  "zh": "卫星影像背景"
+ },
+ "브라우저": {
+  "en": "Browser",
+  "es": "Navegador",
+  "ja": "ブラウザ",
+  "zh": "浏览器"
+ },
+ "데이터 불러오기": {
+  "en": "Load data",
+  "es": "Cargar datos",
+  "ja": "データ読み込み",
+  "zh": "加载数据"
+ },
+ "건물과 지형 불러오기": {
+  "en": "Load buildings and terrain",
+  "es": "Cargar edificios y terreno",
+  "ja": "建物と地形の読み込み",
+  "zh": "加载建筑与地形"
+ },
+ "3D 모델 만들기": {
+  "en": "Create 3D model",
+  "es": "Crear modelo 3D",
+  "ja": "3Dモデル作成",
+  "zh": "生成 3D 模型"
+ },
+ "{0} 파일에 넣기": {
+  "en": "Add to {0} file",
+  "es": "Añadir al archivo de {0}",
+  "ja": "{0}ファイルに追加",
+  "zh": "添加到 {0} 文件"
+ },
+ "베이스맵 .ai": {
+  "en": "Basemap .ai",
+  "es": "Plano base .ai",
+  "ja": "ベースマップ .ai",
+  "zh": "底图 .ai"
+ },
+ "다이어그램": {
+  "en": "Diagrams",
+  "es": "Diagramas",
+  "ja": "ダイアグラム",
+  "zh": "分析图"
+ },
+ "조서 CSV": {
+  "en": "CSV tables",
+  "es": "Tablas CSV",
+  "ja": "調書 CSV",
+  "zh": "统计表 CSV"
+ },
+ "원": {
+  "en": "Circle",
+  "es": "Círculo",
+  "ja": "円",
+  "zh": "圆形"
+ },
+ "사각형": {
+  "en": "Square",
+  "es": "Cuadrado",
+  "ja": "正方形",
+  "zh": "正方形"
+ },
+ "필지": {
+  "en": "Parcels",
+  "es": "Parcelas",
+  "ja": "区画",
+  "zh": "地块"
+ },
+ "구역": {
+  "en": "Area",
+  "es": "Área",
+  "ja": "エリア",
+  "zh": "区域"
+ },
+ "위치": {
+  "en": "Point",
+  "es": "Punto",
+  "ja": "地点",
+  "zh": "地点"
+ },
+ "대상지 필지를 눌러 고릅니다": {
+  "en": "Click the site's parcels to select them",
+  "es": "Haz clic en las parcelas del sitio para seleccionarlas",
+  "ja": "対象地の区画をクリックして選びます",
+  "zh": "点击场地地块进行选择"
+ },
+ "대상지 경계를 직접 그립니다": {
+  "en": "Draw the site boundary yourself",
+  "es": "Dibuja el límite del sitio",
+  "ja": "対象地の境界を自分で描きます",
+  "zh": "自行绘制场地边界"
+ },
+ "대상지 없이 한 점 주변을 만듭니다": {
+  "en": "Model the surroundings of a point, without a site",
+  "es": "Modela el entorno de un punto, sin sitio",
+  "ja": "対象地なしで、1地点の周辺を作成します",
+  "zh": "不设场地，生成某一点的周边"
+ },
+ "대상지 중심(100 m 단위)을 (0,0)으로 옮깁니다": {
+  "en": "Moves the site center (rounded to 100 m) to (0,0)",
+  "es": "Mueve el centro del sitio (redondeado a 100 m) a (0,0)",
+  "ja": "対象地の中心（100 m単位）を(0,0)に移動します",
+  "zh": "将场地中心（取整到 100 m）移至 (0,0)"
+ },
+ "EPSG:5186 좌표 그대로입니다. GIS나 다른 도면과 겹칠 때 쓰고, 문서 단위는 m로 하세요": {
+  "en": "Keeps EPSG:5186 coordinates. Use it to overlay GIS data or other drawings; set document units to meters",
+  "es": "Mantiene las coordenadas EPSG:5186. Úsalo para superponer datos GIS u otros planos; pon las unidades del documento en metros",
+  "ja": "EPSG:5186の座標のままです。GISや他の図面と重ねるときに使い、ドキュメントの単位はmにしてください",
+  "zh": "保持 EPSG:5186 坐标不变。用于与 GIS 或其他图纸叠合，文档单位请设为米"
+ },
+ "토지이용": {
+  "en": "Land use",
+  "es": "Uso del suelo",
+  "ja": "土地利用",
+  "zh": "土地利用"
+ },
+ "도로 중심선": {
+  "en": "Road centerlines",
+  "es": "Ejes de vías",
+  "ja": "道路中心線",
+  "zh": "道路中心线"
+ },
+ "용도지역": {
+  "en": "Zoning",
+  "es": "Zonificación",
+  "ja": "用途地域",
+  "zh": "用途分区"
+ },
+ "zip 받기": {
+  "en": "Download zip",
+  "es": "Descargar zip",
+  "ja": "zipダウンロード",
+  "zh": "下载 zip"
+ },
+ "폴더 열기": {
+  "en": "Open folder",
+  "es": "Abrir carpeta",
+  "ja": "フォルダを開く",
+  "zh": "打开文件夹"
+ },
+ "{0} 외 {1}": {
+  "en": "{0} and {1} more",
+  "es": "{0} y {1} más",
+  "ja": "{0} ほか{1}件",
+  "zh": "{0} 及另外 {1} 个"
+ },
+ "구역 {0}": {
+  "en": "Area {0}",
+  "es": "Área {0}",
+  "ja": "エリア {0}",
+  "zh": "区域 {0}"
+ },
+ "사각형 한 변 {0} m": {
+  "en": "Square, {0} m side",
+  "es": "Cuadrado, {0} m de lado",
+  "ja": "正方形・一辺 {0} m",
+  "zh": "正方形，边长 {0} m"
+ },
+ "원 반경 {0} m": {
+  "en": "Circle, {0} m radius",
+  "es": "Círculo, {0} m de radio",
+  "ja": "円・半径 {0} m",
+  "zh": "圆形，半径 {0} m"
+ },
+ "한국 밖이라 구역이나 위치 방식으로 만듭니다": {
+  "en": "Outside Korea, so use Area or Point mode",
+  "es": "Fuera de Corea: usa el modo Área o Punto",
+  "ja": "韓国外のため、エリアまたは地点方式で作成します",
+  "zh": "位于韩国境外，将使用区域或地点方式生成"
+ },
+ "한국 밖이라 OpenStreetMap 자료로 만듭니다": {
+  "en": "Outside Korea, so OpenStreetMap data is used",
+  "es": "Fuera de Corea: se usan datos de OpenStreetMap",
+  "ja": "韓国外のため、OpenStreetMapのデータで作成します",
+  "zh": "位于韩国境外，将使用 OpenStreetMap 数据生成"
+ },
+ "한국이라 국가 자료로 만듭니다": {
+  "en": "In Korea, so national data is used",
+  "es": "En Corea: se usan datos nacionales",
+  "ja": "韓国内のため、国のデータで作成します",
+  "zh": "位于韩国境内，将使用国家数据生成"
+ },
+ "결과로 돌아가기": {
+  "en": "Back to results",
+  "es": "Volver a resultados",
+  "ja": "結果へ戻る",
+  "zh": "返回结果"
+ },
+ "이 대상지의 이전 3D를 새것으로 바꿉니다": {
+  "en": "Replaces this site's previous 3D",
+  "es": "Reemplaza el 3D anterior de este sitio",
+  "ja": "この対象地の以前の3Dを新しいものに置き換えます",
+  "zh": "用新模型替换该场地之前的 3D"
+ },
+ "구역을 닫으면 만들 수 있습니다": {
+  "en": "Close the area to continue",
+  "es": "Cierra el área para continuar",
+  "ja": "エリアを閉じると作成できます",
+  "zh": "闭合区域后即可生成"
+ },
+ "{0} 파일의 이 대상지 3D를 지우고 새로 넣습니다. 이전 결과 폴더는 그대로 남습니다": {
+  "en": "Deletes this site's 3D in the {0} file and adds it again. The previous result folder is kept",
+  "es": "Borra el 3D de este sitio en el archivo de {0} y lo vuelve a añadir. La carpeta de resultados anterior se conserva",
+  "ja": "{0}ファイル内のこの対象地の3Dを削除して、新たに追加します。以前の結果フォルダはそのまま残ります",
+  "zh": "删除 {0} 文件中该场地的 3D 并重新添加。之前的结果文件夹会保留"
+ },
+ "3D 모델 다시 만들기": {
+  "en": "Recreate 3D model",
+  "es": "Recrear modelo 3D",
+  "ja": "3Dモデル再作成",
+  "zh": "重新生成 3D 模型"
+ },
+ "스타일 이름": {
+  "en": "Style name",
+  "es": "Nombre del estilo",
+  "ja": "スタイル名",
+  "zh": "样式名称"
+ },
+ "취소": {
+  "en": "Cancel",
+  "es": "Cancelar",
+  "ja": "キャンセル",
+  "zh": "取消"
+ },
+ "저장": {
+  "en": "Save",
+  "es": "Guardar",
+  "ja": "保存",
+  "zh": "保存"
+ },
+ "되돌리기": {
+  "en": "Undo",
+  "es": "Deshacer",
+  "ja": "元に戻す",
+  "zh": "撤销"
+ },
+ "이 스타일을 이름 붙여 두고 다른 대상지에서도 씁니다": {
+  "en": "Save this style by name to reuse it on other sites",
+  "es": "Guarda este estilo con un nombre para usarlo en otros sitios",
+  "ja": "このスタイルに名前を付けて保存し、ほかの対象地でも使います",
+  "zh": "为此样式命名保存，以便在其他场地使用"
+ },
+ "내 스타일로 저장": {
+  "en": "Save as my style",
+  "es": "Guardar como mi estilo",
+  "ja": "マイスタイルに保存",
+  "zh": "保存为我的样式"
+ },
+ "이번에 만들 다이어그램에 씁니다": {
+  "en": "Use it for the diagrams you make next",
+  "es": "Se aplica a los diagramas que crees a continuación",
+  "ja": "これから作成するダイアグラムに使います",
+  "zh": "用于接下来生成的分析图"
+ },
+ "적용": {
+  "en": "Apply",
+  "es": "Aplicar",
+  "ja": "適用",
+  "zh": "应用"
+ },
+ "대상지는 그대로 두고 지도로 돌아갑니다. 새 대상지는 지도에서 지우고 고르세요": {
+  "en": "Returns to the map with the same site. For a new site, clear it on the map and pick again",
+  "es": "Vuelve al mapa con el mismo sitio. Para un sitio nuevo, bórralo en el mapa y elige otro",
+  "ja": "対象地はそのままで地図に戻ります。新しい対象地は、地図で今の対象地を消してから選んでください",
+  "zh": "保留当前场地并返回地图。如需新场地，请在地图上清除后重新选择"
+ },
+ "다시 시도": {
+  "en": "Try again",
+  "es": "Reintentar",
+  "ja": "再試行",
+  "zh": "重试"
+ },
+ "문서에 넣는 중에는 취소할 수 없습니다": {
+  "en": "Can't cancel while adding to the document",
+  "es": "No se puede cancelar mientras se añade al documento",
+  "ja": "ドキュメントに追加中はキャンセルできません",
+  "zh": "正在添加到文档，无法取消"
+ },
+ "지명이나 주소로 지도 이동": {
+  "en": "Go to a place or address",
+  "es": "Ir a un lugar o dirección",
+  "ja": "地名・住所へ移動",
+  "zh": "按地名或地址定位"
+ },
+ "지명이나 주소로 위치 찍기": {
+  "en": "Point at a place or address",
+  "es": "Marcar un lugar o dirección",
+  "ja": "地名・住所で地点を指定",
+  "zh": "按地名或地址标记地点"
+ },
+ "주소나 지번으로 필지 찾기": {
+  "en": "Address or lot number",
+  "es": "Dirección o número de lote",
+  "ja": "住所・地番",
+  "zh": "地址或地号"
+ },
+ "주소나 지명으로 지도 이동": {
+  "en": "Go to an address or place",
+  "es": "Ir a una dirección o lugar",
+  "ja": "住所・地名へ移動",
+  "zh": "按地址或地名定位"
+ },
+ "주소나 지명으로 위치 찍기": {
+  "en": "Point at an address or place",
+  "es": "Marcar una dirección o lugar",
+  "ja": "住所・地名で地点を指定",
+  "zh": "按地址或地名标记地点"
+ },
+ "한국 밖에는 필지가 없습니다": {
+  "en": "No parcels outside Korea",
+  "es": "No hay parcelas fuera de Corea",
+  "ja": "韓国外には区画がありません",
+  "zh": "韩国境外没有地块"
+ },
+ "대상지 정하기": {
+  "en": "Define a site",
+  "es": "Definir un sitio",
+  "ja": "対象地の指定",
+  "zh": "确定场地"
+ },
+ "대상지 없이": {
+  "en": "Without a site",
+  "es": "Sin sitio",
+  "ja": "対象地なし",
+  "zh": "不设场地"
+ },
+ "검색": {
+  "en": "Search",
+  "es": "Buscar",
+  "ja": "検索",
+  "zh": "搜索"
+ },
+ "최근 대상지": {
+  "en": "Recent sites",
+  "es": "Sitios recientes",
+  "ja": "最近の対象地",
+  "zh": "最近场地"
+ },
+ "지도를 누르거나 위에서 주소를 찾아 위치를 찍으세요": {
+  "en": "Click the map or search an address above to drop a point",
+  "es": "Haz clic en el mapa o busca una dirección arriba para marcar un punto",
+  "ja": "地図をクリックするか、上で住所を検索して地点を指定してください",
+  "zh": "点击地图或在上方搜索地址来标记地点"
+ },
+ "지도에서 필지를 누르거나 위에서 주소나 지번을 찾으세요": {
+  "en": "Click a parcel on the map, or search an address or lot number above",
+  "es": "Haz clic en una parcela del mapa o busca arriba una dirección o número de lote",
+  "ja": "地図上の区画をクリックするか、上で住所や地番を検索してください",
+  "zh": "点击地图上的地块，或在上方搜索地址或地号"
+ },
+ "대상지": {
+  "en": "Site",
+  "es": "Sitio",
+  "ja": "対象地",
+  "zh": "场地"
+ },
+ "필지 {0}개 정보": {
+  "en": "Info on {0} parcels",
+  "es": "Información de {0} parcelas",
+  "ja": "区画{0}件の情報",
+  "zh": "{0} 个地块的信息"
+ },
+ "필지 정보": {
+  "en": "Parcel info",
+  "es": "Información de la parcela",
+  "ja": "区画情報",
+  "zh": "地块信息"
+ },
+ "{0}에서 닫힌 평면 커브 하나를 먼저 선택해 두면 바로 가져옵니다": {
+  "en": "Select one closed planar curve in {0} first and it's used right away",
+  "es": "Si seleccionas antes una curva plana cerrada en {0}, se usa directamente",
+  "ja": "先に{0}で閉じた平面カーブを1本選択しておくと、すぐに取り込みます",
+  "zh": "先在 {0} 中选中一条闭合平面曲线，即可直接导入"
+ },
+ "{0} 커브 가져오기": {
+  "en": "Use {0} curve",
+  "es": "Usar curva de {0}",
+  "ja": "{0}のカーブを使用",
+  "zh": "使用 {0} 曲线"
+ },
+ "꼭짓점 {0}개": {
+  "en": "{0} vertices",
+  "es": "{0} vértices",
+  "ja": "頂点 {0}個",
+  "zh": "{0} 个顶点"
+ },
+ "닫기": {
+  "en": "Close",
+  "es": "Cerrar",
+  "ja": "閉じる",
+  "zh": "关闭"
+ },
+ "지도를 끌어 자리를 맞추세요": {
+  "en": "Drag the map to position it",
+  "es": "Arrastra el mapa para ajustar la posición",
+  "ja": "地図をドラッグして位置を合わせてください",
+  "zh": "拖动地图调整位置"
+ },
+ "여기에 놓기": {
+  "en": "Place here",
+  "es": "Colocar aquí",
+  "ja": "ここに配置",
+  "zh": "放在这里"
+ },
+ "지도에 그리기": {
+  "en": "Draw on map",
+  "es": "Dibujar en el mapa",
+  "ja": "地図に描画",
+  "zh": "在地图上绘制"
+ },
+ "(안의 필지 {0})": {
+  "en": "({0} parcels inside)",
+  "es": "({0} parcelas dentro)",
+  "ja": "（含まれる区画 {0}）",
+  "zh": "（内含地块 {0}）"
+ },
+ "다시 그리기": {
+  "en": "Redraw",
+  "es": "Redibujar",
+  "ja": "描き直し",
+  "zh": "重新绘制"
+ },
+ "옮기기": {
+  "en": "Move",
+  "es": "Mover",
+  "ja": "移動",
+  "zh": "移动"
+ },
+ "범위": {
+  "en": "Extent",
+  "es": "Ámbito",
+  "ja": "範囲",
+  "zh": "范围"
+ },
+ "범위 형태": {
+  "en": "Extent shape",
+  "es": "Forma del ámbito",
+  "ja": "範囲の形状",
+  "zh": "范围形状"
+ },
+ "한 변": {
+  "en": "Side",
+  "es": "Lado",
+  "ja": "一辺",
+  "zh": "边长"
+ },
+ "반경": {
+  "en": "Radius",
+  "es": "Radio",
+  "ja": "半径",
+  "zh": "半径"
+ },
+ "사각형 한 변": {
+  "en": "Square side",
+  "es": "Lado del cuadrado",
+  "ja": "正方形の一辺",
+  "zh": "正方形边长"
+ },
+ "원 반경": {
+  "en": "Circle radius",
+  "es": "Radio del círculo",
+  "ja": "円の半径",
+  "zh": "圆形半径"
+ },
+ "직접": {
+  "en": "Custom",
+  "es": "Personalizado",
+  "ja": "カスタム",
+  "zh": "自定义"
+ },
+ "{0} 직접 입력 (m)": {
+  "en": "{0}, custom value (m)",
+  "es": "{0}: valor personalizado (m)",
+  "ja": "{0}の直接入力 (m)",
+  "zh": "自定义{0} (m)"
+ },
+ "범위가 크면 만드는 데 1분 넘게 걸릴 수 있습니다": {
+  "en": "A large extent can take more than a minute",
+  "es": "Un ámbito grande puede tardar más de un minuto",
+  "ja": "範囲が大きいと、作成に1分以上かかることがあります",
+  "zh": "范围较大时，生成可能需要 1 分钟以上"
+ },
+ "3D 설정": {
+  "en": "3D settings",
+  "es": "Ajustes 3D",
+  "ja": "3D設定",
+  "zh": "3D 设置"
+ },
+ "좌표": {
+  "en": "Coordinates",
+  "es": "Coordenadas",
+  "ja": "座標",
+  "zh": "坐标"
+ },
+ "결과 좌표": {
+  "en": "Result coordinates",
+  "es": "Coordenadas del resultado",
+  "ja": "結果の座標",
+  "zh": "结果坐标"
+ },
+ "원점(0,0)": {
+  "en": "Origin (0,0)",
+  "es": "Origen (0,0)",
+  "ja": "原点(0,0)",
+  "zh": "原点(0,0)"
+ },
+ "GIS 좌표": {
+  "en": "GIS coordinates",
+  "es": "Coordenadas GIS",
+  "ja": "GIS座標",
+  "zh": "GIS坐标"
+ },
+ "지형": {
+  "en": "Terrain",
+  "es": "Terreno",
+  "ja": "地形",
+  "zh": "地形"
+ },
+ "지형 표현": {
+  "en": "Terrain style",
+  "es": "Estilo del terreno",
+  "ja": "地形の表現",
+  "zh": "地形表现"
+ },
+ "계단 {0} m": {
+  "en": "Steps {0} m",
+  "es": "Escalonado {0} m",
+  "ja": "階段状 {0} m",
+  "zh": "阶梯 {0} m"
+ },
+ "매끈": {
+  "en": "Smooth",
+  "es": "Suave",
+  "ja": "滑らか",
+  "zh": "平滑"
+ },
+ "등고 모형처럼 단마다 평평한 지형": {
+  "en": "Flat terraces, like a contour model",
+  "es": "Terrazas planas, como una maqueta de curvas de nivel",
+  "ja": "等高線模型のように段ごとに平らな地形",
+  "zh": "像等高线模型一样逐级平整的地形"
+ },
+ "대상지 바닥면": {
+  "en": "Site ground",
+  "es": "Suelo del sitio",
+  "ja": "対象地の地面",
+  "zh": "场地地面"
+ },
+ "Line": {
+  "en": "Line",
+  "es": "Línea",
+  "ja": "ライン",
+  "zh": "线"
+ },
+ "Surface": {
+  "en": "Surface",
+  "es": "Superficie",
+  "ja": "サーフェス",
+  "zh": "面"
+ },
+ "대상지 경계선만 냅니다": {
+  "en": "Outputs only the site boundary",
+  "es": "Solo genera el límite del sitio",
+  "ja": "対象地の境界線のみを出力します",
+  "zh": "仅输出场地边界线"
+ },
+ "경계선과 함께, 대상지 경계로 자른 지형을 따로 냅니다": {
+  "en": "Outputs the boundary plus a separate terrain piece cut to the site",
+  "es": "Genera el límite y, aparte, el terreno recortado por el límite del sitio",
+  "ja": "境界線に加え、対象地の境界で切り取った地形を別に出力します",
+  "zh": "除边界线外，另外输出按场地边界裁剪的地形"
+ },
+ "대상지 평탄화": {
+  "en": "Flatten site",
+  "es": "Aplanar sitio",
+  "ja": "対象地の平坦化",
+  "zh": "场地平整"
+ },
+ "평평하게 할 높이": {
+  "en": "Flatten to height",
+  "es": "Altura de aplanado",
+  "ja": "平坦化する高さ",
+  "zh": "平整高度"
+ },
+ "경계 평균 높이": {
+  "en": "Mean boundary height",
+  "es": "Altura media del límite",
+  "ja": "境界の平均高さ",
+  "zh": "边界平均高度"
+ },
+ "경계 최저 높이": {
+  "en": "Lowest boundary height",
+  "es": "Altura mínima del límite",
+  "ja": "境界の最低高さ",
+  "zh": "边界最低高度"
+ },
+ "경계 최고 높이": {
+  "en": "Highest boundary height",
+  "es": "Altura máxima del límite",
+  "ja": "境界の最高高さ",
+  "zh": "边界最高高度"
+ },
+ "용도지역, 지구, 구역, 도시계획시설, 지구단위계획 경계": {
+  "en": "Zoning, districts, zones, planning facilities and district unit plan boundaries",
+  "es": "Límites de zonificación, distritos, zonas, equipamientos urbanísticos y planes de unidad de distrito",
+  "ja": "用途地域・地区・区域、都市計画施設、地区単位計画の境界",
+  "zh": "用途分区、地区、区域、城市规划设施、地区单元规划边界"
+ },
+ "용도지역 경계선": {
+  "en": "Zoning boundaries",
+  "es": "Límites de zonificación",
+  "ja": "用途地域の境界線",
+  "zh": "用途分区边界线"
+ },
+ "지형 매끈": {
+  "en": "Smooth terrain",
+  "es": "Terreno suave",
+  "ja": "滑らかな地形",
+  "zh": "地形平滑"
+ },
+ "평탄화": {
+  "en": "Flattened",
+  "es": "Aplanado",
+  "ja": "平坦化",
+  "zh": "平整"
+ },
+ "경계선 뺌": {
+  "en": "No zoning lines",
+  "es": "Sin líneas de zonificación",
+  "ja": "用途地域線なし",
+  "zh": "无用途分区线"
+ },
+ "{0}장": {
+  "en": "{0} sheets",
+  "es": "{0} láminas",
+  "ja": "{0}枚",
+  "zh": "{0} 张"
+ },
+ "첫 점을 누르거나 더블클릭하면 닫힙니다. Esc는 취소": {
+  "en": "Click the first point or double-click to close. Esc cancels",
+  "es": "Haz clic en el primer punto o doble clic para cerrar. Esc cancela",
+  "ja": "最初の点をクリックするか、ダブルクリックで閉じます。Escでキャンセル",
+  "zh": "点击第一个点或双击即可闭合。按 Esc 取消"
+ },
+ "지도를 눌러 구역 꼭짓점을 찍으세요 ({0}개)": {
+  "en": "Click the map to add area vertices ({0})",
+  "es": "Haz clic en el mapa para añadir vértices del área ({0})",
+  "ja": "地図をクリックしてエリアの頂点を指定してください（{0}個）",
+  "zh": "点击地图添加区域顶点（{0} 个）"
+ },
+ "지도를 눌러 구역 꼭짓점을 찍으세요": {
+  "en": "Click the map to add area vertices",
+  "es": "Haz clic en el mapa para añadir vértices del área",
+  "ja": "地図をクリックしてエリアの頂点を指定してください",
+  "zh": "点击地图添加区域顶点"
+ },
+ "지도를 끌어 구역 자리를 맞추세요": {
+  "en": "Drag the map to position the area",
+  "es": "Arrastra el mapa para colocar el área",
+  "ja": "地図をドラッグしてエリアの位置を合わせてください",
+  "zh": "拖动地图调整区域位置"
+ },
+ "[지도에 그리기]로 대상지 경계를 그리세요": {
+  "en": "Use [Draw on map] to draw the site boundary",
+  "es": "Usa [Dibujar en el mapa] para dibujar el límite del sitio",
+  "ja": "[地図に描画]で対象地の境界を描いてください",
+  "zh": "使用 [在地图上绘制] 绘制场地边界"
+ },
+ "지도를 눌러 위치를 찍으세요": {
+  "en": "Click the map to drop a point",
+  "es": "Haz clic en el mapa para marcar un punto",
+  "ja": "地図をクリックして地点を指定してください",
+  "zh": "点击地图标记地点"
+ },
+ "지도를 확대하면 필지가 보입니다": {
+  "en": "Zoom in to see parcels",
+  "es": "Amplía el mapa para ver las parcelas",
+  "ja": "地図を拡大すると区画が表示されます",
+  "zh": "放大地图即可看到地块"
+ },
+ "지도에서 필지를 눌러 고르세요. 여러 개 고를 수 있습니다": {
+  "en": "Click parcels on the map to select them. You can pick several",
+  "es": "Haz clic en las parcelas del mapa para seleccionarlas. Puedes elegir varias",
+  "ja": "地図上の区画をクリックして選んでください。複数選べます",
+  "zh": "点击地图上的地块进行选择。可多选"
+ },
+ "필지가 없는 곳입니다. 구역이나 위치 방식을 쓰세요": {
+  "en": "No parcels here. Use Area or Point mode",
+  "es": "Aquí no hay parcelas. Usa el modo Área o Punto",
+  "ja": "区画がない場所です。エリアまたは地点方式を使ってください",
+  "zh": "此处没有地块。请使用区域或地点方式"
+ },
+ "꼭짓점이 3개 이상이어야 합니다": {
+  "en": "An area needs at least 3 vertices",
+  "es": "Un área necesita al menos 3 vértices",
+  "ja": "頂点が3個以上必要です",
+  "zh": "至少需要 3 个顶点"
+ },
+ "대상지 지우기": {
+  "en": "Clear site",
+  "es": "Borrar sitio",
+  "ja": "対象地を消去",
+  "zh": "清除场地"
+ },
+ "(법정 건폐 {0} % 이하, 용적 {1}~{2} %)": {
+  "en": "(legal coverage up to {0}%, FAR {1}–{2}%)",
+  "es": "(ocupación legal máx. {0} %, edificabilidad {1}–{2} %)",
+  "ja": "（法定建ぺい率 {0}%以下、容積率 {1}〜{2}%）",
+  "zh": "（法定建筑密度不超过 {0}%，容积率 {1}~{2}%）"
+ },
+ "(저촉)": {
+  "en": "(partly)",
+  "es": "(en parte)",
+  "ja": "（一部）",
+  "zh": "（部分）"
+ },
+ "대장 면적 없음, 도형 {0}": {
+  "en": "No registered area; geometry {0}",
+  "es": "Sin superficie registrada; geometría {0}",
+  "ja": "台帳面積なし、図形 {0}",
+  "zh": "无台账面积，图形 {0}"
+ },
+ "대장 {0}, 도형 {1}": {
+  "en": "Registered {0}, geometry {1}",
+  "es": "Registro {0}, geometría {1}",
+  "ja": "台帳 {0}、図形 {1}",
+  "zh": "台账 {0}，图形 {1}"
+ },
+ "지적불부합 의심. 도형은 연속지적도(참고도)라 대장 면적이 기준입니다": {
+  "en": "Possible cadastral mismatch. The shape comes from the continuous cadastral map (reference only); the registered area is authoritative",
+  "es": "Posible discrepancia catastral. La forma procede del mapa catastral continuo (solo de referencia); la superficie del registro es la válida",
+  "ja": "地籍不一致の疑いがあります。図形は連続地籍図（参考図）のため、台帳面積が基準です",
+  "zh": "疑似地籍不符。图形来自连续地籍图（仅供参考），以台账面积为准"
+ },
+ "차이 {0}": {
+  "en": "difference {0}",
+  "es": "diferencia {0}",
+  "ja": "差 {0}",
+  "zh": "差值 {0}"
+ },
+ "가장 넓은 조각의 바깥 경계만 씁니다": {
+  "en": "Only the outer boundary of the largest piece is used",
+  "es": "Solo se usa el límite exterior de la pieza más grande",
+  "ja": "最も広い部分の外側の境界だけを使います",
+  "zh": "仅使用面积最大部分的外边界"
+ },
+ "구멍": {
+  "en": "Hole",
+  "es": "Hueco",
+  "ja": "穴あり",
+  "zh": "孔洞"
+ },
+ "다조각": {
+  "en": "Multipart",
+  "es": "Multiparte",
+  "ja": "マルチパート",
+  "zh": "多部件"
+ },
+ "토지이음에서 토지이용계획 보기": {
+  "en": "View the land-use plan on Eum (eum.go.kr)",
+  "es": "Ver el plan de uso del suelo en Eum (eum.go.kr)",
+  "ja": "Eum (eum.go.kr)で土地利用計画を見る",
+  "zh": "在 Eum (eum.go.kr) 查看土地利用规划"
+ },
+ "토지이음": {
+  "en": "Eum",
+  "es": "Eum",
+  "ja": "Eum",
+  "zh": "Eum"
+ },
+ "{0} 빼기": {
+  "en": "Remove {0}",
+  "es": "Quitar {0}",
+  "ja": "{0}を除外",
+  "zh": "移除 {0}"
+ },
+ "이 필지 빼기": {
+  "en": "Remove this parcel",
+  "es": "Quitar esta parcela",
+  "ja": "この区画を除外",
+  "zh": "移除此地块"
+ },
+ "지목": {
+  "en": "Land category",
+  "es": "Categoría catastral",
+  "ja": "地目",
+  "zh": "地类"
+ },
+ "지역지구": {
+  "en": "Designations",
+  "es": "Distritos y zonas",
+  "ja": "地域地区",
+  "zh": "地区与区域"
+ },
+ "면적": {
+  "en": "Area",
+  "es": "Superficie",
+  "ja": "面積",
+  "zh": "面积"
+ },
+ "토지특성 {0}": {
+  "en": "land attributes {0}",
+  "es": "atributos del suelo {0}",
+  "ja": "土地特性 {0}",
+  "zh": "土地特性 {0}"
+ },
+ "토지이용계획 {0}": {
+  "en": "land-use plan {0}",
+  "es": "plan de uso del suelo {0}",
+  "ja": "土地利用計画 {0}",
+  "zh": "土地利用规划 {0}"
+ },
+ "건폐율과 용적률은 국토계획법 시행령의 법정 범위입니다. 실제 한도는 시·군 조례와 지구단위계획이 정하니 토지이음에서 확인하세요.": {
+  "en": "Coverage and FAR are the legal ranges under Korea's National Land Planning Act. Actual limits are set by local ordinances and district unit plans; check them on Eum.",
+  "es": "La ocupación y la edificabilidad son los rangos legales del reglamento de la Ley de Planificación del Territorio Nacional de Corea. Los límites reales los fijan las ordenanzas locales y los planes de unidad de distrito; consúltalos en Eum.",
+  "ja": "建ぺい率と容積率は、韓国の国土計画法施行令による法定範囲です。実際の上限は市・郡の条例と地区単位計画で決まるため、Eumで確認してください。",
+  "zh": "建筑密度和容积率为韩国《国土规划法》施行令规定的法定范围。实际上限由市、郡条例和地区单元规划确定，请在 Eum 中确认。"
+ },
+ "기준 {0}.": {
+  "en": "Data dates: {0}.",
+  "es": "Fechas de los datos: {0}.",
+  "ja": "データ基準日：{0}。",
+  "zh": "数据基准日：{0}。"
+ },
+ "지명 (OpenStreetMap)": {
+  "en": "Place (OpenStreetMap)",
+  "es": "Lugar (OpenStreetMap)",
+  "ja": "地名 (OpenStreetMap)",
+  "zh": "地名 (OpenStreetMap)"
+ },
+ "이 지역 데이터 받는 중": {
+  "en": "Downloading data for this area",
+  "es": "Descargando datos de esta zona",
+  "ja": "この地域のデータをダウンロード中",
+  "zh": "正在下载该区域的数据"
+ },
+ "멈추기": {
+  "en": "Stop",
+  "es": "Detener",
+  "ja": "停止",
+  "zh": "停止"
+ },
+ "다시 받기": {
+  "en": "Retry download",
+  "es": "Reintentar descarga",
+  "ja": "再ダウンロード",
+  "zh": "重新下载"
+ },
+ "{0}입니다. 끝날 때까지 취소할 수 없습니다.": {
+  "en": "{0}. You can't cancel until it's done.",
+  "es": "{0}. No se puede cancelar hasta que termine.",
+  "ja": "{0}です。終わるまでキャンセルできません。",
+  "zh": "{0}。完成前无法取消。"
+ },
+ "작업 중": {
+  "en": "Working",
+  "es": "Procesando",
+  "ja": "作業中",
+  "zh": "正在处理"
+ },
+ "이 탭 안에서 만듭니다. 탭을 닫으면 멈춥니다.": {
+  "en": "Runs inside this tab. Closing the tab stops it.",
+  "es": "Se ejecuta en esta pestaña. Si la cierras, se detiene.",
+  "ja": "このタブ内で作成します。タブを閉じると停止します。",
+  "zh": "在此标签页中生成。关闭标签页将停止。"
+ },
+ "{0} 안에서 만들어 {0} 화면이 잠깐씩 멈출 수 있습니다.": {
+  "en": "Runs inside {0}, so {0} may freeze briefly now and then.",
+  "es": "Se ejecuta dentro de {0}, así que {0} puede congelarse brevemente de vez en cuando.",
+  "ja": "{0}内で作成するため、{0}の画面が時々止まることがあります。",
+  "zh": "在 {0} 内生成，{0} 界面可能会偶尔短暂卡顿。"
+ },
+ "3D 모델 만드는 중": {
+  "en": "Creating 3D model",
+  "es": "Creando modelo 3D",
+  "ja": "3Dモデル作成中",
+  "zh": "正在生成 3D 模型"
+ },
+ "취소했습니다": {
+  "en": "Canceled",
+  "es": "Cancelado",
+  "ja": "キャンセルしました",
+  "zh": "已取消"
+ },
+ "3D 모델을 만들지 못했습니다": {
+  "en": "Couldn't create the 3D model",
+  "es": "No se pudo crear el modelo 3D",
+  "ja": "3Dモデルを作成できませんでした",
+  "zh": "无法生成 3D 模型"
+ },
+ "로그 자세히 보기": {
+  "en": "Show log",
+  "es": "Ver registro",
+  "ja": "ログを表示",
+  "zh": "查看日志"
+ },
+ "{0}줄": {
+  "en": "{0} lines",
+  "es": "{0} líneas",
+  "ja": "{0}行",
+  "zh": "{0} 行"
+ },
+ "로그 복사": {
+  "en": "Copy log",
+  "es": "Copiar registro",
+  "ja": "ログをコピー",
+  "zh": "复制日志"
+ },
+ "지역 데이터 받기": {
+  "en": "Download regional data",
+  "es": "Descargar datos regionales",
+  "ja": "地域データのダウンロード",
+  "zh": "下载区域数据"
+ },
+ "일부 못 받음, 있는 자료로 만듭니다": {
+  "en": "Some failed; using the data available",
+  "es": "Algunas fallaron; se usan los datos disponibles",
+  "ja": "一部取得できず、取得済みのデータで作成します",
+  "zh": "部分下载失败，将用现有数据生成"
+ },
+ "취소됨": {
+  "en": "Canceled",
+  "es": "Cancelado",
+  "ja": "キャンセル済み",
+  "zh": "已取消"
+ },
+ "이 {0} 파일에는 다른 지역의 3D가 있습니다": {
+  "en": "This {0} file already has 3D from another area",
+  "es": "Este archivo de {0} ya tiene 3D de otra zona",
+  "ja": "この{0}ファイルには別の地域の3Dがあります",
+  "zh": "此 {0} 文件中已有其他区域的 3D"
+ },
+ "먼저 만든 대상지에서 약 {0} km 떨어진 곳이라, 같은 파일에 넣으면 좌표가 어긋납니다. 한 파일에는 20 km 안의 대상지만 함께 넣을 수 있습니다.": {
+  "en": "This site is about {0} km from the first one, so coordinates would be off in the same file. One file can only hold sites within 20 km of each other.",
+  "es": "Este sitio está a unos {0} km del primero, así que en el mismo archivo las coordenadas no coincidirían. Un archivo solo admite sitios a menos de 20 km entre sí.",
+  "ja": "最初に作成した対象地から約{0} km離れているため、同じファイルに入れると座標がずれます。1つのファイルには20 km以内の対象地しか入れられません。",
+  "zh": "该场地距最先生成的场地约 {0} km，放入同一文件会导致坐标错位。一个文件只能容纳彼此相距 20 km 以内的场地。"
+ },
+ "먼저 만든 대상지에서 멀리 떨어진 곳이라, 같은 파일에 넣으면 좌표가 어긋납니다. 한 파일에는 20 km 안의 대상지만 함께 넣을 수 있습니다.": {
+  "en": "This site is far from the first one, so coordinates would be off in the same file. One file can only hold sites within 20 km of each other.",
+  "es": "Este sitio está lejos del primero, así que en el mismo archivo las coordenadas no coincidirían. Un archivo solo admite sitios a menos de 20 km entre sí.",
+  "ja": "最初に作成した対象地から遠く離れているため、同じファイルに入れると座標がずれます。1つのファイルには20 km以内の対象地しか入れられません。",
+  "zh": "该场地距最先生成的场地较远，放入同一文件会导致坐标错位。一个文件只能容纳彼此相距 20 km 以内的场地。"
+ },
+ "{0}에서 새 파일을 여세요(파일 → 새로 만들기, 단위는 미터).": {
+  "en": "Open a new file in {0} (File → New, units in meters).",
+  "es": "Abre un archivo nuevo en {0} (Archivo → Nuevo, unidades en metros).",
+  "ja": "{0}で新しいファイルを開いてください（ファイル → 新規作成、単位はメートル）。",
+  "zh": "在 {0} 中新建文件（文件 → 新建，单位为米）。"
+ },
+ "이 패널로 돌아와 [다시 시도]를 누르세요.": {
+  "en": "Come back to this panel and press [Try again].",
+  "es": "Vuelve a este panel y pulsa [Reintentar].",
+  "ja": "このパネルに戻り、[再試行]を押してください。",
+  "zh": "回到此面板，点击 [重试]。"
+ },
+ "다른 방식": {
+  "en": "another mode",
+  "es": "otro modo",
+  "ja": "別の方式",
+  "zh": "其他方式"
+ },
+ "이 파일은 좌표 방식이 다릅니다": {
+  "en": "This file uses a different coordinate mode",
+  "es": "Este archivo usa otro modo de coordenadas",
+  "ja": "このファイルは座標方式が異なります",
+  "zh": "此文件的坐标方式不同"
+ },
+ "이 파일의 3D는 '{0}' 방식으로 만들었는데, 지금 설정은 '{1}'입니다.": {
+  "en": "The 3D in this file was made with '{0}', but the current setting is '{1}'.",
+  "es": "El 3D de este archivo se creó con '{0}', pero el ajuste actual es '{1}'.",
+  "ja": "このファイルの3Dは「{0}」方式で作成されましたが、現在の設定は「{1}」です。",
+  "zh": "此文件中的 3D 是以“{0}”方式生成的，而当前设置为“{1}”。"
+ },
+ "[지도로] → 3D 설정 → 좌표를 '{0}'로 바꾸고 다시 만드세요.": {
+  "en": "[Back to map] → 3D settings → set Coordinates to '{0}' and create again.",
+  "es": "[Volver al mapa] → Ajustes 3D → cambia Coordenadas a '{0}' y vuelve a crear.",
+  "ja": "[地図へ] → 3D設定 → 座標を「{0}」に変えて、もう一度作成してください。",
+  "zh": "[返回地图] → 3D 设置 → 将坐标改为“{0}”，然后重新生成。"
+ },
+ "또는 {0}에서 새 파일을 열고 [다시 시도]를 누르세요.": {
+  "en": "Or open a new file in {0} and press [Try again].",
+  "es": "O abre un archivo nuevo en {0} y pulsa [Reintentar].",
+  "ja": "または{0}で新しいファイルを開き、[再試行]を押してください。",
+  "zh": "或在 {0} 中新建文件，然后点击 [重试]。"
+ },
+ "{0} 파일 단위가 정해져 있지 않습니다": {
+  "en": "The {0} file has no units set",
+  "es": "El archivo de {0} no tiene unidades definidas",
+  "ja": "{0}ファイルの単位が設定されていません",
+  "zh": "{0} 文件未设置单位"
+ },
+ "3D를 넣으려면 미터나 밀리미터 같은 표준 단위가 필요합니다.": {
+  "en": "Adding 3D needs a standard unit such as meters or millimeters.",
+  "es": "Para añadir el 3D se necesita una unidad estándar, como metros o milímetros.",
+  "ja": "3Dを追加するには、メートルやミリメートルなどの標準単位が必要です。",
+  "zh": "添加 3D 需要米或毫米等标准单位。"
+ },
+ "{0} → 파일 속성 → 단위에서 미터(또는 밀리미터)를 고르세요.": {
+  "en": "In {0}, open File properties → Units and choose meters (or millimeters).",
+  "es": "En {0}, abre Propiedades del archivo → Unidades y elige metros (o milímetros).",
+  "ja": "{0} → ファイルのプロパティ → 単位で、メートル（またはミリメートル）を選んでください。",
+  "zh": "在 {0} 中打开“文件属性 → 单位”，选择米（或毫米）。"
+ },
+ "[다시 시도]를 누르세요.": {
+  "en": "Press [Try again].",
+  "es": "Pulsa [Reintentar].",
+  "ja": "[再試行]を押してください。",
+  "zh": "点击 [重试]。"
+ },
+ "이 지역 필지 자료가 아직 없습니다": {
+  "en": "No parcel data for this area yet",
+  "es": "Aún no hay datos de parcelas de esta zona",
+  "ja": "この地域の区画データがまだありません",
+  "zh": "该区域暂无地块数据"
+ },
+ "필지 자료는 지도를 확대하면 그 지역만 받습니다.": {
+  "en": "Parcel data for an area downloads when you zoom in on the map.",
+  "es": "Los datos de parcelas de una zona se descargan al ampliar el mapa.",
+  "ja": "区画データは、地図を拡大するとその地域の分だけダウンロードされます。",
+  "zh": "放大地图时只会下载该区域的地块数据。"
+ },
+ "[지도로] → 대상지를 크게 확대하세요. 지도 아래에 '받는 중' 줄이 나타납니다.": {
+  "en": "[Back to map] → zoom in close on the site. A 'Downloading' bar appears below the map.",
+  "es": "[Volver al mapa] → amplía bien el mapa sobre el sitio. Aparecerá una barra 'Descargando' bajo el mapa.",
+  "ja": "[地図へ] → 対象地を大きく拡大してください。地図の下に「ダウンロード中」のバーが表示されます。",
+  "zh": "[返回地图] → 将场地放大到足够大。地图下方会出现“正在下载”进度条。"
+ },
+ "받기가 끝나면 다시 만드세요.": {
+  "en": "When the download finishes, create again.",
+  "es": "Cuando termine la descarga, vuelve a crear.",
+  "ja": "ダウンロードが終わったら、もう一度作成してください。",
+  "zh": "下载完成后重新生成。"
+ },
+ "이 지역 건물과 지형 자료를 받지 못했습니다": {
+  "en": "Couldn't download buildings and terrain for this area",
+  "es": "No se pudieron descargar los edificios y el terreno de esta zona",
+  "ja": "この地域の建物と地形のデータをダウンロードできませんでした",
+  "zh": "无法下载该区域的建筑与地形数据"
+ },
+ "만들 때 그 범위의 자료를 인터넷으로 받습니다.": {
+  "en": "Data for the extent is downloaded when you create.",
+  "es": "Los datos del ámbito se descargan de internet al crear.",
+  "ja": "作成時に、その範囲のデータをインターネットからダウンロードします。",
+  "zh": "生成时会从网络下载该范围的数据。"
+ },
+ "인터넷 연결을 확인하고 [다시 시도]를 누르세요.": {
+  "en": "Check your internet connection and press [Try again].",
+  "es": "Comprueba tu conexión a internet y pulsa [Reintentar].",
+  "ja": "インターネット接続を確認して、[再試行]を押してください。",
+  "zh": "请检查网络连接，然后点击 [重试]。"
+ },
+ "계속 안 되면 메뉴(≡) → 한국 자료를 OSM으로 바꿔 만드세요(필지, 용도지역 없음).": {
+  "en": "If it keeps failing, open the menu (≡) and switch Korea data to OSM (no parcels or zoning).",
+  "es": "Si sigue fallando, abre el menú (≡) y cambia Datos de Corea a OSM (sin parcelas ni zonificación).",
+  "ja": "それでも失敗する場合は、メニュー(≡) → 韓国データをOSMに切り替えて作成してください（区画・用途地域なし）。",
+  "zh": "如果仍然失败，请在菜单 (≡) 中将“韩国数据”切换为 OSM 后生成（无地块和用途分区）。"
+ },
+ "범위 안에 필지가 없습니다": {
+  "en": "No parcels in the extent",
+  "es": "No hay parcelas en el ámbito",
+  "ja": "範囲内に区画がありません",
+  "zh": "范围内没有地块"
+ },
+ "[지도로] → 대상지를 다시 고르세요.": {
+  "en": "[Back to map] → choose the site again.",
+  "es": "[Volver al mapa] → vuelve a elegir el sitio.",
+  "ja": "[地図へ] → 対象地を選び直してください。",
+  "zh": "[返回地图] → 重新选择场地。"
+ },
+ "한국 밖이면 구역이나 위치 방식을 쓰세요.": {
+  "en": "Outside Korea, use Area or Point mode.",
+  "es": "Fuera de Corea, usa el modo Área o Punto.",
+  "ja": "韓国外の場合は、エリアまたは地点方式を使ってください。",
+  "zh": "如在韩国境外，请使用区域或地点方式。"
+ },
+ "범위 안에 지형(등고선) 자료가 없습니다": {
+  "en": "No terrain (contour) data in the extent",
+  "es": "No hay datos de terreno (curvas de nivel) en el ámbito",
+  "ja": "範囲内に地形（等高線）データがありません",
+  "zh": "范围内没有地形（等高线）数据"
+ },
+ "지형 없이는 3D 바닥을 만들 수 없습니다.": {
+  "en": "The 3D ground can't be built without terrain.",
+  "es": "Sin terreno no se puede crear el suelo 3D.",
+  "ja": "地形がないと3Dの地面を作成できません。",
+  "zh": "没有地形就无法生成 3D 地面。"
+ },
+ "[지도로] → 범위를 옮기거나 키워 보세요.": {
+  "en": "[Back to map] → move or enlarge the extent.",
+  "es": "[Volver al mapa] → mueve o amplía el ámbito.",
+  "ja": "[地図へ] → 範囲を移動するか、広げてみてください。",
+  "zh": "[返回地图] → 尝试移动或扩大范围。"
+ },
+ "그린 구역을 쓸 수 없습니다": {
+  "en": "The drawn area can't be used",
+  "es": "No se puede usar el área dibujada",
+  "ja": "描いたエリアを使えません",
+  "zh": "无法使用所绘区域"
+ },
+ "[지도로] → 구역을 다시 그리세요. 선이 서로 겹치지 않게, 너무 작지 않게 그립니다.": {
+  "en": "[Back to map] → redraw the area so its lines don't cross and it isn't too small.",
+  "es": "[Volver al mapa] → vuelve a dibujar el área sin que las líneas se crucen y sin que sea demasiado pequeña.",
+  "ja": "[地図へ] → エリアを描き直してください。線が交差せず、小さすぎないように描きます。",
+  "zh": "[返回地图] → 重新绘制区域。线条不要相互交叉，也不要太小。"
+ },
+ "OpenStreetMap 자료를 받지 못했습니다": {
+  "en": "Couldn't download OpenStreetMap data",
+  "es": "No se pudieron descargar los datos de OpenStreetMap",
+  "ja": "OpenStreetMapのデータをダウンロードできませんでした",
+  "zh": "无法下载 OpenStreetMap 数据"
+ },
+ "인터넷이 끊겼거나 서버가 바쁩니다.": {
+  "en": "You're offline or the server is busy.",
+  "es": "No hay conexión a internet o el servidor está ocupado.",
+  "ja": "インターネットが切断されているか、サーバーが混み合っています。",
+  "zh": "网络已断开或服务器繁忙。"
+ },
+ "인터넷 연결을 확인하세요.": {
+  "en": "Check your internet connection.",
+  "es": "Comprueba tu conexión a internet.",
+  "ja": "インターネット接続を確認してください。",
+  "zh": "请检查网络连接。"
+ },
+ "잠시 뒤 [다시 시도]를 누르세요. 범위를 줄이면 더 빨리 받습니다.": {
+  "en": "Press [Try again] in a moment. A smaller extent downloads faster.",
+  "es": "Pulsa [Reintentar] dentro de un momento. Un ámbito más pequeño se descarga más rápido.",
+  "ja": "しばらくしてから[再試行]を押してください。範囲を小さくすると速くダウンロードできます。",
+  "zh": "稍后点击 [重试]。缩小范围可加快下载。"
+ },
+ "예상하지 못한 오류로 멈췄습니다": {
+  "en": "Stopped by an unexpected error",
+  "es": "Se detuvo por un error inesperado",
+  "ja": "予期しないエラーで停止しました",
+  "zh": "因意外错误而停止"
+ },
+ "생성 실패": {
+  "en": "Generation failed",
+  "es": "Error al crear",
+  "ja": "作成失敗",
+  "zh": "生成失败"
+ },
+ "같은 오류가 반복되면 [로그 복사]로 내용을 복사해 개발자에게 보내 주세요.": {
+  "en": "If the same error keeps happening, use [Copy log] and send it to the developer.",
+  "es": "Si el mismo error se repite, usa [Copiar registro] y envíaselo al desarrollador.",
+  "ja": "同じエラーが繰り返す場合は、[ログをコピー]で内容をコピーして開発者に送ってください。",
+  "zh": "如果同样的错误反复出现，请用 [复制日志] 复制内容并发送给开发者。"
+ },
+ "만든 데까지 결과 폴더에 남아 있습니다.": {
+  "en": "Whatever was made so far stays in the result folder.",
+  "es": "Lo creado hasta ahora queda en la carpeta de resultados.",
+  "ja": "作成済みの分は結果フォルダに残っています。",
+  "zh": "已生成的部分保留在结果文件夹中。"
+ },
+ "3D 모델 생성 완료": {
+  "en": "3D model created",
+  "es": "Modelo 3D creado",
+  "ja": "3Dモデル作成完了",
+  "zh": "3D 模型已生成"
+ },
+ "3D 파일 생성 완료 ({0}에 불러오지 못함)": {
+  "en": "3D file created (couldn't load into {0})",
+  "es": "Archivo 3D creado (no se pudo cargar en {0})",
+  "ja": "3Dファイル作成完了（{0}に読み込めませんでした）",
+  "zh": "3D 文件已生成（无法载入 {0}）"
+ },
+ "건물": {
+  "en": "Buildings",
+  "es": "Edificios",
+  "ja": "建物",
+  "zh": "建筑"
+ },
+ "{0}동": {
+  "en": "{0}",
+  "es": "{0}",
+  "ja": "{0}棟",
+  "zh": "{0}栋"
+ },
+ "□ 한 변 {0} m": {
+  "en": "□ {0} m side",
+  "es": "□ {0} m de lado",
+  "ja": "□ 一辺 {0} m",
+  "zh": "□ 边长 {0} m"
+ },
+ "○ 반경 {0} m": {
+  "en": "○ {0} m radius",
+  "es": "○ {0} m de radio",
+  "ja": "○ 半径 {0} m",
+  "zh": "○ 半径 {0} m"
+ },
+ "레이어": {
+  "en": "Layers",
+  "es": "Capas",
+  "ja": "レイヤー",
+  "zh": "图层"
+ },
+ "3D 보기": {
+  "en": "View 3D",
+  "es": "Ver 3D",
+  "ja": "3Dを表示",
+  "zh": "查看 3D"
+ },
+ "{0} 받기": {
+  "en": "Download {0}",
+  "es": "Descargar {0}",
+  "ja": "{0}をダウンロード",
+  "zh": "下载 {0}"
+ },
+ "결과 폴더의 {0}을 지금 열린 파일로 불러옵니다": {
+  "en": "Loads {0} from the result folder into the open file",
+  "es": "Carga {0} de la carpeta de resultados en el archivo abierto",
+  "ja": "結果フォルダの{0}を、今開いているファイルに読み込みます",
+  "zh": "将结果文件夹中的 {0} 载入当前打开的文件"
+ },
+ "{0}에 불러오기": {
+  "en": "Load into {0}",
+  "es": "Cargar en {0}",
+  "ja": "{0}に読み込み",
+  "zh": "载入 {0}"
+ },
+ "3D를 지웠나요?": {
+  "en": "Deleted the 3D?",
+  "es": "¿Borraste el 3D?",
+  "ja": "3Dを削除しましたか？",
+  "zh": "删除了 3D？"
+ },
+ "이 대상지의 3D를 지우고 결과 폴더의 {0}에서 다시 불러옵니다": {
+  "en": "Deletes this site's 3D and loads it again from {0} in the result folder",
+  "es": "Borra el 3D de este sitio y lo vuelve a cargar desde {0} en la carpeta de resultados",
+  "ja": "この対象地の3Dを削除し、結果フォルダの{0}から読み込み直します",
+  "zh": "删除该场地的 3D，并从结果文件夹中的 {0} 重新载入"
+ },
+ "다시 불러오기": {
+  "en": "Load again",
+  "es": "Volver a cargar",
+  "ja": "再読み込み",
+  "zh": "重新载入"
+ },
+ "문서에 넣지 못했습니다": {
+  "en": "Couldn't add to the document",
+  "es": "No se pudo añadir al documento",
+  "ja": "ドキュメントに追加できませんでした",
+  "zh": "无法添加到文档"
+ },
+ "이 파일을 {0}에서 직접 가져올 수 있습니다": {
+  "en": "You can import this file in {0} yourself",
+  "es": "Puedes importar este archivo en {0} manualmente",
+  "ja": "このファイルは{0}で手動で読み込めます",
+  "zh": "可以在 {0} 中手动导入此文件"
+ },
+ "{0}에 불러왔습니다 (객체 {1}개)": {
+  "en": "Loaded into {0} ({1} objects)",
+  "es": "Cargado en {0} ({1} objetos)",
+  "ja": "{0}に読み込みました（オブジェクト {1}個）",
+  "zh": "已载入 {0}（{1} 个对象）"
+ },
+ "2D 자료 만드는 중": {
+  "en": "Creating 2D material",
+  "es": "Creando material 2D",
+  "ja": "2D資料作成中",
+  "zh": "正在生成 2D 成果"
+ },
+ "다른 2D도 만들기": {
+  "en": "Make more 2D",
+  "es": "Crear más 2D",
+  "ja": "ほかの2Dも作成",
+  "zh": "生成更多 2D 成果"
+ },
+ "보고서 A3": {
+  "en": "Report A3",
+  "es": "Informe A3",
+  "ja": "報告書 A3",
+  "zh": "报告 A3"
+ },
+ "판넬 A1": {
+  "en": "Board A1",
+  "es": "Panel A1",
+  "ja": "パネル A1",
+  "zh": "展板 A1"
+ },
+ "전체": {
+  "en": "All",
+  "es": "Todos",
+  "ja": "すべて",
+  "zh": "全部"
+ },
+ "현황도": {
+  "en": "Existing conditions",
+  "es": "Estado actual",
+  "ja": "現況図",
+  "zh": "现状图"
+ },
+ "분석도": {
+  "en": "Analysis",
+  "es": "Análisis",
+  "ja": "分析図",
+  "zh": "分析图"
+ },
+ "축척 {0} 자동 맞춤 (범위가 {1}에 들어가게)": {
+  "en": "Scale {0}, fitted automatically so the extent fits on {1}",
+  "es": "Escala {0}, ajustada automáticamente para que el ámbito quepa en {1}",
+  "ja": "縮尺 {0} 自動調整（範囲が{1}に収まるように）",
+  "zh": "比例尺 {0}（自动适配，使范围纳入 {1}）"
+ },
+ "용지": {
+  "en": "Paper",
+  "es": "Papel",
+  "ja": "用紙",
+  "zh": "图幅"
+ },
+ "가로 mm": {
+  "en": "Width (mm)",
+  "es": "Ancho (mm)",
+  "ja": "幅 (mm)",
+  "zh": "宽 (mm)"
+ },
+ "세로 mm": {
+  "en": "Height (mm)",
+  "es": "Alto (mm)",
+  "ja": "高さ (mm)",
+  "zh": "高 (mm)"
+ },
+ "축척": {
+  "en": "Scale",
+  "es": "Escala",
+  "ja": "縮尺",
+  "zh": "比例尺"
+ },
+ "더 그리기": {
+  "en": "Also draw",
+  "es": "Dibujar también",
+  "ja": "追加で描画",
+  "zh": "另外绘制"
+ },
+ "가장 상세한 축척의 선 도면을 basemap_축척.dwg로 저장합니다. 3D 모델과 좌표가 같습니다": {
+  "en": "Saves line work at the most detailed scale as basemap_scale.dwg, in the same coordinates as the 3D model",
+  "es": "Guarda las líneas a la escala más detallada como basemap_escala.dwg, con las mismas coordenadas que el modelo 3D",
+  "ja": "最も詳細な縮尺の線図面をbasemap_縮尺.dwgとして保存します。3Dモデルと同じ座標です",
+  "zh": "将最详细比例尺的线条图纸保存为 basemap_比例尺.dwg，与 3D 模型坐标一致"
+ },
+ "AutoCAD용 DWG도 저장": {
+  "en": "Also save a DWG for AutoCAD",
+  "es": "Guardar también un DWG para AutoCAD",
+  "ja": "AutoCAD用のDWGも保存",
+  "zh": "同时保存 AutoCAD 用 DWG"
+ },
+ "더 넣기": {
+  "en": "Also add",
+  "es": "Añadir también",
+  "ja": "追加",
+  "zh": "另外添加"
+ },
+ "경관·조망, 이미지맵, 종합분석. 손으로 그려 넣는 빈 틀입니다": {
+  "en": "Views and vistas, image map, synthesis. Blank frames to fill in by hand",
+  "es": "Paisaje y vistas, mapa de imagen, síntesis. Marcos en blanco para completar a mano",
+  "ja": "景観・眺望、イメージマップ、総合分析。手で描き込む空のフレームです",
+  "zh": "景观与视线、意象地图、综合分析。供手绘填写的空白图框"
+ },
+ "그려 넣을 틀": {
+  "en": "Blank frames",
+  "es": "Marcos en blanco",
+  "ja": "空のフレーム",
+  "zh": "空白图框"
+ },
+ "기본": {
+  "en": "Base",
+  "es": "Base",
+  "ja": "基本",
+  "zh": "基础"
+ },
+ "지형 없음": {
+  "en": "No terrain",
+  "es": "Sin terreno",
+  "ja": "地形なし",
+  "zh": "无地形"
+ },
+ "층수 구분": {
+  "en": "Floor bands",
+  "es": "Rangos de plantas",
+  "ja": "階数区分",
+  "zh": "层数分级"
+ },
+ "층수 경계 1": {
+  "en": "Floor break 1",
+  "es": "Corte de plantas 1",
+  "ja": "階数の区切り 1",
+  "zh": "层数分界 1"
+ },
+ "층수 경계 2": {
+  "en": "Floor break 2",
+  "es": "Corte de plantas 2",
+  "ja": "階数の区切り 2",
+  "zh": "层数分界 2"
+ },
+ "층": {
+  "en": "floors",
+  "es": "plantas",
+  "ja": "階",
+  "zh": "层"
+ },
+ "표고 단계": {
+  "en": "Elevation step",
+  "es": "Intervalo de elevación",
+  "ja": "標高の段階",
+  "zh": "高程分级"
+ },
+ "스타일": {
+  "en": "Style",
+  "es": "Estilo",
+  "ja": "スタイル",
+  "zh": "样式"
+ },
+ "다이어그램 스타일": {
+  "en": "Diagram style",
+  "es": "Estilo de diagramas",
+  "ja": "ダイアグラムのスタイル",
+  "zh": "分析图样式"
+ },
+ "미리보며 색, 레이아웃, 표제를 바꿉니다": {
+  "en": "Change colors, layout and title block with a live preview",
+  "es": "Cambia colores, diseño y cajetín con vista previa",
+  "ja": "プレビューを見ながら色、レイアウト、表題を変更します",
+  "zh": "边预览边修改颜色、版式和图签"
+ },
+ "편집": {
+  "en": "Edit",
+  "es": "Editar",
+  "ja": "編集",
+  "zh": "编辑"
+ },
+ "다른 2D 자료도 만들까요?": {
+  "en": "Make more 2D material?",
+  "es": "¿Crear más material 2D?",
+  "ja": "ほかの2D資料も作成しますか？",
+  "zh": "还要生成其他 2D 成果吗？"
+ },
+ "2D 자료도 만들까요?": {
+  "en": "Also make 2D material?",
+  "es": "¿Crear también material 2D?",
+  "ja": "2D資料も作成しますか？",
+  "zh": "要同时生成 2D 成果吗？"
+ },
+ "2D 자료 만들기": {
+  "en": "Create 2D material",
+  "es": "Crear material 2D",
+  "ja": "2D資料作成",
+  "zh": "生成 2D 成果"
+ },
+ "베이스맵": {
+  "en": "Basemap",
+  "es": "Plano base",
+  "ja": "ベースマップ",
+  "zh": "底图"
+ },
+ "Illustrator 레이어 도면 (.ai)": {
+  "en": "Layered Illustrator drawing (.ai)",
+  "es": "Plano de Illustrator por capas (.ai)",
+  "ja": "Illustratorのレイヤー図面 (.ai)",
+  "zh": "Illustrator 分图层图纸 (.ai)"
+ },
+ "현황도와 분석도 (.svg, .ai)": {
+  "en": "Existing-conditions and analysis maps (.svg, .ai)",
+  "es": "Planos de estado actual y de análisis (.svg, .ai)",
+  "ja": "現況図と分析図 (.svg, .ai)",
+  "zh": "现状图与分析图 (.svg, .ai)"
+ },
+ "조서": {
+  "en": "Tables",
+  "es": "Tablas",
+  "ja": "調書",
+  "zh": "统计表"
+ },
+ "필지와 건축물 표 (엑셀 CSV)": {
+  "en": "Parcel and building tables (Excel CSV)",
+  "es": "Tablas de parcelas y edificios (CSV para Excel)",
+  "ja": "区画と建物の表 (Excel CSV)",
+  "zh": "地块与建筑统计表 (Excel CSV)"
+ },
+ "2D 자료 생성 완료": {
+  "en": "2D material created",
+  "es": "Material 2D creado",
+  "ja": "2D資料作成完了",
+  "zh": "2D 成果已生成"
+ },
+ "다이어그램 {0}장": {
+  "en": "{0} diagrams",
+  "es": "{0} diagramas",
+  "ja": "ダイアグラム {0}枚",
+  "zh": "分析图 {0} 张"
+ },
+ ", 빈 {0}장": {
+  "en": ", {0} empty",
+  "es": ", {0} vacíos",
+  "ja": "、空 {0}枚",
+  "zh": "，空白 {0} 张"
+ },
+ "다이어그램을 모두 Illustrator용 레이어 .ai로 2D/sheets 폴더에 저장합니다": {
+  "en": "Saves every diagram as a layered Illustrator .ai in the 2D/sheets folder",
+  "es": "Guarda todos los diagramas como .ai de Illustrator por capas en la carpeta 2D/sheets",
+  "ja": "すべてのダイアグラムをIllustrator用のレイヤー付き.aiとして2D/sheetsフォルダに保存します",
+  "zh": "将所有分析图保存为 Illustrator 分图层 .ai，存入 2D/sheets 文件夹"
+ },
+ "모두 .ai로 저장": {
+  "en": "Save all as .ai",
+  "es": "Guardar todo como .ai",
+  "ja": "すべて.aiで保存",
+  "zh": "全部存为 .ai"
+ },
+ "다른 축척": {
+  "en": "Other scales",
+  "es": "Otras escalas",
+  "ja": "ほかの縮尺",
+  "zh": "其他比例尺"
+ },
+ "1:{0} 베이스맵 .ai를 더 만듭니다": {
+  "en": "Also make a 1:{0} basemap .ai",
+  "es": "Crea también un plano base .ai a 1:{0}",
+  "ja": "1:{0}のベースマップ .aiを追加で作成します",
+  "zh": "另外生成 1:{0} 底图 .ai"
+ },
+ "{0} (저장한 스타일)": {
+  "en": "{0} (saved style)",
+  "es": "{0} (estilo guardado)",
+  "ja": "{0}（保存したスタイル）",
+  "zh": "{0}（已保存的样式）"
+ },
+ "종이": {
+  "en": "Paper",
+  "es": "Papel",
+  "ja": "用紙",
+  "zh": "纸张"
+ },
+ "면": {
+  "en": "Fills",
+  "es": "Rellenos",
+  "ja": "塗り",
+  "zh": "填色"
+ },
+ "가구(블록)": {
+  "en": "Blocks",
+  "es": "Manzanas",
+  "ja": "街区",
+  "zh": "街区"
+ },
+ "도로": {
+  "en": "Roads",
+  "es": "Vías",
+  "ja": "道路",
+  "zh": "道路"
+ },
+ "녹지와 공원": {
+  "en": "Green space and parks",
+  "es": "Zonas verdes y parques",
+  "ja": "緑地と公園",
+  "zh": "绿地与公园"
+ },
+ "수계": {
+  "en": "Water",
+  "es": "Agua",
+  "ja": "水系",
+  "zh": "水系"
+ },
+ "철도": {
+  "en": "Rail",
+  "es": "Ferrocarril",
+  "ja": "鉄道",
+  "zh": "铁路"
+ },
+ "선과 글자": {
+  "en": "Lines and text",
+  "es": "Líneas y texto",
+  "ja": "線と文字",
+  "zh": "线条与文字"
+ },
+ "분석 범위": {
+  "en": "Analysis extent",
+  "es": "Ámbito de análisis",
+  "ja": "分析範囲",
+  "zh": "分析范围"
+ },
+ "글자와 선": {
+  "en": "Text and lines",
+  "es": "Texto y líneas",
+  "ja": "文字と線",
+  "zh": "文字与线条"
+ },
+ "정보 오른쪽": {
+  "en": "Info at right",
+  "es": "Info a la derecha",
+  "ja": "情報を右に",
+  "zh": "信息在右"
+ },
+ "정보 아래": {
+  "en": "Info below",
+  "es": "Info debajo",
+  "ja": "情報を下に",
+  "zh": "信息在下"
+ },
+ "지도만": {
+  "en": "Map only",
+  "es": "Solo mapa",
+  "ja": "地図のみ",
+  "zh": "仅地图"
+ },
+ "끔": {
+  "en": "Off",
+  "es": "No",
+  "ja": "なし",
+  "zh": "无"
+ },
+ "약": {
+  "en": "Light",
+  "es": "Suave",
+  "ja": "弱",
+  "zh": "弱"
+ },
+ "중": {
+  "en": "Medium",
+  "es": "Medio",
+  "ja": "中",
+  "zh": "中"
+ },
+ "강": {
+  "en": "Strong",
+  "es": "Fuerte",
+  "ja": "強",
+  "zh": "强"
+ },
+ "북서": {
+  "en": "Northwest",
+  "es": "Noroeste",
+  "ja": "北西",
+  "zh": "西北"
+ },
+ "북동": {
+  "en": "Northeast",
+  "es": "Noreste",
+  "ja": "北東",
+  "zh": "东北"
+ },
+ "남서": {
+  "en": "Southwest",
+  "es": "Suroeste",
+  "ja": "南西",
+  "zh": "西南"
+ },
+ "남동": {
+  "en": "Southeast",
+  "es": "Sureste",
+  "ja": "南東",
+  "zh": "东南"
+ },
+ "웜": {
+  "en": "Warm",
+  "es": "Cálido",
+  "ja": "ウォーム",
+  "zh": "暖色"
+ },
+ "쿨": {
+  "en": "Cool",
+  "es": "Frío",
+  "ja": "クール",
+  "zh": "冷色"
+ },
+ "그린": {
+  "en": "Green",
+  "es": "Verde",
+  "ja": "グリーン",
+  "zh": "绿色"
+ },
+ "모노": {
+  "en": "Mono",
+  "es": "Monocromo",
+  "ja": "モノ",
+  "zh": "单色"
+ },
+ "스타일 {0}": {
+  "en": "Style: {0}",
+  "es": "Estilo: {0}",
+  "ja": "スタイル：{0}",
+  "zh": "样式：{0}"
+ },
+ "사용자": {
+  "en": "Custom",
+  "es": "Personalizado",
+  "ja": "カスタム",
+  "zh": "自定义"
+ },
+ "{0} (수정됨)": {
+  "en": "{0} (edited)",
+  "es": "{0} (editado)",
+  "ja": "{0}（編集済み）",
+  "zh": "{0}（已修改）"
+ },
+ "빈 도면": {
+  "en": "Empty sheet",
+  "es": "Lámina vacía",
+  "ja": "空の図面",
+  "zh": "空白图纸"
+ },
+ "바꾸지 않고 돌아가기": {
+  "en": "Back without changes",
+  "es": "Volver sin cambios",
+  "ja": "変更せずに戻る",
+  "zh": "不修改并返回"
+ },
+ "다이어그램 미리보기": {
+  "en": "Diagram preview",
+  "es": "Vista previa del diagrama",
+  "ja": "ダイアグラムのプレビュー",
+  "zh": "分析图预览"
+ },
+ "그리는 중": {
+  "en": "Drawing…",
+  "es": "Dibujando…",
+  "ja": "描画中…",
+  "zh": "正在绘制…"
+ },
+ "미리볼 다이어그램": {
+  "en": "Diagram to preview",
+  "es": "Diagrama para previsualizar",
+  "ja": "プレビューするダイアグラム",
+  "zh": "要预览的分析图"
+ },
+ "{0} 색 코드": {
+  "en": "{0} color code",
+  "es": "Código de color: {0}",
+  "ja": "{0}の色コード",
+  "zh": "{0}颜色代码"
+ },
+ "직접 고르기": {
+  "en": "Pick…",
+  "es": "Elegir…",
+  "ja": "選択…",
+  "zh": "选择…"
+ },
+ "{0} 색 직접 고르기": {
+  "en": "Pick {0} color",
+  "es": "Elegir color: {0}",
+  "ja": "{0}の色を選択",
+  "zh": "选择{0}颜色"
+ },
+ "용도지역과 토지이용 관행색, 출처 줄은 고정": {
+  "en": "Standard zoning and land-use colors and the source line are fixed",
+  "es": "Los colores estándar de zonificación y uso del suelo, y la línea de fuente, son fijos",
+  "ja": "用途地域と土地利用の慣用色、出典の行は固定",
+  "zh": "用途分区与土地利用的惯用色及来源行固定不变"
+ },
+ "프리셋": {
+  "en": "Presets",
+  "es": "Predefinidos",
+  "ja": "プリセット",
+  "zh": "预设"
+ },
+ "레이아웃": {
+  "en": "Layout",
+  "es": "Diseño",
+  "ja": "レイアウト",
+  "zh": "版式"
+ },
+ "요소 색": {
+  "en": "Element colors",
+  "es": "Colores de elementos",
+  "ja": "要素の色",
+  "zh": "要素颜色"
+ },
+ "단계색": {
+  "en": "Color ramp",
+  "es": "Rampa de color",
+  "ja": "段階色",
+  "zh": "分级色"
+ },
+ "층수, 노후도, 지가, 표고": {
+  "en": "Floors, building age, land price, elevation",
+  "es": "Plantas, antigüedad, valor del suelo, elevación",
+  "ja": "階数、築年数、地価、標高",
+  "zh": "层数、建筑年代、地价、高程"
+ },
+ "작게": {
+  "en": "Small",
+  "es": "Pequeño",
+  "ja": "小",
+  "zh": "小"
+ },
+ "보통": {
+  "en": "Normal",
+  "es": "Normal",
+  "ja": "中",
+  "zh": "中"
+ },
+ "크게": {
+  "en": "Large",
+  "es": "Grande",
+  "ja": "大",
+  "zh": "大"
+ },
+ "가": {
+  "en": "Aa",
+  "es": "Aa",
+  "ja": "あ",
+  "zh": "字"
+ },
+ "고딕": {
+  "en": "Sans",
+  "es": "Sans",
+  "ja": "ゴシック",
+  "zh": "黑体"
+ },
+ "명조": {
+  "en": "Serif",
+  "es": "Serif",
+  "ja": "明朝",
+  "zh": "宋体"
+ },
+ "범위 밖 흐리기": {
+  "en": "Fade outside extent",
+  "es": "Atenuar fuera del ámbito",
+  "ja": "範囲外を薄く",
+  "zh": "淡化范围外"
+ },
+ "입체 매스도 시점": {
+  "en": "Massing view",
+  "es": "Vista axonométrica de volúmenes",
+  "ja": "立体マス図の視点",
+  "zh": "体块轴测图视角"
+ },
+ "카메라 방위, 등각": {
+  "en": "Camera direction, isometric",
+  "es": "Orientación de la cámara, isométrica",
+  "ja": "カメラの方位、等角",
+  "zh": "相机方位，等轴测"
+ },
+ "표제": {
+  "en": "Title block",
+  "es": "Cajetín",
+  "ja": "表題",
+  "zh": "图签"
+ },
+ "프로젝트명, 사무소": {
+  "en": "Project name, office",
+  "es": "Nombre del proyecto, estudio",
+  "ja": "プロジェクト名、事務所",
+  "zh": "项目名称、事务所"
+ },
+ "프로젝트명": {
+  "en": "Project name",
+  "es": "Nombre del proyecto",
+  "ja": "プロジェクト名",
+  "zh": "项目名称"
+ },
+ "지명과 역명": {
+  "en": "Place and station names",
+  "es": "Nombres de lugares y estaciones",
+  "ja": "地名と駅名",
+  "zh": "地名与站名"
+ },
+ "영문 부제": {
+  "en": "English subtitle",
+  "es": "Subtítulo en inglés",
+  "ja": "英文サブタイトル",
+  "zh": "英文副标题"
+ },
+ "이전": {
+  "en": "Previous",
+  "es": "Anterior",
+  "ja": "前へ",
+  "zh": "上一张"
+ },
+ "다음": {
+  "en": "Next",
+  "es": "Siguiente",
+  "ja": "次へ",
+  "zh": "下一张"
+ },
+ "불러오는 중": {
+  "en": "Loading…",
+  "es": "Cargando…",
+  "ja": "読み込み中…",
+  "zh": "正在加载…"
+ },
+ "Gorani를 쓰려면 데이터가 필요합니다": {
+  "en": "Gorani needs data to run",
+  "es": "Gorani necesita datos para funcionar",
+  "ja": "Goraniを使うにはデータが必要です",
+  "zh": "使用 Gorani 需要数据"
+ },
+ "필지 DB": {
+  "en": "Parcel DB",
+  "es": "BD de parcelas",
+  "ja": "区画DB",
+  "zh": "地块数据库"
+ },
+ "{0} 없음": {
+  "en": "{0} missing",
+  "es": "Falta {0}",
+  "ja": "{0}がありません",
+  "zh": "缺少 {0}"
+ },
+ "컨텍스트 DB": {
+  "en": "Context DB",
+  "es": "BD de contexto",
+  "ja": "コンテキストDB",
+  "zh": "周边环境数据库"
+ },
+ "필지 DB {0} 를 data 폴더에 넣으세요.": {
+  "en": "Put the parcel DB {0} in the data folder.",
+  "es": "Coloca la BD de parcelas {0} en la carpeta data.",
+  "ja": "区画DB {0} をdataフォルダに入れてください。",
+  "zh": "请将地块数据库 {0} 放入 data 文件夹。"
+ },
+ "data 폴더 열기": {
+  "en": "Open data folder",
+  "es": "Abrir carpeta data",
+  "ja": "dataフォルダを開く",
+  "zh": "打开 data 文件夹"
+ },
+ "문서 열기": {
+  "en": "Open guide",
+  "es": "Abrir guía",
+  "ja": "ガイドを開く",
+  "zh": "打开说明文档"
+ },
+ "다시 확인": {
+  "en": "Check again",
+  "es": "Volver a comprobar",
+  "ja": "再確認",
+  "zh": "重新检查"
+ },
+ "DB 없이 시작하려면 건물, 도로, 지형을 OpenStreetMap에서 받습니다(필지, 용도지역 없음).": {
+  "en": "To start without the DB, buildings, roads and terrain come from OpenStreetMap (no parcels or zoning).",
+  "es": "Para empezar sin la BD, los edificios, las vías y el terreno se descargan de OpenStreetMap (sin parcelas ni zonificación).",
+  "ja": "DBなしで始める場合は、建物・道路・地形をOpenStreetMapからダウンロードします（区画・用途地域なし）。",
+  "zh": "如不使用数据库，建筑、道路和地形将从 OpenStreetMap 下载（无地块和用途分区）。"
+ },
+ "OpenStreetMap으로 쓰기": {
+  "en": "Use OpenStreetMap",
+  "es": "Usar OpenStreetMap",
+  "ja": "OpenStreetMapを使用",
+  "zh": "使用 OpenStreetMap"
+ },
+ "Rhino 도구 → 패키지 관리자": {
+  "en": "Rhino Tools → Package Manager",
+  "es": "Rhino: Herramientas → Gestor de paquetes",
+  "ja": "Rhino ツール → パッケージマネージャー",
+  "zh": "Rhino 工具 → 包管理器 (Package Manager)"
+ },
+ "Gorani 검색 → 업데이트": {
+  "en": "Search for Gorani → Update",
+  "es": "Busca Gorani → Actualizar",
+  "ja": "Goraniを検索 → アップデート",
+  "zh": "搜索 Gorani → 更新"
+ },
+ "Rhino 다시 시작": {
+  "en": "Restart Rhino",
+  "es": "Reinicia Rhino",
+  "ja": "Rhinoを再起動",
+  "zh": "重启 Rhino"
+ },
+ "편집 → 환경설정 → 확장": {
+  "en": "Edit → Preferences → Extensions",
+  "es": "Editar → Preferencias → Extensiones",
+  "ja": "編集 → プリファレンス → エクステンション",
+  "zh": "编辑 → 偏好设置 → 扩展"
+ },
+ "Gorani 업데이트": {
+  "en": "Update Gorani",
+  "es": "Actualiza Gorani",
+  "ja": "Goraniをアップデート",
+  "zh": "更新 Gorani"
+ },
+ "Blender 다시 시작": {
+  "en": "Restart Blender",
+  "es": "Reinicia Blender",
+  "ja": "Blenderを再起動",
+  "zh": "重启 Blender"
+ },
+ "SketchUp 다시 시작": {
+  "en": "Restart SketchUp",
+  "es": "Reinicia SketchUp",
+  "ja": "SketchUpを再起動",
+  "zh": "重启 SketchUp"
+ },
+ "웹페이지": {
+  "en": "Website",
+  "es": "Sitio web",
+  "ja": "ウェブサイト",
+  "zh": "网站"
+ },
+ "지금 버전 {0}": {
+  "en": "Current version {0}",
+  "es": "Versión actual {0}",
+  "ja": "現在のバージョン {0}",
+  "zh": "当前版本 {0}"
+ },
+ "업데이트해야 쓸 수 있습니다": {
+  "en": "Update required",
+  "es": "Actualización necesaria",
+  "ja": "アップデートが必要です",
+  "zh": "需要更新"
+ },
+ "Gorani {0}은 지원이 끝났습니다. {1} 이상으로 업데이트하세요.": {
+  "en": "Gorani {0} is no longer supported. Update to {1} or later.",
+  "es": "Gorani {0} ya no tiene soporte. Actualiza a la {1} o posterior.",
+  "ja": "Gorani {0}のサポートは終了しました。{1}以降にアップデートしてください。",
+  "zh": "Gorani {0} 已停止支持。请更新到 {1} 或更高版本。"
+ },
+ "결과 폴더": {
+  "en": "Result folder",
+  "es": "Carpeta de resultados",
+  "ja": "結果フォルダ",
+  "zh": "结果文件夹"
+ },
+ "Gorani {0}이 나왔습니다": {
+  "en": "Gorani {0} is available",
+  "es": "Ya está disponible Gorani {0}",
+  "ja": "Gorani {0}が公開されました",
+  "zh": "Gorani {0} 已发布"
+ },
+ "{0}부터 이 버전({1})은 쓸 수 없습니다.": {
+  "en": "This version ({1}) stops working on {0}.",
+  "es": "Esta versión ({1}) dejará de funcionar a partir del {0}.",
+  "ja": "{0}以降、このバージョン（{1}）は使えなくなります。",
+  "zh": "自 {0} 起，此版本（{1}）将无法使用。"
+ },
+ "업데이트 방법": {
+  "en": "How to update",
+  "es": "Cómo actualizar",
+  "ja": "アップデート方法",
+  "zh": "更新方法"
+ },
+ "나중에": {
+  "en": "Later",
+  "es": "Más tarde",
+  "ja": "後で",
+  "zh": "稍后"
+ },
+ "{0}부터 이 버전은 쓸 수 없습니다": {
+  "en": "This version stops working on {0}",
+  "es": "Esta versión dejará de funcionar a partir del {0}",
+  "ja": "{0}以降、このバージョンは使えなくなります",
+  "zh": "自 {0} 起，此版本将无法使用"
+ },
+ "자세히": {
+  "en": "Details",
+  "es": "Detalles",
+  "ja": "詳細",
+  "zh": "详情"
+ },
+ "공지 모두 보기": {
+  "en": "See all notices",
+  "es": "Ver todos los avisos",
+  "ja": "お知らせをすべて表示",
+  "zh": "查看全部公告"
+ },
+ "닫기(메뉴에서 다시 봅니다)": {
+  "en": "Close (it stays in the menu)",
+  "es": "Cerrar (seguirá en el menú)",
+  "ja": "閉じる（メニューで再表示できます）",
+  "zh": "关闭（可在菜单中再次查看）"
+ },
+ "닫은 공지는 메뉴에서 다시 볼 수 있습니다": {
+  "en": "Closed notices stay in the menu",
+  "es": "Los avisos cerrados siguen en el menú",
+  "ja": "閉じたお知らせはメニューで再表示できます",
+  "zh": "已关闭的公告可在菜单中再次查看"
+ },
+ "공지": {
+  "en": "Notices",
+  "es": "Avisos",
+  "ja": "お知らせ",
+  "zh": "公告"
+ },
+ "닫음": {
+  "en": "Closed",
+  "es": "Cerrado",
+  "ja": "非表示",
+  "zh": "已关闭"
+ },
+ "아직 없습니다. 필지로 만들면 여기에 남습니다": {
+  "en": "Nothing yet. Sites made from parcels appear here",
+  "es": "Aún no hay nada. Los sitios creados con parcelas aparecen aquí",
+  "ja": "まだありません。区画で作成すると、ここに残ります",
+  "zh": "暂无记录。用地块方式生成后会显示在这里"
+ },
+ "설정": {
+  "en": "Settings",
+  "es": "Ajustes",
+  "ja": "設定",
+  "zh": "设置"
+ },
+ "폴더 경로": {
+  "en": "Folder",
+  "es": "Carpeta",
+  "ja": "フォルダ",
+  "zh": "文件夹"
+ },
+ "열기": {
+  "en": "Open",
+  "es": "Abrir",
+  "ja": "開く",
+  "zh": "打开"
+ },
+ "{0} (결과 result, 지역 데이터 data)": {
+  "en": "{0} (results in result, regional data in data)",
+  "es": "{0} (resultados en result, datos regionales en data)",
+  "ja": "{0}（結果はresult、地域データはdata）",
+  "zh": "{0}（结果在 result，区域数据在 data）"
+ },
+ "한국 자료": {
+  "en": "Korea data",
+  "es": "Datos de Corea",
+  "ja": "韓国データ",
+  "zh": "韩国数据"
+ },
+ "필지, 건축물대장, 용도지역": {
+  "en": "Parcels, building register, zoning",
+  "es": "Parcelas, registro de edificios, zonificación",
+  "ja": "区画、建築物台帳、用途地域",
+  "zh": "地块、建筑物台账、用途分区"
+ },
+ "국가 DB": {
+  "en": "National DB",
+  "es": "BD nacional",
+  "ja": "国のDB",
+  "zh": "国家数据库"
+ },
+ "한국 안에서도 OpenStreetMap으로 만듭니다(필지, 용도지역 없음)": {
+  "en": "Use OpenStreetMap inside Korea too (no parcels or zoning)",
+  "es": "Usa OpenStreetMap también dentro de Corea (sin parcelas ni zonificación)",
+  "ja": "韓国内でもOpenStreetMapで作成します（区画・用途地域なし）",
+  "zh": "在韩国境内也使用 OpenStreetMap 生成（无地块和用途分区）"
+ },
+ "사용 통계": {
+  "en": "Usage statistics",
+  "es": "Estadísticas de uso",
+  "ja": "利用統計",
+  "zh": "使用统计"
+ },
+ "보냄": {
+  "en": "Sending",
+  "es": "Se envían",
+  "ja": "送信する",
+  "zh": "发送"
+ },
+ "보내지 않음": {
+  "en": "Not sending",
+  "es": "No se envían",
+  "ja": "送信しない",
+  "zh": "不发送"
+ },
+ "끄기": {
+  "en": "Turn off",
+  "es": "Desactivar",
+  "ja": "オフにする",
+  "zh": "关闭"
+ },
+ "켜기": {
+  "en": "Turn on",
+  "es": "Activar",
+  "ja": "オンにする",
+  "zh": "开启"
+ },
+ "대상지 위치, 결과, 오류 종류만 보내고 이름이나 파일은 보내지 않습니다": {
+  "en": "Only the site location, results and error types are sent, never names or files",
+  "es": "Solo se envían la ubicación del sitio, los resultados y los tipos de error; nunca nombres ni archivos",
+  "ja": "対象地の位置、結果、エラーの種類だけを送信し、名前やファイルは送信しません",
+  "zh": "仅发送场地位置、结果和错误类型，不发送名称或文件"
+ },
+ "도움": {
+  "en": "Help",
+  "es": "Ayuda",
+  "ja": "ヘルプ",
+  "zh": "帮助"
+ },
+ "설치와 사용법": {
+  "en": "Installation and usage",
+  "es": "Instalación y uso",
+  "ja": "インストールと使い方",
+  "zh": "安装与使用方法"
+ },
+ "고라니 웹페이지": {
+  "en": "Gorani website",
+  "es": "Sitio web de Gorani",
+  "ja": "Goraniのウェブサイト",
+  "zh": "Gorani 网站"
+ },
+ "OpenStreetMap으로 만듭니다(필지, 용도지역 없음)": {
+  "en": "Using OpenStreetMap (no parcels or zoning)",
+  "es": "Se usa OpenStreetMap (sin parcelas ni zonificación)",
+  "ja": "OpenStreetMapで作成します（区画・用途地域なし）",
+  "zh": "使用 OpenStreetMap 生成（无地块和用途分区）"
+ },
+ "한국은 국가 DB로 만듭니다": {
+  "en": "Korea uses the national DB",
+  "es": "En Corea se usa la BD nacional",
+  "ja": "韓国は国のDBで作成します",
+  "zh": "韩国境内使用国家数据库生成"
+ },
+ "도구를 고치는 데 쓸 사용 통계를 보낼까요?": {
+  "en": "Send usage statistics to help improve the tool?",
+  "es": "¿Enviar estadísticas de uso para ayudar a mejorar la herramienta?",
+  "ja": "ツールの改善に使う利用統計を送信しますか？",
+  "zh": "是否发送使用统计以帮助改进工具？"
+ },
+ "보내기": {
+  "en": "Send",
+  "es": "Enviar",
+  "ja": "送信",
+  "zh": "发送"
+ },
+ "보내지 않기": {
+  "en": "Don't send",
+  "es": "No enviar",
+  "ja": "送信しない",
+  "zh": "不发送"
+ },
+ "사용 통계를 보냅니다": {
+  "en": "Sending usage statistics",
+  "es": "Se enviarán estadísticas de uso",
+  "ja": "利用統計を送信します",
+  "zh": "将发送使用统计"
+ },
+ "사용 통계를 보내지 않습니다": {
+  "en": "Not sending usage statistics",
+  "es": "No se enviarán estadísticas de uso",
+  "ja": "利用統計を送信しません",
+  "zh": "不发送使用统计"
+ },
+ "{0} 대상지를 지웠습니다": {
+  "en": "Site cleared ({0})",
+  "es": "Sitio borrado ({0})",
+  "ja": "対象地を消去しました（{0}）",
+  "zh": "已清除场地（{0}）"
+ },
+ "{0}에서 닫힌 커브를 고르세요": {
+  "en": "Pick a closed curve in {0}",
+  "es": "Elige una curva cerrada en {0}",
+  "ja": "{0}で閉じたカーブを選んでください",
+  "zh": "请在 {0} 中选择一条闭合曲线"
+ },
+ "만드는 중에는 지도로 갈 수 없습니다": {
+  "en": "Can't go to the map while creating",
+  "es": "No puedes volver al mapa mientras se crea",
+  "ja": "作成中は地図に戻れません",
+  "zh": "生成过程中无法返回地图"
+ },
+ "복사됨": {
+  "en": "Copied",
+  "es": "Copiado",
+  "ja": "コピーしました",
+  "zh": "已复制"
+ },
+ "복사 실패": {
+  "en": "Copy failed",
+  "es": "Error al copiar",
+  "ja": "コピー失敗",
+  "zh": "复制失败"
+ },
+ "이름을 적어 주세요": {
+  "en": "Enter a name",
+  "es": "Escribe un nombre",
+  "ja": "名前を入力してください",
+  "zh": "请输入名称"
+ },
+ "다이어그램 스타일을 {0}(으)로 정했습니다": {
+  "en": "Diagram style set to {0}",
+  "es": "Estilo de diagramas cambiado a {0}",
+  "ja": "ダイアグラムのスタイルを{0}に設定しました",
+  "zh": "分析图样式已设为 {0}"
+ },
+ "#RRGGBB 형식으로 적어 주세요": {
+  "en": "Use the #RRGGBB format",
+  "es": "Usa el formato #RRGGBB",
+  "ja": "#RRGGBB形式で入力してください",
+  "zh": "请使用 #RRGGBB 格式"
+ },
+ "찾지 못했습니다. 동 이름까지 적어 보세요(예: 성수동2가 277-17)": {
+  "en": "Not found. Include the neighborhood (dong) name, e.g. 성수동2가 277-17",
+  "es": "No se encontró. Incluye el nombre del barrio (dong), p. ej. 성수동2가 277-17",
+  "ja": "見つかりませんでした。洞（dong）の名前まで入力してみてください（例: 성수동2가 277-17）",
+  "zh": "未找到。请输入到洞 (dong) 名称，例如：성수동2가 277-17"
+ },
+ "후보 {0}건": {
+  "en": "{0} matches",
+  "es": "{0} resultados",
+  "ja": "候補 {0}件",
+  "zh": "{0} 个候选"
+ },
+ "커브를 좌표 그대로 놓았습니다. 옮기려면 [옮기기]를 누르세요": {
+  "en": "Placed the curve at its coordinates. Press [Move] to move it",
+  "es": "La curva se colocó en sus coordenadas. Pulsa [Mover] para moverla",
+  "ja": "カーブを座標どおりに配置しました。動かすには[移動]を押してください",
+  "zh": "已按原坐标放置曲线。如需移动，请点击 [移动]"
+ },
+ "커브 {0}. 지도를 움직여 자리를 맞추세요": {
+  "en": "Curve {0}. Move the map to position it",
+  "es": "Curva de {0}. Mueve el mapa para colocarla",
+  "ja": "カーブ {0}。地図を動かして位置を合わせてください",
+  "zh": "曲线 {0}。移动地图调整位置"
+ },
+ "만들지 못했습니다.": {
+  "en": "Couldn't create.",
+  "es": "No se pudo crear.",
+  "ja": "作成できませんでした。",
+  "zh": "生成失败。"
+ },
+ "레이어 .ai {0}장을 썼습니다": {
+  "en": "Wrote {0} layered .ai files",
+  "es": "Se guardaron {0} archivos .ai por capas",
+  "ja": "レイヤー付き.aiを{0}枚書き出しました",
+  "zh": "已写入 {0} 个分图层 .ai 文件"
+ },
+ "저장됨.": {
+  "en": "Saved.",
+  "es": "Guardado.",
+  "ja": "保存しました。",
+  "zh": "已保存。"
+ },
+ "styles 폴더": {
+  "en": "styles folder",
+  "es": "carpeta styles",
+  "ja": "stylesフォルダ",
+  "zh": "styles 文件夹"
+ },
+ "2D 자료를 만들었습니다": {
+  "en": "2D material created",
+  "es": "Material 2D creado",
+  "ja": "2D資料を作成しました",
+  "zh": "2D 成果已生成"
+ },
+ "취소했습니다. 만든 데까지 폴더에 남아 있습니다": {
+  "en": "Canceled. Whatever was made so far stays in the folder",
+  "es": "Cancelado. Lo creado hasta ahora queda en la carpeta",
+  "ja": "キャンセルしました。作成済みの分はフォルダに残っています",
+  "zh": "已取消。已生成的部分保留在文件夹中"
+ },
+ "2D 자료를 만들지 못했습니다": {
+  "en": "Couldn't create 2D material",
+  "es": "No se pudo crear el material 2D",
+  "ja": "2D資料を作成できませんでした",
+  "zh": "无法生成 2D 成果"
+ },
+ "{0}을 만들었습니다": {
+  "en": "Created {0}",
+  "es": "Se creó {0}",
+  "ja": "{0}を作成しました",
+  "zh": "已生成 {0}"
+ },
+ "내보내기 실패": {
+  "en": "Export failed",
+  "es": "Error al exportar",
+  "ja": "書き出し失敗",
+  "zh": "导出失败"
+ },
+ "(log.txt 확인)": {
+  "en": "(see log.txt)",
+  "es": "(consulta log.txt)",
+  "ja": "（log.txtを確認）",
+  "zh": "（请查看 log.txt）"
+ },
+ "오류": {
+  "en": "Error",
+  "es": "Error",
+  "ja": "エラー",
+  "zh": "错误"
+ },
+ "표준": {
+  "en": "Standard",
+  "es": "Estándar",
+  "ja": "標準",
+  "zh": "标准"
+ },
+ "선명": {
+  "en": "Vivid",
+  "es": "Vivo",
+  "ja": "鮮明",
+  "zh": "鲜明"
+ },
+ "흑백": {
+  "en": "Black and white",
+  "es": "Blanco y negro",
+  "ja": "モノクロ",
+  "zh": "黑白"
+ },
+ "다크": {
+  "en": "Dark",
+  "es": "Oscuro",
+  "ja": "ダーク",
+  "zh": "深色"
+ },
+ "확장 → 확장 관리자": {
+  "en": "Extensions → Extension Manager",
+  "es": "Extensiones → Administrador de extensiones",
+  "ja": "拡張機能 → 拡張機能マネージャー",
+  "zh": "扩展程序 → 扩展程序管理器"
+ },
+ "{0}외{1}": {
+  "en": "{0}+{1}",
+  "es": "{0}+{1}",
+  "ja": "{0}外{1}",
+  "zh": "{0}+{1}"
+ },
+ "일대": {
+  "en": "Vicinity",
+  "es": "Alrededores",
+  "ja": "周辺",
+  "zh": "周边"
+ },
+ "조각 {0}개": {
+  "en": "pieces: {0}",
+  "es": "piezas: {0}",
+  "ja": "部分 {0}個",
+  "zh": "{0} 个部分"
+ },
+ "구멍 {0}개": {
+  "en": "holes: {0}",
+  "es": "huecos: {0}",
+  "ja": "穴 {0}個",
+  "zh": "{0} 个孔洞"
+ },
+ "{0} 필지 {1} — 가장 넓은 조각 외곽선만 씁니다": {
+  "en": "Parcel {0} ({1}) — using only the outline of the largest piece",
+  "es": "Parcela {0} ({1}) — se usa solo el contorno de la pieza mayor",
+  "ja": "区画 {0}（{1}）— 最も広い部分の外形線だけを使います",
+  "zh": "地块 {0}（{1}）— 仅使用最大部分的轮廓"
+ },
+ "대상 필지는 닫힌 커브 하나여야 합니다. 조각·구멍은 CTX::Site에서 빠지고 면적은 대장값을 그대로 씁니다.": {
+  "en": "A site parcel must be a single closed curve. Extra pieces and holes are left out of CTX::Site, and the area uses the registered value.",
+  "es": "Una parcela del sitio debe ser una sola curva cerrada. Las piezas y huecos extra quedan fuera de CTX::Site, y el área usa el valor del registro.",
+  "ja": "対象区画は閉じたカーブ1本である必要があります。部分・穴は CTX::Site から除かれ、面積は台帳の値をそのまま使います。",
+  "zh": "场地地块必须是一条闭合曲线。多余部分和孔洞不计入 CTX::Site，面积沿用台账值。"
+ },
+ "합필 외곽선을 만들지 못해 필지별 외곽선을 씁니다": {
+  "en": "Couldn't merge the parcel outlines; using each parcel's outline",
+  "es": "No se pudieron unir los contornos; se usa el contorno de cada parcela",
+  "ja": "合筆の外形線を作れなかったため、区画ごとの外形線を使います",
+  "zh": "无法合并地块轮廓，改用各地块轮廓"
+ },
+ "합친 면적 {0:.1f} ㎡ · 필지 면적 합 {1:.1f} ㎡. 필지 경계가 크게 어긋난 곳입니다.": {
+  "en": "Merged area {0:.1f} m² · sum of parcel areas {1:.1f} m². The parcel boundaries don't line up well here.",
+  "es": "Área unida {0:.1f} m² · suma de áreas de parcelas {1:.1f} m². Aquí los límites de las parcelas no coinciden bien.",
+  "ja": "合成面積 {0:.1f} ㎡ · 区画面積の合計 {1:.1f} ㎡。区画境界が大きくずれている場所です。",
+  "zh": "合并面积 {0:.1f} ㎡ · 地块面积合计 {1:.1f} ㎡。此处地块边界偏差较大。"
+ },
+ "맞닿지 않은 필지가 있어 대상지가 {0}덩어리입니다": {
+  "en": "Some parcels don't touch, so the site has {0} separate parts",
+  "es": "Algunas parcelas no se tocan, así que el sitio tiene {0} partes separadas",
+  "ja": "接していない区画があるため、対象地は {0} つに分かれています",
+  "zh": "部分地块互不相邻，场地分为 {0} 块"
+ },
+ "합친 대상지 안에 고르지 않은 땅이 있습니다 — 바깥 외곽선만 씁니다": {
+  "en": "The merged site encloses land you didn't select — using only the outer outline",
+  "es": "El sitio unido encierra terreno no seleccionado — se usa solo el contorno exterior",
+  "ja": "合成した対象地の中に選んでいない土地があります — 外側の外形線だけを使います",
+  "zh": "合并后的场地内有未选中的用地 — 仅使用外轮廓"
+ },
+ "가운데 필지도 대상지라면 지도에서 함께 고르세요.": {
+  "en": "If the enclosed parcels belong to the site, select them on the map too.",
+  "es": "Si las parcelas interiores también son del sitio, selecciónalas en el mapa.",
+  "ja": "中の区画も対象地なら、地図で一緒に選んでください。",
+  "zh": "如果中间的地块也属于场地，请在地图上一并选中。"
+ },
+ "다른 지역 문서입니다. 새 문서에서 생성하세요 (문서 원점과 대상지 중심 거리 {0:.0f} m > {1:.0f} m)": {
+  "en": "This document is for a different area. Create in a new document (distance from document origin to site center {0:.0f} m > {1:.0f} m)",
+  "es": "Este documento es de otra zona. Genera el modelo en un documento nuevo (distancia del origen del documento al centro del sitio {0:.0f} m > {1:.0f} m)",
+  "ja": "別の地域のドキュメントです。新しいドキュメントで作成してください（ドキュメント原点から対象地中心までの距離 {0:.0f} m > {1:.0f} m）",
+  "zh": "这是其他区域的文档。请在新文档中生成（文档原点到场地中心的距离 {0:.0f} m > {1:.0f} m）"
+ },
+ "이 문서는 '{0}' 방식으로 생성된 문서입니다. '{1}'로 바꾸거나 새 문서에서 생성하세요": {
+  "en": "This document was created with '{0}', but '{1}' is selected. Change the coordinate setting or create in a new document",
+  "es": "Este documento se creó con '{0}', pero está seleccionado '{1}'. Cambia el ajuste de coordenadas o genera el modelo en un documento nuevo",
+  "ja": "このドキュメントは '{0}' で作成されていますが、'{1}' が選ばれています。座標の設定を変えるか、新しいドキュメントで作成してください",
+  "zh": "此文档使用 '{0}' 创建，但当前选择的是 '{1}'。请更改坐标设置，或在新文档中生成"
+ },
+ "문서 원점 재사용 E {0:.0f} / N {1:.0f}": {
+  "en": "Reusing the document origin E {0:.0f} / N {1:.0f}",
+  "es": "Se reutiliza el origen del documento E {0:.0f} / N {1:.0f}",
+  "ja": "ドキュメント原点を再利用 E {0:.0f} / N {1:.0f}",
+  "zh": "沿用文档原点 E {0:.0f} / N {1:.0f}"
+ },
+ "같은 문서에 이미 생성된 대상지가 있어 그 원점을 씁니다. 새 문서에서 생성하면 대상지 중심으로 원점이 잡힙니다.": {
+  "en": "This document already has a site, so its origin is reused. Create in a new document to center the origin on this site.",
+  "es": "Este documento ya tiene un sitio, así que se reutiliza su origen. Genera el modelo en un documento nuevo para centrar el origen en este sitio.",
+  "ja": "同じドキュメントにすでに作成した対象地があるため、その原点を使います。新しいドキュメントで作成すると、対象地の中心が原点になります。",
+  "zh": "此文档中已有生成的场地，因此沿用其原点。在新文档中生成时，原点将设在本场地中心。"
+ },
+ "위치(중심점)가 없습니다": {
+  "en": "No point (center) set",
+  "es": "No hay punto (centro)",
+  "ja": "地点（中心点）がありません",
+  "zh": "没有地点（中心点）"
+ },
+ "대상지 경계가 없어 '경계 그대로' 범위를 쓸 수 없습니다": {
+  "en": "The site has no boundary, so the extent can't follow it",
+  "es": "El sitio no tiene límite, así que el ámbito no puede seguirlo",
+  "ja": "対象地の境界がないため、境界どおりの範囲は使えません",
+  "zh": "场地没有边界，无法使用沿边界的范围"
+ },
+ "용지 크기(mm)는 양수 두 개여야 합니다: {0}": {
+  "en": "Paper size (mm) must be two positive numbers: {0}",
+  "es": "El tamaño del papel (mm) debe ser dos números positivos: {0}",
+  "ja": "用紙サイズ（mm）は正の数2つで指定してください: {0}",
+  "zh": "图幅尺寸（mm）必须是两个正数：{0}"
+ },
+ "지원하지 않는 축척 {0}입니다. 가능한 값 {1}": {
+  "en": "Unsupported scale {0}. Allowed values: {1}",
+  "es": "Escala no admitida: {0}. Valores posibles: {1}",
+  "ja": "対応していない縮尺 {0} です。使える値: {1}",
+  "zh": "不支持的比例尺 {0}。可用值：{1}"
+ },
+ "반경은 {0}~{1} m여야 합니다: {2}": {
+  "en": "Radius must be {0}–{1} m: {2}",
+  "es": "El radio debe estar entre {0} y {1} m: {2}",
+  "ja": "半径は {0}〜{1} m にしてください: {2}",
+  "zh": "半径必须在 {0}~{1} m 之间：{2}"
+ },
+ "만들 2D 자료를 하나 이상 고르세요": {
+  "en": "Select at least one 2D output to create",
+  "es": "Elige al menos un material 2D para crear",
+  "ja": "作成する2D資料を1つ以上選んでください",
+  "zh": "请至少选择一项要生成的 2D 成果"
+ },
+ "구역 안 필지 0 — 대상지 조서가 비어 나옵니다": {
+  "en": "No parcels inside the area — the site tables will be empty",
+  "es": "No hay parcelas dentro del área — las tablas del sitio saldrán vacías",
+  "ja": "エリア内の区画が0 — 対象地の調書は空になります",
+  "zh": "区域内没有地块 — 场地统计表将为空"
+ },
+ "필지 면적의 {0} % 이상이 구역 안에 있어야 대상 필지로 셉니다.": {
+  "en": "A parcel counts as part of the site when at least {0}% of its area is inside.",
+  "es": "Una parcela cuenta para el sitio si al menos el {0} % de su área está dentro.",
+  "ja": "面積の {0}% 以上がエリア内にある区画を対象区画として数えます。",
+  "zh": "地块面积的 {0}% 以上位于区域内才计为场地地块。"
+ },
+ "{0}({1}쪽)": {
+  "en": "{0} ({1})",
+  "es": "{0} ({1})",
+  "ja": "{0}（{1}側）",
+  "zh": "{0}（{1}侧）"
+ },
+ "도엽 {0}/{1}장 없음 — {2}": {
+  "en": "Missing map sheets: {0} of {1} — {2}",
+  "es": "Faltan hojas cartográficas: {0} de {1} — {2}",
+  "ja": "図葉 {0}/{1} 枚がありません — {2}",
+  "zh": "缺少 {0}/{1} 个图幅 — {2}"
+ },
+ "그 구역은 지형·도로면·건물 층수 보완이 빠집니다. 브이월드에서 도엽을 받아 data/raw/수치지형도_5000/에 두고 dev_context_builder.py를 다시 돌리세요.": {
+  "en": "Those areas will lack terrain, road surfaces and building floor data. Download the sheets from VWorld, put them in data/raw/수치지형도_5000/ and run dev_context_builder.py again.",
+  "es": "En esas zonas faltarán el terreno, las superficies viales y las plantas de los edificios. Descarga las hojas de VWorld, ponlas en data/raw/수치지형도_5000/ y vuelve a ejecutar dev_context_builder.py.",
+  "ja": "その範囲では地形・道路面・建物階数の補完が抜けます。VWorldから図葉をダウンロードして data/raw/수치지형도_5000/ に置き、dev_context_builder.py を再実行してください。",
+  "zh": "这些区域将缺少地形、道路面和建筑层数补充。请从 VWorld 下载图幅，放到 data/raw/수치지형도_5000/ 后重新运行 dev_context_builder.py。"
+ },
+ "절차 열기": {
+  "en": "Open guide",
+  "es": "Abrir guía",
+  "ja": "手順を開く",
+  "zh": "打开说明"
+ },
+ "동": {
+  "en": "East",
+  "es": "Este",
+  "ja": "東",
+  "zh": "东"
+ },
+ "북": {
+  "en": "North",
+  "es": "Norte",
+  "ja": "北",
+  "zh": "北"
+ },
+ "서": {
+  "en": "West",
+  "es": "Oeste",
+  "ja": "西",
+  "zh": "西"
+ },
+ "남": {
+  "en": "South",
+  "es": "Sur",
+  "ja": "南",
+  "zh": "南"
+ },
+ "키": {
+  "en": "Key",
+  "es": "Clave",
+  "ja": "キー",
+  "zh": "密钥"
+ },
+ "도시계획": {
+  "en": "Urban planning",
+  "es": "Planeamiento urbano",
+  "ja": "都市計画",
+  "zh": "城市规划"
+ },
+ "토지특성정보": {
+  "en": "Land Characteristics",
+  "es": "Características del suelo",
+  "ja": "土地特性情報",
+  "zh": "土地特性信息"
+ },
+ "GIS건물통합정보": {
+  "en": "GIS Integrated Building Data",
+  "es": "Información integrada de edificios GIS",
+  "ja": "GIS建物統合情報",
+  "zh": "GIS建筑综合信息"
+ },
+ "수치지형도 1:5,000": {
+  "en": "Digital Topographic Map 1:5,000",
+  "es": "Mapa topográfico digital 1:5.000",
+  "ja": "数値地形図 1:5,000",
+  "zh": "数字地形图 1:5,000"
+ },
+ "DB 없음": {
+  "en": "No DB",
+  "es": "Sin base de datos",
+  "ja": "DBなし",
+  "zh": "无数据库"
+ },
+ "{0:.1f}개월": {
+  "en": "{0:.1f} months",
+  "es": "{0:.1f} meses",
+  "ja": "{0:.1f}か月",
+  "zh": "{0:.1f} 个月"
+ },
+ "도엽 {0}장": {
+  "en": "Map sheets: {0}",
+  "es": "Hojas cartográficas: {0}",
+  "ja": "図葉 {0}枚",
+  "zh": "{0} 个图幅"
+ },
+ "있음": {
+  "en": "Yes",
+  "es": "Sí",
+  "ja": "あり",
+  "zh": "有"
+ },
+ "없음": {
+  "en": "None",
+  "es": "Ninguna",
+  "ja": "なし",
+  "zh": "无"
+ },
+ "해외 — 필지 자료 없음": {
+  "en": "Outside Korea — no parcel data",
+  "es": "Fuera de Corea — sin datos de parcelas",
+  "ja": "海外 — 区画データなし",
+  "zh": "韩国境外 — 无地块数据"
+ },
+ "해외": {
+  "en": "Outside Korea",
+  "es": "Fuera de Corea",
+  "ja": "海外",
+  "zh": "韩国境外"
+ },
+ "생성 때 받음": {
+  "en": "Downloaded when creating",
+  "es": "Se descarga al crear",
+  "ja": "作成時にダウンロード",
+  "zh": "生成时下载"
+ },
+ "생성할 때 받음": {
+  "en": "Downloaded when creating",
+  "es": "Se descarga al crear",
+  "ja": "作成時にダウンロード",
+  "zh": "生成时下载"
+ },
+ "생성할 때 받음 ({0:.0f} MB)": {
+  "en": "Downloaded when creating ({0:.0f} MB)",
+  "es": "Se descarga al crear ({0:.0f} MB)",
+  "ja": "作成時にダウンロード（{0:.0f} MB）",
+  "zh": "生成时下载（{0:.0f} MB）"
+ },
+ "Terrain Tiles (약 30 m DEM)": {
+  "en": "Terrain Tiles (approx. 30 m DEM)",
+  "es": "Terrain Tiles (DEM de unos 30 m)",
+  "ja": "Terrain Tiles（約30 m DEM）",
+  "zh": "Terrain Tiles（约 30 m DEM）"
+ },
+ "필요 없음": {
+  "en": "Not needed",
+  "es": "No necesaria",
+  "ja": "不要",
+  "zh": "不需要"
+ },
+ "지형·건물 DB 없음 — 필지·대상지만 생성됩니다": {
+  "en": "No terrain or building DB — only parcels and the site will be created",
+  "es": "No hay base de datos de terreno ni de edificios — solo se crearán las parcelas y el sitio",
+  "ja": "地形・建物DBがありません — 区画と対象地だけを作成します",
+  "zh": "无地形和建筑数据库 — 只会生成地块和场地"
+ },
+ "data/seoul_context.db가 없습니다. python3 scripts/dev_context_builder.py 로 만들거나 복사하세요. 시트 7~10·12·13이 비어 나옵니다.": {
+  "en": "data/seoul_context.db is missing. Build it with python3 scripts/dev_context_builder.py or copy it in. Sheets 7–10, 12 and 13 will be empty.",
+  "es": "Falta data/seoul_context.db. Créala con python3 scripts/dev_context_builder.py o cópiala. Las láminas 7–10, 12 y 13 saldrán vacías.",
+  "ja": "data/seoul_context.db がありません。python3 scripts/dev_context_builder.py で作成するかコピーしてください。シート7〜10・12・13は空になります。",
+  "zh": "缺少 data/seoul_context.db。请用 python3 scripts/dev_context_builder.py 生成或复制过来。图纸 7~10、12、13 将为空。"
+ },
+ "브이월드에서 새 판(기준일 {0})이 확인됨 → docs/data_sources.md §0 절차로 교체하세요": {
+  "en": "A newer edition (as of {0}) is on VWorld → replace it following docs/data_sources.md §0",
+  "es": "Hay una edición nueva en VWorld (fecha {0}) → reemplázala según docs/data_sources.md §0",
+  "ja": "VWorldに新版（基準日 {0}）があります → docs/data_sources.md §0 の手順で差し替えてください",
+  "zh": "VWorld 上有新版（基准日 {0}）→ 请按 docs/data_sources.md §0 的步骤替换"
+ },
+ "새 판 미확인(목록 조회 실패 또는 게시 지연)": {
+  "en": "No newer edition found (list check failed or not yet published)",
+  "es": "No se encontró una edición nueva (falló la consulta o aún no se publica)",
+  "ja": "新版は未確認（一覧の取得失敗または公開待ち）",
+  "zh": "未发现新版（列表查询失败或尚未发布）"
+ },
+ "{0} 자료 {1:.1f}개월 경과": {
+  "en": "{0}: data is {1:.1f} months old",
+  "es": "{0}: datos de hace {1:.1f} meses",
+  "ja": "{0}：データが{1:.1f}か月経過",
+  "zh": "{0}：数据已过 {1:.1f} 个月"
+ },
+ "새 판 있음": {
+  "en": "newer edition available",
+  "es": "hay una edición nueva",
+  "ja": "新版あり",
+  "zh": "有新版"
+ },
+ "⚠ {0} 자료가 {1:.1f}개월 지났습니다({2} {3}). {4}": {
+  "en": "⚠ {0}: data is {1:.1f} months old ({2} {3}). {4}",
+  "es": "⚠ {0}: los datos tienen {1:.1f} meses ({2} {3}). {4}",
+  "ja": "⚠ {0}：データが{1:.1f}か月経過しています（{2} {3}）。{4}",
+  "zh": "⚠ {0}：数据已过 {1:.1f} 个月（{2} {3}）。{4}"
+ },
+ "대상지 조회": {
+  "en": "Looking up the site",
+  "es": "Consultando el sitio",
+  "ja": "対象地を照会中",
+  "zh": "正在查询场地"
+ },
+ "주변 필지 조회": {
+  "en": "Looking up nearby parcels",
+  "es": "Consultando parcelas cercanas",
+  "ja": "周辺の区画を照会中",
+  "zh": "正在查询周边地块"
+ },
+ "건물·지형 조회": {
+  "en": "Looking up buildings and terrain",
+  "es": "Consultando edificios y terreno",
+  "ja": "建物・地形を照会中",
+  "zh": "正在查询建筑和地形"
+ },
+ "건물 {0}동 · 필지 {1}": {
+  "en": "{0} buildings · {1} parcels",
+  "es": "{0} edificios · {1} parcelas",
+  "ja": "建物 {0}棟 · 区画 {1}",
+  "zh": "建筑 {0} 栋 · 地块 {1}"
+ },
+ "주변 필지가 잘렸습니다 — 범위를 줄이세요": {
+  "en": "Nearby parcels were cut off — reduce the extent",
+  "es": "Se recortaron parcelas cercanas — reduce el ámbito",
+  "ja": "周辺の区画が途中で切れました — 範囲を小さくしてください",
+  "zh": "周边地块被截断 — 请缩小范围"
+ },
+ "높이 추정 비중 큼 — 등급 A+B {0} %": {
+  "en": "Many heights are estimated — grades A+B {0}%",
+  "es": "Muchas alturas son estimadas — grados A+B {0} %",
+  "ja": "推定高さの割合が高い — 等級A+B {0}%",
+  "zh": "估算高度占比高 — A+B 级 {0}%"
+ },
+ "대장 높이·층수(A·B)가 {0} % 미만입니다. 나머지는 수치지형도 층수나 기본값으로 추정한 높이입니다.": {
+  "en": "Register heights or floor counts (A, B) cover less than {0}% of buildings. The rest are estimated from topographic map floor counts or a default value.",
+  "es": "Las alturas o plantas del registro (A, B) cubren menos del {0} % de los edificios. El resto se estima con las plantas del mapa topográfico o un valor por defecto.",
+  "ja": "台帳の高さ・階数（A・B）が {0}% 未満です。残りは数値地形図の階数または既定値から推定した高さです。",
+  "zh": "台账高度、层数（A、B）不足 {0}%。其余为根据数字地形图层数或默认值估算的高度。"
+ },
+ "범위 안 건물 0동 — 컨텍스트 DB 범위·반경 확인": {
+  "en": "No buildings in the extent — check the context DB coverage and radius",
+  "es": "No hay edificios en el ámbito — revisa la cobertura de la base de datos de contexto y el radio",
+  "ja": "範囲内の建物が0棟 — コンテキストDBの範囲と半径を確認してください",
+  "zh": "范围内没有建筑 — 请检查周边环境数据库的覆盖范围和半径"
+ },
+ "반경 안 건물 0동 — 컨텍스트 DB 범위·반경 확인": {
+  "en": "No buildings within the radius — check the context DB coverage and radius",
+  "es": "No hay edificios dentro del radio — revisa la cobertura de la base de datos de contexto y el radio",
+  "ja": "半径内の建物が0棟 — コンテキストDBの範囲と半径を確認してください",
+  "zh": "半径内没有建筑 — 请检查周边环境数据库的覆盖范围和半径"
+ },
+ "OpenStreetMap·지형 타일 받는 중": {
+  "en": "Downloading OpenStreetMap and terrain tiles",
+  "es": "Descargando OpenStreetMap y teselas de terreno",
+  "ja": "OpenStreetMap・地形タイルをダウンロード中",
+  "zh": "正在下载 OpenStreetMap 和地形瓦片"
+ },
+ "Global — OpenStreetMap 건물 {0}동·지형 타일": {
+  "en": "Global — {0} OpenStreetMap buildings · terrain tiles",
+  "es": "Global — {0} edificios de OpenStreetMap · teselas de terreno",
+  "ja": "Global — OpenStreetMap 建物 {0}棟・地形タイル",
+  "zh": "Global — OpenStreetMap 建筑 {0} 栋 · 地形瓦片"
+ },
+ "필지·용도지역 도면은 Korea 모드에만 있고, 높이 태그가 있는 건물은 {0} %입니다(나머지 {1:.1f} m 또는 층수 추정).": {
+  "en": "Parcel and zoning maps are only in Korea mode. {0}% of buildings have a height tag (the rest use {1:.1f} m or an estimate from floor counts).",
+  "es": "Los planos de parcelas y zonificación solo están en el modo Korea. El {0} % de los edificios tiene etiqueta de altura (el resto usa {1:.1f} m o una estimación por plantas).",
+  "ja": "区画・用途地域の図面は Korea モードのみです。高さタグのある建物は {0}% です（残りは {1:.1f} m または階数から推定）。",
+  "zh": "地块和用途分区图仅在 Korea 模式下提供。有高度标签的建筑占 {0}%（其余按 {1:.1f} m 或层数估算）。"
+ },
+ "범위 안 OSM 건물 0동 — 지도에 건물이 그려진 곳인지 확인": {
+  "en": "No OSM buildings in the extent — check that buildings are mapped here",
+  "es": "No hay edificios de OSM en el ámbito — comprueba que estén cartografiados aquí",
+  "ja": "範囲内のOSM建物が0棟 — 地図に建物が描かれている場所か確認してください",
+  "zh": "范围内没有 OSM 建筑 — 请确认此处地图上绘有建筑"
+ },
+ "건물 {0}동 (OSM)": {
+  "en": "{0} buildings (OSM)",
+  "es": "{0} edificios (OSM)",
+  "ja": "建物 {0}棟 (OSM)",
+  "zh": "建筑 {0} 栋 (OSM)"
+ },
+ "Global — OpenStreetMap·지형 타일을 생성 때 받습니다": {
+  "en": "Global — OpenStreetMap and terrain tiles are downloaded when creating",
+  "es": "Global — OpenStreetMap y las teselas de terreno se descargan al crear",
+  "ja": "Global — OpenStreetMap・地形タイルは作成時にダウンロードします",
+  "zh": "Global — 生成时下载 OpenStreetMap 和地形瓦片"
+ },
+ "필지·용도지역 도면은 Korea 모드에만 있고, 건물 높이는 OSM 태그(없으면 {0:.1f} m)입니다. 인터넷 연결이 필요합니다.": {
+  "en": "Parcel and zoning maps are only in Korea mode. Building heights come from OSM tags ({0:.1f} m if missing). An internet connection is required.",
+  "es": "Los planos de parcelas y zonificación solo están en el modo Korea. La altura de los edificios viene de las etiquetas de OSM ({0:.1f} m si falta). Se necesita conexión a internet.",
+  "ja": "区画・用途地域の図面は Korea モードのみです。建物の高さはOSMタグ（ない場合は {0:.1f} m）です。インターネット接続が必要です。",
+  "zh": "地块和用途分区图仅在 Korea 模式下提供。建筑高度取自 OSM 标签（缺失时为 {0:.1f} m）。需要联网。"
+ },
+ "건물 수는 OSM에서 받은 뒤 알 수 있습니다": {
+  "en": "The building count is known after downloading from OSM",
+  "es": "El número de edificios se conoce tras descargar de OSM",
+  "ja": "建物数はOSMからダウンロードした後にわかります",
+  "zh": "建筑数量需从 OSM 下载后才能得知"
+ },
+ "1:{0} {1} 프레임({2:.1f}×{3:.1f} km)이 범위를 넘음 — 가장자리 빈 곳": {
+  "en": "1:{0} {1} frame ({2:.1f}×{3:.1f} km) is larger than the extent — the edges will be empty",
+  "es": "El marco 1:{0} {1} ({2:.1f}×{3:.1f} km) supera el ámbito — los bordes quedarán vacíos",
+  "ja": "1:{0} {1} 図枠（{2:.1f}×{3:.1f} km）が範囲を超えています — 端は空白になります",
+  "zh": "1:{0} {1} 图框（{2:.1f}×{3:.1f} km）超出范围 — 边缘将为空白"
+ },
+ "반경을 키우거나 축척을 줄이면 프레임이 채워집니다.": {
+  "en": "Increase the radius or choose a more detailed scale to fill the frame.",
+  "es": "Aumenta el radio o elige una escala más detallada para llenar el marco.",
+  "ja": "半径を大きくするか、より詳細な縮尺にすると図枠が埋まります。",
+  "zh": "增大半径或选择更大的比例尺即可填满图框。"
+ },
+ "1:{0} 프레임은 건물·필지가 수만 건이라 수십 초 걸립니다": {
+  "en": "A 1:{0} frame has tens of thousands of buildings and parcels, so it takes tens of seconds",
+  "es": "Un marco 1:{0} tiene decenas de miles de edificios y parcelas, así que tarda decenas de segundos",
+  "ja": "1:{0} の図枠は建物・区画が数万件あるため数十秒かかります",
+  "zh": "1:{0} 图框内建筑和地块多达数万个，需要几十秒"
+ },
+ "1:{0} 프레임 — 생성에 수십 초": {
+  "en": "1:{0} frame — takes tens of seconds",
+  "es": "Marco 1:{0} — tarda decenas de segundos",
+  "ja": "1:{0} 図枠 — 作成に数十秒",
+  "zh": "1:{0} 图框 — 生成需几十秒"
+ },
+ "지형 TIN · 건물 압출": {
+  "en": "Terrain TIN · building extrusion",
+  "es": "TIN del terreno · extrusión de edificios",
+  "ja": "地形TIN · 建物押し出し",
+  "zh": "地形 TIN · 建筑拉伸"
+ },
+ "면 {0} · 건물 {1}동": {
+  "en": "{0} faces · {1} buildings",
+  "es": "{0} caras · {1} edificios",
+  "ja": "面 {0} · 建物 {1}棟",
+  "zh": "面 {0} · 建筑 {1} 栋"
+ },
+ "이전 베이크 정리": {
+  "en": "Removing the previous model",
+  "es": "Borrando el modelo anterior",
+  "ja": "前回のモデルを削除中",
+  "zh": "正在清除上次的模型"
+ },
+ "베이크 {0}/{1}": {
+  "en": "Adding to model {0}/{1}",
+  "es": "Añadiendo al modelo {0}/{1}",
+  "ja": "モデルに追加中 {0}/{1}",
+  "zh": "正在添加到模型 {0}/{1}"
+ },
+ "베이크 실패 {0}건": {
+  "en": "Objects not added: {0}",
+  "es": "Objetos no añadidos: {0}",
+  "ja": "{0}件のオブジェクトを追加できませんでした",
+  "zh": "{0} 个对象添加失败"
+ },
+ "{0} 저장": {
+  "en": "Saving {0}",
+  "es": "Guardando {0}",
+  "ja": "{0} を保存中",
+  "zh": "正在保存 {0}"
+ },
+ ".dwg 저장": {
+  "en": "Saving .dwg",
+  "es": "Guardando .dwg",
+  "ja": ".dwg を保存中",
+  "zh": "正在保存 .dwg"
+ },
+ "객체 {0} · 레이어 {1}": {
+  "en": "{0} objects · {1} layers",
+  "es": "{0} objetos · {1} capas",
+  "ja": "オブジェクト {0} · レイヤー {1}",
+  "zh": "对象 {0} · 图层 {1}"
+ },
+ "DWG는 Rhino에서만 저장할 수 있습니다": {
+  "en": "DWG files can only be saved in Rhino",
+  "es": "Los archivos DWG solo se pueden guardar en Rhino",
+  "ja": "DWGはRhinoでのみ保存できます",
+  "zh": "DWG 只能在 Rhino 中保存"
+ },
+ ".ai {0}장": {
+  "en": ".ai files: {0}",
+  "es": "Archivos .ai: {0}",
+  "ja": ".ai {0}枚",
+  "zh": ".ai {0} 张"
+ },
+ "시트 {0} {1}": {
+  "en": "Sheet {0} {1}",
+  "es": "Lámina {0} {1}",
+  "ja": "シート {0} {1}",
+  "zh": "图纸 {0} {1}"
+ },
+ "시트 데이터 준비 실패": {
+  "en": "Couldn't prepare the sheet data",
+  "es": "No se pudieron preparar los datos de las láminas",
+  "ja": "シートデータを準備できませんでした",
+  "zh": "图纸数据准备失败"
+ },
+ "시트 {0}장": {
+  "en": "Sheets: {0}",
+  "es": "Láminas: {0}",
+  "ja": "シート {0}枚",
+  "zh": "图纸 {0} 张"
+ },
+ "CSV {0}개": {
+  "en": "CSV files: {0}",
+  "es": "Archivos CSV: {0}",
+  "ja": "CSV {0}件",
+  "zh": "CSV {0} 个"
+ },
+ "{0} 실패 — {1}": {
+  "en": "Failed: {0} — {1}",
+  "es": "Error en {0} — {1}",
+  "ja": "{0} に失敗 — {1}",
+  "zh": "{0} 失败 — {1}"
+ },
+ "{0} {1} · {2:.1f} s · 반경 {3} m": {
+  "en": "{0} {1} · {2:.1f} s · radius {3} m",
+  "es": "{0} {1} · {2:.1f} s · radio {3} m",
+  "ja": "{0} {1} · {2:.1f} s · 半径 {3} m",
+  "zh": "{0} {1} · {2:.1f} s · 半径 {3} m"
+ },
+ "지형 점 {0} · 면 {1} · 건물 {2}동(투영 폴백 {3} · 건너뜀 {4} · 압출 실패 {5}) · 커브 {6}": {
+  "en": "Terrain points {0} · faces {1} · buildings {2} (projection fallback {3} · skipped {4} · extrusion failed {5}) · curves {6}",
+  "es": "Puntos de terreno {0} · caras {1} · edificios {2} (proyección alternativa {3} · omitidos {4} · extrusión fallida {5}) · curvas {6}",
+  "ja": "地形点 {0} · 面 {1} · 建物 {2}棟（投影フォールバック {3} · スキップ {4} · 押し出し失敗 {5}） · カーブ {6}",
+  "zh": "地形点 {0} · 面 {1} · 建筑 {2} 栋（投影回退 {3} · 跳过 {4} · 拉伸失败 {5}） · 曲线 {6}"
+ },
+ "건너뜀: {0}": {
+  "en": "Skipped: {0}",
+  "es": "Omitido: {0}",
+  "ja": "スキップ: {0}",
+  "zh": "已跳过：{0}"
+ },
+ "{0} 저장 — 선택 {1} s · 쓰기 {2} s · 객체 {3} · {4} bytes": {
+  "en": "Saved {0} — select {1} s · write {2} s · objects {3} · {4} bytes",
+  "es": "{0} guardado — selección {1} s · escritura {2} s · objetos {3} · {4} bytes",
+  "ja": "{0} 保存 — 選択 {1} s · 書き込み {2} s · オブジェクト {3} · {4} bytes",
+  "zh": "已保存 {0} — 选择 {1} s · 写入 {2} s · 对象 {3} · {4} bytes"
+ },
+ "basemap_{0}.ai — 레이어 {1} · {2} bytes · {3}": {
+  "en": "basemap_{0}.ai — layers {1} · {2} bytes · {3}",
+  "es": "basemap_{0}.ai — capas {1} · {2} bytes · {3}",
+  "ja": "basemap_{0}.ai — レイヤー {1} · {2} bytes · {3}",
+  "zh": "basemap_{0}.ai — 图层 {1} · {2} bytes · {3}"
+ },
+ "경고 {0}: {1}": {
+  "en": "Warning {0}: {1}",
+  "es": "Aviso {0}: {1}",
+  "ja": "警告 {0}: {1}",
+  "zh": "警告 {0}: {1}"
+ },
+ "오류 {0}: {1}": {
+  "en": "Error {0}: {1}",
+  "es": "Error {0}: {1}",
+  "ja": "エラー {0}: {1}",
+  "zh": "错误 {0}: {1}"
+ },
+ "2D {0} · {1:.1f} s · 베이스맵 {2} · 도면 {3} · CSV {4}": {
+  "en": "2D {0} · {1:.1f} s · basemaps {2} · sheets {3} · CSV {4}",
+  "es": "2D {0} · {1:.1f} s · planos base {2} · láminas {3} · CSV {4}",
+  "ja": "2D {0} · {1:.1f} s · ベースマップ {2} · 図面 {3} · CSV {4}",
+  "zh": "2D {0} · {1:.1f} s · 底图 {2} · 图纸 {3} · CSV {4}"
+ },
+ "필지·건물·지형 조회": {
+  "en": "Parcel, building and terrain lookup",
+  "es": "Consulta de parcelas, edificios y terreno",
+  "ja": "区画・建物・地形の照会",
+  "zh": "地块、建筑、地形查询"
+ },
+ "건물 최신화(VWorld·건축HUB)": {
+  "en": "Building update (VWorld, Architecture HUB)",
+  "es": "Actualización de edificios (VWorld, Architecture HUB)",
+  "ja": "建物の最新化（VWorld・建築HUB）",
+  "zh": "建筑更新（VWorld、建筑HUB）"
+ },
+ "지형 TIN·면 분류·정합 측정": {
+  "en": "Terrain TIN, surface classification and alignment check",
+  "es": "TIN del terreno, clasificación de superficies y control de alineación",
+  "ja": "地形TIN・面分類・整合測定",
+  "zh": "地形 TIN、面分类、配准测量"
+ },
+ "3dm 쓰기": {
+  "en": "3dm export",
+  "es": "Exportación 3dm",
+  "ja": "3dm書き出し",
+  "zh": "写入 3dm"
+ },
+ "베이스맵 레이어": {
+  "en": "Basemap layers",
+  "es": "Capas del plano base",
+  "ja": "ベースマップレイヤー",
+  "zh": "底图图层"
+ },
+ "현황도 시트": {
+  "en": "Diagram sheets",
+  "es": "Láminas de diagramas",
+  "ja": "現況図シート",
+  "zh": "现状图图纸"
+ },
+ "문서에 넣기(Import)": {
+  "en": "Add to document (Import)",
+  "es": "Añadir al documento (Import)",
+  "ja": "ドキュメントに挿入（Import）",
+  "zh": "导入文档（Import）"
+ },
+ "도형-배경도": {
+  "en": "Figure-ground",
+  "es": "Figura-fondo",
+  "ja": "図と地",
+  "zh": "图底关系图"
+ },
+ "필지 규모": {
+  "en": "Parcel size",
+  "es": "Tamaño de parcelas",
+  "ja": "区画規模",
+  "zh": "地块规模"
+ },
+ "블록 밀도": {
+  "en": "Block density",
+  "es": "Densidad de manzanas",
+  "ja": "街区密度",
+  "zh": "街区密度"
+ },
+ "대중교통 역세권": {
+  "en": "Transit catchment",
+  "es": "Área de influencia del transporte público",
+  "ja": "公共交通の駅勢圏",
+  "zh": "公共交通站点服务范围"
+ },
+ "보행권": {
+  "en": "Walking catchment",
+  "es": "Área peatonal",
+  "ja": "徒歩圏",
+  "zh": "步行范围"
+ },
+ "녹지·수계": {
+  "en": "Green space and water",
+  "es": "Zonas verdes y agua",
+  "ja": "緑地・水系",
+  "zh": "绿地·水系"
+ },
+ "생활 공공시설": {
+  "en": "Community facilities",
+  "es": "Equipamientos de barrio",
+  "ja": "生活公共施設",
+  "zh": "社区公共设施"
+ },
+ "가로 위계": {
+  "en": "Street hierarchy",
+  "es": "Jerarquía viaria",
+  "ja": "街路階層",
+  "zh": "街道等级"
+ },
+ "토지이용현황": {
+  "en": "Land use",
+  "es": "Uso del suelo",
+  "ja": "土地利用現況",
+  "zh": "土地利用现状"
+ },
+ "지목 현황": {
+  "en": "Land category",
+  "es": "Categoría catastral",
+  "ja": "地目現況",
+  "zh": "地类现状"
+ },
+ "용도지구·구역": {
+  "en": "Zoning districts",
+  "es": "Distritos de zonificación",
+  "ja": "用途地区・区域",
+  "zh": "用途地区·区域"
+ },
+ "도시계획시설·지구단위계획": {
+  "en": "Planning facilities and district unit plans",
+  "es": "Equipamientos urbanísticos y planes de unidad de distrito",
+  "ja": "都市計画施設・地区単位計画",
+  "zh": "城市规划设施·地区单元规划"
+ },
+ "건축물 용도": {
+  "en": "Building use",
+  "es": "Uso de los edificios",
+  "ja": "建築物用途",
+  "zh": "建筑用途"
+ },
+ "건축물 층수": {
+  "en": "Building height (floors)",
+  "es": "Altura de los edificios (plantas)",
+  "ja": "建築物階数",
+  "zh": "建筑层数"
+ },
+ "건축물 노후도": {
+  "en": "Building age",
+  "es": "Antigüedad de los edificios",
+  "ja": "建築物の築年数",
+  "zh": "建筑年代"
+ },
+ "공시지가": {
+  "en": "Official land price",
+  "es": "Valor catastral del suelo",
+  "ja": "公示地価",
+  "zh": "公示地价"
+ },
+ "표고": {
+  "en": "Elevation",
+  "es": "Elevación",
+  "ja": "標高",
+  "zh": "高程"
+ },
+ "경사": {
+  "en": "Slope",
+  "es": "Pendiente",
+  "ja": "勾配",
+  "zh": "坡度"
+ },
+ "경관·조망 (틀)": {
+  "en": "Landscape and views (template)",
+  "es": "Paisaje y vistas (plantilla)",
+  "ja": "景観・眺望（テンプレート）",
+  "zh": "景观·眺望（模板）"
+ },
+ "이미지맵 (틀)": {
+  "en": "City image map (template)",
+  "es": "Mapa de imagen urbana (plantilla)",
+  "ja": "イメージマップ（テンプレート）",
+  "zh": "城市意象地图（模板）"
+ },
+ "종합분석 (틀)": {
+  "en": "Synthesis (template)",
+  "es": "Síntesis (plantilla)",
+  "ja": "総合分析（テンプレート）",
+  "zh": "综合分析（模板）"
+ },
+ "항공사진": {
+  "en": "Aerial photo",
+  "es": "Foto aérea",
+  "ja": "航空写真",
+  "zh": "航拍图"
+ },
+ "입체 매스도": {
+  "en": "Massing axonometric",
+  "es": "Axonometría de volúmenes",
+  "ja": "立体マス図",
+  "zh": "体块轴测图"
+ },
+ "필지 토지특성정보": {
+  "en": "Parcels: Land Characteristics",
+  "es": "Parcelas: Características del suelo",
+  "ja": "区画：土地特性情報",
+  "zh": "地块：土地特性信息"
+ },
+ "건물 GIS건물통합정보": {
+  "en": "Buildings: GIS Integrated Building Data",
+  "es": "Edificios: Información integrada de edificios GIS",
+  "ja": "建物：GIS建物統合情報",
+  "zh": "建筑：GIS建筑综合信息"
+ },
+ "도시계획 서울시 UPIS": {
+  "en": "Planning: Seoul UPIS",
+  "es": "Planeamiento: UPIS de Seúl",
+  "ja": "都市計画：ソウル市UPIS",
+  "zh": "城市规划：首尔市UPIS"
+ },
+ "지형 수치지형도 1:5,000": {
+  "en": "Terrain: Digital Topographic Map 1:5,000",
+  "es": "Terreno: Mapa topográfico digital 1:5.000",
+  "ja": "地形：数値地形図 1:5,000",
+  "zh": "地形：数字地形图 1:5,000"
+ },
+ "{0}(도엽 {1}, {2})": {
+  "en": "{0} (sheets {1}, {2})",
+  "es": "{0} (hojas {1}, {2})",
+  "ja": "{0}（図葉 {1}、{2}）",
+  "zh": "{0}（图幅 {1}，{2}）"
+ },
+ "생성 {0}": {
+  "en": "created {0}",
+  "es": "creado {0}",
+  "ja": "作成 {0}",
+  "zh": "生成 {0}"
+ },
+ "자료기준 — {0}": {
+  "en": "Data as of — {0}",
+  "es": "Datos de referencia — {0}",
+  "ja": "資料基準 — {0}",
+  "zh": "数据基准 — {0}"
+ },
+ "자료기준 — OpenStreetMap {0} · Terrain Tiles · {1} · 생성 {2} · {3} v{4}": {
+  "en": "Data as of — OpenStreetMap {0} · Terrain Tiles · {1} · created {2} · {3} v{4}",
+  "es": "Datos de referencia — OpenStreetMap {0} · Terrain Tiles · {1} · creado {2} · {3} v{4}",
+  "ja": "資料基準 — OpenStreetMap {0} · Terrain Tiles · {1} · 作成 {2} · {3} v{4}",
+  "zh": "数据基准 — OpenStreetMap {0} · Terrain Tiles · {1} · 生成 {2} · {3} v{4}"
+ },
+ "출처: © OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright); 지형 Terrain Tiles (Mapzen·AWS Open Data, SRTM 등 공개 DEM)": {
+  "en": "Sources: © OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright); terrain: Terrain Tiles (Mapzen, AWS Open Data; SRTM and other open DEMs)",
+  "es": "Fuentes: © OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright); terreno: Terrain Tiles (Mapzen, AWS Open Data; SRTM y otros DEM abiertos)",
+  "ja": "出典: © OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright); 地形 Terrain Tiles (Mapzen・AWS Open Data、SRTMなどの公開DEM)",
+  "zh": "来源：© OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright)；地形 Terrain Tiles（Mapzen、AWS Open Data，SRTM 等公开 DEM）"
+ },
+ "좌표계: {0} · 지형 약 30 m 격자 — 실측·법정 자료 아님": {
+  "en": "CRS: {0} · terrain on an approx. 30 m grid — not survey-grade or legally binding",
+  "es": "Sistema de coordenadas: {0} · terreno en malla de unos 30 m — no es levantamiento ni dato oficial",
+  "ja": "座標系: {0} · 地形 約30 m格子 — 実測・法定資料ではありません",
+  "zh": "坐标系：{0} · 地形约 30 m 格网 — 非实测或法定资料"
+ },
+ "대상지 중심 횡메르카토르(GRS80, 축척 1)": {
+  "en": "Transverse Mercator centered on the site (GRS80, scale factor 1)",
+  "es": "Transversal de Mercator centrada en el sitio (GRS80, factor de escala 1)",
+  "ja": "対象地中心の横メルカトル（GRS80、縮尺係数1）",
+  "zh": "以场地为中心的横轴墨卡托（GRS80，比例因子 1）"
+ },
+ "정합 오차: — (필지 자료 없음)": {
+  "en": "Alignment error: — (no parcel data)",
+  "es": "Error de alineación: — (sin datos de parcelas)",
+  "ja": "整合誤差: — （区画データなし）",
+  "zh": "配准误差：—（无地块数据）"
+ },
+ "건물 높이: OSM height 태그(B)·층수(C)·기본값 {0:.1f} m(D)": {
+  "en": "Building height: OSM height tag (B) · floors (C) · default {0:.1f} m (D)",
+  "es": "Altura de edificios: etiqueta height de OSM (B) · plantas (C) · valor por defecto {0:.1f} m (D)",
+  "ja": "建物の高さ: OSM height タグ(B)・階数(C)・既定値 {0:.1f} m(D)",
+  "zh": "建筑高度：OSM height 标签(B)、层数(C)、默认值 {0:.1f} m(D)"
+ },
+ "정합 오차 중앙값 {0:.1f} m, p90 {1:.1f} m (n={2}, 도로경계 자동 비교)": {
+  "en": "Alignment error median {0:.1f} m, p90 {1:.1f} m (n={2}, automatic road-edge comparison)",
+  "es": "Error de alineación: mediana {0:.1f} m, p90 {1:.1f} m (n={2}, comparación automática de bordes de vía)",
+  "ja": "整合誤差 中央値 {0:.1f} m、p90 {1:.1f} m（n={2}、道路境界の自動比較）",
+  "zh": "配准误差中位数 {0:.1f} m，p90 {1:.1f} m（n={2}，道路边界自动比对）"
+ },
+ "표본 부족": {
+  "en": "small sample",
+  "es": "muestra insuficiente",
+  "ja": "標本不足",
+  "zh": "样本不足"
+ },
+ "정합 오차 — (측정 없음)": {
+  "en": "Alignment error — (not measured)",
+  "es": "Error de alineación — (sin medir)",
+  "ja": "整合誤差 — （測定なし）",
+  "zh": "配准误差 —（未测量）"
+ },
+ "지적–지형 불일치 의심 {0}건(현장 확인 대상, 레이어 qa_mismatch)": {
+  "en": "suspected cadastre–topo mismatches: {0} (check on site; layer qa_mismatch)",
+  "es": "posibles discrepancias catastro–topografía: {0} (verificar en campo; capa qa_mismatch)",
+  "ja": "地籍–地形の不一致の疑い {0}件（現地確認対象、レイヤー qa_mismatch）",
+  "zh": "疑似地籍–地形不一致 {0} 处（需现场核实，图层 qa_mismatch）"
+ },
+ "기준일 경고 없음": {
+  "en": "No data-age warnings",
+  "es": "Sin avisos de antigüedad de datos",
+  "ja": "基準日の警告なし",
+  "zh": "无数据时效警告"
+ },
+ "출처: 국토교통부(GIS건물통합정보 — CC BY/공공누리 1유형; 토지특성정보·토지이용계획정보 — 이용허락범위 제한 없음), 서울특별시(UPIS, 공공누리 1유형, 법적 효력 없음), 국토지리정보원(수치지형도 Ver2.0, 공공누리 1유형) · 본 데이터는 정보제공 목적이며 법적 효력이 없음": {
+  "en": "Sources: Ministry of Land, Infrastructure and Transport (GIS Integrated Building Data — CC BY/KOGL Type 1; Land Characteristics and Land Use Plan data — no usage restrictions), Seoul Metropolitan Government (UPIS, KOGL Type 1, not legally binding), National Geographic Information Institute (Digital Topographic Map Ver2.0, KOGL Type 1) · For information only; not legally binding",
+  "es": "Fuentes: Ministerio de Territorio, Infraestructura y Transporte de Corea (Información integrada de edificios GIS — CC BY/KOGL tipo 1; Características del suelo y Plan de uso del suelo — sin restricciones de uso), Gobierno Metropolitano de Seúl (UPIS, KOGL tipo 1, sin efecto legal), Instituto Nacional de Información Geográfica (Mapa topográfico digital Ver2.0, KOGL tipo 1) · Datos solo informativos, sin efecto legal",
+  "ja": "出典: 国土交通部（GIS建物統合情報 — CC BY/公共ヌリ第1類型; 土地特性情報・土地利用計画情報 — 利用許諾範囲の制限なし）、ソウル特別市（UPIS、公共ヌリ第1類型、法的効力なし）、国土地理情報院（数値地形図 Ver2.0、公共ヌリ第1類型） · 本データは情報提供を目的とし、法的効力はありません",
+  "zh": "来源：韩国国土交通部（GIS建筑综合信息 — CC BY/公共Nuri第1类；土地特性信息、土地利用规划信息 — 使用许可范围无限制），首尔特别市（UPIS，公共Nuri第1类，无法律效力），国土地理信息院（数字地形图 Ver2.0，公共Nuri第1类） · 本数据仅供参考，不具法律效力"
+ },
+ "좌표계 EPSG:5186 (KGD2002 / Central Belt 2010); 도시계획 레이어 EPSG:5174→5186 (EPSG:5189, 공칭 ±1 m) · 수치지형도 1:5,000 절대정확도 95 % 1.5 m·최대 3.0 m · 지적 경계점 허용 ±0.36 m": {
+  "en": "CRS EPSG:5186 (KGD2002 / Central Belt 2010); planning layers EPSG:5174→5186 (EPSG:5189, nominal ±1 m) · 1:5,000 topographic map absolute accuracy 1.5 m at 95%, max 3.0 m · cadastral boundary point tolerance ±0.36 m",
+  "es": "Sistema de coordenadas EPSG:5186 (KGD2002 / Central Belt 2010); capas de planeamiento EPSG:5174→5186 (EPSG:5189, nominal ±1 m) · mapa topográfico 1:5.000, precisión absoluta 1,5 m al 95 %, máx. 3,0 m · tolerancia de puntos de límite catastral ±0,36 m",
+  "ja": "座標系 EPSG:5186 (KGD2002 / Central Belt 2010); 都市計画レイヤー EPSG:5174→5186 (EPSG:5189, 公称 ±1 m) · 数値地形図 1:5,000 絶対精度 95% 1.5 m・最大 3.0 m · 地籍境界点の許容誤差 ±0.36 m",
+  "zh": "坐标系 EPSG:5186 (KGD2002 / Central Belt 2010)；城市规划图层 EPSG:5174→5186 (EPSG:5189，标称 ±1 m) · 数字地形图 1:5,000 绝对精度 95% 1.5 m、最大 3.0 m · 地籍界址点允许误差 ±0.36 m"
+ },
+ "미상": {
+  "en": "Unknown",
+  "es": "Desconocido",
+  "ja": "不明",
+  "zh": "不详"
+ },
+ "연도 미상": {
+  "en": "Year unknown",
+  "es": "Año desconocido",
+  "ja": "築年不明",
+  "zh": "年份不详"
+ },
+ "{0}년 미만": {
+  "en": "Under {0} years",
+  "es": "Menos de {0} años",
+  "ja": "築{0}年未満",
+  "zh": "不足 {0} 年"
+ },
+ "{0}~{1}년": {
+  "en": "{0}–{1} years",
+  "es": "{0}–{1} años",
+  "ja": "築{0}～{1}年",
+  "zh": "{0}~{1} 年"
+ },
+ "{0}년 이상": {
+  "en": "{0}+ years",
+  "es": "{0} años o más",
+  "ja": "築{0}年以上",
+  "zh": "{0} 年及以上"
+ },
+ "OSM(Overpass) 데이터를 받지 못했습니다. 인터넷 연결을 확인하세요": {
+  "en": "Couldn't download OSM (Overpass) data. Check your internet connection",
+  "es": "No se pudieron descargar los datos de OSM (Overpass). Revisa tu conexión a internet",
+  "ja": "OSM（Overpass）データをダウンロードできませんでした。インターネット接続を確認してください",
+  "zh": "无法下载 OSM（Overpass）数据。请检查网络连接"
+ },
+ "PNG가 아닙니다": {
+  "en": "Not a PNG file",
+  "es": "No es un archivo PNG",
+  "ja": "PNGではありません",
+  "zh": "不是 PNG 文件"
+ },
+ "지원하지 않는 PNG 형식(비트 {0}, 색 {1})": {
+  "en": "Unsupported PNG format (bit depth {0}, color type {1})",
+  "es": "Formato PNG no admitido (profundidad {0}, tipo de color {1})",
+  "ja": "対応していないPNG形式（ビット深度 {0}、カラータイプ {1}）",
+  "zh": "不支持的 PNG 格式（位深 {0}，颜色类型 {1}）"
+ },
+ "건물 높이는 height·building:levels 태그, 없으면 기본값": {
+  "en": "Building heights from height and building:levels tags, otherwise a default",
+  "es": "Altura de edificios según las etiquetas height y building:levels; si faltan, valor por defecto",
+  "ja": "建物の高さは height・building:levels タグ、ない場合は既定値",
+  "zh": "建筑高度取自 height、building:levels 标签，缺失时用默认值"
+ },
+ "공개(출처 표기)": {
+  "en": "Open (attribution required)",
+  "es": "Abierta (con atribución)",
+  "ja": "公開（出典表示）",
+  "zh": "公开（需注明来源）"
+ },
+ "SRTM·GMTED 등 혼합 DEM, 해상도 지역별 상이(약 30 m)": {
+  "en": "Mixed DEM (SRTM, GMTED, etc.); resolution varies by region (approx. 30 m)",
+  "es": "DEM mixto (SRTM, GMTED, etc.); la resolución varía según la región (unos 30 m)",
+  "ja": "SRTM・GMTEDなどの混合DEM、解像度は地域により異なる（約30 m）",
+  "zh": "SRTM、GMTED 等混合 DEM，分辨率因地区而异（约 30 m）"
+ },
+ "한 번에 열 수 있는 지역 DB는 {0}개까지입니다({1}개). 대상지를 줄이거나 쓰지 않는 지역 DB를 data 폴더에서 빼세요": {
+  "en": "Up to {0} regional DBs can be open at once ({1} needed). Use a smaller site or remove unused regional DBs from the data folder",
+  "es": "Se pueden abrir hasta {0} bases de datos regionales a la vez ({1} necesarias). Reduce el sitio o quita de la carpeta data las que no uses",
+  "ja": "同時に開ける地域DBは {0} 個までです（{1} 個）。対象地を小さくするか、使わない地域DBを data フォルダから外してください",
+  "zh": "一次最多可打开 {0} 个区域数据库（当前 {1} 个）。请缩小场地，或从 data 文件夹移出不用的区域数据库"
+ },
+ "오늘 받을 수 있는 지역 데이터 양을 넘었습니다. 내일 다시 받아 주세요": {
+  "en": "You've reached today's regional data download limit. Please try again tomorrow",
+  "es": "Has alcanzado el límite diario de descarga de datos regionales. Vuelve a intentarlo mañana",
+  "ja": "本日ダウンロードできる地域データの上限に達しました。明日もう一度お試しください",
+  "zh": "已达到今天的区域数据下载上限。请明天再下载"
+ },
+ "{0} 내려받기가 손상됐습니다(sha256 불일치). 다시 받아 주세요": {
+  "en": "The download of {0} is corrupted (sha256 mismatch). Please download it again",
+  "es": "La descarga de {0} está dañada (sha256 no coincide). Vuelve a descargarla",
+  "ja": "{0} のダウンロードが破損しています（sha256 不一致）。もう一度ダウンロードしてください",
+  "zh": "{0} 下载已损坏（sha256 不一致）。请重新下载"
+ },
+ "PNU는 {0}자리 숫자여야 합니다: {1}": {
+  "en": "A PNU must be a {0}-digit number: {1}",
+  "es": "El PNU debe tener {0} dígitos: {1}",
+  "ja": "PNUは {0} 桁の数字である必要があります: {1}",
+  "zh": "PNU 必须是 {0} 位数字：{1}"
+ },
+ "PNU가 하나 이상 필요합니다": {
+  "en": "At least one PNU is required",
+  "es": "Se necesita al menos un PNU",
+  "ja": "PNUが1つ以上必要です",
+  "zh": "至少需要一个 PNU"
+ },
+ "로컬 DB가 없습니다: {0}": {
+  "en": "Local DB not found: {0}",
+  "es": "No se encontró la base de datos local: {0}",
+  "ja": "ローカルDBがありません: {0}",
+  "zh": "找不到本地数据库：{0}"
+ },
+ "DB에 없는 PNU: {0}": {
+  "en": "PNU not in the DB: {0}",
+  "es": "PNU que no está en la base de datos: {0}",
+  "ja": "DBにないPNU: {0}",
+  "zh": "数据库中没有的 PNU：{0}"
+ },
+ "현재 로컬 DB가 스키마 v{0}가 아닙니다(필지 경계상자·계획 오버레이). dev_database_builder.py로 DB를 다시 구축하세요": {
+  "en": "The local DB is not schema v{0} (parcel bounding boxes, planning overlays). Rebuild it with dev_database_builder.py",
+  "es": "La base de datos local no tiene el esquema v{0} (cajas de parcelas, capas de planeamiento). Reconstrúyela con dev_database_builder.py",
+  "ja": "ローカルDBがスキーマ v{0} ではありません（区画の外接矩形・計画オーバーレイ）。dev_database_builder.py でDBを再構築してください",
+  "zh": "本地数据库不是 v{0} 架构（地块外包框、规划叠加层）。请用 dev_database_builder.py 重建数据库"
+ },
+ "VWorld 주소 검색 HTTP {0}": {
+  "en": "VWorld address search HTTP {0}",
+  "es": "Búsqueda de direcciones de VWorld: HTTP {0}",
+  "ja": "VWorld住所検索 HTTP {0}",
+  "zh": "VWorld 地址搜索 HTTP {0}"
+ },
+ "VWorld 주소 검색에 연결하지 못했습니다": {
+  "en": "Couldn't connect to VWorld address search",
+  "es": "No se pudo conectar con la búsqueda de direcciones de VWorld",
+  "ja": "VWorld住所検索に接続できませんでした",
+  "zh": "无法连接 VWorld 地址搜索"
+ },
+ "알 수 없는 VWorld API 오류": {
+  "en": "Unknown VWorld API error",
+  "es": "Error desconocido de la API de VWorld",
+  "ja": "不明なVWorld APIエラー",
+  "zh": "未知的 VWorld API 错误"
+ },
+ "VWorld 주소 검색 오류: {0}": {
+  "en": "VWorld address search error: {0}",
+  "es": "Error en la búsqueda de direcciones de VWorld: {0}",
+  "ja": "VWorld住所検索エラー: {0}",
+  "zh": "VWorld 地址搜索错误：{0}"
+ },
+ "VWORLD_API_KEY가 설정되지 않았습니다": {
+  "en": "VWORLD_API_KEY is not set",
+  "es": "VWORLD_API_KEY no está configurada",
+  "ja": "VWORLD_API_KEY が設定されていません",
+  "zh": "未设置 VWORLD_API_KEY"
+ },
+ "VWORLD_API_DOMAIN이 설정되지 않았습니다": {
+  "en": "VWORLD_API_DOMAIN is not set",
+  "es": "VWORLD_API_DOMAIN no está configurado",
+  "ja": "VWORLD_API_DOMAIN が設定されていません",
+  "zh": "未设置 VWORLD_API_DOMAIN"
+ },
+ "VWorld 주소 검색 결과가 없습니다": {
+  "en": "No results from VWorld address search",
+  "es": "La búsqueda de direcciones de VWorld no dio resultados",
+  "ja": "VWorld住所検索の結果がありません",
+  "zh": "VWorld 地址搜索无结果"
+ },
+ "VWorld 후보가 현재 로컬 지적 DB에 없습니다": {
+  "en": "The VWorld matches aren't in the local cadastre DB",
+  "es": "Los resultados de VWorld no están en la base de datos catastral local",
+  "ja": "VWorldの候補が現在のローカル地籍DBにありません",
+  "zh": "VWorld 候选不在当前本地地籍数据库中"
+ },
+ "VWorld 주소 검색 후보 {0}건": {
+  "en": "VWorld address matches: {0}",
+  "es": "Resultados de direcciones de VWorld: {0}",
+  "ja": "VWorld住所検索の候補 {0}件",
+  "zh": "VWorld 地址搜索候选 {0} 个"
+ },
+ "숫자만 입력할 때는 {0}자리 PNU여야 합니다": {
+  "en": "Numbers-only input must be a {0}-digit PNU",
+  "es": "Si escribes solo números, debe ser un PNU de {0} dígitos",
+  "ja": "数字のみの入力は {0} 桁のPNUにしてください",
+  "zh": "仅输入数字时必须是 {0} 位 PNU"
+ },
+ "로컬 DB에 없는 PNU입니다": {
+  "en": "This PNU isn't in the local DB",
+  "es": "Este PNU no está en la base de datos local",
+  "ja": "ローカルDBにないPNUです",
+  "zh": "本地数据库中没有此 PNU"
+ },
+ "후보가 {0}건입니다. 동·지번을 더 정확히 입력하세요": {
+  "en": "{0} matches. Enter the dong and lot number more precisely",
+  "es": "{0} resultados. Escribe el barrio (dong) y el número de lote con más precisión",
+  "ja": "候補が {0} 件あります。洞・地番をより正確に入力してください",
+  "zh": "有 {0} 个候选。请更准确地输入洞和地号"
+ },
+ "로컬 DB에서 찾지 못했습니다. 도로명은 VWorld 보조 검색을 켜세요": {
+  "en": "Not found in the local DB. For street addresses, turn on VWorld search",
+  "es": "No se encontró en la base de datos local. Para direcciones por calle, activa la búsqueda de VWorld",
+  "ja": "ローカルDBで見つかりませんでした。道路名住所はVWorld補助検索をオンにしてください",
+  "zh": "本地数据库中未找到。道路名地址请开启 VWorld 辅助搜索"
+ },
+ "VWorld 보조 검색 호출: {0}": {
+  "en": "VWorld search: {0}",
+  "es": "Búsqueda en VWorld: {0}",
+  "ja": "VWorld補助検索: {0}",
+  "zh": "VWorld 辅助搜索：{0}"
+ },
+ "주소 또는 PNU를 한 줄 이상 입력하세요": {
+  "en": "Enter at least one line with an address or PNU",
+  "es": "Escribe al menos una línea con una dirección o un PNU",
+  "ja": "住所またはPNUを1行以上入力してください",
+  "zh": "请至少输入一行地址或 PNU"
+ },
+ "미해결/모호한 입력이 있어 PNU를 출력하지 않았습니다": {
+  "en": "Some entries are unresolved or ambiguous, so no PNUs were output",
+  "es": "Hay entradas sin resolver o ambiguas, así que no se generaron PNU",
+  "ja": "未解決・曖昧な入力があるためPNUを出力しませんでした",
+  "zh": "存在未解析或有歧义的输入，因此未输出 PNU"
+ },
+ "PNU {0}건 확정": {
+  "en": "PNUs confirmed: {0}",
+  "es": "PNU confirmados: {0}",
+  "ja": "PNU {0}件を確定",
+  "zh": "已确定 {0} 个 PNU"
+ },
+ "© VWorld 영상지도": {
+  "en": "© VWorld Satellite",
+  "es": "© VWorld Satélite",
+  "ja": "© VWorld 航空写真",
+  "zh": "© VWorld 影像地图"
+ },
+ "꼭짓점이 3개 이상인 닫힌 도형이어야 합니다": {
+  "en": "The shape must be closed and have at least 3 vertices",
+  "es": "La forma debe ser cerrada y tener al menos 3 vértices",
+  "ja": "頂点が3つ以上の閉じた図形にしてください",
+  "zh": "必须是至少有 3 个顶点的闭合图形"
+ },
+ "꼭짓점이 너무 많습니다({0}개 > {1}). 커브를 단순하게 다시 그리세요": {
+  "en": "Too many vertices ({0} > {1}). Redraw a simpler curve",
+  "es": "Demasiados vértices ({0} > {1}). Vuelve a dibujar una curva más simple",
+  "ja": "頂点が多すぎます（{0}個 > {1}）。カーブを単純にして描き直してください",
+  "zh": "顶点过多（{0} 个 > {1}）。请重新绘制更简单的曲线"
+ },
+ "구역이 너무 큽니다(긴 변 {0:.1f} km > {1:.1f} km)": {
+  "en": "The area is too large (long side {0:.1f} km > {1:.1f} km)",
+  "es": "El área es demasiado grande (lado mayor {0:.1f} km > {1:.1f} km)",
+  "ja": "エリアが大きすぎます（長辺 {0:.1f} km > {1:.1f} km）",
+  "zh": "区域过大（长边 {0:.1f} km > {1:.1f} km）"
+ },
+ "변끼리 꼬여 있습니다(자기교차). 꼬이지 않은 닫힌 도형으로 그리세요": {
+  "en": "The edges cross (self-intersection). Draw a shape that doesn't cross itself",
+  "es": "Los lados se cruzan (autointersección). Dibuja una forma cerrada sin cruces",
+  "ja": "辺が交差しています（自己交差）。交差しない閉じた図形で描いてください",
+  "zh": "边相互交叉（自相交）。请绘制不自交的闭合图形"
+ },
+ "구역이 너무 작습니다({0:.0f} ㎡ < {1:.0f} ㎡). 단위나 축척을 확인하세요": {
+  "en": "The area is too small ({0:.0f} m² < {1:.0f} m²). Check the units or scale",
+  "es": "El área es demasiado pequeña ({0:.0f} m² < {1:.0f} m²). Revisa las unidades o la escala",
+  "ja": "エリアが小さすぎます（{0:.0f} ㎡ < {1:.0f} ㎡）。単位や縮尺を確認してください",
+  "zh": "区域过小（{0:.0f} ㎡ < {1:.0f} ㎡）。请检查单位或比例"
+ },
+ "학교 부지": {
+  "en": "School site",
+  "es": "Terreno escolar",
+  "ja": "学校用地",
+  "zh": "学校用地"
+ },
+ "광장·공공공지·정류장": {
+  "en": "Plaza · open space · terminal",
+  "es": "Plaza · espacio abierto · terminal",
+  "ja": "広場・公共空地・停留所",
+  "zh": "广场·公共空地·客运站"
+ },
+ "교육연구 시설": {
+  "en": "Education and research",
+  "es": "Educación e investigación",
+  "ja": "教育研究施設",
+  "zh": "教育科研设施"
+ },
+ "의료·노유자 시설": {
+  "en": "Health and care",
+  "es": "Salud y asistencia",
+  "ja": "医療・福祉施設",
+  "zh": "医疗·养老托幼设施"
+ },
+ "문화·집회·체육 시설": {
+  "en": "Culture, assembly and sports",
+  "es": "Cultura, reunión y deporte",
+  "ja": "文化・集会・体育施設",
+  "zh": "文化·集会·体育设施"
+ },
+ "조망점": {
+  "en": "Viewpoint",
+  "es": "Punto de vista",
+  "ja": "視点場",
+  "zh": "观景点"
+ },
+ "조망축": {
+  "en": "View corridor",
+  "es": "Eje visual",
+  "ja": "眺望軸",
+  "zh": "视线通廊"
+ },
+ "경관 요소": {
+  "en": "Landscape feature",
+  "es": "Elemento paisajístico",
+  "ja": "景観要素",
+  "zh": "景观要素"
+ },
+ "시야 차폐": {
+  "en": "View obstruction",
+  "es": "Obstrucción visual",
+  "ja": "視界の遮蔽",
+  "zh": "视线遮挡"
+ },
+ "통로": {
+  "en": "Path",
+  "es": "Senda",
+  "ja": "パス",
+  "zh": "道路"
+ },
+ "경계": {
+  "en": "Edge",
+  "es": "Borde",
+  "ja": "エッジ",
+  "zh": "边界"
+ },
+ "지역": {
+  "en": "District",
+  "es": "Barrio",
+  "ja": "ディストリクト",
+  "zh": "区域"
+ },
+ "결절점": {
+  "en": "Node",
+  "es": "Nodo",
+  "ja": "ノード",
+  "zh": "节点"
+ },
+ "랜드마크": {
+  "en": "Landmark",
+  "es": "Hito",
+  "ja": "ランドマーク",
+  "zh": "标志物"
+ },
+ "기회·강점": {
+  "en": "Opportunities and strengths",
+  "es": "Oportunidades y fortalezas",
+  "ja": "機会・強み",
+  "zh": "机会·优势"
+ },
+ "제약·약점": {
+  "en": "Constraints and weaknesses",
+  "es": "Restricciones y debilidades",
+  "ja": "制約・弱み",
+  "zh": "制约·劣势"
+ },
+ "개선 대상": {
+  "en": "Areas to improve",
+  "es": "Zonas a mejorar",
+  "ja": "改善対象",
+  "zh": "改善对象"
+ },
+ "연계 축": {
+  "en": "Connection axis",
+  "es": "Eje de conexión",
+  "ja": "連携軸",
+  "zh": "联系轴"
+ },
+ "거점": {
+  "en": "Hub",
+  "es": "Polo",
+  "ja": "拠点",
+  "zh": "枢纽"
+ },
+ "공원": {
+  "en": "Park",
+  "es": "Parque",
+  "ja": "公園",
+  "zh": "公园"
+ },
+ "녹지·임야": {
+  "en": "Green space and forest",
+  "es": "Zonas verdes y bosque",
+  "ja": "緑地・林野",
+  "zh": "绿地·林地"
+ },
+ "하천·수면": {
+  "en": "River and water surface",
+  "es": "Río y lámina de agua",
+  "ja": "河川・水面",
+  "zh": "河流·水面"
+ },
+ "단독주택": {
+  "en": "Detached house",
+  "es": "Vivienda unifamiliar",
+  "ja": "戸建住宅",
+  "zh": "独栋住宅"
+ },
+ "다세대·연립": {
+  "en": "Low-rise multi-family",
+  "es": "Vivienda plurifamiliar baja",
+  "ja": "低層集合住宅",
+  "zh": "多户·联排住宅"
+ },
+ "아파트": {
+  "en": "Apartment complex",
+  "es": "Bloque de apartamentos",
+  "ja": "マンション",
+  "zh": "公寓住宅"
+ },
+ "주거 기타": {
+  "en": "Other residential",
+  "es": "Otro residencial",
+  "ja": "その他住宅",
+  "zh": "其他居住"
+ },
+ "주상복합": {
+  "en": "Mixed use",
+  "es": "Uso mixto",
+  "ja": "住商複合",
+  "zh": "商住混合"
+ },
+ "상업·업무": {
+  "en": "Commercial and office",
+  "es": "Comercial y oficinas",
+  "ja": "商業・業務",
+  "zh": "商业·办公"
+ },
+ "공업": {
+  "en": "Industrial",
+  "es": "Industrial",
+  "ja": "工業",
+  "zh": "工业"
+ },
+ "나지": {
+  "en": "Vacant land",
+  "es": "Solar vacío",
+  "ja": "空地",
+  "zh": "空地"
+ },
+ "하천": {
+  "en": "River",
+  "es": "Río",
+  "ja": "河川",
+  "zh": "河流"
+ },
+ "공원·녹지": {
+  "en": "Park and green space",
+  "es": "Parque y zona verde",
+  "ja": "公園・緑地",
+  "zh": "公园·绿地"
+ },
+ "기타·미상": {
+  "en": "Other / unknown",
+  "es": "Otro / desconocido",
+  "ja": "その他・不明",
+  "zh": "其他·不详"
+ },
+ "대": {
+  "en": "Building land",
+  "es": "Suelo edificable",
+  "ja": "宅地",
+  "zh": "建设用地"
+ },
+ "공장용지": {
+  "en": "Factory land",
+  "es": "Suelo industrial",
+  "ja": "工場用地",
+  "zh": "工厂用地"
+ },
+ "하천·구거·유지": {
+  "en": "River, ditch and reservoir",
+  "es": "Río, acequia y embalse",
+  "ja": "河川・溝渠・溜池",
+  "zh": "河流·沟渠·水塘"
+ },
+ "제방": {
+  "en": "Levee",
+  "es": "Dique",
+  "ja": "堤防",
+  "zh": "堤坝"
+ },
+ "전·답·과수원": {
+  "en": "Field, paddy and orchard",
+  "es": "Cultivo, arrozal y huerto",
+  "ja": "畑・田・果樹園",
+  "zh": "旱地·水田·果园"
+ },
+ "임야": {
+  "en": "Forest",
+  "es": "Bosque",
+  "ja": "林野",
+  "zh": "林地"
+ },
+ "학교용지": {
+  "en": "School land",
+  "es": "Suelo escolar",
+  "ja": "学校用地",
+  "zh": "学校用地"
+ },
+ "종교용지": {
+  "en": "Religious land",
+  "es": "Suelo religioso",
+  "ja": "宗教用地",
+  "zh": "宗教用地"
+ },
+ "철도용지": {
+  "en": "Railway land",
+  "es": "Suelo ferroviario",
+  "ja": "鉄道用地",
+  "zh": "铁路用地"
+ },
+ "주차장·주유소": {
+  "en": "Parking and gas station",
+  "es": "Estacionamiento y gasolinera",
+  "ja": "駐車場・ガソリンスタンド",
+  "zh": "停车场·加油站"
+ },
+ "공공시설(수도·창고 등)": {
+  "en": "Public utilities (water, storage, etc.)",
+  "es": "Servicios públicos (agua, almacenes, etc.)",
+  "ja": "公共施設（水道・倉庫など）",
+  "zh": "公共设施（供水·仓储等）"
+ },
+ "잡종지": {
+  "en": "Miscellaneous land",
+  "es": "Suelo misceláneo",
+  "ja": "雑種地",
+  "zh": "杂类用地"
+ },
+ "제1종전용주거": {
+  "en": "Exclusive residential 1",
+  "es": "Residencial exclusivo 1",
+  "ja": "第一種専用住居",
+  "zh": "第一类专用居住"
+ },
+ "제2종전용주거": {
+  "en": "Exclusive residential 2",
+  "es": "Residencial exclusivo 2",
+  "ja": "第二種専用住居",
+  "zh": "第二类专用居住"
+ },
+ "제1종일반주거": {
+  "en": "General residential 1",
+  "es": "Residencial general 1",
+  "ja": "第一種一般住居",
+  "zh": "第一类一般居住"
+ },
+ "제2종일반주거": {
+  "en": "General residential 2",
+  "es": "Residencial general 2",
+  "ja": "第二種一般住居",
+  "zh": "第二类一般居住"
+ },
+ "제3종일반주거": {
+  "en": "General residential 3",
+  "es": "Residencial general 3",
+  "ja": "第三種一般住居",
+  "zh": "第三类一般居住"
+ },
+ "준주거": {
+  "en": "Semi-residential",
+  "es": "Semirresidencial",
+  "ja": "準住居",
+  "zh": "准居住"
+ },
+ "중심상업": {
+  "en": "Central commercial",
+  "es": "Comercial central",
+  "ja": "中心商業",
+  "zh": "中心商业"
+ },
+ "일반상업": {
+  "en": "General commercial",
+  "es": "Comercial general",
+  "ja": "一般商業",
+  "zh": "一般商业"
+ },
+ "근린상업": {
+  "en": "Neighborhood commercial",
+  "es": "Comercial vecinal",
+  "ja": "近隣商業",
+  "zh": "邻里商业"
+ },
+ "유통상업": {
+  "en": "Distribution commercial",
+  "es": "Comercial de distribución",
+  "ja": "流通商業",
+  "zh": "流通商业"
+ },
+ "전용공업": {
+  "en": "Exclusive industrial",
+  "es": "Industrial exclusivo",
+  "ja": "専用工業",
+  "zh": "专用工业"
+ },
+ "일반공업": {
+  "en": "General industrial",
+  "es": "Industrial general",
+  "ja": "一般工業",
+  "zh": "一般工业"
+ },
+ "준공업": {
+  "en": "Semi-industrial",
+  "es": "Semiindustrial",
+  "ja": "準工業",
+  "zh": "准工业"
+ },
+ "보전녹지": {
+  "en": "Conservation green",
+  "es": "Verde de conservación",
+  "ja": "保全緑地",
+  "zh": "保护绿地"
+ },
+ "생산녹지": {
+  "en": "Production green",
+  "es": "Verde productivo",
+  "ja": "生産緑地",
+  "zh": "生产绿地"
+ },
+ "자연녹지": {
+  "en": "Natural green",
+  "es": "Verde natural",
+  "ja": "自然緑地",
+  "zh": "自然绿地"
+ },
+ "기타·미지정": {
+  "en": "Other / unzoned",
+  "es": "Otro / sin zonificar",
+  "ja": "その他・未指定",
+  "zh": "其他·未指定"
+ },
+ "용도지구": {
+  "en": "Zoning district",
+  "es": "Distrito de zonificación",
+  "ja": "用途地区",
+  "zh": "用途地区"
+ },
+ "용도구역": {
+  "en": "Zoning area",
+  "es": "Área de zonificación",
+  "ja": "用途区域",
+  "zh": "用途区域"
+ },
+ "광장·공공공지": {
+  "en": "Plaza and public open space",
+  "es": "Plaza y espacio público abierto",
+  "ja": "広場・公共空地",
+  "zh": "广场·公共空地"
+ },
+ "주차장": {
+  "en": "Parking",
+  "es": "Estacionamiento",
+  "ja": "駐車場",
+  "zh": "停车场"
+ },
+ "기타 시설": {
+  "en": "Other facilities",
+  "es": "Otros equipamientos",
+  "ja": "その他施設",
+  "zh": "其他设施"
+ },
+ "지구단위계획구역": {
+  "en": "District unit plan area",
+  "es": "Área de plan de unidad de distrito",
+  "ja": "地区単位計画区域",
+  "zh": "地区单元规划区"
+ },
+ "공동주택": {
+  "en": "Multi-family housing",
+  "es": "Vivienda colectiva",
+  "ja": "共同住宅",
+  "zh": "集合住宅"
+ },
+ "근린생활시설": {
+  "en": "Neighborhood services",
+  "es": "Servicios de barrio",
+  "ja": "近隣生活施設",
+  "zh": "邻里生活设施"
+ },
+ "문화·집회·종교·판매": {
+  "en": "Culture, assembly, religion and retail",
+  "es": "Cultura, reunión, religión y comercio",
+  "ja": "文化・集会・宗教・販売",
+  "zh": "文化·集会·宗教·销售"
+ },
+ "교육연구": {
+  "en": "Education and research",
+  "es": "Educación e investigación",
+  "ja": "教育研究",
+  "zh": "教育科研"
+ },
+ "노유자·의료": {
+  "en": "Care and health",
+  "es": "Asistencia y salud",
+  "ja": "福祉・医療",
+  "zh": "养老托幼·医疗"
+ },
+ "업무": {
+  "en": "Office",
+  "es": "Oficinas",
+  "ja": "業務",
+  "zh": "办公"
+ },
+ "숙박·위락": {
+  "en": "Lodging and entertainment",
+  "es": "Alojamiento y ocio",
+  "ja": "宿泊・娯楽",
+  "zh": "住宿·娱乐"
+ },
+ "공장·창고": {
+  "en": "Factory and warehouse",
+  "es": "Fábrica y almacén",
+  "ja": "工場・倉庫",
+  "zh": "工厂·仓库"
+ },
+ "자동차·위험물": {
+  "en": "Vehicles and hazardous materials",
+  "es": "Vehículos y materiales peligrosos",
+  "ja": "自動車・危険物",
+  "zh": "汽车·危险品"
+ },
+ "기타": {
+  "en": "Other",
+  "es": "Otro",
+  "ja": "その他",
+  "zh": "其他"
+ },
+ "용도 미상": {
+  "en": "Use unknown",
+  "es": "Uso desconocido",
+  "ja": "用途不明",
+  "zh": "用途不详"
+ },
+ "광로 (40 m 이상)": {
+  "en": "Boulevard (40 m and over)",
+  "es": "Bulevar (40 m o más)",
+  "ja": "広路（40 m以上）",
+  "zh": "广路（40 m 及以上）"
+ },
+ "대로 (25~40 m)": {
+  "en": "Major road (25–40 m)",
+  "es": "Vía principal (25–40 m)",
+  "ja": "大路（25～40 m）",
+  "zh": "大路（25~40 m）"
+ },
+ "중로 (12~25 m)": {
+  "en": "Medium road (12–25 m)",
+  "es": "Vía media (12–25 m)",
+  "ja": "中路（12～25 m）",
+  "zh": "中路（12~25 m）"
+ },
+ "소로1류 (10~12 m)": {
+  "en": "Minor road 1 (10–12 m)",
+  "es": "Vía menor 1 (10–12 m)",
+  "ja": "小路1類（10～12 m）",
+  "zh": "小路 1 类（10~12 m）"
+ },
+ "소로2류 (8~10 m)": {
+  "en": "Minor road 2 (8–10 m)",
+  "es": "Vía menor 2 (8–10 m)",
+  "ja": "小路2類（8～10 m）",
+  "zh": "小路 2 类（8~10 m）"
+ },
+ "소로3류 (8 m 미만)": {
+  "en": "Minor road 3 (under 8 m)",
+  "es": "Vía menor 3 (menos de 8 m)",
+  "ja": "小路3類（8 m未満）",
+  "zh": "小路 3 类（小于 8 m）"
+ },
+ "폭 미상": {
+  "en": "Width unknown",
+  "es": "Ancho desconocido",
+  "ja": "幅員不明",
+  "zh": "宽度不详"
+ },
+ "맹지": {
+  "en": "Landlocked parcel",
+  "es": "Parcela sin acceso",
+  "ja": "無道路地",
+  "zh": "无临路地块"
+ },
+ "0~5°": {
+  "en": "0–5°",
+  "es": "0–5°",
+  "ja": "0～5°",
+  "zh": "0~5°"
+ },
+ "5~10°": {
+  "en": "5–10°",
+  "es": "5–10°",
+  "ja": "5～10°",
+  "zh": "5~10°"
+ },
+ "10~15°": {
+  "en": "10–15°",
+  "es": "10–15°",
+  "ja": "10～15°",
+  "zh": "10~15°"
+ },
+ "15~21°": {
+  "en": "15–21°",
+  "es": "15–21°",
+  "ja": "15～21°",
+  "zh": "15~21°"
+ },
+ "21~27°": {
+  "en": "21–27°",
+  "es": "21–27°",
+  "ja": "21～27°",
+  "zh": "21~27°"
+ },
+ "27° 이상": {
+  "en": "27° and over",
+  "es": "27° o más",
+  "ja": "27°以上",
+  "zh": "27° 及以上"
+ },
+ "대장 높이": {
+  "en": "Register height",
+  "es": "Altura del registro",
+  "ja": "台帳の高さ",
+  "zh": "台账高度"
+ },
+ "대장 층수": {
+  "en": "Register floors",
+  "es": "Plantas del registro",
+  "ja": "台帳の階数",
+  "zh": "台账层数"
+ },
+ "지형도 층수": {
+  "en": "Topo map floors",
+  "es": "Plantas del mapa topográfico",
+  "ja": "地形図の階数",
+  "zh": "地形图层数"
+ },
+ "건축HUB": {
+  "en": "Building HUB",
+  "es": "Building HUB",
+  "ja": "建築HUB",
+  "zh": "建筑HUB"
+ },
+ "기본값": {
+  "en": "Default",
+  "es": "Valor predeterminado",
+  "ja": "既定値",
+  "zh": "默认值"
+ },
+ "OSM 높이": {
+  "en": "OSM height",
+  "es": "Altura OSM",
+  "ja": "OSMの高さ",
+  "zh": "OSM 高度"
+ },
+ "OSM 층수": {
+  "en": "OSM floors",
+  "es": "Plantas OSM",
+  "ja": "OSMの階数",
+  "zh": "OSM 层数"
+ },
+ "남동 등각": {
+  "en": "Southeast isometric",
+  "es": "Vista isométrica sureste",
+  "ja": "南東アイソメ",
+  "zh": "东南等轴测"
+ },
+ "남서 등각": {
+  "en": "Southwest isometric",
+  "es": "Vista isométrica suroeste",
+  "ja": "南西アイソメ",
+  "zh": "西南等轴测"
+ },
+ "북동 등각": {
+  "en": "Northeast isometric",
+  "es": "Vista isométrica noreste",
+  "ja": "北東アイソメ",
+  "zh": "东北等轴测"
+ },
+ "북서 등각": {
+  "en": "Northwest isometric",
+  "es": "Vista isométrica noroeste",
+  "ja": "北西アイソメ",
+  "zh": "西北等轴测"
+ },
+ "반경 {0} m": {
+  "en": "Radius {0} m",
+  "es": "Radio {0} m",
+  "ja": "半径 {0} m",
+  "zh": "半径 {0} m"
+ },
+ "용지 프레임": {
+  "en": "Paper frame",
+  "es": "Marco del papel",
+  "ja": "用紙フレーム",
+  "zh": "图幅框"
+ },
+ "그린 경계": {
+  "en": "Drawn boundary",
+  "es": "Límite dibujado",
+  "ja": "描いた境界",
+  "zh": "绘制的边界"
+ },
+ "평행 투상(축척 없음)": {
+  "en": "Parallel projection (no scale)",
+  "es": "Proyección paralela (sin escala)",
+  "ja": "平行投影（縮尺なし）",
+  "zh": "平行投影（无比例尺）"
+ },
+ "{0} · 정보제공용, 법적 효력 없음": {
+  "en": "{0} · For reference only, not legally binding",
+  "es": "{0} · Solo informativo, sin validez legal",
+  "ja": "{0}・参考情報、法的効力なし",
+  "zh": "{0} · 仅供参考，不具法律效力"
+ },
+ "{0} · 정보제공용, 법적 효력 없음 · {1} {2}": {
+  "en": "{0} · For reference only, not legally binding · {1} {2}",
+  "es": "{0} · Solo informativo, sin validez legal · {1} {2}",
+  "ja": "{0}・参考情報、法的効力なし・{1} {2}",
+  "zh": "{0} · 仅供参考，不具法律效力 · {1} {2}"
+ },
+ "범위 {0} · {1} ㎡": {
+  "en": "Extent: {0} · {1} m²",
+  "es": "Ámbito: {0} · {1} m²",
+  "ja": "範囲 {0}・{1} ㎡",
+  "zh": "范围 {0} · {1} ㎡"
+ },
+ "범위 안 건물 {0}동": {
+  "en": "Buildings in extent: {0}",
+  "es": "Edificios en el ámbito: {0}",
+  "ja": "範囲内の建物 {0}棟",
+  "zh": "范围内建筑 {0} 栋"
+ },
+ "자료기준 — (meta_lines 없음)": {
+  "en": "Data as of — (no metadata)",
+  "es": "Datos a fecha de — (sin metadatos)",
+  "ja": "データ基準 — （メタデータなし）",
+  "zh": "数据基准 — （无元数据）"
+ },
+ "범례": {
+  "en": "Legend",
+  "es": "Leyenda",
+  "ja": "凡例",
+  "zh": "图例"
+ },
+ "영상 못 받음": {
+  "en": "Imagery unavailable",
+  "es": "Imágenes no disponibles",
+  "ja": "画像を取得できません",
+  "zh": "未能获取影像"
+ },
+ "건축물": {
+  "en": "Buildings",
+  "es": "Edificios",
+  "ja": "建築物",
+  "zh": "建筑"
+ },
+ "녹지·공원": {
+  "en": "Green space and parks",
+  "es": "Zonas verdes y parques",
+  "ja": "緑地・公園",
+  "zh": "绿地·公园"
+ },
+ "{0} 외 {1}필지": {
+  "en": "{0} and {1} more",
+  "es": "{0} y {1} más",
+  "ja": "{0} ほか{1}区画",
+  "zh": "{0} 及另外{1}个地块"
+ },
+ "주요 수치": {
+  "en": "Key figures",
+  "es": "Cifras clave",
+  "ja": "主要数値",
+  "zh": "主要数据"
+ },
+ "데이터 없음": {
+  "en": "No data",
+  "es": "Sin datos",
+  "ja": "データなし",
+  "zh": "无数据"
+ },
+ "구역 {0} ㎡": {
+  "en": "Area: {0} m²",
+  "es": "Área: {0} m²",
+  "ja": "エリア {0} ㎡",
+  "zh": "区域 {0} ㎡"
+ },
+ "구역 {0} ㎡ · 안의 필지 {1}": {
+  "en": "Area: {0} m² · parcels inside: {1}",
+  "es": "Área: {0} m² · parcelas dentro: {1}",
+  "ja": "エリア {0} ㎡・内部の区画 {1}",
+  "zh": "区域 {0} ㎡ · 区内地块 {1}"
+ },
+ "위치 중심 범위(대상지 경계 없음)": {
+  "en": "Extent around a point (no site boundary)",
+  "es": "Ámbito alrededor de un punto (sin límite de sitio)",
+  "ja": "地点中心の範囲（対象地境界なし）",
+  "zh": "以地点为中心的范围（无场地边界）"
+ },
+ "대상지 {0}필지 · {1} ㎡": {
+  "en": "Site parcels: {0} · {1} m²",
+  "es": "Parcelas del sitio: {0} · {1} m²",
+  "ja": "対象地 {0}区画・{1} ㎡",
+  "zh": "场地 {0} 个地块 · {1} ㎡"
+ },
+ "건물 바닥면적 비율 {0:.1f} %": {
+  "en": "Ground coverage: {0:.1f} %",
+  "es": "Ocupación del suelo: {0:.1f} %",
+  "ja": "建物の建築面積率 {0:.1f} %",
+  "zh": "建筑覆盖率 {0:.1f} %"
+ },
+ "평균 바닥면적 {0} ㎡": {
+  "en": "Average footprint: {0} m²",
+  "es": "Huella media: {0} m²",
+  "ja": "平均建築面積 {0} ㎡",
+  "zh": "平均基底面积 {0} ㎡"
+ },
+ "대상지 중심 기준 직선거리": {
+  "en": "Straight-line distance from the site center",
+  "es": "Distancia en línea recta desde el centro del sitio",
+  "ja": "対象地中心からの直線距離",
+  "zh": "距场地中心的直线距离"
+ },
+ "가장 가까운 역 {0} {1} m": {
+  "en": "Nearest station: {0}, {1} m",
+  "es": "Estación más cercana: {0}, {1} m",
+  "ja": "最寄り駅 {0} {1} m",
+  "zh": "最近车站 {0} {1} m"
+ },
+ "{0} m 안 역 {1} · {2} m 안 역 {3}": {
+  "en": "Stations within {0} m: {1} · within {2} m: {3}",
+  "es": "Estaciones a menos de {0} m: {1} · a menos de {2} m: {3}",
+  "ja": "{0} m以内の駅 {1}・{2} m以内の駅 {3}",
+  "zh": "{0} m 内车站 {1} · {2} m 内车站 {3}"
+ },
+ "도면 안 역 없음": {
+  "en": "No stations on the sheet",
+  "es": "No hay estaciones en la lámina",
+  "ja": "図面内に駅なし",
+  "zh": "图纸范围内无车站"
+ },
+ "도면 안 공원 {0} · 녹지 {1} · 수계 {2}": {
+  "en": "On the sheet: parks {0} · green space {1} · water {2}",
+  "es": "En la lámina: parques {0} · zonas verdes {1} · agua {2}",
+  "ja": "図面内 公園 {0}・緑地 {1}・水系 {2}",
+  "zh": "图纸内 公园 {0} · 绿地 {1} · 水系 {2}"
+ },
+ "외부공간": {
+  "en": "Open space",
+  "es": "Espacio libre",
+  "ja": "外部空間",
+  "zh": "外部空间"
+ },
+ "범위 안 공원·녹지 {0} ㎡ ({1:.1f} %, 중심점 기준)": {
+  "en": "Parks and green space in extent: {0} m² ({1:.1f} %, by centroid)",
+  "es": "Parques y zonas verdes en el ámbito: {0} m² ({1:.1f} %, por centroide)",
+  "ja": "範囲内の公園・緑地 {0} ㎡（{1:.1f} %、中心点基準）",
+  "zh": "范围内公园·绿地 {0} ㎡（{1:.1f} %，按中心点）"
+ },
+ "필지 {0} · 과소필지(90 ㎡ 미만) {1} ({2} %)": {
+  "en": "Parcels: {0} · undersized (under 90 m²): {1} ({2} %)",
+  "es": "Parcelas: {0} · insuficientes (menos de 90 m²): {1} ({2} %)",
+  "ja": "区画 {0}・過小区画（90 ㎡未満）{1}（{2} %）",
+  "zh": "地块 {0} · 过小地块（小于 90 ㎡）{1}（{2} %）"
+ },
+ "도로·하천 필지 제외, 대장 면적 기준": {
+  "en": "Excludes road and river parcels; based on registered area",
+  "es": "Sin parcelas de vías ni ríos; según el área registrada",
+  "ja": "道路・河川の区画を除く、台帳面積基準",
+  "zh": "不含道路、河流地块，按台账面积"
+ },
+ "역(철도·지하철)": {
+  "en": "Station (rail/subway)",
+  "es": "Estación (tren/metro)",
+  "ja": "駅（鉄道・地下鉄）",
+  "zh": "车站（铁路·地铁）"
+ },
+ "철도 노선": {
+  "en": "Rail line",
+  "es": "Línea ferroviaria",
+  "ja": "鉄道路線",
+  "zh": "铁路线"
+ },
+ "1차 역세권 ({0} m)": {
+  "en": "Primary catchment ({0} m)",
+  "es": "Área de influencia primaria ({0} m)",
+  "ja": "一次駅勢圏（{0} m）",
+  "zh": "一级车站服务范围（{0} m）"
+ },
+ "2차 역세권 ({0} m)": {
+  "en": "Secondary catchment ({0} m)",
+  "es": "Área de influencia secundaria ({0} m)",
+  "ja": "二次駅勢圏（{0} m）",
+  "zh": "二级车站服务范围（{0} m）"
+ },
+ "{0} (과소필지)": {
+  "en": "{0} (undersized)",
+  "es": "{0} (insuficiente)",
+  "ja": "{0}（過小区画）",
+  "zh": "{0}（过小地块）"
+ },
+ "면적 중앙값 {0} ㎡ · 평균 {1} ㎡": {
+  "en": "Median area: {0} m² · mean: {1} m²",
+  "es": "Área mediana: {0} m² · media: {1} m²",
+  "ja": "面積中央値 {0} ㎡・平均 {1} ㎡",
+  "zh": "面积中位数 {0} ㎡ · 平均 {1} ㎡"
+ },
+ "블록 = 도로 필지 구멍 · 건물 = 대장 연면적(없으면 바닥면적×층수)": {
+  "en": "Block = hole in the road parcel · building = registered floor area (else footprint × floors)",
+  "es": "Manzana = hueco de la parcela vial · edificio = superficie construida registrada (si no, huella × plantas)",
+  "ja": "街区 = 道路区画の穴・建物 = 台帳の延床面積（なければ建築面積×階数）",
+  "zh": "街区 = 道路地块中的孔洞 · 建筑 = 台账建筑面积（缺失时为基底面积×层数）"
+ },
+ "㎡": {
+  "en": "m²",
+  "es": "m²",
+  "ja": "㎡",
+  "zh": "㎡"
+ },
+ "{0} {1} 이상": {
+  "en": "{0} {1} and over",
+  "es": "{0} {1} o más",
+  "ja": "{0} {1}以上",
+  "zh": "{0} {1}及以上"
+ },
+ "범위 안 블록 {0} · 평균 용적률 {1} % · 건폐율 {2} %": {
+  "en": "Blocks in extent: {0} · mean FAR: {1} % · coverage: {2} %",
+  "es": "Manzanas en el ámbito: {0} · edificabilidad media: {1} % · ocupación: {2} %",
+  "ja": "範囲内の街区 {0}・平均容積率 {1} %・建ぺい率 {2} %",
+  "zh": "范围内街区 {0} · 平均容积率 {1} % · 建筑密度 {2} %"
+ },
+ "블록 경계 없음 — 도로 필지에 구멍(가구)이 없다": {
+  "en": "No block boundaries — the road parcel has no holes (blocks)",
+  "es": "Sin límites de manzana — la parcela vial no tiene huecos (manzanas)",
+  "ja": "街区境界なし — 道路区画に穴（街区）がありません",
+  "zh": "无街区边界 — 道路地块中没有孔洞（街区）"
+ },
+ "{0} (도면 안 도로)": {
+  "en": "{0} (roads on the sheet)",
+  "es": "{0} (vías en la lámina)",
+  "ja": "{0}（図面内の道路）",
+  "zh": "{0}（图纸内道路）"
+ },
+ "대상지 중심 {0} m 안 도로에서 출발 · {1} m/분": {
+  "en": "Starts from roads within {0} m of the site center · {1} m/min",
+  "es": "Sale de las vías a menos de {0} m del centro del sitio · {1} m/min",
+  "ja": "対象地中心から{0} m以内の道路から出発・{1} m/分",
+  "zh": "从距场地中心 {0} m 内的道路出发 · {1} m/分钟"
+ },
+ "{0} {1} 미만": {
+  "en": "Under {0} {1}",
+  "es": "Menos de {0} {1}",
+  "ja": "{0} {1}未満",
+  "zh": "小于 {0} {1}"
+ },
+ "{0}~{1} {2}": {
+  "en": "{0}–{1} {2}",
+  "es": "{0}–{1} {2}",
+  "ja": "{0}～{1} {2}",
+  "zh": "{0}~{1} {2}"
+ },
+ "{0}분 ({1} m)": {
+  "en": "{0} min ({1} m)",
+  "es": "{0} min ({1} m)",
+  "ja": "{0}分（{1} m）",
+  "zh": "{0} 分钟（{1} m）"
+ },
+ "{0}층 이상": {
+  "en": "{0}+ floors",
+  "es": "{0} plantas o más",
+  "ja": "{0}階以上",
+  "zh": "{0} 层及以上"
+ },
+ "가장 가까운 역 {0} 보행 {1}분": {
+  "en": "Nearest station: {0}, {1} min walk",
+  "es": "Estación más cercana: {0}, a {1} min a pie",
+  "ja": "最寄り駅 {0} 徒歩{1}分",
+  "zh": "最近车站 {0}，步行 {1} 分钟"
+ },
+ "교육 {0} · 의료·노유자 {1} · 문화·체육 {2}동": {
+  "en": "Buildings: education {0} · health and care {1} · culture and sports {2}",
+  "es": "Edificios: educación {0} · salud y asistencia {1} · cultura y deporte {2}",
+  "ja": "教育 {0}、医療・福祉 {1}、文化・体育 {2}棟",
+  "zh": "教育 {0}，医疗·养老托幼 {1}，文化·体育 {2} 栋"
+ },
+ "학교 부지 {0} · 광장·공공공지 {1}": {
+  "en": "School sites: {0} · plazas and public open space: {1}",
+  "es": "Terrenos escolares: {0} · plazas y espacios públicos abiertos: {1}",
+  "ja": "学校用地 {0}、広場・公共空地 {1}",
+  "zh": "学校用地 {0}，广场·公共空地 {1}"
+ },
+ "OSM 건물·시설(amenity) 태그 기준 — 태그 없는 시설은 빠진다": {
+  "en": "Based on OSM building and amenity tags — untagged facilities are not shown",
+  "es": "Según las etiquetas OSM de edificio y servicio (amenity) — no aparecen las instalaciones sin etiqueta",
+  "ja": "OSMの建物・施設（amenity）タグ基準 — タグのない施設は含まれません",
+  "zh": "依据 OSM 建筑·设施（amenity）标签 — 无标签的设施不计入"
+ },
+ "건축물대장 용도 기준 — 공공청사는 업무시설과 섞여 따로 구분하지 않는다": {
+  "en": "Based on building register use — public offices are grouped with offices, not shown separately",
+  "es": "Según el uso del registro de edificios — las oficinas públicas van con las oficinas, sin distinguirse",
+  "ja": "建築物台帳の用途基準 — 公共庁舎は業務施設に含まれ、区別していません",
+  "zh": "依据建筑台账用途 — 公共办公楼归入办公设施，不单独区分"
+ },
+ "{0} 시점 · 범위 안 건물 {1}동": {
+  "en": "{0} view · buildings in extent: {1}",
+  "es": "{0} · edificios en el ámbito: {1}",
+  "ja": "視点 {0}・範囲内の建物 {1}棟",
+  "zh": "视角 {0} · 范围内建筑 {1} 栋"
+ },
+ "평행 투상(축척 없음) · 지형은 평탄 가정 · 시점은 도면 스타일에서": {
+  "en": "Parallel projection (no scale) · terrain assumed flat · change the view in the diagram style",
+  "es": "Proyección paralela (sin escala) · terreno supuesto plano · cambia la vista en el estilo del diagrama",
+  "ja": "平行投影（縮尺なし）・地形は平坦と仮定・視点は図面スタイルで変更",
+  "zh": "平行投影（无比例尺）· 假定地形平坦 · 视角在图纸样式中设置"
+ },
+ "{0}~{1}층": {
+  "en": "{0}–{1} floors",
+  "es": "{0}–{1} plantas",
+  "ja": "{0}～{1}階",
+  "zh": "{0}~{1} 层"
+ },
+ "{0}분 {1:.1f} km": {
+  "en": "{0} min {1:.1f} km",
+  "es": "{0} min {1:.1f} km",
+  "ja": "{0}分 {1:.1f} km",
+  "zh": "{0} 分钟 {1:.1f} km"
+ },
+ "최고 {0:.0f} m · 평균 {1:.1f} m": {
+  "en": "Max height {0:.0f} m · mean {1:.1f} m",
+  "es": "Altura máx. {0:.0f} m · media {1:.1f} m",
+  "ja": "最高 {0:.0f} m・平均 {1:.1f} m",
+  "zh": "最高 {0:.0f} m · 平均 {1:.1f} m"
+ },
+ "1층": {
+  "en": "1 floor",
+  "es": "1 planta",
+  "ja": "1階",
+  "zh": "1 层"
+ },
+ "{0}층": {
+  "en": "{0} floors",
+  "es": "{0} plantas",
+  "ja": "{0}階",
+  "zh": "{0} 层"
+ },
+ "영상 {0}": {
+  "en": "Imagery: {0}",
+  "es": "Imágenes: {0}",
+  "ja": "画像 {0}",
+  "zh": "影像 {0}"
+ },
+ "지상 해상도 약 {0:.2f} m/px · 촬영 시기 확인 필요": {
+  "en": "Ground resolution about {0:.2f} m/px · check the capture date",
+  "es": "Resolución en el terreno aprox. {0:.2f} m/px · verifica la fecha de captura",
+  "ja": "地上解像度 約{0:.2f} m/px・撮影時期は要確認",
+  "zh": "地面分辨率约 {0:.2f} m/px · 拍摄时间需核实"
+ },
+ "영상 타일을 받지 못함 — 인터넷 연결 확인 뒤 다시 생성": {
+  "en": "Could not download imagery tiles — check your internet connection and create again",
+  "es": "No se pudieron descargar las teselas de imagen — revisa la conexión a internet y vuelve a crear",
+  "ja": "画像タイルを取得できません — インターネット接続を確認して再作成してください",
+  "zh": "无法下载影像瓦片 — 请检查网络连接后重新生成"
+ },
+ "직접 그리는 틀 — 범례 레이어마다 Illustrator에서 그린다": {
+  "en": "Blank template — draw on each legend layer in Illustrator",
+  "es": "Plantilla en blanco — dibuja en cada capa de la leyenda en Illustrator",
+  "ja": "手描き用のテンプレート — 凡例レイヤーごとにIllustratorで描きます",
+  "zh": "手绘模板 — 在 Illustrator 中按图例图层绘制"
+ },
+ "{0}~{1} 만원/㎡": {
+  "en": "{0}–{1} (KRW 10,000/m²)",
+  "es": "{0}–{1} (10 000 KRW/m²)",
+  "ja": "{0}～{1} 万ウォン/㎡",
+  "zh": "{0}~{1} 万韩元/㎡"
+ },
+ "필지 {0} · {1} ㎡": {
+  "en": "Parcels: {0} · {1} m²",
+  "es": "Parcelas: {0} · {1} m²",
+  "ja": "区画 {0}・{1} ㎡",
+  "zh": "地块 {0} · {1} ㎡"
+ },
+ "{0:g}~{1:g} m": {
+  "en": "{0:g}–{1:g} m",
+  "es": "{0:g}–{1:g} m",
+  "ja": "{0:g}～{1:g} m",
+  "zh": "{0:g}~{1:g} m"
+ },
+ "조망점: 근경 250 m · 중경 500 m · 원경, 눈높이 1.5 m": {
+  "en": "Viewpoints: near 250 m · middle 500 m · distant; eye level 1.5 m",
+  "es": "Puntos de vista: cercano 250 m · medio 500 m · lejano; altura de los ojos 1.5 m",
+  "ja": "視点場：近景 250 m・中景 500 m・遠景、目の高さ 1.5 m",
+  "zh": "观景点：近景 250 m · 中景 500 m · 远景，视高 1.5 m"
+ },
+ "케빈 린치 도시 이미지 5요소": {
+  "en": "Kevin Lynch's five elements of the city image",
+  "es": "Los cinco elementos de la imagen de la ciudad de Kevin Lynch",
+  "ja": "ケヴィン・リンチの都市イメージ5要素",
+  "zh": "凯文·林奇城市意象五要素"
+ },
+ "현황도를 겹쳐 제약과 기회를 나눠 적는다": {
+  "en": "Overlay the existing-conditions maps and mark constraints and opportunities",
+  "es": "Superpón los planos de estado actual y anota restricciones y oportunidades",
+  "ja": "現況図を重ね、制約と機会を分けて書き込みます",
+  "zh": "叠加现状图，分别标注制约与机会"
+ },
+ "구역·시설 {0}건": {
+  "en": "Areas and facilities: {0}",
+  "es": "Áreas y equipamientos: {0}",
+  "ja": "区域・施設 {0}件",
+  "zh": "区域·设施 {0} 处"
+ },
+ "최고 {0} · 최저 {1} 만원/㎡": {
+  "en": "High: {0} · low: {1} (KRW 10,000/m²)",
+  "es": "Máx.: {0} · mín.: {1} (10 000 KRW/m²)",
+  "ja": "最高 {0}・最低 {1} 万ウォン/㎡",
+  "zh": "最高 {0} · 最低 {1} 万韩元/㎡"
+ },
+ "평균 {0} 만원/㎡": {
+  "en": "Mean: {0} (KRW 10,000/m²)",
+  "es": "Media: {0} (10 000 KRW/m²)",
+  "ja": "平均 {0} 万ウォン/㎡",
+  "zh": "平均 {0} 万韩元/㎡"
+ },
+ "건물 {0}동 · 바닥면적 {1} ㎡": {
+  "en": "Buildings: {0} · footprint: {1} m²",
+  "es": "Edificios: {0} · huella: {1} m²",
+  "ja": "建物 {0}棟・建築面積 {1} ㎡",
+  "zh": "建筑 {0} 栋 · 基底面积 {1} ㎡"
+ },
+ "20년 이상 {0}동 ({1} %) · 30년 이상 {2}동 ({3} %)": {
+  "en": "20+ years: {0} ({1} %) · 30+ years: {2} ({3} %)",
+  "es": "20 años o más: {0} ({1} %) · 30 años o más: {2} ({3} %)",
+  "ja": "築20年以上 {0}棟（{1} %）・築30年以上 {2}棟（{3} %）",
+  "zh": "20 年以上 {0} 栋（{1} %）· 30 年以上 {2} 栋（{3} %）"
+ },
+ "연도 미상 {0}동": {
+  "en": "Year unknown: {0}",
+  "es": "Año desconocido: {0}",
+  "ja": "築年不明 {0}棟",
+  "zh": "年份不详 {0} 栋"
+ },
+ "도로율 {0:.1f} % (지목 도로 {1} ㎡ / 필지 {2} ㎡)": {
+  "en": "Road share: {0:.1f} % (road land {1} m² / parcels {2} m²)",
+  "es": "Proporción vial: {0:.1f} % (suelo vial {1} m² / parcelas {2} m²)",
+  "ja": "道路率 {0:.1f} %（地目道路 {1} ㎡ / 区画 {2} ㎡）",
+  "zh": "道路率 {0:.1f} %（地类道路 {1} ㎡ / 地块 {2} ㎡）"
+ },
+ "중심선 {0:.1f} km · 맹지 {1}필지": {
+  "en": "Centerlines: {0:.1f} km · landlocked parcels: {1}",
+  "es": "Ejes viales: {0:.1f} km · parcelas sin acceso: {1}",
+  "ja": "中心線 {0:.1f} km・無道路地 {1}区画",
+  "zh": "中心线 {0:.1f} km · 无临路地块 {1} 个"
+ },
+ "평균 {0:.1f}층 · 최고 {1}층": {
+  "en": "Mean {0:.1f} floors · max {1} floors",
+  "es": "Media {0:.1f} plantas · máx. {1} plantas",
+  "ja": "平均 {0:.1f}階・最高 {1}階",
+  "zh": "平均 {0:.1f} 层 · 最高 {1} 层"
+ },
+ "높이 출처 {0}": {
+  "en": "Height sources: {0}",
+  "es": "Fuentes de altura: {0}",
+  "ja": "高さの出典 {0}",
+  "zh": "高度来源 {0}"
+ },
+ "높이 등급 {0}": {
+  "en": "Height grades: {0}",
+  "es": "Grados de altura: {0}",
+  "ja": "高さ等級 {0}",
+  "zh": "高度等级 {0}"
+ },
+ "삼각형 {0} · {1} ㎡": {
+  "en": "Triangles: {0} · {1} m²",
+  "es": "Triángulos: {0} · {1} m²",
+  "ja": "三角形 {0}・{1} ㎡",
+  "zh": "三角形 {0} · {1} ㎡"
+ },
+ "표고 {0:.1f}~{1:.1f} m · 평균 {2:.1f} m": {
+  "en": "Elevation {0:.1f}–{1:.1f} m · mean {2:.1f} m",
+  "es": "Elevación {0:.1f}–{1:.1f} m · media {2:.1f} m",
+  "ja": "標高 {0:.1f}～{1:.1f} m・平均 {2:.1f} m",
+  "zh": "高程 {0:.1f}~{1:.1f} m · 平均 {2:.1f} m"
+ },
+ "평균 경사 {0:.1f}° · 최대 {1:.1f}°": {
+  "en": "Mean slope {0:.1f}° · max {1:.1f}°",
+  "es": "Pendiente media {0:.1f}° · máx. {1:.1f}°",
+  "ja": "平均勾配 {0:.1f}°・最大 {1:.1f}°",
+  "zh": "平均坡度 {0:.1f}° · 最大 {1:.1f}°"
+ },
+ "단계 {0:g} m (평탄지라 자동으로 줄임)": {
+  "en": "Interval {0:g} m (reduced automatically for flat terrain)",
+  "es": "Intervalo {0:g} m (reducido automáticamente por terreno llano)",
+  "ja": "間隔 {0:g} m（平坦地のため自動で縮小）",
+  "zh": "间隔 {0:g} m（地形平坦，已自动减小）"
+ },
+ "단계 {0:g} m": {
+  "en": "Interval {0:g} m",
+  "es": "Intervalo {0:g} m",
+  "ja": "間隔 {0:g} m",
+  "zh": "间隔 {0:g} m"
+ },
+ "Rhino 문서 단위는 mm, cm, m 같은 표준 단위로 설정해야 합니다": {
+  "en": "Set the Rhino document units to a standard unit such as mm, cm, or m",
+  "es": "Configura las unidades del documento de Rhino con una unidad estándar como mm, cm o m",
+  "ja": "Rhinoドキュメントの単位はmm、cm、mなどの標準単位に設定してください",
+  "zh": "请将 Rhino 文档单位设为 mm、cm、m 等标准单位"
+ },
+ "Rhino 문서 단위 변환 배율을 계산할 수 없습니다": {
+  "en": "Cannot calculate the scale factor for the Rhino document units",
+  "es": "No se puede calcular el factor de escala de las unidades del documento de Rhino",
+  "ja": "Rhinoドキュメントの単位換算倍率を計算できません",
+  "zh": "无法计算 Rhino 文档单位的换算比例"
+ },
+ "Rhino 레이어를 만들 수 없습니다: {0}": {
+  "en": "Cannot create Rhino layer: {0}",
+  "es": "No se puede crear la capa de Rhino: {0}",
+  "ja": "Rhinoレイヤーを作成できません: {0}",
+  "zh": "无法创建 Rhino 图层：{0}"
+ },
+ "Rhino 파일을 저장할 수 없습니다: {0}": {
+  "en": "Cannot save the Rhino file: {0}",
+  "es": "No se puede guardar el archivo de Rhino: {0}",
+  "ja": "Rhinoファイルを保存できません: {0}",
+  "zh": "无法保存 Rhino 文件：{0}"
+ },
+ "저장할 객체 선택 실패 {0}/{1}": {
+  "en": "Could not select the objects to save ({0}/{1})",
+  "es": "No se pudieron seleccionar los objetos para guardar ({0}/{1})",
+  "ja": "保存するオブジェクトを選択できませんでした（{0}/{1}）",
+  "zh": "无法选择要保存的对象（{0}/{1}）"
+ },
+ "3dm을 열 수 없습니다: {0}": {
+  "en": "Cannot open the 3dm file: {0}",
+  "es": "No se puede abrir el archivo 3dm: {0}",
+  "ja": "3dmファイルを開けません: {0}",
+  "zh": "无法打开 3dm 文件：{0}"
+ },
+ "{0} 레이어에 객체가 없습니다": {
+  "en": "No objects on the {0} layer",
+  "es": "No hay objetos en la capa {0}",
+  "ja": "{0}レイヤーにオブジェクトがありません",
+  "zh": "{0} 图层中没有对象"
+ },
+ "DWG를 저장할 수 없습니다: {0}": {
+  "en": "Cannot save the DWG file: {0}",
+  "es": "No se puede guardar el archivo DWG: {0}",
+  "ja": "DWGファイルを保存できません: {0}",
+  "zh": "无法保存 DWG 文件：{0}"
+ },
+ "2D 선 도면이 비었습니다": {
+  "en": "The 2D line drawing is empty",
+  "es": "El dibujo de líneas 2D está vacío",
+  "ja": "2D線図面が空です",
+  "zh": "2D 线条图纸为空"
+ },
+ "DWG용 빈 문서를 만들 수 없습니다": {
+  "en": "Cannot create a blank document for the DWG",
+  "es": "No se puede crear un documento vacío para el DWG",
+  "ja": "DWG用の空のドキュメントを作成できません",
+  "zh": "无法为 DWG 创建空白文档"
+ },
+ "2D 선 도면을 굽지 못했습니다": {
+  "en": "Could not bake the 2D line drawing",
+  "es": "No se pudo generar el dibujo de líneas 2D",
+  "ja": "2D線図面をベイクできませんでした",
+  "zh": "无法烘焙 2D 线条图纸"
+ },
+ "DWG용 임시 3dm을 저장할 수 없습니다: {0}": {
+  "en": "Cannot save the temporary 3dm file for the DWG: {0}",
+  "es": "No se puede guardar el archivo 3dm temporal para el DWG: {0}",
+  "ja": "DWG用の一時3dmファイルを保存できません: {0}",
+  "zh": "无法保存用于 DWG 的临时 3dm 文件：{0}"
+ },
+ "Rhino 파일 레이어 상태를 저장할 수 없습니다: {0}": {
+  "en": "Cannot save layer states to the Rhino file: {0}",
+  "es": "No se pueden guardar los estados de capa en el archivo de Rhino: {0}",
+  "ja": "Rhinoファイルのレイヤー状態を保存できません: {0}",
+  "zh": "无法保存 Rhino 文件的图层状态：{0}"
+ },
+ "파일이 없습니다: {0}": {
+  "en": "File not found: {0}",
+  "es": "No se encuentra el archivo: {0}",
+  "ja": "ファイルがありません: {0}",
+  "zh": "找不到文件：{0}"
+ },
+ "좌표 방식이 다른 문서입니다(원점 이동 / 실제 좌표) — 새 문서에서 넣으세요": {
+  "en": "This document uses a different coordinate mode (Origin (0,0) / GIS coordinates) — import into a new document",
+  "es": "Este documento usa otro modo de coordenadas (Origen (0,0) / coordenadas GIS) — impórtalo en un documento nuevo",
+  "ja": "座標方式が異なるドキュメントです（原点(0,0) / GIS座標）— 新しいドキュメントに読み込んでください",
+  "zh": "该文档的坐标方式不同（原点(0,0) / GIS坐标）— 请在新文档中导入"
+ },
+ "다른 지역 문서입니다 — 새 문서에서 넣으세요 (원점 차이 > {0:.0f} m)": {
+  "en": "This document is for a different area — import into a new document (origin offset > {0:.0f} m)",
+  "es": "Este documento es de otra zona — impórtalo en un documento nuevo (diferencia de origen > {0:.0f} m)",
+  "ja": "別の地域のドキュメントです — 新しいドキュメントに読み込んでください（原点の差 > {0:.0f} m）",
+  "zh": "该文档属于其他区域 — 请在新文档中导入（原点偏差 > {0:.0f} m）"
+ },
+ "Rhino가 파일을 넣지 못했습니다 — {0} 를 직접 Import할 수 있습니다": {
+  "en": "Rhino could not import the file — you can Import {0} manually",
+  "es": "Rhino no pudo importar el archivo — puedes importar {0} manualmente con Import",
+  "ja": "Rhinoがファイルを読み込めませんでした — {0} を手動でImportできます",
+  "zh": "Rhino 无法导入该文件 — 可以手动 Import {0}"
+ },
+ "범위 안에 등고선과 표고점이 없습니다. 컨텍스트 DB 도엽을 확인하세요": {
+  "en": "No contours or spot elevations in the extent. Check the context DB map sheets",
+  "es": "No hay curvas de nivel ni puntos de elevación en el ámbito. Revisa las hojas del mapa en la base de datos de contexto",
+  "ja": "範囲内に等高線と標高点がありません。コンテキストDBの図葉を確認してください",
+  "zh": "范围内没有等高线和高程点。请检查周边环境数据库的图幅"
+ },
+ "범위 평면을 만들지 못했습니다": {
+  "en": "Could not create the planar surface for the extent",
+  "es": "No se pudo crear la superficie plana del ámbito",
+  "ja": "範囲の平面を作成できませんでした",
+  "zh": "无法创建范围平面"
+ },
+ "대상지 경계에서 지반 높이를 읽지 못했습니다": {
+  "en": "Could not read the ground elevation along the site boundary",
+  "es": "No se pudo leer la elevación del terreno en el límite del sitio",
+  "ja": "対象地の境界で地盤の高さを読み取れませんでした",
+  "zh": "无法读取场地边界处的地面高程"
+ },
+ "지형 TIN 생성 실패 — 입력점 {0}": {
+  "en": "Could not create the terrain TIN — {0} input points",
+  "es": "No se pudo crear el TIN del terreno — {0} puntos de entrada",
+  "ja": "地形TINの生成に失敗しました — 入力点 {0}",
+  "zh": "地形 TIN 生成失败 — 输入点 {0} 个"
+ },
+ "{0}(빈 발자국·높이 0)": {
+  "en": "{0} (empty footprint or zero height)",
+  "es": "{0} (huella vacía o altura cero)",
+  "ja": "{0}（空のフットプリント・高さ0）",
+  "zh": "{0}（轮廓为空或高度为 0）"
+ },
+ "{0}(투영·최근접 정점 없음)": {
+  "en": "{0} (no projection or nearest vertex)",
+  "es": "{0} (sin proyección ni vértice cercano)",
+  "ja": "{0}（投影・最近接頂点なし）",
+  "zh": "{0}（无投影点或最近顶点）"
+ },
+ "{0}(압출 실패)": {
+  "en": "{0} (extrusion failed)",
+  "es": "{0} (falló la extrusión)",
+  "ja": "{0}（押し出し失敗）",
+  "zh": "{0}（拉伸失败）"
+ },
+ "건물 {0}동 건너뜀 — 투영·압출 실패": {
+  "en": "Skipped {0} buildings — projection or extrusion failed",
+  "es": "Se omitieron {0} edificios — falló la proyección o la extrusión",
+  "ja": "建物{0}棟をスキップ — 投影・押し出し失敗",
+  "zh": "已跳过 {0} 栋建筑 — 投影或拉伸失败"
+ },
+ "커브가 아닙니다": {
+  "en": "Not a curve",
+  "es": "No es una curva",
+  "ja": "カーブではありません",
+  "zh": "不是曲线"
+ },
+ "닫힌 커브가 아닙니다. 끝점이 붙은 커브를 고르세요": {
+  "en": "The curve is not closed. Pick a curve whose ends meet",
+  "es": "La curva no está cerrada. Elige una curva cuyos extremos se unan",
+  "ja": "閉じたカーブではありません。端点がつながったカーブを選んでください",
+  "zh": "不是闭合曲线。请选择首尾相接的曲线"
+ },
+ "평면 커브가 아닙니다": {
+  "en": "The curve is not planar",
+  "es": "La curva no es plana",
+  "ja": "平面カーブではありません",
+  "zh": "不是平面曲线"
+ },
+ "기울어진 커브입니다. XY 평면(Top)에 놓인 커브를 고르세요": {
+  "en": "The curve is tilted. Pick a curve that lies on the XY plane (Top)",
+  "es": "La curva está inclinada. Elige una curva situada en el plano XY (vista Superior)",
+  "ja": "傾いたカーブです。XY平面（トップ）上のカーブを選んでください",
+  "zh": "曲线是倾斜的。请选择位于 XY 平面（顶视图）上的曲线"
+ },
+ "꼬인(자기교차) 커브입니다. 꼬이지 않은 닫힌 커브를 고르세요": {
+  "en": "The curve intersects itself. Pick a closed curve that does not cross itself",
+  "es": "La curva se cruza consigo misma. Elige una curva cerrada que no se cruce",
+  "ja": "自己交差しているカーブです。交差のない閉じたカーブを選んでください",
+  "zh": "曲线自相交。请选择不自相交的闭合曲线"
+ },
+ "커브를 폴리라인으로 바꾸지 못했습니다": {
+  "en": "Could not convert the curve to a polyline",
+  "es": "No se pudo convertir la curva en polilínea",
+  "ja": "カーブをポリラインに変換できませんでした",
+  "zh": "无法将曲线转换为多段线"
+ },
+ "범위 안 지형 면이 없습니다": {
+  "en": "No terrain faces in the extent",
+  "es": "No hay caras de terreno en el ámbito",
+  "ja": "範囲内に地形の面がありません",
+  "zh": "范围内没有地形面"
+ },
+ "[건너뜀] 툴바 파일이 없습니다: {0}": {
+  "en": "[Skipped] Toolbar file not found: {0}",
+  "es": "[Omitido] No se encuentra el archivo de barras de herramientas: {0}",
+  "ja": "[スキップ] ツールバーファイルがありません: {0}",
+  "zh": "[已跳过] 找不到工具栏文件：{0}"
+ },
+ "[툴바] 자동 등록 실패: {0}: {1}": {
+  "en": "[Toolbar] Automatic registration failed: {0}: {1}",
+  "es": "[Barra de herramientas] Falló el registro automático: {0}: {1}",
+  "ja": "[ツールバー] 自動登録に失敗しました: {0}: {1}",
+  "zh": "[工具栏] 自动注册失败：{0}: {1}"
+ },
+ "[툴바] 라이노가 파일을 열지 못했습니다 (반환값 없음)": {
+  "en": "[Toolbar] Rhino could not open the file (no return value)",
+  "es": "[Barra de herramientas] Rhino no pudo abrir el archivo (sin valor de retorno)",
+  "ja": "[ツールバー] Rhinoがファイルを開けませんでした（戻り値なし）",
+  "zh": "[工具栏] Rhino 无法打开该文件（无返回值）"
+ },
+ "[툴바] 파일은 열렸지만 툴바가 없습니다 — rui 내용을 확인하세요": {
+  "en": "[Toolbar] The file opened but has no toolbars — check the .rui file",
+  "es": "[Barra de herramientas] El archivo se abrió pero no tiene barras de herramientas — revisa el archivo .rui",
+  "ja": "[ツールバー] ファイルは開きましたがツールバーがありません — ruiの内容を確認してください",
+  "zh": "[工具栏] 文件已打开但没有工具栏 — 请检查 rui 文件内容"
+ },
+ "툴바 파일 적재 완료 (툴바 {0}개)": {
+  "en": "Toolbar file loaded ({0} toolbars)",
+  "es": "Archivo de barras de herramientas cargado ({0} barras)",
+  "ja": "ツールバーファイルを読み込みました（ツールバー {0}個）",
+  "zh": "工具栏文件已加载（{0} 个工具栏）"
+ },
+ "[툴바] 켜지 못했습니다: {0}: {1}": {
+  "en": "[Toolbar] Could not show the toolbar: {0}: {1}",
+  "es": "[Barra de herramientas] No se pudo mostrar: {0}: {1}",
+  "ja": "[ツールバー] 表示できませんでした: {0}: {1}",
+  "zh": "[工具栏] 无法显示：{0}: {1}"
+ },
+ "툴바 '{0}' 표시: {1}": {
+  "en": "Toolbar '{0}' visible: {1}",
+  "es": "Barra de herramientas '{0}' visible: {1}",
+  "ja": "ツールバー '{0}' 表示: {1}",
+  "zh": "工具栏 '{0}' 显示：{1}"
+ },
+ "[툴바] 그룹을 코드로 찾지 못했습니다 (맥에서는 흔한 일입니다)": {
+  "en": "[Toolbar] Could not find the toolbar group from code (common on Mac)",
+  "es": "[Barra de herramientas] No se encontró el grupo desde el código (es habitual en Mac)",
+  "ja": "[ツールバー] コードからグループを見つけられませんでした（Macではよくあることです）",
+  "zh": "[工具栏] 无法通过代码找到工具栏组（在 Mac 上很常见）"
+ },
+ "툴바 없이도 명령창에 {0} 를 치면 패널은 열립니다": {
+  "en": "Even without the toolbar, type {0} in the command line to open the panel",
+  "es": "Aun sin la barra de herramientas, escribe {0} en la línea de comandos para abrir el panel",
+  "ja": "ツールバーがなくても、コマンドラインに {0} と入力するとパネルが開きます",
+  "zh": "即使没有工具栏，在命令行输入 {0} 也能打开面板"
+ },
+ "버튼을 쓰려면 한 번만: 명령창에 ToolBar 입력 (맥 메뉴: 창 > 도구모음...)": {
+  "en": "To use the button (one time only): type ToolBar in the command line (Mac menu: Window > Toolbars...)",
+  "es": "Para usar el botón (solo una vez): escribe ToolBar en la línea de comandos (menú de Mac: Ventana > Barras de herramientas...)",
+  "ja": "ボタンを使うには一度だけ: コマンドラインに ToolBar と入力（Macのメニュー: ウィンドウ > ツールバー...）",
+  "zh": "如需使用按钮（只需一次）：在命令行输入 ToolBar（Mac 菜单：窗口 > 工具栏...）"
+ },
+ "목록에서 '{0}'를 켜면 다음부터는 계속 떠 있습니다": {
+  "en": "Turn on '{0}' in the list and it will stay visible from then on",
+  "es": "Activa '{0}' en la lista y seguirá visible a partir de entonces",
+  "ja": "一覧で '{0}' をオンにすると、次回からは常に表示されます",
+  "zh": "在列表中勾选 '{0}' 后，以后会一直显示"
+ },
+ "[멈춤] 패널 진입 스크립트를 찾지 못했습니다: {0}": {
+  "en": "[Stopped] Panel entry script not found: {0}",
+  "es": "[Detenido] No se encontró el script de entrada del panel: {0}",
+  "ja": "[停止] パネルの起動スクリプトが見つかりません: {0}",
+  "zh": "[已停止] 找不到面板入口脚本：{0}"
+ },
+ "필지 DB 확인 ({0:.1f}GB)": {
+  "en": "Parcel DB found ({0:.1f} GB)",
+  "es": "Base de datos de parcelas encontrada ({0:.1f} GB)",
+  "ja": "区画DBを確認しました（{0:.1f}GB）",
+  "zh": "已找到地块数据库（{0:.1f}GB）"
+ },
+ "[주의] 필지 DB가 없습니다 — 아래 자리에 채워야 합니다": {
+  "en": "[Warning] Parcel DB not found — place it at the path below",
+  "es": "[Aviso] No se encuentra la base de datos de parcelas — colócala en la ruta de abajo",
+  "ja": "[注意] 区画DBがありません — 下の場所に置いてください",
+  "zh": "[注意] 找不到地块数据库 — 请放到下面的位置"
+ },
+ "컨텍스트 DB 확인 ({0:.1f}GB)": {
+  "en": "Context DB found ({0:.1f} GB)",
+  "es": "Base de datos de contexto encontrada ({0:.1f} GB)",
+  "ja": "コンテキストDBを確認しました（{0:.1f}GB）",
+  "zh": "已找到周边环境数据库（{0:.1f}GB）"
+ },
+ "[주의] 컨텍스트 DB가 없습니다 — 필지·대상지만 생성됩니다: {0}": {
+  "en": "[Warning] Context DB not found — only parcels and the site will be created: {0}",
+  "es": "[Aviso] No se encuentra la base de datos de contexto — solo se crearán las parcelas y el sitio: {0}",
+  "ja": "[注意] コンテキストDBがありません — 区画と対象地だけを作成します: {0}",
+  "zh": "[注意] 找不到周边环境数据库 — 只会生成地块和场地：{0}"
+ },
+ "Gorani 설치 위치: {0}": {
+  "en": "Gorani install location: {0}",
+  "es": "Ubicación de instalación de Gorani: {0}",
+  "ja": "Goraniのインストール場所: {0}",
+  "zh": "Gorani 安装位置：{0}"
+ },
+ "명령 등록 완료: {0}": {
+  "en": "Command registered: {0}",
+  "es": "Comando registrado: {0}",
+  "ja": "コマンドを登録しました: {0}",
+  "zh": "命令已注册：{0}"
+ },
+ "이제 명령창에 {0} 를 치면 패널이 열립니다.": {
+  "en": "Now type {0} in the command line to open the panel.",
+  "es": "Ahora escribe {0} en la línea de comandos para abrir el panel.",
+  "ja": "これでコマンドラインに {0} と入力するとパネルが開きます。",
+  "zh": "现在在命令行输入 {0} 即可打开面板。"
+ },
+ "Gorani 설치": {
+  "en": "Gorani Setup",
+  "es": "Instalación de Gorani",
+  "ja": "Goraniのインストール",
+  "zh": "Gorani 安装"
+ },
+ "{0} 내장": {
+  "en": "Built into {0}",
+  "es": "Integrado en {0}",
+  "ja": "{0} 内蔵",
+  "zh": "{0} 内置"
+ },
+ "지명 후보 {0}건 (OpenStreetMap)": {
+  "en": "{0} places found (OpenStreetMap)",
+  "es": "{0} lugares encontrados (OpenStreetMap)",
+  "ja": "地名候補 {0}件 (OpenStreetMap)",
+  "zh": "地名候选 {0} 个 (OpenStreetMap)"
+ },
+ "찾지 못했습니다. 동 이름까지 적어 보세요": {
+  "en": "Not found. Try including the neighborhood (dong) name",
+  "es": "No se encontró. Prueba a incluir el nombre del barrio (dong)",
+  "ja": "見つかりません。洞（ドン）名まで入力してください",
+  "zh": "未找到。请输入到洞（dong）名"
+ },
+ "건너뜀 — v1 미구현": {
+  "en": "Skipped — not implemented in v1",
+  "es": "Omitido — no disponible en v1",
+  "ja": "スキップ — v1では未実装",
+  "zh": "已跳过 — v1 未实现"
+ },
+ "건너뜀 — 베이크로 대체": {
+  "en": "Skipped — replaced by baking",
+  "es": "Omitido — sustituido por la inserción",
+  "ja": "スキップ — ベイクで代替",
+  "zh": "已跳过 — 由烘焙替代"
+ },
+ "건너뜀 — 옵션": {
+  "en": "Skipped — option off",
+  "es": "Omitido — opción desactivada",
+  "ja": "スキップ — オプションでオフ",
+  "zh": "已跳过 — 选项已关闭"
+ },
+ "3D는 이미 만듦": {
+  "en": "3D already created",
+  "es": "3D ya creado",
+  "ja": "3Dは作成済み",
+  "zh": "3D 已生成"
+ },
+ "열 수 없는 경로입니다: {0}": {
+  "en": "Can't open this path: {0}",
+  "es": "No se puede abrir esta ruta: {0}",
+  "ja": "開けないパスです: {0}",
+  "zh": "无法打开此路径：{0}"
+ },
+ "빈 값": {
+  "en": "empty",
+  "es": "vacío",
+  "ja": "空の値",
+  "zh": "空值"
+ },
+ "경로가 없습니다: {0}": {
+  "en": "Path not found: {0}",
+  "es": "No se encontró la ruta: {0}",
+  "ja": "パスが見つかりません: {0}",
+  "zh": "路径不存在：{0}"
+ },
+ "알 수 없는 명령입니다: {0}": {
+  "en": "Unknown command: {0}",
+  "es": "Comando desconocido: {0}",
+  "ja": "不明なコマンドです: {0}",
+  "zh": "未知命令：{0}"
+ },
+ "예상 밖 오류": {
+  "en": "Unexpected error",
+  "es": "Error inesperado",
+  "ja": "予期しないエラー",
+  "zh": "意外错误"
+ },
+ "주소 또는 PNU를 입력하세요": {
+  "en": "Enter an address or PNU",
+  "es": "Escribe una dirección o un PNU",
+  "ja": "住所またはPNUを入力してください",
+  "zh": "请输入地址或 PNU"
+ },
+ "커브를 하나만 선택하세요({0}개 선택됨)": {
+  "en": "Select only one curve ({0} selected)",
+  "es": "Selecciona solo una curva ({0} seleccionadas)",
+  "ja": "カーブを1本だけ選択してください（{0}本選択中）",
+  "zh": "请只选择一条曲线（已选 {0} 条）"
+ },
+ "대상지 구역 커브 선택 (닫힌 평면 커브 하나)": {
+  "en": "Select the site area curve (one closed planar curve)",
+  "es": "Selecciona la curva del área del sitio (una curva plana cerrada)",
+  "ja": "対象地エリアのカーブを選択（閉じた平面カーブ1本）",
+  "zh": "选择场地区域曲线（一条闭合平面曲线）"
+ },
+ "커브 선택을 취소했습니다": {
+  "en": "Curve selection canceled",
+  "es": "Selección de curva cancelada",
+  "ja": "カーブの選択をキャンセルしました",
+  "zh": "已取消选择曲线"
+ },
+ "이미 생성 중입니다": {
+  "en": "Already generating",
+  "es": "Ya se está generando",
+  "ja": "すでに生成中です",
+  "zh": "正在生成中"
+ },
+ "이미 만드는 중입니다": {
+  "en": "Already creating",
+  "es": "Ya se está creando",
+  "ja": "すでに作成中です",
+  "zh": "正在生成中"
+ },
+ "{0} 외 {1}곳": {
+  "en": "{0} and {1} more",
+  "es": "{0} y {1} más",
+  "ja": "{0} ほか{1}か所",
+  "zh": "{0} 等 {1} 处"
+ },
+ "{0} 지역 데이터 받는 중 {1}%": {
+  "en": "Downloading data for {0} {1}%",
+  "es": "Descargando datos de {0} {1}%",
+  "ja": "{0} の地域データをダウンロード中 {1}%",
+  "zh": "正在下载 {0} 的区域数据 {1}%"
+ },
+ "지역 데이터 받기 실패 {0}: {1}": {
+  "en": "Regional data download failed {0}: {1}",
+  "es": "Error al descargar datos regionales {0}: {1}",
+  "ja": "地域データのダウンロードに失敗 {0}: {1}",
+  "zh": "区域数据下载失败 {0}：{1}"
+ },
+ "받기를 멈췄습니다. 받은 지역은 남습니다": {
+  "en": "Download stopped. Areas already downloaded are kept",
+  "es": "Descarga detenida. Las zonas ya descargadas se conservan",
+  "ja": "ダウンロードを停止しました。ダウンロード済みの地域は残ります",
+  "zh": "已停止下载。已下载的区域会保留"
+ },
+ "지역 데이터를 다 받지 못했습니다. 인터넷 연결을 확인하세요": {
+  "en": "Couldn't download all regional data. Check your internet connection",
+  "es": "No se pudieron descargar todos los datos regionales. Revisa tu conexión a internet",
+  "ja": "地域データをすべてダウンロードできませんでした。インターネット接続を確認してください",
+  "zh": "未能下载全部区域数据。请检查网络连接"
+ },
+ "다른 작업이 진행 중입니다": {
+  "en": "Another task is running",
+  "es": "Hay otra tarea en curso",
+  "ja": "別の処理が実行中です",
+  "zh": "另一项任务正在进行"
+ },
+ "결과 폴더가 없습니다: {0}": {
+  "en": "Result folder not found: {0}",
+  "es": "No se encontró la carpeta de resultados: {0}",
+  "ja": "結果フォルダが見つかりません: {0}",
+  "zh": "结果文件夹不存在：{0}"
+ },
+ "문서에 넣는 중": {
+  "en": "Adding to the document",
+  "es": "Añadiendo al documento",
+  "ja": "ドキュメントに追加中",
+  "zh": "正在添加到文档"
+ },
+ "내보내는 중": {
+  "en": "Exporting",
+  "es": "Exportando",
+  "ja": "書き出し中",
+  "zh": "正在导出"
+ },
+ "대상지 3D가 문서에 없습니다. 먼저 Rhino에 불러오세요": {
+  "en": "This site's 3D isn't in the document. Load it into Rhino first",
+  "es": "El 3D de este sitio no está en el documento. Cárgalo primero en Rhino",
+  "ja": "対象地の3Dがドキュメントにありません。先にRhinoに読み込んでください",
+  "zh": "文档中没有该场地的 3D。请先载入 Rhino"
+ },
+ "PNU 형식이 아닙니다: {0}": {
+  "en": "Not a valid PNU: {0}",
+  "es": "PNU no válido: {0}",
+  "ja": "PNUの形式ではありません: {0}",
+  "zh": "不是有效的 PNU：{0}"
+ },
+ "알 수 없는 링크입니다: {0}": {
+  "en": "Unknown link: {0}",
+  "es": "Enlace desconocido: {0}",
+  "ja": "不明なリンクです: {0}",
+  "zh": "未知链接：{0}"
+ },
+ "도면 다시 그리는 중": {
+  "en": "Redrawing sheets",
+  "es": "Redibujando las láminas",
+  "ja": "図面を再描画中",
+  "zh": "正在重绘图纸"
+ },
+ "도면 파일이 없습니다": {
+  "en": "Sheet file not found",
+  "es": "No se encontró el archivo de la lámina",
+  "ja": "図面ファイルがありません",
+  "zh": "图纸文件不存在"
+ },
+ "레이어 .ai 쓰는 중": {
+  "en": "Writing layered .ai",
+  "es": "Escribiendo .ai por capas",
+  "ja": "レイヤー付き.aiを書き出し中",
+  "zh": "正在写入分图层 .ai"
+ },
+ "이미 열린 패널을 앞으로 가져왔습니다": {
+  "en": "Brought the open panel to the front",
+  "es": "Se trajo al frente el panel abierto",
+  "ja": "開いているパネルを前面に表示しました",
+  "zh": "已将打开的面板置于前台"
+ },
+ "스타일 이름을 적어 주세요": {
+  "en": "Enter a style name",
+  "es": "Escribe un nombre para el estilo",
+  "ja": "スタイル名を入力してください",
+  "zh": "请输入样式名称"
+ },
+ "명령 회수 실패": {
+  "en": "Couldn't read panel commands",
+  "es": "No se pudieron leer los comandos del panel",
+  "ja": "パネルのコマンドを取得できませんでした",
+  "zh": "无法读取面板命令"
+ },
+ "명령 처리 실패": {
+  "en": "Command failed",
+  "es": "Error al ejecutar el comando",
+  "ja": "コマンドの処理に失敗しました",
+  "zh": "命令处理失败"
+ },
+ "푸시 실패: {0}": {
+  "en": "Couldn't update the panel: {0}",
+  "es": "No se pudo actualizar el panel: {0}",
+  "ja": "パネルを更新できませんでした: {0}",
+  "zh": "无法更新面板：{0}"
+ },
+ "패널 창을 열었습니다": {
+  "en": "Opened the panel window",
+  "es": "Se abrió la ventana del panel",
+  "ja": "パネルウィンドウを開きました",
+  "zh": "已打开面板窗口"
+ },
+ "컨텍스트 DB가 없습니다: {0}\npython3 scripts/dev_context_builder.py 로 만드세요": {
+  "en": "Context DB not found: {0}\nBuild it with python3 scripts/dev_context_builder.py",
+  "es": "No se encontró la base de datos de contexto: {0}\nCréala con python3 scripts/dev_context_builder.py",
+  "ja": "コンテキストDBがありません: {0}\npython3 scripts/dev_context_builder.py で作成してください",
+  "zh": "上下文数据库不存在：{0}\n请用 python3 scripts/dev_context_builder.py 生成"
+ },
+ "컨텍스트 DB 스키마가 v{0}가 아닙니다(v{1}). dev_context_builder.py로 다시 만드세요": {
+  "en": "Context DB schema is not v{0} (v{1}). Rebuild it with dev_context_builder.py",
+  "es": "El esquema de la base de datos de contexto no es v{0} (v{1}). Vuelve a crearla con dev_context_builder.py",
+  "ja": "コンテキストDBのスキーマがv{0}ではありません（v{1}）。dev_context_builder.py で作り直してください",
+  "zh": "上下文数据库架构不是 v{0}（v{1}）。请用 dev_context_builder.py 重新生成"
+ },
+ "프레임·축척·방위": {
+  "en": "Frame, scale, north",
+  "es": "Marco, escala, norte",
+  "ja": "枠・縮尺・方位",
+  "zh": "图框·比例尺·指北针"
+ },
+ "도로면": {
+  "en": "Road surface",
+  "es": "Calzada",
+  "ja": "道路面",
+  "zh": "道路面"
+ },
+ "도로경계": {
+  "en": "Road edge",
+  "es": "Borde de vía",
+  "ja": "道路境界",
+  "zh": "道路边线"
+ },
+ "도로중심선": {
+  "en": "Road centerline",
+  "es": "Eje de vía",
+  "ja": "道路中心線",
+  "zh": "道路中心线"
+ },
+ "철도·역": {
+  "en": "Rail and stations",
+  "es": "Ferrocarril y estaciones",
+  "ja": "鉄道・駅",
+  "zh": "铁路·车站"
+ },
+ "건물 1~4층": {
+  "en": "Buildings 1–4 floors",
+  "es": "Edificios 1–4 plantas",
+  "ja": "建物 1〜4階",
+  "zh": "建筑 1–4 层"
+ },
+ "건물 5~9층": {
+  "en": "Buildings 5–9 floors",
+  "es": "Edificios 5–9 plantas",
+  "ja": "建物 5〜9階",
+  "zh": "建筑 5–9 层"
+ },
+ "건물 10~19층": {
+  "en": "Buildings 10–19 floors",
+  "es": "Edificios 10–19 plantas",
+  "ja": "建物 10〜19階",
+  "zh": "建筑 10–19 层"
+ },
+ "건물 20층+": {
+  "en": "Buildings 20+ floors",
+  "es": "Edificios 20+ plantas",
+  "ja": "建物 20階以上",
+  "zh": "建筑 20 层以上"
+ },
+ "지적선": {
+  "en": "Parcel lines",
+  "es": "Líneas catastrales",
+  "ja": "地籍線",
+  "zh": "地籍线"
+ },
+ "지번": {
+  "en": "Lot numbers",
+  "es": "Números de lote",
+  "ja": "地番",
+  "zh": "地号"
+ },
+ "등고선": {
+  "en": "Contours",
+  "es": "Curvas de nivel",
+  "ja": "等高線",
+  "zh": "等高线"
+ },
+ "합필 전 필지": {
+  "en": "Parcels before merging",
+  "es": "Parcelas antes de unir",
+  "ja": "合筆前の区画",
+  "zh": "合并前地块"
+ },
+ "용도지역·지구단위": {
+  "en": "Zoning and district unit plans",
+  "es": "Zonificación y planes de distrito",
+  "ja": "用途地域・地区単位計画",
+  "zh": "用途分区·地区单元规划"
+ },
+ "주기": {
+  "en": "Labels",
+  "es": "Rótulos",
+  "ja": "注記",
+  "zh": "注记"
+ },
+ "격자": {
+  "en": "Grid",
+  "es": "Retícula",
+  "ja": "グリッド",
+  "zh": "网格"
+ }
+}

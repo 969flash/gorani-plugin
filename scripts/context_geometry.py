@@ -29,6 +29,7 @@ import context_report
 import non_rhino_utils
 import sheet_svg
 from context_builder import DomainError
+from i18n import tr
 
 TOPO_SOURCE_ID = "ngii_topo_5000"
 CLASS_LAYERS = {"terrain": "Terrain", "water": "Water", "road": "Roads", "green": "Green", "rail": "Rail"}
@@ -256,7 +257,7 @@ def get_tin_points(prepared):
             add(float(f.geometry["coordinates"][0]), float(f.geometry["coordinates"][1]), f.value)
     n_input = len(pts)
     if not n_input:
-        raise DomainError("no_terrain_points", "범위 안에 등고선과 표고점이 없습니다. 컨텍스트 DB 도엽을 확인하세요")
+        raise DomainError("no_terrain_points", tr("범위 안에 등고선과 표고점이 없습니다. 컨텍스트 DB 도엽을 확인하세요"))
     nearest = NearestXYZ(list(pts.values()), constants.CLASSIFY_GRID)
     for x, y in prepared.extent_ring:
         add(x, y, nearest.nearest_z(x, y))
@@ -296,7 +297,7 @@ def _get_region_meshes(ext_ring, cut_rings, edge, counts):
     t = time.time()
     breps = rg.Brep.CreatePlanarBreps(_get_closed_crv(ext_ring), tol)
     if not breps:
-        raise RuntimeError("범위 평면을 만들지 못했습니다")
+        raise RuntimeError(tr("범위 평면을 만들지 못했습니다"))
     brep = breps[0]
     split = brep.Faces[0].Split(List[rg.Curve]([_get_closed_crv(r) for r in cut_rings]), tol) if cut_rings else None
     if split is None and cut_rings:
@@ -376,7 +377,7 @@ def _get_site_level(mesh, rings, how):
     out, _indices = _project_to_mesh(mesh, pts)
     zs = [pt.Z for pt in out]
     if not zs:
-        raise RuntimeError("대상지 경계에서 지반 높이를 읽지 못했습니다")
+        raise RuntimeError(tr("대상지 경계에서 지반 높이를 읽지 못했습니다"))
     return min(zs) if how == "min" else max(zs) if how == "max" else sum(zs) / len(zs)
 
 
@@ -452,7 +453,7 @@ def build_terrain(prepared):
     t = time.time()
     tin = rg.Mesh.CreateFromTessellation(get_local_pts(points, origin), List[List[rg.Point3d]](), rg.Plane.WorldXY, False)
     if tin is None or tin.Faces.Count == 0:
-        raise RuntimeError("지형 TIN 생성 실패 — 입력점 %d" % len(points))
+        raise RuntimeError(tr("지형 TIN 생성 실패 — 입력점 {0}", len(points)))
     tin.Vertices.UseDoublePrecisionVertices = True
     counts["tin_s"] = round(time.time() - t, 3)
     counts["tin_faces"] = tin.Faces.Count
@@ -677,7 +678,7 @@ def build_buildings(prepared, tin_mesh):
     for bi, b in enumerate(buildings):
         parts = parts_by_building[bi]
         if not parts or b.height_m <= 0:
-            skipped.append("%s(빈 발자국·높이 0)" % b.building_id)
+            skipped.append(tr("{0}(빈 발자국·높이 0)", b.building_id))
             counts["fallback_skipped"] += 1
             continue
         if bi in z_min:
@@ -689,7 +690,7 @@ def build_buildings(prepared, tin_mesh):
             center_pt = get_local_pts([((b.min_x + b.max_x) * 0.5, (b.min_y + b.max_y) * 0.5)], origin)[0]
             base_z = nearest.nearest_z(center_pt.X, center_pt.Y)
             if base_z is None:
-                skipped.append("%s(투영·최근접 정점 없음)" % b.building_id)
+                skipped.append(tr("{0}(투영·최근접 정점 없음)", b.building_id))
                 counts["fallback_skipped"] += 1
                 continue
             top = base_z
@@ -709,13 +710,13 @@ def build_buildings(prepared, tin_mesh):
         counts["parts"] += made
         if not made:
             # 자기교차 발자국 → 캡·Extrusion 모두 실패 (벤치 8,517동 중 2) — 건너뛰고 기록
-            skipped.append("%s(압출 실패)" % b.building_id)
+            skipped.append(tr("{0}(압출 실패)", b.building_id))
             counts["extrude_failed"] += 1
     counts["extrude_s"] = round(time.time() - t, 3)
     counts["buildings"] = len(buildings) - counts["fallback_skipped"] - counts["extrude_failed"]
     warnings = []
     if skipped:
-        warnings.append(_warning("warn", "skipped", "건물 %d동 건너뜀 — 투영·압출 실패" % len(skipped), ", ".join(skipped[:20])))
+        warnings.append(_warning("warn", "skipped", tr("건물 {0}동 건너뜀 — 투영·압출 실패", len(skipped)), ", ".join(skipped[:20])))
     return items, counts, skipped, warnings
 
 
@@ -791,7 +792,7 @@ def build_basemap_2d(prepared, scale):
     origin = prepared.origin
     items = []
     for name, kind, data in recorder.shapes:
-        layer = "%s::%s %s" % (constants.BM_ROOT_LAYER, name, labels[name])
+        layer = "%s::%s %s" % (constants.BM_ROOT_LAYER, name, tr(labels[name]))   # 설명은 패널 언어(베이커는 첫 낱말 = 이름만 본다)
         if kind == "polygon":
             items += [BakeItem(layer, _get_ring_crv(ring, origin, 0.0)) for ring in data]
         elif kind == "line":
@@ -820,22 +821,22 @@ def get_curve_ring(curve, unit_scale, tolerance):
     출력: ([(x, y)] m, '') 또는 (None, 이유).
     """
     if curve is None:
-        return None, "커브가 아닙니다"
+        return None, tr("커브가 아닙니다")
     if not curve.IsClosed:
-        return None, "닫힌 커브가 아닙니다. 끝점이 붙은 커브를 고르세요"
+        return None, tr("닫힌 커브가 아닙니다. 끝점이 붙은 커브를 고르세요")
     ok, plane = curve.TryGetPlane(tolerance)
     if not ok:
-        return None, "평면 커브가 아닙니다"
+        return None, tr("평면 커브가 아닙니다")
     if abs(plane.Normal.Z) < 0.999:
-        return None, "기울어진 커브입니다. XY 평면(Top)에 놓인 커브를 고르세요"
+        return None, tr("기울어진 커브입니다. XY 평면(Top)에 놓인 커브를 고르세요")
     events = Intersection.CurveSelf(curve, tolerance)
     if events is not None and events.Count > 0:
-        return None, "꼬인(자기교차) 커브입니다. 꼬이지 않은 닫힌 커브를 고르세요"
+        return None, tr("꼬인(자기교차) 커브입니다. 꼬이지 않은 닫힌 커브를 고르세요")
     ok, polyline = curve.TryGetPolyline()
     if not ok:
         approx = curve.ToPolyline(constants.CURVE_POLYLINE_TOLERANCE / unit_scale, math.radians(2.0), 0.0, 0.0)
         if approx is None:
-            return None, "커브를 폴리라인으로 바꾸지 못했습니다"
+            return None, tr("커브를 폴리라인으로 바꾸지 못했습니다")
         polyline = approx.ToPolyline()
     ring = non_rhino_utils.get_clean_ring([(pt.X * unit_scale, pt.Y * unit_scale) for pt in polyline])
     problem = non_rhino_utils.get_ring_problem(ring)

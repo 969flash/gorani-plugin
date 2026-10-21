@@ -11,6 +11,7 @@ from pathlib import Path
 
 import constants
 import data_pack
+from i18n import tr
 
 DEFAULT_DATABASE_PATH = Path(constants.HOME_DIR) / constants.CONTEXT_DATABASE_PATH
 
@@ -109,15 +110,14 @@ def _open_database(database_path=None, bounds=None):
         paths = data_pack.get_local_paths("context", bounds) + data_pack.get_local_paths("terrain", bounds)
     if not paths:
         raise FileNotFoundError(
-            "컨텍스트 DB가 없습니다: %s\npython3 scripts/dev_context_builder.py 로 만드세요" % (database_path or DEFAULT_DATABASE_PATH)
+            tr("컨텍스트 DB가 없습니다: {0}\npython3 scripts/dev_context_builder.py 로 만드세요", database_path or DEFAULT_DATABASE_PATH)
         )
     connection = data_pack.open_databases(paths)
     version = connection.execute("PRAGMA user_version").fetchone()[0]
     if version < constants.CONTEXT_DATABASE_SCHEMA_VERSION:
         connection.close()
         raise RuntimeError(
-            "컨텍스트 DB 스키마가 v%d가 아닙니다(v%d). dev_context_builder.py로 다시 만드세요"
-            % (constants.CONTEXT_DATABASE_SCHEMA_VERSION, version)
+            tr("컨텍스트 DB 스키마가 v{0}가 아닙니다(v{1}). dev_context_builder.py로 다시 만드세요", constants.CONTEXT_DATABASE_SCHEMA_VERSION, version)
         )
     return connection
 

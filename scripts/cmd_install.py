@@ -31,6 +31,9 @@ _spec = importlib.util.spec_from_file_location(
 loader = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = loader
 _spec.loader.exec_module(loader)
+i18n = loader.load("i18n")
+i18n.set_lang(loader.load("site_prefs").get_options().get("lang"))   # 패널에서 고른 언어 — 처음 설치면 영어
+tr = i18n.tr
 
 # 명령창 앨리어스
 ALIAS_NAMES = ("Gorani",)
@@ -79,27 +82,27 @@ def _load_toolbar(rui_path, lines):
         없음.
     """
     if not os.path.exists(rui_path):
-        lines.append("[건너뜀] 툴바 파일이 없습니다: %s" % rui_path)
+        lines.append(tr("[건너뜀] 툴바 파일이 없습니다: {0}", rui_path))
         return
 
     try:
         toolbar_file = Rhino.RhinoApp.ToolbarFiles.Open(rui_path)
     except Exception as error:
-        lines.append("[툴바] 자동 등록 실패: %s: %s" % (type(error).__name__, error))
+        lines.append(tr("[툴바] 자동 등록 실패: {0}: {1}", type(error).__name__, error))
         _append_manual_toolbar_guide(lines)
         return
 
     if toolbar_file is None:
-        lines.append("[툴바] 라이노가 파일을 열지 못했습니다 (반환값 없음)")
+        lines.append(tr("[툴바] 라이노가 파일을 열지 못했습니다 (반환값 없음)"))
         _append_manual_toolbar_guide(lines)
         return
 
     if toolbar_file.ToolbarCount < 1:
-        lines.append("[툴바] 파일은 열렸지만 툴바가 없습니다 — rui 내용을 확인하세요")
+        lines.append(tr("[툴바] 파일은 열렸지만 툴바가 없습니다 — rui 내용을 확인하세요"))
         _append_manual_toolbar_guide(lines)
         return
 
-    lines.append("툴바 파일 적재 완료 (툴바 %d개)" % toolbar_file.ToolbarCount)
+    lines.append(tr("툴바 파일 적재 완료 (툴바 {0}개)", toolbar_file.ToolbarCount))
     if not _show_toolbar_group(toolbar_file, lines):
         _append_manual_toolbar_guide(lines)
 
@@ -117,20 +120,20 @@ def _show_toolbar_group(toolbar_file, lines):
         try:
             group.Visible = True
         except Exception as error:
-            lines.append("[툴바] 켜지 못했습니다: %s: %s" % (type(error).__name__, error))
+            lines.append(tr("[툴바] 켜지 못했습니다: {0}: {1}", type(error).__name__, error))
             return False
-        lines.append("  툴바 '%s' 표시: %s" % (group.Name, group.Visible))
+        lines.append("  " + tr("툴바 '{0}' 표시: {1}", group.Name, group.Visible))
         return True
-    lines.append("[툴바] 그룹을 코드로 찾지 못했습니다 (맥에서는 흔한 일입니다)")
+    lines.append(tr("[툴바] 그룹을 코드로 찾지 못했습니다 (맥에서는 흔한 일입니다)"))
     return False
 
 
 def _append_manual_toolbar_guide(lines):
     # type: (list) -> None
     """툴바를 손으로 켜는 방법을 적는다. 앨리어스는 이미 등록됐으므로 도구는 쓸 수 있다."""
-    lines.append("  툴바 없이도 명령창에 %s 를 치면 패널은 열립니다" % ALIAS_NAMES[0])
-    lines.append("  버튼을 쓰려면 한 번만: 명령창에 ToolBar 입력 (맥 메뉴: 창 > 도구모음...)")
-    lines.append("  목록에서 '%s'를 켜면 다음부터는 계속 떠 있습니다" % TOOLBAR_GROUP_NAME)
+    lines.append("  " + tr("툴바 없이도 명령창에 {0} 를 치면 패널은 열립니다", ALIAS_NAMES[0]))
+    lines.append("  " + tr("버튼을 쓰려면 한 번만: 명령창에 ToolBar 입력 (맥 메뉴: 창 > 도구모음...)"))
+    lines.append("  " + tr("목록에서 '{0}'를 켜면 다음부터는 계속 떠 있습니다", TOOLBAR_GROUP_NAME))
 
 
 def _check_files(root_dir, lines):
@@ -138,20 +141,20 @@ def _check_files(root_dir, lines):
     """패널 진입 스크립트와 DB 2개(필지·컨텍스트)가 제자리에 있는지 본다. 설치를 계속해도 되면 True."""
     entry_path = os.path.join(root_dir, "scripts", ENTRY_SCRIPT_NAME)
     if not os.path.exists(entry_path):
-        lines.append("[멈춤] 패널 진입 스크립트를 찾지 못했습니다: %s" % entry_path)
+        lines.append(tr("[멈춤] 패널 진입 스크립트를 찾지 못했습니다: {0}", entry_path))
         return False
 
     constants = loader.load("constants")
     database_path = os.path.join(root_dir, constants.DATABASE_PATH)
     if os.path.exists(database_path):
         size_gb = os.path.getsize(database_path) / (1024.0 ** 3)
-        lines.append("필지 DB 확인 (%.1fGB)" % size_gb)
+        lines.append(tr("필지 DB 확인 ({0:.1f}GB)", size_gb))
     else:
-        lines.append("[주의] 필지 DB가 없습니다 — 아래 자리에 채워야 합니다")
+        lines.append(tr("[주의] 필지 DB가 없습니다 — 아래 자리에 채워야 합니다"))
         lines.append("  %s" % database_path)
     context_path = os.path.join(root_dir, constants.CONTEXT_DATABASE_PATH)
-    lines.append("컨텍스트 DB 확인 (%.1fGB)" % (os.path.getsize(context_path) / (1024.0 ** 3)) if os.path.exists(context_path)
-                 else "[주의] 컨텍스트 DB가 없습니다 — 필지·대상지만 생성됩니다: %s" % context_path)
+    lines.append(tr("컨텍스트 DB 확인 ({0:.1f}GB)", os.path.getsize(context_path) / (1024.0 ** 3)) if os.path.exists(context_path)
+                 else tr("[주의] 컨텍스트 DB가 없습니다 — 필지·대상지만 생성됩니다: {0}", context_path))
     return True
 
 
@@ -159,7 +162,7 @@ def _install():
     # type: () -> None
     """설치 절차를 순서대로 실행하고 결과를 알린다."""
     root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    lines = ["Gorani 설치 위치: %s" % root_dir]
+    lines = [tr("Gorani 설치 위치: {0}", root_dir)]
 
     if not _check_files(root_dir, lines):
         _report(lines)
@@ -168,11 +171,11 @@ def _install():
     macro = _get_macro(root_dir)
     for name in ALIAS_NAMES:
         _set_alias(name, macro)
-    lines.append("명령 등록 완료: %s" % ", ".join(ALIAS_NAMES))
+    lines.append(tr("명령 등록 완료: {0}", ", ".join(ALIAS_NAMES)))
 
     _load_toolbar(os.path.join(root_dir, RUI_FILENAME), lines)
     lines.append("")
-    lines.append("이제 명령창에 %s 를 치면 패널이 열립니다." % ALIAS_NAMES[0])
+    lines.append(tr("이제 명령창에 {0} 를 치면 패널이 열립니다.", ALIAS_NAMES[0]))
     _report(lines)
 
 
@@ -180,8 +183,8 @@ def _report(lines):
     # type: (list) -> None
     """설치 결과를 명령창과 대화상자에 함께 보여준다."""
     text = "\n".join(lines)
-    print("[Gorani 설치]\n%s" % text)
-    Rhino.UI.Dialogs.ShowMessage(text, "Gorani 설치")
+    print("[%s]\n%s" % (tr("Gorani 설치"), text))
+    Rhino.UI.Dialogs.ShowMessage(text, tr("Gorani 설치"))
 
 
 _install()

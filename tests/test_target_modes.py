@@ -19,6 +19,8 @@ import context_report   # noqa: E402
 import lot_db   # noqa: E402
 import non_rhino_utils   # noqa: E402
 
+os.environ[constants.LANG_ENV] = "ko"   # 한국어 원문으로 검사
+
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
 SITE_DB = str(FIXTURE_DIR / "seongsu_site.db")
 CONTEXT_DB = str(FIXTURE_DIR / "seongsu_context.db")
