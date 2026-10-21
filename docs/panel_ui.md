@@ -144,6 +144,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
  "paths":{"root":"<HOME_DIR>","lot_db":"data/seoul_site.db","context_db":"data/seoul_context.db","env":".env","install_doc":"docs/install.md"},
  "generator":{"ok":true,"python":"Rhino Python","text":"Rhino 내장"},   // 항상 ok. UI 호환용(블로커 3행째는 ✓ 고정). Blender면 "Blender …"
  "host":{"id":"rhino","name":"Rhino","doc":"Rhino 문서","model":"context.3dm","dwg":true,"ask_stats":false},   // constants.HOST_LABELS — 패널 문구(문서 이름·모델 파일)와 DWG 옵션 표시. Blender = {"id":"blender","name":"Blender","doc":"Blender 장면","model":"context.blend","dwg":false,"ask_stats":true}, SketchUp = {"id":"sketchup",…,"model":"context.skp","dwg":false,"ask_stats":true}
+ "output_langs":[["ko","한국어"],["en","English"]],   // constants.OUTPUT_LANGS — 메뉴 '결과 언어' 칸
  "links":{"website":"https://969flash.github.io/gorani/"},   // constants.PANEL_LINKS — 메뉴 '웹페이지' 줄이 주소를 링크로 보여 주고, 누르면 open_url{key}
  "stats_consent":null,                            // 사용 통계 동의 true|false|null(안 물음) — host.ask_stats(Blender + 측정 ID 있음)면 null일 때 정보 띠로 한 번 묻고([보내기]·[보내지 않음] → stats_consent{on}), 더보기 메뉴 설정에서 바꾼다
  "can_download":true,                             // DATA_MANIFEST_URL이 있으면 블로커에 [DB 받기]·[멈추기]
@@ -467,3 +468,18 @@ GA4 Measurement Protocol로 데몬 스레드에서 보내고 실패는 버린다
 | `error` | `_guard`의 예상 밖 예외 | `context`·`error`(예외 타입명) |
 
 모든 이벤트에 `session_id`(패널 하나)·`engagement_time_msec`, 요청에 `device`(OS·언어). GA 보고서에서 매개변수를 보려면 관리 > 맞춤 정의에 이벤트 범위 측정기준으로 등록한다.
+
+
+### 결과물 언어 (2026-10-21)
+
+`options.output_lang`(`constants.OUTPUT_LANGS`, 지금 ko·en)이 결과 폴더와 파일 이름의 언어를 정한다. 패널 글은 한국어 그대로다. 첫 실행(`null`)이면 패널이 시스템 언어로 고르고(지원 목록에 있으면 그것, 아니면 영어) `save_prefs`, 메뉴 설정 '결과 언어'에서 바꾼다. `generate`와 `make_2d` 둘 다 보낸다(`KEYS_2D`, `_2D_OPTION_KEYS`).
+
+| 무엇 | 한국어 | English |
+|---|---|---|
+| 결과 폴더 꼬리 | `…외1`, `…_구역`, `…_일대` | `…+1`, `…_area`, `…_vicinity` |
+| 2D 폴더 | `2D_선명_1432` | `2D_Vivid_1432` |
+| 베이스맵 | `베이스맵_1000.ai`(.dwg) | `basemap_1000.ai` |
+| 도면 폴더·파일 | `다이어그램/09_토지이용현황.svg` | `sheets/09_Land_use.svg` |
+| 조서 폴더·파일 | `조서/필지조서.csv`, `건축물조서.csv`, `도면통계.csv`, `높이출처통계.csv`, `정합점검.csv` | `tables/parcels.csv` … |
+
+동 이름·지번은 자료 그대로(로마자로 바꾸지 않는다). `context.3dm`·`context.json`·`log.txt`는 프로그램이 읽어 언어와 무관하다. 언어를 더하려면 `OUTPUT_LANGS`에 코드, `OUTPUT_NAMES`에 같은 꼴의 dict(도면 이름은 `"sheets": {키: 이름}`)를 더한다. 없는 항목은 영어로 채운다(`non_rhino_utils.get_output_name`). 읽는 쪽(`get_sheets_dir`·`find_named_subdir`, 베이스맵 축척 정규식)은 모든 언어 이름을 받는다.

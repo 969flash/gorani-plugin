@@ -103,8 +103,11 @@ class MetaLinesTest(unittest.TestCase):
 class TablesTest(unittest.TestCase):
     def test_five_csv_headers_and_bom(self):
         with tempfile.TemporaryDirectory() as tmp:
-            tables = context_report.write_tables(_prepared(), tmp, today=TODAY)
+            prepared = _prepared()
+            prepared.request["options"]["output_lang"] = "en"
+            tables = context_report.write_tables(prepared, tmp, today=TODAY)
             self.assertEqual([t["name"] for t in tables], ["parcels.csv", "buildings.csv", "sheet_stats.csv", "height_src_stats.csv", "alignment.csv"])
+            self.assertTrue(all(os.sep + "tables" + os.sep in t["path"] for t in tables))
             for table in tables:
                 with open(table["path"], "rb") as f:
                     self.assertEqual(f.read(3), b"\xef\xbb\xbf", table["name"])
@@ -119,6 +122,13 @@ class TablesTest(unittest.TestCase):
             self.assertEqual(rows["parcels.csv"][0]["is_target"], "1")
             self.assertEqual([r["building_id"] for r in rows["buildings.csv"]], ["1", "2", "3"])
             self.assertEqual(rows["alignment.csv"][0]["dist_m"], "1.2")
+
+    def test_table_names_follow_output_lang(self):
+        # 결과물 언어가 한국어면 폴더·파일 이름도 한국어(기본) — 2026-10-21
+        with tempfile.TemporaryDirectory() as tmp:
+            tables = context_report.write_tables(_prepared(), tmp, today=TODAY)
+            self.assertEqual([t["name"] for t in tables][:2], ["필지조서.csv", "건축물조서.csv"])
+            self.assertTrue(all(os.sep + "조서" + os.sep in t["path"] for t in tables))
 
     def test_parcel_zone_designation_columns(self):
         designations = [lot_db.DesignationInfo(constants.TEST_CONTEXT_PNU, "UQA330", "준공업지역", "포함"),   # 용도지역 열과 겹쳐 뺀다

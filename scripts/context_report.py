@@ -308,15 +308,17 @@ def write_tables(prepared, out_dir, today=None):
     """tables/parcels.csv·buildings.csv·sheet_stats.csv·height_src_stats.csv·alignment.csv → [{name, path}]. 행이 없는 표는 쓰지 않는다
     (Global은 필지·정합이 없다 — 머리글만 있는 빈 파일을 산출물 목록에 남기지 않는다)."""
     today = today or datetime.date.today()
-    tables_dir = os.path.join(out_dir, constants.RESULT_TABLES_DIRNAME)
+    lang = non_rhino_utils.get_output_lang(prepared.request.get("options"))   # 폴더·파일 이름 언어(조서/필지조서.csv · tables/parcels.csv)
+    tables_dir = os.path.join(out_dir, non_rhino_utils.get_output_name("tables_dir", lang))
     os.makedirs(tables_dir, exist_ok=True)
-    plan = (("parcels.csv", PARCEL_COLUMNS, _parcel_rows(prepared)),
-            ("buildings.csv", BUILDING_COLUMNS, _building_rows(prepared)),
-            ("sheet_stats.csv", SHEET_STAT_COLUMNS, _sheet_stat_rows(prepared, today)),
-            ("height_src_stats.csv", HEIGHT_STAT_COLUMNS, _height_stat_rows(prepared)),
-            ("alignment.csv", ALIGN_COLUMNS, _align_rows(prepared)))
+    plan = (("parcels", PARCEL_COLUMNS, _parcel_rows(prepared)),
+            ("buildings", BUILDING_COLUMNS, _building_rows(prepared)),
+            ("sheet_stats", SHEET_STAT_COLUMNS, _sheet_stat_rows(prepared, today)),
+            ("height_src_stats", HEIGHT_STAT_COLUMNS, _height_stat_rows(prepared)),
+            ("alignment", ALIGN_COLUMNS, _align_rows(prepared)))
     written = []
-    for name, columns, rows in plan:
+    for key, columns, rows in plan:
+        name = non_rhino_utils.get_safe_file_part(non_rhino_utils.get_output_name("tables", lang, key)) + ".csv"
         if not rows:
             continue
         path = os.path.join(tables_dir, name)

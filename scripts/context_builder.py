@@ -203,14 +203,14 @@ def _get_level(age, thresholds, newer_date):
     return "ok"
 
 
-def get_lot_name(lots):
-    # type: (list) -> str
-    """결과 폴더명 '성수동2가_333-139'(합필이면 '…외1'). 주소 끝에서 두 번째 토큰이 동이다."""
+def get_lot_name(lots, lang="ko"):
+    # type: (list, str) -> str
+    """결과 폴더명 '성수동2가_333-139'(합필이면 '…외1', 영어는 '…+1'). 주소 끝에서 두 번째 토큰이 동이다. 동 이름은 자료 그대로(로마자로 바꾸지 않는다)."""
     first = lots[0]
     parts = (first.address or "").split()
     dong = parts[-2] if len(parts) >= 2 else ""
     name = "%s_%s" % (dong, first.lot_number or first.pnu) if dong else (first.lot_number or first.pnu)
-    return name + ("외%d" % (len(lots) - 1) if len(lots) > 1 else "")
+    return name + (non_rhino_utils.get_output_name("more", lang) % (len(lots) - 1) if len(lots) > 1 else "")
 
 
 def get_target_rings(lots):
@@ -395,13 +395,14 @@ def resolve_target(request, with_lots=True):
     spec = dict(request["target"])
     mode = spec["mode"]
     site_db = request.get("site_db")
+    lang = non_rhino_utils.get_output_lang(request.get("options"))   # 결과 폴더 이름 언어(외/구역/일대)
     abroad = is_global(request)   # Global·해외 — 필지 DB를 보지 않는다(osm_context)
     if mode == "lots":
         non_rhino_utils.set_projection()   # 필지는 국내뿐 — 앞서 해외 대상지를 다뤘어도 EPSG:5186으로 되돌린다
         lot_data = _load_lots(spec.get("pnus"), site_db)
         spec["pnus"] = list(lot_data.pnus)
         rings, warnings = get_target_rings(lot_data.lots)
-        return Target(mode, spec, get_target_key(spec), get_lot_name(lot_data.lots), get_lots_center(lot_data.lots), rings,
+        return Target(mode, spec, get_target_key(spec), get_lot_name(lot_data.lots, lang), get_lots_center(lot_data.lots), rings,
                       list(lot_data.lots), lot_data, warnings)
     if mode == "area":
         ring = get_area_ring(spec.get("ring"))
@@ -411,12 +412,12 @@ def resolve_target(request, with_lots=True):
         center = ((min_x + max_x) * 0.5, (min_y + max_y) * 0.5)
         target = Target(mode, spec, get_target_key(spec), "", center, [ring], [])
         if with_lots and abroad:
-            target.name = _get_place_label(center, "구역", site_db)
+            target.name = _get_place_label(center, non_rhino_utils.get_output_name("area", lang), site_db)
         elif with_lots:
             lots = get_area_lots(ring, site_db)
             target.lot_data = _load_lots([lot.pnu for lot in lots], site_db) if lots else None
             target.lots = list(target.lot_data.lots) if target.lot_data else []
-            target.name = _get_place_label(center, "구역", site_db)
+            target.name = _get_place_label(center, non_rhino_utils.get_output_name("area", lang), site_db)
             if not lots:
                 target.warnings.append(_warning("warn", "area_no_lots", "구역 안 필지 0 — 대상지 조서가 비어 나옵니다",
                                                 "필지 면적의 %d %% 이상이 구역 안에 있어야 대상 필지로 셉니다." % round(constants.AREA_LOT_MIN_FRACTION * 100)))
@@ -428,7 +429,7 @@ def resolve_target(request, with_lots=True):
     spec["center"] = [round(center[0], 2), round(center[1], 2)]
     target = Target(mode, spec, get_target_key(spec), "", center, [], [])
     if with_lots:
-        target.name = _get_place_label(center, "일대", site_db)
+        target.name = _get_place_label(center, non_rhino_utils.get_output_name("vicinity", lang), site_db)
     return target
 
 
@@ -851,12 +852,13 @@ def get_2d_dir(result_dir):
     return os.path.join(result_dir, constants.RESULT_2D_DIRNAME)
 
 
-def get_new_2d_dir(result_dir, style=None):
-    # type: (str, dict) -> str
-    """[2D 자료 만들기] 한 번의 폴더 — <결과 폴더>/2D_<스타일 이름>_<HHMM>(같은 분이면 _2…). 앞서 만든 2D는 그대로 남는다."""
+def get_new_2d_dir(result_dir, style=None, lang="ko"):
+    # type: (str, dict, str) -> str
+    """[2D 자료 만들기] 한 번의 폴더 — <결과 폴더>/2D_<스타일 이름>_<HHMM>(같은 분이면 _2…). 앞서 만든 2D는 그대로 남는다.
+    저장한 스타일은 사용자가 붙인 이름 그대로, 프리셋은 결과물 언어의 이름(OUTPUT_NAMES styles)."""
     style = style or {}
-    name = style.get("name") or (constants.STYLE_PRESETS.get(style.get("preset") or "std") or {}).get("name") or "표준"
-    name = re.sub(r'[\\/:*?"<>|\s]+', "", str(name)) or "표준"
+    name = style.get("name") or non_rhino_utils.get_output_name("styles", lang, style.get("preset") or "std")
+    name = re.sub(r'[\\/:*?"<>|\s]+', "", str(name)) or "2D"
     base = os.path.join(result_dir, constants.RESULT_2D_DIR_FORMAT % (name, time.strftime(constants.RESULT_TIME_FORMAT)))
     path, n = base, 2
     while os.path.exists(path):
@@ -871,6 +873,23 @@ def get_last_2d_dir(result_dir):
     return last if last and os.path.isdir(last) else get_2d_dir(result_dir)
 
 
+def get_basemap_file_name(prepared, scale, ext=".ai"):
+    # type: (object, int, str) -> str
+    """베이스맵 파일 이름 — 결과물 언어(OUTPUT_NAMES basemap: basemap_1000·베이스맵_1000) + 확장자."""
+    lang = non_rhino_utils.get_output_lang(prepared.request.get("options"))
+    return (non_rhino_utils.get_output_name("basemap", lang) % int(scale)) + ext
+
+
+def find_named_subdir(folder, key):
+    # type: (str, str) -> str
+    """2D 폴더 안 하위 폴더(sheets_dir·tables_dir) — 만들 때 언어가 무엇이었든 있는 것을 찾는다. 없으면 기본 언어 이름."""
+    names = [constants.OUTPUT_NAMES[code].get(key) for code in constants.OUTPUT_NAMES] + [constants.RESULT_SHEETS_DIRNAME if key == "sheets_dir" else constants.RESULT_TABLES_DIRNAME]
+    for name in names:
+        if name and os.path.isdir(os.path.join(folder, name)):
+            return os.path.join(folder, name)
+    return os.path.join(folder, non_rhino_utils.get_output_name(key, constants.OUTPUT_LANG_DEFAULT))
+
+
 def _get_out_2d_dir(prepared):
     # type: (object) -> str
     return getattr(prepared, "out_2d_dir", None) or get_2d_dir(prepared.result_dir)
@@ -881,7 +900,7 @@ def get_sheets_dir(result_dir):
     """도면 SVG 폴더 — 마지막 2D 폴더의 sheets/. 2026-10-19 전 결과 폴더는 결과 폴더 바로 아래 sheets/라 그쪽에 있으면 그쪽."""
     last = get_last_2d_dir(result_dir)
     if last != get_2d_dir(result_dir):
-        return os.path.join(last, constants.RESULT_SHEETS_DIRNAME)
+        return find_named_subdir(last, "sheets_dir")
     legacy = os.path.join(result_dir, constants.RESULT_SHEETS_DIRNAME)
     current = os.path.join(get_2d_dir(result_dir), constants.RESULT_SHEETS_DIRNAME)
     return legacy if os.path.isdir(legacy) and not os.path.isdir(current) else current
@@ -1110,7 +1129,7 @@ def _run_phases(request, progress, doc, response, state):
         _report(progress, "write_3dm", 0.95, ".dwg 저장")
         try:   # 방금 쓴 3dm을 헤드리스로 열어 쓴다 — 활성 문서에서 쓰면 Mac에서 멈춘다(context_baker.save_dwg_from_3dm)
             os.makedirs(_get_out_2d_dir(prepared), exist_ok=True)
-            dwg_path = os.path.join(_get_out_2d_dir(prepared), constants.DWG_FILE_FORMAT % min(prepared.scales))
+            dwg_path = os.path.join(_get_out_2d_dir(prepared), get_basemap_file_name(prepared, min(prepared.scales), ".dwg"))
             response["context"]["dwg"] = context_baker.save_dwg_from_3dm(path, dwg_path, constants.BM_ROOT_LAYER)
         except Exception as exc:   # noqa: BLE001
             _phase_failed(response, "write_3dm", exc)
@@ -1128,7 +1147,7 @@ def _write_dwg(prepared):
     scale = min(prepared.scales)
     items = context_geometry.build_basemap_2d(prepared, scale)
     os.makedirs(_get_out_2d_dir(prepared), exist_ok=True)
-    return context_baker.save_dwg(items, prepared, os.path.join(_get_out_2d_dir(prepared), constants.DWG_FILE_FORMAT % scale))
+    return context_baker.save_dwg(items, prepared, os.path.join(_get_out_2d_dir(prepared), get_basemap_file_name(prepared, scale, ".dwg")))
 
 
 def _run_2d_phases(prepared, options, terrain_tris, progress, response, state, dwg=False):
@@ -1165,7 +1184,7 @@ def _run_2d_phases(prepared, options, terrain_tris, progress, response, state, d
         state["phase"] = "sheets"
         sheet_ids = get_sheet_ids(options)
         names = {sheet_id: name for sheet_id, _key, name, _en, _needs in constants.SHEET_CATALOG}
-        sheets_dir = os.path.join(_get_out_2d_dir(prepared), constants.RESULT_SHEETS_DIRNAME)
+        sheets_dir = os.path.join(_get_out_2d_dir(prepared), non_rhino_utils.get_output_name("sheets_dir", non_rhino_utils.get_output_lang(options)))
         try:
             data = sheet_svg.SheetData.from_prepared(prepared, terrain_tris)
             state["sheet_data"] = data
@@ -1414,7 +1433,7 @@ def get_sheet_data(result_dir, keep=None, site_db=None, context_db=None, quick=F
     return data, prepared
 
 
-_2D_OPTION_KEYS = ("make_basemap", "paper", "paper_mm", "scales", "basemap_layers_on", "make_dwg", "make_sheets", "sheet_ids", "floor_breaks",
+_2D_OPTION_KEYS = ("output_lang", "make_basemap", "paper", "paper_mm", "scales", "basemap_layers_on", "make_dwg", "make_sheets", "sheet_ids", "floor_breaks",
                    "elev_preset", "make_tables", "style")
 
 
@@ -1444,7 +1463,7 @@ def make_2d(result_dir, options, progress=None, keep=None, site_db=None, context
     started = time.time()
     request = get_request_with_defaults(get_2d_request(result_dir, options, site_db, context_db))
     response = _get_empty_response(request["options"])
-    out_dir = get_new_2d_dir(result_dir, (options or {}).get("style"))
+    out_dir = get_new_2d_dir(result_dir, (options or {}).get("style"), non_rhino_utils.get_output_lang(request["options"]))
     response.update(dir=result_dir, folder=out_dir)   # folder = 패널 2D 카드 [폴더 열기]
     state = {"phase": "query"}
     prepared = None
@@ -1527,7 +1546,7 @@ def apply_style(result_dir, style, keep=None):
     basemaps = []
     for folder in (result_dir, get_2d_dir(result_dir)):   # 예전 결과는 결과 폴더 바로 아래, 지금은 2D/ — 있던 자리에 다시 쓴다
         for name in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
-            match = re.match(r"basemap_(\d+)\.ai$", name)
+            match = re.match(r"[^/]+_(\d+)\.ai$", name)   # basemap_1000.ai·베이스맵_1000.ai — 언어와 무관하게 축척만
             if match and int(match.group(1)) in prepared.frame_bounds:
                 basemaps.append(basemap_ai.write_basemap(prepared, int(match.group(1)), folder)["path"])
     meta.setdefault("options", {})["style"] = style

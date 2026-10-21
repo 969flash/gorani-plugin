@@ -91,7 +91,7 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None):
     처리: 필지 DB 존재 → blocked, context_builder.get_sources/get_source_warnings, review_map 타일·지도, site_prefs 옵션·recent,
           SHEET_CATALOG, 매니페스트 업데이트·공지(data_pack.get_notice_state). 네트워크 접근 없음 — 매니페스트는 _init이 먼저 받아 둔다.
           generator는 항상 ok(서브프로세스 없음 — UI 호환 키).
-    출력: {"type": "init_state", version, blocked, paths, generator, host, stats_consent, links, sources, warnings, tile, map, options, modes, recent, sheet_catalog,
+    출력: {"type": "init_state", version, blocked, paths, generator, host, stats_consent, links, output_langs, sources, warnings, tile, map, options, modes, recent, sheet_catalog,
           style_presets, style_defaults, style_ramps, styles, update, notices}.
     """
     constants = loader.load("constants")
@@ -111,7 +111,8 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None):
         "generator": {"ok": True, "python": host["name"] + " Python", "text": host["name"] + " 내장"},
         "host": host,
         "stats_consent": site_prefs.get_stats_consent(),
-        "links": dict(constants.PANEL_LINKS),   # 메뉴가 주소를 그대로 보여 준다. 여는 건 open_url{key}
+        "links": dict(constants.PANEL_LINKS),
+        "output_langs": [list(x) for x in constants.OUTPUT_LANGS],   # 메뉴 '결과물 언어' 칸 — [코드, 이름]   # 메뉴가 주소를 그대로 보여 준다. 여는 건 open_url{key}
         "can_download": bool(constants.DATA_MANIFEST_URL),
         "sources": sources,
         "warnings": context_builder.get_source_warnings(sources),

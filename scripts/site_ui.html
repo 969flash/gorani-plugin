@@ -531,14 +531,14 @@ var PLACEMENT_TITLE = { origin: "대상지 중심(100 m 단위)을 (0,0)으로 �
 var PAPERS = { A3: [420, 297], A1: [841, 594], A0: [1189, 841] };
 var SCALES = [1000, 3000, 5000];
 var LAYER_OPTS = [["02b_landuse", "토지이용"], ["05_road_center", "도로 중심선", true], ["11_zoning", "용도지역"]];   // 셋째 = Global(OSM)에서도 그려진다
-var DEFAULTS = { region: null, mode: "lots", placement: "origin", flatten_site: false, flatten_level: "mean", site_output: "curve", radius: 250, shape: "rect", import_after: true,
+var DEFAULTS = { region: null, output_lang: null, mode: "lots", placement: "origin", flatten_site: false, flatten_level: "mean", site_output: "curve", radius: 250, shape: "rect", import_after: true,
   make_basemap: false, paper: "A3", paper_mm: [420, 297], scales: [5000], basemap_layers_on: [], basemap_preset: "a3",
   make_sheets: false, sheet_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24], floor_breaks: [12, 20], elev_preset: "20m",
   make_tables: false, include_minor_buildings: false,
   include_zoning: true, terrain_vertex_color: false, terrain_step: 0, make_dwg: false, zoom_after_import: true, style: { preset: "std" }, update_later_date: "", closed_notices: [] };
 // 3D 생성(generate)에 늘 덮어 보내는 값 — 화면에 없는 옵션이 옛 prefs로 몰래 켜지지 않게(docs/ui_spec.md §3.4). 2D는 결과 화면 make_2d가 만든다
 var FIXED_3D = { make_basemap: false, make_sheets: false, make_tables: false, make_dwg: false, import_after: true, zoom_after_import: true, include_minor_buildings: false };
-var KEYS_2D = ["make_basemap", "paper", "paper_mm", "scales", "basemap_layers_on", "make_dwg", "make_sheets", "sheet_ids", "floor_breaks", "elev_preset", "make_tables", "style"];
+var KEYS_2D = ["output_lang", "make_basemap", "paper", "paper_mm", "scales", "basemap_layers_on", "make_dwg", "make_sheets", "sheet_ids", "floor_breaks", "elev_preset", "make_tables", "style"];
 var MAP_STYLE = {   // 패널 지도 — 대상지·선택은 패널 블루 하나(DESIGN.md). 도면 안 대상지 색은 도면 스타일이 정한다
   lot: { color: "#465061", weight: 1, opacity: .4, fillOpacity: .01 },
   target: { color: "#0057ff", weight: 2, fillColor: "#0057ff", fillOpacity: .28 },
@@ -633,6 +633,13 @@ function detectRegion(init) {   // 첫 실행 한 번 — 국내 DB가 있거나
 function sheetCatalog() {   // 이 모드에서 만들 수 있는 도면 — Global은 Korea 전용(필지·대장·UPIS)을 뺀다
   var glob = state.result ? (state.result.options || {}).region === "global" || isAbroad(targetCenter()) : isGlobal();
   return ((state.init && state.init.sheet_catalog) || []).filter(function (c) { return !(glob && c.korea_only); });
+}
+// 결과물(폴더·파일 이름) 언어 첫 값 — 시스템 언어가 지원 목록에 있으면 그것, 아니면 영어(한국어 시스템 = ko)
+function detectOutputLang() {
+  var have = ((state.init && state.init.output_langs) || [["ko"], ["en"]]).map(function (x) { return x[0]; });
+  var langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""];
+  for (var i = 0; i < langs.length; i++) { var c = String(langs[i]).slice(0, 2).toLowerCase(); if (have.indexOf(c) >= 0) return c; }
+  return have.indexOf("en") >= 0 ? "en" : have[0];
 }
 function computeBlocked() { var i = state.init; return !!(i && i.blocked && !i.can_download) && !isGlobal() && !state.dataLater; }
 // 지도가 한국 안팎을 넘나들면 방식 칸·검색 안내·필지선을 바꾼다. 한국 밖에는 필지가 없어 필지 방식이면 위치 방식으로
@@ -1472,7 +1479,7 @@ function renderExportedList() {
   var el = $("exported_list"); if (!el || !state.made2d) return;
   var ex = (state.made2d.basemap || {}).exported || [];
   el.innerHTML = ex.map(function (p) { return '<button type="button" class="link" data-act="open" data-path="' + esc(p) + '">' + esc(p.split(/[\\/]/).pop()) + "</button>"; }).join("");
-  var made = ex.map(function (p) { var mt = /basemap_(\d+)\.ai$/.exec(p); return mt ? +mt[1] : 0; });
+  var made = ex.map(function (p) { var mt = /_(\d+)\.ai$/.exec(p); return mt ? +mt[1] : 0; });
   var left = SCALES.filter(function (sc) { return made.indexOf(sc) < 0; }), box = $("more_scales");
   if (box) { box.hidden = !left.length; box.innerHTML = '<span class="k">다른 축척</span><span class="files">' + left.map(function (sc) { return '<button type="button" class="chip2" data-act="export" data-scale="' + sc + '" title="1:' + fmtNum(sc) + ' 베이스맵 .ai를 더 만듭니다">' + ico("download") + "1:" + fmtNum(sc) + "</button>"; }).join("") + "</span>"; }
 }
@@ -1753,6 +1760,9 @@ function renderMenu() {
       row("한국 자료", '<div class="seg" role="group" aria-label="한국 자료">' +
           segBtn("force_osm", ' data-v="0" title="필지, 건축물대장, 용도지역"' + (lock ? " disabled" : ""), !forceOsm(), "국가 DB") +
           segBtn("force_osm", ' data-v="1" title="한국 안에서도 OpenStreetMap으로 만듭니다(필지, 용도지역 없음)"' + (lock ? " disabled" : ""), forceOsm(), "OSM") + "</div>", "") +
+      row("결과 언어", '<div class="seg" role="group" aria-label="결과 폴더와 파일 이름 언어">' + ((init.output_langs || [["ko", "한국어"], ["en", "English"]]).map(function (x) {
+          return segBtn("output_lang", ' data-v="' + esc(x[0]) + '" title="결과 폴더, 2D 폴더, 도면과 조서 파일 이름을 이 언어로 만듭니다"' + (lock ? " disabled" : ""), state.options.output_lang === x[0], esc(x[1]));
+        }).join("")) + "</div>", "") +
       (HOST.ask_stats ? row("사용 통계", init.stats_consent ? "보냄" : "보내지 않음", '<button type="button" class="btn sm" data-act="stats" data-on="' + (init.stats_consent ? "0" : "1") + '">' + (init.stats_consent ? "끄기" : "켜기") + "</button>", STATS_TEXT) : "") +
     "</div>" +
     "<h3>도움</h3>" +
@@ -1843,6 +1853,7 @@ function requestCancel() {
 var ACTIONS = {
   init: function () { send({ cmd: "init" }); },
   abroad: function () { setForceOsm(true); },
+  output_lang: function (b) { state.options.output_lang = b.dataset.v; send({ cmd: "save_prefs", options: state.options }); renderMenu(); toast("결과 폴더와 파일 이름: " + b.textContent); },
   force_osm: function (b) { var on = b.dataset.v ? b.dataset.v === "1" : !forceOsm(); if (on !== forceOsm()) setForceOsm(on); },
   menu: function () { if (state.menuOpen) closeMenu(true); else openMenu(); },
   recent: function (b) { loadRecent(+b.dataset.i); },
@@ -2039,6 +2050,7 @@ var handlers = {
     if (first) {
       Object.keys(DEFAULTS).forEach(function (k) { state.options[k] = (m.options && k in m.options) ? m.options[k] : clone(DEFAULTS[k]); });
       if (!state.options.region) { state.options.region = detectRegion(m) === "global" ? "global" : "kr"; send({ cmd: "save_prefs", options: state.options }); }
+      if (!state.options.output_lang) { state.options.output_lang = detectOutputLang(); send({ cmd: "save_prefs", options: state.options }); }
       if (SHAPES.indexOf(state.options.shape) < 0) state.options.shape = "circle";   // 옛 prefs(buffer·site·frame)
       state.options.radius = Math.min(2000, Math.max(100, +state.options.radius || 250));
       state.mode = state.mode || (MODE_SHORT[state.options.mode] ? state.options.mode : "lots");   // 첫 화면 = 마지막 방식의 지도

@@ -7,9 +7,48 @@ Rhino 커브·벡터·Brep을 다루는 연산은 ``utils.py``에 둔다.
 """
 
 import math
+import re
 import os
 
 import constants
+
+
+def get_output_lang(options):
+    # type: (dict) -> str
+    """options.output_lang → 지원하는 언어 코드(constants.OUTPUT_LANGS), 아니면 기본."""
+    lang = (options or {}).get("output_lang")
+    return lang if lang in constants.OUTPUT_NAMES else constants.OUTPUT_LANG_DEFAULT
+
+
+def get_output_name(key, lang, sub=None):
+    # type: (str, str, str) -> str
+    """결과물 이름 한 칸 — constants.OUTPUT_NAMES[lang][key](sub가 있으면 그 안의 sub). 그 언어에 없으면 영어, 영어에도 없으면 key."""
+    for code in (lang, "en"):
+        value = constants.OUTPUT_NAMES.get(code, {}).get(key)
+        if sub is not None:
+            value = (value or {}).get(sub) if isinstance(value, dict) else None
+        if value:
+            return value
+    return sub or key
+
+
+def get_sheet_label(sheet_key, lang):
+    # type: (str, str) -> str
+    """도면 이름 — ko는 SHEET_CATALOG 이름, en은 영문 부제, 다른 언어는 OUTPUT_NAMES[lang]['sheets'](없으면 영문)."""
+    row = next((r for r in constants.SHEET_CATALOG if r[1] == sheet_key), None)
+    if row is None:
+        return sheet_key
+    if lang == "ko":
+        return row[2]
+    named = (constants.OUTPUT_NAMES.get(lang, {}).get("sheets") or {}).get(sheet_key)
+    return named or row[3]
+
+
+def get_safe_file_part(text):
+    # type: (str) -> str
+    """파일·폴더 이름 한 조각 — OS가 막는 문자와 '·,()'를 지우고 빈칸은 '_'로. 한글·한자·가나·악센트 문자는 둔다."""
+    text = re.sub(r'[\\/:*?"<>|·,()]+', "", str(text or ""))
+    return re.sub(r"\s+", "_", text.strip())
 
 
 def get_polygon_parts_from_geojson(geometry):

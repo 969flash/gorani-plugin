@@ -562,6 +562,7 @@ SHEET_KOREA_ONLY = ("lot_size", "density", "land_use", "land_category", "zone", 
 PANEL_DEFAULT_OPTIONS = {
     "region": None,   # 데이터 모드 kr(국가 DB) | global(OSM) — None = 첫 실행, 패널이 정한다(국내 DB·시간대 Asia/Seoul·한국어면 kr)
     "mode": "lots", "placement": "origin",
+    "output_lang": None,   # 결과물(폴더·파일 이름) 언어 OUTPUT_LANGS — None = 첫 실행, 패널이 시스템 언어로 정한다(한국어면 ko, 아니면 en)
     "radius": 250, "shape": "rect",   # 범위 기본 = 사각형 한 변 500 m(2026-10-19 사용자 결정). 방식을 바꿔도 마지막 범위를 유지한다
     "flatten_site": False, "flatten_level": "mean",
     "site_output": "curve",   # 대상지 표시(lots·area): curve = 경계 커브만, mesh = 대상지 바닥 메시도(CTX::Site::ground, 대상지 색). 필지 방식 기본 mesh   # 대상지 평탄화(lots·area) — 높이 = 경계 자연 지반의 mean|min|max
@@ -674,6 +675,18 @@ WEB_MAX_RADIUS = 2000.0
 REF_TRANSFORM = "EPSG:5189 (UPIS EPSG:5174→5186, 공칭 ±1 m)"
 REF_VDATUM = "인천만 평균해수면(수준원점 26.6871 m)"
 # 조서·메타(context_report) — deliverables §C 공통 ①~⑤·§E 폴더 규약
+# 결과물 언어 — 폴더·파일 이름만(패널 글은 한국어). 언어를 더하려면 OUTPUT_LANGS에 코드, OUTPUT_NAMES에 같은 꼴의 dict 하나를 더한다
+# (ja·zh·es 예정, 2026-10-21 사용자). 없는 항목은 영어로 채운다(non_rhino_utils.get_output_name). context.3dm·context.json·log.txt는 프로그램이 읽어 언어와 무관
+OUTPUT_LANGS = (("ko", "한국어"), ("en", "English"))
+OUTPUT_LANG_DEFAULT = "ko"
+OUTPUT_NAMES = {
+    "ko": {"area": "구역", "vicinity": "일대", "more": "외%d", "basemap": "베이스맵_%d", "sheets_dir": "다이어그램", "tables_dir": "조서",
+           "tables": {"parcels": "필지조서", "buildings": "건축물조서", "sheet_stats": "도면통계", "height_src_stats": "높이출처통계", "alignment": "정합점검"},
+           "styles": {"std": "표준", "vivid": "선명", "mono": "흑백", "dark": "다크"}},
+    "en": {"area": "area", "vicinity": "vicinity", "more": "+%d", "basemap": "basemap_%d", "sheets_dir": "sheets", "tables_dir": "tables",
+           "tables": {"parcels": "parcels", "buildings": "buildings", "sheet_stats": "sheet_stats", "height_src_stats": "height_src_stats", "alignment": "alignment"},
+           "styles": {"std": "Standard", "vivid": "Vivid", "mono": "Mono", "dark": "Dark"}},
+}   # 도면 이름은 ko = SHEET_CATALOG 이름, en = 영문 부제. 다른 언어는 "sheets": {키: 이름}을 더한다
 RESULT_2D_DIR_FORMAT = "2D_%s_%s"   # (스타일 이름, HHMM) — [2D 자료 만들기]마다 결과 폴더 안 새 폴더. 같은 결과에 스타일을 바꿔 다시 만들면 앞 것을 덮어썼다(2026-10-21 사용자)
 RESULT_2D_DIRNAME = "2D"   # 2D 산출물(베이스맵 .ai·.dwg·sheets/·tables/)을 결과 폴더 안 한곳에 — 패널 2D 카드 [폴더 열기]가 여기를 연다(2026-10-19)
 RESULT_TABLES_DIRNAME = "tables"
