@@ -7,6 +7,7 @@ fixture 주입 요청(333-139, R=500, scales [3000], 시트 전부, 표 전부) 
 """
 import json
 import os
+import re
 import shutil
 import time
 
@@ -128,8 +129,8 @@ try:
           and file_layers["CTX::Buildings"].IsVisible, str({k: v.IsVisible for k, v in file_layers.items() if k.startswith("BM")}))
     with open(os.path.join(response["dir"], constants.RESULT_LOG_FILE_NAME), encoding="utf-8") as f:
         log_text = f.read()
-    check("save_timing_logged", "context.3dm 저장 —" in log_text)
-    check("basemap_logged", "basemap_3000.ai — 레이어" in log_text)
+    check("save_timing_logged", re.search(r"context\.3dm .*bytes", log_text) is not None)   # 언어와 무관하게(로그는 패널 언어)
+    check("basemap_logged", "basemap_3000.ai — " in log_text)
     check("doc_origin_written", context_baker.get_doc_origin(doc) == tuple(response["context"]["origin"]), str(context_baker.get_doc_origin(doc)))
     res["phase_seconds"] = {p: round(max(c[3] for c in calls if c[0] == p) - min(c[3] for c in calls if c[0] == p), 2) for p in phases}
     print("phase seconds", res["phase_seconds"])

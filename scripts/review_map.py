@@ -4,10 +4,14 @@
 Rhino를 import하지 않아 python3로 바로 테스트할 수 있다.
 """
 
+import json
+import urllib.request
+
 import constants
 import lot_db
 import non_rhino_utils
 import pnu_loader
+from i18n import tr
 
 # 지도 전용 상수 — 패널 지도와 항공사진 시트(sheet_svg가 get_tile_config를 부른다)만 쓰므로 constants.py가 아니라 여기 둔다.
 VWORLD_TILE_URL_TEMPLATE = (
@@ -25,8 +29,13 @@ VWORLD_AERIAL_ATTRIBUTION = "© VWorld 영상지도"
 # 키가 없거나 해외면 Esri World Imagery(키 없이 받아짐). 이용 조건은 Esri 약관 — 확인 필요(소량·출처 표기로만 쓴다)
 ESRI_AERIAL_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
 ESRI_AERIAL_ATTRIBUTION = "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community"
-MAP_CENTER = [126.9784, 37.5665]  # 서울시청 (WGS84 lng, lat)
+MAP_CENTER = [126.9784, 37.5665]  # 서울시청 (WGS84 lng, lat) — IP로 위치를 짐작하지 못했을 때
 MAP_ZOOM = 16
+# 패널 첫 화면 — 사용자 IP로 도시를 짐작한다(위치 권한 창이 없다). ipinfo.io는 키 없이 받아짐(2026-10-21 확인, 0.3 s).
+# 키 없는 사용 한도는 IP별이라 패널을 열 때 한 번이면 넉넉하다(한도 수치는 확인 필요). IP 위치는 도시 수준(수~수십 km)이라 도시가 보이는 배율로 연다
+IP_LOCATE_URL = "https://ipinfo.io/json"
+IP_LOCATE_TIMEOUT_SECONDS = 2
+IP_MAP_ZOOM = 12   # 패널 폭 400 px에 약 12 km(서울 위도)
 COORDINATE_DECIMALS = 7  # GeoJSON 좌표 반올림 자리수 (약 1cm)
 
 
@@ -52,14 +61,35 @@ def get_tile_config():
     api_key = pnu_loader.get_local_env_value(constants.VWORLD_API_KEY_ENV)
     if api_key:
         config.update(url=VWORLD_TILE_URL_TEMPLATE % api_key, attribution=VWORLD_ATTRIBUTION,
-                      aerial_url=VWORLD_AERIAL_URL_TEMPLATE % api_key, aerial_attribution=VWORLD_AERIAL_ATTRIBUTION)
+                      aerial_url=VWORLD_AERIAL_URL_TEMPLATE % api_key, aerial_attribution=tr(VWORLD_AERIAL_ATTRIBUTION))
     return config
 
 
-def get_map_init():
-    # type: () -> dict
-    """지도 초기 뷰(서울시청 중심)를 만든다. ``{"center": [lng, lat], "zoom", "korea_bounds": [서, 남, 동, 북]}`` — 화면 중심이 한국 밖이면 해외 타일."""
-    return {"center": list(MAP_CENTER), "zoom": MAP_ZOOM, "korea_bounds": list(non_rhino_utils.KOREA_LNGLAT_BOUNDS)}
+def get_ip_center():
+    # type: () -> list
+    """사용자 IP로 지도 첫 위치를 짐작한다(패널 첫 init에 한 번).
+
+    입력:
+        없음.
+    처리:
+        IP 위치 서비스 응답의 loc("위도,경도")을 읽는다. 오프라인·서비스 장애·이상한 응답이면 짐작하지 않는다.
+    출력:
+        ``[lng, lat]`` 또는 None(서울시청으로 연다).
+    """
+    try:
+        with urllib.request.urlopen(IP_LOCATE_URL, timeout=IP_LOCATE_TIMEOUT_SECONDS) as response:
+            lat, lng = (float(value) for value in json.loads(response.read().decode("utf-8"))["loc"].split(","))
+    except Exception:   # 패널 열기를 막지 않는다
+        return None
+    return [lng, lat] if -90 <= lat <= 90 and -180 <= lng <= 180 else None   # nan은 JSON으로 못 보낸다
+
+
+def get_map_init(center=None):
+    # type: (list) -> dict
+    """지도 초기 뷰를 만든다 — center(IP로 짐작한 [lng, lat])가 있으면 그 도시, 없으면 서울시청.
+    ``{"center": [lng, lat], "zoom", "korea_bounds": [서, 남, 동, 북]}`` — 화면 중심이 한국 밖이면 해외 타일."""
+    return {"center": list(center or MAP_CENTER), "zoom": IP_MAP_ZOOM if center else MAP_ZOOM,
+            "korea_bounds": list(non_rhino_utils.KOREA_LNGLAT_BOUNDS)}
 
 
 def get_wgs84_ring(ring):

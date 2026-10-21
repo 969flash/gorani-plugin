@@ -11,6 +11,7 @@ import re
 import os
 
 import constants
+from i18n import tr
 
 
 def get_output_lang(options):
@@ -806,17 +807,17 @@ def get_ring_problem(ring):
     # type: (list) -> str
     """구역 링 안전장치 — 문제가 있으면 사용자용 한 줄, 없으면 ''. 입력은 get_clean_ring 결과."""
     if len(ring) < 3:
-        return "꼭짓점이 3개 이상인 닫힌 도형이어야 합니다"
+        return tr("꼭짓점이 3개 이상인 닫힌 도형이어야 합니다")
     if len(ring) > constants.AREA_MAX_VERTICES:
-        return "꼭짓점이 너무 많습니다(%d개 > %d). 커브를 단순하게 다시 그리세요" % (len(ring), constants.AREA_MAX_VERTICES)
+        return tr("꼭짓점이 너무 많습니다({0}개 > {1}). 커브를 단순하게 다시 그리세요", len(ring), constants.AREA_MAX_VERTICES)
     min_x, min_y, max_x, max_y = get_bbox(ring)
     if max(max_x - min_x, max_y - min_y) > constants.AREA_MAX_SPAN:
-        return "구역이 너무 큽니다(긴 변 %.1f km > %.1f km)" % (max(max_x - min_x, max_y - min_y) / 1000.0, constants.AREA_MAX_SPAN / 1000.0)
+        return tr("구역이 너무 큽니다(긴 변 {0:.1f} km > {1:.1f} km)", max(max_x - min_x, max_y - min_y) / 1000.0, constants.AREA_MAX_SPAN / 1000.0)
     if has_self_intersection(ring):
-        return "변끼리 꼬여 있습니다(자기교차). 꼬이지 않은 닫힌 도형으로 그리세요"
+        return tr("변끼리 꼬여 있습니다(자기교차). 꼬이지 않은 닫힌 도형으로 그리세요")
     area = get_ring_area(ring)
     if area < constants.AREA_MIN:
-        return "구역이 너무 작습니다(%.0f ㎡ < %.0f ㎡). 단위나 축척을 확인하세요" % (area, constants.AREA_MIN)
+        return tr("구역이 너무 작습니다({0:.0f} ㎡ < {1:.0f} ㎡). 단위나 축척을 확인하세요", area, constants.AREA_MIN)
     return ""
 
 

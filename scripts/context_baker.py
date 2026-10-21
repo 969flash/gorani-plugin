@@ -29,6 +29,7 @@ import constants
 import non_rhino_utils
 from context_builder import DomainError
 from context_geometry import get_local_pts
+from i18n import tr
 
 _CMYK_RE = re.compile(rb"^(\S+) (\S+) (\S+) (\S+) ([kK])(?=\r?$)", re.M)   # Rhino .ai는 CRLF — \r은 남긴다
 
@@ -46,10 +47,10 @@ def get_model_unit_scale(doc):
     """내부 m → 문서 단위 배율. 입력: RhinoDoc. 처리: RhinoMath.UnitScale. 출력: 양수 배율. None/Custom 단위면 DomainError(doc_unit_invalid)."""
     units = doc.ModelUnitSystem
     if str(units) == "None" or units in (Rhino.UnitSystem.CustomUnits, Rhino.UnitSystem.Unset):
-        raise DomainError("doc_unit_invalid", "Rhino 문서 단위는 mm, cm, m 같은 표준 단위로 설정해야 합니다")
+        raise DomainError("doc_unit_invalid", tr("Rhino 문서 단위는 mm, cm, m 같은 표준 단위로 설정해야 합니다"))
     scale = float(Rhino.RhinoMath.UnitScale(Rhino.UnitSystem.Meters, units))
     if scale <= 0.0:
-        raise DomainError("doc_unit_invalid", "Rhino 문서 단위 변환 배율을 계산할 수 없습니다")
+        raise DomainError("doc_unit_invalid", tr("Rhino 문서 단위 변환 배율을 계산할 수 없습니다"))
     return scale
 
 
@@ -150,7 +151,7 @@ def _ensure_layer(doc, full_path, rgb=None, layer_cache=None):
                 layer.ParentLayerId = parent_id
             index = doc.Layers.Add(layer)
             if index < 0:
-                raise RuntimeError("Rhino 레이어를 만들 수 없습니다: %s" % path)
+                raise RuntimeError(tr("Rhino 레이어를 만들 수 없습니다: {0}", path))
             if hidden_bm:   # BM 루트를 켜도 꺼진 채로 — 꺼진 부모를 켜면 자식은 PersistentVisibility로 돌아간다(Add 전에 넣으면 무시된다)
                 doc.Layers[index].SetPersistentVisibility(False)
         layer_cache[path] = index
@@ -366,7 +367,7 @@ def save_copy(doc, path, object_ids=None, timing=None):
     if not object_ids:
         t = time.time()
         if not doc.WriteFile(path, options):
-            raise RuntimeError("Rhino 파일을 저장할 수 없습니다: %s" % path)
+            raise RuntimeError(tr("Rhino 파일을 저장할 수 없습니다: {0}", path))
         timing.update(select_s=0.0, write_s=round(time.time() - t, 2), objects=doc.Objects.Count, bytes=os.path.getsize(path))
         return path
     options.WriteSelectedObjectsOnly = True
@@ -388,10 +389,10 @@ def save_copy(doc, path, object_ids=None, timing=None):
         selected = sum(1 for o in objects if o.IsSelected(False) or o.Select(True))
         timing["select_s"] = round(time.time() - t, 2)
         if selected != len(objects):
-            raise RuntimeError("저장할 객체 선택 실패 %d/%d" % (selected, len(objects)))
+            raise RuntimeError(tr("저장할 객체 선택 실패 {0}/{1}", selected, len(objects)))
         t = time.time()
         if not doc.WriteFile(path, options):
-            raise RuntimeError("Rhino 파일을 저장할 수 없습니다: %s" % path)
+            raise RuntimeError(tr("Rhino 파일을 저장할 수 없습니다: {0}", path))
         timing.update(write_s=round(time.time() - t, 2), objects=len(objects), bytes=os.path.getsize(path))
     finally:
         doc.Objects.UnselectAll()
@@ -413,7 +414,7 @@ def save_dwg_from_3dm(model_path, dwg_path, layer_root):
     패널 생성은 12분 뒤 실패) — 같은 객체를 헤드리스 문서에서는 0.2 s(job 1014-152115). 단위는 파일 그대로(OpenHeadless)."""
     doc = Rhino.RhinoDoc.OpenHeadless(model_path)
     if doc is None:
-        raise RuntimeError("3dm을 열 수 없습니다: %s" % model_path)
+        raise RuntimeError(tr("3dm을 열 수 없습니다: {0}", model_path))
     try:
         for layer in doc.Layers:   # 꺼지거나 잠긴 레이어의 객체는 선택이 안 된다 — 헤드리스 사본이라 되돌리지 않는다
             layer.IsVisible, layer.IsLocked = True, False
@@ -422,13 +423,13 @@ def save_dwg_from_3dm(model_path, dwg_path, layer_root):
         objects = [o for o in doc.Objects.GetObjectList(settings)
                    if doc.Layers.FindIndex(o.Attributes.LayerIndex).FullPath.split("::")[0] == layer_root]
         if not objects:
-            raise RuntimeError("%s 레이어에 객체가 없습니다" % layer_root)
+            raise RuntimeError(tr("{0} 레이어에 객체가 없습니다", layer_root))
         for rhino_object in objects:
             rhino_object.Select(True)
         options = Rhino.FileIO.FileWriteOptions()
         options.SuppressDialogBoxes, options.UpdateDocumentPath, options.WriteSelectedObjectsOnly = True, False, True
         if not doc.WriteFile(dwg_path, options):
-            raise RuntimeError("DWG를 저장할 수 없습니다: %s" % dwg_path)
+            raise RuntimeError(tr("DWG를 저장할 수 없습니다: {0}", dwg_path))
     finally:
         doc.Dispose()
     return dwg_path
@@ -440,21 +441,21 @@ def save_dwg(items, prepared, dwg_path):
     새 헤드리스 문서(m)에 구워 임시 .3dm으로 쓰고, 실측된 save_dwg_from_3dm(헤드리스로 다시 열어 BM만 .dwg, 0.14 s)에 넘긴다 —
     활성 문서에서 .dwg를 쓰면 Mac에서 멈췄다(save_dwg_from_3dm 주석). 좌표는 3D 베이크와 같다(bake가 옮긴다)."""
     if Rhino is None:
-        raise RuntimeError("DWG는 Rhino에서만 저장할 수 있습니다")
+        raise RuntimeError(tr("DWG는 Rhino에서만 저장할 수 있습니다"))
     if not items:
-        raise RuntimeError("2D 선 도면이 비었습니다")
+        raise RuntimeError(tr("2D 선 도면이 비었습니다"))
     temp_path = os.path.splitext(dwg_path)[0] + "_dwg_tmp.3dm"
     doc = Rhino.RhinoDoc.CreateHeadless(None)
     if doc is None:
-        raise RuntimeError("DWG용 빈 문서를 만들 수 없습니다")
+        raise RuntimeError(tr("DWG용 빈 문서를 만들 수 없습니다"))
     try:
         doc.ModelUnitSystem = Rhino.UnitSystem.Meters
         if not bake(doc, items, prepared):
-            raise RuntimeError("2D 선 도면을 굽지 못했습니다")
+            raise RuntimeError(tr("2D 선 도면을 굽지 못했습니다"))
         options = Rhino.FileIO.FileWriteOptions()
         options.SuppressDialogBoxes, options.UpdateDocumentPath = True, False
         if not doc.WriteFile(temp_path, options):
-            raise RuntimeError("DWG용 임시 3dm을 저장할 수 없습니다: %s" % temp_path)
+            raise RuntimeError(tr("DWG용 임시 3dm을 저장할 수 없습니다: {0}", temp_path))
     finally:
         doc.Dispose()
     try:
@@ -480,7 +481,7 @@ def _set_file_layer_states(doc, path, indexes):
             layer.IsVisible, layer.IsLocked = src.IsVisible, src.IsLocked
             layer.SetPersistentVisibility(src.GetPersistentVisibility())
     if not model.Write(path, 0):
-        raise RuntimeError("Rhino 파일 레이어 상태를 저장할 수 없습니다: %s" % path)
+        raise RuntimeError(tr("Rhino 파일 레이어 상태를 저장할 수 없습니다: {0}", path))
 
 
 # ── 재삽입·줌 ────────────────────────────────────────────────
@@ -502,16 +503,16 @@ def import_3dm(doc, result_dir, lot_key=None):
     path = os.path.join(result_dir, constants.CONTEXT_MODEL_FILE_NAME)
     result = {"ok": False, "layers": 0, "objects": 0, "replaced": False, "text": "", "shift": [0.0, 0.0]}
     if not os.path.exists(path):
-        result["text"] = "파일이 없습니다: %s" % path
+        result["text"] = tr("파일이 없습니다: {0}", path)
         return result
     meta = read_meta(result_dir)
     file_origin = tuple(float(v) for v in (meta.get("doc_origin") or meta.get("origin") or [])) or None   # 파일 좌표의 원점(world면 0,0)
     doc_origin = get_doc_origin(doc)
     if file_origin and doc_origin and (file_origin == (0.0, 0.0)) != (doc_origin == (0.0, 0.0)):
-        result["text"] = "좌표 방식이 다른 문서입니다(원점 이동 / 실제 좌표) — 새 문서에서 넣으세요"
+        result["text"] = tr("좌표 방식이 다른 문서입니다(원점 이동 / 실제 좌표) — 새 문서에서 넣으세요")
         return result
     if file_origin and doc_origin and math.hypot(file_origin[0] - doc_origin[0], file_origin[1] - doc_origin[1]) > constants.ORIGIN_MAX_OFFSET:
-        result["text"] = "다른 지역 문서입니다 — 새 문서에서 넣으세요 (원점 차이 > %.0f m)" % constants.ORIGIN_MAX_OFFSET
+        result["text"] = tr("다른 지역 문서입니다 — 새 문서에서 넣으세요 (원점 차이 > {0:.0f} m)", constants.ORIGIN_MAX_OFFSET)
         return result
     lot_key = lot_key or meta.get("lot_key") or (get_lot_key(meta["pnus"]) if meta.get("pnus") else None)
     if lot_key:
@@ -522,7 +523,7 @@ def import_3dm(doc, result_dir, lot_key=None):
     result["objects"] = len(new_objects)
     result["layers"] = len(_get_layer_indexes(doc, constants.CTX_ROOT_LAYER)) + len(_get_layer_indexes(doc, constants.BM_ROOT_LAYER))
     if not ok or not new_objects:
-        result["text"] = "Rhino가 파일을 넣지 못했습니다 — %s 를 직접 Import할 수 있습니다" % path
+        result["text"] = tr("Rhino가 파일을 넣지 못했습니다 — {0} 를 직접 Import할 수 있습니다", path)
         return result
     if file_origin and doc_origin and file_origin != doc_origin:
         scale = get_model_unit_scale(doc)

@@ -20,6 +20,7 @@ import os
 import constants
 import lot_db
 import non_rhino_utils
+from i18n import tr
 
 MISSING = "—"
 
@@ -121,12 +122,12 @@ def _get_abroad_meta_lines(prepared):
     """Global(OSM) 메타 5줄 — OSM·지형 타일 출처와 좌표계(해외 = 지역 횡메르카토르, 한국 = EPSG:5186)."""
     dates = get_source_dates(prepared)
     return [
-        "자료기준 — OpenStreetMap %s · Terrain Tiles · %s · 생성 %s · %s v%s" % (dates["building"], non_rhino_utils.get_crs_label(),
-                                                                         _built_at(prepared)[:10], constants.TOOL_NAME, constants.PANEL_VERSION),
-        "출처: © OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright); 지형 Terrain Tiles (Mapzen·AWS Open Data, SRTM 등 공개 DEM)",
-        "좌표계: %s · 지형 약 30 m 격자 — 실측·법정 자료 아님" % ("대상지 중심 횡메르카토르(GRS80, 축척 1)" if non_rhino_utils.is_local_projection() else "EPSG:5186"),
-        "정합 오차: — (필지 자료 없음)",
-        "건물 높이: OSM height 태그(B)·층수(C)·기본값 %.1f m(D)" % constants.DEFAULT_BUILDING_HEIGHT_M,
+        tr("자료기준 — OpenStreetMap {0} · Terrain Tiles · {1} · 생성 {2} · {3} v{4}", dates["building"], non_rhino_utils.get_crs_label(),
+           _built_at(prepared)[:10], constants.TOOL_NAME, constants.PANEL_VERSION),
+        tr("출처: © OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright); 지형 Terrain Tiles (Mapzen·AWS Open Data, SRTM 등 공개 DEM)"),
+        tr("좌표계: {0} · 지형 약 30 m 격자 — 실측·법정 자료 아님", tr("대상지 중심 횡메르카토르(GRS80, 축척 1)") if non_rhino_utils.is_local_projection() else "EPSG:5186"),
+        tr("정합 오차: — (필지 자료 없음)"),
+        tr("건물 높이: OSM height 태그(B)·층수(C)·기본값 {0:.1f} m(D)", constants.DEFAULT_BUILDING_HEIGHT_M),
     ]
 
 
@@ -138,27 +139,27 @@ def get_meta_lines(prepared):
         return _get_abroad_meta_lines(prepared)
     dates = get_source_dates(prepared)
     sheets = get_sheet_codes(prepared)
-    sheet_text = MISSING if not sheets else (sheets[0] + (" 외 %d" % (len(sheets) - 1) if len(sheets) > 1 else ""))
-    parts = ["%s %s" % (constants.META_SOURCE_NAMES[role], dates[role]) for role in ("lot", "building", "upis")]
-    parts.append("%s(도엽 %s, %s)" % (constants.META_SOURCE_NAMES["terrain"], sheet_text, dates["terrain"]))
-    parts += ["EPSG:%d" % constants.DATABASE_CRS, "생성 %s" % _built_at(prepared)[:10], "%s v%s" % (constants.TOOL_NAME, constants.PANEL_VERSION)]
-    line1 = "자료기준 — " + " · ".join(parts)
+    sheet_text = MISSING if not sheets else (tr("{0} 외 {1}", sheets[0], len(sheets) - 1) if len(sheets) > 1 else sheets[0])
+    parts = ["%s %s" % (tr(constants.META_SOURCE_NAMES[role]), dates[role]) for role in ("lot", "building", "upis")]
+    parts.append(tr("{0}(도엽 {1}, {2})", tr(constants.META_SOURCE_NAMES["terrain"]), sheet_text, dates["terrain"]))
+    parts += ["EPSG:%d" % constants.DATABASE_CRS, tr("생성 {0}", _built_at(prepared)[:10]), "%s v%s" % (constants.TOOL_NAME, constants.PANEL_VERSION)]
+    line1 = tr("자료기준 — {0}", " · ".join(parts))
 
     stats = _get(prepared, "stats") or {}
     align = _get(stats, "align") or {}
     if align.get("n"):
-        line4 = "정합 오차 중앙값 %.1f m, p90 %.1f m (n=%d, 도로경계 자동 비교)" % (align.get("median") or 0.0, align.get("p90") or 0.0, align["n"])
+        line4 = tr("정합 오차 중앙값 {0:.1f} m, p90 {1:.1f} m (n={2}, 도로경계 자동 비교)", align.get("median") or 0.0, align.get("p90") or 0.0, align["n"])
         if align.get("low_sample"):
-            line4 += " · 표본 부족"
+            line4 += " · " + tr("표본 부족")
     else:
-        line4 = "정합 오차 — (측정 없음)"
+        line4 = tr("정합 오차 — (측정 없음)")
     mismatch = _get(stats, "mismatch_count") or 0
     if mismatch:
-        line4 += " · 지적–지형 불일치 의심 %d건(현장 확인 대상, 레이어 qa_mismatch)" % mismatch
+        line4 += " · " + tr("지적–지형 불일치 의심 {0}건(현장 확인 대상, 레이어 qa_mismatch)", mismatch)
 
     stale = [w.get("detail") or w.get("text") for w in (_get(prepared, "warnings") or []) if str(w.get("code", "")).startswith("stale_")]
-    line5 = " / ".join(stale) if stale else "기준일 경고 없음"
-    return [line1, constants.META_SOURCE_LINE, constants.META_CRS_LINE, line4, line5]
+    line5 = " / ".join(stale) if stale else tr("기준일 경고 없음")
+    return [line1, tr(constants.META_SOURCE_LINE), tr(constants.META_CRS_LINE), line4, line5]
 
 
 # ── CSV 5개 ────────────────────────────────────────────────
@@ -187,7 +188,7 @@ def _parcel_rows(prepared):
                     "area_gap_sqm": "" if gap is None else round(gap, 2),
                     "legal_bcr": " / ".join(str(item[0]) for item in limits if item),
                     "legal_far": " / ".join("%d~%d" % item[1:] for item in limits if item),
-                    "designations": "; ".join(item.name + ("(저촉)" if item.conflict == constants.LAND_USE_OVERLAP else "")
+                    "designations": "; ".join(item.name + (tr("(저촉)") if item.conflict == constants.LAND_USE_OVERLAP else "")
                                               for item in lot_db.get_lot_designations(lot, designations)),
                     "eum_url": constants.EUM_LAND_USE_URL % _get(lot, "pnu")})
         rows.append(row)
@@ -208,7 +209,7 @@ def _floor_band(floors, breaks):
     """층수 → 구간 라벨(C #8: 1/2~3/4/5~6/7~b1/b1+1~b2/b2+1+)."""
     b1, b2 = breaks
     if not floors or floors <= 0:
-        return "미상"
+        return tr("미상")
     for lo, hi in ((1, 1), (2, 3), (4, 4), (5, 6), (7, b1), (b1 + 1, b2)):
         if lo <= floors <= hi:
             return str(lo) if lo == hi else "%d~%d" % (lo, hi)
@@ -220,15 +221,15 @@ def _age_band(use_apr_day, today):
     """사용승인일 → 노후 구간(C #9: <10 / 10~19 / 20~29 / 30+ / 연도 미상)."""
     digits = "".join(ch for ch in (use_apr_day or "") if ch.isdigit())
     if len(digits) < 4:
-        return "연도 미상"
+        return tr("연도 미상")
     years = today.year - int(digits[:4])
     b = constants.AGE_BANDS_YEARS
     if years < b[0]:
-        return "%d년 미만" % b[0]
+        return tr("{0}년 미만", b[0])
     for lo, hi in zip(b, b[1:]):
         if lo <= years < hi:
-            return "%d~%d년" % (lo, hi - 1)
-    return "%d년 이상" % b[-1]
+            return tr("{0}~{1}년", lo, hi - 1)
+    return tr("{0}년 이상", b[-1])
 
 
 def _group(sheet_id, sheet_name, items, key_fn, area_fn=None):
@@ -255,7 +256,7 @@ def _sheet_stat_rows(prepared, today):
     buildings = get_buildings_in_extent(prepared)
     options = _get(_get(prepared, "request") or {}, "options") or {}
     breaks = tuple(options.get("floor_breaks") or constants.FLOOR_BREAKS_DEFAULT)
-    sheet = dict((key, (sid, name)) for sid, key, name, _en, _needs in constants.SHEET_CATALOG)
+    sheet = dict((key, (sid, tr(name))) for sid, key, name, _en, _needs in constants.SHEET_CATALOG)
     lot_area = lambda lot: _get(lot, "registered_area") or _get(lot, "geometry_area")
     rows = []
     rows += _group(*sheet["land_use"], lots, lambda lot: _get(lot, "land_use_status"), lot_area)

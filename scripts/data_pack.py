@@ -17,6 +17,7 @@ import urllib.parse
 import urllib.request
 
 import constants
+from i18n import tr
 
 
 class _Cancelled(Exception):
@@ -172,8 +173,8 @@ def open_union(paths):
     출력: sqlite3.Connection(row_factory = Row). SQLite가 붙일 수 있는 파일은 main 포함 11개까지 — 넘으면 RuntimeError.
     """
     if len(paths) > constants.DATA_MAX_OPEN_FILES:
-        raise RuntimeError("한 번에 열 수 있는 지역 DB는 %d개까지입니다(%d개). 대상지를 줄이거나 쓰지 않는 지역 DB를 data 폴더에서 빼세요"
-                           % (constants.DATA_MAX_OPEN_FILES, len(paths)))
+        raise RuntimeError(tr("한 번에 열 수 있는 지역 DB는 {0}개까지입니다({1}개). 대상지를 줄이거나 쓰지 않는 지역 DB를 data 폴더에서 빼세요",
+                              constants.DATA_MAX_OPEN_FILES, len(paths)))
     connection = sqlite3.connect(paths[0])
     connection.row_factory = sqlite3.Row
     schemas = ["main"]
@@ -238,7 +239,7 @@ def _open_pack(pack, client_id, manifest_url):
             return urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=constants.DATA_TIMEOUT_SECONDS)
         except urllib.error.HTTPError as exc:
             if exc.code == 429:
-                raise ValueError("오늘 받을 수 있는 지역 데이터 양을 넘었습니다. 내일 다시 받아 주세요") from None
+                raise ValueError(tr("오늘 받을 수 있는 지역 데이터 양을 넘었습니다. 내일 다시 받아 주세요")) from None
             raise
 
     try:
@@ -283,7 +284,7 @@ def download_pack(pack, data_dir=None, progress=None, client_id="", manifest_url
                 if progress and progress(written, pack["size"]) is False:
                     raise _Cancelled
         if digest.hexdigest() != pack["sha256"]:
-            raise ValueError("%s 내려받기가 손상됐습니다(sha256 불일치). 다시 받아 주세요" % pack["name"])
+            raise ValueError(tr("{0} 내려받기가 손상됐습니다(sha256 불일치). 다시 받아 주세요", pack["name"]))
         os.replace(part, target)
     except _Cancelled:
         os.remove(part)

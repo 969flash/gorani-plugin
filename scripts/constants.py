@@ -174,6 +174,7 @@ ADDRESS_SEARCH_MAX_RESULTS = 20
 # 패널 더보기 메뉴의 바깥 링크(open_url) — 키만 받아 이 주소를 연다(임의 URL은 받지 않는다)
 PANEL_LINKS = {
     "website": "https://969flash.github.io/gorani/",   # 고라니 웹페이지 — 설치·사용법
+    "website_en": "https://969flash.github.io/gorani/en/",   # 같은 페이지 영어판 — 패널 언어가 한국어가 아니면 이쪽
 }
 
 # 토지이음(국토교통부) 토지이용계획 열람 상세 — 패널 필지 정보의 [토지이음 ↗](open_eum)과 parcels.csv eum_url.
@@ -425,8 +426,12 @@ HEIGHT_GRADES = ("A", "B", "C", "D")
 # ═════════════════════════════════════════════════════════
 # 패널 — docs/panel_ui.md·docs/ui_spec.md
 # ═════════════════════════════════════════════════════════
-PANEL_VERSION = "0.2.2"   # 배포 버전 하나(Yak·Blender·SketchUp 패키지 버전 = dev_deploy.PACKAGE_VERSION). 매니페스트 update.latest·min과 비교한다
+PANEL_VERSION = "0.3.0"   # 배포 버전 하나(Yak·Blender·SketchUp 패키지 버전 = dev_deploy.PACKAGE_VERSION). 매니페스트 update.latest·min과 비교한다
 NOTICE_TIMEOUT_SECONDS = 3   # 패널을 열 때 매니페스트(공지·업데이트)를 기다리는 한도 — 못 받으면 공지 없이 연다
+# 언어 — 패널 헤더에서 고른다(options.lang). 사전은 scripts/i18n.json 하나(패널 JS·Python 공용, i18n.py)
+LANGS = ("en", "ko", "es", "ja", "zh")   # 고르기 순서. zh = 중국어 간체
+DEFAULT_LANG = "en"   # food4Rhino 심사(2026-10-21 McNeel 메일 '영어가 없으면 올릴 수 없다') — 처음 설치는 영어. 0.3.0 전에 쓰던 설치본은 한국어 그대로(site_prefs.get_options)
+LANG_ENV = "GORANI_LANG"   # 지금 언어 — loader.load가 모듈을 다시 읽어도 남게 환경변수에 둔다(투영 원점과 같은 방식)
 INSTALL_DOC = "docs/install.md"
 PREFS_DIRNAME = ".gorani"            # 사용자 홈 아래. prefs.json·source_news.json
 RESULT_TIME_FORMAT = "%H%M"                    # 같은 날 같은 대상지를 다시 만들면 result/<대상지명>_<YYYYMMDD>_<HHMM>/ — 이전 결과를 지우지 않는다(2026-10-19)
@@ -498,6 +503,12 @@ BM_TEXT_MM = {"08b_parcel_no": (1.5, 1000), "10b_site_lots": (1.5, 1000), "12_la
 # 한글은 CP949 바이트 + KSCms-UHC-H CMap 글꼴이어야 보인다(UTF-8 + Helvetica는 깨짐). 글꼴이 없는 PC에서도 대체 글꼴로 한글이 나온다.
 import sys as _sys
 AI_FONT_CMAP = ("MalgunGothic" if _sys.platform.startswith("win") else "AppleSDGothicNeo-Regular") + "-KSCms-UHC-H"
+# 텍스트 글꼴(CID 글꼴-CMap, 바이트 코덱) — 한글·영어는 AI_FONT_CMAP(CP949). CP949에 없는 일본어·중국어 간체(図·駅·场地)는 같은 방식의 Shift-JIS·GBK CMap으로.
+# ponytail: 일본어·중국어 CMap은 Illustrator에서 아직 확인 전(한글 KSCms-UHC-H만 2026-10-08 실측) — 깨지면 도면은 SVG를 Illustrator로 연다
+AI_FONTS = {"ko": (AI_FONT_CMAP, "cp949"),
+            "ja": (("YuGothic-Regular" if _sys.platform.startswith("win") else "HiraginoSans-W3") + "-90ms-RKSJ-H", "cp932"),
+            "zh": (("MicrosoftYaHei" if _sys.platform.startswith("win") else "PingFangSC-Regular") + "-GBK-EUC-H", "gbk")}
+AI_CHAR_SUBSTITUTES = {"\u2014": "\u2015", "\u2013": "-", "\u00a9": "(c)"}   # CP949에 없는 대시(—·–)·© → 담기는 글자
 AI_CAP_HEIGHT_RATIO = 0.7      # 대문자·한글 높이 / 글꼴 크기 — 종이 mm 높이 → Tf 크기
 BM_CONTOUR_INDEX_K = 55        # 계곡선(25 m) 선 톤 K — 주곡선은 09_contour 레이어 톤(K35), deliverables B.2
 BM_GRID_STEP = 500.0            # m — 13_grid 간격(세계좌표 배수). 1 km 배수 선은 UserString STEP_M=1000
@@ -560,6 +571,7 @@ SHEET_GROUP = dict(
 # 역세권·공공시설은 Global도 된다 — OSM 역(railway=station)·시설 면(OSM_PUBLIC_USE)
 SHEET_KOREA_ONLY = ("lot_size", "density", "land_use", "land_category", "zone", "district", "facility", "use", "age", "price")
 PANEL_DEFAULT_OPTIONS = {
+    "lang": DEFAULT_LANG,   # 패널 언어(LANGS) — 헤더 언어 고르기
     "region": None,   # 데이터 모드 kr(국가 DB) | global(OSM) — None = 첫 실행, 패널이 정한다(국내 DB·시간대 Asia/Seoul·한국어면 kr)
     "mode": "lots", "placement": "origin",
     "output_lang": None,   # 결과물(폴더·파일 이름) 언어 OUTPUT_LANGS — None = 첫 실행, 패널이 시스템 언어로 정한다(한국어면 ko, 아니면 en)
@@ -783,6 +795,10 @@ STYLE_CHOICES = {"layout": ("side", "bottom", "map"), "font": ("sans", "serif"),
 STYLE_RANGES = {"line_scale": (0.5, 2.0), "text_scale": (0.8, 1.4), "fade_outside": (0.0, 0.8)}
 STYLE_FONTS = {"sans": "Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif",
                "serif": "'Noto Serif KR', AppleMyungjo, Batang, serif"}
+# 일본어·중국어 도면은 그 언어 글꼴을 STYLE_FONTS 앞에 둔다 — 한국어 글꼴이 같은 한자를 한국식 자형으로 그리지 않게.
+# 일본어 고딕은 Hiragino Sans가 아니라 ProN — 굵기 800이 W9로 가서 넓은 숫자가 번호(04) 옆 제목에 겹쳤다(2026-10-21 rsvg 확인)
+STYLE_FONTS_CJK = {"ja": {"sans": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', Meiryo, 'Noto Sans JP', ", "serif": "'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', "},
+                   "zh": {"sans": "'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', ", "serif": "'Songti SC', SimSun, 'Noto Serif SC', "}}
 STYLE_PROJECT_MAX = 60           # 표제 프로젝트명 글자 수 상한
 STYLES_DIRNAME = "styles"        # HOME_DIR/styles/<이름>.json — 사무소 표준을 파일로 나눠 쓴다
 

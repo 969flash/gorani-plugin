@@ -18,6 +18,8 @@ import Rhino
 import Rhino.UI
 import System
 
+from i18n import tr   # 명령창·오류 문구(_debug 진단 로그는 개발용이라 한국어 그대로)
+
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -79,7 +81,7 @@ def _get_ui_file_uri():
     입력:
         없음 — scripts/site_ui.html과 scripts/vendor/를 읽는다.
     처리:
-        `<!--VENDOR_CSS-->`·`<!--VENDOR_JS-->` 주석 자리를 파일 내용으로 바꿔
+        `<!--VENDOR_CSS-->`·`<!--VENDOR_JS-->`·`<!--I18N-->` 주석 자리를 파일 내용으로 바꿔
         임시 폴더에 쓴다. LoadHtml(html, http URI)는 Mac WKWebView가
         LoadFileUrl로 처리해 NSInvalidArgumentException으로 Rhino째 죽는다
         (2026-09-08 크래시) — 반드시 실제 파일 + file URL로 연다.
@@ -98,6 +100,8 @@ def _get_ui_file_uri():
         vendor_js = f.read()
     html = html.replace("<!--VENDOR_CSS-->", "<style>" + vendor_css + "</style>")
     html = html.replace("<!--VENDOR_JS-->", "<script>" + vendor_js + "</script>")
+    with open(os.path.join(SCRIPTS_DIR, "i18n.json"), encoding="utf-8") as f:   # 다국어 사전 — 패널 tr()
+        html = html.replace("<!--I18N-->", "<script>window.I18N = " + f.read().replace("</", "<\\/") + ";</script>")
     # 번들 폰트는 base64 data URI로 심는다 — file:// 페이지의 폰트 파일
     # 참조는 Chromium(WebView2) CORS에 막힐 수 있다
     with open(
@@ -174,7 +178,7 @@ class PanelHost:
             self._schedule_flush()
         except Exception:
             _debug("nav 처리 실패\n%s" % traceback.format_exc())
-            print("[Gorani] 명령 회수 실패\n%s" % traceback.format_exc())
+            print("[Gorani] " + tr("명령 회수 실패") + "\n" + traceback.format_exc())
 
     def _handle_title_changed(self, sender, e):
         """JS의 `document.title = "bridge<n>"` 신호로 명령을 회수한다."""
@@ -186,7 +190,7 @@ class PanelHost:
             self._schedule_flush()
         except Exception:
             _debug("title 처리 실패\n%s" % traceback.format_exc())
-            print("[Gorani] 명령 회수 실패\n%s" % traceback.format_exc())
+            print("[Gorani] " + tr("명령 회수 실패") + "\n" + traceback.format_exc())
 
     def _schedule_flush(self):
         # type: () -> None
@@ -225,7 +229,7 @@ class PanelHost:
                 )
         except Exception:
             _debug("flush 실패\n%s" % traceback.format_exc())
-            print("[Gorani] 명령 회수 실패\n%s" % traceback.format_exc())
+            print("[Gorani] " + tr("명령 회수 실패") + "\n" + traceback.format_exc())
 
     def _run_command(self, message):
         # type: (dict) -> None
@@ -245,10 +249,10 @@ class PanelHost:
         except Exception:
             text = traceback.format_exc()
             _debug("명령 처리 실패\n%s" % text)
-            print("[Gorani] 명령 처리 실패\n%s" % text)
+            print("[Gorani] " + tr("명령 처리 실패") + "\n" + text)
             self.push(
                 {"type": "error", "context": message.get("cmd", "명령"),
-                 "text": "예상 밖 오류\n%s" % text}
+                 "text": tr("예상 밖 오류") + "\n" + text}
             )
 
     # ── Python → JS ──────────────────────────────────────────
@@ -271,14 +275,14 @@ class PanelHost:
                     pass  # 미지원 플랫폼 — 동기 실행으로 넘어간다
             self.webview.ExecuteScript(script)
         except Exception as error:
-            print("[Gorani] 푸시 실패: %s" % error)
+            print("[Gorani] " + tr("푸시 실패: {0}", error))
 
     # ── 표시 ─────────────────────────────────────────────────
 
     def show(self):
         """떠 있는 창을 띄운다."""
         self._show_form()
-        print("[Gorani] 패널 창을 열었습니다")
+        print("[Gorani] " + tr("패널 창을 열었습니다"))
 
     def bring_to_front(self):
         """이미 떠 있는 창을 앞으로 가져온다."""

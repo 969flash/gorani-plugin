@@ -62,8 +62,9 @@ PLUGIN_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a10"         # 바꾸지 말 것 �
 COMMAND_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a11"
 COMMAND_NAME = "Gorani"
 PUBLISHER = {"name": "sanghoon", "email": "bsh969flash@gmail.com"}
-WEBSITE_URL = "https://969flash.github.io/gorani/"
+WEBSITE_URL = "https://969flash.github.io/gorani/en/"   # PackageManager 링크 — 영어 페이지(한국어 페이지는 거기서 링크, food4Rhino 심사 2026-10-21)
 # yak manifest — rhinocode가 쓰는 manifest.yml은 url·검색어가 비고 버전에 +빌드번호가 붙는다. PackageManager 목록·검색에 보일 내용으로 갈아 쓴다.
+# 설명은 영어를 먼저 쓴다(food4Rhino 심사 2026-10-21 — 영어가 없으면 올릴 수 없다).
 # PackageManager 검색은 이름·설명·검색어를 다 본다(2026-10-19 yak search 실측 — 'terrain'·'roads'가 설명만으로 걸림). 설명은 쉬운 말로, 사람들이 찾을 낱말을 넣는다.
 # guid: 검색어는 지우지 말 것 — Rhino가 이 플러그인 id로 패키지를 찾는다. 검색어는 영문·숫자·-·_만(공백이면 yak push가 400).
 YAK_MANIFEST = '''name: %(name)s
@@ -71,10 +72,20 @@ version: %(version)s
 authors:
 - %(author)s
 description: |-
-  한 번에 쉽게 하는 사이트 모델링 및 사이트 분석
-
   The city around your site, modeled in Rhino.
-  It's free.
+  It's free. The panel is in English, Korean, Spanish, Japanese and Chinese.
+
+  How to use
+  1. Restart Rhino after installing.
+  2. Type Gorani.
+  3. Pick a site on the map and press Create 3D model.
+
+  What you get
+  - 3D: buildings, roads, terrain, rivers, parks and railways on separate layers
+  - 2D: Illustrator basemap, urban analysis maps, DWG, CSV tables
+
+  한 번에 쉽게 하는 사이트 모델링 및 사이트 분석
+  패널 언어는 위쪽 언어 버튼에서 한국어로 바꿀 수 있습니다.
 
   사용 방법
   1. 설치 후 라이노를 다시 켭니다.
@@ -84,15 +95,6 @@ description: |-
   결과물
   - 3D: 건물 매스, 도로, 지형, 하천, 녹지, 철도 (레이어별)
   - 2D: 일러스트레이터 베이스맵, 현황도·분석도, DWG, 조서 CSV
-
-  How to use
-  1. Restart Rhino after installing.
-  2. Type Gorani.
-  3. Pick a site on the map and press the 3D button.
-
-  What you get
-  - 3D: buildings, roads, terrain, rivers, parks and railways on separate layers
-  - 2D: Illustrator basemap, urban analysis maps, DWG, CSV tables
 license: MIT
 url: %(url)s
 icon: icon.png
@@ -119,7 +121,7 @@ keywords:
 '''
 
 PLAIN_SCRIPT_NAMES = ("loader.py", "cmd_site.py")         # 입출력 연결뿐이라 감출 로직이 없다
-UI_FILE_NAMES = ("site_ui.html",)
+UI_FILE_NAMES = ("site_ui.html", "i18n.json")   # i18n.json = 다국어 사전(패널 tr()·로직 모듈 i18n.tr 공용)
 UI_DIR_NAMES = ("vendor",)
 DOC_FILE_NAMES = ("docs/install.md",)
 EXCLUDED_MODULE_PREFIXES = ("dev_", "cmd_", "probe_", "server_", "blender_", "sketchup_", "web_")     # 개발·실측 전용, 진입 스크립트, 국내 서버(VM) 전용, Blender·SketchUp·웹판
@@ -170,7 +172,7 @@ license = ["SPDX:GPL-3.0-or-later"]
 copyright = ["2026 sanghoon", "2010-2023 Volodymyr Agafonkin (Leaflet)", "2010-2011 CloudMade (Leaflet)"]
 
 [permissions]
-network = "Map tiles, regional data packs and OpenStreetMap context"
+network = "Map tiles, data packs, OpenStreetMap context and IP geolocation"
 files = "Write results and data packs to the Gorani home folder"
 '''
 
@@ -281,7 +283,7 @@ def _build_plugin(project_dir):
         "id": PLUGIN_ID,
         "identity": {
             "name": PACKAGE_NAME, "version": PACKAGE_VERSION, "publisher": PUBLISHER, "license": "MIT",
-            "description": "도시설계 착수용 대지 컨텍스트(건물·도로·지형·수계 3D, 베이스맵, 현황도). 명령: Gorani",
+            "description": "Site context models for urban design: 3D buildings, roads, terrain and water, basemap and analysis maps. Command: Gorani",
         },
         "settings": {
             "buildPath": "build/",
@@ -564,7 +566,7 @@ def build_web():
     names = [n for n in sorted(os.listdir(SCRIPTS_DIR)) if n.endswith(".py") and not n.startswith(WEB_EXCLUDED_PREFIXES)
              and n[:-3] not in WEB_EXCLUDED_NAMES]
     with zipfile.ZipFile(os.path.join(WEB_DIR, "scripts.zip"), "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
-        for name in names:
+        for name in names + ["i18n.json"]:   # 다국어 사전 — i18n.py가 모듈 옆에서 읽는다
             zf.write(os.path.join(SCRIPTS_DIR, name), name)
     print("  모듈 %d개 · scripts.zip %.0f KB · panel.html %.0f KB" % (len(names), os.path.getsize(os.path.join(WEB_DIR, "scripts.zip")) / 1e3,
                                                                   os.path.getsize(os.path.join(WEB_DIR, "panel.html")) / 1e3))

@@ -24,7 +24,7 @@ Everything is written to `~/Gorani/result/<date>/<site>/`.
 
 ## Permissions
 
-- **Internet**: map tiles, regional data packs and OpenStreetMap context. The panel only opens when *Allow Online Access* is enabled in Preferences.
+- **Internet**: map tiles, regional data packs, OpenStreetMap context and one IP lookup (ipinfo.io) for where the map starts. The panel only opens when *Allow Online Access* is enabled in Preferences.
 - **Files**: results and data packs are written to the `~/Gorani` folder. The Rhino version of Gorani uses the same folder, so data is shared.
 - **Usage statistics**: nothing is sent unless you opt in from the panel. You can change this later in the panel menu.
 

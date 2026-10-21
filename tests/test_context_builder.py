@@ -19,6 +19,8 @@ import dev_context_builder as builder
 import non_rhino_utils
 import site_prefs
 
+os.environ[constants.LANG_ENV] = "ko"   # 한국어 원문으로 검사
+
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
 SITE_DB = str(FIXTURE_DIR / "seongsu_site.db")
 CONTEXT_DB = str(FIXTURE_DIR / "seongsu_context.db")
