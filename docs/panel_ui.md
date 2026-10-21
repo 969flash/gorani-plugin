@@ -132,8 +132,8 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 {"cmd":"host_reply","id":3,"ok":true,"result":[…],"error":""}                               // 명령 ← Ruby가 execute_script("send(…)")로 보낸다
 ```
 
-`method` = `get_model_attrs{keys}`·`set_model_attrs{values}`·`clear{lot_key}`·`bake{path}`·`ref{…}`·`save{path}`·`zoom{lot_key, box}`·`import{path, lot_key, lot_name, shift}`·`pick_curve{}`
-(`sketchup_baker`·`cmd_sketchup`이 부르고 `sketchup_ext.rb`의 `rpc_<method>`가 받는다). `window.sketchup`이 없는 창(일반 브라우저)이면 무시한다 — 사이드카는 `SKETCHUP_HOST_TIMEOUT` 뒤 실패.
+`method` = `get_model_attrs{keys}`·`set_model_attrs{values}`·`clear{lot_key}`·`bake{path}`·`ref{…}`·`save{path}`·`zoom{lot_key, box, min_span}`·`import{path, lot_key, lot_name, shift}`·`pick_curve{}`
+(`sketchup_baker`·`cmd_sketchup`이 부르고 `sketchup_ext.rb`의 `rpc_<method>`가 받는다). `window.sketchup`이 없는 창(일반 브라우저)이면 무시한다 — 사이드카는 `SKETCHUP_HOST_TIMEOUT` 뒤 실패. 패널 창을 닫으면 Ruby가 사이드카 stdin으로 `{"cmd":"panel_closed"}`를 보내 생성 중이면 취소하고, 기다리던 호출은 바로 실패한다(다시 연 패널의 init이 막히지 않게).
 
 ### 푸시 정의
 

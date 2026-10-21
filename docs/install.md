@@ -57,10 +57,11 @@ Rhino 8 명령창에 `PackageManager` → `Gorani` 검색 → 설치 → Rhino�
 
 ## SketchUp
 
-1. 설치 — 확장 > Extension Warehouse에서 Gorani [설치]. `.rbz` 파일을 받았으면 확장 > Extension Manager > [Install Extension]으로 고른다.
-   Extension Warehouse를 거치지 않은 `.rbz`(서명 없음)는 Extension Manager 왼쪽 아래 톱니 > Loading Policy를 **Unrestricted**로 둬야 켜진다.
+1. 설치 — 확장 > Extension Warehouse에서 Gorani [설치]. `.rbz` 파일을 받았으면 확장 > 확장 관리자(Extension Manager) > [Install Extension]으로 고른다.
+   Extension Warehouse를 거치지 않은 `.rbz`(서명 없음)는 확장 관리자 왼쪽 아래 톱니 > Loading Policy를 **Unrestricted**로 둬야 켜진다.
 2. 확장 > Gorani(또는 Gorani 도구 막대 단추) — 패널 창이 열린다. 쓰는 법은 Rhino와 같다.
    생성 중 모델에 넣는 동안(몇 초~수십 초) SketchUp 화면이 멈춘다. 계산은 확장에 든 파이썬이 따로 돌린다.
+   만드는 중에 패널 창을 닫으면 Rhino처럼 멈춘다(넣다 만 3D는 다시 만들면 지워진다).
 
 - 데이터·결과 폴더는 Rhino·Blender와 같다(`~/Gorani`) — 한쪽에서 받은 지역은 다른 쪽도 쓴다.
 - 3D는 대상지마다 그룹 `Gorani <대상지명>` 하나. 안에 태그 `CTX::…`(태그 폴더 CTX)마다 그룹이 있고, 건물은 동마다 솔리드 그룹이다(속성 사전 `Gorani`에 높이·층수·PNU — Entity Info > 고급 속성 또는 속성 확장으로 본다). 한 번의 생성은 실행 취소 한 번으로 지운다.

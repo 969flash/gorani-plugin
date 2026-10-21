@@ -296,7 +296,7 @@ SketchUp(Ruby, sketchup_ext.rb = bsh_gorani/main.rb)            사이드카(번
 - 건물: 면 채우기가 없어 동마다 각기둥(`BakeItem.prisms` = 파트 링·바닥 Z·높이·Rhino판과 같은 14키 속성) → Ruby가 `Entities#build`(EntitiesBuilder, 2022+)로 구멍 있는 바닥·지붕·옆면 = 동마다 솔리드 그룹.
 - 모델 모양: 대상지마다 최상위 그룹 `Gorani <대상지명>`(속성 사전 `Gorani`의 `GORANI_LOT_KEY`) 안에 태그 `CTX::…`(태그 폴더 CTX)마다 그룹, 색 = 태그 색 + 같은 이름 재질. 지형은 `PolygonMesh` → `fill_from_mesh`(자동 부드럽게), 커브는 `add_edges`. 원점은 모델 속성, 실제 좌표 방식은 대상지 그룹을 옮긴다. 한 번의 생성 = Undo 한 번(clear가 작업을 열고 뒤 호출은 투명 작업).
 - 사본: 대상지 그룹 정의 `save_copy` → `context.skp`(로컬 좌표, 원점 = context.json `origin`). 다시 넣기는 `definitions.load` + 원점 차이만큼 옮긴 인스턴스.
-- 사이드카는 `-B`(확장 폴더에 `__pycache__`를 쓰면 서명 파일 목록이 바뀐다), stdout 첫 줄만 주소·그 뒤는 stderr = `~/Gorani/sketchup_sidecar.log`, stdin EOF(SketchUp 종료)에 끝난다. 패널을 닫으면 진행 중인 host_call은 `SKETCHUP_HOST_TIMEOUT` 뒤 실패.
+- 사이드카는 `-B`(확장 폴더에 `__pycache__`를 쓰면 서명 파일 목록이 바뀐다), stdout 첫 줄만 주소·그 뒤는 stderr = `~/Gorani/sketchup_sidecar.log`, stdin 한 줄은 Ruby 알림(패널 닫힘 `panel_closed` → Rhino 창 닫기처럼 생성 취소, 기다리던 host_call은 바로 실패), stdin EOF(SketchUp 종료)에 끝난다. 응답 없는 host_call은 `SKETCHUP_HOST_TIMEOUT` 뒤 실패.
 - 배포: `dev_deploy.py sketchup` → `build/bsh_gorani-<버전>.rbz`(약 90 MB — 런타임 셋, numpy OpenBLAS가 절반). 올리기는 `docs/sketchup_store.md`.
 
 ---

@@ -5392,5 +5392,65 @@
   "es": "Retícula",
   "ja": "グリッド",
   "zh": "网格"
+ },
+ "패널을 닫아 멈췄습니다({0})": {
+  "en": "Stopped because the panel was closed ({0})",
+  "es": "Se detuvo porque se cerró el panel ({0})",
+  "ja": "パネルを閉じたため停止しました（{0}）",
+  "zh": "面板已关闭，已停止（{0}）"
+ },
+ "SketchUp이 응답하지 않습니다({0}) — 패널을 닫았으면 다시 열고 생성하세요": {
+  "en": "SketchUp did not respond ({0}) — if you closed the panel, open it again and generate",
+  "es": "SketchUp no respondió ({0}) — si cerraste el panel, vuelve a abrirlo y genera de nuevo",
+  "ja": "SketchUpが応答しません（{0}）— パネルを閉じた場合は、もう一度開いて作成してください",
+  "zh": "SketchUp 没有响应（{0}）— 如果关闭了面板，请重新打开后再生成"
+ },
+ "SketchUp {0} 실패: {1}": {
+  "en": "SketchUp {0} failed: {1}",
+  "es": "Falló SketchUp {0}: {1}",
+  "ja": "SketchUp {0} に失敗しました: {1}",
+  "zh": "SketchUp {0} 失败：{1}"
+ },
+ "알 수 없는 오류": {
+  "en": "Unknown error",
+  "es": "Error desconocido",
+  "ja": "不明なエラー",
+  "zh": "未知错误"
+ },
+ "SketchUp에서 면 하나나 한 바퀴 닫힌 선(커브)을 먼저 선택하고 다시 누르세요": {
+  "en": "In SketchUp, first select one face or a closed loop of edges (curve), then press again",
+  "es": "En SketchUp, selecciona primero una cara o un bucle cerrado de aristas (curva) y vuelve a pulsar",
+  "ja": "SketchUpで面を1つ、または一周閉じた線（カーブ）を先に選択してから、もう一度押してください",
+  "zh": "请先在 SketchUp 中选择一个面或一圈闭合的线（曲线），然后再按一次"
+ },
+ "수평(XY 평면)에 놓인 면·선이어야 합니다": {
+  "en": "The face or edges must lie flat on the XY plane",
+  "es": "La cara o las aristas deben estar en el plano XY",
+  "ja": "面・線は水平（XY平面）に置かれている必要があります",
+  "zh": "面或线必须水平放置在 XY 平面上"
+ },
+ "모델에 넣는 중": {
+  "en": "Adding to the model",
+  "es": "Añadiendo al modelo",
+  "ja": "モデルに追加中",
+  "zh": "正在添加到模型"
+ },
+ "좌표 방식이 다른 모델입니다(원점 이동 / 실제 좌표) — 새 모델에서 넣으세요": {
+  "en": "This model uses a different coordinate mode (Origin (0,0) / GIS coordinates) — import into a new model",
+  "es": "Este modelo usa otro modo de coordenadas (Origen (0,0) / coordenadas GIS) — impórtalo en un modelo nuevo",
+  "ja": "座標方式が異なるモデルです（原点(0,0) / GIS座標）— 新しいモデルに読み込んでください",
+  "zh": "该模型的坐标方式不同（原点(0,0) / GIS坐标）— 请在新模型中导入"
+ },
+ "다른 지역 모델입니다 — 새 모델에서 넣으세요 (원점 차이 > {0:.0f} m)": {
+  "en": "This model is for a different area — import into a new model (origin offset > {0:.0f} m)",
+  "es": "Este modelo es de otra zona — impórtalo en un modelo nuevo (diferencia de origen > {0:.0f} m)",
+  "ja": "別の地域のモデルです — 新しいモデルに読み込んでください（原点の差 > {0:.0f} m）",
+  "zh": "该模型属于其他区域 — 请在新模型中导入（原点偏差 > {0:.0f} m）"
+ },
+ "파일에 객체가 없습니다: {0}": {
+  "en": "No objects in the file: {0}",
+  "es": "El archivo no tiene objetos: {0}",
+  "ja": "ファイルにオブジェクトがありません: {0}",
+  "zh": "文件中没有对象：{0}"
  }
 }

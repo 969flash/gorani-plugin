@@ -6,8 +6,7 @@
 
 - [ ] 다른 컴퓨터(Windows일 수 있음)에서 Rhino판 실기 시험 — Mac에서 빌드한 .rhp·.pyc가 Windows Rhino 8에서 처음 도는 것일 수 있다.
 - [ ] Blender 공식 스토어(extensions.blender.org)에 올리기 — 사용자 Blender ID. 절차 `docs/blender_store/README.md`.
-- [ ] SketchUp Extension Warehouse에 올리기 — 사용자 개발자 계정. 절차 `docs/sketchup_store.md`. Windows 실기 시험 전이다.
-- [ ] SketchUp용 GA4 속성(`constants.GA_STREAMS["sketchup"]`) — 없으면 통계를 묻지도 보내지도 않는다.
+- [ ] SketchUp Extension Warehouse 심사 제출 — 개발자 신청 2026-10-22 접수, 승인 메일이 오면 My Extensions > Upload. 칸·이미지·심사 메모는 `docs/sketchup_store.md`. Windows 실기 시험 전이다.
 - [ ] `docs/install.md`(yak 패키지에 들어가 패널 [문서 열기]로 열린다)의 Blender·SketchUp 절이 아직 없는 설치 경로를 안내한다 — `969flash.github.io/gorani/blender/index.json`은 없다. 스토어에 오를 때까지 '준비 중'으로 바꾸거나 스토어 주소로 고친다.
 
 ## 웹사이트 (저장소 `~/Documents/GitHub/gorani`)
@@ -28,6 +27,6 @@
 ## 이름 변경 뒤처리
 
 - [ ] AutoCAD 워크트리(`.claude/worktrees/autocad`, 커밋 안 됨)를 다시 열 때 main을 합치기 전에 같은 치환(UrbanSite→Gorani, urbansite→gorani, URBANSITE→GORANI)을 먼저 한다. 명령 `URBANSITE`→`GORANI`, DXF 레이어 접두사 `US-*`도 바꿀지 정한다.
-- [ ] GA 속성 표시 이름(UrbanSite Rhino·Blender·SketchUp)을 GA 화면에서 Gorani로 바꾼다. 측정 ID는 그대로.
-- [ ] 이 Mac의 옛 설치본 지우기: Blender 확장 `urbansite`, SketchUp `Plugins/bsh_urbansite`. 옛 결과·로그 `~/UrbanSite/`(result·*.log)는 확인 뒤 지우거나 `~/Gorani/`로 옮긴다.
+- [ ] GA 속성 표시 이름(UrbanSite Rhino·Blender·Web)을 GA 화면에서 Gorani로 바꾼다. 측정 ID는 그대로. ('Gorani SketchUp'은 2026-10-21에 새로 만들어 이름이 맞다)
+- [ ] 이 Mac의 옛 설치본 지우기: Blender 확장 `urbansite`(SketchUp `bsh_urbansite`는 지워졌다). 옛 결과·로그 `~/UrbanSite/`(result·*.log)는 확인 뒤 지우거나 `~/Gorani/`로 옮긴다.
 - [ ] Hugging Face 데이터셋(`hooooooooon/urbandesigntool-data`) 카드에 옛 이름이 있는지 확인(저장소 이름은 그대로 둔다).
