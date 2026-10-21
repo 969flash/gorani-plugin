@@ -118,15 +118,26 @@ def _built_at(prepared):
 
 def _get_abroad_meta_lines(prepared):
     # type: (object) -> list
-    """Global(OSM) 메타 5줄 — OSM·지형 타일 출처와 좌표계(해외 = 지역 횡메르카토르, 한국 = EPSG:5186)."""
+    """Global(OSM) 메타 5줄 — OSM·지형 타일 출처와 좌표계(해외 = 지역 횡메르카토르, 한국 = EPSG:5186).
+    일본은 PLATEAU 건물(도시·연도, CC BY 4.0 가공 표기)과 지리원 표고 타일을 쓴 만큼 적는다."""
     dates = get_source_dates(prepared)
+    sources = {getattr(s, "source_id", ""): s for s in getattr(prepared, "sources", None) or []}
+    plateau, gsi = sources.get("plateau"), "gsi_dem" in sources
+    data = (["PLATEAU %s" % plateau.reference_date, "OpenStreetMap %s" % sources["osm"].reference_date] if plateau and "osm" in sources
+            else ["OpenStreetMap %s" % dates["building"]])
+    data.append("国土地理院 標高タイル" if gsi else "Terrain Tiles")
+    credits = (["%s、国土交通省 (CC BY 4.0, Gorani 가공)" % plateau.name] if plateau else []) + [
+        "© OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright)",
+        "지형 国土地理院 標高タイル (加工)" if gsi else "지형 Terrain Tiles (Mapzen·AWS Open Data, SRTM 등 공개 DEM)"]
     return [
-        "자료기준 — OpenStreetMap %s · Terrain Tiles · %s · 생성 %s · %s v%s" % (dates["building"], non_rhino_utils.get_crs_label(),
-                                                                         _built_at(prepared)[:10], constants.TOOL_NAME, constants.PANEL_VERSION),
-        "출처: © OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright); 지형 Terrain Tiles (Mapzen·AWS Open Data, SRTM 등 공개 DEM)",
-        "좌표계: %s · 지형 약 30 m 격자 — 실측·법정 자료 아님" % ("대상지 중심 횡메르카토르(GRS80, 축척 1)" if non_rhino_utils.is_local_projection() else "EPSG:5186"),
+        "자료기준 — %s · %s · 생성 %s · %s v%s" % (" · ".join(data), non_rhino_utils.get_crs_label(), _built_at(prepared)[:10],
+                                                constants.TOOL_NAME, constants.PANEL_VERSION),
+        "출처: " + "; ".join(credits),
+        "좌표계: %s · 지형 %s — 실측·법정 자료 아님" % ("대상지 중심 횡메르카토르(GRS80, 축척 1)" if non_rhino_utils.is_local_projection() else "EPSG:5186",
+                                                "5 m 격자(표고 T.P.)" if gsi else "약 30 m 격자"),
         "정합 오차: — (필지 자료 없음)",
-        "건물 높이: OSM height 태그(B)·층수(C)·기본값 %.1f m(D)" % constants.DEFAULT_BUILDING_HEIGHT_M,
+        "건물 높이: %sOSM height 태그(B)·층수(C)·기본값 %.1f m(D)" % ("PLATEAU 실측 높이(B)·층수(C), 없는 곳은 " if plateau else "",
+                                                               constants.DEFAULT_BUILDING_HEIGHT_M),
     ]
 
 

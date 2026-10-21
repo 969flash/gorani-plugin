@@ -134,7 +134,13 @@ def _make_data(item):
     if item.faces:
         mesh = bpy.data.meshes.new(item.name)
         mesh.from_pydata(item.verts, [], item.faces)
-        for name, values in (item.face_attrs or {}).items():
+        attrs = dict(item.face_attrs or {})
+        for name, values in list(attrs.items()):
+            # INT 속성은 32비트 — 한국 시도 팩(시도 × 10⁹)·일본 팩(시구정촌 × 10⁷) 건물 id는 넘는다(foreach_set이 TypeError).
+            # 아래 9자리는 그 이름 그대로, 위 자리는 <이름>_high로 나눠 담는다(id = high × 10⁹ + 아래). 서울·OSM id는 high가 없다
+            if values and isinstance(values[0], int) and max(abs(v) for v in values) >= 2 ** 31:
+                attrs[name], attrs[name + "_high"] = [v % 10 ** 9 for v in values], [v // 10 ** 9 for v in values]
+        for name, values in attrs.items():
             attribute = mesh.attributes.new(name, "INT" if values and isinstance(values[0], int) else "FLOAT", "FACE")
             attribute.data.foreach_set("value", values)
         mesh.validate(clean_customdata=False)

@@ -33,6 +33,21 @@ if bpy is not None:
     loader = cmd_blender.loader
 
 
+@unittest.skipUnless(bpy is not None, "Blender 안에서만 돈다")
+class LargeIdTest(unittest.TestCase):
+    def test_split_building_id(self):
+        """32비트를 넘는 건물 id(한국 시도 팩 시도 × 10⁹, 일본 팩 시구정촌 × 10⁷)는 아래 9자리 + _high로 나눠 담는다."""
+        mesh_geometry, blender_baker = loader.load("mesh_geometry"), loader.load("blender_baker")
+        ids = [26 * 10 ** 9 + 5, 13104 * 10 ** 7 + 7, 3]
+        item = mesh_geometry.BakeItem("CTX::Buildings", "buildings", verts=[(0, 0, 0), (1, 0, 0), (0, 1, 0), (1, 1, 0)],
+                                      faces=[(0, 1, 2), (1, 3, 2), (0, 2, 3)], face_attrs={"building_id": ids, "height": [1.0, 2.0, 3.0]})
+        mesh = blender_baker._make_data(item)
+        low = [d.value for d in mesh.attributes["building_id"].data]
+        high = [d.value for d in mesh.attributes["building_id_high"].data]
+        self.assertEqual([h * 10 ** 9 + v for h, v in zip(high, low)], ids)
+        bpy.data.meshes.remove(mesh)
+
+
 @unittest.skipUnless(bpy is not None and HAS_FIXTURES, "Blender 안에서 fixture DB로만 돈다")
 class RunTest(unittest.TestCase):
     """성수 fixture 500 m — 대상지 평탄화 + 바닥 메시까지 켠 생성 한 번."""
