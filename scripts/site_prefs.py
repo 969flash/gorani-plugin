@@ -50,7 +50,7 @@ def get_options(path=PREFS_PATH):
     for key in options:
         if key in saved and not (old and key in _RESET_BEFORE_V2):
             options[key] = saved[key]
-    if saved and "lang" not in saved:   # 언어 고르기 전(0.2.2까지) 설치본 — 한국어 패널을 쓰던 사람이라 영어로 바꾸지 않는다
+    if saved and "lang" not in saved:   # 언어 고르기 전(0.3.0 전) 설치본 — 한국어 패널을 쓰던 사람이라 영어로 바꾸지 않는다
         options["lang"] = "ko"
     return options
 

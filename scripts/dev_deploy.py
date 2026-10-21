@@ -172,7 +172,7 @@ license = ["SPDX:GPL-3.0-or-later"]
 copyright = ["2026 sanghoon", "2010-2023 Volodymyr Agafonkin (Leaflet)", "2010-2011 CloudMade (Leaflet)"]
 
 [permissions]
-network = "Map tiles, regional data packs and OpenStreetMap context"
+network = "Map tiles, data packs, OpenStreetMap context and IP geolocation"
 files = "Write results and data packs to the Gorani home folder"
 '''
 

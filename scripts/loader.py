@@ -26,8 +26,10 @@ def load(module_name):
         module_name: 확장자를 뺀 모듈 이름. 예: ``"lot_db"``.
     처리:
         scripts/를 sys.path 맨 앞에 두고, 같은 이름의 외부 모듈이 이미 올라와
-        있으면 걷어낸다. 이전 계산에서 읽어둔 프로젝트 모듈만 다시 읽어
-        편집 내용을 이번 계산에 반영한다. 이번에 처음 읽는 모듈은 이미 최신이다.
+        있으면 걷어낸다. 읽어둔 뒤 파일이 바뀐 모듈이 있거나 외부 모듈을 걷어냈으면 읽어둔
+        프로젝트 모듈을 모두 다시 읽어 편집 내용을 이번 계산에 반영한다. 이번에 처음 읽는 모듈은 이미 최신이다.
+        바뀐 파일이 없으면 다시 읽지 않는다 — 모듈 캐시(data_pack._MANIFEST·osm_context._CACHE)가
+        남는다(2026-10-21: 매번 다시 읽어 캐시가 지워졌고, 패널에 공지·업데이트 띠가 뜨지 않았다).
         reload 도중 다른 모듈이 sys.modules를 건드려 방금 읽은 것을 걷어낼 수
         있어(스테일 모듈을 이름으로 퍼지하는 러너) 사라졌으면 다시 읽는다.
     출력:
@@ -36,16 +38,27 @@ def load(module_name):
     if not _PREFIX and SCRIPTS_DIR not in sys.path:
         sys.path.insert(0, SCRIPTS_DIR)
     importlib.invalidate_caches()
-    if not _PREFIX:
-        _drop_foreign_modules()
+    dropped = not _PREFIX and _drop_foreign_modules()
     loaded_before = _get_project_modules()
     importlib.import_module(_PREFIX + module_name)
-    for module in loaded_before if sys.platform != "emscripten" else ():   # 웹판(Pyodide) 파일은 실행 중에 바뀌지 않는다
+    stale = dropped or any(getattr(module, "_loaded_mtime", None) not in (None, _get_mtime(module)) for module in loaded_before)
+    for module in loaded_before if stale and sys.platform != "emscripten" else ():   # 웹판(Pyodide) 파일은 실행 중에 바뀌지 않는다
         importlib.reload(module)
     module = sys.modules.get(_PREFIX + module_name)
     if module is None:
         module = importlib.import_module(_PREFIX + module_name)
+    for loaded in _get_project_modules():   # 읽은 때의 파일 시각 — 모듈 객체에 적어 loader를 다시 읽어도(패널 다시 열기) 남는다
+        loaded._loaded_mtime = _get_mtime(loaded)
     return module
+
+
+def _get_mtime(module):
+    # type: (object) -> float
+    """모듈 파일의 수정 시각. 읽을 수 없으면 None."""
+    try:
+        return os.path.getmtime(module.__file__)
+    except OSError:
+        return None
 
 
 def source_stamp():
@@ -110,7 +123,7 @@ def _get_project_modules():
 
 
 def _drop_foreign_modules():
-    # type: () -> None
+    # type: () -> bool
     """scripts/의 모듈 이름을 가로챈 외부 모듈을 sys.modules에서 걷어낸다.
 
     입력:
@@ -119,12 +132,15 @@ def _drop_foreign_modules():
         scripts/*.py 이름만 대상으로 하고, scripts/ 밖에서 온 것만 지운다.
         `constants`처럼 전이로 import되는 이름까지 함께 봐야 하이재킹을 막는다.
     출력:
-        없음.
+        걷어낸 것이 있으면 True — load가 읽어둔 모듈을 다시 읽어 이름을 우리 모듈로 다시 잇는다.
     """
+    dropped = False
     for name in _get_project_module_names():
         module = sys.modules.get(name)
         if module is not None and not _is_project_module(module):
             del sys.modules[name]
+            dropped = True
+    return dropped
 
 
 def _get_project_module_names():

@@ -151,7 +151,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
  "warnings":[warning],                            // 더보기 메뉴 자료 칸(no_api_key는 설정 칸 API 키 행). warn·danger면 메뉴 버튼의 점(Korea 모드). 띠로 띄우지 않는다
  "tile":{"url":"…","fallback_url":"…","attribution":"…","abroad_url":"…","abroad_attribution":"…",
          "aerial_url":"…","aerial_attribution":"…","abroad_aerial_url":"…","abroad_aerial_attribution":"…"},   // review_map.get_tile_config(). 지도 중심이 map.korea_bounds 밖이면 abroad_url(OSM). 지도 오른쪽 아래 [위성]을 누르면 aerial_url(VWorld 영상, 키 없으면 Esri) — 해외·폴백 뒤는 abroad_aerial_url(Esri)
- "map":{"center":[126.9784,37.5665],"zoom":16},              // review_map.get_map_init()
+ "map":{"center":[126.9784,37.5665],"zoom":16},              // review_map.get_map_init(map_center) — 첫 init에 IP로 짐작한 도시(zoom 12, get_ip_center), 못 받으면 서울시청(zoom 16)
  "options":{…옵션 키 전부, prefs.json 복원 또는 기본값…},
  "recent":[{"pnus":["…"],"label":"성수동2가 277-17 외 1","total_area":1234.5,"date":"2026-10-06"}],   // 최대 5, 필지 방식만. 더보기 메뉴 [최근 대상지] → 필지 방식으로 select_lots. done 때 JS가 같은 꼴로 앞에 넣는다(다음 init까지)
  "sheet_catalog":[{"id":0,"key":"base","name":"베이스맵","subtitle":"Base map","needs":"lot","korea_only":false,"group":"base"},…,{"id":19,"key":"slope","name":"경사","subtitle":"Slope","needs":"terrain","korea_only":false,"group":"status"}],   // group = constants.SHEET_GROUP: base(베이스맵·항공사진)·status(현황도)·analysis(분석도)·frame(틀) — 2D 카드 묶음 칩   // constants.SHEET_CATALOG 25장(분석도 8 · 현황도 12 · 틀 3 · 항공사진 1 · 입체 매스도 1, needs image = 영상 타일). done.sheets[].thumb = 160 px PNG data URI(패널 도면 칸, 항공사진만 SVG data URI)
@@ -277,7 +277,7 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
 - 호스트(`panel_host`·`panel_server.get_html`)가 HTML의 `<!--I18N-->` 자리에 `window.I18N = {…}`를 심는다. 파일로 연 목(`?mock=1`)은 옆의 `i18n.json`을 읽는다. `&lang=ko|es|ja|zh`로 언어를 고른다.
 - 언어는 `options.lang`(prefs). 고르기는 헤더의 지구본 칸(언어 이름은 그 언어로). 바꾸면 `save_prefs` 후 지금 화면을 다시 그린다(대상지·결과는 그대로).
 - JS는 모든 명령에 `lang`을 붙이고, `cmd_site.handle`이 그 값으로 Python 언어(환경변수 `GORANI_LANG`)를 바꾼다 — 그 명령의 푸시 문구·로그·도면·CSV가 그 언어로 나온다. 첫 `init`은 패널도 모르므로 저장한 `options.lang`.
-- 처음 설치는 영어(`constants.DEFAULT_LANG`). 0.2.2까지 쓰던 설치본(prefs에 options는 있고 `lang`이 없다)은 한국어 그대로(`site_prefs.get_options`).
+- 처음 설치는 영어(`constants.DEFAULT_LANG`). 0.3.0 전에 쓰던 설치본(prefs에 options는 있고 `lang`이 없다)은 한국어 그대로(`site_prefs.get_options`).
 - 패널이 tr()로 바꾸는 Python 원문: `sheet_catalog[].name`, `style_presets[].name`, `done.sheets[].name·reason`, `host.name`(웹판 '브라우저'). 이미 번역돼 온 글은 사전에 없어 그대로 나온다.
 - 번역문에는 원문에 없는 `" & < >`를 쓰지 않는다 — 패널이 한국어 원문처럼 HTML에 그대로 넣는다. 매니페스트 공지·업데이트 글(`update.title·body·items·deadline`, `notices[].text`)은 문자열 또는 `{en, ko, …}`(패널 `pickLang`).
 - 웹페이지 링크: 한국어는 `PANEL_LINKS.website`, 그 밖은 `website_en`(영어 페이지).

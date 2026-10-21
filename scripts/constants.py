@@ -430,7 +430,7 @@ PANEL_VERSION = "0.3.0"   # 배포 버전 하나(Yak·Blender·SketchUp 패키�
 NOTICE_TIMEOUT_SECONDS = 3   # 패널을 열 때 매니페스트(공지·업데이트)를 기다리는 한도 — 못 받으면 공지 없이 연다
 # 언어 — 패널 헤더에서 고른다(options.lang). 사전은 scripts/i18n.json 하나(패널 JS·Python 공용, i18n.py)
 LANGS = ("en", "ko", "es", "ja", "zh")   # 고르기 순서. zh = 중국어 간체
-DEFAULT_LANG = "en"   # food4Rhino 심사(2026-10-21 McNeel 메일 '영어가 없으면 올릴 수 없다') — 처음 설치는 영어. 0.2.2까지 쓰던 설치본은 한국어 그대로(site_prefs.get_options)
+DEFAULT_LANG = "en"   # food4Rhino 심사(2026-10-21 McNeel 메일 '영어가 없으면 올릴 수 없다') — 처음 설치는 영어. 0.3.0 전에 쓰던 설치본은 한국어 그대로(site_prefs.get_options)
 LANG_ENV = "GORANI_LANG"   # 지금 언어 — loader.load가 모듈을 다시 읽어도 남게 환경변수에 둔다(투영 원점과 같은 방식)
 INSTALL_DOC = "docs/install.md"
 PREFS_DIRNAME = ".gorani"            # 사용자 홈 아래. prefs.json·source_news.json

@@ -101,7 +101,7 @@ class I18nTest(unittest.TestCase):
         self.assertEqual(orphans, [], "코드에 없는 원문 — 문구를 고쳤으면 사전 키도 고친다")
 
     def test_default_lang_in_prefs(self):
-        # 처음 설치는 영어, 0.2.2까지 쓰던 설치본(options는 있고 lang이 없다)은 한국어, 고른 언어는 그대로
+        # 처음 설치는 영어, 0.3.0 전에 쓰던 설치본(options는 있고 lang이 없다)은 한국어, 고른 언어는 그대로
         import json
         import tempfile
         import site_prefs
