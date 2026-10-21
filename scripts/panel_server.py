@@ -32,12 +32,13 @@ SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 DIRECT_CMDS = ("cancel", "host_reply")   # 서버 스레드(메인 스레드 판은 poll)에서 바로 — 플래그·응답만 건드린다
 PING_SECONDS = 15        # 이벤트 줄 ping 간격 — 끊긴 탭을 알아챈다
 REQUEST_TIMEOUT = 5      # s — 메인 스레드 판에서 느린 연결 하나가 Blender를 오래 막지 않게(요청 읽기·이벤트 쓰기)
+REQUEST_QUEUE = 64       # 메인 스레드 판 연결 대기열 — 다음 poll까지(타이머 0.1 s, 생성 중에는 진행 콜백 사이) 쌓이는 요청
 
 
 def get_html():
     # type: () -> str
     """site_ui.html에 vendor(Leaflet CSS·JS, Pretendard data URI)와 다국어 사전(i18n.json)을 심은 문자열 — panel_host._get_ui_file_uri와 같은 주입.
-    Blender 확장 설치본에는 Pretendard가 없다(약관 1.2 CC0만) — 빈 data URI로 두면 브라우저가 CSS의 다음 글꼴(시스템 한글 글꼴)로 그린다."""
+    Blender 확장 설치본에는 Pretendard가 없다(약관 1.2 CC0만) — 깔린 Pretendard(local), 없으면 CSS의 다음 글꼴(시스템 한글 글꼴)로 그린다."""
     def read(*parts):
         with open(os.path.join(SCRIPTS_DIR, *parts), encoding="utf-8") as f:
             return f.read()
@@ -47,7 +48,7 @@ def get_html():
     html = html.replace("<!--I18N-->", "<script>window.I18N = " + read("i18n.json").replace("</", "<\\/") + ";</script>")   # 다국어 사전 — 패널 tr()
     font_path = os.path.join(SCRIPTS_DIR, "vendor", "PretendardVariable.woff2")
     if not os.path.exists(font_path):
-        return html.replace("<!--FONT_WOFF2-->", "data:,")
+        return html.replace('url("<!--FONT_WOFF2-->") format("woff2-variations")', 'local("Pretendard Variable")')   # 깔려 있으면 쓴다(빈 data URI는 콘솔 경고)
     with open(font_path, "rb") as f:
         font_b64 = base64.b64encode(f.read()).decode("ascii")
     return html.replace("<!--FONT_WOFF2-->", "data:font/woff2;base64," + font_b64)
@@ -142,6 +143,7 @@ class _Server(_Bind, http.server.ThreadingHTTPServer):
 class _PollServer(_Bind, http.server.HTTPServer):
     """Blender — 스레드 없음. Bridge.poll()이 기다리는 연결만 받는다. 이벤트 줄 소켓은 닫지 않는다(브리지가 든다)."""
     timeout = 0
+    request_queue_size = REQUEST_QUEUE   # 기본 5는 패널이 한꺼번에 보내는 명령(첫 화면·생성 중 지도 이동)에 넘쳐 fetch가 끊겼다(2026-10-21)
 
     def get_request(self):
         sock, address = http.server.HTTPServer.get_request(self)
