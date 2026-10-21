@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gorani 관리</title>
+<style>
+/* 패널(site_ui.html)과 같은 토큰 — 관리자 페이지도 같은 톤 */
+:root {
+  --paper: #f5f6f8; --surface: #ffffff; --line: #e3e6eb; --line-2: #cdd3db;
+  --ink: #111418; --ink-2: #4a5260; --ink-3: #7d8798; --hover: #f0f2f5; --press: #e5e8ed;
+  --on-ink: #ffffff; --ink-hover: #2b3038;
+  --accent: #0057ff; --accent-ink: #0047d6; --accent-wash: #e9f0ff; --ring: rgba(0, 87, 255, .35);
+  --ok: #1f7a4d; --danger: #c43c3c; --danger-wash: #fdeeee; --warn: #a8460b; --warn-wash: #fff6ea;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0c1016; --surface: #151b23; --line: #262e39; --line-2: #38424f;
+    --ink: #e8ecf2; --ink-2: #a9b3c3; --ink-3: #7f8a9c; --hover: #1c232d; --press: #252d38;
+    --on-ink: #111418; --ink-hover: #d3d9e2;
+    --accent: #5b8bff; --accent-ink: #8cb0ff; --accent-wash: #16264a; --ring: rgba(91, 139, 255, .45);
+    --ok: #5cc28f; --danger: #f07272; --danger-wash: #3a1b1d; --warn: #f0a35e; --warn-wash: #33240f;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 13px/1.5 "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+button, input, textarea { font: inherit; color: inherit; }
+header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 24px; background: var(--surface); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+header h1 { margin: 0; font-size: 16px; font-weight: 700; }
+#pub { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+#pub .st { color: var(--ink-2); font-size: 12px; }
+#pub .st b { color: var(--ink); font-weight: 600; }
+#pub .st.muted { color: var(--ink-3); }
+#pub .st.warn { color: var(--warn); }
+main { display: grid; grid-template-columns: minmax(0, 1fr) 482px; gap: 24px; max-width: 1180px; margin: 0 auto; padding: 24px; align-items: start; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.card h2 { display: flex; align-items: baseline; gap: 8px; margin: 0 0 12px; font-size: 15px; font-weight: 600; }
+.card h2 .sub { color: var(--ink-3); font-size: 12px; font-weight: 400; }
+.btn { height: 32px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--surface); display: inline-flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.btn:hover:not(:disabled) { background: var(--hover); }
+.btn.primary { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+.btn.primary:hover:not(:disabled) { background: var(--ink-hover); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--ink-2); }
+.btn.ghost:hover { background: var(--hover); color: var(--ink); }
+.btn.danger { color: var(--danger); }
+.btn.danger:hover { background: var(--danger-wash); }
+.btn.sm { height: 28px; padding: 0 10px; font-size: 12px; }
+.ib { width: 28px; height: 28px; border: 0; border-radius: 8px; background: none; color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.ib:hover { background: var(--hover); color: var(--ink); }
+.ib.danger:hover { background: var(--danger-wash); color: var(--danger); }
+.ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+input[type=text], textarea { width: 100%; height: 32px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface); }
+textarea { height: auto; padding: 6px 10px; resize: vertical; }
+input:focus, textarea:focus, .btn:focus-visible, .ib:focus-visible, .seg button:focus-visible, .zone:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+input.ver { width: 96px; font-variant-numeric: tabular-nums; }
+.seg { display: inline-flex; padding: 2px; border-radius: 10px; background: var(--hover); gap: 2px; flex: none; }
+.seg button { height: 28px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--ink-2); cursor: pointer; font-weight: 500; }
+.seg button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 0 0 1px var(--line); }
+.seg button.info[aria-pressed="true"] { color: var(--accent-ink); }
+.seg button.warn[aria-pressed="true"] { color: var(--warn); }
+.row { display: flex; gap: 8px; align-items: center; }
+.lead { margin: 0 0 12px; color: var(--ink-2); }
+.hint { color: var(--ink-3); font-size: 11px; }
+/* 공지 — 패널 띠와 같은 모양으로 보여 준다 */
+.composer { display: grid; gap: 8px; padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
+.nb { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; }
+.nb + .nb { margin-top: 8px; }
+.nb.info { background: var(--accent-wash); color: var(--accent-ink); }
+.nb.warn { background: var(--warn-wash); color: var(--warn); }
+.nb > .ico { margin-top: 2px; }
+.nb .body { flex: 1; min-width: 0; }
+.nb .meta { margin-top: 2px; color: var(--ink-3); font-size: 11px; }
+.nb .meta .new { color: var(--accent-ink); } .nb .meta .mod { color: var(--warn); }
+.nb .acts { display: flex; gap: 2px; margin: -4px -6px -4px 0; }
+.nb.gone { background: none; border: 1px dashed var(--line-2); color: var(--ink-3); }
+.nb.gone .text { text-decoration: line-through; }
+.nb.edit { display: grid; gap: 8px; background: var(--surface); border: 1px solid var(--accent); color: var(--ink); }
+.empty { color: var(--ink-3); padding: 4px 0; }
+/* 버전 구간 */
+.zones { display: grid; gap: 6px; margin-bottom: 16px; }
+.zone { display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-left-width: 3px; border-radius: 0 10px 10px 0; background: var(--surface); text-align: left; cursor: pointer; width: 100%; }
+.zone:hover { background: var(--hover); }
+.zone.ok { border-left-color: var(--ok); } .zone.soft { border-left-color: var(--warn); } .zone.hard { border-left-color: var(--danger); }
+.zone[aria-pressed="true"] { background: var(--hover); box-shadow: inset 0 0 0 1px var(--line-2); }
+.zone .range { font-weight: 600; font-variant-numeric: tabular-nums; }
+.zone .eff b { font-weight: 600; }
+.zone .eff span { display: block; color: var(--ink-3); font-size: 11px; }
+.zone .see { color: var(--ink-3); font-size: 11px; }
+.zone[aria-pressed="true"] .see { color: var(--ink); }
+.form { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px 12px; align-items: start; }
+.form > label { padding-top: 6px; color: var(--ink-2); font-size: 12px; }
+.form .hint { margin-top: 4px; }
+.form .sep { grid-column: 1 / -1; border-top: 1px solid var(--line); margin: 4px 0; }
+.foot { display: flex; justify-content: flex-end; margin-top: 12px; }
+#errors:empty { display: none; }
+#errors { margin-bottom: 16px; padding: 10px 12px; border-radius: 12px; background: var(--warn-wash); color: var(--warn); font-size: 12px; }
+#errors ul { margin: 4px 0 0; padding-left: 18px; }
+aside { position: sticky; top: 80px; }
+aside .bar { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+aside .bar b { font-size: 13px; font-weight: 600; }
+aside .bar span { color: var(--ink-2); font-size: 12px; }
+aside iframe { display: block; width: 482px; height: calc(100vh - 140px); min-height: 560px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+dialog { border: 1px solid var(--line); border-radius: 12px; padding: 20px; width: min(440px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); }
+dialog::backdrop { background: rgba(17, 20, 24, .55); }
+dialog h3 { margin: 0 0 8px; font-size: 16px; }
+dialog p { margin: 0 0 8px; color: var(--ink-2); }
+dialog ul { margin: 0 0 16px; padding-left: 18px; color: var(--ink-2); }
+dialog .acts { display: flex; gap: 8px; justify-content: flex-end; }
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 8px 14px; border-radius: 10px; background: var(--ink); color: var(--on-ink); font-size: 12px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+#toast.on { opacity: 1; }
+@media (max-width: 1080px) { main { grid-template-columns: minmax(0, 1fr); } aside { position: static; } aside iframe { width: 100%; max-width: 482px; height: 760px; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M8 7.5v4M8 5h.01"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 16 16"><path d="M7.1 2.6a1 1 0 0 1 1.8 0l5.3 9.6a1 1 0 0 1-.9 1.5H2.7a1 1 0 0 1-.9-1.5z"/><path d="M8 6.5v3M8 11.5h.01"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 16 16"><path d="M11 2.6a1.6 1.6 0 0 1 2.4 2.4L5 13.4l-3 .6.6-3z"/><path d="M9.5 4l2.5 2.5"/></symbol>
+  <symbol id="i-up" viewBox="0 0 16 16"><path d="M8 13V3M4 7l4-4 4 4"/></symbol>
+  <symbol id="i-x" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 16 16"><path d="M5.5 2.5 2.5 5.5l3 3M2.5 5.5h7a4 4 0 0 1 0 8H6"/></symbol>
+</defs></svg>
+<header>
+  <h1>Gorani 관리</h1>
+  <div id="pub"><span class="st muted">불러오는 중</span></div>
+</header>
+<main>
+  <section>
+    <div id="errors"></div>
+    <div class="card">
+      <h2>공지 <span class="sub">패널 위쪽 띠 — 여러 개면 맨 위 하나만 띠에, 나머지는 메뉴에</span></h2>
+      <div class="composer">
+        <input type="text" id="new_text" placeholder="새 공지 — 한 줄로 적고 Enter" aria-label="새 공지 글">
+        <div class="row">
+          <span class="seg" role="group" aria-label="종류" id="new_level">
+            <button type="button" class="info" data-new-level="info" aria-pressed="true">일반</button><button type="button" class="warn" data-new-level="warn" aria-pressed="false">중요</button>
+          </span>
+          <input type="text" id="new_url" placeholder="자세히 링크(선택) https://…" aria-label="링크">
+          <button type="button" class="btn primary sm" data-act="add">추가</button>
+        </div>
+      </div>
+      <div id="notice_list"></div>
+    </div>
+    <div class="card">
+      <h2>버전 안내 <span class="sub" id="released"></span></h2>
+      <div id="zones"></div>
+      <div id="vform"></div>
+    </div>
+  </section>
+  <aside>
+    <div class="bar"><b>미리보기</b><span id="view_label"></span></div>
+    <iframe id="preview" title="패널 미리보기"></iframe>
+  </aside>
+</main>
+<dialog id="ask">
+  <h3 id="ask_title"></h3>
+  <p id="ask_text"></p>
+  <ul id="ask_list"></ul>
+  <div class="acts"><button type="button" class="btn" value="no">취소</button><button type="button" class="btn primary" value="yes" id="ask_ok"></button></div>
+</dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+"use strict";
+var TOKEN = (location.search.match(/[?&]token=([\w-]+)/) || [])[1] || "";
+var VER = /^\d+(\.\d+)*$/;
+// data = 초안(docs/notices.json), remote = 지금 사용자에게 게시된 것. editing = 고치는 공지 id, view = 미리 볼 버전 구간
+var S = { data: { update: null, notices: [] }, remote: null, version: "", today: "", changes: [], errors: [], remoteError: "", editing: null, view: "", newLevel: "info" };
+var $ = function (id) { return document.getElementById(id); };
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+function ico(n) { return '<svg class="ico" aria-hidden="true"><use href="#i-' + n + '"/></svg>'; }
+function api(path, body) {
+  var url = path + (path.indexOf("?") < 0 ? "?" : "&") + "token=" + TOKEN;
+  return fetch(url, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}).then(function (r) { return r.json(); });
+}
+function toast(t) { var el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(function () { el.classList.remove("on"); }, 2600); }
+function cmpVer(a, b) {
+  var x = String(a || "0").split("."), y = String(b || "0").split(".");
+  for (var i = 0; i < Math.max(x.length, y.length); i++) { var d = (+x[i] || 0) - (+y[i] || 0); if (d) return d; }
+  return 0;
+}
+function lowerThan(v) { var p = String(v).split("."); for (var i = p.length - 1; i >= 0; i--) { if (+p[i] > 0) { p[i] = +p[i] - 1; return p.join("."); } } return "0"; }
+function ask(title, text, items, ok) {   // 확인 창 → Promise<bool>
+  var d = $("ask"); $("ask_title").textContent = title; $("ask_text").textContent = text; $("ask_ok").textContent = ok;
+  $("ask_list").innerHTML = (items || []).map(function (c) { return "<li>" + esc(c) + "</li>"; }).join("");
+  d.showModal();
+  return new Promise(function (resolve) { d.onclick = function (e) { var b = e.target.closest("button"); if (b) { d.close(); resolve(b.value === "yes"); } }; d.oncancel = function () { resolve(false); }; });
+}
+
+// ── 버전 구간 — 패널 updateLevel과 같은 판정. 미리볼 버전은 구간마다 하나 ──
+function getZones() {
+  var u = S.data.update; if (!u || !VER.test(u.latest || "")) return [];
+  var L = u.latest, M = VER.test(u.min || "") ? u.min : "", zones = [{ key: "ok", range: L + " 이상", eff: "<b>안내 없음</b>", sub: "최신이라 평소 화면", as: L }];
+  if (!M || cmpVer(M, L) < 0) {
+    var soft = M && cmpVer(lowerThan(L), M) < 0 ? M : lowerThan(L);
+    zones.push({ key: "soft", range: (M ? M + " ~ " : "") + L + " 미만", eff: "<b>업데이트 권장</b>", sub: "하루 한 번 안내창(나중에 가능) + 업데이트할 때까지 주황 띠", as: soft });
+  }
+  if (M) zones.push({ key: "hard", range: M + " 미만", eff: "<b>사용 불가</b>", sub: "닫을 수 없는 안내창 — 업데이트해야 씁니다(지난 결과 폴더만 열림)", as: lowerThan(M) });
+  return zones;
+}
+function viewZone() {
+  var zones = getZones(), z = zones.filter(function (x) { return x.key === S.view; })[0];
+  return z || zones.filter(function (x) { return x.key === "soft"; })[0] || zones[zones.length - 1] || null;
+}
+function previewVersion() { var z = viewZone(); return z ? z.as : S.version; }
+
+// ── 그리기 ──
+function renderPub() {
+  var el = $("pub"), n = S.changes.length;
+  if (S.remoteError) el.innerHTML = '<span class="st warn">' + esc(S.remoteError) + '</span><button type="button" class="btn sm" data-act="retry">다시 시도</button>';
+  else if (S.errors.length) el.innerHTML = '<span class="st warn">고칠 것이 있어 저장하지 않았습니다</span>';
+  else if (n) el.innerHTML = '<span class="st">게시 안 한 변경 <b>' + n + '</b>개</span><button type="button" class="btn ghost sm" data-act="revert">변경 취소</button><button type="button" class="btn primary" data-act="publish">게시하기</button>';
+  else el.innerHTML = '<span class="st muted">사용자에게 보이는 내용과 같습니다</span>';
+  $("errors").innerHTML = S.errors.length ? "고칠 것:<ul>" + S.errors.map(function (e) { return "<li>" + esc(e) + "</li>"; }).join("") + "</ul>" : "";
+}
+function noticeStatus(n) {
+  if (!S.remote) return "";
+  var old = (S.remote.notices || []).filter(function (r) { return r.id === n.id; })[0];
+  if (!old) return '<span class="new">새로 추가 · 게시 전</span>';
+  var same = ["level", "text", "url", "date"].every(function (k) { return (old[k] || "") === (n[k] || ""); });
+  return same ? "게시됨" : '<span class="mod">수정됨 · 게시 전</span>';
+}
+function renderNotices() {
+  var box = $("notice_list");
+  if (box.contains(document.activeElement) && document.activeElement.tagName === "INPUT") { S.listDirty = true; return; }   // 고치는 중엔 다시 그리지 않는다(포커스 유지)
+  S.listDirty = false;
+  var list = S.data.notices, ids = list.map(function (n) { return n.id; });
+  var rows = list.map(function (n, i) {
+    var lv = n.level === "warn" ? "warn" : "info";
+    if (S.editing === n.id) return '<div class="nb edit" data-i="' + i + '">' +
+      '<input type="text" data-key="text" value="' + esc(n.text) + '" aria-label="공지 글">' +
+      '<div class="row"><span class="seg" role="group" aria-label="종류"><button type="button" class="info" data-level="info" aria-pressed="' + (lv === "info") + '">일반</button><button type="button" class="warn" data-level="warn" aria-pressed="' + (lv === "warn") + '">중요</button></span>' +
+      '<input type="text" data-key="url" value="' + esc(n.url) + '" placeholder="자세히 링크(선택) https://…" aria-label="링크">' +
+      '<button type="button" class="btn sm" data-act="done">완료</button></div></div>';
+    var where = i === 0 ? "띠에 보임" : "메뉴 목록에만";
+    return '<div class="nb ' + lv + '" data-i="' + i + '">' + ico(lv === "warn" ? "warn" : "info") +
+      '<div class="body"><div class="text">' + esc(n.text) + '</div><div class="meta">' + [where, (n.date || "").slice(5).replace("-", "."), n.url ? "링크 있음" : "", noticeStatus(n)].filter(Boolean).join(" · ") + "</div></div>" +
+      '<div class="acts"><button type="button" class="ib" data-act="edit" title="고치기" aria-label="고치기">' + ico("pen") + "</button>" +
+      (i ? '<button type="button" class="ib" data-act="up" title="위로 — 맨 위가 띠에 뜹니다" aria-label="위로">' + ico("up") + "</button>" : "") +
+      '<button type="button" class="ib danger" data-act="remove" title="내리기" aria-label="내리기">' + ico("x") + "</button></div></div>";
+  });
+  // 게시돼 있는데 초안에서 뺀 공지 — 게시하면 사라진다
+  ((S.remote && S.remote.notices) || []).forEach(function (r) {
+    if (ids.indexOf(r.id) < 0) rows.push('<div class="nb gone" data-id="' + esc(r.id) + '">' + ico(r.level === "warn" ? "warn" : "info") +
+      '<div class="body"><div class="text">' + esc(r.text) + '</div><div class="meta">내림 · 게시하면 사용자 화면에서 사라집니다</div></div>' +
+      '<div class="acts"><button type="button" class="btn ghost sm" data-act="restore">' + ico("undo") + "되돌리기</button></div></div>");
+  });
+  box.innerHTML = rows.length ? rows.join("") : '<div class="empty">공지가 없습니다.</div>';
+}
+function renderZones() {
+  var u = S.data.update, zones = getZones(), z = viewZone();
+  $("released").textContent = "배포한 최신 버전 " + S.version;
+  if (!u) { $("zones").innerHTML = '<p class="lead">지금은 모든 버전이 안내 없이 그대로 씁니다.</p>'; return; }
+  $("zones").innerHTML = zones.length ? '<div class="zones">' + zones.map(function (x) {
+    return '<button type="button" class="zone ' + x.key + '" data-view="' + x.key + '" aria-pressed="' + (z && z.key === x.key) + '">' +
+      '<span class="range">' + esc(x.range) + '</span><span class="eff">' + x.eff + "<span>" + esc(x.sub) + "</span></span>" +
+      '<span class="see">' + (z && z.key === x.key ? "미리보는 중" : "미리보기") + "</span></button>";
+  }).join("") + "</div>" : '<p class="lead">알릴 새 버전을 0.3.0처럼 적으세요.</p>';
+}
+function renderVersionForm() {
+  var u = S.data.update, el = $("vform");
+  if (!u) { el.innerHTML = '<button type="button" class="btn" data-act="announce">새 버전 알리기</button>'; return; }
+  var f = function (key, label, hint, cls, ph) {
+    return '<label for="u_' + key + '">' + label + '</label><div><input type="text" id="u_' + key + '" data-ukey="' + key + '" class="' + (cls || "") + '" placeholder="' + esc(ph || "") + '" value="' + esc(u[key] || "") + '">' + (hint ? '<div class="hint">' + hint + "</div>" : "") + "</div>";
+  };
+  el.innerHTML = '<div class="form">' +
+    f("latest", "알릴 새 버전", "이보다 낮은 버전 사용자에게 업데이트를 권합니다", "ver", S.version) +
+    f("min", "사용 불가 기준", "이 버전보다 낮으면 업데이트해야 씁니다. 비우면 막지 않습니다", "ver", "없음") +
+    '<div class="sep"></div>' +
+    '<label for="u_body">안내창 본문</label><div><textarea id="u_body" data-ukey="body" rows="2" placeholder="새 버전부터 계정으로 로그인합니다. 무료로 계속 쓸 수 있습니다.">' + esc(u.body || "") + "</textarea></div>" +
+    '<label for="u_items">바뀐 점</label><div><textarea id="u_items" data-ukey="items" rows="3" placeholder="한 줄에 하나">' + esc((u.items || []).join("\n")) + "</textarea></div>" +
+    f("deadline", "마감일", "권장 안내창에 '…부터 이 버전은 쓸 수 없습니다'로 나옵니다", "", "12월 1일") +
+    '</div><div class="foot"><button type="button" class="btn ghost danger sm" data-act="unannounce">버전 안내 내리기</button></div>';
+}
+function renderPreview() {
+  var v = previewVersion(), z = viewZone();
+  $("view_label").textContent = v + " 사용자 화면" + (z ? " — " + z.eff.replace(/<[^>]+>/g, "") : "");
+  var src = "/panel?token=" + TOKEN + "&mock=1&step=1&w=480&as=" + encodeURIComponent(v);
+  if (S.previewSrc !== src + "|" + S.saveCount) { S.previewSrc = src + "|" + S.saveCount; $("preview").src = src + "&t=" + Date.now(); }
+}
+function renderAll() { renderPub(); renderNotices(); renderZones(); renderVersionForm(); renderPreview(); }
+function apply(res, full) {
+  S.version = res.version; S.today = res.today; S.changes = res.changes; S.errors = res.errors; S.remoteError = res.remote_error; S.remote = res.remote;
+  if (!res.errors.length) S.saveCount = (S.saveCount || 0) + 1;
+  if (full) { S.data = { update: res.local.update, notices: res.local.notices || [] }; renderAll(); return; }
+  renderPub(); renderNotices(); renderZones(); renderPreview();
+}
+
+// ── 고치기 — 바꿀 때마다 0.4 s 뒤 초안(docs/notices.json)에 저장 ──
+function save(now) {
+  clearTimeout(save.t);
+  save.t = setTimeout(function () { api("/api/save", S.data).then(function (r) { apply(r); }); }, now ? 0 : 400);
+}
+function newId() {
+  var n = 1, ids = S.data.notices.map(function (x) { return x.id; });
+  while (ids.indexOf(S.today + "-" + n) >= 0) n++;
+  return S.today + "-" + n;
+}
+function addNotice() {
+  var text = $("new_text").value.trim(), url = $("new_url").value.trim();
+  if (!text) { $("new_text").focus(); toast("공지 글을 적으세요"); return; }
+  S.data.notices.unshift({ id: newId(), level: S.newLevel, date: S.today, text: text, url: url });
+  $("new_text").value = ""; $("new_url").value = "";
+  renderNotices(); save(true);
+}
+document.addEventListener("input", function (e) {
+  var t = e.target, box = t.closest(".nb.edit");
+  if (t.dataset.ukey) {
+    S.data.update[t.dataset.ukey] = t.dataset.ukey === "items" ? t.value.split("\n").map(function (s) { return s.trim(); }).filter(Boolean) : t.value.trim();
+    renderZones(); save();
+  } else if (box && t.dataset.key) { S.data.notices[+box.dataset.i][t.dataset.key] = t.value.trim(); save(); }
+});
+document.addEventListener("focusout", function () { setTimeout(function () { if (S.listDirty) renderNotices(); }, 0); });
+$("new_text").addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.isComposing) addNotice(); });
+document.addEventListener("click", function (e) {
+  var b = e.target.closest("button"); if (!b || b.closest("dialog")) return;
+  var row = b.closest(".nb"), i = row && row.dataset.i != null ? +row.dataset.i : -1, act = b.dataset.act;
+  if (b.dataset.newLevel) { S.newLevel = b.dataset.newLevel; $("new_level").querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); }); }
+  else if (b.dataset.level) { S.data.notices[i].level = b.dataset.level; row.querySelectorAll("[data-level]").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); }); save(); }
+  else if (b.dataset.view) { S.view = b.dataset.view; renderZones(); renderPreview(); }
+  else if (act === "add") addNotice();
+  else if (act === "edit") { S.editing = S.data.notices[i].id; renderNotices(); row = document.querySelector('.nb.edit [data-key="text"]'); if (row) row.focus(); }
+  else if (act === "done") { S.editing = null; document.activeElement.blur(); renderNotices(); }
+  else if (act === "up") { var x = S.data.notices.splice(i, 1)[0]; S.data.notices.splice(i - 1, 0, x); renderNotices(); save(true); }
+  else if (act === "remove") { S.data.notices.splice(i, 1); S.editing = null; renderNotices(); save(true); }
+  else if (act === "restore") {
+    var id = row.dataset.id, old = S.remote.notices.filter(function (r) { return r.id === id; })[0];
+    S.data.notices.splice(Math.min(S.remote.notices.indexOf(old), S.data.notices.length), 0, JSON.parse(JSON.stringify(old)));
+    renderNotices(); save(true);
+  }
+  else if (act === "announce") { S.data.update = { latest: S.version }; S.view = ""; renderZones(); renderVersionForm(); save(true); }
+  else if (act === "unannounce") { S.data.update = null; renderZones(); renderVersionForm(); save(true); }
+  else if (act === "retry") api("/api/state?refresh=1").then(function (r) { apply(r, true); });
+  else if (act === "revert") {
+    ask("변경을 취소할까요?", "게시 안 한 변경을 버리고 지금 사용자에게 보이는 내용으로 되돌립니다.", S.changes, "변경 취소").then(function (yes) {
+      if (yes) api("/api/revert", {}).then(function (r) { S.editing = null; apply(r, true); toast("게시된 내용으로 되돌렸습니다"); });
+    });
+  } else if (act === "publish") {
+    ask("사용자에게 게시할까요?", "설치된 Gorani가 다음에 패널을 열 때 받습니다.", S.changes, "게시하기").then(function (yes) {
+      if (yes) { b.disabled = true; api("/api/publish", {}).then(function (r) { b.disabled = false; toast(r.text); if (r.ok) apply(r, true); }); }
+    });
+  }
+});
+api("/api/state").then(function (r) { apply(r, true); });
+</script>
+</body>
+</html>
