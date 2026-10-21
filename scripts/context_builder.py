@@ -534,15 +534,17 @@ def _get_align_stats(samples):
 
 # ── 원천 상태 ──────────────────────────────────────────────
 
-def get_abroad_sources(today=None):
-    # type: (datetime.date) -> list
-    """해외 대상지의 원천 상태 4건(lot·building·terrain·api) — 필지 없음, 건물·지형은 생성 때 OSM·지형 타일에서 받는다."""
+def get_abroad_sources(today=None, japan=False):
+    # type: (datetime.date, bool) -> list
+    """해외 대상지의 원천 상태 4건(lot·building·terrain·api) — 필지 없음, 건물·지형은 생성 때 OSM·지형 타일에서 받는다.
+    일본이면 건물은 PLATEAU 팩(있는 도시만)·OSM, 지형은 지리원 5 m 타일."""
     today = (today or datetime.date.today()).isoformat()
     def row(source_id, name, level, text):
         return {"id": source_id, "label": tr(constants.SOURCE_LABELS[source_id]), "name": name, "date": today if level == "ok" else "",
                 "age_months": 0.0 if level == "ok" else None, "level": level, "newer_date": None, "text": text}
-    return [row("lot", tr("해외 — 필지 자료 없음"), "missing", tr("해외")), row("building", "OpenStreetMap", "ok", tr("생성 때 받음")),
-            row("terrain", tr("Terrain Tiles (약 30 m DEM)"), "ok", tr("생성 때 받음")), row("api", tr("필요 없음"), "ok", "")]
+    return [row("lot", tr("해외 — 필지 자료 없음"), "missing", tr("해외")),
+            row("building", "PLATEAU·OpenStreetMap" if japan else "OpenStreetMap", "ok", tr("생성 때 받음")),
+            row("terrain", tr("국토지리원 5 m DEM") if japan else tr("Terrain Tiles (약 30 m DEM)"), "ok", tr("생성 때 받음")), row("api", tr("필요 없음"), "ok", "")]
 
 
 def get_sources(lot_database_path=None, context_database_path=None, today=None):
@@ -688,6 +690,22 @@ def get_query_bounds(request):
     return _get_query_extent(target, radius, options.get("shape") or "circle", paper_mm, scales, has_2d(options))[3]
 
 
+def get_jp_query_bounds(request):
+    # type: (dict) -> tuple
+    """Global 대상지가 일본이면 생성이 조회할 범위의 경위도 (서, 남, 동, 북), 아니면 None — cmd_site가 생성 직전에 일본 건물 팩
+    (constants.DATA_JP_MANIFEST_URL)을 받는 데 쓴다. 투영은 패널이 대상지를 정할 때 맞춰 둔 것(set_projection)."""
+    request = get_request_with_defaults(request)
+    if not is_global(request):
+        return None
+    options = request["options"]
+    paper_mm, scales = _get_paper_and_scales(options)
+    target = resolve_target(request, with_lots=False)
+    if not osm_context.is_japan(*non_rhino_utils.get_wgs84_from_tm(*target.center)):
+        return None
+    radius = float(options.get("radius") or constants.CONTEXT_RADIUS)
+    return osm_context.get_lnglat_bounds(_get_query_extent(target, radius, options.get("shape") or "circle", paper_mm, scales, has_2d(options))[3])
+
+
 def prepare(request, progress=None, today=None):
     # type: (dict, object, datetime.date) -> Prepared
     """Rhino 금지. 입력 검증 → 필지·컨텍스트 질의 → 원점·범위 → 통계·경고·meta. python3 unittest가 전부 덮는다.
@@ -803,15 +821,25 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
     grade_ab = height["height_grade"].get("A", 0.0) + height["height_grade"].get("B", 0.0)
     prepared.stats = {"height_src": height["height_src"], "height_grade": height["height_grade"], "grade_ab": round(grade_ab, 4),
                       "buildings": height["n"], "lots": 0, "sheets": [], "sheets_needed": [], "align": _get_align_stats([]), "mismatch_count": 0}
-    warnings.append(_warning("info", "abroad", tr("Global — OpenStreetMap 건물 {0}동·지형 타일", height["n"]),
-                             tr("필지·용도지역 도면은 Korea 모드에만 있고, 높이 태그가 있는 건물은 {0} %입니다(나머지 {1:.1f} m 또는 층수 추정).",
-                                round(grade_ab * 100), constants.DEFAULT_BUILDING_HEIGHT_M)))
+    source_ids = {s.source_id for s in context.sources}
+    if "osm" not in source_ids:   # 일본에서 Overpass가 막혔다 — PLATEAU 건물·지형만(osm_context.load)
+        warnings.append(_warning("warn", "osm_missing", tr("OpenStreetMap을 받지 못해 도로·수계·녹지 없이 만들었습니다"),
+                                 tr("PLATEAU 건물과 지형만 들어 있습니다. 잠시 뒤 다시 만들면 도로·수계·녹지가 들어갑니다.")))
+    if source_ids & {"plateau", "gsi_dem"}:   # 일본 — PLATEAU 건물 팩·지리원 지형
+        warnings.append(_warning("info", "abroad", tr("Global — {0} 건물 {1}동·{2}", "PLATEAU·OpenStreetMap" if "plateau" in source_ids else "OpenStreetMap",
+                                                     height["n"], tr("지리원 5 m 지형") if "gsi_dem" in source_ids else tr("지형 타일")),
+                                 tr("필지·용도지역 도면은 Korea 모드에만 있고, 실측 높이·높이 태그가 있는 건물은 {0} %입니다(나머지 {1:.1f} m 또는 층수 추정).",
+                                    round(grade_ab * 100), constants.DEFAULT_BUILDING_HEIGHT_M)))
+    else:
+        warnings.append(_warning("info", "abroad", tr("Global — OpenStreetMap 건물 {0}동·지형 타일", height["n"]),
+                                 tr("필지·용도지역 도면은 Korea 모드에만 있고, 높이 태그가 있는 건물은 {0} %입니다(나머지 {1:.1f} m 또는 층수 추정).",
+                                    round(grade_ab * 100), constants.DEFAULT_BUILDING_HEIGHT_M)))
     if not height["n"]:
         warnings.append(_warning("warn", "empty_buildings", tr("범위 안 OSM 건물 0동 — 지도에 건물이 그려진 곳인지 확인"), ""))
     prepared.meta = {"built_at": datetime.datetime.now().isoformat(timespec="seconds"), "today": today.isoformat(),
                      "sources": context_report.get_sources_by_role(prepared), "dates": context_report.get_source_dates(prepared)}
     prepared.meta["meta_lines"] = context_report.get_meta_lines(prepared)
-    _report(progress, "query", 1.0, tr("건물 {0}동 (OSM)", height["n"]))
+    _report(progress, "query", 1.0, tr("건물 {0}동 (PLATEAU)", height["n"]) if "plateau" in source_ids else tr("건물 {0}동 (OSM)", height["n"]))
     return prepared
 
 
@@ -1227,9 +1255,15 @@ def _get_abroad_preflight(sources, features, warnings, scales, paper_mm, paper, 
         f_min_x, f_min_y, f_max_x, f_max_y = Frame(paper_mm, scale, center).world_bounds()
         features.append(_ring_feature([(f_min_x, f_min_y), (f_max_x, f_min_y), (f_max_x, f_max_y), (f_min_x, f_max_y)],
                                       {"role": "frame", "scale": scale, "paper": paper, "over": False}))
-    warnings.append(_warning("info", "abroad", tr("Global — OpenStreetMap·지형 타일을 생성 때 받습니다"),
-                             tr("필지·용도지역 도면은 Korea 모드에만 있고, 건물 높이는 OSM 태그(없으면 {0:.1f} m)입니다. 인터넷 연결이 필요합니다.",
-                                constants.DEFAULT_BUILDING_HEIGHT_M)))
+    names = {s["id"]: s["name"] for s in sources}
+    if names["building"] != "OpenStreetMap":   # 일본 — get_abroad_sources(japan=True)
+        warnings.append(_warning("info", "abroad", tr("Global — {0}·{1}를 생성 때 받습니다", names["building"], names["terrain"]),
+                                 tr("필지·용도지역 도면은 Korea 모드에만 있고, 건물 높이는 실측·태그 값(없으면 {0:.1f} m)입니다. 인터넷 연결이 필요합니다.",
+                                    constants.DEFAULT_BUILDING_HEIGHT_M)))
+    else:
+        warnings.append(_warning("info", "abroad", tr("Global — OpenStreetMap·지형 타일을 생성 때 받습니다"),
+                                 tr("필지·용도지역 도면은 Korea 모드에만 있고, 건물 높이는 OSM 태그(없으면 {0:.1f} m)입니다. 인터넷 연결이 필요합니다.",
+                                    constants.DEFAULT_BUILDING_HEIGHT_M)))
     empty_sheets = [sheet_id for sheet_id, key, _name, _en, _needs in constants.SHEET_CATALOG if key in constants.SHEET_KOREA_ONLY]
     estimate = {"buildings": 0, "lots": 0, "topo_have": 0, "topo_total": 0, "seconds": int(constants.ESTIMATE_SECONDS_BASE) + 20,
                 "mb": 1, "note": tr("건물 수는 OSM에서 받은 뒤 알 수 있습니다")}
@@ -1257,7 +1291,8 @@ def preflight(request, today=None):
     min_x, min_y, max_x, max_y = non_rhino_utils.get_bbox(ring)
     center = target.center
     abroad = is_global(request)
-    sources = get_abroad_sources(today) if abroad else get_sources(request["site_db"], request["context_db"], today)
+    japan = abroad and osm_context.is_japan(*non_rhino_utils.get_wgs84_from_tm(*center))
+    sources = get_abroad_sources(today, japan) if abroad else get_sources(request["site_db"], request["context_db"], today)
     pending = []   # DB 파일을 지정한 요청(fixture·개발 DB)과 해외는 받지 않는다
     if not abroad and not request["context_db"]:
         bounds = _get_query_extent(target, radius, shape, paper_mm, scales, has_2d(options))[3]

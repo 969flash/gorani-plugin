@@ -682,7 +682,10 @@ function busyTarget() { return draw.on || stamp.on; }
 // ── 데이터 모드 — 위치로 정한다(docs/ui_spec.md §5). 대상지(없으면 지도 중심)가 한국 밖이면 Global(OSM).
 // options.region = "global"은 메뉴 설정 '한국에서도 OpenStreetMap 쓰기'. 좌표계는 엔진이 위치로 정한다(context_builder.is_global) ──
 function forceOsm() { return state.options.region === "global"; }
-function isAbroad(c) { var b = state.init && state.init.map.korea_bounds; return !!(b && c) && (c[0] < b[0] || c[0] > b[2] || c[1] < b[1] || c[1] > b[3]); }
+function isAbroad(c) {   // 한국 사각형 밖이거나 그 안의 일본 모서리(korea_cut — 후쿠오카·쓰시마) — non_rhino_utils.is_korea와 같다
+  var b = state.init && state.init.map.korea_bounds, k = state.init && state.init.map.korea_cut;
+  return !!(b && c) && (c[0] < b[0] || c[0] > b[2] || c[1] < b[1] || c[1] > b[3] || (!!k && c[0] > k[0] && c[1] < k[1]));
+}
 function mapCenter() { if (!map) return null; var c = map.getCenter(); return [c.lng, c.lat]; }
 function region() { return forceOsm() || isAbroad(targetCenter() || mapCenter()) ? "global" : "kr"; }
 function isGlobal() { return region() === "global"; }
@@ -1099,8 +1102,8 @@ function doSearch() {
 
 // ── 지도 ──
 function getTileSource() {   // [url, 출처] — 화면 중심이 한국 밖이면 해외 배경(VWorld는 국내만), 폴백 뒤면 폴백, 위성이면 영상(폴백·해외 = Esri)
-  var t = state.init.tile, b = state.init.map.korea_bounds, c = map.getCenter();
-  var abroad = !!b && (c.lng < b[0] || c.lng > b[2] || c.lat < b[1] || c.lat > b[3]);
+  var t = state.init.tile, c = map.getCenter();
+  var abroad = isAbroad([c.lng, c.lat]);
   if (aerial) return abroad || tileFallback ? [t.abroad_aerial_url, t.abroad_aerial_attribution] : [t.aerial_url, t.aerial_attribution];
   if (abroad) return [t.abroad_url, t.abroad_attribution];
   return tileFallback ? [t.fallback_url, "© OpenStreetMap contributors"] : [t.url, t.attribution];

@@ -93,9 +93,10 @@ def get_ip_center():
 def get_map_init(center=None):
     # type: (list) -> dict
     """지도 초기 뷰를 만든다 — center(IP로 짐작한 [lng, lat])가 있으면 그 도시, 없으면 서울시청.
-    ``{"center": [lng, lat], "zoom", "korea_bounds": [서, 남, 동, 북]}`` — 화면 중심이 한국 밖이면 해외 타일."""
+    ``{"center": [lng, lat], "zoom", "korea_bounds": [서, 남, 동, 북], "korea_cut": [경도, 위도]}`` — 화면 중심이 한국 밖이면 해외 타일.
+    korea_cut = 사각형 안 일본 모서리(이 경도 동쪽·위도 남쪽은 한국 밖, non_rhino_utils.is_korea와 같은 판정)."""
     return {"center": list(center or MAP_CENTER), "zoom": IP_MAP_ZOOM if center else MAP_ZOOM,
-            "korea_bounds": list(non_rhino_utils.KOREA_LNGLAT_BOUNDS)}
+            "korea_bounds": list(non_rhino_utils.KOREA_LNGLAT_BOUNDS), "korea_cut": list(non_rhino_utils.KOREA_JAPAN_CORNER)}
 
 
 def get_wgs84_ring(ring):

@@ -299,6 +299,33 @@ DATA_MAX_OPEN_FILES = 11               # 한 연결에 여는 지역 DB 수 상�
 PACK_BOUNDS_CORE_QUANTILE = 0.005
 PACK_BOUNDS_EXTEND_MIN = 5000.0        # m
 PACK_BOUNDS_MARGIN = 200.0             # m — 시군구 분할 격자 한 칸(경계 객체는 양쪽 팩에 있다)
+# 일본 건물 팩 — 국토교통성 3D 도시모델(PLATEAU) 건물을 시구정촌마다 한 팩으로(dev_plateau.py). 근거 docs/research/japan.md, 계획 docs/japan_plan.md.
+# 국외 반출 제한이 없고 CC BY 4.0 호환이라 필지 팩과 같은 Hugging Face 데이터셋의 jp/ 폴더에 둔다. 매니페스트도 따로 둔다 —
+# 한국 팩 올리기(dev_deploy upload)가 일본 항목을 덮지 않고, 한국 대상지는 일본 목록을 받지 않는다.
+JP_PACK_DIR = "jp"                     # 데이터셋 안 폴더·로컬 build/packs/jp
+JP_PACK_PREFIX = "jp"                  # 팩 이름 jp<시구정촌코드>_context.db — 시구정촌 코드(5자리)가 한국 시군구 코드와 겹친다
+DATA_JP_MANIFEST_URL = "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, JP_PACK_DIR)
+JP_BOUNDS = (122.0, 20.0, 154.0, 46.0)   # 일본 경위도 상자(서, 남, 동, 북) — 범위 밖 좌표는 원천 오류로 버린다
+PLATEAU_CKAN_URL = "https://www.geospatial.jp/ckan/api/3/action/package_search"   # G空間情報センター. 카탈로그 API 리다이렉트는 404(2026-10-21)
+PLATEAU_CKAN_QUERY = "3D都市モデル（Project PLATEAU）"
+PLATEAU_SKIP_CODES = ("27999",)        # 2025 오사카·간사이 엑스포 회장 — 철거 중인 임시 행사장
+PLATEAU_DIGITS = 6                     # 경위도 소수 자리(0.11 m) — 원천 외곽은 지도정보레벨 2500(평면 표준편차 1.75 m)
+PLATEAU_HEIGHT_RANGE = (1.0, 700.0)    # measuredHeight(항공측량 실측) 사용 범위 m — -9999 = 모름, 도쿄 스카이트리 634 m
+PLATEAU_UNKNOWN = 9999                 # 층수 9999·높이 -9999 = 모름(구니타치 2025 실측: 층수 9999 6,155동 = 용도 461 '불명'과 같은 동)
+PLATEAU_MAX_EXTENT_DEG = 0.03          # 건물 최대 폭(경위도) — bbox 질의의 min_x 하한. dev_plateau가 빌드 끝에 넘지 않는지 검사한다
+PLATEAU_USE = {   # PLATEAU 용도 코드(zip 안 codelists/Building_usage.xml, 2026-10-21 확인) → 국내 건축물용도 대분류(시트 색). 454 その他·461 不明은 빈 값
+    "401": "14000", "402": "04000", "403": "15000", "404": "04000",                   # 業務·商業·宿泊·商業系複合施設
+    "411": "01000", "412": "02000", "413": "01000", "414": "02000", "415": "01000",   # 住宅·共同住宅·店舗等併用(共同)住宅·作業所併用住宅
+    "421": "14000", "422": "10000", "431": "18000", "441": "17000",                   # 官公庁·文教厚生·運輸倉庫施設·工場
+    "451": "21000", "452": "22000", "453": "23000",                                   # 農林漁業用·供給処理·防衛施設
+}
+# 일본 지형 — 국토지리원(GSI, 国土地理院) 표고 타일. 앱이 실시간으로 읽는 것은 출처 표기만으로 쓴다(地理院タイル一覧). 저장·재배포하지 않는다.
+# 같은 지점에서 AWS terrarium이 평균 3.8 m(평지)~12.9 m(산지) 높았다(research §9.3). 표고 기준 T.P.로 PLATEAU 건물과 같다
+GSI_TERRAIN_URLS = tuple("https://cyberjapandata.gsi.go.jp/xyz/%s/{z}/{x}/{y}.png" % kind
+                         for kind in ("dem5a_png", "dem5b_png", "dem5c_png"))   # 항공 레이저 5 m → 사진 측량 5 m 순. 없는 타일은 404
+GSI_TERRAIN_ZOOM = 15                  # 5 m 타일의 최대 줌 — 위도 35°에서 화소 약 3.9 m. 다 없으면 같은 타일의 AWS terrarium(z15)
+GSI_TERRAIN_STEP = 2                   # 화소 건너뛰기 — 표고점 약 8 m 간격
+GSI_NO_DATA = 1 << 23                  # RGB (128, 0, 0) = 값 없음(수면 등)
 # 사용 통계(usage_stats.py) — GA4 Measurement Protocol. 측정 ID·secret이 비면 보내지 않는다. 끄는 설정 없음(고지는 docs/install.md)
 # 호스트마다 GA4 속성을 따로 둔다 — 웹사이트·Rhino·Blender·SketchUp을 섞지 않고 본다(사용자 결정 2026-10-16). 키 = context_builder.get_host()
 # 값 = (웹 스트림 측정 ID G-…, 관리 > 데이터 스트림 > Measurement Protocol API secret). 비면 그 호스트는 보내지 않는다. secret은 드러나도 된다(가짜 이벤트 주입 위험만)
@@ -709,7 +736,9 @@ RESULT_TABLES_DIRNAME = "tables"
 RESULT_SHEETS_DIRNAME = "sheets"
 # data_sources.source_id → 메타 역할(lot·building·terrain·upis). prepare가 DataSource 객체를 그대로 넘겨도 역할을 찾는다
 SOURCE_ID_ROLES = {"vworld_land_char": "lot", "vworld_building": "building", "ngii_topo_5000": "terrain", "seoul_zoning": "upis",
-                   "osm": "building", "aws_terrain": "terrain"}   # osm·aws_terrain = 해외 대상지(osm_context)
+                   "osm": "building", "aws_terrain": "terrain",   # osm·aws_terrain = 해외 대상지(osm_context)
+                   "plateau": "building", "gsi_dem": "terrain"}   # 일본 — PLATEAU 건물 팩·지리원 표고 타일(뒤에 둔 것이 역할을 차지한다)
+GLOBAL_SOURCE_IDS = ("osm", "aws_terrain", "plateau", "gsi_dem")   # 이 출처가 하나라도 있으면 Global 산출물(메타 줄·도면 문구) — 일본은 OSM 없이도 만든다
 META_SOURCE_NAMES = {"lot": "필지 토지특성정보", "building": "건물 GIS건물통합정보", "upis": "도시계획 서울시 UPIS", "terrain": "지형 수치지형도 1:5,000"}
 # ② 출처·라이선스 — 토지특성·토지이용계획은 '이용허락범위 제한 없음'(공공누리 1유형/CC BY로 적지 않는다, data_sources §3)
 META_SOURCE_LINE = ("출처: 국토교통부(GIS건물통합정보 — CC BY/공공누리 1유형; 토지특성정보·토지이용계획정보 — 이용허락범위 제한 없음), "
@@ -735,7 +764,8 @@ SHEET_MIN_VERTEX_MM = 0.05       # 종이에서 이보다 가까운 연속 정�
 SHEET_PARCEL_MAX_SCALE = 3000    # 이 축척보다 작은 도면(1:5000)은 지적선을 그리지 않는다 — deliverables B.2 '1:5000 지적선 off'
 SHEET_FADE_TO_PAPER = 0.45       # 주제도의 바탕(가구·건물·녹지·수계)을 종이색 쪽으로 이만큼 흐린다 — 주제 색이 먼저 읽히게
 SHEET_HEIGHT_SRC_LABELS = {"height": "대장 높이", "grnd_flr": "대장 층수", "topo_flr": "지형도 층수", "hub": "건축HUB", "default": "기본값",
-                           "osm_height": "OSM 높이", "osm_levels": "OSM 층수"}  # 층수 카드, A.4 HEIGHT_SRC
+                           "osm_height": "OSM 높이", "osm_levels": "OSM 층수",
+                           "plateau_height": "PLATEAU 실측 높이", "plateau_levels": "PLATEAU 층수"}  # 층수 카드, A.4 HEIGHT_SRC
 SHEET_HATCH = {"landlocked": {"stroke": "#D83A3A", "stroke-width": 0.25, "spacing_mm": 1.5}}   # <pattern id="hatch_<키>"> 45° 사선
 # 지명 라벨에서 뺄 이름 — 수치지형도 명칭 레이어에 공사장 안내가 섞여 있다(성수 '성수동오피스신축공사(24년01월예정)' 2026-10-13 실측)
 SHEET_LABEL_SKIP_PATTERN = r"공사|예정|\d{2}년"

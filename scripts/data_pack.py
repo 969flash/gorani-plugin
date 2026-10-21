@@ -5,6 +5,8 @@
                                       "size": 원본 바이트, "sha256": 원본 sha256, "bounds": [min_x, min_y, max_x, max_y]}, ...]}
 url은 매니페스트 위치 기준 상대경로 또는 절대 URL(컨텍스트·등고선 팩은 국내 서버). 받은 팩의 sha256·bounds는 data/packs.json에 적어
 다음 확인 때 바뀐 팩만 다시 받고, 조회 때 대상지에 걸리는 시도 파일만 연다. 표준 라이브러리만 쓴다. 매니페스트는 dev_deploy.py가 만든다.
+일본 건물 팩(jp<시구정촌코드>_context.db, bounds 경위도)은 따로 된 매니페스트(constants.DATA_JP_MANIFEST_URL, dev_plateau.py)에 있다 —
+한국 조회(get_local_paths)는 이 파일을 열지 않고, 일본 조회는 get_jp_paths로 연다.
 """
 
 import hashlib
@@ -100,7 +102,7 @@ def get_local_paths(kind, bounds=None, sido_codes=None, data_dir=None, sgg_codes
     slugs = {constants.SIDO[code][1] for code in sido_codes if code in constants.SIDO} if sido_codes else None
     paths = []
     for name in sorted(os.listdir(data_dir)) if os.path.isdir(data_dir) else []:
-        if not name.endswith(suffix):
+        if not name.endswith(suffix) or is_jp_pack(name):
             continue
         region = name[:-len(suffix)]
         if region.isdigit():
@@ -114,6 +116,24 @@ def get_local_paths(kind, bounds=None, sido_codes=None, data_dir=None, sgg_codes
             continue
         paths.append(os.path.join(data_dir, name))
     return paths
+
+
+def is_jp_pack(name):
+    # type: (str) -> bool
+    """일본 건물 팩 파일 이름(jp<시구정촌코드>_context.db)인지. 칸은 한국 팩과 같지만 좌표가 경위도라 한국 조회와 섞지 않는다."""
+    prefix, suffix = constants.JP_PACK_PREFIX, "_context.db"
+    return name.startswith(prefix) and name.endswith(suffix) and name[len(prefix):-len(suffix)].isdigit()
+
+
+def get_jp_paths(bounds, data_dir=None):
+    # type: (tuple, str) -> list
+    """data/의 일본 건물 팩 중 경위도 bounds(서, 남, 동, 북)에 걸치는 것(packs.json 범위 — 모르는 파일은 거르지 않는다). 정렬된 경로 목록."""
+    data_dir = data_dir or get_data_dir()
+    if not os.path.isdir(data_dir):
+        return []
+    state = _read_state(data_dir)
+    return [os.path.join(data_dir, name) for name in sorted(os.listdir(data_dir))
+            if is_jp_pack(name) and _is_overlapping(bounds, (state.get(name) or {}).get("bounds"))]
 
 
 class _Rows(list):
@@ -231,7 +251,7 @@ def _open_pack(pack, client_id, manifest_url):
     """팩 주소를 연다. 403·404면 국내 서버 주소가 바뀐 것일 수 있어(문지기 서버로 옮김·되돌림) 매니페스트를 새로 받아 한 번만 다시 연다.
     문지기 서버의 하루 한도(429)는 사용자에게 보일 문장으로 바꾼다. 출력: (응답, 실제로 받는 팩 dict)."""
     headers = {"User-Agent": "%s/%s" % (constants.TOOL_NAME, constants.PANEL_VERSION)}
-    if client_id and not pack["name"].endswith("_site.db"):   # 필지 팩(Hugging Face)에는 보내지 않는다
+    if client_id and not pack["name"].endswith("_site.db") and not is_jp_pack(pack["name"]):   # 필지·일본 팩(Hugging Face)에는 보내지 않는다
         headers["X-UDT-Client"] = client_id   # 국내 문지기 서버가 설치마다 하루 한도를 센다(docs/domestic_gate.md)
 
     def open_url(url):

@@ -109,6 +109,8 @@
 | `dev_context_builder.py` | 있음+ | 개발 python3 | 도엽 features + GIS건물 병합·높이 규칙(`decide_height`). 139도엽 전체 빌드 완료(372 s). 추가: 정합 샘플(theme `qa`) 적재 | geopandas·pyogrio·shapely·pandas·numpy, constants |
 | `dev_make_fixture.py` | 신규(≈30줄) | 개발 python3(sqlite3만) | 전체 DB 2개를 `ATTACH`하고 `INSERT INTO … SELECT … WHERE bbox 교차`로 `tests/fixtures/seongsu_context.db`(buildings·features·data_sources·source_files)와 `seongsu_site.db`(parcels·overlays·parcel_overlays·parcel_land_use·data_sources, 스키마 v5, `user_version 5`, bbox 인덱스 포함) 생성 | constants |
 | `dev_deploy.py` | 신규 | 개발 | `yak`: rhinocode로 Gorani .rhp 빌드 + scripts/(평문 loader·cmd_site, 로직 .pyc optimize=2) → yak CLI. `packs`: 필지(rtree 제거)·컨텍스트(등고선 제외)·등고선 DB → xz + manifest.json. 받는 쪽은 `data_pack.py` | — |
+| `osm_context.py` | (2026-10-13) | Rhino | Global 모드 컨텍스트 — Overpass 건물·피처 + 지형 타일 → `ContextData`(context_db와 같은 꼴). 일본(2026-10-21): 받아 둔 PLATEAU 팩 건물을 먼저, OSM 건물은 겹치지 않는 것만(`get_buildings_apart`), 지형은 지리원 5 m 타일(없으면 AWS). Overpass가 막혀도 PLATEAU가 있으면 건물·지형만으로 만든다 | `data_pack`·`context_db` |
+| `dev_plateau.py` | (2026-10-21) | 개발 | 일본 건물 팩 — CKAN 목록 → zip을 HTTP Range로 열어 `udx/bldg` GML만 읽고 시구정촌마다 `jp<코드>_context.db.xz` + `jp/manifest.json` → HF `jp/` | — |
 | `dev_rhino_run.py` | 보유+ | 개발 | 128–130행: `data/*.db` 전부 심링크 | constants |
 | `dev_database_builder.py`·`dev_probe_*.py` | 보유 | 개발 | 필지 DB·08 실측 재현 | — |
 

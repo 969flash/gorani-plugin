@@ -729,10 +729,11 @@ class _SiteController:
         if self._running:
             self._cancel_requested = True   # 다음 콜백이 False를 돌려준다
 
-    def _download_packs(self, packs, in_generate=False):
-        # type: (list, bool) -> bool
+    def _download_packs(self, packs, in_generate=False, manifest_url=None):
+        # type: (list, bool, str) -> bool
         """팩을 차례로 받으며 data_progress{text, fraction}를 푸시한다(1 % 단위 — 조각마다 보내면 수천 번이다).
-        끝에 data_progress{done, ok, text}. 다 받았으면 True, 멈추거나 실패하면 False(받은 팩은 남는다). 호출자가 _running을 관리한다."""
+        끝에 data_progress{done, ok, text}. 다 받았으면 True, 멈추거나 실패하면 False(받은 팩은 남는다). 호출자가 _running을 관리한다.
+        manifest_url = 팩이 실린 매니페스트(None = 한국, 일본 건물 팩은 constants.DATA_JP_MANIFEST_URL) — 주소가 바뀌었을 때 다시 읽는다."""
         data_pack = loader.load("data_pack")
         names = list(dict.fromkeys(get_region_name(pack) for pack in packs))
         region = tr("{0} 외 {1}곳", names[0], len(names) - 1) if len(names) > 1 else names[0]
@@ -753,7 +754,7 @@ class _SiteController:
                 return not self._cancel_requested
 
             try:
-                if not data_pack.download_pack(pack, progress=progress, client_id=client_id):
+                if not data_pack.download_pack(pack, progress=progress, client_id=client_id, manifest_url=manifest_url):
                     ok = False
                     break
             except Exception as exc:   # 오프라인·서버 오류 — 받은 데까지 쓴다
@@ -787,20 +788,25 @@ class _SiteController:
 
     def _download_for_generate(self, request):
         # type: (dict) -> None
-        """생성 범위에 걸치는데 없거나 새 판이 나온 시군구 팩(필지·건물도로·지형)을 받는다. 오프라인이면 있는 것으로 생성한다.
-        여기서 멈추기를 누르면 _cancel_requested가 남아 이어지는 run이 곧바로 취소된다."""
+        """생성 범위에 걸치는데 없거나 새 판이 나온 시군구 팩(필지·건물도로·지형)을 받는다. Global 일본 대상지는 일본 건물 팩(PLATEAU).
+        오프라인이면 있는 것으로 생성한다(일본은 OSM 건물). 여기서 멈추기를 누르면 _cancel_requested가 남아 이어지는 run이 곧바로 취소된다."""
         constants = loader.load("constants")
         if not constants.DATA_MANIFEST_URL:
             return
         data_pack = loader.load("data_pack")
+        manifest_url = None
         try:
             bounds = self._context_builder.get_query_bounds(request)
-            packs = [pack for pack in data_pack.get_missing_packs(data_pack.get_manifest(), bounds=bounds)
-                     if pack["name"][:5].isdigit()] if bounds else []
+            if bounds:
+                packs = [pack for pack in data_pack.get_missing_packs(data_pack.get_manifest(), bounds=bounds) if pack["name"][:5].isdigit()]
+            else:
+                bounds = self._context_builder.get_jp_query_bounds(request)
+                manifest_url = constants.DATA_JP_MANIFEST_URL
+                packs = data_pack.get_missing_packs(data_pack.get_manifest(manifest_url), bounds=bounds) if bounds else []
         except Exception:   # 대상지 오류는 run이 알린다, 오프라인은 있는 것으로
             return
         if packs:
-            self._download_packs(packs, in_generate=True)
+            self._download_packs(packs, in_generate=True, manifest_url=manifest_url)
 
     def _run_busy(self, label, context, work):
         # type: (str, str, object) -> None

@@ -153,7 +153,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
  "sources":[source, source, source, source],      // id = lot, building, terrain, api 순서 고정(더보기 메뉴 자료 칸·블로커 체크리스트·첫 실행 모드 판정)
  "warnings":[warning],                            // 더보기 메뉴 자료 칸(no_api_key는 설정 칸 API 키 행). warn·danger면 메뉴 버튼의 점(Korea 모드). 띠로 띄우지 않는다
  "tile":{"url":"…","fallback_url":"…","attribution":"…","abroad_url":"…","abroad_attribution":"…",
-         "aerial_url":"…","aerial_attribution":"…","abroad_aerial_url":"…","abroad_aerial_attribution":"…"},   // review_map.get_tile_config(). 지도 중심이 map.korea_bounds 밖이면 abroad_url(OSM). 지도 오른쪽 아래 [위성]을 누르면 aerial_url(VWorld 영상, 키 없으면 Esri) — 해외·폴백 뒤는 abroad_aerial_url(Esri)
+         "aerial_url":"…","aerial_attribution":"…","abroad_aerial_url":"…","abroad_aerial_attribution":"…"},   // review_map.get_tile_config(). 지도 중심이 map.korea_bounds 밖(또는 그 안 일본 모서리 map.korea_cut — 후쿠오카·쓰시마)이면 abroad_url(OSM). 지도 오른쪽 아래 [위성]을 누르면 aerial_url(VWorld 영상, 키 없으면 Esri) — 해외·폴백 뒤는 abroad_aerial_url(Esri)
  "map":{"center":[126.9784,37.5665],"zoom":16},              // review_map.get_map_init(map_center) — 첫 init에 IP로 짐작한 도시(zoom 12, get_ip_center), 못 받으면 서울시청(zoom 16)
  "options":{…옵션 키 전부, prefs.json 복원 또는 기본값…},
  "recent":[{"pnus":["…"],"label":"성수동2가 277-17 외 1","total_area":1234.5,"date":"2026-10-06"}],   // 최대 5, 필지 방식만. 더보기 메뉴 [최근 대상지] → 필지 방식으로 select_lots. done 때 JS가 같은 꼴로 앞에 넣는다(다음 init까지)
@@ -293,7 +293,7 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
 
 ## 데이터 모드 Korea · Global (2026-10-16 — 옛 '해외 대상지')
 
-- **2026-10-19: 헤더 토글을 없앴다.** 모드는 위치로 정한다 — 대상지(없으면 지도 중심)가 `map.korea_bounds` 안이면 Korea, 밖이면 Global. `options.region = "global"`은 더보기 메뉴 설정 '한국에서도 OpenStreetMap 쓰기'(한국 안에서도 Global)이고, `kr`·`null`은 자동이다. JS `region()`이 이 규칙으로 보낼 값을 정한다. 자료 날짜·자료 경고는 패널에 없다.
+- **2026-10-19: 헤더 토글을 없앴다.** 모드는 위치로 정한다 — 대상지(없으면 지도 중심)가 `map.korea_bounds` 안이면 Korea, 밖이면 Global. 사각형 안 남동쪽 일본 모서리(`map.korea_cut` = [129.1, 35.0] — 그 동쪽·남쪽, 후쿠오카·기타큐슈·쓰시마)는 밖으로 본다(`non_rhino_utils.is_korea`와 같다). `options.region = "global"`은 더보기 메뉴 설정 '한국에서도 OpenStreetMap 쓰기'(한국 안에서도 Global)이고, `kr`·`null`은 자동이다. JS `region()`이 이 규칙으로 보낼 값을 정한다. 자료 날짜·자료 경고는 패널에 없다.
 - (예전) `options.region` = `kr`(국가 DB — 필지·건축물대장·UPIS·수치지형도, 한국 대상지만) | `global`(OSM·지형 타일 — 어디서나). prefs에 저장.
 - 첫 실행(`options.region = null`)은 JS가 정한다: 국내 필지 DB가 있거나 · 시간대 `Asia/Seoul`(`Intl`) · 언어 `ko*`(`navigator.languages`) 중 하나면 `kr`, 아니면 `global`. 망 접속 없음, Mac·Windows 웹뷰·Blender 브라우저 공통.
 - `search`·`set_area`·`set_point`·`preflight`에 JS가 `region`을 붙인다(`REGION_CMDS`). Global이면 필지 DB를 보지 않는다 — 검색은 Nominatim만, 구역 안 필지 0, preflight는 DB 개수 대신 경고 `abroad`, 생성은 `osm_context`(Overpass·지형 타일, 팩 받기 없음). 엔진 판정은 `context_builder.is_global(request)` = `region == "global"` 또는 지역 TM 원점.
