@@ -5,7 +5,7 @@
 ## 배포
 
 - [ ] 다른 컴퓨터(Windows일 수 있음)에서 Rhino판 실기 시험 — Mac에서 빌드한 .rhp·.pyc가 Windows Rhino 8에서 처음 도는 것일 수 있다.
-- [ ] Blender 공식 스토어(extensions.blender.org)에 올리기 — 사용자 Blender ID. 절차 `docs/blender_store/README.md`.
+- [ ] Blender 공식 스토어 — 초안 0.3.1을 다 채워 두었다(2026-10-22, https://extensions.blender.org/add-ons/gorani/draft/). 남은 건 사용자가 [Submit for Approval]을 누르고 심사 댓글에 답하는 것(답변 문안 `docs/blender_store/README.md`).
 - [ ] SketchUp Extension Warehouse에 올리기 — 사용자 개발자 계정. 절차 `docs/sketchup_store.md`. Windows 실기 시험 전이다.
 - [ ] SketchUp용 GA4 속성(`constants.GA_STREAMS["sketchup"]`) — 없으면 통계를 묻지도 보내지도 않는다.
 - [ ] `docs/install.md`(yak 패키지에 들어가 패널 [문서 열기]로 열린다)의 SketchUp 절이 아직 없는 설치 경로(Extension Warehouse)를 안내한다. 스토어에 오를 때까지 '준비 중'으로 바꾸거나 스토어 주소로 고친다(Blender 절은 2026-10-21 스토어 기준으로 고침).
