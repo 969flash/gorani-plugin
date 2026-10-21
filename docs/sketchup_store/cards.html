@@ -1,65 +1,86 @@
 <!doctype html>
-<!-- Extension Warehouse 이미지 1920×1080 — cards.html?card=hero|window|twod|world. 그림(build/sketchup_store/, gitignore)은 docs/sketchup_store.md '이미지' 절대로 만든다.
-     해외(OpenStreetMap) 대상지만 쓴다 — 수치지형도에서 나온 국내 3D·도면은 해외 사이트에 올리지 않는다(공간정보관리법 제16조).
-     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --window-size=1920,1080 --screenshot=build/sketchup_store/1_hero.png "file://$PWD/docs/sketchup_store/cards.html?card=hero" -->
+<!-- Extension Warehouse 스크린샷 5장 — 1880×940(권장 940×470의 2배, 3 MB 이하 PNG). cards.html?card=hero|steps|window|world|twod
+     그림(build/sketchup_store/, gitignore)은 docs/sketchup_store.md '이미지' 절대로 만든다. 3D 그림은 해외(OpenStreetMap·PLATEAU) 대상지만 —
+     수치지형도에서 나온 국내 3D·도면·등고선은 해외 사이트에 올리지 않는다(공간정보관리법 제16조). 한국은 필지 고르기 패널 화면만.
+     for c in hero steps window world twod; do "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars \
+       --window-size=1880,940 --virtual-time-budget=4000 --screenshot=build/sketchup_store/$c.png "file://$PWD/docs/sketchup_store/cards.html?card=$c"; done -->
 <html lang="en"><head><meta charset="utf-8">
 <style>
   @font-face { font-family: "Pretendard Variable"; src: url("../../scripts/vendor/PretendardVariable.woff2") format("woff2"); font-weight: 45 920; }
   :root { --paper:#F5F7FA; --grid:#E9EEF4; --grid-major:#DDE4EE; --surface:#FFFFFF; --ink:#111418; --ink-2:#465061; --ink-3:#7D8798; --hair:#C9D2DE; --blue:#0057FF; }
   * { box-sizing:border-box; margin:0; }
-  html, body { width:1920px; height:1080px; overflow:hidden; }
+  html, body { width:1880px; height:940px; overflow:hidden; }
   body { font-family:"Pretendard Variable", -apple-system, sans-serif; color:var(--ink); background:var(--paper);
     background-image: linear-gradient(var(--grid-major) 1px, transparent 1px), linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
       linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
     background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px; }
   body.dark { background:#00151C; color:#F1F4F8; }
   section { display:none; } section.on { display:block; }
-  .card { position:absolute; inset:48px; border:2px solid var(--ink); background:var(--surface); }
+  .card { position:absolute; inset:40px; border:2px solid var(--ink); background:var(--surface); overflow:hidden; }
   .brand { display:flex; align-items:center; gap:14px; font-size:30px; font-weight:700; }
-  .brand img { width:46px; height:46px; }
+  .brand img { width:44px; height:44px; }
   h1 em, h2 em { font-style:normal; color:var(--blue); }
-  h2 { font-size:60px; line-height:1.15; letter-spacing:-0.02em; font-weight:800; }
-  .lead { font-size:28px; line-height:1.55; color:var(--ink-2); }
-  .cap { position:absolute; font-size:20px; color:var(--ink-3); }
-  .facts { border-top:1.5px solid var(--ink); }
-  .facts div { display:flex; justify-content:space-between; gap:24px; font-size:24px; padding:16px 0; border-bottom:1px solid var(--hair); }
-  .facts b { font-weight:600; } .facts span { color:var(--ink-2); }
+  h2 { font-size:56px; line-height:1.12; letter-spacing:-0.02em; font-weight:800; }
+  .lead { font-size:27px; line-height:1.5; color:var(--ink-2); }
+  .cap { position:absolute; font-size:19px; color:var(--ink-3); }
+  .num { display:inline-flex; width:44px; height:44px; align-items:center; justify-content:center; background:var(--blue); color:#fff; font-weight:700; font-size:24px; flex:none; }
+  .shot { position:relative; overflow:hidden; border:1.5px solid var(--hair); background:#F3F4F6; }
 
   /* 1 대표 — 어두운 바탕에 흰 매스(SketchUp write_image 투명 PNG) */
-  #hero .render { position:absolute; width:1560px; left:470px; top:120px; }
-  #hero .text { position:absolute; left:104px; top:180px; width:600px; display:flex; flex-direction:column; gap:36px; }
+  #hero .render { position:absolute; width:1400px; left:520px; top:60px; }
+  #hero .text { position:absolute; left:96px; top:110px; width:640px; display:flex; flex-direction:column; gap:30px; }
   #hero .brand img { filter:invert(1); }
   #hero .brand span { font-weight:500; color:#8FA0B6; font-size:22px; margin-left:8px; padding-left:16px; border-left:1.5px solid #3A4A5C; }
-  #hero h1 { font-size:80px; line-height:1.1; letter-spacing:-0.025em; font-weight:800; }
+  #hero h1 { font-size:76px; line-height:1.08; letter-spacing:-0.025em; font-weight:800; }
   #hero h1 em { color:#4D8BFF; }
   #hero .lead { color:#B4C0D0; }
-  #hero .steps { display:flex; border-top:1.5px solid #3A4A5C; }
-  #hero .steps div { flex:1; padding:18px 0 0; font-size:24px; color:#DDE4EE; font-weight:600; }
-  #hero .steps b { color:#4D8BFF; margin-right:10px; }
-  #hero .site { position:absolute; left:1250px; top:318px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; }
-  #hero .site span { font-size:24px; font-weight:700; color:#fff; background:var(--blue); padding:6px 14px; }
-  #hero .site i { width:2px; height:96px; background:#4D8BFF; }
-  #hero .cap { right:56px; bottom:44px; color:#6F8096; }
+  #hero .tags { display:flex; flex-direction:column; gap:12px; border-top:1.5px solid #3A4A5C; padding-top:22px; font-size:22px; color:#DDE4EE; }
+  #hero .tags b { color:#4D8BFF; font-weight:700; margin-right:12px; }
+  #hero .site { position:absolute; left:1218px; top:250px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; }
+  #hero .site span { font-size:22px; font-weight:700; color:#fff; background:var(--blue); padding:6px 14px; }
+  #hero .site i { width:2px; height:84px; background:#4D8BFF; }
+  #hero .cap { right:48px; bottom:36px; color:#6F8096; }
 
-  /* 2 SketchUp 창 — 실제 화면(패널 + 모델), 자르지 않고 오른쪽에 높이 맞춤 */
-  #window .text { position:absolute; left:56px; top:64px; width:430px; display:flex; flex-direction:column; gap:32px; }
-  #window .shot { position:absolute; right:0; top:0; bottom:0; border-left:2px solid var(--ink); overflow:hidden; background:#F0F0F0; }
-  #window .shot img { height:100%; display:block; }
+  /* 2 세 단계 */
+  #steps .head { position:absolute; left:64px; top:44px; }
+  #steps .row { position:absolute; left:64px; right:64px; top:150px; bottom:44px; display:flex; gap:36px; }
+  #steps .col { display:flex; flex-direction:column; gap:14px; min-width:0; }
+  #steps .col h3 { font-size:28px; display:flex; gap:14px; align-items:center; letter-spacing:-0.01em; }
+  #steps .col p { font-size:20px; color:var(--ink-2); line-height:1.45; min-height:58px; }
+  #steps .col .shot { flex:1; }
+  #steps .c1, #steps .c3 { width:400px; } #steps .c2 { flex:1; }
+  #steps .c1 img, #steps .c3 img { position:absolute; width:100%; top:-34px; }
+  #steps .c2 .shot { background:#fff; }
+  #steps .c2 img { position:absolute; width:140%; left:-20%; top:-14%; }
 
-  /* 3 2D — 도면 SVG의 지도 칸(273 mm 정사각, 12 mm 안쪽)만 */
-  #twod .head { position:absolute; left:96px; right:96px; top:56px; display:flex; justify-content:space-between; align-items:flex-end; gap:48px; }
-  #twod .head p { width:820px; }
-  #twod .grid { position:absolute; left:96px; right:96px; top:236px; display:grid; grid-template-columns:repeat(5, 1fr); gap:28px 28px; }
-  #twod figure { display:flex; flex-direction:column; gap:12px; }
+  /* 3 SketchUp 창 — 실제 화면(영어 패널 + 모델), 오른쪽에 높이 맞춤 */
+  #window .text { position:absolute; left:56px; top:64px; width:440px; display:flex; flex-direction:column; gap:28px; }
+  #window .text ul { padding-left:22px; display:flex; flex-direction:column; gap:14px; font-size:23px; line-height:1.4; color:var(--ink-2); }
+  #window .full { position:absolute; right:0; top:0; bottom:0; border-left:2px solid var(--ink); overflow:hidden; background:#F0F0F0; }
+  #window .full img { height:100%; display:block; }
+
+  /* 4 전 세계 · 한국 · 일본 */
+  #world .head { position:absolute; left:64px; top:44px; right:64px; }
+  #world .row { position:absolute; left:64px; right:64px; top:150px; bottom:44px; display:flex; gap:32px; }
+  #world .col { flex:1; display:flex; flex-direction:column; gap:12px; min-width:0; }
+  #world .col .shot { flex:1; background:#fff; }
+  #world .col h3 { font-size:28px; letter-spacing:-0.01em; }
+  #world .col p { font-size:20px; color:var(--ink-2); line-height:1.45; min-height:58px; }
+  #world .col small { font-size:16px; color:var(--ink-3); }
+  #world .render img { position:absolute; width:150%; left:-25%; top:-14%; }
+  #world .kr img { position:absolute; width:100%; top:-30px; }
+
+  /* 5 2D + 언어 — 도면 SVG의 지도 칸(273 mm 정사각, 12 mm 안쪽)만 */
+  #twod .head { position:absolute; left:64px; right:64px; top:44px; display:flex; justify-content:space-between; align-items:flex-end; gap:48px; }
+  #twod .head p { width:780px; }
+  #twod .grid { position:absolute; left:64px; right:64px; top:178px; display:grid; grid-template-columns:repeat(6, 1fr); gap:14px 20px; }
+  #twod figure { display:flex; flex-direction:column; gap:8px; }
   #twod figure div { position:relative; border:1.5px solid var(--hair); aspect-ratio:1/1; overflow:hidden; }
   #twod figure img { position:absolute; width:153.85%; left:-4.4%; top:-4.4%; }
-  #twod figcaption { font-size:22px; font-weight:600; }
-
-  /* 4 전 세계 */
-  #world .text { position:absolute; left:64px; top:64px; bottom:64px; width:640px; display:flex; flex-direction:column; gap:32px; }
-  #world .text .facts { margin-top:auto; }
-  #world .render { position:absolute; width:1340px; left:620px; top:40px; }
-  #world .cap { right:32px; bottom:24px; }
+  #twod figcaption { font-size:18px; font-weight:600; }
+  #twod .langs { position:absolute; left:64px; right:64px; bottom:30px; display:flex; align-items:center; gap:22px; font-size:24px; border-top:1.5px solid var(--ink); padding-top:18px; }
+  #twod .langs b { font-weight:700; }
+  #twod .langs span { color:var(--ink-2); }
 </style></head>
 <body>
 
@@ -69,20 +90,50 @@
     <div class="brand"><img src="../brand/gorani_mark.svg">Gorani<span>Free extension for SketchUp</span></div>
     <h1><em>The city around your site</em>, modeled in SketchUp.</h1>
     <p class="lead">Pick a site on the map. Buildings, roads, terrain and parks come into your model in 3D.</p>
-    <div class="steps"><div><b>1</b>Pick a site</div><div><b>2</b>Press 3D</div><div><b>3</b>Design</div></div>
+    <div class="tags">
+      <div><b>Data</b>Worldwide · Korea · Japan</div>
+      <div><b>Panel</b>English · 한국어 · Español · 日本語 · 中文</div>
+    </div>
   </div>
   <div class="site"><span>Your site</span><i></i></div>
   <p class="cap">Flatiron District, New York · OpenStreetMap</p>
 </section>
 
+<section id="steps"><div class="card">
+  <div class="head"><h2>Three steps. <em>No tracing.</em></h2></div>
+  <div class="row">
+    <div class="col c1"><h3><span class="num">1</span>Pick a site</h3><p>Search a place, then click parcels, draw an area or drop a point.</p>
+      <div class="shot"><img src="../../build/sketchup_store/panel_map_en.png"></div></div>
+    <div class="col c2"><h3><span class="num">2</span>Press 3D</h3><p>The context is built right in your open model, one group per run.</p>
+      <div class="shot"><img src="../../build/sketchup_store/render_tokyo.png"></div></div>
+    <div class="col c3"><h3><span class="num">3</span>Add 2D if you need it</h3><p>Illustrator basemap, analysis maps and CSV tables.</p>
+      <div class="shot"><img src="../../build/sketchup_store/panel_result_en.png"></div></div>
+  </div>
+</div></section>
+
 <section id="window"><div class="card">
   <div class="text">
     <div class="brand"><img src="../brand/gorani_mark.svg">Gorani</div>
     <h2>Right inside <em>SketchUp</em>.</h2>
-    <p class="lead">Each layer becomes a tag in the CTX folder. Every building is its own group with height and floors attached.</p>
-    <p class="lead">One Undo removes a run.</p>
+    <ul>
+      <li>Each layer is a tag in the CTX folder.</li>
+      <li>Every building is its own solid group with height and floors.</li>
+      <li>One Undo removes a run.</li>
+    </ul>
   </div>
-  <div class="shot"><img src="../../build/sketchup_store/window.png"></div>
+  <div class="full"><img src="../../build/sketchup_store/window.png"></div>
+</div></section>
+
+<section id="world"><div class="card">
+  <div class="head"><h2>Works anywhere. <em>More detail in Korea and Japan.</em></h2></div>
+  <div class="row">
+    <div class="col"><h3>Worldwide</h3><p>OpenStreetMap buildings, roads and water with public terrain data.</p>
+      <div class="shot render"><img src="../../build/sketchup_store/render_nyc.png"></div><small>New York · OpenStreetMap</small></div>
+    <div class="col"><h3>Japan</h3><p>PLATEAU buildings with measured heights and GSI 5 m terrain.</p>
+      <div class="shot render"><img src="../../build/sketchup_store/render_tokyo.png"></div><small>Ginza, Tokyo · PLATEAU (MLIT) · GSI</small></div>
+    <div class="col"><h3>Korea</h3><p>Pick by parcel. Nationwide parcels, zoning and 1:5,000 contours.</p>
+      <div class="shot kr"><img src="../../build/sketchup_store/panel_lots_en.png"></div><small>Parcel picking in Seoul</small></div>
+  </div>
 </div></section>
 
 <section id="twod"><div class="card">
@@ -100,23 +151,11 @@
     <figure><div><img src="../../build/sketchup_store/sheets/s06.svg"></div><figcaption>Green and blue</figcaption></figure>
     <figure><div><img src="../../build/sketchup_store/sheets/s15.svg"></div><figcaption>Building height</figcaption></figure>
     <figure><div><img src="../../build/sketchup_store/sheets/s18.svg"></div><figcaption>Elevation</figcaption></figure>
+    <figure><div><img src="../../build/sketchup_store/sheets/s19.svg"></div><figcaption>Slope</figcaption></figure>
     <figure><div><img src="../../build/sketchup_store/sheets/s07.svg"></div><figcaption>Community facilities</figcaption></figure>
+    <figure><div><img src="../../build/sketchup_store/sheets/s23.svg"></div><figcaption>Aerial photo</figcaption></figure>
   </div>
-</div></section>
-
-<section id="world"><div class="card">
-  <img class="render" src="../../build/sketchup_store/render_world.png">
-  <div class="text">
-    <div class="brand"><img src="../brand/gorani_mark.svg">Gorani</div>
-    <h2>Works <em>anywhere</em> in the world.</h2>
-    <p class="lead">Outside Korea, Gorani uses OpenStreetMap buildings and roads with public terrain data.</p>
-    <div class="facts">
-      <div><b>Worldwide</b><span>OpenStreetMap + terrain tiles</span></div>
-      <div><b>Korea</b><span>Parcels, zoning, 1:5,000 contours</span></div>
-      <div><b>SketchUp</b><span>2022 or later · Windows, macOS</span></div>
-    </div>
-  </div>
-  <p class="cap" id="world_cap">Ginza, Tokyo · OpenStreetMap</p>
+  <div class="langs"><b>Panel in 5 languages</b><span>English</span><span>한국어</span><span>Español</span><span>日本語</span><span>中文</span></div>
 </div></section>
 
 <script>
