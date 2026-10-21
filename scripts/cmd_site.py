@@ -8,7 +8,7 @@ panel_host.PanelHost(Eto WebView)와 로직 모듈을 잇는다. JS 명령(dict)
 동기 호출하고, 진행률은 콜백 안에서 push + _pump(Rhino.RhinoApp.Wait)로 펌핑한다(서브프로세스 없음).
 
 명령 → 로직 (22개)
-    init            → get_init_state (DB 존재·원천 상태·타일·지도·prefs·recent·시트 카탈로그). preflight 메모이즈 비움
+    init            → get_init_state (DB 존재·원천 상태·타일·지도·prefs·recent·시트 카탈로그). 첫 init만 review_map.get_ip_center(지도 첫 위치). preflight 메모이즈 비움
     search          → get_search_result (pnu_loader.resolve_addresses + review_map.get_parcel_centers)
     map_lots        → review_map.get_parcels_in_bbox (seq 에코)
     select_lots     → get_lot_state (review_map.get_parcels_geojson + 대상 합집합 role target)
@@ -83,11 +83,12 @@ def _jibun(address):
     return parts[-1] if parts else ""
 
 
-def get_init_state(site_db=None, context_db=None, today=None, manifest=None):
-    # type: (str, str, datetime.date, dict) -> dict
+def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map_center=None):
+    # type: (str, str, datetime.date, dict, list) -> dict
     """init_state 페이로드(panel_ui.md).
 
     입력: DB 경로 override 2개(테스트가 fixture를 꽂는다. None = constants 경로), today(테스트용), manifest(테스트용. None = 이번 세션에 받은 것).
+          map_center(지도 첫 위치 [lng, lat] — _init이 IP로 짐작. None = 서울시청).
     처리: 필지 DB 존재 → blocked, context_builder.get_sources/get_source_warnings, review_map 타일·지도, site_prefs 옵션·recent,
           SHEET_CATALOG, 매니페스트 업데이트·공지(data_pack.get_notice_state). 네트워크 접근 없음 — 매니페스트는 _init이 먼저 받아 둔다.
           generator는 항상 ok(서브프로세스 없음 — UI 호환 키).
@@ -116,7 +117,7 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None):
         "sources": sources,
         "warnings": context_builder.get_source_warnings(sources),
         "tile": review_map.get_tile_config(),
-        "map": review_map.get_map_init(),
+        "map": review_map.get_map_init(map_center),
         "options": site_prefs.get_options(),
         "modes": {"defaults": constants.MODE_DEFAULTS, "shapes": {k: list(v) for k, v in constants.SHAPES_BY_MODE.items()}},
         "recent": site_prefs.get_recent(),
@@ -478,6 +479,7 @@ class _SiteController:
         self._session_id = str(int(time.time()))   # 사용 통계 세션 = 패널 하나
         self._opened = False
         self._keep = {}                # 마지막 결과의 시트 데이터(지형 삼각형 포함) — 도면 스타일 미리보기·적용이 다시 쓴다
+        self._map_center = None        # 첫 init에 IP로 짐작한 지도 첫 위치 [lng, lat] — 못 받으면 None(서울시청)
 
     def _send_stats(self, name, params):
         # type: (str, dict) -> None
@@ -559,7 +561,9 @@ class _SiteController:
             loader.load("data_pack").get_manifest(timeout=loader.load("constants").NOTICE_TIMEOUT_SECONDS)
         except Exception:
             pass
-        state = get_init_state()
+        if not self._opened:   # 지도는 첫 init_state로만 만든다(JS initMap)
+            self._map_center = loader.load("review_map").get_ip_center()
+        state = get_init_state(map_center=self._map_center)
         self.push(state)
         if not self._opened:   # init은 배지 [다시 확인]에도 온다 — 패널 열기는 한 번만
             self._opened = True

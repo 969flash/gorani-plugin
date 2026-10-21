@@ -1,3 +1,4 @@
+import io
 import os
 import sys
 import tempfile
@@ -59,6 +60,23 @@ class TileConfigTest(unittest.TestCase):
         self.assertIn("openstreetmap", config["url"])
         self.assertEqual(config["url"], config["fallback_url"])
         self.assertIn("arcgisonline", config["aerial_url"])   # 키 없으면 영상은 Esri
+
+
+class MapInitTest(unittest.TestCase):
+    def test_ip_center(self):
+        # ipinfo.io의 loc은 "위도,경도" — 지도에는 [lng, lat]로 뒤집어 도시 배율로 연다
+        with patch("urllib.request.urlopen", return_value=io.BytesIO(b'{"city": "Paris", "loc": "48.8534,2.3488"}')):
+            center = review_map.get_ip_center()
+        self.assertEqual(center, [2.3488, 48.8534])
+        self.assertEqual(review_map.get_map_init(center)["zoom"], review_map.IP_MAP_ZOOM)
+
+    def test_ip_center_fallback(self):
+        # 오프라인·loc 없음(사설 IP)·nan이면 짐작하지 않고 서울시청
+        for effect in (OSError("offline"), [io.BytesIO(b'{"bogon": true}')], [io.BytesIO(b'{"loc": "nan,nan"}')]):
+            with patch("urllib.request.urlopen", side_effect=effect):
+                self.assertIsNone(review_map.get_ip_center())
+        self.assertEqual(review_map.get_map_init(None)["center"], review_map.MAP_CENTER)
+        self.assertEqual(review_map.get_map_init(None)["zoom"], review_map.MAP_ZOOM)
 
 
 class GeojsonConversionTest(unittest.TestCase):
