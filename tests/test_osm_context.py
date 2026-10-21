@@ -184,7 +184,7 @@ class JapanTest(unittest.TestCase):
 
     def test_overpass_down_keeps_plateau(self):
         """Overpass가 모두 막혀도 일본 팩이 있으면 PLATEAU 건물로 만든다(출처에 osm 없음). 팩이 없으면 그대로 실패."""
-        def down(bounds):
+        def down(bounds, query=None, endpoints=None):
             raise RuntimeError("Overpass down")
         saved = osm_context.get_overpass_elements, osm_context.get_terrain_spots, osm_context.data_pack.get_data_dir
         with tempfile.TemporaryDirectory() as data_dir:

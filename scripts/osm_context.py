@@ -60,16 +60,17 @@ def _fetch(url, data=None):
         return response.read()
 
 
-def get_overpass_elements(bounds):
-    # type: (tuple) -> list
-    """bounds 안 OSM 요소(out geom). 미러를 차례로 시도한다. 실패하면 RuntimeError."""
+def get_overpass_elements(bounds, query=None, endpoints=None):
+    # type: (tuple, str, tuple) -> list
+    """bounds 안 OSM 요소(out geom). query = Overpass 질의 틀({bbox} 자리, 기본 constants.OSM_OVERPASS_QUERY), endpoints = 미러(기본 전부).
+    미러를 차례로 시도한다. 실패하면 RuntimeError."""
     bbox = "%.6f,%.6f,%.6f,%.6f" % _get_lnglat_bbox(bounds)
-    key = ("overpass", bbox)
+    query = (query or constants.OSM_OVERPASS_QUERY).replace("{bbox}", bbox)
+    key = ("overpass", query)
     if key in _CACHE:
         return _CACHE[key]
-    query = constants.OSM_OVERPASS_QUERY.replace("{bbox}", bbox)
     errors = []
-    for endpoint in constants.OSM_OVERPASS_URLS:
+    for endpoint in endpoints or constants.OSM_OVERPASS_URLS:
         try:
             body = _fetch(endpoint, urllib.parse.urlencode({"data": query}).encode("utf-8"))
             _CACHE[key] = json.loads(body.decode("utf-8"))["elements"]
@@ -507,13 +508,19 @@ def load(bounds, today):
     """bounds(TM m) 안 OSM 건물·피처 + 지형 표고점 → ContextData. 받는 날짜를 OSM·지형 기준일로 적는다.
     일본: 받아 둔 PLATEAU 팩 건물을 먼저 쓰고 OSM 건물은 그와 겹치지 않는 것만, 지형은 지리원 5 m 타일. 출처는 실제로 쓴 것만(역할은 뒤의 것이 차지)."""
     plateau, plateau_sources = load_plateau_buildings(get_lnglat_bounds(bounds))
-    try:
+    if plateau:   # 일본 — 도로·수계·녹지 먼저(건물 줄 뺀 질의), OSM 건물은 따로 첫 미러에만(constants.OSM_OVERPASS_BUILDING_QUERY 주석)
+        try:
+            elements, osm_ok = get_overpass_elements(bounds, constants.OSM_OVERPASS_QUERY.replace(constants.OSM_OVERPASS_BUILDINGS, "")), True
+        except RuntimeError:   # 공개 Overpass 서버가 모두 막힘(2026-10-21 Rhino 실측: 502·504·시간 초과) — PLATEAU 건물·지리원 지형만으로 만든다
+            elements, osm_ok = [], False   # 출처에 osm이 빠진 것을 context_builder가 보고 알린다
+        try:
+            osm_buildings = _get_buildings(get_overpass_elements(bounds, constants.OSM_OVERPASS_BUILDING_QUERY, constants.OSM_OVERPASS_URLS[:1]), today) if osm_ok else []
+        except RuntimeError:   # 메우기용이라 못 받아도 넘어간다
+            osm_buildings = []
+    else:
         elements, osm_ok = get_overpass_elements(bounds), True
-    except RuntimeError:   # 공개 Overpass 서버가 모두 막힘(2026-10-21 Rhino 실측: 502·504·시간 초과) — 일본은 PLATEAU 건물·지리원 지형만으로 만든다
-        if not plateau:
-            raise
-        elements, osm_ok = [], False   # 출처에 osm이 빠진 것을 context_builder가 보고 알린다
-    buildings = plateau + get_buildings_apart(_get_buildings(elements, today), plateau)
+        osm_buildings = _get_buildings(elements, today)
+    buildings = plateau + get_buildings_apart(osm_buildings, plateau)
     _apply_public_use(buildings, elements)
     spots, terrain_ids = get_terrain_spots(bounds, today)
     crs = non_rhino_utils.get_crs_label()

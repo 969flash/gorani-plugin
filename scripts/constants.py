@@ -250,6 +250,14 @@ OSM_OVERPASS_QUERY = """[out:json][timeout:55][bbox:{bbox}];
   way["leisure"="sports_centre"]; way["place"="square"];
 );
 out geom;"""   # 역·시설 줄은 OSM_PUBLIC_USE와 맞춘다(tests/test_osm_context가 확인)
+# 일본(PLATEAU 팩이 있는 곳)은 건물 줄을 빼고 도로·수계·녹지를 먼저 묻고, OSM 건물(PLATEAU 빈 곳 메우기)은 따로 첫 미러에만 묻는다.
+# 도심은 OSM 건물이 많아 한 질의가 통째로 시간 초과됐다(2026-10-22 Rhino 시험: 도쿄타워·시부야·후쿠오카 덴진 — 7곳 중 3곳 도로 없음)
+OSM_OVERPASS_BUILDINGS = 'way["building"]; relation["building"]["type"="multipolygon"];'
+OSM_OVERPASS_BUILDING_QUERY = """[out:json][timeout:25][bbox:{bbox}];
+(
+  %s
+);
+out geom;""" % OSM_OVERPASS_BUILDINGS
 OSM_ROAD_WIDTHS = {   # highway 등급 → 기본 도로폭 m (width·lanes 태그가 없을 때). 국내 도로 분류와 비교한 대략값
     "motorway": 22.0, "trunk": 18.0, "primary": 15.0, "secondary": 12.0, "tertiary": 9.0, "unclassified": 6.0,
     "residential": 6.0, "living_street": 5.0, "service": 4.0, "pedestrian": 6.0, "footway": 2.0, "cycleway": 2.0, "path": 1.5,

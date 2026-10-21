@@ -5512,5 +5512,17 @@
   "es": "Solo incluye edificios de PLATEAU y el terreno. Vuelva a crear dentro de un rato para añadir calles, agua y zonas verdes.",
   "ja": "PLATEAUの建物と地形だけが入っています。しばらくしてから作り直すと道路・水系・緑地が入ります。",
   "zh": "只包含 PLATEAU 建筑和地形。稍后重新生成即可加入道路、水系和绿地。"
+ },
+ "PLATEAU 실측 높이": {
+  "en": "PLATEAU measured height",
+  "es": "Altura medida PLATEAU",
+  "ja": "PLATEAUの実測高さ",
+  "zh": "PLATEAU 实测高度"
+ },
+ "PLATEAU 층수": {
+  "en": "PLATEAU floors",
+  "es": "Plantas PLATEAU",
+  "ja": "PLATEAUの階数",
+  "zh": "PLATEAU 层数"
  }
 }
