@@ -891,9 +891,10 @@ class _SiteController:
         """도면 한 장(path) 또는 결과 폴더 전부(all)를 레이어 .ai로 — 하나면 쓰고 바로 연다."""
         result_dir = self._get_result_dir(msg)
         sheet_svg = loader.load("sheet_svg")
-        sheets_dir = loader.load("context_builder").get_sheets_dir(result_dir)
+        sheets_dir = loader.load("context_builder").get_sheets_dir(result_dir)   # [모두 .ai로 저장] = 마지막 2D 폴더
         paths = sorted(os.path.join(sheets_dir, n) for n in os.listdir(sheets_dir) if n.endswith(".svg")) if msg.get("all") else [str(msg.get("path") or "")]
-        if not all(p.startswith(sheets_dir) and os.path.exists(p) for p in paths):
+        inside = os.path.join(os.path.abspath(result_dir), "")   # 한 장은 그 결과 폴더 안 어느 2D 폴더든
+        if not all(os.path.abspath(p).startswith(inside) and p.endswith(".svg") and os.path.exists(p) for p in paths):
             raise ValueError("도면 파일이 없습니다")
 
         def work():
@@ -906,9 +907,9 @@ class _SiteController:
 
     def _sheet_view(self, msg):
         """도면 SVG 한 장의 내용을 패널 보기 창으로 — OS로 열면 .svg가 Illustrator에 묶인 PC가 많다(2026-10-19 Rhino QA)."""
-        sheets_dir = loader.load("context_builder").get_sheets_dir(self._get_result_dir(msg))
+        inside = os.path.join(os.path.abspath(self._get_result_dir(msg)), "")   # 그 결과 폴더 안 어느 2D 폴더든(2D_<스타일>_<HHMM>/sheets)
         path = str(msg.get("path") or "")
-        if not (os.path.abspath(path).startswith(os.path.join(os.path.abspath(sheets_dir), "")) and path.endswith(".svg") and os.path.exists(path)):
+        if not (os.path.abspath(path).startswith(inside) and path.endswith(".svg") and os.path.exists(path)):
             raise ValueError("도면 파일이 없습니다")
         with open(path, encoding="utf-8") as handle:
             self.push({"type": "sheet_view", "path": path, "svg": handle.read()})

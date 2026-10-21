@@ -2157,11 +2157,10 @@ var handlers = {
     clearInterval(timers.elapsed);
     if (!state.result || m.dir !== state.result.dir) return;
     if (m.ok) {
-      var prev = state.made2d || { basemap: { exported: [] }, sheets: [], tables: [] }, bm = m.basemap || {};
-      var ex = ((prev.basemap || {}).exported || []).slice();
-      (bm.exported || []).forEach(function (p) { if (ex.indexOf(p) < 0) ex.push(p); });
-      state.made2d = { elapsed_s: m.elapsed_s, folder: m.folder, options: m.options, basemap: Object.assign({}, bm, { exported: ex, ready: !!bm.ready || !!(prev.basemap || {}).ready, dwg: bm.dwg || (prev.basemap || {}).dwg || "" }),
-        sheets: (m.sheets || []).length ? m.sheets : prev.sheets, tables: (m.tables || []).length ? m.tables : prev.tables };
+      // 2D는 만들 때마다 새 폴더(2D_<스타일>_<HHMM>) — 카드도 이번 것만 보인다. 앞 폴더는 결과 폴더에 그대로 남는다
+      var bm = m.basemap || {};
+      state.made2d = { elapsed_s: m.elapsed_s, folder: m.folder, options: m.options, basemap: Object.assign({}, bm, { exported: (bm.exported || []).slice(), ready: !!bm.ready, dwg: bm.dwg || "" }),
+        sheets: m.sheets || [], tables: m.tables || [] };
       state.result.sheets = state.made2d.sheets;
       if ((m.sheets || []).length) { state.appliedStyle = fullStyle((m.options || {}).style); state.styleEdit = clone(state.appliedStyle); }
       state.job2d = "done"; state.form2d = false;

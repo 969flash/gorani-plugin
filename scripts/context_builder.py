@@ -851,9 +851,37 @@ def get_2d_dir(result_dir):
     return os.path.join(result_dir, constants.RESULT_2D_DIRNAME)
 
 
+def get_new_2d_dir(result_dir, style=None):
+    # type: (str, dict) -> str
+    """[2D 자료 만들기] 한 번의 폴더 — <결과 폴더>/2D_<스타일 이름>_<HHMM>(같은 분이면 _2…). 앞서 만든 2D는 그대로 남는다."""
+    style = style or {}
+    name = style.get("name") or (constants.STYLE_PRESETS.get(style.get("preset") or "std") or {}).get("name") or "표준"
+    name = re.sub(r'[\\/:*?"<>|\s]+', "", str(name)) or "표준"
+    base = os.path.join(result_dir, constants.RESULT_2D_DIR_FORMAT % (name, time.strftime(constants.RESULT_TIME_FORMAT)))
+    path, n = base, 2
+    while os.path.exists(path):
+        path, n = "%s_%d" % (base, n), n + 1
+    return path
+
+
+def get_last_2d_dir(result_dir):
+    # type: (str) -> str
+    """마지막으로 만든 2D 폴더(context.json last_2d_dir). 없으면 예전 규칙의 2D/."""
+    last = _read_meta(result_dir).get("last_2d_dir") if os.path.exists(os.path.join(result_dir, constants.CONTEXT_META_FILE_NAME)) else None
+    return last if last and os.path.isdir(last) else get_2d_dir(result_dir)
+
+
+def _get_out_2d_dir(prepared):
+    # type: (object) -> str
+    return getattr(prepared, "out_2d_dir", None) or get_2d_dir(prepared.result_dir)
+
+
 def get_sheets_dir(result_dir):
     # type: (str) -> str
-    """도면 SVG 폴더 — 2D/sheets. 2026-10-19 전 결과 폴더는 결과 폴더 바로 아래 sheets/라 그쪽에 있으면 그쪽."""
+    """도면 SVG 폴더 — 마지막 2D 폴더의 sheets/. 2026-10-19 전 결과 폴더는 결과 폴더 바로 아래 sheets/라 그쪽에 있으면 그쪽."""
+    last = get_last_2d_dir(result_dir)
+    if last != get_2d_dir(result_dir):
+        return os.path.join(last, constants.RESULT_SHEETS_DIRNAME)
     legacy = os.path.join(result_dir, constants.RESULT_SHEETS_DIRNAME)
     current = os.path.join(get_2d_dir(result_dir), constants.RESULT_SHEETS_DIRNAME)
     return legacy if os.path.isdir(legacy) and not os.path.isdir(current) else current
@@ -1081,8 +1109,8 @@ def _run_phases(request, progress, doc, response, state):
     if options.get("make_dwg") and constants.DWG_EXPORT_ENABLED and hasattr(context_baker, "save_dwg_from_3dm"):   # DWG는 Rhino만   # 2D 도면(BM::)만 .dwg로 — 실패해도 3dm은 남긴다
         _report(progress, "write_3dm", 0.95, ".dwg 저장")
         try:   # 방금 쓴 3dm을 헤드리스로 열어 쓴다 — 활성 문서에서 쓰면 Mac에서 멈춘다(context_baker.save_dwg_from_3dm)
-            os.makedirs(get_2d_dir(prepared.result_dir), exist_ok=True)
-            dwg_path = os.path.join(get_2d_dir(prepared.result_dir), constants.DWG_FILE_FORMAT % min(prepared.scales))
+            os.makedirs(_get_out_2d_dir(prepared), exist_ok=True)
+            dwg_path = os.path.join(_get_out_2d_dir(prepared), constants.DWG_FILE_FORMAT % min(prepared.scales))
             response["context"]["dwg"] = context_baker.save_dwg_from_3dm(path, dwg_path, constants.BM_ROOT_LAYER)
         except Exception as exc:   # noqa: BLE001
             _phase_failed(response, "write_3dm", exc)
@@ -1099,8 +1127,8 @@ def _write_dwg(prepared):
         raise RuntimeError("DWG는 Rhino에서만 저장할 수 있습니다")
     scale = min(prepared.scales)
     items = context_geometry.build_basemap_2d(prepared, scale)
-    os.makedirs(get_2d_dir(prepared.result_dir), exist_ok=True)
-    return context_baker.save_dwg(items, prepared, os.path.join(get_2d_dir(prepared.result_dir), constants.DWG_FILE_FORMAT % scale))
+    os.makedirs(_get_out_2d_dir(prepared), exist_ok=True)
+    return context_baker.save_dwg(items, prepared, os.path.join(_get_out_2d_dir(prepared), constants.DWG_FILE_FORMAT % scale))
 
 
 def _run_2d_phases(prepared, options, terrain_tris, progress, response, state, dwg=False):
@@ -1117,7 +1145,7 @@ def _run_2d_phases(prepared, options, terrain_tris, progress, response, state, d
         for n, scale in enumerate(prepared.scales):
             _report(progress, "basemap", n / float(len(prepared.scales)), "1:%d .ai" % scale)
             try:
-                result = basemap_ai.write_basemap(prepared, scale, get_2d_dir(prepared.result_dir))
+                result = basemap_ai.write_basemap(prepared, scale, _get_out_2d_dir(prepared))
                 exported.append(result["path"])
                 layer_count = max(layer_count, result["layers"])
                 state.setdefault("ai_results", {})[scale] = result
@@ -1137,7 +1165,7 @@ def _run_2d_phases(prepared, options, terrain_tris, progress, response, state, d
         state["phase"] = "sheets"
         sheet_ids = get_sheet_ids(options)
         names = {sheet_id: name for sheet_id, _key, name, _en, _needs in constants.SHEET_CATALOG}
-        sheets_dir = os.path.join(get_2d_dir(prepared.result_dir), constants.RESULT_SHEETS_DIRNAME)
+        sheets_dir = os.path.join(_get_out_2d_dir(prepared), constants.RESULT_SHEETS_DIRNAME)
         try:
             data = sheet_svg.SheetData.from_prepared(prepared, terrain_tris)
             state["sheet_data"] = data
@@ -1160,7 +1188,7 @@ def _run_2d_phases(prepared, options, terrain_tris, progress, response, state, d
         state["phase"] = "tables"
         _report(progress, "tables", 0.0, "조서 CSV")
         try:
-            response["tables"] = context_report.write_tables(prepared, get_2d_dir(prepared.result_dir))
+            response["tables"] = context_report.write_tables(prepared, _get_out_2d_dir(prepared))
         except Exception as exc:   # noqa: BLE001
             _phase_failed(response, "tables", exc)
         _report(progress, "tables", 1.0, "CSV %d개" % len(response["tables"]))
@@ -1360,7 +1388,7 @@ def export_basemap(result_dir, scale, site_db=None, context_db=None):
     """결과 폴더의 context.json(pnus·options·원점·스타일)으로 prepare를 다시 돌려 basemap_<축척>.ai 한 장을 쓴다(패널 '.ai 내보내기').
     Rhino 문서를 쓰지 않는다 — 문서에서 객체를 지웠어도 된다. 반환 basemap_ai.write_basemap 결과."""
     prepared = _prepare_from_meta(result_dir, scale, site_db, context_db)
-    return basemap_ai.write_basemap(prepared, int(scale), get_2d_dir(result_dir))
+    return basemap_ai.write_basemap(prepared, int(scale), get_last_2d_dir(result_dir))   # 다른 축척은 마지막 2D 폴더에
 
 
 def get_sheet_data(result_dir, keep=None, site_db=None, context_db=None, quick=False):
@@ -1409,15 +1437,15 @@ def make_2d(result_dir, options, progress=None, keep=None, site_db=None, context
 
     입력: result_dir(run이 만든 폴더 — context.json 필요), options(2D 키, _2D_OPTION_KEYS), progress(phase, fraction, text) -> bool,
           keep(run이 남긴 {dir, terrain_tris} — 지형 도면용. 다른 폴더면 지형 도면은 빈다).
-    처리: get_2d_request → prepare(가장 큰 프레임까지 다시 조회, phase 'query') → tables/만 비우고 _run_2d_phases
-          → 도면은 이번에 고른 장만 새로 쓰고 전에 만든 다른 장은 목록에 합친다(_merge_sheets)
-          → context.json의 options·basemap·sheets·tables 갱신 + log.txt. Rhino 문서는 건드리지 않는다.
+    처리: get_2d_request → prepare(가장 큰 프레임까지 다시 조회, phase 'query') → 새 2D 폴더(get_new_2d_dir — 2D_<스타일>_<HHMM>)에 _run_2d_phases
+          → context.json의 options·basemap·sheets·tables·last_2d_dir 갱신 + log.txt. 앞서 만든 2D 폴더는 건드리지 않는다. Rhino 문서도.
     출력: {ok, cancelled, dir, elapsed_s, options, basemap, sheets, tables, files, warnings, error}.
     """
     started = time.time()
     request = get_request_with_defaults(get_2d_request(result_dir, options, site_db, context_db))
     response = _get_empty_response(request["options"])
-    response.update(dir=result_dir, folder=get_2d_dir(result_dir))   # folder = 패널 2D 카드 [폴더 열기]
+    out_dir = get_new_2d_dir(result_dir, (options or {}).get("style"))
+    response.update(dir=result_dir, folder=out_dir)   # folder = 패널 2D 카드 [폴더 열기]
     state = {"phase": "query"}
     prepared = None
     try:
@@ -1425,17 +1453,14 @@ def make_2d(result_dir, options, progress=None, keep=None, site_db=None, context
             raise ValueError("만들 2D 자료를 하나 이상 고르세요")
         prepared = prepare(request, progress)
         prepared.result_dir = result_dir   # prepare는 오늘 날짜 폴더를 고른다 — 어제 만든 3D 폴더에 더할 수 있게
+        prepared.out_2d_dir = out_dir
+        os.makedirs(out_dir, exist_ok=True)
         response.update(options=dict(prepared.request["options"]), warnings=list(prepared.warnings))
-        if request["options"].get("make_tables"):   # 조서 CSV는 늘 같은 다섯 개를 새로 쓴다
-            shutil.rmtree(os.path.join(get_2d_dir(result_dir), constants.RESULT_TABLES_DIRNAME), ignore_errors=True)
-        # 도면 폴더는 비우지 않는다 — 현황도 다음에 분석도를 더 만들면 현황도가 사라졌다(2026-10-19 사용자 행동 분석)
         same = bool(keep) and keep.get("dir") == result_dir
         terrain_tris = (keep.get("terrain_tris") or []) if same else []
         _run_2d_phases(prepared, request["options"], terrain_tris, progress, response, state,
                        dwg=bool(request["options"].get("make_dwg")) and constants.DWG_EXPORT_ENABLED)
         response["ok"] = True
-        if response["sheets"]:
-            response["sheets"] = _merge_sheets(_read_meta(result_dir).get("sheets") or [], response["sheets"])
         if keep is not None:
             keep.clear()
             keep.update(dir=result_dir, data=state.get("sheet_data"), prepared=prepared, terrain_tris=terrain_tris)
@@ -1450,6 +1475,7 @@ def make_2d(result_dir, options, progress=None, keep=None, site_db=None, context
     if response["ok"]:
         meta = _read_meta(result_dir)
         meta["options"] = dict(response["options"])
+        meta["last_2d_dir"] = out_dir
         for key in ("basemap", "sheets", "tables"):
             if response[key]:
                 meta[key] = response[key]
@@ -1463,14 +1489,6 @@ def make_2d(result_dir, options, progress=None, keep=None, site_db=None, context
     context_report.append_log(result_dir, lines)
     response["files"] = _list_files(result_dir)
     return response
-
-
-def _merge_sheets(old_sheets, new_sheets):
-    # type: (list, list) -> list
-    """전에 만든 도면 목록(context.json sheets)에 이번 도면을 덮어 합친다 — 같은 id는 새것, 파일이 없어진 옛 장은 뺀다. id 순."""
-    merged = {int(s["id"]): s for s in old_sheets if isinstance(s, dict) and s.get("path") and os.path.exists(s["path"])}
-    merged.update((int(s["id"]), s) for s in new_sheets)
-    return [merged[k] for k in sorted(merged)]
 
 
 def preview_sheet(result_dir, sheet_id, style, keep=None):
