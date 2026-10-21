@@ -87,6 +87,33 @@ class LocalPackTest(unittest.TestCase):
             self.assertEqual(sorted(r["pnu"] for r in connection.execute("SELECT pnu FROM parcels")), ["11", "41"])
             connection.close()
 
+    def test_jp_packs_apart(self):
+        """일본 건물 팩(경위도)은 한국 조회에서 빠지고 일본 조회(경위도 범위)에서만 열린다. 일본 팩을 받을 때는 설치 ID를 보내지 않는다."""
+        with tempfile.TemporaryDirectory() as data_dir:
+            for name in ("11110_context.db", "jp13104_context.db", "jp27100_context.db", "jpn_context.db"):
+                open(os.path.join(data_dir, name), "w").close()
+            with open(os.path.join(data_dir, "packs.json"), "w") as f:
+                json.dump({"jp13104_context.db": {"sha256": "x", "bounds": [139.66, 35.66, 139.75, 35.73]},
+                           "jp27100_context.db": {"sha256": "x", "bounds": [135.39, 34.58, 135.58, 34.76]}}, f)
+            self.assertEqual([os.path.basename(p) for p in data_pack.get_local_paths("context", data_dir=data_dir)],
+                             ["11110_context.db", "jpn_context.db"])
+            self.assertEqual([os.path.basename(p) for p in data_pack.get_jp_paths((139.69, 35.68, 139.71, 35.70), data_dir)], ["jp13104_context.db"])
+        sent = {}
+
+        def fake_urlopen(request, timeout=None):
+            sent.update(request.headers)
+            raise OSError("멈춤")
+        original = data_pack.urllib.request.urlopen
+        data_pack.urllib.request.urlopen = fake_urlopen
+        try:
+            for name in ("11110_context.db", "jp13104_context.db"):   # 국내 서버 팩은 보내고 일본 팩은 보내지 않는다
+                sent.clear()
+                with self.assertRaises(OSError):
+                    data_pack._open_pack({"name": name, "url": "https://example.com/%s.xz" % name}, "install-id", None)
+                self.assertEqual(sent.get("X-udt-client"), None if name.startswith("jp") else "install-id")
+        finally:
+            data_pack.urllib.request.urlopen = original
+
     def test_group_without_table(self):
         """상한을 넘어 묶음으로 나뉠 때 테이블이 없는 묶음(등고선 팩만)은 건너뛴다. 어디에도 없으면 오류."""
         with tempfile.TemporaryDirectory() as data_dir:

@@ -5470,5 +5470,125 @@
   "es": "El archivo no tiene objetos: {0}",
   "ja": "ファイルにオブジェクトがありません: {0}",
   "zh": "文件中没有对象：{0}"
+ },
+ "Global — {0} 건물 {1}동·{2}": {
+  "en": "Global — {1} {0} buildings · {2}",
+  "es": "Global — {1} edificios de {0} · {2}",
+  "ja": "Global — {0} 建物 {1}棟・{2}",
+  "zh": "Global — {0} 建筑 {1} 栋 · {2}"
+ },
+ "Global — {0}·{1}를 생성 때 받습니다": {
+  "en": "Global — {0} and {1} are downloaded when creating",
+  "es": "Global — {0} y {1} se descargan al crear",
+  "ja": "Global — {0}・{1}は作成時にダウンロードします",
+  "zh": "Global — 生成时下载 {0} 和 {1}"
+ },
+ "건물 {0}동 (PLATEAU)": {
+  "en": "{0} buildings (PLATEAU)",
+  "es": "{0} edificios (PLATEAU)",
+  "ja": "建物 {0}棟 (PLATEAU)",
+  "zh": "建筑 {0} 栋 (PLATEAU)"
+ },
+ "국토지리원 5 m DEM": {
+  "en": "GSI Japan 5 m DEM",
+  "es": "DEM de 5 m del GSI de Japón",
+  "ja": "国土地理院 5 m DEM",
+  "zh": "日本国土地理院 5 m DEM"
+ },
+ "지리원 5 m 지형": {
+  "en": "GSI 5 m terrain",
+  "es": "terreno de 5 m del GSI",
+  "ja": "国土地理院 5 m 地形",
+  "zh": "国土地理院 5 m 地形"
+ },
+ "지형 타일": {
+  "en": "terrain tiles",
+  "es": "teselas de terreno",
+  "ja": "地形タイル",
+  "zh": "地形瓦片"
+ },
+ "필지·용도지역 도면은 Korea 모드에만 있고, 건물 높이는 실측·태그 값(없으면 {0:.1f} m)입니다. 인터넷 연결이 필요합니다.": {
+  "en": "Parcel and zoning maps are only in Korea mode. Building heights are measured or tagged values ({0:.1f} m if missing). An internet connection is required.",
+  "es": "Los planos de parcelas y zonificación solo están en el modo Korea. La altura de los edificios es medida o de etiquetas ({0:.1f} m si falta). Se necesita conexión a internet.",
+  "ja": "区画・用途地域の図面は Korea モードのみです。建物の高さは実測値・タグ値（ない場合は {0:.1f} m）です。インターネット接続が必要です。",
+  "zh": "地块和用途分区图仅在 Korea 模式下提供。建筑高度为实测值或标签值（缺失时为 {0:.1f} m）。需要联网。"
+ },
+ "필지·용도지역 도면은 Korea 모드에만 있고, 실측 높이·높이 태그가 있는 건물은 {0} %입니다(나머지 {1:.1f} m 또는 층수 추정).": {
+  "en": "Parcel and zoning maps are only in Korea mode. {0}% of buildings have a measured height or height tag (the rest use {1:.1f} m or an estimate from floor counts).",
+  "es": "Los planos de parcelas y zonificación solo están en el modo Korea. El {0} % de los edificios tiene altura medida o etiqueta de altura (el resto usa {1:.1f} m o una estimación por plantas).",
+  "ja": "区画・用途地域の図面は Korea モードのみです。実測高さ・高さタグのある建物は {0}% です（残りは {1:.1f} m または階数から推定）。",
+  "zh": "地块和用途分区图仅在 Korea 模式下提供。有实测高度或高度标签的建筑占 {0}%（其余按 {1:.1f} m 或层数估算）。"
+ },
+ "{0}、国土交通省 (CC BY 4.0, Gorani 가공)": {
+  "en": "{0}, MLIT Japan (CC BY 4.0, processed by Gorani)",
+  "es": "{0}, MLIT de Japón (CC BY 4.0, procesado por Gorani)",
+  "ja": "{0}、国土交通省（CC BY 4.0、Goraniで加工）",
+  "zh": "{0}，日本国土交通省（CC BY 4.0，经 Gorani 加工）"
+ },
+ "건물 높이: PLATEAU 실측 높이(B)·층수(C), 없는 곳은 OSM height 태그(B)·층수(C)·기본값 {0:.1f} m(D)": {
+  "en": "Building height: PLATEAU measured height (B) · floors (C); elsewhere OSM height tag (B) · floors (C) · default {0:.1f} m (D)",
+  "es": "Altura de edificios: altura medida de PLATEAU (B) · plantas (C); en el resto, etiqueta height de OSM (B) · plantas (C) · valor por defecto {0:.1f} m (D)",
+  "ja": "建物の高さ: PLATEAU 実測高さ(B)・階数(C)、ない所は OSM height タグ(B)・階数(C)・既定値 {0:.1f} m(D)",
+  "zh": "建筑高度：PLATEAU 实测高度(B)、层数(C)，其余为 OSM height 标签(B)、层数(C)、默认值 {0:.1f} m(D)"
+ },
+ "자료기준 — {0} · {1} · 생성 {2} · {3} v{4}": {
+  "en": "Data as of — {0} · {1} · created {2} · {3} v{4}",
+  "es": "Datos de referencia — {0} · {1} · creado {2} · {3} v{4}",
+  "ja": "資料基準 — {0} · {1} · 作成 {2} · {3} v{4}",
+  "zh": "数据基准 — {0} · {1} · 生成 {2} · {3} v{4}"
+ },
+ "좌표계: {0} · 지형 5 m 격자(표고 T.P.) — 실측·법정 자료 아님": {
+  "en": "CRS: {0} · terrain on a 5 m grid (heights T.P.) — not survey-grade or legally binding",
+  "es": "Sistema de coordenadas: {0} · terreno en malla de 5 m (cotas T.P.) — no es levantamiento ni dato oficial",
+  "ja": "座標系: {0} · 地形 5 m格子（標高 T.P.） — 実測・法定資料ではありません",
+  "zh": "坐标系：{0} · 地形 5 m 格网（高程 T.P.） — 非实测或法定资料"
+ },
+ "지형 Terrain Tiles (Mapzen·AWS Open Data, SRTM 등 공개 DEM)": {
+  "en": "terrain: Terrain Tiles (Mapzen, AWS Open Data; SRTM and other open DEMs)",
+  "es": "terreno: Terrain Tiles (Mapzen, AWS Open Data; SRTM y otros DEM abiertos)",
+  "ja": "地形 Terrain Tiles (Mapzen・AWS Open Data、SRTMなどの公開DEM)",
+  "zh": "地形 Terrain Tiles（Mapzen、AWS Open Data，SRTM 等公开 DEM）"
+ },
+ "지형 国土地理院 標高タイル (加工)": {
+  "en": "terrain: GSI Japan elevation tiles (国土地理院 標高タイル, processed)",
+  "es": "terreno: teselas de elevación del GSI de Japón (国土地理院 標高タイル, procesadas)",
+  "ja": "地形 国土地理院 標高タイル（加工）",
+  "zh": "地形 日本国土地理院高程瓦片（国土地理院 標高タイル，已加工）"
+ },
+ "출처: {0}": {
+  "en": "Sources: {0}",
+  "es": "Fuentes: {0}",
+  "ja": "出典: {0}",
+  "zh": "来源：{0}"
+ },
+ "Gorani에서 건물 외곽·높이를 추출·가공. 높이는 measuredHeight(항공측량 실측, B)·층수(C)·기본값(D)": {
+  "en": "Building outlines and heights extracted and processed by Gorani. Heights: measuredHeight (aerial survey, B) · floors (C) · default (D)",
+  "es": "Contornos y alturas de edificios extraídos y procesados por Gorani. Alturas: measuredHeight (levantamiento aéreo, B) · plantas (C) · valor por defecto (D)",
+  "ja": "Goraniで建物の外形・高さを抽出・加工。高さは measuredHeight（航空測量の実測、B）・階数(C)・既定値(D)",
+  "zh": "建筑轮廓和高度由 Gorani 提取并加工。高度：measuredHeight（航空测量实测，B）、层数(C)、默认值(D)"
+ },
+ "국토지리원 콘텐츠 이용규약(공공데이터 이용규약 제1.0판 호환) — 출처 표기": {
+  "en": "GSI Japan content terms of use (compatible with the Public Data License 1.0) — attribution required",
+  "es": "Condiciones de uso de contenidos del GSI de Japón (compatibles con la Licencia de Datos Públicos 1.0) — con atribución",
+  "ja": "国土地理院コンテンツ利用規約（公共データ利用規約 第1.0版と互換） — 出典表示",
+  "zh": "日本国土地理院内容使用条款（兼容公共数据使用条款 第1.0版）— 需注明来源"
+ },
+ "표고 타일을 가공해 만듦. 5 m 격자, 표고 기준 T.P.(도쿄만 평균해면)": {
+  "en": "Made by processing elevation tiles. 5 m grid, heights referenced to T.P. (mean sea level of Tokyo Bay)",
+  "es": "Elaborado procesando teselas de elevación. Malla de 5 m, cotas referidas a T.P. (nivel medio del mar de la bahía de Tokio)",
+  "ja": "標高タイルを加工して作成。5 m格子、標高基準 T.P.（東京湾平均海面）",
+  "zh": "由高程瓦片加工而成。5 m 格网，高程基准 T.P.（东京湾平均海面）"
+ },
+ "OpenStreetMap을 받지 못해 도로·수계·녹지 없이 만들었습니다": {
+  "en": "OpenStreetMap could not be downloaded, so roads, water and green areas are missing",
+  "es": "No se pudo descargar OpenStreetMap, así que faltan calles, agua y zonas verdes",
+  "ja": "OpenStreetMapを取得できなかったため、道路・水系・緑地なしで作成しました",
+  "zh": "无法下载 OpenStreetMap，因此生成结果中没有道路、水系和绿地"
+ },
+ "PLATEAU 건물과 지형만 들어 있습니다. 잠시 뒤 다시 만들면 도로·수계·녹지가 들어갑니다.": {
+  "en": "Only PLATEAU buildings and terrain are included. Create again in a little while to add roads, water and green areas.",
+  "es": "Solo incluye edificios de PLATEAU y el terreno. Vuelva a crear dentro de un rato para añadir calles, agua y zonas verdes.",
+  "ja": "PLATEAUの建物と地形だけが入っています。しばらくしてから作り直すと道路・水系・緑地が入ります。",
+  "zh": "只包含 PLATEAU 建筑和地形。稍后重新生成即可加入道路、水系和绿地。"
  }
 }
