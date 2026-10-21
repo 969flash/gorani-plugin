@@ -53,6 +53,9 @@ def get_tile_config():
     if api_key:
         config.update(url=VWORLD_TILE_URL_TEMPLATE % api_key, attribution=VWORLD_ATTRIBUTION,
                       aerial_url=VWORLD_AERIAL_URL_TEMPLATE % api_key, aerial_attribution=VWORLD_AERIAL_ATTRIBUTION)
+    import context_builder   # 호스트 판정 — 모듈 수준 import는 순환
+    if not constants.HOST_LABELS[context_builder.get_host()].get("aerial", True):   # Blender — 위성 영상 없음(패널은 [위성]을 숨긴다)
+        config.update(aerial_url="", abroad_aerial_url="")
     return config
 
 

@@ -2,6 +2,7 @@
 
 import datetime
 import importlib.util
+import json
 import os
 import sys
 import tempfile
@@ -242,6 +243,80 @@ class DoneMessageTest(unittest.TestCase):
         self.assertEqual(set(done["quality"]), {"height_src", "align", "skipped", "mismatch_count", "dates"})
         for warning in done["warnings"]:
             self.assertEqual(set(warning), WARNING_KEYS)
+
+
+class BridgeTest(unittest.TestCase):
+    def test_new_tab_supersedes_old(self):
+        """브라우저 패널을 새 탭에서 다시 열면 앞 탭의 이벤트 줄은 superseded를 받고 끝난다 — 두 탭이 15 s마다 줄을 서로 뺏지 않는다."""
+        import panel_server
+        controller = type("Controller", (), {"handle": lambda self, msg: None, "on_close": lambda self: None})()
+        bridge = panel_server.Bridge(controller)
+        try:
+            old = bridge.subscribe()
+            new = bridge.subscribe()
+            self.assertEqual(json.loads(old.get_nowait())["type"], "superseded")
+            self.assertIs(bridge.events, new)
+            self.assertTrue(new.empty())
+        finally:
+            bridge.close()
+
+    def test_poll_mode_without_threads(self):
+        """Blender 판(threaded=False) — 서버 스레드 없이 poll()이 연결을 받는다. 새 탭은 앞 탭을 superseded로 끊고,
+        cancel은 poll 안에서 바로, 나머지 명령은 pump에서 처리한다(생성 중 다른 명령이 끼어들지 않는다)."""
+        import threading
+        import urllib.request
+        import panel_server
+        handled = []
+        controller = type("Controller", (), {"handle": lambda self, msg: handled.append(msg["cmd"]), "on_close": lambda self: None})()
+        bridge = panel_server.Bridge(controller, threaded=False)
+        base = bridge.url.split("?")[0]
+        received = {"A": [], "B": []}
+
+        def listen(name):
+            with urllib.request.urlopen(base + "events?token=" + bridge.token, timeout=10) as stream:
+                for line in stream:
+                    if line.startswith(b"data: "):
+                        received[name].append(json.loads(line[6:])["type"])
+                        if received[name][-1] in ("superseded", "bye"):
+                            return
+
+        def post(msg):
+            threading.Thread(target=urllib.request.urlopen, args=(urllib.request.Request(base + "cmd?token=" + bridge.token,
+                                                                                         data=json.dumps(msg).encode("utf-8"), method="POST"),),
+                             daemon=True).start()
+
+        def poll_until(check):
+            for _ in range(200):
+                bridge.poll()
+                if check():
+                    return True
+                threading.Event().wait(0.02)
+            return False
+
+        try:
+            before = threading.active_count()   # 브리지가 스레드를 띄우지 않는다
+            bridge2 = panel_server.Bridge(controller, threaded=False)
+            self.assertEqual(threading.active_count(), before)
+            bridge2.close()
+            a = threading.Thread(target=listen, args=("A",), daemon=True)
+            a.start()
+            self.assertTrue(poll_until(lambda: bridge.streams))
+            bridge.push({"type": "hello"})
+            self.assertTrue(poll_until(lambda: received["A"] == ["hello"]))
+            b = threading.Thread(target=listen, args=("B",), daemon=True)
+            b.start()
+            self.assertTrue(poll_until(lambda: received["A"][-1:] == ["superseded"] and len(bridge.streams) == 1))
+            post({"cmd": "cancel"})
+            post({"cmd": "init"})
+            self.assertTrue(poll_until(lambda: "cancel" in handled and len(bridge.inbox) == 1))
+            self.assertNotIn("init", handled)
+            bridge.pump()
+            self.assertIn("init", handled)
+            bridge.push({"type": "bye"})
+            b.join(5)
+            self.assertEqual(received["B"], ["bye"])
+        finally:
+            bridge.close()
 
 
 class OpenPathTest(unittest.TestCase):

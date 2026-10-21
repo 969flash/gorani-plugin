@@ -8,36 +8,18 @@ Rhino는 끄는 설정을 두지 않는다(무료 도구 — 쓰면 보낸다). 
 
 import json
 import locale
-import os
 import platform
 import threading
 import urllib.request
-import uuid
 
 import constants
 import context_builder
 import non_rhino_utils
 import site_prefs
 
-CLIENT_ID_PATH = os.path.join(site_prefs.PREFS_DIR, "client_id")
+CLIENT_ID_PATH = site_prefs.CLIENT_ID_PATH
+get_client_id = site_prefs.get_client_id   # 설치 ID — Blender판 빈 usage_stats(dev_deploy.BLENDER_USAGE_STATS_SOURCE)도 같은 함수
 PNUS_PER_PARAM = constants.GA_PARAM_VALUE_MAX // 20   # PNU 19자 + 쉼표
-
-
-def get_client_id(path=CLIENT_ID_PATH):
-    # type: (str) -> str
-    """설치마다 한 번 만든 무작위 UUID. 파일이 없거나 비면 새로 만들어 쓴다."""
-    try:
-        with open(path, encoding="utf-8") as f:
-            value = f.read().strip()
-        if value:
-            return value
-    except OSError:
-        pass
-    value = str(uuid.uuid4())
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(value)
-    return value
 
 
 def get_payload(name, params, client_id):

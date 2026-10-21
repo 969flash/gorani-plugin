@@ -913,9 +913,11 @@ def _phase_failed(response, phase, exc):
 def get_sheet_ids(options):
     # type: (dict) -> list
     """options.sheet_ids → 카탈로그에 있는 id만 카탈로그 순서로(옛 prefs의 다른 번호가 섞여도 깨지지 않게). 비면 전부.
-    Global 모드는 Korea 전용 도면(SHEET_KOREA_ONLY)을 뺀다."""
+    Global 모드는 Korea 전용 도면(SHEET_KOREA_ONLY)을, 위성 영상이 없는 호스트(HOST_LABELS aerial)는 항공사진을 뺀다."""
     korea_only = (options or {}).get("region") == "global"
-    valid = [sheet_id for sheet_id, key, *_ in constants.SHEET_CATALOG if not (korea_only and key in constants.SHEET_KOREA_ONLY)]
+    aerial = constants.HOST_LABELS[get_host()].get("aerial", True)   # Blender — 위성 영상 없음(항공사진 시트를 뺀다)
+    valid = [sheet_id for sheet_id, key, *_ in constants.SHEET_CATALOG
+             if not (korea_only and key in constants.SHEET_KOREA_ONLY) and (aerial or key != "aerial")]
     wanted = set()
     for value in (options or {}).get("sheet_ids") or []:
         try:

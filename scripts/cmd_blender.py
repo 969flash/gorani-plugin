@@ -1,8 +1,8 @@
 """Gorani Blender 확장 진입 — 등록·버튼·브라우저 패널 브리지·컨트롤러(cmd_site._SiteController 상속).
 
-Blender에는 웹뷰가 없어 패널(site_ui.html)을 기본 브라우저로 연다. 서버·토큰·큐는 panel_server.Bridge(SketchUp판과 공용) —
-명령은 Blender 메인 스레드(bpy.app.timers)에서 bridge.pump()가 컨트롤러로 넘긴다. cancel만 서버 스레드에서 바로 플래그를 세운다
-(생성은 메인 스레드를 막고 돈다 — 그동안 큐는 안 빠진다). 서버 스레드는 bpy를 건드리지 않는다. 메시지 계약은 docs/panel_ui.md.
+Blender에는 웹뷰가 없어 패널(site_ui.html)을 기본 브라우저로 연다. 서버·토큰은 panel_server.Bridge(SketchUp판과 공용)의 스레드 없는 판 —
+Blender 메인 스레드가 타이머(bpy.app.timers)로 bridge.pump()를 돌려 연결을 받고 명령을 컨트롤러로 넘긴다. 생성 중에는 진행 콜백의 _pump가
+bridge.poll()로 cancel·새 탭을 받는다(Rhino의 RhinoApp.Wait 자리). 확장 심사가 Blender 안 스레드를 막는다. 메시지 계약은 docs/panel_ui.md.
 
 확장 패키지의 __init__.py(dev_deploy.py blender가 만든다)가 `from .scripts import cmd_blender`로 읽어 register·unregister를 넘긴다.
 로직 모듈은 cmd_site처럼 loader.load로 가져온다 — 이 파일과 cmd_site는 cmd_ 접두사라 loader가 다시 읽지 않아 서버 상태가 유지된다.
@@ -11,9 +11,11 @@ Blender에는 웹뷰가 없어 패널(site_ui.html)을 기본 브라우저로 �
 import importlib.util
 import os
 import sys
+import time
 import webbrowser
 
 import bpy
+from mathutils import geometry
 
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 if __package__:   # 설치본 — scripts/가 확장의 하위 패키지(확장 정책: 최상위 모듈·sys.path 변경 금지)
@@ -35,14 +37,55 @@ def _tag_redraw():
             area.tag_redraw()
 
 
+def _set_status(text):
+    # type: (str) -> None
+    """상태 표시줄 글(None = 지움) — Rhino 명령줄 프롬프트 자리."""
+    for window in bpy.context.window_manager.windows:
+        window.workspace.status_text_set(text)
+
+
+def _get_selected_curves():
+    # type: () -> list
+    return [o for o in bpy.context.view_layer.objects if o.select_get() and o.type == "CURVE"]
+
+
+def get_curve_ring(obj, scale):
+    # type: (bpy.types.Object, float) -> tuple
+    """Blender 커브 객체 → 구역 링(m, scale = 장면 scale_length). 안전장치에 걸리면 (None, 사용자용 이유) — context_geometry.get_curve_ring의 Blender판.
+    첫 스플라인만. 베지어는 구간마다 resolution_u로 나눠 곡선을 따른다(제어점만 이으면 Bezier Circle이 사각형이 됐다), 폴리·NURBS는 점을 잇는다."""
+    spline = obj.data.splines[0] if obj.data.splines else None
+    if spline is None or not spline.use_cyclic_u:
+        return None, "닫힌 커브가 아닙니다. Cyclic(닫힘)을 켠 커브만 받습니다"
+    if spline.type == "BEZIER":
+        knots = list(spline.bezier_points)
+        points = []
+        for a, b in zip(knots, knots[1:] + knots[:1]):
+            points += geometry.interpolate_bezier(a.co, a.handle_right, b.handle_left, b.co, spline.resolution_u + 1)[:-1]
+    else:
+        points = [p.co.xyz for p in spline.points]
+    world = [obj.matrix_world @ p for p in points]
+    if max(p.z for p in world) - min(p.z for p in world) > 1e-3:
+        return None, "XY 평면(Top)에 놓인 커브여야 합니다"
+    non_rhino_utils = loader.load("non_rhino_utils")
+    ring = non_rhino_utils.get_clean_ring([(p.x * scale, p.y * scale) for p in world])
+    problem = non_rhino_utils.get_ring_problem(ring)
+    return (None, problem) if problem else (ring, "")
+
+
 class _BlenderController(cmd_site._SiteController):
     """cmd_site 컨트롤러에 Blender 호스트 연결만 바꿔 단다. 문서 = 현재 장면."""
+
+    def __init__(self):
+        cmd_site._SiteController.__init__(self)
+        self._curve_wait = False   # 커브 고르기를 기다리는 중(두 번 눌러도 타이머 하나)
 
     def _get_doc(self):
         return bpy.context.scene
 
     def _pump(self):
-        """생성 중 cancel은 서버 스레드가 플래그를 바로 세운다 — 여기서 돌릴 이벤트가 없다."""
+        """긴 작업 중 브라우저 요청을 받는다 — 진행 푸시는 이미 나갔고 cancel·새 탭이 여기서 처리된다(다른 명령은 끝난 뒤 pump)."""
+        if _bridge is not None:
+            _bridge.poll()
 
     def _defer(self, work):
         work()   # busy 푸시는 이미 브라우저로 나갔다
@@ -53,31 +96,45 @@ class _BlenderController(cmd_site._SiteController):
     def _get_host_stats(self):
         return {"host": "blender %s" % bpy.app.version_string}
 
+    def _open(self, path):
+        """파일·폴더는 Blender wm.path_open, 주소는 wm.url_open — 브라우저를 여는 단추는 그렇다고 적혀 있다(확장 약관 4.4)."""
+        if "://" in path:
+            bpy.ops.wm.url_open(url=path)
+        else:
+            bpy.ops.wm.path_open(filepath=path)
+
     def _pick_curve(self, msg):
-        """선택한 닫힌 커브 객체 하나 → curve_shape. Blender에는 고르기 프롬프트가 없어 먼저 선택해 두어야 한다.
-        베지어는 제어점, 폴리·NURBS는 점을 잇는다(곡선 근사 안 함). 장면 단위 배율(scale_length)로 m 환산."""
+        """선택한 닫힌 커브 하나 → curve_shape. 고른 커브가 없으면 Rhino 고르기 프롬프트처럼 Blender에서 고를 때까지 기다린다
+        (상태 표시줄 안내, constants.BLENDER_CURVE_WAIT 뒤 멈춤 — 명령은 바로 돌아오고 타이머가 선택을 본다)."""
+        curves = _get_selected_curves()
+        if len(curves) > 1:
+            self.push({"type": "curve_shape", "ok": False, "text": "커브를 하나만 선택하세요(%d개 선택됨)" % len(curves)})
+        elif curves:
+            self._send_curve(curves[0])
+        elif not self._curve_wait:
+            self._curve_wait = True
+            deadline = time.time() + CURVE_WAIT_SECONDS
+            _set_status(_tr("Gorani: select a closed curve for the site area"))
+
+            def poll():
+                picked = _get_selected_curves()
+                if len(picked) != 1 and time.time() < deadline:
+                    return 0.3
+                self._curve_wait = False
+                _set_status(None)
+                if len(picked) == 1:
+                    self._guard("select", lambda: self._send_curve(picked[0]))
+                else:
+                    self.push({"type": "curve_shape", "ok": False, "text": "커브를 고르지 않아 멈췄습니다. Blender에서 커브를 선택하고 다시 누르세요"})
+                return None
+
+            bpy.app.timers.register(poll, first_interval=0.3)
+
+    def _send_curve(self, obj):
         scene = self._get_doc()
-        curves = [o for o in bpy.context.view_layer.objects if o.select_get() and o.type == "CURVE"]
-        if len(curves) != 1:
-            self.push({"type": "curve_shape", "ok": False,
-                       "text": "닫힌 커브 하나를 선택한 뒤 누르세요" + (" (%d개 선택됨)" % len(curves) if curves else "")})
-            return
-        obj = curves[0]
-        spline = obj.data.splines[0] if obj.data.splines else None
-        if spline is None or not spline.use_cyclic_u:
-            self.push({"type": "curve_shape", "ok": False, "text": "닫힌 커브가 아닙니다 — Cyclic(닫힘)을 켠 커브만 받습니다"})
-            return
-        points = [p.co for p in spline.bezier_points] if spline.type == "BEZIER" else [p.co.xyz for p in spline.points]
-        world = [obj.matrix_world @ p for p in points]
-        if max(p.z for p in world) - min(p.z for p in world) > 1e-3:
-            self.push({"type": "curve_shape", "ok": False, "text": "XY 평면(Top)에 놓인 커브여야 합니다"})
-            return
-        non_rhino_utils = loader.load("non_rhino_utils")
-        scale = scene.unit_settings.scale_length or 1.0
-        ring = non_rhino_utils.get_clean_ring([(p.x * scale, p.y * scale) for p in world])
-        problem = non_rhino_utils.get_ring_problem(ring)
+        ring, problem = get_curve_ring(obj, scene.unit_settings.scale_length or 1.0)
         baker = loader.load("context_builder").get_host_modules()[1]
-        self.push(cmd_site.get_curve_shape(None if problem else ring, problem, baker.get_doc_origin(scene)))
+        self.push(cmd_site.get_curve_shape(ring, problem, baker.get_doc_origin(scene)))
 
     def _import_context(self, msg):
         result_dir = str(msg.get("dir") or "")
@@ -103,7 +160,7 @@ def get_bridge():
     """panel_server.Bridge 하나(첫 [패널 열기]에 만든다)."""
     global _bridge
     if _bridge is None:
-        _bridge = loader.load("panel_server").Bridge(_BlenderController())
+        _bridge = loader.load("panel_server").Bridge(_BlenderController(), threaded=False)
     return _bridge
 
 
@@ -114,19 +171,21 @@ def _pump_timer():
 
 
 class GORANI_OT_open(bpy.types.Operator):
-    """대상지 패널을 기본 브라우저로 엽니다"""
+    """Open the Gorani panel in your web browser. Pick a site on the map and build the city around it"""
 
     bl_idname = "gorani.open"
     bl_label = "Gorani"
 
     def execute(self, context):
         if not bpy.app.online_access:
-            self.report({"ERROR"}, "Gorani는 지도·지역 데이터를 인터넷에서 받습니다 — 환경 설정 > 시스템 > 네트워크 > 온라인 접근 허용을 켜세요")
+            self.report({"ERROR"}, _tr("Gorani downloads maps and regional data. Turn on Preferences > System > Network > Allow Online Access"))
             return {"CANCELLED"}
         url = get_bridge().url
-        webbrowser.open(url)
-        print("[Gorani] 패널: %s" % url)
-        self.report({"INFO"}, "Gorani 패널을 브라우저로 열었습니다")
+        print("[Gorani] panel: %s" % url)
+        if not webbrowser.open(url):
+            self.report({"ERROR"}, _tr("Could not open a web browser. Open this address:") + " " + url)
+            return {"CANCELLED"}
+        self.report({"INFO"}, _tr("Opened the Gorani panel in your web browser"))
         return {"FINISHED"}
 
 
@@ -137,18 +196,46 @@ class GORANI_PT_panel(bpy.types.Panel):
     bl_label = "Gorani"
 
     def draw(self, context):
-        self.layout.operator(GORANI_OT_open.bl_idname, text="패널 열기", icon="URL")
+        row = self.layout.row()
+        row.scale_y = 1.5
+        row.operator(GORANI_OT_open.bl_idname, text="Open Panel", icon="URL")
         if _bridge is not None:
-            self.layout.label(text="브라우저 탭을 닫았으면 다시 누르세요")
+            self.layout.label(text="Closed the browser tab? Click again")
 
 
+def _draw_import_menu(self, context):
+    self.layout.operator(GORANI_OT_open.bl_idname, text="Gorani Site Context", icon="URL")
+
+
+def _tr(text):
+    # type: (str) -> str
+    return bpy.app.translations.pgettext_iface(text)
+
+
+# Blender 화면 글은 영어가 기본, 인터페이스 언어가 한국어면 아래 번역(패널 HTML은 한국어 하나). 버튼 글은 연산자 맥락으로도 찾는다
+_KO = {
+    "Open Panel": "패널 열기",
+    "Closed the browser tab? Click again": "브라우저 탭을 닫았으면 다시 누르세요",
+    "Gorani Site Context": "Gorani 사이트 모델",
+    "Open the Gorani panel in your web browser. Pick a site on the map and build the city around it":
+        "Gorani 패널을 기본 브라우저로 엽니다. 지도에서 대상지를 고르면 주변 도시를 만듭니다",
+    "Gorani downloads maps and regional data. Turn on Preferences > System > Network > Allow Online Access":
+        "Gorani는 지도와 지역 데이터를 인터넷에서 받습니다. 환경 설정 > 시스템 > 네트워크 > 온라인 접근 허용을 켜세요",
+    "Could not open a web browser. Open this address:": "브라우저를 열지 못했습니다. 이 주소를 여세요:",
+    "Opened the Gorani panel in your web browser": "Gorani 패널을 브라우저로 열었습니다",
+    "Gorani: select a closed curve for the site area": "Gorani: 대상지 구역으로 쓸 닫힌 커브를 고르세요",
+}
+TRANSLATIONS = {"ko_KR": {(context, en): ko for en, ko in _KO.items() for context in ("*", "Operator")}}
 _CLASSES = (GORANI_OT_open, GORANI_PT_panel)
 POLL_SECONDS = loader.load("constants").BLENDER_PANEL_POLL
+CURVE_WAIT_SECONDS = loader.load("constants").BLENDER_CURVE_WAIT
 
 
 def register():
     for cls in _CLASSES:
         bpy.utils.register_class(cls)
+    bpy.types.TOPBAR_MT_file_import.append(_draw_import_menu)
+    bpy.app.translations.register(__name__, TRANSLATIONS)
     if not bpy.app.timers.is_registered(_pump_timer):
         bpy.app.timers.register(_pump_timer, first_interval=POLL_SECONDS, persistent=True)
 
@@ -160,5 +247,7 @@ def unregister():
     if _bridge is not None:
         _bridge.close()
         _bridge = None
+    bpy.app.translations.unregister(__name__)
+    bpy.types.TOPBAR_MT_file_import.remove(_draw_import_menu)
     for cls in reversed(_CLASSES):
         bpy.utils.unregister_class(cls)

@@ -5,6 +5,7 @@
 
 import importlib.util
 import json
+import math
 import os
 import sys
 import tempfile
@@ -109,26 +110,56 @@ class SteppedTerrainTest(unittest.TestCase):
         self.assertTrue(all(abs(v[2] - level) <= 0.005 or v[2] == round(v[2]) for v in meshes["site_wall"][0]))
 
 
+@unittest.skipUnless(bpy is not None, "Blender 안에서만 돈다")
+class CurveRingTest(unittest.TestCase):
+    def test_bezier_circle_follows_curve(self):
+        """Bezier Circle(제어점 4개)은 원을 따라 링이 된다 — 제어점만 이으면 넓이가 원의 64 %(마름모)였다."""
+        bpy.ops.curve.primitive_bezier_circle_add(radius=50.0)
+        obj = bpy.context.active_object
+        try:
+            ring, problem = cmd_blender.get_curve_ring(obj, 1.0)
+            self.assertEqual(problem, "")
+            self.assertAlmostEqual(loader.load("non_rhino_utils").get_ring_area(ring), math.pi * 50.0 ** 2, delta=0.01 * math.pi * 50.0 ** 2)
+            obj.data.splines[0].use_cyclic_u = False
+            self.assertIsNone(cmd_blender.get_curve_ring(obj, 1.0)[0])
+        finally:
+            bpy.data.objects.remove(obj, do_unlink=True)
+
+
 @unittest.skipUnless(bpy is not None and HAS_FIXTURES, "Blender 안에서만")
 class BridgeTest(unittest.TestCase):
-    """서버 스레드 ↔ 메인 스레드 펌프 — 토큰 없으면 403, init → init_state(host blender)."""
+    """스레드 없는 브리지 — 메인 스레드 pump가 연결을 받는다. 토큰 없으면 403, init → init_state(host blender, 사용 통계 묻지 않음)."""
+
+    def _call(self, bridge, request):
+        """브라우저 쪽 요청 하나 — 서버는 메인 스레드 pump가 돌리므로 요청은 옆 스레드에서 보낸다."""
+        box = {}
+
+        def run():
+            try:
+                with urllib.request.urlopen(request, timeout=10) as response:
+                    box["status"], box["body"] = response.status, response.read()
+            except urllib.error.HTTPError as error:
+                box["status"] = error.code
+
+        thread = threading.Thread(target=run, daemon=True)
+        thread.start()
+        while thread.is_alive():
+            bridge.pump()
+            thread.join(0.02)
+        return box
 
     def test_init_roundtrip(self):
         bridge = cmd_blender.get_bridge()
-        bridge.controller._send_stats = lambda name, params: None   # 시험에서 사용 통계를 보내지 않는다
+        self.assertFalse(bridge.threaded)
         base = bridge.url.split("?")[0]
-        with self.assertRaises(urllib.error.HTTPError) as caught:
-            urllib.request.urlopen(base + "?token=wrong")
-        self.assertEqual(caught.exception.code, 403)
-        page = urllib.request.urlopen(bridge.url).read().decode("utf-8")
+        self.assertEqual(self._call(bridge, base + "?token=wrong")["status"], 403)
+        page = self._call(bridge, bridge.url)["body"].decode("utf-8")
         self.assertIn("BRIDGE_TOKEN", page)
         self.assertNotIn("<!--VENDOR_JS-->", page)
         received = []
-        opened = threading.Event()
 
         def listen():
             with urllib.request.urlopen(base + "events?token=" + bridge.token, timeout=30) as stream:
-                opened.set()
                 for line in stream:
                     if line.startswith(b"data: "):
                         received.append(json.loads(line[6:]))
@@ -136,16 +167,24 @@ class BridgeTest(unittest.TestCase):
 
         thread = threading.Thread(target=listen, daemon=True)
         thread.start()
-        self.assertTrue(opened.wait(10))
-        request = urllib.request.Request(base + "cmd?token=" + bridge.token, data=json.dumps({"cmd": "init"}).encode("utf-8"), method="POST")
-        self.assertEqual(urllib.request.urlopen(request).status, 204)
-        for _ in range(100):
+        for _ in range(250):
             bridge.pump()
-            thread.join(0.1)
+            if bridge.streams:
+                break
+            thread.join(0.02)
+        request = urllib.request.Request(base + "cmd?token=" + bridge.token, data=json.dumps({"cmd": "init"}).encode("utf-8"), method="POST")
+        self.assertEqual(self._call(bridge, request)["status"], 204)
+        for _ in range(250):
+            bridge.pump()
+            thread.join(0.02)
             if received:
                 break
         self.assertEqual(received[0]["type"], "init_state")
         self.assertEqual(received[0]["host"]["id"], "blender")
+        self.assertFalse(received[0]["host"]["ask_stats"])   # Blender판은 사용 통계를 묻지도 보내지도 않는다
+        self.assertNotIn("aerial", [sheet["key"] for sheet in received[0]["sheet_catalog"]])
+        self.assertEqual(received[0]["tile"]["abroad_aerial_url"], "")
+        self.assertIsNone(received[0]["update"])
 
 
 if __name__ == "__main__":

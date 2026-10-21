@@ -278,6 +278,8 @@ def get_progress_message(phase, fraction, text, skipped, details):
 - 커브: 레이어마다 커브 객체 하나(POLY 스플라인 여럿). 합필 전 필지(Site::lots)만 필지마다. 2D 도면(BM::)·구조물 표고점은 없다.
 - 베이커: 레이어 = 컬렉션 `CTX::…`(CTX 아래 한 단), 색 = 레이어 이름 재질. 원점은 장면 사용자 속성, 실제 좌표 방식은 객체 위치로 옮긴다(메시는 단정밀도라 로컬). 사본은 임시 장면에 CTX를 걸어 `bpy.data.libraries.write` → `context.blend`(새 장면 view layer를 update하지 않으면 5.2.2가 죽는다).
 - 성수 fixture R=500 전체(시트 25장 포함) 3.8 s, 건물 3,454동·지형 면 27,594(job 없음 — `tests/test_blender.py`).
+- 패널: `panel_server.Bridge(threaded=False)` — 스레드 없이 메인 스레드가 소켓을 돌린다(타이머 `pump` + 생성 진행 콜백의 `_pump` → `poll`, Rhino의 `RhinoApp.Wait` 자리). 확장 심사가 Blender 안 스레드를 막는다(2026-10-21). 이벤트 줄 소켓은 브리지가 들고 `push`가 바로 쓴다. 새 탭이 열리면 앞 탭에 `superseded`.
+- 패키지(`dev_deploy.py blender`): `loader.py`·`usage_stats.py`는 Blender 판으로 바꿔 넣는다(패키지 상대 import만·다시 읽기 없음 / 통계 없이 설치 ID만), `if __package__:` 진입 분기는 앞쪽만 남긴다. 위성 영상(Esri)·업데이트 모달은 `HOST_LABELS["blender"]`의 `aerial`·`update_notice`로 끈다. 사용 통계 없음(`GA_STREAMS`에 blender 없음).
 
 ### 5.y SketchUp판 (`cmd_sketchup`·`mesh_geometry`·`sketchup_baker`·`sketchup_ext.rb`, 2026-10-18)
 

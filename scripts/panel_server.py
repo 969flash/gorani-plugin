@@ -7,22 +7,31 @@
 토큰은 서버를 켤 때마다 새로 만든다 — 다른 웹 페이지가 로컬 서버로 명령(open_path 등)을 보내지 못하게 한다.
 서버 스레드는 호스트(bpy 등)를 건드리지 않는다. 메시지 계약은 docs/panel_ui.md.
 Blender는 기본 브라우저(cmd_blender), SketchUp은 UI::HtmlDialog(sketchup_ext.rb)가 이 주소를 연다.
+
+두 가지로 돈다:
+    threaded=True   SketchUp 사이드카(Blender 밖 별도 프로세스) — 서버 스레드가 요청을 받고 명령은 큐로 메인 루프에 넘긴다.
+    threaded=False  Blender — 스레드 없이 메인 스레드가 poll()로 소켓을 돌린다(타이머 + 생성 진행 콜백, Rhino의 RhinoApp.Wait 자리).
+                    확장 심사가 Blender 안 스레드를 막는다(threading·queue는 Blender를 죽인다 — 2026-10-21 심사 사례 조사).
+                    이벤트 줄 소켓은 브리지가 들고 push가 바로 쓴다.
 """
 
 import base64
+import collections
 import hmac
 import http.server
 import json
 import os
-import queue
+import select
 import secrets
 import socketserver
-import threading
+import time
 import traceback
 import urllib.parse
 
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
-DIRECT_CMDS = ("cancel", "host_reply")   # 서버 스레드에서 바로 — 플래그·응답만 건드린다
+DIRECT_CMDS = ("cancel", "host_reply")   # 서버 스레드(메인 스레드 판은 poll)에서 바로 — 플래그·응답만 건드린다
+PING_SECONDS = 15        # 이벤트 줄 ping 간격 — 끊긴 탭을 알아챈다
+REQUEST_TIMEOUT = 5      # s — 메인 스레드 판에서 느린 연결 하나가 Blender를 오래 막지 않게(요청 읽기·이벤트 쓰기)
 
 
 def get_html():
@@ -88,16 +97,22 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         if isinstance(msg, dict) and msg.get("cmd") in DIRECT_CMDS:
             bridge.controller.handle(msg)
         elif isinstance(msg, dict):
-            bridge.inbox.put(msg)
+            bridge.put(msg)
         self.send_response(204)
         self.end_headers()
 
     def _stream(self):
-        events = self.server.bridge.subscribe()
+        bridge = self.server.bridge
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
+        if not bridge.threaded:   # 메인 스레드 판 — 소켓을 브리지에 넘기고 돌아온다(서버는 닫지 않는다)
+            self.wfile.flush()
+            bridge.add_stream(self.connection)
+            return
+        import queue
+        events = bridge.subscribe()
         try:
             while self.server.bridge.events is events:
                 try:
@@ -111,38 +126,114 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             pass
 
 
-class _Server(http.server.ThreadingHTTPServer):
-    daemon_threads = True
-
+class _Bind(object):
     def server_bind(self):
         """HTTPServer.server_bind의 socket.getfqdn(역방향 DNS)을 건너뛴다 — 이 Mac에서 127.0.0.1 조회가 35 s 걸렸다(2026-10-15)."""
         socketserver.TCPServer.server_bind(self)
         self.server_name, self.server_port = "127.0.0.1", self.server_address[1]
 
 
-class Bridge(object):
-    """서버 하나 + 명령 큐(서버 → 메인 스레드) + 이벤트 큐(컨트롤러 → 서버). controller.push를 이 브리지로 바꿔 단다."""
+class _Server(_Bind, http.server.ThreadingHTTPServer):
+    """SketchUp 사이드카 — 요청마다 스레드."""
+    daemon_threads = True
 
-    def __init__(self, controller):
+
+class _PollServer(_Bind, http.server.HTTPServer):
+    """Blender — 스레드 없음. Bridge.poll()이 기다리는 연결만 받는다. 이벤트 줄 소켓은 닫지 않는다(브리지가 든다)."""
+    timeout = 0
+
+    def get_request(self):
+        sock, address = http.server.HTTPServer.get_request(self)
+        sock.settimeout(REQUEST_TIMEOUT)
+        return sock, address
+
+    def shutdown_request(self, request):
+        if request not in self.bridge.streams:
+            http.server.HTTPServer.shutdown_request(self, request)
+
+
+class Bridge(object):
+    """서버 하나 + 명령 inbox(서버 → 메인 스레드) + 이벤트(컨트롤러 → 탭). controller.push를 이 브리지로 바꿔 단다.
+    threaded=False(Blender)는 스레드·큐 없이 poll()·pump()가 메인 스레드에서 소켓을 돌린다(머리말)."""
+
+    def __init__(self, controller, threaded=True):
         self.token = secrets.token_urlsafe(16)
-        self.inbox = queue.Queue()
-        self.events = queue.Queue()
+        self.threaded = threaded
+        self.streams = []           # 메인 스레드 판의 이벤트 줄 소켓(탭 하나)
+        self._pinged = time.time()
         self.controller = controller
         self.controller.push = self.push
-        self.server = _Server(("127.0.0.1", 0), _Handler)
+        self.server = (_Server if threaded else _PollServer)(("127.0.0.1", 0), _Handler)
         self.server.bridge = self
-        threading.Thread(target=self.server.serve_forever, name="gorani-panel", daemon=True).start()
+        if threaded:   # SketchUp 사이드카(Blender 밖 프로세스)만
+            import queue
+            import threading
+            self.inbox = queue.Queue()
+            self.events = queue.Queue()
+            threading.Thread(target=self.server.serve_forever, name="gorani-panel", daemon=True).start()
+        else:
+            self.inbox = collections.deque()
         self.url = "http://127.0.0.1:%d/?token=%s" % (self.server.server_address[1], self.token)
+
+    def put(self, msg):
+        # type: (dict) -> None
+        """명령 하나를 메인 스레드 몫으로 쌓는다."""
+        if self.threaded:
+            self.inbox.put(msg)
+        else:
+            self.inbox.append(msg)
 
     def push(self, msg):
         # type: (dict) -> None
-        self.events.put(json.dumps(msg, ensure_ascii=True))
+        data = json.dumps(msg, ensure_ascii=True)
+        if self.threaded:
+            self.events.put(data)
+            return
+        for sock in list(self.streams):
+            self._write(sock, ("data: %s\n\n" % data).encode("utf-8"))
 
     def subscribe(self):
-        # type: () -> queue.Queue
-        """새 이벤트 줄 — 앞 줄로 가던 푸시는 이제 여기로 온다(새로 연 탭이 init으로 전부 다시 받는다)."""
+        # type: () -> object
+        """스레드 판의 새 이벤트 줄 — 앞 줄로 가던 푸시는 이제 여기로 온다(새로 연 탭이 init으로 전부 다시 받는다).
+        앞 줄에는 superseded를 보내 그 탭이 다시 붙지 않게 한다 — 안 보내면 두 탭이 15 s마다 서로 줄을 뺏으며 init을 되풀이했다(2026-10-21)."""
+        import queue
+        self.events.put(json.dumps({"type": "superseded"}))
         self.events = queue.Queue()
         return self.events
+
+    def add_stream(self, sock):
+        # type: (object) -> None
+        """메인 스레드 판의 새 이벤트 줄 — 앞 줄에는 superseded를 보내고 닫는다(subscribe와 같은 규칙)."""
+        for old in list(self.streams):
+            self._write(old, ("data: %s\n\n" % json.dumps({"type": "superseded"})).encode("utf-8"))
+            self._drop(old)
+        self.streams.append(sock)
+
+    def _write(self, sock, data):
+        # type: (object, bytes) -> None
+        try:
+            sock.sendall(data)
+        except OSError:   # 닫힌 탭·REQUEST_TIMEOUT 넘게 안 읽는 탭
+            self._drop(sock)
+
+    def _drop(self, sock):
+        # type: (object) -> None
+        if sock in self.streams:
+            self.streams.remove(sock)
+        try:
+            sock.close()
+        except OSError:
+            pass
+
+    def poll(self):
+        # type: () -> None
+        """메인 스레드 판 — 기다리는 연결을 전부 받아 처리하고 바로 돌아온다(Blender 타이머·생성 진행 콜백). PING_SECONDS마다 이벤트 줄에 ping."""
+        while select.select([self.server], [], [], 0)[0]:
+            self.server.handle_request()
+        if self.streams and time.time() - self._pinged > PING_SECONDS:
+            self._pinged = time.time()
+            for sock in list(self.streams):
+                self._write(sock, b": ping\n\n")
 
     def dispatch(self, msg):
         # type: (dict) -> None
@@ -154,16 +245,20 @@ class Bridge(object):
 
     def pump(self):
         # type: () -> None
-        """쌓인 명령을 전부 처리하고 돌아온다(Blender 타이머)."""
-        while True:
-            try:
-                msg = self.inbox.get_nowait()
-            except queue.Empty:
-                return
-            self.dispatch(msg)
+        """쌓인 명령을 전부 처리하고 돌아온다(Blender 타이머). 메인 스레드 판은 먼저 기다리는 연결을 받는다."""
+        if not self.threaded:
+            self.poll()
+            while self.inbox:
+                self.dispatch(self.inbox.popleft())
+            return
+        while not self.inbox.empty():
+            self.dispatch(self.inbox.get_nowait())
 
     def close(self):
         # type: () -> None
         self.controller.on_close()
-        self.server.shutdown()
+        if self.threaded:
+            self.server.shutdown()
+        for sock in list(self.streams):
+            self._drop(sock)
         self.server.server_close()

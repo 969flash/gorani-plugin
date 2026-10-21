@@ -102,6 +102,9 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None):
     sources = context_builder.mark_downloadable(context_builder.get_sources(site_db, context_db, today), not site_db)
     host = dict(constants.HOST_LABELS[context_builder.get_host()])
     host["ask_stats"] = host["ask_stats"] and loader.load("usage_stats").is_configured()   # 보낼 곳이 없으면 묻지 않는다
+    notice = loader.load("data_pack").get_notice_state(manifest)
+    if not host.get("update_notice", True):   # Blender — 업데이트는 확장 저장소(Blender)가 알린다
+        notice["update"] = None
     return dict({
         "type": "init_state",
         "version": constants.PANEL_VERSION,
@@ -122,12 +125,12 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None):
         "recent": site_prefs.get_recent(),
         "sheet_catalog": [{"id": sheet_id, "key": key, "name": name, "subtitle": en, "needs": needs, "korea_only": key in constants.SHEET_KOREA_ONLY,
                            "group": constants.SHEET_GROUP.get(key, "base")}
-                          for sheet_id, key, name, en, needs in constants.SHEET_CATALOG],
+                          for sheet_id, key, name, en, needs in constants.SHEET_CATALOG if key != "aerial" or host.get("aerial", True)],
         "style_presets": {key: dict(preset) for key, preset in constants.STYLE_PRESETS.items()},
         "style_defaults": dict(constants.STYLE_DEFAULTS),
         "style_ramps": {key: list(ramp) for key, ramp in constants.STYLE_RAMPS.items()},
         "styles": site_prefs.list_styles(),
-    }, **loader.load("data_pack").get_notice_state(manifest))
+    }, **notice)
 
 
 def get_search_result(query, site_db=None, region=None):

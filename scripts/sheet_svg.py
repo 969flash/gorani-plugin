@@ -22,7 +22,6 @@ import struct
 import sys
 import urllib.request
 import zlib
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from xml.sax.saxutils import escape
 
@@ -1120,6 +1119,8 @@ def _get_aerial_images(data, frame, rect, px_per_mm):
     sources = [(config["abroad_aerial_url"], config["abroad_aerial_attribution"])]
     if not is_local_projection() and config["aerial_url"] != config["abroad_aerial_url"]:
         sources.insert(0, (config["aerial_url"], config["aerial_attribution"]))
+    sources = [source for source in sources if source[0]]   # 영상 없는 호스트(Blender)는 주소가 비어 있다 — 빈 시트
+    attribution, keys = "", []
     zoom, tiles, m_per_px = get_aerial_tiles(frame, rect, px_per_mm)
     fetch = lambda key: _fetch_tile(key[1].format(z=key[2], x=key[3], y=key[4]))
     for url, attribution in sources:
@@ -1136,7 +1137,8 @@ def _get_aerial_images(data, frame, rect, px_per_mm):
             data.cache[probe] = body
         if sys.platform == "emscripten":   # 웹판(Pyodide)은 스레드를 못 띄운다 — 차례로 받는다
             bodies = list(map(fetch, missing))
-        else:
+        else:   # 영상 타일만 스레드로 받는다 — Blender는 영상이 없어 여기 오지 않는다(확장 심사: Blender 안 스레드 금지)
+            from concurrent.futures import ThreadPoolExecutor
             with ThreadPoolExecutor(constants.AERIAL_WORKERS) as pool:
                 bodies = list(pool.map(fetch, missing))
         for key, body in zip(missing, bodies):
@@ -1382,6 +1384,12 @@ def _draw_mask(frame, extent_ring, style):
             % (style["paper"], _fmt(style["fade_outside"]), outer, _ring_d(extent_ring, frame, True))]
 
 
+def _get_crs_short():
+    # type: () -> str
+    """축척 줄의 좌표계 — 해외 대상지는 대상지 중심 횡메르카토르(자세한 정의는 메타 줄)."""
+    return "현지 TM" if is_local_projection() else "EPSG:5186"
+
+
 def _get_range_label(data):
     # type: (SheetData) -> str
     shape = data.options.get("shape", "")
@@ -1389,6 +1397,8 @@ def _get_range_label(data):
         return "용지 프레임"
     if shape == "site":
         return "그린 경계"
+    if shape == "rect":   # 2026-10-19부터 기본 범위 — '반경 250 m'로 적혀 한 변 500 m 사각형과 어긋났다
+        return "사각형 한 변 {:,.0f} m".format(float(data.options.get("radius") or 0) * 2)
     return "반경 %s m" % data.options.get("radius", "")
 
 
@@ -1791,7 +1801,7 @@ def _draw_info_side(data, style, sheet_id, name, frame, box, legend_rows, card_r
         yy -= meta_size * 1.45
     lines.append("</g>")
     yy -= 2.0 * k
-    lines.append(_text(x, yy, "%s · %s · EPSG:5186" % (_get_scale_text(frame), _get_paper_label(data.paper_mm)),
+    lines.append(_text(x, yy, "%s · %s · %s" % (_get_scale_text(frame), _get_paper_label(data.paper_mm), _get_crs_short()),
                        fonts["small"] * k * ts, **{"font-weight": "600", "id": "scale_text"}))
     lines += _draw_scale_north(x + 1.0 * k, yy - 9.0 * k, frame, style, k)
     lines.append("</g>")
@@ -1914,7 +1924,7 @@ def render_sheet(sheet_id, data):
     base_lines = _draw_base(data, style, base_mode, frame, frame_bounds, skip_buildings=subject == "building")
     body = ['<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="%smm" height="%smm" viewBox="0 0 %s %s" font-family="%s">'
             % (_fmt(width), _fmt(height), _fmt(width), _fmt(height), escape(constants.STYLE_FONTS[style["font"]], {'"': "&quot;"})),
-            "<!-- %02d %s | 1:%d | center E %.1f N %.1f | EPSG:5186 | style %s -->" % (sheet_id, name, frame.scale, frame.center[0], frame.center[1], style["preset"]),
+            "<!-- %02d %s | 1:%d | center E %.1f N %.1f | %s | style %s -->" % (sheet_id, name, frame.scale, frame.center[0], frame.center[1], _get_crs_short(), style["preset"]),
             '<defs><clipPath id="map_clip"><rect x="0" y="0" width="%s" height="%s"/></clipPath>%s</defs>' % (_fmt(box[2]), _fmt(box[3]), _hatch_defs()),
             '<rect id="paper" x="0" y="0" width="%s" height="%s" fill="%s"/>' % (_fmt(width), _fmt(height), style["paper"]),
             '<g id="map" transform="translate(%s %s)" clip-path="url(#map_clip)">' % (_fmt(box[0]), _fmt(box[1])),

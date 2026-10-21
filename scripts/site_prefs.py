@@ -8,16 +8,35 @@ import json
 import os
 import re
 import tempfile
+import uuid
 
 import constants
 
 PREFS_DIR = os.path.join(os.path.expanduser("~"), ".gorani")
 PREFS_PATH = os.path.join(PREFS_DIR, "prefs.json")
+CLIENT_ID_PATH = os.path.join(PREFS_DIR, "client_id")   # 설치 ID — 사용 통계(Rhino)와 국내 데이터 팩 서버 하루 한도(모든 판)
 SOURCE_NEWS_PATH = os.path.join(PREFS_DIR, "source_news.json")
 RECENT_MAX = 5
 PREFS_VERSION = 2   # 2 = 범위 기본값을 사각형 한 변 500 m로 바꿨다(2026-10-19) — 그 전에 저장된 radius·shape는 한 번 버린다
 _RESET_BEFORE_V2 = ("radius", "shape")
 
+
+
+def get_client_id(path=CLIENT_ID_PATH):
+    # type: (str) -> str
+    """설치마다 한 번 만든 무작위 UUID. 파일이 없거나 비면 새로 만들어 쓴다."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            value = f.read().strip()
+        if value:
+            return value
+    except OSError:
+        pass
+    value = str(uuid.uuid4())
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(value)
+    return value
 
 def _read_json(path):
     # type: (str) -> dict

@@ -234,6 +234,7 @@ TERRAIN_THEME = "terrain"
 # 해외 대상지(osm_context.py) — OSM Overpass + AWS Terrain Tiles. 사용자 PC가 직접 부른다(서버 없음).
 # Overpass 이용 기준: IP당 하루 1만 질의·1 GB 미만(https://wiki.openstreetmap.org/wiki/Overpass_API) — 대상지 1회 1질의
 OSM_USER_AGENT = "Gorani/0.1 (Rhino plugin; https://www.openstreetmap.org/copyright)"
+OSM_CACHE_MAX = 64               # osm_context 응답 캐시 항목 상한(넘으면 비운다) — Blender판은 모듈을 다시 읽지 않아 세션 내내 쌓인다(대상지 하나 ≈ Overpass 1 + 지형 타일 수 장)
 OSM_TIMEOUT_SECONDS = 60         # 미러 하나당. 공개 Overpass는 자주 붐빈다(2026-10-13 파리 900 m: 독일 504, kumi·coffee 120 s 초과, mail.ru 22 s)
 OSM_OVERPASS_URLS = ("https://overpass-api.de/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
                      "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter")
@@ -300,9 +301,9 @@ PACK_BOUNDS_MARGIN = 200.0             # m — 시군구 분할 격자 한 칸(�
 # 사용 통계(usage_stats.py) — GA4 Measurement Protocol. 측정 ID·secret이 비면 보내지 않는다. 끄는 설정 없음(고지는 docs/install.md)
 # 호스트마다 GA4 속성을 따로 둔다 — 웹사이트·Rhino·Blender·SketchUp을 섞지 않고 본다(사용자 결정 2026-10-16). 키 = context_builder.get_host()
 # 값 = (웹 스트림 측정 ID G-…, 관리 > 데이터 스트림 > Measurement Protocol API secret). 비면 그 호스트는 보내지 않는다. secret은 드러나도 된다(가짜 이벤트 주입 위험만)
+# Blender는 넣지 않는다 — 확장 스토어 심사가 동의를 받아도 분석 전송을 거절한다(약관 4.5, 2026-10-21 심사 사례 조사). 속성 "Gorani Blender"(G-9D69356PZJ)는 GA에 남아 있다
 GA_STREAMS = {
     "rhino": ("G-NJC4VMHPM1", "Yxwc8yciQiGRUAVajxTBjg"),
-    "blender": ("G-9D69356PZJ", "vHA2irOxQeiDwDQxZvIo_w"),   # 속성 "Gorani Blender", 스트림 16139271804
 }
 GA_ENDPOINT = "https://www.google-analytics.com/mp/collect"
 GA_TIMEOUT_SECONDS = 5  # 백그라운드 스레드라 패널을 막지 않는다
@@ -425,7 +426,7 @@ HEIGHT_GRADES = ("A", "B", "C", "D")
 # ═════════════════════════════════════════════════════════
 # 패널 — docs/panel_ui.md·docs/ui_spec.md
 # ═════════════════════════════════════════════════════════
-PANEL_VERSION = "0.2.2"   # 배포 버전 하나(Yak·Blender·SketchUp 패키지 버전 = dev_deploy.PACKAGE_VERSION). 매니페스트 update.latest·min과 비교한다
+PANEL_VERSION = "0.2.3"   # 배포 버전 하나(Yak·Blender·SketchUp 패키지 버전 = dev_deploy.PACKAGE_VERSION). 매니페스트 update.latest·min과 비교한다
 NOTICE_TIMEOUT_SECONDS = 3   # 패널을 열 때 매니페스트(공지·업데이트)를 기다리는 한도 — 못 받으면 공지 없이 연다
 INSTALL_DOC = "docs/install.md"
 PREFS_DIRNAME = ".gorani"            # 사용자 홈 아래. prefs.json·source_news.json
@@ -651,9 +652,11 @@ DOC_ORIGIN_KEYS = ("GORANI_ORIGIN_E", "GORANI_ORIGIN_N", "GORANI_CRS")   # doc.S
 # 패널이 호스트마다 바꿔 쓰는 이름(init_state.host) — 문서 이름·결과 모델 파일·DWG 저장(Rhino만)·커브 가져오기.
 # ask_stats = 사용 통계를 동의한 사람만 보낸다(Blender 확장 약관 4.5 '사용자 허락 없이 외부 전송 금지', 사용자 결정 2026-10-16 — Rhino는 그대로).
 # SketchUp도 Extension Warehouse 심사(개인정보 정책 위반 = 반려 사유)라 동의제 — GA_STREAMS에 sketchup 속성을 넣기 전에는 묻지도 않는다
+# aerial = 위성 영상(지도 배경·항공사진 시트, 없으면 True), update_notice = 매니페스트 업데이트 모달(없으면 True) — Blender는 둘 다 끈다
 HOST_LABELS = {
     "rhino": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": True, "ask_stats": False},
-    "blender": {"id": "blender", "name": "Blender", "doc": "Blender 장면", "model": BLENDER_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},
+    "blender": {"id": "blender", "name": "Blender", "doc": "Blender 장면", "model": BLENDER_MODEL_FILE_NAME, "dwg": False, "ask_stats": True,
+                "aerial": False, "update_notice": False},   # 확장 스토어 약관: 상용 영상(Esri)·키가 필요한 서비스 불가, 업데이트는 Blender가 한다
     "sketchup": {"id": "sketchup", "name": "SketchUp", "doc": "SketchUp 모델", "model": SKETCHUP_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},
     "web": {"id": "web", "name": "브라우저", "doc": "3D 모델", "model": WEB_MODEL_FILE_NAME, "dwg": False, "ask_stats": False},   # 통계는 웹사이트 GA(페이지)만
 }
@@ -662,6 +665,7 @@ CDT_EPSILON = 1e-4              # m — CDT 근접 판정(mathutils delaunay_2d_
 # Blender판(cmd_blender)
 BLENDER_PANEL_POLL = 0.1        # s — 브라우저 패널 명령을 Blender 메인 스레드에서 꺼내는 간격(bpy.app.timers)
 BLENDER_VIEW_CLIP_END = 20000.0  # m — 줌할 때 3D 뷰 먼 클리핑(기본 1 km면 반경 1 km 지형이 잘린다)
+BLENDER_CURVE_WAIT = 60.0       # s — [Blender 커브 가져오기]를 눌렀는데 고른 커브가 없을 때 Blender에서 고르기를 기다리는 시간(Rhino 고르기 프롬프트 자리)
 # SketchUp판(cmd_sketchup 사이드카 — 번들 파이썬 + sketchup_ext.rb)
 HOST_ENV = "GORANI_HOST"     # SketchUp 사이드카는 'sketchup', 웹판 워커는 'web'으로 둔다 — context_builder.get_host
 SKETCHUP_HOST_TIMEOUT = 1800.0  # s — 호스트 호출(베이크 등) 응답 대기. 패널을 닫으면 응답이 오지 않아 이만큼 뒤 실패한다

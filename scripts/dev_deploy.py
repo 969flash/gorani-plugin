@@ -155,7 +155,54 @@ def register():
 def unregister():
     cmd_blender.unregister()
 '''
-# 확장 매니페스트 — 칸 규칙은 Blender 매뉴얼 Extensions > Getting started(tagline·permissions 사유 64자 이하, 끝 마침표 없음)
+# Blender 패키지에만 들어가는 판 — 확장 심사(2026-10-21 조사: docs/blender_store/README.md)가 sys.path·sys.modules 조작, 모듈 다시 읽기,
+# Blender 안 스레드, 분석 전송을 막는다. Rhino판 loader(공유 인터프리터 이름 충돌·편집 반영)와 GA 통계는 패키지에 넣지 않는다.
+BLENDER_LOADER_SOURCE = '''"""로직 모듈 로더 — Blender 확장판(dev_deploy.py blender가 scripts/loader.py 대신 넣는다).
+패키지 상대 import만 쓰고 sys.path·sys.modules는 건드리지 않는다. 모듈은 한 번 읽고, 다시 읽기는 Blender가 확장을 껐다 켤 때 한다.
+"""
+
+import importlib
+import os
+
+SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(SCRIPTS_DIR)
+
+
+def load(module_name):
+    # type: (str) -> object
+    return importlib.import_module("." + module_name, __package__)
+'''
+BLENDER_USAGE_STATS_SOURCE = '''"""사용 통계 — Blender 확장판은 보내지 않는다(확장 약관 4.5·심사 관행). dev_deploy.py blender가 scripts/usage_stats.py 대신 넣는 빈 판.
+설치 ID만 남긴다 — 국내 데이터 팩 서버가 설치마다 하루 받기 한도를 센다(docs/install.md 5).
+"""
+
+from site_prefs import get_client_id  # noqa: F401
+
+
+def is_configured():
+    # type: () -> bool
+    return False
+
+
+def is_enabled():
+    # type: () -> bool
+    return False
+
+
+def send_event(name, params=None):
+    # type: (str, dict) -> bool
+    return False
+
+
+def get_target_params(target, lots=None):
+    # type: (dict, list) -> dict
+    return {}
+'''
+BLENDER_SOURCE_OVERRIDES = {"loader.py": BLENDER_LOADER_SOURCE, "usage_stats.py": BLENDER_USAGE_STATS_SOURCE}
+# `if __package__:` … `else:` 진입 분기(cmd_site·cmd_blender) — 패키지에서는 앞쪽만 남긴다(뒤쪽은 Rhino·저장소 시험용 sys.modules 넣기)
+PACKAGE_BRANCH = re.compile(r"^if __package__:[^\n]*\n((?:    [^\n]*\n)+)else:[^\n]*\n(?:    [^\n]*\n)+", re.M)
+# 확장 매니페스트 — 칸 규칙은 Blender 매뉴얼 Extensions > Getting started(tagline·permissions 사유 64자 이하, 끝 마침표 없음).
+# 태그: 심사가 '3D View'를 자주 빼라고 한다. support = 스토어 'Report Issues' 칸(공개 이슈 트래커). Leaflet(BSD-2-Clause)을 넣어 라이선스·저작권에 적는다
 BLENDER_MANIFEST = '''schema_version = "1.0.0"
 id = "%(id)s"
 version = "%(version)s"
@@ -164,9 +211,10 @@ tagline = "Site context for urban design: buildings, roads, terrain"
 maintainer = "%(maintainer)s"
 type = "add-on"
 website = "https://969flash.github.io/gorani/"
-tags = ["Import-Export", "3D View"]
+support = "https://github.com/969flash/gorani-plugin/issues"
+tags = ["Import-Export", "Scene"]
 blender_version_min = "4.2.0"
-license = ["SPDX:GPL-3.0-or-later"]
+license = ["SPDX:GPL-3.0-or-later", "SPDX:BSD-2-Clause"]
 copyright = ["2026 sanghoon", "2010-2023 Volodymyr Agafonkin (Leaflet)", "2010-2011 CloudMade (Leaflet)"]
 
 [permissions]
@@ -356,8 +404,9 @@ def build_yak():
 def get_package_source(source, module_names):
     # type: (str, list) -> str
     """프로젝트 모듈 import를 패키지 상대 import로 바꾼 소스(`import constants` → `from . import constants`,
-    `from context_builder import X` → `from .context_builder import X`). Blender 확장 정책이 최상위 모듈·sys.path 변경을 막는다 —
-    Rhino판은 scripts/를 sys.path에 넣는 평범한 import 그대로 둔다."""
+    `from context_builder import X` → `from .context_builder import X`)이고, `if __package__:` 진입 분기는 앞쪽만 남긴다.
+    Blender 확장 정책이 최상위 모듈·sys.path·sys.modules 변경을 막는다 — Rhino판은 scripts/를 sys.path에 넣는 평범한 import 그대로 둔다."""
+    source = PACKAGE_BRANCH.sub(lambda m: re.sub(r"^    ", "", m.group(1), flags=re.M), source)
     pattern = re.compile(r"^(\s*)(import|from) (%s)\b" % "|".join(sorted(module_names, key=len, reverse=True)), re.M)
     return pattern.sub(lambda m: "%sfrom . import %s" % (m.group(1), m.group(3)) if m.group(2) == "import" else "%sfrom .%s" % (m.group(1), m.group(3)), source)
 
@@ -383,7 +432,7 @@ def build_blender():
              and not n.startswith(("dev_", "probe_", "server_", "sketchup_", "web_"))]
     for name in names:
         with open(os.path.join(SCRIPTS_DIR, name), encoding="utf-8") as f:
-            source = get_package_source(f.read(), [n[:-3] for n in names])
+            source = get_package_source(BLENDER_SOURCE_OVERRIDES.get(name) or f.read(), [n[:-3] for n in names])
         with open(os.path.join(target, name), "w", encoding="utf-8") as f:
             f.write(source)
     with open(os.path.join(target, "__init__.py"), "w", encoding="utf-8") as f:

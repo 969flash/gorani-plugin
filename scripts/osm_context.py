@@ -18,7 +18,7 @@ import constants
 import non_rhino_utils
 from context_db import BuildingInfo, ContextData, DataSource, FeatureInfo
 
-_CACHE = {}   # (질의 종류, bbox) → 응답 — 같은 대상지를 다시 생성할 때 Overpass를 또 부르지 않는다
+_CACHE = {}   # (질의 종류, bbox) → 응답 — 같은 대상지를 다시 생성할 때 Overpass를 또 부르지 않는다. OSM_CACHE_MAX를 넘으면 비운다(_keep)
 
 
 # ── 받기 ────────────────────────────────────────────────
@@ -37,6 +37,15 @@ def _fetch(url, data=None):
         return response.read()
 
 
+def _keep(key, value):
+    # type: (tuple, object) -> object
+    """응답 하나를 캐시에 넣고 돌려준다. 항목이 OSM_CACHE_MAX를 넘으면 먼저 비운다 — 긴 Blender 세션에서 Overpass 응답(대상지마다 수십 MB)이 쌓이지 않게."""
+    if len(_CACHE) >= constants.OSM_CACHE_MAX:
+        _CACHE.clear()
+    _CACHE[key] = value
+    return value
+
+
 def get_overpass_elements(bounds):
     # type: (tuple) -> list
     """bounds 안 OSM 요소(out geom). 미러를 차례로 시도한다. 실패하면 RuntimeError."""
@@ -49,8 +58,7 @@ def get_overpass_elements(bounds):
     for endpoint in constants.OSM_OVERPASS_URLS:
         try:
             body = _fetch(endpoint, urllib.parse.urlencode({"data": query}).encode("utf-8"))
-            _CACHE[key] = json.loads(body.decode("utf-8"))["elements"]
-            return _CACHE[key]
+            return _keep(key, json.loads(body.decode("utf-8"))["elements"])
         except Exception as error:   # 미러 하나가 막혀도 다음 것을 쓴다
             errors.append("%s: %s" % (endpoint, error))
     raise RuntimeError("OSM(Overpass) 데이터를 받지 못했습니다. 인터넷 연결을 확인하세요\n" + "\n".join(errors))
@@ -313,7 +321,7 @@ def get_terrain_spots(bounds, reference_date):
         for ty in range(int(y0), int(y1) + 1):
             key = ("terrain", zoom, tx, ty)
             if key not in _CACHE:
-                _CACHE[key] = decode_png(_fetch(constants.OSM_TERRAIN_URL.format(z=zoom, x=tx, y=ty)))
+                _keep(key, decode_png(_fetch(constants.OSM_TERRAIN_URL.format(z=zoom, x=tx, y=ty))))
             width, height, channels, rows = _CACHE[key]
             for py in range(0, height, constants.OSM_TERRAIN_STEP):
                 lat = math.degrees(math.atan(math.sinh(math.pi * (1.0 - 2.0 * (ty + (py + 0.5) / height) / 2 ** zoom))))
