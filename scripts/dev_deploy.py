@@ -71,28 +71,41 @@ version: %(version)s
 authors:
 - %(author)s
 description: |-
-  한 번에 쉽게 하는 사이트 모델링 및 사이트 분석
+  Free Rhino 8 plugin that models the city around your site.
+  Pick a site on the map and press one button. The surrounding buildings, roads, terrain, water and green space come into your open document as 3D layers. Worldwide with OpenStreetMap; in Korea with nationwide parcel, zoning and contour data.
 
-  The city around your site, modeled in Rhino.
-  It's free.
-
-  사용 방법
-  1. 설치 후 라이노를 다시 켭니다.
-  2. 명령창에 Gorani를 입력합니다.
-  3. 지도에서 대상지를 고르고 [3D 모델 만들기]를 누릅니다.
-
-  결과물
-  - 3D: 건물 매스, 도로, 지형, 하천, 녹지, 철도 (레이어별)
-  - 2D: 일러스트레이터 베이스맵, 현황도·분석도, DWG, 조서 CSV
-
-  How to use
-  1. Restart Rhino after installing.
-  2. Type Gorani.
-  3. Pick a site on the map and press the 3D button.
+  How it works
+  1. Restart Rhino after installing, then type Gorani.
+  2. Pick a site: click parcels, draw an area or drop a point.
+  3. Set the extent (100 m to 2 km) and press 3D.
 
   What you get
-  - 3D: buildings, roads, terrain, rivers, parks and railways on separate layers
-  - 2D: Illustrator basemap, urban analysis maps, DWG, CSV tables
+  - Building masses with heights, roads, terrain, water, green space and railways on separate layers
+  - Optional 2D: layered Illustrator basemap, analysis maps (SVG, AI), CSV tables
+  - No Grasshopper, no account, no API key
+
+  한국어
+  Gorani는 대지 주변 현황 모델을 자동으로 만들어 주는 무료 Rhino 8 플러그인입니다.
+  지도에서 대상지를 고르고 버튼 하나를 누르면, 주변 건물·도로·지형·하천·녹지가 지금 열려 있는 문서에 레이어별 3D로 들어옵니다. 국내는 전국 필지·용도지역·등고선 데이터로, 해외는 OpenStreetMap으로 만듭니다.
+
+  사용 방법
+  1. 설치 후 라이노를 다시 켜고 명령창에 Gorani를 입력합니다.
+  2. 대상지를 고릅니다. 필지 클릭, 구역 그리기, 위치 찍기 중 하나입니다.
+  3. 범위(100 m~2 km)를 정하고 [3D 모델 만들기]를 누릅니다.
+
+  결과물
+  - 높이가 있는 건물 매스, 도로, 지형, 하천, 녹지, 철도 (레이어별)
+  - 2D(필요할 때만): 일러스트레이터 베이스맵, 현황도·분석도(SVG·AI), 조서 CSV
+  - 그래스호퍼, 회원가입, API 키는 필요 없습니다
+
+  日本語
+  Goraniは、敷地まわりの街を3Dでつくる無料のRhino 8プラグインです。
+  地図で敷地を選んでボタンを押すと、周辺の建物・道路・地形・水系・緑地が、開いているドキュメントにレイヤー分けされた3Dで入ります。
+
+  使い方
+  1. インストール後にRhinoを再起動し、Goraniと入力します。
+  2. 敷地を選びます。区画をクリック、範囲を描く、地点を打つのいずれかです。
+  3. 範囲（100 m〜2 km）を決めて3Dを押します。
 license: MIT
 url: %(url)s
 icon: icon.png
