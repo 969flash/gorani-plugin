@@ -229,6 +229,7 @@ label.chk { display: flex; align-items: center; min-height: 32px; }
 .leaflet-bar { border: 1px solid var(--line) !important; border-radius: 8px !important; overflow: hidden; box-shadow: 0 1px 2px rgba(0, 0, 0, .08) !important; }
 .leaflet-bar a { border-radius: 0 !important; width: 32px !important; height: 32px !important; line-height: 32px !important; color: var(--ink) !important; }
 .aerial-ctl a { font-size: 11px; line-height: 16px; color: var(--ink-2); }
+.leaflet-bar.aerial-ctl a { width: auto !important; min-width: 32px; padding: 0 6px; }   /* 'Satellite'·'Satélite'가 32 px 칸에서 잘렸다(2026-10-22 언어별 캡처) */
 .aerial-ctl a[aria-pressed="true"] { color: var(--accent-ink); font-weight: 600; background: var(--accent-wash); }
 .leaflet-container.aerial .map-label { color: #fff; text-shadow: 0 0 3px rgba(0,0,0,.85); }
 .map-label { background: none; border: 0; box-shadow: none; color: #5c5c58; font-size: 11px; line-height: 16px; padding: 0; }
