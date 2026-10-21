@@ -549,7 +549,17 @@
   },
   "links": {
    "website": "https://969flash.github.io/gorani/"
-  }
+  },
+  "output_langs": [
+   [
+    "ko",
+    "한국어"
+   ],
+   [
+    "en",
+    "English"
+   ]
+  ]
  },
  {
   "type": "search_result",

@@ -68,7 +68,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `pick_curve` | — | `curve_shape` | Rhino 전용. 선택된 커브가 하나면 그것, 없으면 고르기 프롬프트 |
 | `preflight` | `target`(없으면 `pnus` = 필지 방식), `radius`, `shape`, `paper`, `paper_mm`, `scales`, `seq` | `preflight_result`(같은 `seq`) | 2026-10-19부터 Rhino 패널은 보내지 않는다(범위를 JS가 그린다). 예전: ① lots 변경 직후, ② 진입·옵션 변경(300 ms 디바운스). 메모이즈 키 `(tuple(pnus), radius, shape, paper, tuple(paper_mm), tuple(scales))` — `paper_mm`이 빠지면 용지 '직접'에서 가로·세로를 바꿔도 프레임이 안 바뀐다. `init`마다 비운다 |
 | `generate` | `target`(없으면 `pnus`), `options`(§옵션 키 **`scales` 포함** — 가장 큰 축척 프레임이 DB 질의 범위를 정한다, code_map §3) | `progress`* ↔ `log`* → `done` / `progress{state:"failed"}` / `progress{state:"cancelled"}` | `context_builder.run` 동기 실행(UI 스레드, 콜백 안 `RhinoApp.Wait()`로 푸시·취소 명령 펌핑). 이미 running이면 무시하고 `error{context:"generate"}`. 베이크가 곧 '문서에 넣기'라 `busy`·`imported`는 오지 않는다(`done.context.imported`로 전한다). 생성기는 BM 레이어를 항상 전부 쓴다 — 축척별 차이는 Export 때만 |
-| `make_2d` | `dir`(결과 폴더), `options`(2D 키 — `make_basemap`·`paper`·`paper_mm`·`scales`·`basemap_layers_on`·`make_dwg`·`make_sheets`·`sheet_ids`·`floor_breaks`·`elev_preset`·`make_tables`·`style`) | `data_progress`* → `progress`* ↔ `log`* → `made_2d` | 3D 결과에 2D 자료를 더한다(2026-10-19). `context_builder.make_2d`: `context.json`의 대상지·옵션 위에 2D 옵션을 덮어 다시 `prepare`(가장 큰 프레임까지 조회 — 생성 전에 그 범위 팩을 받는다) → basemap·sheets·tables phase(run과 같은 함수) → `context.json` 갱신. 도면 폴더는 비우지 않고 고른 장만 새로 쓴 뒤 전에 만든 장과 합친 목록을 돌려준다(`_merge_sheets`, 같은 id는 새것). 조서 CSV 폴더는 비우고 다시 쓴다. `make_dwg`(베이스맵과 함께만, Rhino만)면 basemap phase 끝에 가장 상세한 축척의 2D 선 도면을 새 헤드리스 문서에 구워 `basemap_<축척>.dwg`(`context_baker.save_dwg` — 활성 문서는 안 건드린다). 원점은 `context.json.doc_origin`을 써 3dm과 같은 좌표. 지형 삼각형은 이번 세션 3D 결과(`_keep`)에서, 없으면 지형 도면이 빈다. 문서는 건드리지 않는다. running 중이면 `error{context:"generate"}`. progress는 `query`·`basemap`·`sheets`·`tables`만(나머지 skipped). 취소는 `cancel` 그대로 |
+| `make_2d` | `dir`(결과 폴더), `options`(2D 키 — `make_basemap`·`paper`·`paper_mm`·`scales`·`basemap_layers_on`·`make_dwg`·`make_sheets`·`sheet_ids`·`floor_breaks`·`elev_preset`·`make_tables`·`style`) | `data_progress`* → `progress`* ↔ `log`* → `made_2d` | 3D 결과에 2D 자료를 더한다(2026-10-19). `context_builder.make_2d`: `context.json`의 대상지·옵션 위에 2D 옵션을 덮어 다시 `prepare`(가장 큰 프레임까지 조회 — 생성 전에 그 범위 팩을 받는다) → basemap·sheets·tables phase(run과 같은 함수) → `context.json` 갱신. 만들 때마다 결과 폴더 안 새 폴더 `2D_<스타일 이름>_<HHMM>/`(같은 분이면 `_2`…, `context_builder.get_new_2d_dir`)에 베이스맵·도면·조서를 쓴다 — 스타일을 바꿔 다시 만들어도 앞 폴더를 덮어쓰지 않는다(2026-10-21). `made_2d.folder`가 그 폴더, `context.json.last_2d_dir`에 기록하고 [다른 축척]·[모두 .ai로 저장]은 그 폴더에 쓴다. `sheet_view`·`sheet_ai` 한 장은 그 결과 폴더 안 어느 2D 폴더든 받는다. `make_dwg`(베이스맵과 함께만, Rhino만)면 basemap phase 끝에 가장 상세한 축척의 2D 선 도면을 새 헤드리스 문서에 구워 `basemap_<축척>.dwg`(`context_baker.save_dwg` — 활성 문서는 안 건드린다). 원점은 `context.json.doc_origin`을 써 3dm과 같은 좌표. 지형 삼각형은 이번 세션 3D 결과(`_keep`)에서, 없으면 지형 도면이 빈다. 문서는 건드리지 않는다. running 중이면 `error{context:"generate"}`. progress는 `query`·`basemap`·`sheets`·`tables`만(나머지 skipped). 취소는 `cancel` 그대로 |
 | `cancel` | — | `progress{state:"cancelled"}` 또는 무시 | running이 아니면 **무시**(응답 없음). running이면 `cancel_requested` 플래그만 세운다 — 다음 콜백이 False를 돌려주고 엔진이 `Cancelled`로 중단·이번 베이크 객체 삭제 → `ok=false, cancelled=true`. 부분 폴더 유지, `log.txt`에 "cancelled at <phase>" |
 | `import_context` | `dir`(결과 폴더 절대경로) | `busy{on}` → `imported` → `busy{off}` | 재삽입: 같은 `GORANI_LOT_KEY` 객체 삭제 후 `context_baker.import_3dm`(`context.json.origin`이 문서 원점과 다르면 차이만큼 이동). `zoom_after_import`면 줌 |
 | `export_basemap` | `dir`, `scale`(1000\|3000\|5000) | `busy{on}` → `exported` → `busy{off}` | `context_builder.export_basemap(dir, scale)`: 결과 폴더의 `context.json`(pnus·options)으로 DB에서 다시 `prepare` → `basemap_ai.write_basemap` → `<dir>/basemap_<scale>.ai`. 문서를 거치지 않는다(import 불필요, 1초 안팎). 축척별 레이어 표(`constants.BASEMAP_SCALE_LAYERS`): 1:1000 = `08`(지적선) on · `08b`(지번) on, 1:3000 = `08` on · `08b` off, 1:5000 = `08`·`08b` off. 실패하면 `exported{ok:false, text}` |
@@ -146,6 +146,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
  "paths":{"root":"<HOME_DIR>","lot_db":"data/seoul_site.db","context_db":"data/seoul_context.db","env":".env","install_doc":"docs/install.md"},
  "generator":{"ok":true,"python":"Rhino Python","text":"Rhino 내장"},   // 항상 ok. UI 호환용(블로커 3행째는 ✓ 고정). Blender면 "Blender …"
  "host":{"id":"rhino","name":"Rhino","doc":"Rhino 문서","model":"context.3dm","dwg":true,"ask_stats":false},   // constants.HOST_LABELS — 패널 문구(문서 이름·모델 파일)와 DWG 옵션 표시. Blender = {"id":"blender","name":"Blender","doc":"Blender 장면","model":"context.blend","dwg":false,"ask_stats":true}, SketchUp = {"id":"sketchup",…,"model":"context.skp","dwg":false,"ask_stats":true}
+ "output_langs":[["ko","한국어"],["en","English"]],   // constants.OUTPUT_LANGS — 메뉴 '결과 언어' 칸
  "links":{"website":"https://969flash.github.io/gorani/"},   // constants.PANEL_LINKS — 메뉴 '웹페이지' 줄이 주소를 링크로 보여 주고, 누르면 open_url{key}
  "stats_consent":null,                            // 사용 통계 동의 true|false|null(안 물음) — host.ask_stats(Blender + 측정 ID 있음)면 null일 때 정보 띠로 한 번 묻고([보내기]·[보내지 않음] → stats_consent{on}), 더보기 메뉴 설정에서 바꾼다
  "can_download":true,                             // DATA_MANIFEST_URL이 있으면 블로커에 [DB 받기]·[멈추기]
@@ -483,3 +484,18 @@ GA4 Measurement Protocol로 데몬 스레드에서 보내고 실패는 버린다
 | `error` | `_guard`의 예상 밖 예외 | `context`·`error`(예외 타입명) |
 
 모든 이벤트에 `session_id`(패널 하나)·`engagement_time_msec`, 요청에 `device`(OS·언어). GA 보고서에서 매개변수를 보려면 관리 > 맞춤 정의에 이벤트 범위 측정기준으로 등록한다.
+
+
+### 결과물 언어 (2026-10-21)
+
+`options.output_lang`(`constants.OUTPUT_LANGS`, 지금 ko·en)이 결과 폴더와 파일 이름의 언어를 정한다. 패널 글은 한국어 그대로다. 첫 실행(`null`)이면 패널이 시스템 언어로 고르고(지원 목록에 있으면 그것, 아니면 영어) `save_prefs`, 메뉴 설정 '결과 언어'에서 바꾼다. `generate`와 `make_2d` 둘 다 보낸다(`KEYS_2D`, `_2D_OPTION_KEYS`).
+
+| 무엇 | 한국어 | English |
+|---|---|---|
+| 결과 폴더 꼬리 | `…외1`, `…_구역`, `…_일대` | `…+1`, `…_area`, `…_vicinity` |
+| 2D 폴더 | `2D_선명_1432` | `2D_Vivid_1432` |
+| 베이스맵 | `베이스맵_1000.ai`(.dwg) | `basemap_1000.ai` |
+| 도면 폴더·파일 | `다이어그램/09_토지이용현황.svg` | `sheets/09_Land_use.svg` |
+| 조서 폴더·파일 | `조서/필지조서.csv`, `건축물조서.csv`, `도면통계.csv`, `높이출처통계.csv`, `정합점검.csv` | `tables/parcels.csv` … |
+
+동 이름·지번은 자료 그대로(로마자로 바꾸지 않는다). `context.3dm`·`context.json`·`log.txt`는 프로그램이 읽어 언어와 무관하다. 언어를 더하려면 `OUTPUT_LANGS`에 코드, `OUTPUT_NAMES`에 같은 꼴의 dict(도면 이름은 `"sheets": {키: 이름}`)를 더한다. 없는 항목은 영어로 채운다(`non_rhino_utils.get_output_name`). 읽는 쪽(`get_sheets_dir`·`find_named_subdir`, 베이스맵 축척 정규식)은 모든 언어 이름을 받는다.

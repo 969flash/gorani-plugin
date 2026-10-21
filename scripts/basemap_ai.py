@@ -555,7 +555,8 @@ def write_basemap(prepared, scale, out_dir):
     """basemap_<축척>.ai 한 장. 반환 {ok, path, layers, counts, bytes}."""
     writer = build_ai(prepared, scale)
     os.makedirs(out_dir, exist_ok=True)
-    path = os.path.join(out_dir, constants.BASEMAP_FILE_FORMAT % int(scale))
+    lang = non_rhino_utils.get_output_lang(prepared.request.get("options"))   # 파일 이름 언어(basemap_1000·베이스맵_1000)
+    path = os.path.join(out_dir, (non_rhino_utils.get_output_name("basemap", lang) % int(scale)) + ".ai")
     layers = writer.write(path, "%s 1:%d" % (prepared.lot_name, int(scale)))
     return {"ok": True, "path": path, "layers": layers, "counts": dict(writer.counts), "bytes": os.path.getsize(path)}
 

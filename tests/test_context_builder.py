@@ -617,7 +617,7 @@ class Make2dTest(unittest.TestCase):
                                              lambda phase, fraction, text: phases.append(phase) or True, {}, SITE_DB, CONTEXT_DB)
             self.assertTrue(result["ok"], result["error"])
             self.assertEqual(result["dir"], tmp)
-            self.assertEqual([os.path.basename(p) for p in result["basemap"]["exported"]], ["basemap_3000.ai"])
+            self.assertEqual([os.path.basename(p) for p in result["basemap"]["exported"]], ["베이스맵_3000.ai"])   # 결과물 언어 기본 = 한국어(OUTPUT_LANG_DEFAULT)
             self.assertEqual([s["id"] for s in result["sheets"]], ids)
             self.assertEqual(result["tables"], [])
             self.assertEqual(set(phases), {"query", "basemap", "sheets"})
@@ -627,11 +627,22 @@ class Make2dTest(unittest.TestCase):
             self.assertEqual([s["id"] for s in meta["sheets"]], ids)
             nothing = context_builder.make_2d(tmp, {"make_basemap": False, "make_sheets": False, "make_tables": False}, None, None, SITE_DB, CONTEXT_DB)
             self.assertFalse(nothing["ok"])
-            # 다른 도면을 더 만들면 먼저 만든 장은 남고 목록에 합쳐진다
-            more = context_builder.make_2d(tmp, {"make_sheets": True, "sheet_ids": [constants.SHEET_IDS["elev"]]}, None, {}, SITE_DB, CONTEXT_DB)
+            # 스타일을 바꿔 다시 만들면 새 2D 폴더 — 앞서 만든 도면은 그대로 남는다(2026-10-21)
+            more = context_builder.make_2d(tmp, {"make_sheets": True, "sheet_ids": [constants.SHEET_IDS["elev"]], "style": {"preset": "vivid"}}, None, {}, SITE_DB, CONTEXT_DB)
             self.assertTrue(more["ok"], more["error"])
-            self.assertEqual([s["id"] for s in more["sheets"]], sorted(ids + [constants.SHEET_IDS["elev"]]))
-            self.assertTrue(all(os.path.exists(s["path"]) for s in more["sheets"] if s["path"]))
+            self.assertNotEqual(more["folder"], result["folder"])
+            self.assertTrue(os.path.basename(more["folder"]).startswith("2D_선명_"))
+            self.assertTrue(all(os.path.exists(s["path"]) for s in result["sheets"] if s["path"]))
+            self.assertEqual(context_builder.get_sheets_dir(tmp), os.path.join(more["folder"], constants.OUTPUT_NAMES[constants.OUTPUT_LANG_DEFAULT]["sheets_dir"]))
+
+    def test_new_2d_dir_name_and_collision(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            first = context_builder.get_new_2d_dir(tmp, {"preset": "std"})
+            self.assertRegex(os.path.basename(first), r"^2D_표준_\d{4}$")
+            os.makedirs(first)
+            second = context_builder.get_new_2d_dir(tmp, {"preset": "std"})
+            self.assertEqual(second, first + "_2")
+            self.assertTrue(os.path.basename(context_builder.get_new_2d_dir(tmp, {"name": "우리 사무소/A"})).startswith("2D_우리사무소A_"))
 
     def test_preview_reuses_3d_prepared_without_prepare(self):
         # 미리보기는 2D 데이터가 없으면 3D Prepared를 그대로 쓴다 — 다시 prepare하면 Global은 OSM을 또 받는다
@@ -645,19 +656,6 @@ class Make2dTest(unittest.TestCase):
             self.assertEqual(context_builder.get_sheet_data("/r", keep, quick=True), (data, prepared))
             self.assertEqual(made.call_count, 1)
             self.assertIsNone(keep["data"])   # 파일 쓰기(apply_style)는 3D 범위 자료를 쓰지 않는다
-
-    def test_merge_sheets_keeps_old_and_replaces_same_id(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            paths = {}
-            for name in ("a", "b", "c"):
-                paths[name] = os.path.join(tmp, name + ".svg")
-                open(paths[name], "w").close()
-            old = [{"id": 3, "path": paths["a"]}, {"id": 1, "path": paths["b"]}, {"id": 7, "path": os.path.join(tmp, "gone.svg")}]
-            new = [{"id": 1, "path": paths["c"]}, {"id": 5, "path": None, "empty": True}]
-            merged = context_builder._merge_sheets(old, new)
-            self.assertEqual([s["id"] for s in merged], [1, 3, 5])
-            self.assertEqual(merged[0]["path"], paths["c"])
-
 
 class ProgressMessageTest(unittest.TestCase):
     def test_percent_with_skipped(self):
