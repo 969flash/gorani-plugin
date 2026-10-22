@@ -603,7 +603,8 @@ def upload():
     from huggingface_hub import HfApi
     import dev_deploy
     api = HfApi()
-    api.upload_large_folder(repo_id=constants.DATA_REPO_ID, repo_type="dataset", folder_path=os.path.dirname(PACK_DIR),
+    # folder_path는 실제 경로로 — 워크트리의 build/packs/jp가 심링크면 upload_large_folder가 파일 0개를 올리고 매니페스트만 바뀐다(2026-10-22 사고: sha256 불일치)
+    api.upload_large_folder(repo_id=constants.DATA_REPO_ID, repo_type="dataset", folder_path=os.path.dirname(os.path.realpath(PACK_DIR)),
                             allow_patterns=["%s/%s*_context.db.xz" % (constants.JP_PACK_DIR, constants.JP_PACK_PREFIX)])
     api.upload_file(path_or_fileobj=os.path.join(PACK_DIR, "manifest.json"), path_in_repo="%s/manifest.json" % constants.JP_PACK_DIR,
                     repo_id=constants.DATA_REPO_ID, repo_type="dataset", commit_message="일본 건물 팩 매니페스트")
