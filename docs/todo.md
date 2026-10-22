@@ -5,8 +5,8 @@
 ## 배포
 
 - [ ] 다른 컴퓨터(Windows일 수 있음)에서 Rhino판 실기 시험 — Mac에서 빌드한 .rhp·.pyc가 Windows Rhino 8에서 처음 도는 것일 수 있다.
-- [ ] Blender 공식 스토어 — 2026-10-22 03시 0.3.1(main 0cda78b 빌드) [Submit for Approval] 눌러 Awaiting Review(https://extensions.blender.org/add-ons/gorani/manage/). 심사 댓글은 Blender ID 메일로 온다 — 답변 문안 `docs/blender_store/README.md`.
-- [ ] SketchUp Extension Warehouse — 2026-10-22 09:30 0.3.1(main 68ab551 rbz, sha256 2d40e9cd…) Submit For Review 완료("allow 1 to 3 weeks"). RuboCop ModelEntities 5건은 루트 그룹 설계라 사유를 적고 제출. 심사 메일이 오면 `docs/sketchup_store.md`대로 대응, 승인 뒤 My Extensions에서 Publish를 눌러야 공개된다.
+- [ ] Blender 공식 스토어 — 0.3.1 제출(2026-10-22 03시) 뒤 0.3.2를 Upload New Version으로 올려 둠(16:50, 심사는 최신 판을 본다, 다음 판은 2시간 뒤부터). Approval Status = Awaiting Review. 심사 댓글은 Blender ID 메일 — 답변 문안 `docs/blender_store/README.md`.
+- [ ] SketchUp Extension Warehouse — 2026-10-22 09:30 0.3.1(main 68ab551 rbz, sha256 2d40e9cd…) Submit For Review 완료("allow 1 to 3 weeks"). RuboCop ModelEntities 5건은 루트 그룹 설계라 사유를 적고 제출. 심사 메일이 오면 `docs/sketchup_store.md`대로 대응, 승인 뒤 My Extensions에서 Publish를 눌러야 공개된다. 0.3.2(Global 도로면)는 심사 중이라 못 올렸다 — 승인 뒤 68ab551 이후 main으로 새 판을 만들어 올린다.
 - [ ] `docs/install.md`(yak 패키지에 들어가 패널 [문서 열기]로 열린다)의 SketchUp 절이 아직 없는 설치 경로(Extension Warehouse)를 안내한다. 스토어에 오를 때까지 '준비 중'으로 바꾸거나 스토어 주소로 고친다(Blender 절은 2026-10-21 스토어 기준으로 고침).
 
 ## 웹사이트 (저장소 `~/Documents/GitHub/gorani`)
