@@ -41,12 +41,20 @@ WHERE bbox.xmin > %.4f AND bbox.xmax < %.4f AND bbox.ymin > %.4f AND bbox.ymax <
 DATASET_FLAGS = {"Microsoft ML Buildings": "msft", "OpenStreetMap": "osm", "Esri Community Maps": "esri", "Google Open Buildings": "google"}
 
 
+_CONNECTION = None
+
+
 def _connect():
     # type: () -> object
-    import duckdb
-    connection = duckdb.connect()
-    connection.execute("INSTALL httpfs; LOAD httpfs; INSTALL spatial; LOAD spatial; SET s3_region='us-west-2';")
-    return connection
+    """프로세스마다 DuckDB 연결 하나를 돌려쓴다 — S3 parquet 메타데이터(수백 파일 footer) 읽기가 연결마다 약 900 s라(2026-10-23 실측: 건물 2만 동인
+    아메리칸사모아도 987 s) 주를 바꿔도 다시 읽지 않게 parquet_metadata_cache를 켠다. 메모리는 6 GB로 제한(두 프로세스 병렬)."""
+    global _CONNECTION
+    if _CONNECTION is None:
+        import duckdb
+        _CONNECTION = duckdb.connect()
+        _CONNECTION.execute("INSTALL httpfs; LOAD httpfs; INSTALL spatial; LOAD spatial; SET s3_region='us-west-2'; "
+                            "SET parquet_metadata_cache=true; SET memory_limit='6GB';")
+    return _CONNECTION
 
 
 # ── 카운티 ──────────────────────────────────────────────
@@ -84,6 +92,8 @@ def fetch_state(state, counties):
     path = os.path.join(STATE_DIR, "%s.parquet" % state)
     if os.path.exists(path):
         return path
+    if os.path.exists(path + ".tmp"):   # 죽은 실행이 남긴 조각
+        os.remove(path + ".tmp")
     west, south, east, north = get_state_bounds(counties)
     if state == "AK":
         west = max(west, -180.0)
@@ -164,8 +174,8 @@ def build_pack(county, pack_dir=PACK_DIR):
             os.remove(stale)
     area = county["geometry"].buffer(constants.US_COUNTY_BUFFER_DEG)
     west, south, east, north = area.bounds
-    connection = _connect()
-    cursor = connection.execute(
+    cursor = _connect().cursor()
+    cursor.execute(
         "SELECT * FROM read_parquet(?) WHERE cx BETWEEN ? AND ? AND cy BETWEEN ? AND ? AND ST_Within(ST_Point(cx, cy), ST_GeomFromText(?))",
         [state_path, west, east, south, north, area.wkt])
     count, stats, pack_no = 0, {"skipped": 0, "grades": {}, "flags": {}}, int(county["geoid"])
@@ -189,7 +199,7 @@ def build_pack(county, pack_dir=PACK_DIR):
             stats["flags"][row[11]] = stats["flags"].get(row[11], 0) + 1
         pack.executemany("INSERT INTO buildings VALUES (%s)" % ",".join("?" * 27), rows)
         count += len(rows)
-    connection.close()
+    cursor.close()
     if not count:
         pack.close()
         os.remove(path)
