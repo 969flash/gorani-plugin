@@ -1,6 +1,7 @@
-"""관리자 페이지 — 업데이트 안내·공지를 고치고 실제 패널로 미리 보고 올린다 (Rhino 밖 python3, 이 Mac에서만).
+"""관리자 페이지 — 사용·유입·품질·서버 대시보드(dev_stats가 GA·yak·HF·국내 서버를 모은다)와 공지·버전 안내 편집
+(Rhino 밖 python3, 이 Mac에서만). 주소 뒤 &demo=1 = GA 자리에 예시 데이터(연결 전 화면 확인).
 
-    python3 scripts/dev_admin.py        # 127.0.0.1 임의 포트 + 실행마다 새 토큰으로 기본 브라우저를 연다
+    python3 scripts/dev_admin.py        # 127.0.0.1 임의 포트 + 실행마다 새 토큰으로 기본 브라우저를 연다. 저장소 루트 관리자_페이지.command = 더블클릭
 
 인터넷에 올리지 않는다 — 공개 페이지가 없으니 로그인도 없다. 열쇠(Hugging Face 쓰기 토큰 = `hf auth login`)는 이 Mac에만 있다.
 토큰이 없는 요청은 403이라 다른 웹 페이지가 로컬 서버로 공지를 올리지 못한다. 예외는 /vendor/(Leaflet — 공개 파일).
@@ -25,6 +26,7 @@ ROOT_DIR = os.path.dirname(SCRIPTS_DIR)
 sys.path.insert(0, SCRIPTS_DIR)
 import constants  # noqa: E402
 import dev_deploy  # noqa: E402
+import dev_stats  # noqa: E402
 import panel_server  # noqa: E402
 
 ADMIN_HTML_PATH = os.path.join(SCRIPTS_DIR, "dev_admin.html")
@@ -153,6 +155,8 @@ class _State(object):
         self.token = secrets.token_urlsafe(16)
         self.remote, self.remote_error = None, ""   # remote = 지금 사용자에게 게시된 update·notices
         self.lock = threading.Lock()
+        self.stats = {}   # (일수, 예시, 내 테스트 제외) → dev_stats.get_stats 결과(탭을 다시 열 때 재사용, [새로고침]에만 다시 모은다)
+        self.stats_lock = threading.Lock()   # 통계는 몇 초 걸린다 — 공지 잠금과 따로
 
     def refresh_remote(self):
         try:
@@ -203,14 +207,22 @@ class _Handler(panel_server.http.server.BaseHTTPRequestHandler):
                 if state.remote is None or query.get("refresh"):
                     state.refresh_remote()
                 self._send(state.get_summary(read_local()))
+        elif path == "/api/stats":
+            days = max(1, min(365, int(query.get("days", ["30"])[0] or 30)))
+            key = (days, bool(query.get("demo")), bool(query.get("exclude")))   # exclude = [내 테스트 제외]
+            with state.stats_lock:
+                if key not in state.stats or query.get("refresh"):
+                    state.stats[key] = dev_stats.get_stats(*key)
+                self._send(state.stats[key])
         elif path == "/panel":
             self._send(get_preview_html(read_local(), query.get("as", [constants.PANEL_VERSION])[0]), "text/html; charset=utf-8")
         elif path and path.startswith("/vendor/"):
             name = os.path.basename(path)
             file_path = os.path.join(SCRIPTS_DIR, "vendor", name)
-            if name.endswith((".js", ".css")) and os.path.exists(file_path):
+            types = {".js": "text/javascript", ".css": "text/css", ".woff2": "font/woff2"}
+            if os.path.splitext(name)[1] in types and os.path.exists(file_path):
                 with open(file_path, "rb") as f:
-                    self._send(f.read(), "text/css" if name.endswith(".css") else "text/javascript")
+                    self._send(f.read(), types[os.path.splitext(name)[1]])
             else:
                 self.send_error(404)
         elif path is not None:
@@ -236,6 +248,18 @@ class _Handler(panel_server.http.server.BaseHTTPRequestHandler):
                 if state.remote is not None:
                     write_local(state.remote)
                 self._send(state.get_summary(read_local()))
+            elif path == "/api/dev_client":   # 국내 서버 설치 ID 하나를 '내 시험'으로 표시·해제 — 모은 숫자는 다시 모은다
+                dev_stats.set_dev_client(str(msg.get("id") or ""), bool(msg.get("dev")))
+                with state.stats_lock:
+                    state.stats.clear()
+                self._send({"ok": True})
+            elif path == "/api/ga_register":   # 대시보드가 쓰는 매개변수를 GA 맞춤 측정기준으로(서비스 계정 = 편집자)
+                try:
+                    self._send({"ok": True, "lines": dev_stats.register_dimensions()})
+                except Exception as error:
+                    self._send({"ok": False, "lines": ["등록하지 못했습니다: %s (서비스 계정이 속성의 '편집자'인지 확인)" % error]})
+                with state.stats_lock:
+                    state.stats.clear()
             elif path == "/api/publish":
                 local = read_local()
                 errors = get_notice_errors(local)
