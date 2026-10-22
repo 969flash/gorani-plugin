@@ -33,8 +33,10 @@ import dev_plateau  # noqa: E402 — SCHEMA_SQL·get_clean_ring·get_ring_area·
 CATALOG_PATH = os.path.join(ROOT_DIR, "data", "raw", "pdok", "catalog.json")
 PACK_DIR = os.path.join(ROOT_DIR, "build", "packs", constants.NL_PACK_DIR)
 PAGE_URL = "https://www.pdok.nl/introductie/-/article/3d-basisvoorziening"
-COLUMNS = ("identificatie", "status", "oorspronkelijkbouwjaar", "rf_h_ground", "rf_h_roof_50p", "rf_h_roof_70p", "rf_h_roof_max", "rf_roof_type")
-# 2025년판 칸 이름. 2019년판은 h_maaiveld·dd_h_dak_50p·pandstatus·bouwjaar — 카탈로그가 최신 연도만 고르므로 쓰지 않는다
+# 칸 이름은 두 꼴이 섞여 있다(2025년판 대부분 rf_*, 일부 도엽·2019년판은 dd_*·h_maaiveld — 03az2 2025에서 KeyError 2026-10-22). 앞의 것부터 있는 칸을 쓴다
+COLUMN_ALIASES = {"id": ("identificatie",), "status": ("status", "pandstatus"), "year": ("oorspronkelijkbouwjaar", "bouwjaar"),
+                  "ground": ("rf_h_ground", "h_maaiveld"), "roof_50p": ("rf_h_roof_50p", "dd_h_dak_50p"), "roof_70p": ("rf_h_roof_70p", "dd_h_dak_70p"),
+                  "roof_max": ("rf_h_roof_max", "dd_h_dak_max"), "roof_type": ("rf_roof_type", "dak_type")}
 USER_AGENT = "Gorani dev_nl (https://969flash.github.io/gorani/)"
 
 
@@ -115,9 +117,13 @@ def get_rows(gpkg_path, pack_no, transformer=None):
     import shapely
     transformer = transformer or pyproj.Transformer.from_crs("EPSG:28992", "EPSG:4326", always_xy=True)
     info = pyogrio.read_info(gpkg_path)
-    columns = [c for c in COLUMNS if c in list(info["fields"])]
-    meta, _index, geoms, values = pyogrio.raw.read(gpkg_path, columns=columns, return_fids=False)
-    col = {name: values[i] for i, name in enumerate(meta["fields"])}
+    fields = list(info["fields"])
+    picked = {key: next((c for c in names if c in fields), None) for key, names in COLUMN_ALIASES.items()}
+    if not picked["id"] or not picked["ground"] or not picked["roof_50p"]:
+        raise ValueError("높이 칸을 못 찾음: %s" % fields[:20])
+    meta, _index, geoms, values = pyogrio.raw.read(gpkg_path, columns=[c for c in picked.values() if c], return_fids=False)
+    raw = {name: values[i] for i, name in enumerate(meta["fields"])}
+    col = {key: raw[name] for key, name in picked.items() if name}
     rows, n, seen = [], 0, {}
     for k, wkb in enumerate(geoms):
         status = col["status"][k] if "status" in col else ""
@@ -137,19 +143,19 @@ def get_rows(gpkg_path, pack_no, transformer=None):
                 polygons.append(rings)
         if not polygons:
             continue
-        height, height_src, grade = get_height(col["rf_h_ground"][k], col["rf_h_roof_50p"][k], col.get("rf_h_roof_70p", [None] * len(geoms))[k],
-                                               col.get("rf_h_roof_max", [None] * len(geoms))[k])
-        year = col["oorspronkelijkbouwjaar"][k] if "oorspronkelijkbouwjaar" in col else None
+        height, height_src, grade = get_height(col["ground"][k], col["roof_50p"][k], col.get("roof_70p", [None] * len(geoms))[k],
+                                               col.get("roof_max", [None] * len(geoms))[k])
+        year = col["year"][k] if "year" in col else None
         use_apr_day = "%04d-01-01" % int(year) if year and constants.PDOK_YEAR_MIN <= int(year) < 2100 else None   # 건축 연도 → 건축물 연한 도면
         xs = [p[0] for polygon in polygons for p in polygon[0]]
         ys = [p[1] for polygon in polygons for p in polygon[0]]
         geo = {"type": "Polygon", "coordinates": polygons[0]} if len(polygons) == 1 else {"type": "MultiPolygon", "coordinates": polygons}
         n += 1
-        pand = col["identificatie"][k]
+        pand = col["id"][k]
         seen[pand] = seen.get(pand, 0) + 1
         src_key = "pdok:%s" % pand if seen[pand] == 1 else "pdok:%s#%d" % (pand, seen[pand])   # 한 pand가 지붕 조각마다 행으로 나뉜다(암스테르담 25GN1: 13,809건·38,700행, 대부분 겹치지 않는 조각)
         rows.append((pack_no * 10 ** 7 + n, src_key, None, "", None, 0, 0, "", height, height_src, grade, None, use_apr_day,
-                     "active", None, col["rf_roof_type"][k] if "rf_roof_type" in col else None, None,
+                     "active", None, col["roof_type"][k] if "roof_type" in col else None, None,
                      round(sum(dev_plateau.get_ring_area(polygon[0]) for polygon in polygons), 2), None,
                      json.dumps(geo, separators=(",", ":")), 4326, "pdok", None, min(xs), max(xs), min(ys), max(ys)))
     return rows
