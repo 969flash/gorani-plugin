@@ -21,6 +21,8 @@
 
 ## 코드
 
+- [ ] Global 도로면 다음 단계(2026-10-22 도로면 1차 뒤): 교량(`attrs.bridge`)은 지금 지형에 얹힌다 — 양끝 높이로 띄우기. 보도(OSM `sidewalk=*`)·연석은 없다. PLATEAU `brid`(교량)·`veg`(가로수)·`luse`(토지이용)·`wtr`을 팩에 더할지. OSM 버퍼끼리 겹친 자리의 베이스맵 경계선(04)은 아직 안 그린다(Rhino Boolean 합집합이 생기면 그린다).
+
 - [ ] Blender 패널 서버(`panel_server._PollServer`)는 연결을 받은 뒤 요청 줄을 REQUEST_TIMEOUT(5 s)까지 기다리며 읽는다 — 브라우저가 미리 열어 두고 아무것도 안 보내는 소켓이면 Blender 메인 스레드가 최대 5 s 멈출 수 있다(0.3.1 리뷰 지적). 헤드리스 Chrome 실측(패널 두 번 열기, pump 1,224번)은 최대 0.33 s로 체감 없음. 다음 판: accept한 소켓은 select(…, 0)로 읽을 거리가 있을 때만 처리하고, 없으면 목록에 두었다가 다음 poll에서 본다.
 - [ ] 원 범위에서 건물이 범위 밖(경계상자 모서리)까지 들어와 지형 밖에 떠 보인다 — `context_report.get_buildings_in_extent`가 경계상자로만 거른다. 해외 OSM·국내 모두(2026-10-21 Blender 렌더에서 발견, 기본 범위는 사각형이라 덜 보인다).
 - [ ] `tests/test_3dm_readback.test_layer_full_paths`: 3dm 레이어 47 ≠ 응답 `context.layers` 41. 차이 6 = `CTX::Zoning` 아래 부모 레이어 수. `context_baker`의 레이어 셈과 테스트 중 하나를 맞춘다(2026-10-19 driver_full_run job 1019-004730-a73c).
