@@ -14,6 +14,7 @@ import constants
 from i18n import get_texts, tr
 
 
+
 def get_output_lang(options):
     # type: (dict) -> str
     """options.output_lang → 지원하는 언어 코드(constants.OUTPUT_LANGS), 아니면 기본."""
@@ -605,6 +606,91 @@ def _get_rounded_buffer(hull, radius):
             ring.append((p1[0] + outer * math.cos(t), p1[1] + outer * math.sin(t)))
         ring.append((p1[0] + radius * math.cos(a_out), p1[1] + radius * math.sin(a_out)))
     return ring
+
+
+def get_buffered_line_ring(line, width, arc_segments=3):
+    # type: (list, float, int) -> list
+    """선 ``[(x, y)]``를 폭 width(m)로 두껍게 한 닫힌 링 — OSM 도로 중심선 → 도로면.
+
+    입력:
+        line: 2점 이상(연속 중복점은 뺀다). width: 전체 폭 m. arc_segments: 호 90°당 분할 수.
+    처리:
+        왼쪽 오프셋을 앞으로, 끝 반원, 오른쪽 오프셋(뒤집은 선의 왼쪽)을 뒤로, 시작 반원. 바깥 꺾임은 호, 안쪽 꺾임은 두 오프셋 선의 교점
+        (교점이 폭의 OSM_ROAD_MITER_LIMIT배보다 멀면 두 점 그대로). 짧은 변에서 안쪽 오프셋이 서로 넘어가 작은 고리가 생길 수 있다 —
+        면 분류(점 포함 판정)·채우기에는 무시할 수준(ponytail: 정밀 합집합이 필요하면 호스트 Boolean으로).
+    출력:
+        ``[(x, y)]`` 첫 점 = 끝 점(GeoJSON 링). 점이 1개 이하이거나 width ≤ 0이면 None.
+    """
+    pts = []
+    for p in line:
+        q = (float(p[0]), float(p[1]))
+        if not pts or abs(q[0] - pts[-1][0]) > 1e-6 or abs(q[1] - pts[-1][1]) > 1e-6:
+            pts.append(q)
+    if len(pts) < 2 or width <= 0:
+        return None
+    h = width / 2.0
+
+    def arc(center, a0, a1):   # 시계 방향 a0 → a1 중간점(끝점 제외)
+        sweep = a0 - a1
+        while sweep <= 1e-9:
+            sweep += 2 * math.pi
+        steps = max(1, int(math.ceil(sweep / (math.pi / 2) * arc_segments)))
+        return [(center[0] + h * math.cos(a0 - sweep * k / steps), center[1] + h * math.sin(a0 - sweep * k / steps)) for k in range(1, steps)]
+
+    def left_chain(points):
+        dirs = []
+        for a, b in zip(points, points[1:]):
+            length = math.hypot(b[0] - a[0], b[1] - a[1])
+            dirs.append(((b[0] - a[0]) / length, (b[1] - a[1]) / length))
+        normals = [(-d[1], d[0]) for d in dirs]
+        chain = [(points[0][0] + h * normals[0][0], points[0][1] + h * normals[0][1])]
+        for k in range(1, len(points) - 1):
+            c, d0, d1, n0, n1 = points[k], dirs[k - 1], dirs[k], normals[k - 1], normals[k]
+            cross = d0[0] * d1[1] - d0[1] * d1[0]
+            p0 = (c[0] + h * n0[0], c[1] + h * n0[1])
+            p1 = (c[0] + h * n1[0], c[1] + h * n1[1])
+            if cross < -1e-9:        # 오른쪽 꺾임 — 왼쪽이 바깥: 호
+                chain += [p0] + arc(c, math.atan2(n0[1], n0[0]), math.atan2(n1[1], n1[0])) + [p1]
+            elif cross > 1e-9:       # 왼쪽 꺾임 — 왼쪽이 안쪽: 두 오프셋 선의 교점
+                t = ((p1[0] - p0[0]) * d1[1] - (p1[1] - p0[1]) * d1[0]) / cross
+                x = (p0[0] + t * d0[0], p0[1] + t * d0[1])
+                chain += [x] if math.hypot(x[0] - c[0], x[1] - c[1]) <= constants.OSM_ROAD_MITER_LIMIT * h else [p0, p1]
+            else:
+                chain.append(p1)
+        chain.append((points[-1][0] + h * normals[-1][0], points[-1][1] + h * normals[-1][1]))
+        return chain, normals[0], normals[-1]
+
+    forward, n_start, n_end = left_chain(pts)
+    backward, _n0, _n1 = left_chain(pts[::-1])
+    a_end = math.atan2(n_end[1], n_end[0])
+    a_start = math.atan2(-n_start[1], -n_start[0])
+    ring = forward + arc(pts[-1], a_end, a_end - math.pi) + backward + arc(pts[0], a_start, a_start - math.pi)
+    if is_ring_self_intersecting(ring):   # 급한 꺾임·짧은 변 — 변마다 캡슐을 만들어 합친다(느리지만 자기교차 없음)
+        capsules = [[get_buffered_line_ring([a, b], width, arc_segments)[:-1]] for a, b in zip(pts, pts[1:])]
+        outers, _holes = get_merged_rings(capsules, min(width, 1.0) * 0.01)
+        if outers:
+            ring = max(outers, key=lambda r: abs(get_ring_area(r)))
+    return ring + [ring[0]]
+
+
+def is_ring_self_intersecting(ring):
+    # type: (list) -> bool
+    """링의 변끼리(이웃 변 제외) 교차하면 True. O(n²) — 도로면 버퍼(수십 점) 검사용."""
+    pts = ring[:-1] if len(ring) > 1 and ring[0] == ring[-1] else ring
+    n = len(pts)
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    for i in range(n):
+        p, q = pts[i], pts[(i + 1) % n]
+        for j in range(i + 2, n):
+            if i == 0 and j == n - 1:
+                continue
+            a, b = pts[j], pts[(j + 1) % n]
+            if cross(p, q, a) * cross(p, q, b) < 0 and cross(a, b, p) * cross(a, b, q) < 0:
+                return True
+    return False
 
 
 def get_extent_ring(lot_rings, radius, shape):

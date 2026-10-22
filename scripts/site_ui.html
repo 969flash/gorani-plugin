@@ -236,10 +236,11 @@ label.chk { display: flex; align-items: center; min-height: 32px; }
 .map-label.extent { color: #111418; font-weight: 600; }
 .leaflet-container.drawing { cursor: crosshair; }
 /* 트레이 자리 고정(2026-10-20) — 높이는 창 높이로만 정한다(고르기·펼치기로 바뀌지 않아 지도가 밀리지 않는다).
-   창이 크면 3D 설정까지 펼친 높이(392)까지 늘고, 그보다 크면 지도가 커진다. 작으면 200에서 트레이 안 스크롤(scrollTray)
+   상한 256 = 3D 설정을 접은 트레이 중 가장 긴 것(구역 + 범위 직접 입력 + 큰 범위 안내, 480 폭 다섯 언어 최대 254). 남는 높이는 전부 지도.
+   3D 설정·필지 정보를 펼치면 트레이 안 스크롤(scrollTray). 2026-10-22 Rhino 480×900: 상한 392(펼친 높이)에서는 접은 트레이 아래가 비었다.
    480 = 헤더 49 + 도구줄 40 + 위 여백 12 + 푸터 57 + 지도 최소 314 + 간격 8 (2026-10-21 Rhino QA: 창을 키워도 아래 카드가 잘렸다) */
 /* 좌우 8 px 여백 = 최근 대상지 줄(.mlist margin 0 -8px)의 자리 — 없으면 줄이 8 px 넘쳐 가로 스크롤바가 생긴다(2026-10-21 SketchUp QA, 늘 보이는 스크롤바) */
-.tray { flex: none; height: clamp(200px, calc(100vh - 480px), 392px); margin: 8px -8px 0; padding: 0 8px 8px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+.tray { flex: none; height: clamp(200px, calc(100vh - 480px), 256px); margin: 8px -8px 0; padding: 0 8px 8px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
 .tray.scrolled { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px); mask-image: linear-gradient(to bottom, transparent 0, #000 16px); }   /* 스크롤하면 위 끝을 흐려 지도와 붙어 보이지 않게 */
 .tray-empty .tray-h { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 11px; line-height: 16px; font-weight: 600; color: var(--ink-3); }
 .tray-empty .mlist { margin: 0 -8px; }

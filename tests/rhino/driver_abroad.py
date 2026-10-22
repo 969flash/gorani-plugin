@@ -43,11 +43,12 @@ try:
     check("ok", response["ok"], str(response.get("error")))
     check("buildings", response["context"]["buildings"] > 50, str(response["context"]["buildings"]))
     check("crs", doc.Strings.GetValue(constants.DOC_ORIGIN_KEYS[2]).startswith("+proj=tmerc"), doc.Strings.GetValue(constants.DOC_ORIGIN_KEYS[2]))
-    for name in (constants.CONTEXT_MODEL_FILE_NAME, constants.BASEMAP_FILE_FORMAT % 1000):
-        path = os.path.join(response["dir"], name)
-        check("file " + name, os.path.exists(path))
-        if os.path.exists(path):
-            shutil.copy2(path, os.path.join(OUT_DIR, "abroad_" + name))   # noqa: F821 — test_3dm_readback(국내 기준)이 context.3dm만 읽는다
+    model = os.path.join(response["dir"], constants.CONTEXT_MODEL_FILE_NAME)
+    check("file " + constants.CONTEXT_MODEL_FILE_NAME, os.path.exists(model))
+    if os.path.exists(model):
+        shutil.copy2(model, os.path.join(OUT_DIR, "abroad_" + constants.CONTEXT_MODEL_FILE_NAME))   # noqa: F821 — test_3dm_readback(국내 기준)이 context.3dm만 읽는다
+    exported = response["basemap"].get("exported") or []   # 2D는 PR #8부터 2D/ 아래 새 폴더 — 응답의 경로로 본다
+    check("basemap exported", bool(exported) and all(os.path.exists(path) for path in exported), str(exported))
     sheets = [s for s in response["sheets"] if s.get("path")]
     check("sheets", len(sheets) >= 5, "%d장 · 빈 %s" % (len(sheets), [s["id"] for s in response["sheets"] if s.get("empty")]))
 finally:

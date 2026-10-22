@@ -11,6 +11,7 @@
 """
 
 import json
+import sqlite3
 import math
 import re
 import struct
@@ -282,6 +283,55 @@ def load_plateau_buildings(lnglat_bounds, data_dir=None):
     return buildings, [source]
 
 
+def load_plateau_roads(lnglat_bounds, data_dir=None):
+    # type: (tuple, str) -> list
+    """경위도 범위에 걸리는 받아 둔 일본 팩의 도로면(features theme road·kind surface, dev_plateau roads) → FeatureInfo 목록(지금 투영 m).
+    features 표가 없는 옛 팩(2026-10-21판)은 빈 목록 — 런타임이 OSM 버퍼로 메운다."""
+    paths = data_pack.get_jp_paths(lnglat_bounds, data_dir)
+    if not paths:
+        return []
+    west, south, east, north = lnglat_bounds
+    connection = data_pack.open_databases(paths)
+    try:
+        try:
+            rows = connection.execute("SELECT * FROM features WHERE theme = 'road' AND kind = 'surface' AND min_x BETWEEN ? AND ? AND max_x >= ? AND min_y <= ? AND max_y >= ?",
+                                      (west - constants.PLATEAU_ROAD_MAX_EXTENT_DEG, east, west, north, south)).fetchall()
+        except sqlite3.OperationalError:   # features 표가 없는 옛 팩
+            return []
+    finally:
+        connection.close()
+    features, seen = [], set()
+    for row in rows:
+        feature = context_db._feature_from_row(row)
+        key = (feature.attrs or {}).get("plateau") or feature.feature_id
+        if key in seen:   # 도쿄도 팩끼리 경계 3차 메시를 함께 담는다 — 같은 gml:id는 한 번만
+            continue
+        seen.add(key)
+        feature.geometry = _get_tm_geometry(feature.geometry)
+        feature.min_x, feature.max_x, feature.min_y, feature.max_y = _get_bounds(feature.geometry)
+        features.append(feature)
+    return features
+
+
+def get_surfaces_apart(features, roads):
+    # type: (list, list) -> list
+    """OSM 피처 중 PLATEAU 도로면과 겹치는 버퍼 도로면을 뺀다 — 중심선의 가운데 점이 PLATEAU 도로면 안이면 그 도로는 이미 면이 있다.
+    PLATEAU는 공도만 담고 사유지 통로·공원 길은 없어 OSM 버퍼가 그 빈 곳을 메운다. 입력은 바꾸지 않는다."""
+    if not roads:
+        return features
+    shapes = non_rhino_utils.GridIndex(constants.CLASSIFY_GRID)
+    for road in roads:
+        shapes.add((road.min_x, road.min_y, road.max_x, road.max_y), road)
+    kept = []
+    for f in features:
+        if f.theme == "road" and f.kind == "surface" and (f.attrs or {}).get("derived") == "buffer":
+            x, y = f.attrs["mid"]
+            if any(o.min_x <= x <= o.max_x and o.min_y <= y <= o.max_y and _is_inside(x, y, o.geometry) for o in shapes.query(x, y)):
+                continue
+        kept.append(f)
+    return kept
+
+
 def get_buildings_apart(buildings, others):
     # type: (list, list) -> list
     """others와 겹치지 않는 buildings만(새 목록). 중심점(bbox 가운데)이 다른 쪽 외곽 안이거나 다른 쪽 중심점을 품으면 같은 건물로 본다.
@@ -326,6 +376,8 @@ def get_feature_kind(tags, is_area):
             return "public", "school_lot"   # 공공시설 도면 '학교 부지'(국내 지목 학교용지)
         if tags.get("place") == "square":
             return "public", "plaza"
+        if tags.get("area:highway") or tags.get("amenity") == "parking" or (tags.get("highway") in constants.OSM_ROAD_WIDTHS and tags.get("area") == "yes"):
+            return "road", "surface"   # 포장면 — 도로면 폴리곤(드묾)·보행자 광장·주차장. 국내 도로경계 면과 같은 자리
         for key, values in constants.OSM_GREEN_TAGS.items():
             if tags.get(key) in values:
                 return "green", "park"
@@ -383,11 +435,33 @@ def _get_features(elements, reference_date):
         min_x, max_x, min_y, max_y = _get_bounds(geometry)
         value = get_road_width(tags) if theme == "road" else None
         features.append(FeatureInfo(
-            feature_id=len(features) + 1, theme=theme, kind=kind, code=tags.get("highway") or tags.get("railway") or tags.get("waterway") or "",
+            feature_id=len(features) + 1, theme=theme, kind=kind, code=tags.get("highway") or tags.get("railway") or tags.get("waterway") or tags.get("area:highway") or tags.get("amenity") or "",
             name=tags.get("name", ""), value=value, attrs={"osm": "%s/%d" % (element["type"], element["id"])}, sheet="",
             geometry=geometry, source_id="osm", reference_date=reference_date, min_x=min_x, max_x=max_x, min_y=min_y, max_y=max_y,
         ))
+        surface = get_road_surface(geometry, tags, value) if theme == "road" and kind == "centerline" else None
+        if surface is not None:
+            features.append(FeatureInfo(
+                feature_id=len(features) + 1, theme="road", kind="surface", code=tags.get("highway") or "", name=tags.get("name", ""), value=value,
+                attrs={"osm": "%s/%d" % (element["type"], element["id"]), "derived": "buffer", "bridge": tags.get("bridge", ""),
+                       "mid": list(geometry["coordinates"][len(geometry["coordinates"]) // 2])}, sheet="",   # 중심선 가운데 꼭짓점 — get_surfaces_apart가 쓴다
+                geometry=surface, source_id="osm", reference_date=reference_date, min_x=min_x - value, max_x=max_x + value, min_y=min_y - value, max_y=max_y + value,
+            ))
     return features
+
+
+def get_road_surface(geometry, tags, width):
+    # type: (dict, dict, float) -> dict
+    """도로 중심선 → 도로면 GeoJSON Polygon(폭만큼 버퍼). OSM은 도로를 선으로만 두므로 지도 타일처럼 폭을 입혀야 면이 된다.
+    터널(OSM_ROAD_NO_SURFACE_TAGS)·폭 0·점 하나는 None. 교량은 지형에 얹힌 면으로 둔다."""
+    if width <= 0 or geometry.get("type") != "LineString":
+        return None
+    if any(tags.get(key, "no") != "no" for key in constants.OSM_ROAD_NO_SURFACE_TAGS):
+        return None
+    ring = non_rhino_utils.get_buffered_line_ring(geometry["coordinates"], width, constants.OSM_ROAD_ARC_SEGMENTS)
+    if ring is None:
+        return None
+    return {"type": "Polygon", "coordinates": [[[round(x, 3), round(y, 3)] for x, y in ring]]}
 
 
 # ── 지형 (Terrain Tiles, terrarium PNG) ─────────────────
@@ -541,7 +615,9 @@ def load(bounds, today):
         sources.append(DataSource("gsi_dem", "国土地理院 標高タイル（基盤地図情報数値標高モデル DEM5A・5B・5C）", "https://maps.gsi.go.jp/development/ichiran.html",
                                   "", today, crs, tr("국토지리원 콘텐츠 이용규약(공공데이터 이용규약 제1.0판 호환) — 출처 표기"),
                                   tr("표고 타일을 가공해 만듦. 5 m 격자, 표고 기준 T.P.(도쿄만 평균해면)")))
-    return ContextData(bounds=tuple(bounds), buildings=buildings, features=_get_features(elements, today) + spots, sources=sources)
+    roads = load_plateau_roads(get_lnglat_bounds(bounds)) if plateau else []   # 팩에 도로면이 있으면(2026-10-22 roads 단계) 그것을 쓰고 OSM 버퍼는 빈 곳만
+    features = roads + get_surfaces_apart(_get_features(elements, today), roads) + spots
+    return ContextData(bounds=tuple(bounds), buildings=buildings, features=features, sources=sources)
 
 
 def _apply_public_use(buildings, elements):

@@ -73,6 +73,8 @@ class ParseTest(unittest.TestCase):
         self.assertIsNone(osm_context.get_feature_kind({"amenity": "bench"}, False))
         self.assertEqual(osm_context.get_feature_kind({"amenity": "school"}, True), ("public", "school_lot"))
         self.assertEqual(osm_context.get_feature_kind({"place": "square"}, True), ("public", "plaza"))
+        self.assertEqual(osm_context.get_feature_kind({"area:highway": "primary"}, True), ("road", "surface"))
+        self.assertIsNone(osm_context.get_feature_kind({"highway": "residential"}, True))   # 닫힌 순환로는 면이 아니라 선으로 간다
         self.assertIsNone(osm_context.get_feature_kind({"amenity": "hospital"}, True))   # 병원 면은 그리지 않고 안 건물의 용도로만
         self.assertEqual(osm_context.get_building_use({"building": "yes", "amenity": "library"}), "10000")
         for value in constants.OSM_PUBLIC_USE:   # Overpass가 시설 면을 받아 와야 용도를 줄 수 있다
@@ -93,7 +95,17 @@ class ParseTest(unittest.TestCase):
             self.assertEqual(len(buildings), 1)
             self.assertEqual(buildings[0].usability, "02000")
             self.assertGreater(buildings[0].footprint_area, 300)   # 약 14.7 m × 22.2 m
-            self.assertEqual(sorted((f.theme, f.kind) for f in features), [("green", "park"), ("road", "centerline")])
+            self.assertEqual(sorted((f.theme, f.kind) for f in features), [("green", "park"), ("road", "centerline"), ("road", "surface")])
+            surface = [f for f in features if f.kind == "surface"][0]   # 중심선을 폭(secondary 12 m)만큼 버퍼한 도로면 — 길이 ≈ 14.7 m
+            self.assertEqual(surface.attrs["derived"], "buffer")
+            self.assertAlmostEqual(abs(non_rhino_utils.get_ring_area(surface.geometry["coordinates"][0])), 14.7 * 12 + 3 * 36, delta=12)
+            # 터널은 면을 만들지 않고, 주차장 면·보행자 광장(area=yes)은 면 그대로
+            tunnel = [{"type": "way", "id": 9, "tags": {"highway": "primary", "tunnel": "yes"}, "geometry": square[:2]}]
+            self.assertEqual([f.kind for f in osm_context._get_features(tunnel, "2026-10-13")], ["centerline"])
+            paved = [{"type": "way", "id": 10, "tags": {"amenity": "parking"}, "geometry": square},
+                     {"type": "way", "id": 11, "tags": {"highway": "pedestrian", "area": "yes"}, "geometry": square}]
+            self.assertEqual([(f.kind, f.code, f.geometry["type"]) for f in osm_context._get_features(paved, "2026-10-13")],
+                             [("surface", "parking", "Polygon"), ("surface", "pedestrian", "Polygon")])
             # 역 점 · 학교 부지 면 · 병원 면 안 building=yes → 공공시설·역세권 도면
             far = [{"lat": p["lat"] + 0.001, "lon": p["lon"]} for p in square]
             elements += [
@@ -136,6 +148,18 @@ def _write_jp_pack(data_dir, code, buildings, year):
     state[name] = {"sha256": "x", "bounds": [139.0, 35.0, 140.0, 36.0]}
     with open(state_path, "w") as f:
         json.dump(state, f)
+
+
+def _write_jp_roads(data_dir, code, roads, reference_date="2026-03-31"):
+    """있는 일본 팩에 도로면 features 표를 넣는다(dev_plateau roads 단계와 같은 행). roads = [(gml:id, [(경도, 위도)…], function)]."""
+    connection = sqlite3.connect(os.path.join(data_dir, "jp%s_context.db" % code))
+    connection.executescript(dev_plateau.FEATURES_SQL)
+    for n, (gml_id, ring, function) in enumerate(roads, start=1):
+        row = dev_plateau.get_road_row({"id": gml_id, "polygons": [[dev_plateau.get_clean_ring(ring)]], "function": function, "cls": "1020", "name": ""},
+                                       int(code) * 10 ** 6 + n, reference_date)
+        connection.execute("INSERT INTO features VALUES (%s)" % ",".join("?" * len(row)), row)
+    connection.commit()
+    connection.close()
 
 
 def _square(lng, lat, size=0.0002):
@@ -181,6 +205,28 @@ class JapanTest(unittest.TestCase):
             self.assertIn("市13104（2025年度）・市13113（2023年度）", sources[0].name)
             self.assertEqual(sources[0].reference_date, "2024-03-31")   # 기준일은 가장 오래된 도시
             self.assertEqual(osm_context.load_plateau_buildings((130.0, 33.0, 130.1, 33.1), os.path.join(data_dir, "none")), ([], []))
+
+    def test_plateau_roads_and_osm_fill(self):
+        """팩의 도로면(tran)은 그대로 쓰고, OSM 버퍼 도로면은 중심선 가운데가 PLATEAU 도로면 밖인 것만 남긴다. 옛 팩(features 표 없음)은 빈 목록."""
+        with tempfile.TemporaryDirectory() as data_dir:
+            _write_jp_pack(data_dir, "13104", [("a", _square(139.700, 35.690), "412")], 2025)
+            _write_jp_pack(data_dir, "13113", [("z", _square(139.720, 35.690), "412")], 2023)   # 도로면 표 없는 옛 팩
+            self.assertEqual(osm_context.load_plateau_roads((139.71, 35.68, 139.73, 35.70), data_dir), [])
+            _write_jp_roads(data_dir, "13104", [("r1", _square(139.7010, 35.6900, 0.0006), "3")])
+            roads = osm_context.load_plateau_roads((139.69, 35.68, 139.71, 35.70), data_dir)
+            self.assertEqual([(r.theme, r.kind, r.code, r.source_id, r.attrs["plateau"]) for r in roads], [("road", "surface", "3", "plateau", "r1")])
+            self.assertLess(abs(roads[0].geometry["coordinates"][0][0][0]), 500)   # 지금 투영 m
+            non_rhino_utils.set_projection(139.7006, 35.6896)
+            try:
+                inside = [{"lat": 35.6901, "lon": 139.7011}, {"lat": 35.6902, "lon": 139.7014}]     # PLATEAU 도로면 안을 지나는 OSM 도로
+                outside = [{"lat": 35.6950, "lon": 139.7011}, {"lat": 35.6952, "lon": 139.7014}]    # 밖(사유지 통로 등)
+                elements = [{"type": "way", "id": 1, "tags": {"highway": "residential"}, "geometry": inside},
+                            {"type": "way", "id": 2, "tags": {"highway": "service"}, "geometry": outside}]
+                roads = osm_context.load_plateau_roads((139.69, 35.68, 139.71, 35.70), data_dir)
+                features = osm_context.get_surfaces_apart(osm_context._get_features(elements, "2026-10-22"), roads)
+                self.assertEqual(sorted((f.kind, f.attrs["osm"]) for f in features), [("centerline", "way/1"), ("centerline", "way/2"), ("surface", "way/2")])
+            finally:
+                non_rhino_utils.set_projection()
 
     def test_overpass_down_keeps_plateau(self):
         """Overpass가 모두 막혀도 일본 팩이 있으면 PLATEAU 건물로 만든다(출처에 osm 없음). 팩이 없으면 그대로 실패."""

@@ -473,8 +473,8 @@ def build_ai(prepared, scale, writer=None):
             polygon("01_water", None, f.geometry)
         elif f.theme == "green":
             polygon("02_green", None, f.geometry)
-        elif f.theme == "road" and f.kind == "surface":
-            polygon("03_road_surface", "04_road_edge", f.geometry)
+        elif f.theme == "road" and f.kind == "surface":   # OSM 버퍼 유래(attrs derived)는 겹친 면끼리 선이 교차해 경계선 없이 채우기만
+            polygon("03_road_surface", None if (f.attrs or {}).get("derived") else "04_road_edge", f.geometry)
         elif f.theme == "road" and f.kind == "centerline":
             lines("05_road_center", f.geometry)
         elif f.theme == "rail" and f.kind in ("line", "centerline"):

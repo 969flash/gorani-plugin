@@ -288,6 +288,32 @@ def _get_closed_crv(ring):
     return rg.PolylineCurve(pts + [pts[0]])
 
 
+def _get_union_rings(rings, tol, counts):
+    # type: (list, float, dict) -> list
+    """겹치는 분류 링(로컬 m) → Curve.CreateBooleanUnion 외곽·구멍 링. 분류는 원래 폴리곤(index_grid)으로 하므로 경계만 바뀐다.
+    파리 R=300: 도로 583링 → 252커브 0.6 s. 실패(None)하면 원래 링을 돌려준다."""
+    if len(rings) < 2:
+        return rings
+    t = time.time()
+    union = rg.Curve.CreateBooleanUnion(List[rg.Curve]([_get_closed_crv(r) for r in rings]), tol)
+    counts["union_s"] = round(counts.get("union_s", 0.0) + time.time() - t, 3)
+    if not union:
+        counts["union_failed"] = counts.get("union_failed", 0) + 1
+        return rings
+    out = []
+    for crv in union:
+        ok, pl = crv.TryGetPolyline()
+        if not ok:
+            pl = crv.ToPolyline(tol, 0.0, 0.0, 0.0).ToPolyline()
+        pts = [(p.X, p.Y) for p in pl]
+        if len(pts) > 1 and pts[0] == pts[-1]:
+            pts.pop()
+        if len(pts) >= 3:
+            out.append(pts)
+    counts["union_rings"] = counts.get("union_rings", 0) + len(out)
+    return out or rings
+
+
 def _get_region_meshes(ext_ring, cut_rings, edge, counts):
     # type: (list, list, float, dict) -> list
     """범위 평면 Brep 하나를 경계 커브(분류 폴리곤·대상지)로 면 분할 → Rhino 메싱(평면도 격자 — 안쪽 쿼드, 경계만 삼각형).
@@ -474,7 +500,7 @@ def build_terrain(prepared):
     # 경계 커브 — 범위와 겹치는 분류 폴리곤 링 전부 + 대상지 링
     polys = get_class_polygons(prepared)
     index_grid = non_rhino_utils.GridIndex(constants.CLASSIFY_GRID)
-    cut_rings = []
+    cut_rings, class_rings = [], {}
     for index, (cls, _name, parts) in enumerate(polys):
         prio = constants.TERRAIN_CLASS_PRIORITY.index(cls)
         for part in parts:
@@ -484,7 +510,9 @@ def build_terrain(prepared):
             for ring in part:
                 r0, s0, r1, s1 = non_rhino_utils.get_bbox(ring)
                 if r1 >= wx0 and r0 <= wx1 and s1 >= wy0 and s0 <= wy1:
-                    cut_rings.append([(x - ox, y - oy) for x, y in ring])
+                    class_rings.setdefault(cls, []).append([(x - ox, y - oy) for x, y in ring])
+    for cls, rings in class_rings.items():   # OSM 도로면 버퍼는 서로 겹쳐 그대로 넣으면 면 분할이 실패한다(파리 R=300 583링 16 s 뒤 실패, 2026-10-22) — 합집합 외곽으로
+        cut_rings += _get_union_rings(rings, constants.GEOMETRY_TOLERANCE, counts) if cls in constants.TERRAIN_UNION_CLASSES else rings
     mode = getattr(prepared, "mode", "lots")
     site_world = getattr(prepared, "site_rings", None) or []
     flatten = bool(options.get("flatten_site")) and mode in ("lots", "area") and bool(site_world)
