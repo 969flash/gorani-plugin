@@ -513,6 +513,7 @@ CONTEXT_MODEL_FILE_NAME = "context.3dm"
 BLENDER_MODEL_FILE_NAME = "context.blend"      # Blender판 사본(blender_baker.save_copy) — 3dm 대신
 SKETCHUP_MODEL_FILE_NAME = "context.skp"       # SketchUp판 사본(sketchup_baker.save_copy — 대상지 그룹 정의를 저장)
 WEB_MODEL_FILE_NAME = "context.glb"            # 웹판 사본(web_baker.save_copy) — 페이지 뷰어가 바로 그리고 Blender·Rhino 8이 가져온다
+ARCHICAD_MODEL_FILE_NAME = "context.mod"       # Archicad판 사본(archicad_baker.save_copy — 구운 요소를 모듈로). 다시 넣기는 핫링크
 CONTEXT_META_FILE_NAME = "context.json"
 BASEMAP_FILE_FORMAT = "basemap_%d.ai"          # 축척 분모
 # DWG 저장 스위치. 활성 문서에서 .dwg를 쓰면 Mac Rhino 8이 12분 멈춘 뒤 실패했다(2026-10-14 을지로1가 87, job 1014-152138 731 s) →
@@ -743,6 +744,7 @@ HOST_LABELS = {
     "blender": {"id": "blender", "name": "Blender", "doc": "Blender 장면", "model": BLENDER_MODEL_FILE_NAME, "dwg": False, "ask_stats": True,
                 "aerial": False, "update_notice": False, "ip_center": False},   # 확장 스토어 약관: 상용 영상(Esri)·제3자 IP 조회 불가, 업데이트는 Blender가 한다
     "sketchup": {"id": "sketchup", "name": "SketchUp", "doc": "SketchUp 모델", "model": SKETCHUP_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},
+    "archicad": {"id": "archicad", "name": "Archicad", "doc": "Archicad 프로젝트", "model": ARCHICAD_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},   # GA 속성을 만들기 전에는 묻지 않는다
     "web": {"id": "web", "name": "브라우저", "doc": "3D 모델", "model": WEB_MODEL_FILE_NAME, "dwg": False, "ask_stats": False},   # 통계는 웹사이트 GA(페이지)만
 }
 # 메시판(mesh_geometry — Blender·SketchUp)
@@ -757,6 +759,15 @@ SKETCHUP_HOST_TIMEOUT = 1800.0  # s — 호스트 호출(베이크 등) 응답 �
 SKETCHUP_HOST_POLL = 0.5        # s — 응답을 기다리며 패널 닫힘을 확인하는 간격
 SKETCHUP_ZOOM_MIN_SPAN = 400.0  # m — 생성 뒤 화면 맞춤에서 대상지 + 여백의 최소 한 변. 작은 필지도 주변 맥락이 보이게(Rhino는 대상지 + 대각선 반 여백만)
 SKETCHUP_GROUND_CELL = 5.0      # m — 지반 높이 조회 격자 칸(mesh_geometry._Ground shapely판). 지형 리샘플 4 m 삼각형이 칸마다 열 개 안팎
+# Archicad판(cmd_archicad 사이드카 — 번들 파이썬 + Gorani 애드온 archicad/, 모델 변경은 Archicad JSON API + GoraniCommand)
+ARCHICAD_COMMAND_NAMESPACE = "GoraniCommand"   # 애드온 명령 이름 공간(archicad/Sources/CommandBase.cpp). 개발 시험은 Tapir('TapirCommand')로도 돈다
+ARCHICAD_HOST_TIMEOUT = 1800.0  # s — JSON 명령 하나의 응답 대기 상한(건물 수천 동 Morph 한 묶음)
+ARCHICAD_WATCH_SECONDS = 5.0    # s — Archicad가 살아 있는지 보는 간격. 연결 거부가 ARCHICAD_WATCH_MISSES번 이어지면 사이드카를 끝낸다
+ARCHICAD_WATCH_MISSES = 3
+ARCHICAD_PANEL_SIZE = (440, 860)   # px — Archicad 안 패널 팔레트(ShowScriptUI) 처음 크기. 사용자가 늘리면 Archicad가 기억한다
+ARCHICAD_BATCH = 200            # 요소 만들기 명령 하나에 보내는 Morph 수(속성·레이어 지정은 ×10)
+ARCHICAD_SPLIT_MAX = 2000      # 면 메시 Morph가 거부되면 면마다 나눠 만드는 상한(옹벽 수백 면). 넘으면 그 항목은 빠지고 경고
+ARCHICAD_SURFACE_LIFT = 0.03    # m — 도로·녹지·수면 색 면을 지형 Mesh 위로 띄우는 높이(같은 면이면 깜박인다)
 # 웹판(cmd_web — 브라우저 Pyodide 워커 web_worker.js + 페이지 web_app.html). Pyodide·three.js 주소는 JS 파일 맨 위 상수
 # 반경 상한 — 2026-10-19 실측(Chrome·Apple M5, 성수 333-139): 500 m 5 s·탭 0.8 GB, 1 km 11 s·0.9 GB, 2 km 39 s·1.8 GB(시군구 팩 6곳 681 MB 포함).
 # CPU 4배 감속(오래된 보급형 노트북 가정)이면 500 m 20 s·1 km 45 s. 3 km는 팩만 1.8 GB(10곳)라 탭 메모리에 못 든다

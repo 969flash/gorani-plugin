@@ -5662,5 +5662,65 @@
   "es": "Alturas: altura medida de {0} (B) y plantas (C); en el resto etiqueta height de OSM (B), plantas (C) o valor por defecto {1:.1f} m (D)",
   "ja": "建物高さ: {0} 実測高さ(B)・階数(C)、ない所は OSM height タグ(B)・階数(C)・既定値 {1:.1f} m(D)",
   "zh": "建筑高度：{0} 实测高度(B)、层数(C)；其余为 OSM height 标签(B)、层数(C)或默认值 {1:.1f} m(D)"
+ },
+ "Archicad가 응답하지 않습니다({0}) — Archicad에 프로젝트가 열려 있는지 확인하세요": {
+  "en": "Archicad is not responding ({0}). Check that a project is open in Archicad",
+  "es": "Archicad no responde ({0}). Compruebe que hay un proyecto abierto en Archicad",
+  "ja": "Archicad が応答しません（{0}）。Archicad でプロジェクトが開いているか確認してください",
+  "zh": "Archicad 没有响应（{0}）。请确认 Archicad 中已打开项目"
+ },
+ "Archicad {0} 실패: {1}": {
+  "en": "Archicad {0} failed: {1}",
+  "es": "Archicad {0} falló: {1}",
+  "ja": "Archicad {0} 失敗: {1}",
+  "zh": "Archicad {0} 失败：{1}"
+ },
+ "Archicad에 분류 'Gorani'를 만들지 못했습니다": {
+  "en": "Could not create the 'Gorani' classification in Archicad",
+  "es": "No se pudo crear la clasificación 'Gorani' en Archicad",
+  "ja": "Archicad に分類「Gorani」を作成できませんでした",
+  "zh": "无法在 Archicad 中创建分类“Gorani”"
+ },
+ "모듈을 넣지 못했습니다: {0}": {
+  "en": "Could not place the module: {0}",
+  "es": "No se pudo colocar el módulo: {0}",
+  "ja": "モジュールを配置できませんでした: {0}",
+  "zh": "无法放置模块：{0}"
+ },
+ "Archicad에서 폴리선·채우기·슬래브 하나를 먼저 선택하고 다시 누르세요": {
+  "en": "Select one polyline, fill or slab in Archicad first, then click again",
+  "es": "Seleccione primero una polilínea, un relleno o una losa en Archicad y vuelva a pulsar",
+  "ja": "先に Archicad でポリライン・塗りつぶし・スラブを1つ選択してから、もう一度押してください",
+  "zh": "请先在 Archicad 中选择一条多段线、一个填充或一块楼板，然后再点一次"
+ },
+ "하나만 선택하세요({0}개 선택됨)": {
+  "en": "Select only one ({0} selected)",
+  "es": "Seleccione solo uno ({0} seleccionados)",
+  "ja": "1つだけ選択してください（{0}個選択中）",
+  "zh": "只能选择一个（已选 {0} 个）"
+ },
+ "닫힌 폴리선·채우기·슬래브·영역만 받습니다": {
+  "en": "Only closed polylines, fills, slabs and zones are accepted",
+  "es": "Solo se aceptan polilíneas cerradas, rellenos, losas y zonas",
+  "ja": "閉じたポリライン・塗りつぶし・スラブ・ゾーンのみ使えます",
+  "zh": "只接受闭合多段线、填充、楼板和区域"
+ },
+ "웹사이트에서 Gorani Archicad판 받기": {
+  "en": "Download Gorani for Archicad from the website",
+  "es": "Descargue Gorani para Archicad desde el sitio web",
+  "ja": "ウェブサイトから Gorani Archicad 版をダウンロード",
+  "zh": "从网站下载 Gorani Archicad 版"
+ },
+ "Add-Ons 폴더의 Gorani 폴더 바꾸기": {
+  "en": "Replace the Gorani folder in the Add-Ons folder",
+  "es": "Sustituya la carpeta Gorani en la carpeta Add-Ons",
+  "ja": "Add-Ons フォルダの Gorani フォルダを置き換える",
+  "zh": "替换 Add-Ons 文件夹中的 Gorani 文件夹"
+ },
+ "Archicad 다시 시작": {
+  "en": "Restart Archicad",
+  "es": "Reinicie Archicad",
+  "ja": "Archicad を再起動",
+  "zh": "重启 Archicad"
  }
 }

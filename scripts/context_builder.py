@@ -1018,9 +1018,9 @@ def get_sheet_ids(options):
 
 def get_host():
     # type: () -> str
-    """지금 도는 프로그램 — SketchUp 사이드카·웹판 워커(cmd_sketchup·cmd_web이 환경변수를 둔다)면 'sketchup'·'web', Blender 안이면 'blender',
+    """지금 도는 프로그램 — SketchUp·Archicad 사이드카·웹판 워커(cmd_sketchup·cmd_archicad·cmd_web이 환경변수를 둔다)면 'sketchup'·'archicad'·'web', Blender 안이면 'blender',
     아니면 'rhino'(python3 테스트 포함). constants.HOST_LABELS의 키."""
-    if os.environ.get(constants.HOST_ENV) in ("sketchup", "web"):
+    if os.environ.get(constants.HOST_ENV) in ("sketchup", "archicad", "web"):
         return os.environ[constants.HOST_ENV]
     try:
         import bpy  # noqa: F401
@@ -1032,7 +1032,7 @@ def get_host():
 def get_host_modules():
     # type: () -> tuple
     """(지오메트리, 베이커) 모듈. Rhino = context_geometry·context_baker, Blender = mesh_geometry·blender_baker,
-    SketchUp = mesh_geometry·sketchup_baker(사이드카 → SketchUp 호출), 웹 = mesh_geometry·web_baker(context.glb). 베이커 함수(get_doc_origin·clear_previous·bake·write_ref_and_origin·
+    SketchUp = mesh_geometry·sketchup_baker(사이드카 → SketchUp 호출), Archicad = mesh_geometry·archicad_baker(사이드카 → Archicad JSON), 웹 = mesh_geometry·web_baker(context.glb). 베이커 함수(get_doc_origin·clear_previous·bake·write_ref_and_origin·
     save_copy·zoom_to_site)와 build는 이름이 같다."""
     host = get_host()
     if host == "blender":
@@ -1043,6 +1043,10 @@ def get_host_modules():
         import mesh_geometry
         import sketchup_baker
         return mesh_geometry, sketchup_baker
+    if host == "archicad":
+        import archicad_baker
+        import mesh_geometry
+        return mesh_geometry, archicad_baker
     if host == "web":
         import mesh_geometry
         import web_baker

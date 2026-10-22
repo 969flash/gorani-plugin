@@ -1748,7 +1748,8 @@ function renderBlocker() {
 var UPDATE_STEPS = {   // 글은 표시할 때 tr()
   rhino: ["Rhino 도구 → 패키지 관리자", "Gorani 검색 → 업데이트", "Rhino 다시 시작"],
   blender: ["편집 → 환경설정 → 확장", "Gorani 업데이트", "Blender 다시 시작"],
-  sketchup: ["확장 → 확장 관리자", "Gorani 업데이트", "SketchUp 다시 시작"]   // 한국어 SketchUp 메뉴 이름(영어판 Extensions → Extension Manager)
+  sketchup: ["확장 → 확장 관리자", "Gorani 업데이트", "SketchUp 다시 시작"],   // 한국어 SketchUp 메뉴 이름(영어판 Extensions → Extension Manager)
+  archicad: ["웹사이트에서 Gorani Archicad판 받기", "Add-Ons 폴더의 Gorani 폴더 바꾸기", "Archicad 다시 시작"]   // Archicad는 애드온 스토어가 없다 — 웹사이트 zip
 };
 function cmpVer(a, b) {
   var x = String(a || "0").split("."), y = String(b || "0").split(".");

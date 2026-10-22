@@ -169,6 +169,51 @@ def get_ring_area(ring):
     return abs(doubled_area) * 0.5
 
 
+def get_signed_area(ring):
+    # type: (list) -> float
+    """링의 부호 있는 면적 — 반시계면 양수, 시계면 음수(get_ring_area의 부호판)."""
+    doubled_area = 0.0
+    previous = ring[-1] if ring else None
+    for point in ring:
+        doubled_area += float(previous[0]) * float(point[1]) - float(point[0]) * float(previous[1])
+        previous = point
+    return doubled_area * 0.5
+
+
+def get_edge_chains(edges, closed):
+    # type: (list, bool) -> list
+    """방향 없는 변 [(a, b)] → 이은 정점 번호 줄 목록. closed=True면 고리(첫 점을 되풀이하지 않는다), False면 열린 줄 —
+    가지 친 점(이웃이 2개가 아닌 점)에서 끊는다. 남은 고리도 줄로 돌려준다. 입력은 바꾸지 않는다."""
+    neighbors = {}
+    for a, b in edges:
+        neighbors.setdefault(a, []).append(b)
+        neighbors.setdefault(b, []).append(a)
+    unused = {(min(a, b), max(a, b)) for a, b in edges}
+
+    def walk(start, nxt):
+        chain = [start]
+        previous, current = start, nxt
+        while True:
+            unused.discard((min(previous, current), max(previous, current)))
+            if current == start:
+                return chain
+            chain.append(current)
+            if not closed and len(neighbors[current]) != 2:
+                return chain
+            options = [n for n in neighbors[current] if (min(current, n), max(current, n)) in unused]
+            if not options:
+                return chain
+            previous, current = current, options[0]
+
+    chains = []
+    starts = [v for v, ns in neighbors.items() if len(ns) != 2] if not closed else []
+    for start in starts + list(neighbors):
+        for n in list(neighbors[start]):
+            if (min(start, n), max(start, n)) in unused:
+                chains.append(walk(start, n))
+    return [c for c in chains if len(c) >= (3 if closed else 2)]
+
+
 # ═════════════════════════════════════════════════════════
 # EPSG:5186 ↔ WGS84 좌표 변환
 # ═════════════════════════════════════════════════════════
