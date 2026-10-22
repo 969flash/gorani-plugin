@@ -120,12 +120,15 @@ def _get_cdt(rings, loose_pts, epsilon):
 
 def _get_valid_polygon(polygon, epsilon):
     # type: (object, float) -> object
-    """자기교차 링(OSM 도로면 버퍼의 짧은 변 안쪽 고리) → make_valid 결과 중 가장 넓은 폴리곤 하나. 분류는 링 번호 = 입력 순서라 하나만 남긴다."""
-    polygon = shapely.set_precision(polygon, epsilon)
-    if shapely.is_valid(polygon):
+    """자기교차 링(OSM 도로면 버퍼의 짧은 변 안쪽 고리) → make_valid 결과 중 가장 넓은 폴리곤 하나(분류는 링 번호 = 입력 순서라 하나만) → epsilon 격자.
+    set_precision은 유효하지 않은 입력에 'side location conflict'를 던지므로 make_valid를 먼저 한다(신주쿠 2026-10-22)."""
+    if not shapely.is_valid(polygon):
+        parts = [g for g in shapely.get_parts(shapely.make_valid(polygon)) if shapely.get_type_id(g) == 3]
+        polygon = max(parts, key=shapely.area) if parts else polygon
+    try:
+        return shapely.set_precision(polygon, epsilon)
+    except shapely.errors.GEOSException:
         return polygon
-    parts = [g for g in shapely.get_parts(shapely.make_valid(polygon)) if shapely.get_type_id(g) == 3]
-    return max(parts, key=shapely.area) if parts else polygon
 
 
 def _get_overlay_cdt(rings, loose_pts, epsilon):
