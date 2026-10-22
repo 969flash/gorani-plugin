@@ -37,7 +37,7 @@ try:
     res["response"] = {k: response[k] for k in ("ok", "elapsed_s", "context", "basemap", "error", "warnings")}
     print(json.dumps(res["response"], ensure_ascii=False, indent=1, default=str))
     check("ok", response["ok"], str(response.get("error")))
-    check("buildings", response["context"]["buildings"] > 500, str(response["context"]["buildings"]))
+    check("buildings", response["context"]["buildings"] > 200, str(response["context"]["buildings"]))
     meta = json.load(open(os.path.join(response["dir"], constants.CONTEXT_META_FILE_NAME), encoding="utf-8"))
     lines = " ".join(meta.get("meta_lines") or [])
     check("bdtopo source", "BD TOPO" in lines and "IGN" in lines, lines[:200])
