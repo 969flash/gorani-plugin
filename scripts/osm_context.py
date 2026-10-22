@@ -46,6 +46,16 @@ def get_lnglat_bounds(bounds):
     return west, south, east, north
 
 
+def get_country(lng, lat):
+    # type: (float, float) -> str
+    """경위도가 나라별 건물 팩(constants.COUNTRY_PACKS) 상자 안이면 그 나라 코드, 아니면 ""."""
+    for code, pack in constants.COUNTRY_PACKS.items():
+        west, south, east, north = pack["bounds"]
+        if west <= lng <= east and south <= lat <= north:
+            return code
+    return ""
+
+
 def is_japan(lng, lat):
     # type: (float, float) -> bool
     """경위도가 일본인지(대략) — 지리원 지형 타일을 먼저 받을지. 일본 상자 안이고 한국(non_rhino_utils.is_korea — 북규슈·쓰시마는 뺀다)이 아니면.
@@ -228,88 +238,93 @@ def _get_tm_geometry(geometry):
 
 def load_plateau_buildings(lnglat_bounds, data_dir=None):
     # type: (tuple, str) -> tuple
-    """경위도 범위(서, 남, 동, 북)에 걸리는 받아 둔 일본 건물 팩의 건물 → (BuildingInfo 목록(지금 투영 m), DataSource 목록). 팩이 없으면 ([], []).
+    """경위도 범위(서, 남, 동, 북)에 걸리는 받아 둔 나라별 건물 팩(일본 PLATEAU·네덜란드 PDOK …)의 건물 → (BuildingInfo 목록(지금 투영 m), DataSource 목록).
+    팩이 없으면 ([], []). 이름은 옛 것(일본만 있던 때)이라 그대로 둔다.
 
-    처리: 팩마다 data_sources 한 줄(도시·연도). 새 연도 팩부터 — 같은 gml:id는 한 번만(도쿄도 팩끼리 경계 3차 메시를 함께 담는다:
-          국립·국분지 13,245동 2026-10-21), 다른 도시 팩의 같은 자리 건물은 먼저 넣은 것을 남긴다(get_buildings_apart).
-          용도는 원천 코드(ngii_kind) → 국내 대분류(constants.PLATEAU_USE).
-    출력: 출처는 건물이 실제로 들어간 도시만 묶은 DataSource 하나(plateau).
+    처리: 팩마다 따로 열어 data_sources 한 줄(도시·연도)과 범위 안 건물을 읽는다. 새 기준일 팩부터 — 같은 src_key는 한 번만(도쿄도 팩끼리 경계
+          3차 메시를 함께 담는다: 국립·국분지 13,245동 2026-10-21), 다른 팩의 같은 자리 건물은 먼저 넣은 것을 남긴다(get_buildings_apart).
+          용도는 PLATEAU만 원천 코드(ngii_kind) → 국내 대분류(constants.PLATEAU_USE).
+    출력: 출처는 건물이 실제로 들어간 팩을 source_id마다 하나로 묶은 DataSource(plateau·pdok …).
     """
     paths = data_pack.get_jp_paths(lnglat_bounds, data_dir)
     if not paths:
         return [], []
     west, south, east, north = lnglat_bounds
-    connection = data_pack.open_databases(paths)
-    try:
-        rows = connection.execute("SELECT * FROM buildings WHERE min_x BETWEEN ? AND ? AND max_x >= ? AND min_y <= ? AND max_y >= ?",
-                                  (west - constants.PLATEAU_MAX_EXTENT_DEG, east, west, north, south)).fetchall()
-        source_rows = connection.execute("SELECT * FROM data_sources").fetchall()
-    finally:
-        connection.close()
-    cities = {}   # 시구정촌 코드 → data_sources 행
-    for row in source_rows:
-        match = re.search(r"plateau-(\d{5})-", row["page_url"] or "")
-        if match:
-            cities[match.group(1)] = row
-    groups = {}   # 코드 → 그 팩의 건물(building_id = 코드 × 10⁷ + 순번)
-    for row in rows:
-        groups.setdefault("%05d" % (row["building_id"] // 10 ** 7), []).append(row)
-    order = sorted(groups, key=lambda code: (cities[code]["reference_date"] or "") if code in cities else "", reverse=True)
-    buildings, seen, used = [], set(), []
-    for code in order:
-        date = (cities[code]["reference_date"] or "") if code in cities else ""
+    packs = []   # (기준일, data_sources 행, 건물 행)
+    for path in paths:
+        connection = sqlite3.connect(path)
+        connection.row_factory = sqlite3.Row
+        try:
+            rows = connection.execute("SELECT * FROM buildings WHERE min_x BETWEEN ? AND ? AND max_x >= ? AND min_y <= ? AND max_y >= ?",
+                                      (west - constants.PLATEAU_MAX_EXTENT_DEG, east, west, north, south)).fetchall()
+            source = connection.execute("SELECT * FROM data_sources").fetchone()
+        finally:
+            connection.close()
+        if rows and source is not None:
+            packs.append((source["reference_date"] or "", source, rows))
+    packs.sort(key=lambda item: item[0], reverse=True)
+    buildings, seen, used = [], set(), {}
+    for date, source, rows in packs:
         group = []
-        for row in groups[code]:
+        for row in rows:
             if row["src_key"] in seen:
                 continue
             seen.add(row["src_key"])
             building = context_db._building_from_row(row)
             building.geometry = _get_tm_geometry(building.geometry)
             building.min_x, building.max_x, building.min_y, building.max_y = _get_bounds(building.geometry)
-            building.usability = constants.PLATEAU_USE.get(building.ngii_kind, "")
+            building.usability = constants.PLATEAU_USE.get(building.ngii_kind, "") if source["source_id"] == "plateau" else (building.usability or "")
             building.reference_date = date
             group.append(building)
         group = get_buildings_apart(group, buildings)
-        if group and code in cities:
-            used.append(cities[code])
+        if group:
+            used.setdefault(source["source_id"], []).append(source)
         buildings += group
-    if not used:
-        return buildings, []
-    names = "・".join(row["name"].replace("3D都市モデル（Project PLATEAU）", "") for row in used)   # 国立市（2025年度）・国分寺市（2025年度）
-    source = DataSource("plateau", "3D都市モデル（Project PLATEAU）" + names, "https://www.mlit.go.jp/plateau/open-data/",
-                        min(row["reference_date"] or "" for row in used), used[0]["acquired_at"], non_rhino_utils.get_crs_label(),
-                        used[0]["license"], "出典：3D都市モデル（Project PLATEAU）%s、国土交通省。" % names
-                        + tr("Gorani에서 건물 외곽·높이를 추출·가공. 높이는 measuredHeight(항공측량 실측, B)·층수(C)·기본값(D)"))
-    return buildings, [source]
+    sources = []
+    crs = non_rhino_utils.get_crs_label()
+    for source_id, rows in used.items():
+        if source_id == "plateau":
+            names = "・".join(row["name"].replace("3D都市モデル（Project PLATEAU）", "") for row in rows)   # 国立市（2025年度）・国分寺市（2025年度）
+            sources.append(DataSource("plateau", "3D都市モデル（Project PLATEAU）" + names, "https://www.mlit.go.jp/plateau/open-data/",
+                                      min(row["reference_date"] or "" for row in rows), rows[0]["acquired_at"], crs, rows[0]["license"],
+                                      "出典：3D都市モデル（Project PLATEAU）%s、国土交通省。" % names
+                                      + tr("Gorani에서 건물 외곽·높이를 추출·가공. 높이는 measuredHeight(항공측량 실측, B)·층수(C)·기본값(D)")))
+        else:   # 네덜란드 PDOK 등 — 팩 data_sources의 name·page_url·license·note를 그대로, 이름은 도엽을 이어 붙인다
+            names = ", ".join(dict.fromkeys(row["name"] for row in rows))
+            sources.append(DataSource(source_id, names, rows[0]["page_url"], min(row["reference_date"] or "" for row in rows), rows[0]["acquired_at"],
+                                      crs, rows[0]["license"], rows[0]["note"] or ""))
+    return buildings, sources
 
 
 def load_plateau_roads(lnglat_bounds, data_dir=None):
     # type: (tuple, str) -> list
-    """경위도 범위에 걸리는 받아 둔 일본 팩의 도로면(features theme road·kind surface, dev_plateau roads) → FeatureInfo 목록(지금 투영 m).
-    features 표가 없는 옛 팩(2026-10-21판)은 빈 목록 — 런타임이 OSM 버퍼로 메운다."""
+    """경위도 범위에 걸리는 받아 둔 나라별 팩의 도로면(features theme road·kind surface — 일본 PLATEAU tran, dev_plateau roads) → FeatureInfo 목록(지금 투영 m).
+    features 표가 없는 팩(옛 일본 팩·네덜란드 팩)은 건너뛴다 — 런타임이 OSM 버퍼로 메운다."""
     paths = data_pack.get_jp_paths(lnglat_bounds, data_dir)
     if not paths:
         return []
     west, south, east, north = lnglat_bounds
-    connection = data_pack.open_databases(paths)
-    try:
-        try:
-            rows = connection.execute("SELECT * FROM features WHERE theme = 'road' AND kind = 'surface' AND min_x BETWEEN ? AND ? AND max_x >= ? AND min_y <= ? AND max_y >= ?",
-                                      (west - constants.PLATEAU_ROAD_MAX_EXTENT_DEG, east, west, north, south)).fetchall()
-        except sqlite3.OperationalError:   # features 표가 없는 옛 팩
-            return []
-    finally:
-        connection.close()
     features, seen = [], set()
-    for row in rows:
-        feature = context_db._feature_from_row(row)
-        key = (feature.attrs or {}).get("plateau") or feature.feature_id
-        if key in seen:   # 도쿄도 팩끼리 경계 3차 메시를 함께 담는다 — 같은 gml:id는 한 번만
-            continue
-        seen.add(key)
-        feature.geometry = _get_tm_geometry(feature.geometry)
-        feature.min_x, feature.max_x, feature.min_y, feature.max_y = _get_bounds(feature.geometry)
-        features.append(feature)
+    for path in paths:
+        connection = sqlite3.connect(path)
+        connection.row_factory = sqlite3.Row
+        try:
+            try:
+                rows = connection.execute("SELECT * FROM features WHERE theme = 'road' AND kind = 'surface' AND min_x BETWEEN ? AND ? AND max_x >= ? AND min_y <= ? AND max_y >= ?",
+                                          (west - constants.PLATEAU_ROAD_MAX_EXTENT_DEG, east, west, north, south)).fetchall()
+            except sqlite3.OperationalError:   # features 표가 없는 팩
+                continue
+        finally:
+            connection.close()
+        for row in rows:
+            feature = context_db._feature_from_row(row)
+            key = (feature.attrs or {}).get("plateau") or feature.feature_id
+            if key in seen:   # 도쿄도 팩끼리 경계 3차 메시를 함께 담는다 — 같은 gml:id는 한 번만
+                continue
+            seen.add(key)
+            feature.geometry = _get_tm_geometry(feature.geometry)
+            feature.min_x, feature.max_x, feature.min_y, feature.max_y = _get_bounds(feature.geometry)
+            features.append(feature)
     return features
 
 
@@ -588,11 +603,11 @@ def load(bounds, today):
     # type: (tuple, str) -> ContextData
     """bounds(TM m) 안 OSM 건물·피처 + 지형 표고점 → ContextData. 받는 날짜를 OSM·지형 기준일로 적는다.
     일본: 받아 둔 PLATEAU 팩 건물을 먼저 쓰고 OSM 건물은 그와 겹치지 않는 것만, 지형은 지리원 5 m 타일. 출처는 실제로 쓴 것만(역할은 뒤의 것이 차지)."""
-    plateau, plateau_sources = load_plateau_buildings(get_lnglat_bounds(bounds))
-    if plateau:   # 일본 — 도로·수계·녹지 먼저(건물 줄 뺀 질의), OSM 건물은 따로 첫 미러에만(constants.OSM_OVERPASS_BUILDING_QUERY 주석)
+    plateau, plateau_sources = load_plateau_buildings(get_lnglat_bounds(bounds))   # 나라별 팩 건물(일본 PLATEAU·네덜란드 PDOK)
+    if plateau:   # 팩이 있는 곳 — 도로·수계·녹지 먼저(건물 줄 뺀 질의), OSM 건물은 따로 첫 미러에만(constants.OSM_OVERPASS_BUILDING_QUERY 주석)
         try:
             elements, osm_ok = get_overpass_elements(bounds, constants.OSM_OVERPASS_QUERY.replace(constants.OSM_OVERPASS_BUILDINGS, "")), True
-        except RuntimeError:   # 공개 Overpass 서버가 모두 막힘(2026-10-21 Rhino 실측: 502·504·시간 초과) — PLATEAU 건물·지리원 지형만으로 만든다
+        except RuntimeError:   # 공개 Overpass 서버가 모두 막힘(2026-10-21 Rhino 실측: 502·504·시간 초과) — 팩 건물·지형만으로 만든다
             elements, osm_ok = [], False   # 출처에 osm이 빠진 것을 context_builder가 보고 알린다
         try:
             osm_buildings = _get_buildings(get_overpass_elements(bounds, constants.OSM_OVERPASS_BUILDING_QUERY, constants.OSM_OVERPASS_URLS[:1]), today) if osm_ok else []

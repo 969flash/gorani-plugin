@@ -18,3 +18,10 @@ Global 모드는 OSM 건물에 높이 태그가 드물어 기본값(3.8 m·층�
 - 매니페스트: 나라마다 `<나라>/manifest.json`(bounds 경위도). 런타임 `osm_context`는 `is_japan` 대신 나라 매니페스트 목록(`constants.COUNTRY_PACKS`)에서 범위로 고른다.
 - 지역 단위: 네덜란드 = PDOK 도엽(bladnr), 프랑스 = 데파르트망, 스위스 = STAC 타일(묶어서 도엽 단위).
 - 빌더: `dev_<나라>.py`(python3, 표준 라이브러리 + pyproj·pyogrio 허용). 원천 zip은 받지 않고 흘려 읽거나(PDOK zip 0.8 MB는 통째로), 7z는 풀어서.
+
+## 진행 (2026-10-22 저녁)
+
+- 네덜란드: `dev_nl.py` 완성(카탈로그 1,328도엽, 암스테르담 25GN1 72,942동·실측 98.5 %·xz 5.5 MB). 전체 빌드 진행 중. 런타임은 `constants.COUNTRY_PACKS`로 일반화(일본·네덜란드·프랑스).
+- 프랑스: `dev_fr.py` 작성(Atom 피드 카탈로그 → 데파르트망 7z → py7zr로 GPKG 추출 → `batiment`). D090 시험 중. D090 7z 72 MB → GPKG 435 MB(모든 테마), 건물 161,412.
+- 스위스: STAC 자산이 DWG·FileGDB뿐이고 FileGDB가 MultiPatch(GDAL 지오메트리 1016)라 pyogrio가 못 읽는다(ogr2ogr·GDAL 바인딩 없음). CityGML 배포(2024-08-14)의 받기 주소를 확인하거나 GDAL을 설치해야 한다 — **보류**.
+- 독일: 마지막(주별).
