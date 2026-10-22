@@ -13,6 +13,7 @@ import hashlib
 import json
 import lzma
 import os
+import re
 import sqlite3
 import urllib.error
 import urllib.parse
@@ -118,22 +119,38 @@ def get_local_paths(kind, bounds=None, sido_codes=None, data_dir=None, sgg_codes
     return paths
 
 
+def get_pack_country(name):
+    # type: (str) -> str
+    """나라별 건물 팩 파일 이름(jp<시구정촌코드>_context.db·nl<도엽>_context.db)이면 나라 코드(constants.COUNTRY_PACKS 키), 아니면 "".
+    칸은 한국 팩과 같지만 좌표가 경위도라 한국 조회와 섞지 않는다."""
+    suffix = "_context.db"
+    if not name.endswith(suffix):
+        return ""
+    code, rest = name[:2], name[2:-len(suffix)]
+    pack = constants.COUNTRY_PACKS.get(code)
+    return code if pack and re.fullmatch(pack["code_pattern"], rest) else ""
+
+
 def is_jp_pack(name):
     # type: (str) -> bool
-    """일본 건물 팩 파일 이름(jp<시구정촌코드>_context.db)인지. 칸은 한국 팩과 같지만 좌표가 경위도라 한국 조회와 섞지 않는다."""
-    prefix, suffix = constants.JP_PACK_PREFIX, "_context.db"
-    return name.startswith(prefix) and name.endswith(suffix) and name[len(prefix):-len(suffix)].isdigit()
+    """나라별 건물 팩(일본·네덜란드 …)인지 — 이름이 옛 것이라 그대로 둔다(get_pack_country)."""
+    return bool(get_pack_country(name))
 
 
-def get_jp_paths(bounds, data_dir=None):
-    # type: (tuple, str) -> list
-    """data/의 일본 건물 팩 중 경위도 bounds(서, 남, 동, 북)에 걸치는 것(packs.json 범위 — 모르는 파일은 거르지 않는다). 정렬된 경로 목록."""
+def get_jp_paths(bounds, data_dir=None, country=None):
+    # type: (tuple, str, str) -> list
+    """data/의 나라별 건물 팩 중 경위도 bounds(서, 남, 동, 북)에 걸치는 것(packs.json 범위 — 모르는 파일은 거르지 않는다). 정렬된 경로 목록.
+    country를 주면 그 나라 팩만."""
     data_dir = data_dir or get_data_dir()
     if not os.path.isdir(data_dir):
         return []
     state = _read_state(data_dir)
     return [os.path.join(data_dir, name) for name in sorted(os.listdir(data_dir))
-            if is_jp_pack(name) and _is_overlapping(bounds, (state.get(name) or {}).get("bounds"))]
+            if get_pack_country(name) and (country is None or get_pack_country(name) == country)
+            and _is_overlapping(bounds, (state.get(name) or {}).get("bounds"))]
+
+
+get_country_paths = get_jp_paths
 
 
 class _Rows(list):

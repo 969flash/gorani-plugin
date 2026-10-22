@@ -733,7 +733,7 @@ class _SiteController:
         # type: (list, bool, str) -> bool
         """팩을 차례로 받으며 data_progress{text, fraction}를 푸시한다(1 % 단위 — 조각마다 보내면 수천 번이다).
         끝에 data_progress{done, ok, text}. 다 받았으면 True, 멈추거나 실패하면 False(받은 팩은 남는다). 호출자가 _running을 관리한다.
-        manifest_url = 팩이 실린 매니페스트(None = 한국, 일본 건물 팩은 constants.DATA_JP_MANIFEST_URL) — 주소가 바뀌었을 때 다시 읽는다."""
+        manifest_url = 팩이 실린 매니페스트(None = 한국, 나라별 건물 팩은 constants.COUNTRY_PACKS[...]["manifest"]) — 주소가 바뀌었을 때 다시 읽는다."""
         data_pack = loader.load("data_pack")
         names = list(dict.fromkeys(get_region_name(pack) for pack in packs))
         region = tr("{0} 외 {1}곳", names[0], len(names) - 1) if len(names) > 1 else names[0]
@@ -788,8 +788,8 @@ class _SiteController:
 
     def _download_for_generate(self, request):
         # type: (dict) -> None
-        """생성 범위에 걸치는데 없거나 새 판이 나온 시군구 팩(필지·건물도로·지형)을 받는다. Global 일본 대상지는 일본 건물 팩(PLATEAU).
-        오프라인이면 있는 것으로 생성한다(일본은 OSM 건물). 여기서 멈추기를 누르면 _cancel_requested가 남아 이어지는 run이 곧바로 취소된다."""
+        """생성 범위에 걸치는데 없거나 새 판이 나온 시군구 팩(필지·건물도로·지형)을 받는다. Global 대상지가 나라별 건물 팩이 있는 나라(일본 PLATEAU·네덜란드 PDOK)면 그 팩.
+        오프라인이면 있는 것으로 생성한다(OSM 건물). 여기서 멈추기를 누르면 _cancel_requested가 남아 이어지는 run이 곧바로 취소된다."""
         constants = loader.load("constants")
         if not constants.DATA_MANIFEST_URL:
             return
@@ -800,9 +800,11 @@ class _SiteController:
             if bounds:
                 packs = [pack for pack in data_pack.get_missing_packs(data_pack.get_manifest(), bounds=bounds) if pack["name"][:5].isdigit()]
             else:
-                bounds = self._context_builder.get_jp_query_bounds(request)
-                manifest_url = constants.DATA_JP_MANIFEST_URL
-                packs = data_pack.get_missing_packs(data_pack.get_manifest(manifest_url), bounds=bounds) if bounds else []
+                found = self._context_builder.get_pack_download(request)   # (경위도 범위, 그 나라 매니페스트) — 일본 PLATEAU·네덜란드 PDOK
+                packs = []
+                if found:
+                    bounds, manifest_url = found
+                    packs = data_pack.get_missing_packs(data_pack.get_manifest(manifest_url), bounds=bounds)
         except Exception:   # 대상지 오류는 run이 알린다, 오프라인은 있는 것으로
             return
         if packs:

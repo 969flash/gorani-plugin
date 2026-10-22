@@ -2855,12 +2855,6 @@
   "ja": "範囲内のOSM建物が0棟 — 地図に建物が描かれている場所か確認してください",
   "zh": "范围内没有 OSM 建筑 — 请确认此处地图上绘有建筑"
  },
- "건물 {0}동 (OSM)": {
-  "en": "{0} buildings (OSM)",
-  "es": "{0} edificios (OSM)",
-  "ja": "建物 {0}棟 (OSM)",
-  "zh": "建筑 {0} 栋 (OSM)"
- },
  "Global — OpenStreetMap·지형 타일을 생성 때 받습니다": {
   "en": "Global — OpenStreetMap and terrain tiles are downloaded when creating",
   "es": "Global — OpenStreetMap y las teselas de terreno se descargan al crear",
@@ -5549,12 +5543,6 @@
   "ja": "Global — {0}・{1}は作成時にダウンロードします",
   "zh": "Global — 生成时下载 {0} 和 {1}"
  },
- "건물 {0}동 (PLATEAU)": {
-  "en": "{0} buildings (PLATEAU)",
-  "es": "{0} edificios (PLATEAU)",
-  "ja": "建物 {0}棟 (PLATEAU)",
-  "zh": "建筑 {0} 栋 (PLATEAU)"
- },
  "국토지리원 5 m DEM": {
   "en": "GSI Japan 5 m DEM",
   "es": "DEM de 5 m del GSI de Japón",
@@ -5590,12 +5578,6 @@
   "es": "{0}, MLIT de Japón (CC BY 4.0, procesado por Gorani)",
   "ja": "{0}、国土交通省（CC BY 4.0、Goraniで加工）",
   "zh": "{0}，日本国土交通省（CC BY 4.0，经 Gorani 加工）"
- },
- "건물 높이: PLATEAU 실측 높이(B)·층수(C), 없는 곳은 OSM height 태그(B)·층수(C)·기본값 {0:.1f} m(D)": {
-  "en": "Building height: PLATEAU measured height (B) · floors (C); elsewhere OSM height tag (B) · floors (C) · default {0:.1f} m (D)",
-  "es": "Altura de edificios: altura medida de PLATEAU (B) · plantas (C); en el resto, etiqueta height de OSM (B) · plantas (C) · valor por defecto {0:.1f} m (D)",
-  "ja": "建物の高さ: PLATEAU 実測高さ(B)・階数(C)、ない所は OSM height タグ(B)・階数(C)・既定値 {0:.1f} m(D)",
-  "zh": "建筑高度：PLATEAU 实测高度(B)、层数(C)，其余为 OSM height 标签(B)、层数(C)、默认值 {0:.1f} m(D)"
  },
  "자료기준 — {0} · {1} · 생성 {2} · {3} v{4}": {
   "en": "Data as of — {0} · {1} · created {2} · {3} v{4}",
@@ -5651,12 +5633,6 @@
   "ja": "OpenStreetMapを取得できなかったため、道路・水系・緑地なしで作成しました",
   "zh": "无法下载 OpenStreetMap，因此生成结果中没有道路、水系和绿地"
  },
- "PLATEAU 건물과 지형만 들어 있습니다. 잠시 뒤 다시 만들면 도로·수계·녹지가 들어갑니다.": {
-  "en": "Only PLATEAU buildings and terrain are included. Create again in a little while to add roads, water and green areas.",
-  "es": "Solo incluye edificios de PLATEAU y el terreno. Vuelva a crear dentro de un rato para añadir calles, agua y zonas verdes.",
-  "ja": "PLATEAUの建物と地形だけが入っています。しばらくしてから作り直すと道路・水系・緑地が入ります。",
-  "zh": "只包含 PLATEAU 建筑和地形。稍后重新生成即可加入道路、水系和绿地。"
- },
  "PLATEAU 실측 높이": {
   "en": "PLATEAU measured height",
   "es": "Altura medida PLATEAU",
@@ -5668,5 +5644,23 @@
   "es": "Plantas PLATEAU",
   "ja": "PLATEAUの階数",
   "zh": "PLATEAU 层数"
+ },
+ "{0} 건물과 지형만 들어 있습니다. 잠시 뒤 다시 만들면 도로·수계·녹지가 들어갑니다.": {
+  "en": "Only {0} buildings and terrain are included. Generate again in a moment to get roads, water and green space.",
+  "es": "Solo incluye edificios {0} y terreno. Vuelva a generar en un momento para obtener calles, agua y zonas verdes.",
+  "ja": "{0} の建物と地形のみが含まれています。しばらくしてからもう一度作成すると道路・水系・緑地が入ります。",
+  "zh": "仅包含 {0} 建筑和地形。稍后重新生成即可加入道路、水系和绿地。"
+ },
+ "건물 {0}동 ({1})": {
+  "en": "{0} buildings ({1})",
+  "es": "{0} edificios ({1})",
+  "ja": "建物 {0}棟（{1}）",
+  "zh": "建筑 {0} 栋（{1}）"
+ },
+ "건물 높이: {0} 실측 높이(B)·층수(C), 없는 곳은 OSM height 태그(B)·층수(C)·기본값 {1:.1f} m(D)": {
+  "en": "Building heights: {0} measured height (B) and floors (C); elsewhere OSM height tag (B), levels (C) or default {1:.1f} m (D)",
+  "es": "Alturas: altura medida de {0} (B) y plantas (C); en el resto etiqueta height de OSM (B), plantas (C) o valor por defecto {1:.1f} m (D)",
+  "ja": "建物高さ: {0} 実測高さ(B)・階数(C)、ない所は OSM height タグ(B)・階数(C)・既定値 {1:.1f} m(D)",
+  "zh": "建筑高度：{0} 实测高度(B)、层数(C)；其余为 OSM height 标签(B)、层数(C)或默认值 {1:.1f} m(D)"
  }
 }

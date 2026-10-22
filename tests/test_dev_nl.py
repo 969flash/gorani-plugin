@@ -1,0 +1,36 @@
+"""dev_nl — 네트워크·pyogrio 없이: 높이 등급(지붕 − 지반, 50 % → 70 % → 최고 → 기본값), 팩 이름·나라 판정(data_pack·osm_context)."""
+
+import os
+import sys
+import unittest
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
+import constants  # noqa: E402
+import data_pack  # noqa: E402
+import dev_nl  # noqa: E402
+import osm_context  # noqa: E402
+
+
+class HeightTest(unittest.TestCase):
+    def test_height_fallbacks(self):
+        self.assertEqual(dev_nl.get_height(2.0, 13.2, 14.0, 15.0), (11.2, "pdok_height", "B"))
+        self.assertEqual(dev_nl.get_height(2.0, None, 14.0, 15.0), (12.0, "pdok_height", "B"))     # 50 % 없으면 70 %
+        self.assertEqual(dev_nl.get_height(2.0, 2.5, None, 500.0), (constants.DEFAULT_BUILDING_HEIGHT_M, "default", "D"))   # 범위 밖·없음
+        self.assertEqual(dev_nl.get_height(None, 13.2, 14.0, 15.0), (constants.DEFAULT_BUILDING_HEIGHT_M, "default", "D"))
+
+
+class CountryPackTest(unittest.TestCase):
+    def test_pack_names_and_country(self):
+        self.assertEqual(data_pack.get_pack_country("nl25gn1_context.db"), "nl")
+        self.assertEqual(data_pack.get_pack_country("jp13104_context.db"), "jp")
+        self.assertEqual(data_pack.get_pack_country("jpn_context.db"), "")      # 한국 시도 슬러그 꼴
+        self.assertEqual(data_pack.get_pack_country("nl25GN1_context.db"), "")  # 도엽은 소문자
+        self.assertEqual(data_pack.get_pack_country("11110_context.db"), "")
+        self.assertEqual(osm_context.get_country(4.8952, 52.3702), "nl")       # 암스테르담
+        self.assertEqual(osm_context.get_country(139.7006, 35.6896), "jp")     # 신주쿠
+        self.assertEqual(osm_context.get_country(2.2945, 48.8584), "")         # 파리 — 팩 없음
+        self.assertEqual(constants.PACK_SOURCE_IDS["pdok"], "nl")
+
+
+if __name__ == "__main__":
+    unittest.main()

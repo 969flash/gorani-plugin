@@ -228,6 +228,34 @@ class JapanTest(unittest.TestCase):
             finally:
                 non_rhino_utils.set_projection()
 
+    def test_dutch_pack(self):
+        """네덜란드 팩(nl<도엽>, source pdok)도 같은 읽기 경로 — 출처는 팩 data_sources 그대로, 용도 매핑 없음, 일본 팩과 섞이지 않는다(경위도 범위)."""
+        with tempfile.TemporaryDirectory() as data_dir:
+            name = "nl25gn1_context.db"
+            connection = sqlite3.connect(os.path.join(data_dir, name))
+            connection.executescript(dev_plateau.SCHEMA_SQL)
+            ring = dev_plateau.get_clean_ring(_square(4.8950, 52.3700))
+            connection.execute("INSERT INTO buildings VALUES (%s)" % ",".join("?" * 27),
+                               (10 ** 7 + 1, "pdok:0363100012", None, "", None, 0, 0, "", 15.5, "pdok_height", "B", None, "1966-01-01", "active", None, "slanted", None,
+                                300.0, None, json.dumps({"type": "Polygon", "coordinates": [ring]}), 4326, "pdok", None, 4.8950, 4.8952, 52.3700, 52.3702))
+            connection.execute("INSERT INTO data_sources VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                               ("pdok", "3D Basisvoorziening hoogtestatistieken gebouwen 25GN1 (2025)", "https://www.pdok.nl/", "2025-12-31", "2026-10-22T00:00:00", "",
+                                constants.PDOK_LICENSE, "Bron: Kadaster, 3D Basisvoorziening (CC BY 4.0), bewerkt door Gorani"))
+            connection.commit()
+            connection.close()
+            with open(os.path.join(data_dir, "packs.json"), "w") as f:
+                json.dump({name: {"sha256": "x", "bounds": [4.87, 52.31, 4.95, 52.38]}}, f)
+            non_rhino_utils.set_projection(4.8952, 52.3702)
+            try:
+                buildings, sources = osm_context.load_plateau_buildings((4.89, 52.36, 4.90, 52.38), data_dir)
+                self.assertEqual([(b.src_key, b.height_m, b.height_grade, b.usability, b.use_apr_day) for b in buildings], [("pdok:0363100012", 15.5, "B", "", "1966-01-01")])
+                self.assertEqual([(s.source_id, s.reference_date) for s in sources], [("pdok", "2025-12-31")])
+                self.assertIn("Kadaster", sources[0].note)
+                self.assertEqual(osm_context.load_plateau_roads((4.89, 52.36, 4.90, 52.38), data_dir), [])   # features 표 없음
+                self.assertEqual(osm_context.load_plateau_buildings((139.69, 35.68, 139.71, 35.70), data_dir), ([], []))   # 일본 범위에는 안 걸린다
+            finally:
+                non_rhino_utils.set_projection()
+
     def test_overpass_down_keeps_plateau(self):
         """Overpass가 모두 막혀도 일본 팩이 있으면 PLATEAU 건물로 만든다(출처에 osm 없음). 팩이 없으면 그대로 실패."""
         def down(bounds, query=None, endpoints=None):
