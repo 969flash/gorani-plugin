@@ -77,7 +77,7 @@ python3 scripts/dev_plateau.py upload           # HF jp/ 팩 → jp/manifest.jso
 | J2 실측 | Rhino 신주쿠역 반경 300 m: PLATEAU 515동(실측 높이 B 90 %), 지리원 지형 4.4만 면(표고 32~44 m), 3dm·도면 4장·CSV 3개, 32초(그중 Overpass 29초). 국립역은 PLATEAU 1,157동·표고 73~87 m |
 | J3 화면 | 다국어 0.3.0(영어 기본 + 한·스·일·중)을 합쳤다. 일본 문구는 `tr()` + `i18n.json` 20개 |
 | J4 배포 | 2026-10-22 끝 — main 0cda78b(PR #15), yak 0.3.1, Blender 심사 대기, SketchUp EW 심사 제출, 웹사이트 `ja/` |
-| J5 도로면 | 2026-10-22 — Global 결과에 도로면이 없던 것(OSM은 중심선뿐)을 고쳤다. 전 세계는 OSM 중심선 버퍼(`osm_context.get_road_surface`), 일본은 PLATEAU `tran` 도로면을 팩 `features` 표에 넣고(`dev_plateau.py roads`, 306팩) OSM 버퍼는 빈 곳만. 신주쿠 팩 9.3 → 12.2 MB(xz) |
+| J5 도로면 | 2026-10-22 — Global 결과에 도로면이 없던 것(OSM은 중심선뿐)을 고쳤다. 전 세계는 OSM 중심선 버퍼(`osm_context.get_road_surface`), 일본은 PLATEAU `tran` 도로면을 팩 `features` 표에 넣고(`dev_plateau.py roads`, 306팩) OSM 버퍼는 빈 곳만. 306팩 전부 도로면 1,073만 면, 압축 2.69 → 3.86 GB(신주쿠 9.3 → 12.2 MB), tran이 없는 7팩은 0면(OSM 버퍼로). HF `jp/` 다시 올림 — sha256이 바뀌어 받아 둔 사용자도 다시 받는다 |
 
 - 데이터를 플러그인보다 먼저 올렸다. 구버전은 일본 매니페스트를 모르고, 새 플러그인이 나오면 바로 쓴다.
 
