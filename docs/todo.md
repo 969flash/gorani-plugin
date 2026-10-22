@@ -5,9 +5,9 @@
 ## 배포
 
 - [ ] 다른 컴퓨터(Windows일 수 있음)에서 Rhino판 실기 시험 — Mac에서 빌드한 .rhp·.pyc가 Windows Rhino 8에서 처음 도는 것일 수 있다.
-- [ ] Blender 공식 스토어 — 0.3.1 제출(2026-10-22) 뒤 0.3.2·0.3.3을 Upload New Version으로 올려 둠(심사는 최신 판). Approval Status = Awaiting Review. 심사 댓글은 Blender ID 메일 — 답변 문안 `docs/blender_store/README.md`.
+- [ ] Blender 공식 스토어 — 0.3.1 제출(2026-10-22) 뒤 0.3.2·0.3.3을 Upload New Version으로 올려 둠(심사는 최신 판). 0.3.4(스위스)는 올리지 않았다(2026-10-23 — 판 사이 2시간 제한에 걸렸고, 나라 추가만으로는 판을 올리지 않기로 함. Rhino yak 0.3.4는 이미 나감). 다음 묶음 판에 같이. Approval Status = Awaiting Review. 심사 댓글은 Blender ID 메일 — 답변 문안 `docs/blender_store/README.md`.
 - [ ] SketchUp Extension Warehouse — 2026-10-22 09:30 0.3.1(main 68ab551 rbz, sha256 2d40e9cd…) Submit For Review 완료("allow 1 to 3 weeks"). RuboCop ModelEntities 5건은 루트 그룹 설계라 사유를 적고 제출. 심사 메일이 오면 `docs/sketchup_store.md`대로 대응, 승인 뒤 My Extensions에서 Publish를 눌러야 공개된다. 0.3.2(Global 도로면)는 심사 중이라 못 올렸다 — 승인 뒤 68ab551 이후 main으로 새 판을 만들어 올린다.
-- [ ] 다음 묶음 배포(0.3.3) 때 같이 낼 것 — 관리자 대시보드 [내 테스트 제외](2026-10-22): ① 플러그인 `usage_stats`의 개발자 PC 표시(`dev`, `~/.config/gorani/`가 있는 PC)는 main에 들어가 있어 yak·SketchUp 빌드에 저절로 실린다(Blender판은 usage_stats가 빈 판이라 상관없다) ② 웹사이트 `site.js` 개발자 브라우저 표시는 웹 저장소 브랜치 `dev-traffic`(PR)로 따로 있다 — 웹사이트 배포 때 머지한다.
+- [ ] 다음 묶음 판(0.3.5, 2주 뒤쯤·쌓인 것 묶어서)에 들어갈 것: 나라 목록을 매니페스트에서 읽기(`docs/countries.json`, 2026-10-23 — 이 판부터 새 나라는 판 없이), 미국 팩(조사 중), Blender 0.3.4분(스위스). 그 밖에 — 관리자 대시보드 [내 테스트 제외](2026-10-22): ① 플러그인 `usage_stats`의 개발자 PC 표시(`dev`, `~/.config/gorani/`가 있는 PC)는 main에 들어가 있어 yak·SketchUp 빌드에 저절로 실린다(Blender판은 usage_stats가 빈 판이라 상관없다) ② 웹사이트 `site.js` 개발자 브라우저 표시는 웹 저장소 브랜치 `dev-traffic`(PR)로 따로 있다 — 웹사이트 배포 때 머지한다.
 - [ ] `docs/install.md`(yak 패키지에 들어가 패널 [문서 열기]로 열린다)의 SketchUp 절이 아직 없는 설치 경로(Extension Warehouse)를 안내한다. 스토어에 오를 때까지 '준비 중'으로 바꾸거나 스토어 주소로 고친다(Blender 절은 2026-10-21 스토어 기준으로 고침).
 
 ## 웹사이트 (저장소 `~/Documents/GitHub/gorani`)
@@ -22,7 +22,7 @@
 
 ## 코드
 
-- [ ] 나라별 건물 팩 다음: 스위스 swissBUILDINGS3D(FileGDB MultiPatch — GDAL 설치 또는 CityGML 주소 필요), 독일(주별). 3DBAG는 PDOK로 대신함. 프랑스 BD TOPO `hauteur`는 처마 높이 — 지붕 50 %로 바꿀 원천 없음.
+- [ ] 나라별 건물 팩 다음: 미국(FEMA USA Structures 약관·Overture ODbL 비교 중, 2026-10-23)·중국(폐쇄적 — 기대 낮음)·독일(주별). 스위스는 0.3.4에 들어감(252도엽). 3DBAG는 PDOK로 대신함. 프랑스 BD TOPO `hauteur`는 처마 높이 — 지붕 50 %로 바꿀 원천 없음. 새 나라는 `docs/countries.json` 한 줄 + `dev_deploy.py notices`(플러그인 판 없음).
 
 - [ ] Global 도로면 다음 단계(2026-10-22 도로면 1차 뒤): 교량(`attrs.bridge`)은 지금 지형에 얹힌다 — 양끝 높이로 띄우기. 보도(OSM `sidewalk=*`)·연석은 없다. PLATEAU `brid`(교량)·`veg`(가로수)·`luse`(토지이용)·`wtr`을 팩에 더할지. OSM 버퍼끼리 겹친 자리의 베이스맵 경계선(04)은 아직 안 그린다(Rhino Boolean 합집합이 생기면 그린다).
 

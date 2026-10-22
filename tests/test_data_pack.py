@@ -114,6 +114,49 @@ class LocalPackTest(unittest.TestCase):
         finally:
             data_pack.urllib.request.urlopen = original
 
+    def test_country_packs_from_manifest(self):
+        """한국 매니페스트 countries[]가 내장 나라 목록을 덮는다 — 새 나라는 플러그인 판 없이. 틀린 항목은 그 나라만 건너뛰고 disabled는 뺀다."""
+        import constants
+        import osm_context
+        saved = data_pack._MANIFEST.get(constants.DATA_MANIFEST_URL)
+        data_pack._MANIFEST[constants.DATA_MANIFEST_URL] = {"version": "t", "packs": [], "countries": [
+            {"code": "us", "label": "USA Structures", "source_id": "fema", "manifest": "us/manifest.json", "bounds": [-125, 24, -66, 50], "code_pattern": r"\d{5}"},
+            {"code": "fr", "disabled": True},                                                                            # 원천 약관이 바뀌어 내렸다
+            {"code": "xx", "label": "상자 3수", "source_id": "x", "manifest": "xx/manifest.json", "bounds": [1, 2, 3], "code_pattern": r"\d"},
+            {"code": "yy", "label": "정규식 틀림", "source_id": "y", "manifest": "yy/manifest.json", "bounds": [1, 2, 3, 4], "code_pattern": "("},
+            {"code": "zzz", "label": "코드 3자", "source_id": "z", "manifest": "zz/manifest.json", "bounds": [1, 2, 3, 4], "code_pattern": r"\d"},
+            "문자열"]}
+        try:
+            packs = data_pack.get_country_packs()
+            self.assertEqual(packs["us"]["manifest"], "https://huggingface.co/datasets/%s/resolve/main/us/manifest.json" % constants.DATA_REPO_ID)
+            self.assertEqual(packs["us"]["bounds"], (-125.0, 24.0, -66.0, 50.0))
+            self.assertEqual(set(packs), {"jp", "nl", "ch", "us"})
+            self.assertEqual(osm_context.get_country(-118.2437, 34.0522), "us")   # 로스앤젤레스
+            self.assertEqual(osm_context.get_country(2.2945, 48.8584), "")        # 파리 — 프랑스를 내렸다
+            self.assertEqual(osm_context.get_country(8.6416, 46.8807), "ch")      # 알트도르프 — 내장 그대로
+            self.assertEqual(data_pack.get_pack_country("us06037_context.db"), "us")
+            self.assertEqual(data_pack.get_pack_source_ids()["fema"], "us")
+            self.assertEqual(data_pack.get_pack_label("fema"), "USA Structures")
+            self.assertEqual(data_pack.get_pack_label("osm"), "")
+        finally:
+            if saved is None:
+                data_pack._MANIFEST.pop(constants.DATA_MANIFEST_URL, None)
+            else:
+                data_pack._MANIFEST[constants.DATA_MANIFEST_URL] = saved
+        self.assertEqual(data_pack.get_country_packs(), constants.COUNTRY_PACKS)   # 매니페스트를 못 받았으면 내장 목록
+
+    def test_countries_json_matches_builtin(self):
+        """docs/countries.json(매니페스트 원본)은 전부 검증을 지나고, 내장 constants.COUNTRY_PACKS와 값이 같다 — 오프라인 내장 목록이 원격과 어긋나지 않게."""
+        import constants
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "countries.json")
+        with open(path, encoding="utf-8") as f:
+            entries = json.load(f)["countries"]
+        remote = {entry["code"]: data_pack._get_country_pack(entry) for entry in entries}
+        self.assertTrue(all(remote.values()), [code for code, pack in remote.items() if not pack])
+        keys = ("manifest", "bounds", "source_id", "label", "code_pattern")
+        for code, pack in constants.COUNTRY_PACKS.items():
+            self.assertEqual({k: pack[k] for k in keys}, {k: remote[code][k] for k in keys}, code)
+
     def test_group_without_table(self):
         """상한을 넘어 묶음으로 나뉠 때 테이블이 없는 묶음(등고선 팩만)은 건너뛴다. 어디에도 없으면 오류."""
         with tempfile.TemporaryDirectory() as data_dir:

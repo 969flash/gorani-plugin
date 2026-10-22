@@ -48,9 +48,10 @@ def get_lnglat_bounds(bounds):
 
 def get_country(lng, lat):
     # type: (float, float) -> str
-    """경위도가 나라별 건물 팩(constants.COUNTRY_PACKS) 상자 안이면 그 나라 코드, 아니면 "". 상자가 겹치면(프랑스 상자 안의 스위스) 작은 상자가 이긴다."""
+    """경위도가 나라별 건물 팩(data_pack.get_country_packs — 매니페스트 countries[], 내장 constants.COUNTRY_PACKS) 상자 안이면 그 나라 코드, 아니면 "".
+    상자가 겹치면(프랑스 상자 안의 스위스) 작은 상자가 이긴다."""
     found = []
-    for code, pack in constants.COUNTRY_PACKS.items():
+    for code, pack in data_pack.get_country_packs().items():
         west, south, east, north = pack["bounds"]
         if west <= lng <= east and south <= lat <= north:
             found.append(((east - west) * (north - south), code))

@@ -346,6 +346,9 @@ SWISS_LICENSE = "swisstopo OGD 이용약관(2022-08-26, Version 1.3.2021) — �
 SWISS_HEIGHT_RANGE = (1.0, 400.0)      # 솔리드 최고 z − 최저 z 사용 범위 m
 # 나라별 공식 건물 팩(경위도, 매니페스트는 나라마다 따로 — HF 데이터셋 <dir>/manifest.json). 키 = 팩 이름 접두사. 런타임은 대상지 중심이 bounds 안인 나라의 팩을 쓴다
 # source_id = 팩 data_sources.source_id, label = 화면·도면 표기, code_pattern = 접두사 뒤 지역 코드 꼴(한국 시도 슬러그 jpn 같은 이름과 구분)
+# ※ 내장 기본값일 뿐이다 — 런타임은 data_pack.get_country_packs()(한국 매니페스트 countries[]가 덮는다, 원본 docs/countries.json, 올리기 dev_deploy.py notices).
+#    새 나라는 여기 말고 docs/countries.json에 넣는다 — 데이터만 바뀌는 일에 플러그인 판을 올리지 않는다(2026-10-23, 0.3.3·0.3.4를 나라 추가만으로 올린 뒤).
+#    여기 값은 countries.json과 같게 둔다(tests/test_data_pack.py가 맞춘다) — 오프라인 사용자에게 지금 넷 나라는 그대로 돌게.
 COUNTRY_PACKS = {
     "jp": {"dir": JP_PACK_DIR, "manifest": DATA_JP_MANIFEST_URL, "bounds": JP_BOUNDS, "source_id": "plateau", "label": "PLATEAU", "code_pattern": r"\d{5}"},
     "nl": {"dir": NL_PACK_DIR, "manifest": "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, NL_PACK_DIR),
@@ -355,7 +358,6 @@ COUNTRY_PACKS = {
     "ch": {"dir": CH_PACK_DIR, "manifest": "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, CH_PACK_DIR),
            "bounds": CH_BOUNDS, "source_id": "swisstopo", "label": "swissBUILDINGS3D", "code_pattern": r"\d{4}"},   # 1:25k 도엽 1172
 }
-PACK_SOURCE_IDS = {v["source_id"]: k for k, v in COUNTRY_PACKS.items()}   # data_sources.source_id → 나라 코드
 PLATEAU_CKAN_URL = "https://www.geospatial.jp/ckan/api/3/action/package_search"   # G空間情報センター. 카탈로그 API 리다이렉트는 404(2026-10-21)
 PLATEAU_CKAN_QUERY = "3D都市モデル（Project PLATEAU）"
 PLATEAU_SKIP_CODES = ("27999",)        # 2025 오사카·간사이 엑스포 회장 — 철거 중인 임시 행사장

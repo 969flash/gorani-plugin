@@ -733,7 +733,7 @@ class _SiteController:
         # type: (list, bool, str) -> bool
         """팩을 차례로 받으며 data_progress{text, fraction}를 푸시한다(1 % 단위 — 조각마다 보내면 수천 번이다).
         끝에 data_progress{done, ok, text}. 다 받았으면 True, 멈추거나 실패하면 False(받은 팩은 남는다). 호출자가 _running을 관리한다.
-        manifest_url = 팩이 실린 매니페스트(None = 한국, 나라별 건물 팩은 constants.COUNTRY_PACKS[...]["manifest"]) — 주소가 바뀌었을 때 다시 읽는다."""
+        manifest_url = 팩이 실린 매니페스트(None = 한국, 나라별 건물 팩은 data_pack.get_country_packs()[...]["manifest"]) — 주소가 바뀌었을 때 다시 읽는다."""
         data_pack = loader.load("data_pack")
         names = list(dict.fromkeys(get_region_name(pack) for pack in packs))
         region = tr("{0} 외 {1}곳", names[0], len(names) - 1) if len(names) > 1 else names[0]

@@ -38,7 +38,7 @@ class CountryTest(unittest.TestCase):
         self.assertEqual(data_pack.get_pack_country("ch1172_context.db"), "ch")
         self.assertEqual(osm_context.get_country(8.6416, 46.8807), "ch")   # 알트도르프
         self.assertEqual(osm_context.get_country(9.5215, 47.1410), "ch")   # 파두츠(리히텐슈타인)
-        self.assertEqual(constants.PACK_SOURCE_IDS["swisstopo"], "ch")
+        self.assertEqual(data_pack.get_pack_source_ids()["swisstopo"], "ch")
 
 
 if __name__ == "__main__":

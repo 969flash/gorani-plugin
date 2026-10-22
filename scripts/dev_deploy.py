@@ -10,7 +10,7 @@
     python3 scripts/dev_deploy.py repack     # 시도 팩 압축본을 풀어 (줄이고) 시군구 팩으로 나눠 다시 압축
     python3 scripts/dev_deploy.py rebounds   # 매니페스트의 팩 범위만 다시 잰다(시군구 필지 중심점 핵심 범위 — constants.PACK_BOUNDS_*)
     python3 scripts/dev_deploy.py upload     # 필지 팩 + 매니페스트는 Hugging Face(hf auth login 먼저), 컨텍스트·등고선 팩은 국내 버킷(~/.oci/config 먼저)
-    python3 scripts/dev_deploy.py notices    # docs/notices.json(업데이트·공지)만 Hugging Face 매니페스트에 넣어 올린다 — 팩은 그대로
+    python3 scripts/dev_deploy.py notices    # docs/notices.json(업데이트·공지)·docs/countries.json(나라별 건물 팩 목록)만 Hugging Face 매니페스트에 넣어 올린다 — 팩은 그대로. 새 나라는 이것으로 끝(플러그인 판 없음)
 
 yak: 진입 명령 Gorani 하나짜리 .rhp를 rhinocode로 빌드하고(떠 있는 Rhino 8 필요), 그 옆에 scripts/(평문 진입 스크립트 +
      로직 .pyc + 패널 HTML·vendor)를 두고 yak CLI로 묶는다. rhinocode의 Shared 리소스는 폴더 구조를 펴 버려서 쓰지 않는다
@@ -49,9 +49,11 @@ SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SCRIPTS_DIR)
 sys.path.insert(0, SCRIPTS_DIR)
 import constants  # noqa: E402
+import data_pack  # noqa: E402 — countries.json 검증은 런타임과 같은 함수로
 
 BUILD_DIR = os.path.join(ROOT_DIR, "build")
 NOTICES_PATH = os.path.join(ROOT_DIR, "docs", "notices.json")   # 매니페스트 update·notices 원본 — 칸은 docs/panel_ui.md '업데이트·공지'
+COUNTRIES_PATH = os.path.join(ROOT_DIR, "docs", "countries.json")   # 매니페스트 countries 원본 — 나라별 건물 팩 목록(data_pack.get_country_packs). 새 나라는 여기에만(플러그인 판 없이)
 RHINO_BIN_DIR = "/Applications/Rhino 8.app/Contents/Resources/bin"
 BRAND_DIR = os.path.join(ROOT_DIR, "docs", "brand")      # 로고 원본 SVG(currentColor)와 크기별 PNG — docs/brand/logo.html
 TOOLBAR_ICON_COLORS = {"light": "#111418", "dark": "#E8ECF2"}   # Rhino 도구 막대 라이트·다크 아이콘 색 = DESIGN.md 잉크·다크 잉크
@@ -1132,15 +1134,21 @@ def upload():
 
 def _read_notices():
     # type: () -> dict
-    """docs/notices.json → {"update", "notices"}. 매니페스트를 올릴 때마다 넣어 팩을 다시 올려도 공지가 지워지지 않게 한다."""
+    """docs/notices.json + docs/countries.json → {"update", "notices", "countries"}. 매니페스트를 올릴 때마다 넣어 팩을 다시 올려도 공지·나라 목록이 지워지지 않게 한다.
+    나라 항목이 런타임 검증(data_pack._get_country_pack)에 걸리면 올리기 전에 멈춘다 — 플러그인은 그 나라를 말없이 건너뛰므로 여기서 잡는다."""
     with open(NOTICES_PATH, encoding="utf-8") as f:
         data = json.load(f)
-    return {"update": data.get("update"), "notices": data.get("notices") or []}
+    with open(COUNTRIES_PATH, encoding="utf-8") as f:
+        countries = json.load(f)["countries"]
+    bad = [entry.get("code") for entry in countries if not entry.get("disabled") and data_pack._get_country_pack(entry) is None]
+    if bad:
+        raise ValueError("docs/countries.json 항목이 틀렸습니다(code 2자·bounds 4수·code_pattern 정규식·manifest·source_id·label): %s" % bad)
+    return {"update": data.get("update"), "notices": data.get("notices") or [], "countries": countries}
 
 
 def upload_notices():
     # type: () -> str
-    """Hugging Face의 지금 매니페스트를 받아 update·notices만 docs/notices.json으로 바꿔 다시 올린다(팩·팩 목록은 그대로)."""
+    """Hugging Face의 지금 매니페스트를 받아 update·notices(docs/notices.json)·countries(docs/countries.json)만 바꿔 다시 올린다(팩·팩 목록은 그대로)."""
     import urllib.request
     from huggingface_hub import HfApi
     with urllib.request.urlopen(constants.DATA_MANIFEST_URL, timeout=constants.DATA_TIMEOUT_SECONDS) as response:
@@ -1152,8 +1160,9 @@ def upload_notices():
     with open(path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=1)
     HfApi().upload_file(path_or_fileobj=path, path_in_repo="manifest.json", repo_id=constants.DATA_REPO_ID, repo_type="dataset",
-                        commit_message="manifest: 업데이트·공지")
-    print("  올림: update %s, 공지 %d개" % ("있음" if manifest["update"] else "없음", len(manifest["notices"])), flush=True)
+                        commit_message="manifest: 업데이트·공지·나라 목록")
+    print("  올림: update %s, 공지 %d개, 나라별 건물 팩 %d나라(%s)" % ("있음" if manifest["update"] else "없음", len(manifest["notices"]),
+          len(manifest["countries"]), "·".join(c["code"] for c in manifest["countries"])), flush=True)
     return constants.DATA_MANIFEST_URL
 
 

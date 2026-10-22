@@ -35,7 +35,7 @@ class CountryPackTest(unittest.TestCase):
         self.assertEqual(osm_context.get_country(-73.9857, 40.7484), "")       # 뉴욕 — 팩 없음
         self.assertEqual(data_pack.get_pack_country("fr075_context.db"), "fr")
         self.assertEqual(data_pack.get_pack_country("fr02a_context.db"), "fr")
-        self.assertEqual(constants.PACK_SOURCE_IDS["pdok"], "nl")
+        self.assertEqual(data_pack.get_pack_source_ids()["pdok"], "nl")
 
 
 if __name__ == "__main__":
