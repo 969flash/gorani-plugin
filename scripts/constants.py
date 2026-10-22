@@ -381,6 +381,31 @@ GA_ENDPOINT = "https://www.google-analytics.com/mp/collect"
 GA_TIMEOUT_SECONDS = 5  # 백그라운드 스레드라 패널을 막지 않는다
 GA_PARAM_VALUE_MAX = 100  # GA4 표준 속성 이벤트 매개변수 값 길이 상한(360은 500)
 GA_PNU_PARAMS = 4  # 필지 PNU를 나눠 담는 매개변수 수(값 하나에 5개 → 20필지). 이벤트당 매개변수 상한 25 안에서
+# 관리자 페이지 통계(dev_stats — 이 Mac에서만). 열쇠·쌓은 기록은 저장소 밖 ADMIN_DIR에 둔다(공개 저장소)
+ADMIN_DIR = os.path.join(os.path.expanduser("~"), ".config", "gorani")
+ADMIN_GA_KEY_PATH = os.path.join(ADMIN_DIR, "ga_service_account.json")   # GA4 Data API 서비스 계정 키(GCP gorani-stats) — GA 계정 단위 '편집자'(맞춤 측정기준 등록에 필요)
+ADMIN_DEV_CLIENTS_PATH = os.path.join(ADMIN_DIR, "dev_clients.json")   # 국내 서버 기록에서 '내 시험'으로 표시한 설치 ID 목록(이 Mac 설치 ID는 자동)
+ADMIN_GATE_LOG_PATH = os.path.join(ADMIN_DIR, "udt.log")   # 국내 서버 nginx 기록을 이어 붙인 사본 — 서버는 logrotate로 2주만 남긴다
+ADMIN_GATE_SSH = ("ubuntu", os.path.join(os.path.expanduser("~"), ".ssh", "udt-gate.key"))   # docs/domestic_gate.md
+ADMIN_YAK_VERSIONS_URL = "https://yak.rhino3d.com/versions/%s" % TOOL_NAME   # 버전별 download_count(공개 API)
+ADMIN_HF_API_URL = "https://huggingface.co/api/datasets/%s?expand%%5B%%5D=downloads&expand%%5B%%5D=downloadsAllTime&expand%%5B%%5D=usedStorage" % DATA_REPO_ID   # 데이터셋 전체 합계만(파일별 없음)
+ADMIN_ORACLE_FREE_STORAGE = 20 * 1024 ** 3   # Always Free 오브젝트 스토리지 20 GB(넘으면 유료 — 전환 금지)
+ADMIN_ORACLE_FREE_EGRESS = 10 * 1000 ** 4    # Always Free 아웃바운드 월 10 TB
+ADMIN_STORE_URLS = {   # 프로그램별 배포 자리 — 빈 값 = 아직 공개 전(심사 중). Blender는 이 주소가 200이면 공개된 것으로 본다
+    "rhino": "https://yak.rhino3d.com/packages/Gorani",
+    "sketchup": "",   # Extension Warehouse 심사 중(docs/sketchup_store.md) — 공개되면 페이지 주소를 넣는다
+    "blender": "https://extensions.blender.org/add-ons/gorani/",
+}
+ADMIN_TEST_AGENTS = ("curl/", "HeadlessChrome", "python-requests")   # 국내 서버 기록에서 늘 시험으로 보는 User-Agent
+ADMIN_GA_WEB_ID = "G-ZVM7EZPRPQ"   # 웹사이트 속성 "Gorani 웹"(969flash/gorani assets/site.js). 플러그인 속성은 GA_STREAMS — 이 밖의 속성(옛 Blender)은 대시보드에서 뺀다
+# 대시보드가 쓰는 이벤트 매개변수 — GA 맞춤 측정기준·측정항목으로 등록해야 Data API로 읽힌다(등록한 날부터 쌓임). 관리자 페이지 [연결]에서 한 번에 등록
+# 플러그인 = cmd_site._send_stats(panel_open·build·pack_download·error) + usage_stats.get_target_params, 웹 = site.js track(copy_command·install_tab·demo_chapter)
+ADMIN_GA_DIMENSIONS = {
+    "app": ("version", "host", "rhino", "mode", "result", "korea", "error", "context", "packs", "placement", "shape", "radius",
+            "lng", "lat", "pnus", "pnus_2", "pnus_3", "pnus_4", "dev"),
+    "web": ("host", "command", "chapter", "dev"),   # dev = 개발자 PC·브라우저 표시(usage_stats·site.js) — [내 테스트 제외]
+}
+ADMIN_GA_METRICS = {"app": (("elapsed_s", "SECONDS"), ("buildings", "STANDARD"), ("area", "STANDARD")), "web": ()}
 # 테이블별 객체 최대 폭 m — bbox 질의의 min_x 하한에 쓴다. dev_context_builder가 빌드 끝에 넘지 않는지 검사한다.
 # 실측(2026-10-08): 건물 최대 887 m(가로·세로 중 큰 값), features 최대 2,779 m(도엽 1장 높이 — 도엽 단위로 잘려 있다).
 CONTEXT_MAX_EXTENT = {"buildings": 2000.0, "features": 3000.0}   # 부산 건물 최대 1,340 m(2026-10-13 전국 빌드)

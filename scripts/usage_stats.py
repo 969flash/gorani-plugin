@@ -2,12 +2,13 @@
 
 Rhino는 끄는 설정을 두지 않는다(무료 도구 — 쓰면 보낸다). Blender는 패널에서 동의한 사람만 보낸다(확장 약관 4.5). 보내는 항목 고지는 docs/install.md. 호스트(Rhino·Blender)마다 GA4 속성이 따로이고(constants.GA_STREAMS),
 그 호스트의 측정 ID·API secret이 비어 있으면 아무것도 보내지 않는다.
-보내는 것: 설치마다 무작위 client_id, 패널 버전·OS, 생성 대상지(필지 PNU·중심 경위도, 구역은 중심·면적·크기만), 결과·소요 시간.
+보내는 것: 설치마다 무작위 client_id, 개발자 PC 표시(dev — constants.ADMIN_DIR가 있을 때), 패널 버전·OS, 생성 대상지(필지 PNU·중심 경위도, 구역은 중심·면적·크기만), 결과·소요 시간.
 보내기는 데몬 스레드에서 하고 실패는 버린다 — 통계 때문에 패널이 멈추거나 죽으면 안 된다.
 """
 
 import json
 import locale
+import os
 import platform
 import threading
 import urllib.request
@@ -31,6 +32,8 @@ def get_payload(name, params, client_id):
     출력: Measurement Protocol 요청 본문 dict.
     """
     clean = {"engagement_time_msec": 1}
+    if os.path.isdir(constants.ADMIN_DIR):   # 관리자 열쇠가 있는 PC = 개발자 PC — 대시보드 [내 테스트 제외]가 뺀다
+        clean["dev"] = 1
     for key, value in (params or {}).items():
         if value is None:
             continue

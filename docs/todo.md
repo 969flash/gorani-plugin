@@ -7,6 +7,7 @@
 - [ ] 다른 컴퓨터(Windows일 수 있음)에서 Rhino판 실기 시험 — Mac에서 빌드한 .rhp·.pyc가 Windows Rhino 8에서 처음 도는 것일 수 있다.
 - [ ] Blender 공식 스토어 — 0.3.1 제출(2026-10-22 03시) 뒤 0.3.2를 Upload New Version으로 올려 둠(16:50, 심사는 최신 판을 본다, 다음 판은 2시간 뒤부터). Approval Status = Awaiting Review. 심사 댓글은 Blender ID 메일 — 답변 문안 `docs/blender_store/README.md`.
 - [ ] SketchUp Extension Warehouse — 2026-10-22 09:30 0.3.1(main 68ab551 rbz, sha256 2d40e9cd…) Submit For Review 완료("allow 1 to 3 weeks"). RuboCop ModelEntities 5건은 루트 그룹 설계라 사유를 적고 제출. 심사 메일이 오면 `docs/sketchup_store.md`대로 대응, 승인 뒤 My Extensions에서 Publish를 눌러야 공개된다. 0.3.2(Global 도로면)는 심사 중이라 못 올렸다 — 승인 뒤 68ab551 이후 main으로 새 판을 만들어 올린다.
+- [ ] 다음 묶음 배포(0.3.3) 때 같이 낼 것 — 관리자 대시보드 [내 테스트 제외](2026-10-22): ① 플러그인 `usage_stats`의 개발자 PC 표시(`dev`, `~/.config/gorani/`가 있는 PC)는 main에 들어가 있어 yak·SketchUp 빌드에 저절로 실린다(Blender판은 usage_stats가 빈 판이라 상관없다) ② 웹사이트 `site.js` 개발자 브라우저 표시는 웹 저장소 브랜치 `dev-traffic`(PR)로 따로 있다 — 웹사이트 배포 때 머지한다.
 - [ ] `docs/install.md`(yak 패키지에 들어가 패널 [문서 열기]로 열린다)의 SketchUp 절이 아직 없는 설치 경로(Extension Warehouse)를 안내한다. 스토어에 오를 때까지 '준비 중'으로 바꾸거나 스토어 주소로 고친다(Blender 절은 2026-10-21 스토어 기준으로 고침).
 
 ## 웹사이트 (저장소 `~/Documents/GitHub/gorani`)
@@ -31,6 +32,6 @@
 ## 이름 변경 뒤처리
 
 - [ ] AutoCAD 워크트리(`.claude/worktrees/autocad`, 커밋 안 됨)를 다시 열 때 main을 합치기 전에 같은 치환(UrbanSite→Gorani, urbansite→gorani, URBANSITE→GORANI)을 먼저 한다. 명령 `URBANSITE`→`GORANI`, DXF 레이어 접두사 `US-*`도 바꿀지 정한다.
-- [ ] GA 속성 표시 이름(UrbanSite Rhino·Blender·Web)을 GA 화면에서 Gorani로 바꾼다. 측정 ID는 그대로. ('Gorani SketchUp'은 2026-10-21에 새로 만들어 이름이 맞다)
+- [x] GA 이름을 Gorani로 바꿨다(2026-10-22, Admin API): 계정 Gorani, 속성 Gorani Rhino·Blender·웹, 스트림 이름·기본 URL. 측정 ID는 그대로.
 - [ ] 옛 결과·로그 `~/UrbanSite/`(result·*.log)는 확인 뒤 지우거나 `~/Gorani/`로 옮긴다(옛 설치본 bsh_urbansite·urbansite는 2026-10-22 확인 — 없다).
 - [ ] Hugging Face 데이터셋(`hooooooooon/urbandesigntool-data`) 카드에 옛 이름이 있는지 확인(저장소 이름은 그대로 둔다).
