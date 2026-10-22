@@ -15,8 +15,11 @@ class HeightTest(unittest.TestCase):
     def test_height_fallbacks(self):
         self.assertEqual(dev_nl.get_height(2.0, 13.2, 14.0, 15.0), (11.2, "pdok_height", "B"))
         self.assertEqual(dev_nl.get_height(2.0, None, 14.0, 15.0), (12.0, "pdok_height", "B"))     # 50 % 없으면 70 %
-        self.assertEqual(dev_nl.get_height(2.0, 2.5, None, 500.0), (constants.DEFAULT_BUILDING_HEIGHT_M, "default", "D"))   # 범위 밖·없음
-        self.assertEqual(dev_nl.get_height(None, 13.2, 14.0, 15.0), (constants.DEFAULT_BUILDING_HEIGHT_M, "default", "D"))
+        self.assertEqual(dev_nl.get_height(2.0, 2.5, None, 500.0), (2.5, "pdok_height_rel", "B"))   # 지붕 − 지반 0.5 m → 지붕 값(상대 높이로 봄)
+        self.assertEqual(dev_nl.get_height(2.0, 0.5, None, 500.0), (constants.DEFAULT_BUILDING_HEIGHT_M, "default", "D"))   # 전부 범위 밖
+        self.assertEqual(dev_nl.get_height(None, 13.2, 14.0, 15.0), (13.2, "pdok_height_rel", "B"))   # 지반 없음 → 지붕 값을 높이로
+        self.assertEqual(dev_nl.get_height(5.95, 3.51, 4.0, 5.7), (3.51, "pdok_height_rel", "B"))     # AHN6 도엽 — 지붕 < 지반
+        self.assertEqual(dev_nl.get_height(0.34, 10.82, 11.0, 12.0), (10.48, "pdok_height", "B"))     # AHN5 도엽 — NAP
 
 
 class CountryPackTest(unittest.TestCase):

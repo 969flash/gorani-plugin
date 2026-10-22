@@ -100,11 +100,17 @@ def get_catalog():
 
 def get_height(ground, roof_50p, roof_70p, roof_max):
     # type: (float, float, float, float) -> tuple
-    """지붕 표고 − 지반 표고 → (높이 m, height_src, grade). 50 % 지붕 높이(B, 항공 lidar 실측)가 없으면 70 % → 최고 → 기본값(D)."""
+    """지붕 − 지반 → (높이 m, height_src, grade). 50 % 지붕(B, 항공 lidar 실측)이 없으면 70 % → 최고 → 기본값(D).
+    AHN5 도엽(암스테르담 25GN1)은 지붕 값이 NAP 표고지만, AHN6 도엽(11FZ1 2025: 건물 82 %가 지붕 < 지반)은 지반 기준 높이로 보인다 —
+    지붕 − 지반이 1 m 미만이면 지붕 값 자체를 높이로 쓴다(height_src pdok_height_rel)."""
     low, high = constants.PDOK_HEIGHT_RANGE
     for roof in (roof_50p, roof_70p, roof_max):
-        if ground is not None and roof is not None and low <= roof - ground <= high:
+        if roof is None:
+            continue
+        if ground is not None and low <= roof - ground <= high:
             return round(roof - ground, 2), "pdok_height", "B"
+        if (ground is None or roof - ground < low) and low <= roof <= high:
+            return round(roof, 2), "pdok_height_rel", "B"
     return constants.DEFAULT_BUILDING_HEIGHT_M, "default", "D"
 
 
