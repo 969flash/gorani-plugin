@@ -25,3 +25,9 @@ Global 모드는 OSM 건물에 높이 태그가 드물어 기본값(3.8 m·층�
 - 프랑스: `dev_fr.py` 작성(Atom 피드 카탈로그 → 데파르트망 7z → py7zr로 GPKG 추출 → `batiment`). D090 시험 중. D090 7z 72 MB → GPKG 435 MB(모든 테마), 건물 161,412.
 - 스위스: STAC 자산이 DWG·FileGDB뿐이고 FileGDB가 MultiPatch(GDAL 지오메트리 1016)라 pyogrio가 못 읽는다(ogr2ogr·GDAL 바인딩 없음). CityGML 배포(2024-08-14)의 받기 주소를 확인하거나 GDAL을 설치해야 한다 — **보류**.
 - 독일: 마지막(주별).
+
+## 스위스 진행 (2026-10-23)
+
+- 이용약관 원문(swisstopo "Terms of use for free geodata and geoservices", 2022-08-26 게시, Version 1.3.2021): 데이터는 "may be used, distributed and made accessible", 가공·상업 이용 허용. 출처 표기 의무 — "©swisstopo" 또는 "Federal Office of Topography swisstopo". 과다 사용 시 접근 제한 가능.
+- CityGML 배포는 EGID가 있는 주(AG·AI·AR·BE·BL·BS·GL·JU·TG + 취리히시)만이라 전국이 아니다 → 전국 FileGDB(STAC `ch.swisstopo.swissbuildings3d_3_0`, 6,728타일, 1:25k 도엽 256장)를 쓴다. FileGDB MultiPatch는 pyogrio가 못 읽어 GDAL(brew)의 `ogr2ogr`로 변환한다.
+

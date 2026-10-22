@@ -113,6 +113,7 @@
 | `dev_plateau.py` | (2026-10-21) | 개발 | 일본 건물·도로면 팩 — CKAN 목록 → zip을 HTTP Range로 열어 `udx/bldg` GML만 읽고(`roads`는 있는 팩에 `udx/tran` 도로면을 features 표로 더한다) 시구정촌마다 `jp<코드>_context.db.xz` + `jp/manifest.json` → HF `jp/` | — |
 | `dev_nl.py` | (2026-10-22) | 개발 | 네덜란드 건물 팩 — PDOK 3D Basisvoorziening 도엽 zip(GeoPackage) → pyogrio·pyproj로 바닥 윤곽·높이 → `nl<도엽>_context.db.xz` + `nl/manifest.json` → HF `nl/`(올리기는 사용자 확인 뒤) | — |
 | `dev_fr.py` | (2026-10-22) | 개발 | 프랑스 건물 팩 — Géoplateforme Atom 피드 카탈로그 → 데파르트망 7z(py7zr) → GeoPackage `batiment`(pyogrio·pyproj) → `fr<데파르트망>_context.db.xz` + `fr/manifest.json` → HF `fr/`(사용자 확인 뒤) | — |
+| `dev_ch.py` | (2026-10-23) | 개발 | 스위스 건물 팩 — STAC 타일 FileGDB를 GDAL `ogr2ogr`(Floor)·`ogrinfo`(Building_solid)로 읽어 바닥·높이 → `ch<도엽>_context.db.xz` + `ch/manifest.json` → HF `ch/`(사용자 확인 뒤) | — |
 | `dev_rhino_run.py` | 보유+ | 개발 | 128–130행: `data/*.db` 전부 심링크 | constants |
 | `dev_database_builder.py`·`dev_probe_*.py` | 보유 | 개발 | 필지 DB·08 실측 재현 | — |
 

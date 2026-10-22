@@ -337,6 +337,13 @@ BDTOPO_LICENSE = "Licence Ouverte / Open Licence 2.0 (Etalab) — 출처 표기:
 BDTOPO_HEIGHT_RANGE = (1.0, 400.0)     # hauteur 사용 범위 m
 BDTOPO_SKIP_STATES = ("En projet", "Détruit")   # etat_de_l_objet — 없는 건물
 BDTOPO_USE = {"Résidentiel": "02000", "Commercial et services": "04000", "Industriel": "17000", "Agricole": "21000"}   # usage_1 → 국내 대분류(시트 색). 그 밖은 빈 값
+# 스위스 — swisstopo swissBUILDINGS3D 3.0 Beta(OGD 이용약관: 자유 이용·재배포, 출처 "©swisstopo"). STAC 타일(1:25k 도엽 하위 타일) FileGDB(MultiPatch LoD2) → GDAL ogr2ogr로 읽는다
+CH_PACK_DIR = "ch"
+CH_PACK_PREFIX = "ch"                  # 팩 이름 ch<1:25k 도엽 4자리>_context.db — ch1172
+CH_BOUNDS = (5.9, 45.8, 10.6, 47.9)    # 스위스·리히텐슈타인 경위도 상자(서, 남, 동, 북)
+SWISS_STAC_ITEMS_URL = "https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissbuildings3d_3_0/items?limit=100"
+SWISS_LICENSE = "swisstopo OGD 이용약관(2022-08-26, Version 1.3.2021) — 자유 이용·가공·배포, 출처 표기 \"©swisstopo\""
+SWISS_HEIGHT_RANGE = (1.0, 400.0)      # 솔리드 최고 z − 최저 z 사용 범위 m
 # 나라별 공식 건물 팩(경위도, 매니페스트는 나라마다 따로 — HF 데이터셋 <dir>/manifest.json). 키 = 팩 이름 접두사. 런타임은 대상지 중심이 bounds 안인 나라의 팩을 쓴다
 # source_id = 팩 data_sources.source_id, label = 화면·도면 표기, code_pattern = 접두사 뒤 지역 코드 꼴(한국 시도 슬러그 jpn 같은 이름과 구분)
 COUNTRY_PACKS = {
@@ -345,6 +352,8 @@ COUNTRY_PACKS = {
            "bounds": NL_BOUNDS, "source_id": "pdok", "label": "3D Basisvoorziening", "code_pattern": r"\d{2}[a-z]{2}\d"},   # 도엽 25gn1
     "fr": {"dir": FR_PACK_DIR, "manifest": "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, FR_PACK_DIR),
            "bounds": FR_BOUNDS, "source_id": "bdtopo", "label": "BD TOPO", "code_pattern": r"\d{3}|02[ab]"},   # 데파르트망 075·02a
+    "ch": {"dir": CH_PACK_DIR, "manifest": "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, CH_PACK_DIR),
+           "bounds": CH_BOUNDS, "source_id": "swisstopo", "label": "swissBUILDINGS3D", "code_pattern": r"\d{4}"},   # 1:25k 도엽 1172
 }
 PACK_SOURCE_IDS = {v["source_id"]: k for k, v in COUNTRY_PACKS.items()}   # data_sources.source_id → 나라 코드
 PLATEAU_CKAN_URL = "https://www.geospatial.jp/ckan/api/3/action/package_search"   # G空間情報センター. 카탈로그 API 리다이렉트는 404(2026-10-21)
