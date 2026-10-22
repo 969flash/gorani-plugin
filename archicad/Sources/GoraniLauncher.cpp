@@ -21,6 +21,12 @@ static GS::UniString GetString (Int32 index)
     return RSGetIndString (ID_GORANI_STRINGS, index, ACAPI_GetOwnResModule ());
 }
 
+static bool Exists (const IO::Location& location)
+{
+    bool contains = false;   // AC27·28 FileSystem에는 bool 하나짜리 Contains가 없다
+    return IO::fileSystem.Contains (location, &contains) == NoError && contains;
+}
+
 // Gorani 폴더 = scripts/cmd_archicad.py가 있는 곳. 애드온이 든 폴더, 없으면 그 위 폴더(버전별 하위 폴더 배치)
 static bool FindGoraniFolder (IO::Location& folder)
 {
@@ -31,7 +37,7 @@ static bool FindGoraniFolder (IO::Location& folder)
         IO::Location script = location;
         script.AppendToLocal (IO::Name ("scripts"));
         script.AppendToLocal (IO::Name ("cmd_archicad.py"));
-        if (IO::fileSystem.Contains (script)) {
+        if (Exists (script)) {
             folder = location;
             return true;
         }
@@ -69,7 +75,7 @@ void LaunchGorani ()
     IO::Location script = folder;
     script.AppendToLocal (IO::Name ("scripts"));
     script.AppendToLocal (IO::Name ("cmd_archicad.py"));
-    if (!IO::fileSystem.Contains (python)) {
+    if (!Exists (python)) {
         DGAlert (DG_ERROR, GetString (ID_GORANI_STRINGS_ERROR_TITLE), GetString (ID_GORANI_STRINGS_MISSING), GS::EmptyUniString, "OK");
         return;
     }
