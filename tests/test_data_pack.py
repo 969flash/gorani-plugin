@@ -120,7 +120,8 @@ class LocalPackTest(unittest.TestCase):
         import osm_context
         saved = data_pack._MANIFEST.get(constants.DATA_MANIFEST_URL)
         data_pack._MANIFEST[constants.DATA_MANIFEST_URL] = {"version": "t", "packs": [], "countries": [
-            {"code": "us", "label": "USA Structures", "source_id": "fema", "manifest": "us/manifest.json", "bounds": [-125, 24, -66, 50], "code_pattern": r"\d{5}"},
+            {"code": "us", "label": "Overture", "source_id": "overture", "manifest": "us/manifest.json", "code_pattern": r"\d{5}",
+             "bounds": [[-125, 24, -66, 50], [-170, 51, -129, 72]]},                                                 # 본토 + 알래스카(상자 여럿)
             {"code": "fr", "disabled": True},                                                                            # 원천 약관이 바뀌어 내렸다
             {"code": "xx", "label": "상자 3수", "source_id": "x", "manifest": "xx/manifest.json", "bounds": [1, 2, 3], "code_pattern": r"\d"},
             {"code": "yy", "label": "정규식 틀림", "source_id": "y", "manifest": "yy/manifest.json", "bounds": [1, 2, 3, 4], "code_pattern": "("},
@@ -129,21 +130,24 @@ class LocalPackTest(unittest.TestCase):
         try:
             packs = data_pack.get_country_packs()
             self.assertEqual(packs["us"]["manifest"], "https://huggingface.co/datasets/%s/resolve/main/us/manifest.json" % constants.DATA_REPO_ID)
-            self.assertEqual(packs["us"]["bounds"], (-125.0, 24.0, -66.0, 50.0))
+            self.assertEqual(packs["us"]["bounds"], [(-125.0, 24.0, -66.0, 50.0), (-170.0, 51.0, -129.0, 72.0)])
             self.assertEqual(set(packs), {"jp", "nl", "ch", "us"})
             self.assertEqual(osm_context.get_country(-118.2437, 34.0522), "us")   # 로스앤젤레스
+            self.assertEqual(osm_context.get_country(-149.9003, 61.2181), "us")   # 앵커리지 — 둘째 상자
             self.assertEqual(osm_context.get_country(2.2945, 48.8584), "")        # 파리 — 프랑스를 내렸다
             self.assertEqual(osm_context.get_country(8.6416, 46.8807), "ch")      # 알트도르프 — 내장 그대로
             self.assertEqual(data_pack.get_pack_country("us06037_context.db"), "us")
-            self.assertEqual(data_pack.get_pack_source_ids()["fema"], "us")
-            self.assertEqual(data_pack.get_pack_label("fema"), "USA Structures")
+            self.assertEqual(data_pack.get_pack_source_ids()["overture"], "us")
+            self.assertEqual(data_pack.get_pack_label("overture"), "Overture")
             self.assertEqual(data_pack.get_pack_label("osm"), "")
         finally:
             if saved is None:
                 data_pack._MANIFEST.pop(constants.DATA_MANIFEST_URL, None)
             else:
                 data_pack._MANIFEST[constants.DATA_MANIFEST_URL] = saved
-        self.assertEqual(data_pack.get_country_packs(), constants.COUNTRY_PACKS)   # 매니페스트를 못 받았으면 내장 목록
+        packs = data_pack.get_country_packs()   # 매니페스트를 못 받았으면 내장 목록(상자는 목록 꼴)
+        self.assertEqual(set(packs), set(constants.COUNTRY_PACKS))
+        self.assertEqual(packs["jp"]["bounds"], [constants.JP_BOUNDS])
 
     def test_countries_json_matches_builtin(self):
         """docs/countries.json(매니페스트 원본)은 전부 검증을 지나고, 내장 constants.COUNTRY_PACKS와 값이 같다 — 오프라인 내장 목록이 원격과 어긋나지 않게."""
@@ -153,9 +157,10 @@ class LocalPackTest(unittest.TestCase):
             entries = json.load(f)["countries"]
         remote = {entry["code"]: data_pack._get_country_pack(entry) for entry in entries}
         self.assertTrue(all(remote.values()), [code for code, pack in remote.items() if not pack])
-        keys = ("manifest", "bounds", "source_id", "label", "code_pattern")
-        for code, pack in constants.COUNTRY_PACKS.items():
-            self.assertEqual({k: pack[k] for k in keys}, {k: remote[code][k] for k in keys}, code)
+        data_pack._MANIFEST.pop(constants.DATA_MANIFEST_URL, None)   # 내장만
+        builtin = data_pack.get_country_packs()
+        for code in constants.COUNTRY_PACKS:
+            self.assertEqual(builtin[code], remote[code], code)
 
     def test_group_without_table(self):
         """상한을 넘어 묶음으로 나뉠 때 테이블이 없는 묶음(등고선 팩만)은 건너뛴다. 어디에도 없으면 오류."""

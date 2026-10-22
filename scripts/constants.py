@@ -344,6 +344,22 @@ CH_BOUNDS = (5.9, 45.8, 10.6, 47.9)    # 스위스·리히텐슈타인 경위도
 SWISS_STAC_ITEMS_URL = "https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissbuildings3d_3_0/items?limit=100"
 SWISS_LICENSE = "swisstopo OGD 이용약관(2022-08-26, Version 1.3.2021) — 자유 이용·가공·배포, 출처 표기 \"©swisstopo\""
 SWISS_HEIGHT_RANGE = (1.0, 400.0)      # 솔리드 최고 z − 최저 z 사용 범위 m
+# 미국 — Overture Maps buildings(ODbL. Microsoft ML Buildings·OpenStreetMap·Esri Community Maps 합본 — 미국 높이는 대부분 Microsoft ML 추정, 로스앤젤레스 98.8 %·오스틴 89.3 %
+# 2026-10-23 실측 docs/research/country_buildings.md). 공식 출처(FEMA USA Structures)는 높이가 1/4뿐이고 약관이 갈려 쓰지 않는다. 카운티(Census FIPS 5자리)마다 팩 하나 — dev_us.py
+US_PACK_DIR = "us"
+US_PACK_PREFIX = "us"                  # 팩 이름 us<카운티 FIPS 5자리>_context.db — us06037 로스앤젤레스
+US_BOUNDS = ((-125.0, 24.3, -66.9, 49.5), (-170.0, 51.0, -129.0, 72.0), (-161.0, 18.5, -154.0, 22.5), (-68.0, 17.5, -64.4, 18.6))   # 본토·알래스카·하와이·푸에르토리코/버진아일랜드(서, 남, 동, 북)
+OVERTURE_RELEASE = "2026-10-21.0"      # 달마다 새 판 — 바꾸면 fetch부터 다시
+OVERTURE_S3_URL = "s3://overturemaps-us-west-2/release/%s/theme=buildings/type=building/*" % OVERTURE_RELEASE   # 익명 읽기(DuckDB httpfs, us-west-2)
+OVERTURE_PAGE_URL = "https://overturemaps.org"
+OVERTURE_LICENSE = "ODbL 1.0 (Open Database License) — 출처 표기: Overture Maps Foundation, © OpenStreetMap contributors, Microsoft (Global ML Building Footprints)"
+OVERTURE_HEIGHT_RANGE = (1.0, 700.0)   # height 사용 범위 m(One World Trade Center 541 m)
+OVERTURE_USE_CLASS = {"apartments": "02000", "dormitory": "02000", "hotel": "15000", "office": "14000", "warehouse": "18000", "garage": "20000", "garages": "20000",
+                      "parking": "20000", "school": "10000", "university": "10000", "college": "10000", "hospital": "09000", "church": "06000"}   # class 우선
+OVERTURE_USE_SUBTYPE = {"residential": "01000", "commercial": "04000", "industrial": "17000", "agricultural": "21000", "education": "10000", "medical": "09000",
+                        "religious": "06000", "civic": "14000", "transportation": "08000", "entertainment": "05000", "military": "23000"}   # subtype → 국내 대분류(시트 색). service·outbuilding은 빈 값
+CENSUS_COUNTY_URL = "https://www2.census.gov/geo/tiger/GENZ2024/shp/cb_2024_us_county_500k.zip"   # 카운티 경계(미국 정부 저작물, 공개). GEOID = FIPS 5자리, 3,235개(준주 포함)
+US_COUNTY_BUFFER_DEG = 0.003           # 카운티 경계를 넓혀 건물 중심을 배정(약 300 m) — 해안선 간략화(1:500k)로 빠지는 부두·매립지 건물. 겹친 건물은 런타임이 src_key로 한 번만
 # 나라별 공식 건물 팩(경위도, 매니페스트는 나라마다 따로 — HF 데이터셋 <dir>/manifest.json). 키 = 팩 이름 접두사. 런타임은 대상지 중심이 bounds 안인 나라의 팩을 쓴다
 # source_id = 팩 data_sources.source_id, label = 화면·도면 표기, code_pattern = 접두사 뒤 지역 코드 꼴(한국 시도 슬러그 jpn 같은 이름과 구분)
 # ※ 내장 기본값일 뿐이다 — 런타임은 data_pack.get_country_packs()(한국 매니페스트 countries[]가 덮는다, 원본 docs/countries.json, 올리기 dev_deploy.py notices).

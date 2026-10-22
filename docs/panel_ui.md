@@ -271,7 +271,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 - 공지 → 위쪽 띠는 한 번에 하나(업데이트 > 공지 순서), 나머지는 띠의 `+N` → 더보기 메뉴 '공지' 목록. 띠 [×]는 `options.closed_notices`에 id를 넣고, 메뉴에서는 계속 보인다(흐리게 '닫음'). `level`: `warn` = 주황(꼭 알아야 할 것), `info` = 파랑. 빨강은 오류에만.
 - 공지 `id`는 바꾸지 않는다 — 바꾸면 닫은 사람에게 다시 뜬다. 목 패널: `site_ui.html?mock=1&step=1&update=soft|hard`(공지 견본 셋 포함), `&notice=1`은 공지만.
 - 버전은 `constants.PANEL_VERSION` 하나 — 배포할 때 올린다. 0.1.0 이전 설치본에는 이 확인이 없다(그 사용자는 막을 수 없다).
-- `countries[]`(2026-10-23) — 나라별 공식 건물 팩 목록. 원본 `docs/countries.json`, 올리기는 같은 `dev_deploy.py notices`(`upload`도 같이 넣는다). 항목 `{code(소문자 2자 = 팩 이름 접두사), label, source_id, manifest(한국 매니페스트 기준 상대경로 가능), bounds[서, 남, 동, 북], code_pattern, disabled?}`. 플러그인은 `init`에 받아 둔 매니페스트의 이 목록으로 대상지 나라를 고르고(`data_pack.get_country_packs` → `osm_context.get_country`, 상자가 겹치면 작은 것), 못 받았으면 내장 `constants.COUNTRY_PACKS`(같은 값). 틀린 항목은 그 나라만 건너뛰고 `disabled: true`는 내장에서도 뺀다. **새 나라 = 팩·`<나라>/manifest.json` 올리기 + 이 목록 한 줄 — 플러그인 판은 올리지 않는다**(0.3.3·0.3.4를 나라 추가만으로 올린 뒤 바꿈).
+- `countries[]`(2026-10-23) — 나라별 공식 건물 팩 목록. 원본 `docs/countries.json`, 올리기는 같은 `dev_deploy.py notices`(`upload`도 같이 넣는다). 항목 `{code(소문자 2자 = 팩 이름 접두사), label, source_id, manifest(한국 매니페스트 기준 상대경로 가능), bounds[서, 남, 동, 북] 또는 그 목록(미국처럼 본토·알래스카·하와이), code_pattern, disabled?}`. 플러그인은 `init`에 받아 둔 매니페스트의 이 목록으로 대상지 나라를 고르고(`data_pack.get_country_packs` → `osm_context.get_country`, 상자가 겹치면 작은 것), 못 받았으면 내장 `constants.COUNTRY_PACKS`(같은 값). 틀린 항목은 그 나라만 건너뛰고 `disabled: true`는 내장에서도 뺀다. **새 나라 = 팩·`<나라>/manifest.json` 올리기 + 이 목록 한 줄 — 플러그인 판은 올리지 않는다**(0.3.3·0.3.4를 나라 추가만으로 올린 뒤 바꿈).
 
 ## 언어 (2026-10-21)
 

@@ -52,9 +52,9 @@ def get_country(lng, lat):
     상자가 겹치면(프랑스 상자 안의 스위스) 작은 상자가 이긴다."""
     found = []
     for code, pack in data_pack.get_country_packs().items():
-        west, south, east, north = pack["bounds"]
-        if west <= lng <= east and south <= lat <= north:
-            found.append(((east - west) * (north - south), code))
+        for west, south, east, north in pack["bounds"]:   # 나라 하나에 상자 여럿(미국 본토·알래스카·하와이)
+            if west <= lng <= east and south <= lat <= north:
+                found.append(((east - west) * (north - south), code))
     return min(found)[1] if found else ""
 
 

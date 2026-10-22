@@ -121,25 +121,35 @@ def get_local_paths(kind, bounds=None, sido_codes=None, data_dir=None, sgg_codes
     return paths
 
 
+def _get_boxes(bounds):
+    # type: (object) -> list
+    """경위도 상자 [서, 남, 동, 북] 하나 또는 그 목록(미국처럼 본토·알래스카·하와이) → [(서, 남, 동, 북), …]. 틀리면 None."""
+    try:
+        boxes = [bounds] if bounds and not isinstance(bounds[0], (list, tuple)) else list(bounds or [])
+        boxes = [tuple(float(v) for v in box) for box in boxes]
+    except (TypeError, ValueError):
+        return None
+    if not boxes or any(len(box) != 4 or not (-180 <= box[0] < box[2] <= 180 and -90 <= box[1] < box[3] <= 90) for box in boxes):
+        return None
+    return boxes
+
+
 def _get_country_pack(entry):
     # type: (dict) -> dict
-    """매니페스트 countries[] 한 항목 → constants.COUNTRY_PACKS 한 값 꼴 {dir, manifest, bounds, source_id, label, code_pattern}.
+    """매니페스트 countries[] 한 항목(또는 constants.COUNTRY_PACKS 한 값 + code) → {dir, manifest, bounds[(서, 남, 동, 북), …], source_id, label, code_pattern}.
     칸이 하나라도 틀리면 None — 그 나라만 건너뛴다(매니페스트 한 줄 때문에 패널이 멈추지 않게). manifest는 한국 매니페스트 기준 상대경로("us/manifest.json")도 된다."""
     if not isinstance(entry, dict):
         return None
-    code, pattern = entry.get("code"), entry.get("code_pattern")
+    code, pattern, boxes = entry.get("code"), entry.get("code_pattern"), _get_boxes(entry.get("bounds"))
     manifest = urllib.parse.urljoin(constants.DATA_MANIFEST_URL, str(entry.get("manifest") or ""))
     try:
-        west, south, east, north = [float(v) for v in entry.get("bounds") or []]
         re.compile(pattern)
-    except (TypeError, ValueError, re.error):
+    except (TypeError, re.error):
         return None
-    if not (isinstance(code, str) and re.fullmatch(r"[a-z]{2}", code) and isinstance(pattern, str) and pattern
-            and -180 <= west < east <= 180 and -90 <= south < north <= 90 and manifest.startswith(("https://", "http://"))
-            and entry.get("source_id") and entry.get("label")):
+    if not (isinstance(code, str) and re.fullmatch(r"[a-z]{2}", code) and isinstance(pattern, str) and pattern and boxes
+            and manifest.startswith(("https://", "http://")) and entry.get("source_id") and entry.get("label")):
         return None
-    return {"dir": code, "manifest": manifest, "bounds": (west, south, east, north), "source_id": str(entry["source_id"]),
-            "label": str(entry["label"]), "code_pattern": pattern}
+    return {"dir": code, "manifest": manifest, "bounds": boxes, "source_id": str(entry["source_id"]), "label": str(entry["label"]), "code_pattern": pattern}
 
 
 def get_country_packs():
@@ -147,7 +157,7 @@ def get_country_packs():
     """나라별 건물 팩 목록 {나라 코드: {manifest, bounds, source_id, label, code_pattern}} — 내장(constants.COUNTRY_PACKS) 위에 이번 세션에
     받아 둔 한국 매니페스트의 countries[]를 덮는다(disabled: true인 나라는 뺀다 — 원천 약관이 바뀌었을 때). 네트워크 접근 없음(패널 init이 받아 둔다),
     못 받았으면 내장 목록 그대로. 새 나라·상자·주소는 docs/countries.json → dev_deploy.py notices로만 바꾼다 — 플러그인 판을 올리지 않는다(2026-10-23)."""
-    packs = dict(constants.COUNTRY_PACKS)
+    packs = {code: _get_country_pack(dict(pack, code=code)) for code, pack in constants.COUNTRY_PACKS.items()}   # 내장도 같은 꼴로(bounds 목록)
     manifest = _MANIFEST.get(constants.DATA_MANIFEST_URL) or {}
     for entry in manifest.get("countries") or []:
         if not isinstance(entry, dict):
