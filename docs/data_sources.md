@@ -276,3 +276,12 @@ CREATE TABLE IF NOT EXISTS source_files (
 
 - 라이선스: **Licence Ouverte / Open Licence 2.0**(Etalab; data.gouv.fr 데이터셋 `bd-topo` license `lov2`). 출처 고지: "Source : IGN, BD TOPO® <판> (Licence Ouverte 2.0), traité par Gorani"(팩 `data_sources.note`, 도면 출처 줄).
 - 런타임: `constants.COUNTRY_PACKS["fr"]`(`FR_BOUNDS` 본토·코르시카). 도로면은 OSM 버퍼, 지형은 Terrain Tiles.
+
+### 스위스 — swisstopo swissBUILDINGS3D 3.0 Beta 건물 팩 (`ch/`, 경위도, 2026-10-23)
+
+| 항목 | 원천 | 팩 | 비고 |
+|---|---|---|---|
+| 건물 | swisstopo **swissBUILDINGS3D 3.0 Beta** — STAC `ch.swisstopo.swissbuildings3d_3_0` 타일(1:25k 도엽 하위, 연도별 6,724타일 → 하위 타일마다 최신 연도 3,230개) FileGDB(LoD2, MultiPatch) | `dev_ch.py catalog → build → upload` → HF `ch/ch<도엽>_context.db.xz`(252도엽) + `ch/manifest.json`. GDAL(brew) `ogr2ogr`로 `Floor` 층(3D TIN → MULTIPOLYGON25D), `ogrinfo`로 `Building_solid` 속성. 바닥 = Floor 삼각형을 LV95 m에서 합친 외곽, 지반 = Floor 최저 z, 높이 = `GESAMTHOEHE`(B) → `DACH_MAX` − 지반(B) → 기본값(D). 종류 `OBJEKTART` → `ngii_kind`, 용도 `GEBAEUDE_NUTZUNG` → `ngii_use` | 도엽 1192(알트도르프) 10,563동·B 100 %·xz 1.1 MB. 지하·가려진 건물·담장(`Unterirdisches Gebaeude`·`Gebaeude unsichtbar`·`Mauer*`)은 뺀다. pyogrio는 MultiPatch(지오메트리 1016)를 못 읽어 GDAL이 필요하다 |
+
+- 이용약관: swisstopo "Terms of use for free geodata and geoservices"(2022-08-26, Version 1.3.2021) — 자유 이용·가공·상업 이용·재배포, 출처 표기 의무. 고지: "Source: ©swisstopo, swissBUILDINGS3D 3.0 Beta (<연도>), processed by Gorani"(팩 `data_sources.note`). STAC 메타의 license 값 "proprietary"는 약관과 다르다(확인 필요 — 약관 원문을 따른다).
+- 런타임: `constants.COUNTRY_PACKS["ch"]`(`CH_BOUNDS` 스위스·리히텐슈타인). 프랑스 상자와 겹치므로 `osm_context.get_country`는 작은 상자를 우선한다. CityGML 배포는 EGID가 있는 주만이라 쓰지 않는다.
