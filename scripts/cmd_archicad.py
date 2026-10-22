@@ -47,19 +47,31 @@ class ArchicadHost(object):
 
     def api(self, command, params=None):
         # type: (str, dict) -> object
-        """Archicad 기본 명령 하나(API.*). 실패하면 HostError."""
+        """Archicad 기본 명령 하나(API.*). 실패하면 HostError.
+        Archicad가 사용자 입력 중·대화상자가 열린 동안(오류 4001 'Invalid program status')은 명령을 받지 않는다 —
+        패널 단추를 누른 직후 첫 명령이 걸렸다(2026-10-22). ARCHICAD_BUSY_WAIT 동안 다시 부르고, 그래도 안 되면 안내한다."""
+        constants = loader.load("constants")
         body = {"command": command}
         if params is not None:
             body["parameters"] = params
-        request = urllib.request.Request(self.url, json.dumps(body).encode("utf-8"), {"Content-Type": "application/json"})
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                data = json.loads(response.read().decode("utf-8"))
-        except (OSError, ValueError) as error:
-            raise HostError(tr("Archicad가 응답하지 않습니다({0}) — Archicad에 프로젝트가 열려 있는지 확인하세요", command)) from error
-        if not data.get("succeeded"):
-            raise HostError(tr("Archicad {0} 실패: {1}", command, (data.get("error") or {}).get("message") or tr("알 수 없는 오류")))
-        return data.get("result")
+        data = json.dumps(body).encode("utf-8")
+        deadline = time.time() + constants.ARCHICAD_BUSY_WAIT
+        while True:
+            request = urllib.request.Request(self.url, data, {"Content-Type": "application/json"})
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                    reply = json.loads(response.read().decode("utf-8"))
+            except (OSError, ValueError) as error:
+                raise HostError(tr("Archicad가 응답하지 않습니다({0}) — Archicad에 프로젝트가 열려 있는지 확인하세요", command)) from error
+            error = reply.get("error") or {}
+            if reply.get("succeeded") or error.get("code") != constants.ARCHICAD_BUSY_CODE:
+                break
+            if time.time() > deadline:
+                raise HostError(tr("Archicad가 다른 작업 중입니다 — 그리던 것을 끝내거나 Esc를 누르고, 열린 대화상자를 닫은 뒤 다시 시도하세요"))
+            time.sleep(constants.ARCHICAD_BUSY_POLL)
+        if not reply.get("succeeded"):
+            raise HostError(tr("Archicad {0} 실패: {1}", command, error.get("message") or tr("알 수 없는 오류")))
+        return reply.get("result")
 
     def call(self, name, **params):
         # type: (str, object) -> object

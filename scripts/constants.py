@@ -762,6 +762,9 @@ SKETCHUP_GROUND_CELL = 5.0      # m — 지반 높이 조회 격자 칸(mesh_geo
 # Archicad판(cmd_archicad 사이드카 — 번들 파이썬 + Gorani 애드온 archicad/, 모델 변경은 Archicad JSON API + GoraniCommand)
 ARCHICAD_COMMAND_NAMESPACE = "GoraniCommand"   # 애드온 명령 이름 공간(archicad/Sources/CommandBase.cpp). 개발 시험은 Tapir('TapirCommand')로도 돈다
 ARCHICAD_HOST_TIMEOUT = 1800.0  # s — JSON 명령 하나의 응답 대기 상한(건물 수천 동 Morph 한 묶음)
+ARCHICAD_BUSY_CODE = 4001       # JSON 오류 'Invalid program status' — 사용자 입력 중·모달 대화상자. 기다렸다 다시 부른다
+ARCHICAD_BUSY_WAIT = 60.0       # s — 위 상태가 풀리기를 기다리는 상한
+ARCHICAD_BUSY_POLL = 0.5        # s
 ARCHICAD_WATCH_SECONDS = 5.0    # s — Archicad가 살아 있는지 보는 간격. 연결 거부가 ARCHICAD_WATCH_MISSES번 이어지면 사이드카를 끝낸다
 ARCHICAD_WATCH_MISSES = 3
 ARCHICAD_LOG_FILE_NAME = "archicad_sidecar.log"   # HOME_DIR 안 — 사이드카 출력(애드온이 띄운 파이썬은 출력을 받는 곳이 없다)

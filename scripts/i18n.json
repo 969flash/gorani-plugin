@@ -5722,5 +5722,11 @@
   "es": "Reinicie Archicad",
   "ja": "Archicad を再起動",
   "zh": "重启 Archicad"
+ },
+ "Archicad가 다른 작업 중입니다 — 그리던 것을 끝내거나 Esc를 누르고, 열린 대화상자를 닫은 뒤 다시 시도하세요": {
+  "en": "Archicad is busy. Finish what you are drawing or press Esc, close any open dialog, then try again",
+  "es": "Archicad está ocupado. Termine lo que está dibujando o pulse Esc, cierre los cuadros de diálogo abiertos y vuelva a intentarlo",
+  "ja": "Archicad は別の作業中です。作図を終えるか Esc を押し、開いているダイアログを閉じてから、もう一度試してください",
+  "zh": "Archicad 正忙。请完成正在绘制的内容或按 Esc，关闭打开的对话框后重试"
  }
 }
