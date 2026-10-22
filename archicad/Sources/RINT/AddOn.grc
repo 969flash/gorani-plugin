@@ -1,0 +1,26 @@
+#include "ResourceIds.hpp"
+#include "AddOnVersion.hpp"
+
+'STR#' ID_ADDON_INFO "Add-on Name and Description" {
+/* [  1] */		"Gorani"
+/* [  2] */		"Gorani site context: buildings, roads, terrain and water around your site, from public data and OpenStreetMap."
+}
+
+'STR#' ID_ADDON_MENU "Add-On Menu" {
+/* [   ] */        "Gorani"
+/* [  1] */        "Gorani Site Context...^E3^ES^EE^EI^ED^EL^EW^ET^EM"
+}
+
+'STR#' ID_GORANI_STRINGS "Gorani Strings" {
+/* [  1] */ "Gorani"
+/* [  2] */ "Gorani files are missing next to the Add-On. Reinstall Gorani."
+/* [  3] */ "Could not start Gorani."
+}
+
+'GDLG' ID_SCRIPTUI_PALETTE Palette | leftCaption | close | grow   0   0  420  760  "Gorani"  {
+/* [  1] */ Browser                     0   0  420  760
+}
+
+'DLGH' ID_SCRIPTUI_PALETTE Gorani_Panel_Palette {
+1    ""        BrowserItem
+}

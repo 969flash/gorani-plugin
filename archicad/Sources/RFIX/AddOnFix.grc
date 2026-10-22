@@ -1,0 +1,12 @@
+#include "ResourceIds.hpp"
+
+// Graphisoft 개발자 등록으로 받은 애드온 ID(Developer ID, Local ID). 1·1은 개발용 — 데모 모드(-demo)에서만 켜진다.
+// 배포 전에 실제 ID로 바꾼다(dev_deploy.py archicad가 1·1이면 멈춘다)
+'MDID' 32500 "Add-On Identifier" {
+	1
+	1
+}
+
+'FILE' ID_COMMON_SCHEMA_DEFINITIONS_FILE "" {
+    "CommonSchemaDefinitions.json"
+}
