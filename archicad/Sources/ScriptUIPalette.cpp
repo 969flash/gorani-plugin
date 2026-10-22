@@ -2,7 +2,8 @@
 #include "ResourceIds.hpp"
 #include "MigrationHelper.hpp"
 
-const GS::Guid                  ScriptUIPalette::paletteGuid ("{6E3B7F0A-6C7A-4B0E-9A0D-5B6E3F2C9A11}");
+// Gorani 고유 GUID — Tapir와 같은 GUID면 두 애드온이 같은 팔레트 자리를 두고 다툰다
+const GS::Guid                  ScriptUIPalette::paletteGuid ("{3EB4FB0C-7498-40B4-B26F-513B5276AA36}");
 GS::Ref<ScriptUIPalette>        ScriptUIPalette::instance;
 
 // Zoom control, SetAllowSelfSignedCertificates, and the context-menu mode enum do not exist at
@@ -298,7 +299,10 @@ GSErrCode ScriptUIPalette::PaletteControlCallBack (Int32, API_PaletteMessageID m
 {
     switch (messageID) {
         case APIPalMsg_OpenPalette:
-            Instance ().Show ();
+            // Archicad가 켤 때 지난번 열린 팔레트를 다시 연다 — 사이드카가 아직 없어 빈 창이 된다.
+            // 이번 실행에서 패널을 연 적이 있을 때만(인스턴스가 있을 때) 보인다
+            if (HasInstance ())
+                Instance ().Show ();
             break;
 
         case APIPalMsg_ClosePalette:

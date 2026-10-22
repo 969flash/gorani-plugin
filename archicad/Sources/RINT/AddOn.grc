@@ -17,7 +17,7 @@
 /* [  3] */ "Could not start Gorani."
 }
 
-'GDLG' ID_SCRIPTUI_PALETTE Palette | leftCaption | close | grow   0   0  420  760  "Gorani"  {
+'GDLG' ID_SCRIPTUI_PALETTE Palette | topCaption | close | grow   0   0  420  760  "Gorani"  {
 /* [  1] */ Browser                     0   0  420  760
 }
 
