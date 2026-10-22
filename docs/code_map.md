@@ -112,6 +112,7 @@
 | `osm_context.py` | (2026-10-13) | Rhino | Global 모드 컨텍스트 — Overpass 건물·피처 + 지형 타일 → `ContextData`(context_db와 같은 꼴). 일본(2026-10-21): 받아 둔 PLATEAU 팩 건물을 먼저, OSM 건물은 겹치지 않는 것만(`get_buildings_apart`), 지형은 지리원 5 m 타일(없으면 AWS). Overpass가 막혀도 PLATEAU가 있으면 건물·지형만으로 만든다 | `data_pack`·`context_db` 도로면(2026-10-22): OSM은 도로가 선뿐이라 `get_road_surface`가 폭(width → lanes → 등급 기본값)만큼 버퍼한 `road/surface` 피처를 더한다(터널 제외, attrs derived=buffer — 베이스맵은 경계선 없이 채우기만). 일본은 팩의 PLATEAU 도로면(`load_plateau_roads`)을 먼저 쓰고 OSM 버퍼는 중심선 가운데가 그 밖인 것만(`get_surfaces_apart`). `area:highway`·주차장·보행자 광장 면은 면 그대로 나라별 팩(2026-10-22): `get_country`가 `constants.COUNTRY_PACKS` 상자로 나라를 고르고 `load_plateau_buildings`(이름은 옛 것)가 그 나라 팩을 팩마다 따로 읽는다 — 일본 PLATEAU·네덜란드 PDOK |
 | `dev_plateau.py` | (2026-10-21) | 개발 | 일본 건물·도로면 팩 — CKAN 목록 → zip을 HTTP Range로 열어 `udx/bldg` GML만 읽고(`roads`는 있는 팩에 `udx/tran` 도로면을 features 표로 더한다) 시구정촌마다 `jp<코드>_context.db.xz` + `jp/manifest.json` → HF `jp/` | — |
 | `dev_nl.py` | (2026-10-22) | 개발 | 네덜란드 건물 팩 — PDOK 3D Basisvoorziening 도엽 zip(GeoPackage) → pyogrio·pyproj로 바닥 윤곽·높이 → `nl<도엽>_context.db.xz` + `nl/manifest.json` → HF `nl/`(올리기는 사용자 확인 뒤) | — |
+| `dev_fr.py` | (2026-10-22) | 개발 | 프랑스 건물 팩 — Géoplateforme Atom 피드 카탈로그 → 데파르트망 7z(py7zr) → GeoPackage `batiment`(pyogrio·pyproj) → `fr<데파르트망>_context.db.xz` + `fr/manifest.json` → HF `fr/`(사용자 확인 뒤) | — |
 | `dev_rhino_run.py` | 보유+ | 개발 | 128–130행: `data/*.db` 전부 심링크 | constants |
 | `dev_database_builder.py`·`dev_probe_*.py` | 보유 | 개발 | 필지 DB·08 실측 재현 | — |
 

@@ -267,3 +267,12 @@ CREATE TABLE IF NOT EXISTS source_files (
 - 라이선스: **CC BY 4.0**(OGC API collections의 license 링크 `https://creativecommons.org/licenses/by/4.0/deed.nl`). 출처 고지는 팩 `data_sources.note` 그대로 도면 출처 줄에 적는다: "Bron: Kadaster, 3D Basisvoorziening (CC BY 4.0), bewerkt door Gorani". 국외 반출 제한 없음.
 - 런타임: `constants.COUNTRY_PACKS["nl"]` — 대상지 중심이 `NL_BOUNDS` 안이면 생성 직전에 범위에 걸치는 도엽 팩을 받고(`cmd_site._download_for_generate`), `osm_context.load_plateau_buildings`가 팩 건물을 먼저, OSM 건물은 겹치지 않는 것만. 도로면은 OSM 버퍼(팩에 features 표 없음), 지형은 Terrain Tiles.
 - 조사 근거·다른 나라 후보(프랑스 BD TOPO·스위스 swissBUILDINGS3D·독일): `docs/research/country_buildings.md`.
+
+### 프랑스 — IGN BD TOPO® 건물 팩 (`fr/`, 경위도, 2026-10-22)
+
+| 항목 | 원천 | 팩 | 비고 |
+|---|---|---|---|
+| 건물 | IGN **BD TOPO® v3.5** `batiment` — 데파르트망별 7z(모든 테마 GeoPackage, EPSG:2154, 파리 210 MB → 1.3 GB). Géoplateforme Atom 피드(`data.geopf.fr/telechargement/resource/BDTOPO?page=N`) 96 데파르트망(본토·코르시카), 2026-09-15판 | `dev_fr.py catalog → build → upload` → HF `fr/fr<데파르트망>_context.db.xz` + `fr/manifest.json`. 높이 `hauteur`(B — 지붕 처마선까지의 높이라 PLATEAU·PDOK의 지붕 50 %보다 낮다), 없으면 `nombre_d_etages` × 층고(C), 기본값(D). `usage_1` → 대분류(`BDTOPO_USE`: 주거는 호수 1이면 단독), `date_d_apparition` → `use_apr_day`, 층수 → `grnd_flr` | 벨포르(D090) 161,412동·B 96.8 %·xz 12.1 MB. `etat_de_l_objet` 계획·철거(`BDTOPO_SKIP_STATES`)는 뺀다. 해외 데파르트망(LAMB93 아님)은 없다 |
+
+- 라이선스: **Licence Ouverte / Open Licence 2.0**(Etalab; data.gouv.fr 데이터셋 `bd-topo` license `lov2`). 출처 고지: "Source : IGN, BD TOPO® <판> (Licence Ouverte 2.0), traité par Gorani"(팩 `data_sources.note`, 도면 출처 줄).
+- 런타임: `constants.COUNTRY_PACKS["fr"]`(`FR_BOUNDS` 본토·코르시카). 도로면은 OSM 버퍼, 지형은 Terrain Tiles.
