@@ -568,36 +568,36 @@ ESTIMATE_SECONDS_BASE = 2.0
 ESTIMATE_SECONDS_PER_BUILDING = 1.0 / 370.0   # (50.7 − 2) / 18016
 ESTIMATE_MB_PER_BUILDING = 1.0 / 170.0        # 110 / 18016 (반경 500 m는 1/205)
 RADIUS_MIN, RADIUS_MAX = 100, 2000
-SHEET_CATALOG = [   # (id, 키, 이름, 영문 부제, 필요한 데이터: lot|building|terrain|road|image). 번호 = 파일 번호(00_베이스맵.svg)
+SHEET_CATALOG = [   # (id, 키, 이름, 필요한 데이터: lot|building|terrain|road|image). 다른 언어 이름은 i18n.json(이름이 키) 하나 — 영어 이름은 영국 Design and Access Statement 현황 분석 용어. 번호 = 파일 번호(00_베이스맵.svg)
     # 도시설계 분석도(형태·조직·접근·녹지·시설) → 현황도(가로·토지·규제·건축물·지가·지형) → 직접 그리는 틀. 2026-10-13 개편 — 옛 #1 위치·범위도는 00 베이스맵이 맡는다
-    (0, "base", "베이스맵", "Base map", "lot"),
-    (1, "figure", "도형-배경도", "Figure-ground", "building"),
-    (2, "lot_size", "필지 규모", "Parcel grain", "lot"),
-    (3, "density", "블록 밀도", "Block density", "building"),
-    (4, "transit", "대중교통 역세권", "Transit catchment", "building"),
-    (5, "walk", "보행권", "Walking distance", "road"),
-    (6, "green", "녹지·수계", "Green and blue", "building"),
-    (7, "public", "생활 공공시설", "Community facilities", "building"),
-    (8, "road", "가로 위계", "Street hierarchy", "road"),
-    (9, "land_use", "토지이용현황", "Land use", "lot"),
-    (10, "land_category", "지목 현황", "Land category", "lot"),
-    (11, "zone", "용도지역", "Zoning", "lot"),
-    (12, "district", "용도지구·구역", "Districts", "lot"),
-    (13, "facility", "도시계획시설·지구단위계획", "Planning facilities", "lot"),
-    (14, "use", "건축물 용도", "Building use", "building"),
-    (15, "floor", "건축물 층수", "Building height", "building"),
-    (16, "age", "건축물 노후도", "Building age", "building"),
-    (17, "price", "공시지가", "Land price", "lot"),
-    (18, "elev", "표고", "Elevation", "terrain"),
-    (19, "slope", "경사", "Slope", "terrain"),
-    (20, "view", "경관·조망 (틀)", "Views", "lot"),
-    (21, "image", "이미지맵 (틀)", "Image of the city", "lot"),
-    (22, "synthesis", "종합분석 (틀)", "Synthesis", "lot"),
+    (0, "base", "베이스맵", "lot"),
+    (1, "figure", "도형-배경도", "building"),
+    (2, "lot_size", "필지 규모", "lot"),
+    (3, "density", "블록 밀도", "building"),
+    (4, "transit", "대중교통 역세권", "building"),
+    (5, "walk", "보행권", "road"),
+    (6, "green", "녹지·수계", "building"),
+    (7, "public", "생활 공공시설", "building"),
+    (8, "road", "가로 위계", "road"),
+    (9, "land_use", "토지이용현황", "lot"),
+    (10, "land_category", "지목 현황", "lot"),
+    (11, "zone", "용도지역", "lot"),
+    (12, "district", "용도지구·구역", "lot"),
+    (13, "facility", "도시계획시설·지구단위계획", "lot"),
+    (14, "use", "건축물 용도", "building"),
+    (15, "floor", "건축물 층수", "building"),
+    (16, "age", "건축물 노후도", "building"),
+    (17, "price", "공시지가", "lot"),
+    (18, "elev", "표고", "terrain"),
+    (19, "slope", "경사", "terrain"),
+    (20, "view", "경관·조망 (틀)", "lot"),
+    (21, "image", "이미지맵 (틀)", "lot"),
+    (22, "synthesis", "종합분석 (틀)", "lot"),
     # 2026-10-14 추가 — 번호를 끼워 넣으면 저장된 sheet_ids·옛 결과 폴더가 다른 시트를 가리켜서 끝에 붙인다. image = 영상 타일(생성 때 받음, DB 무관)
-    (23, "aerial", "항공사진", "Aerial photo", "image"),
-    (24, "axo", "입체 매스도", "Axonometric massing", "building"),   # 2026-10-15 추가 — 범위 안 건물을 평행 투상(등각)으로
+    (23, "aerial", "항공사진", "image"),
+    (24, "axo", "입체 매스도", "building"),   # 2026-10-15 추가 — 범위 안 건물을 평행 투상(등각)으로
 ]
-SHEET_IDS = {key: sheet_id for sheet_id, key, _name, _en, _needs in SHEET_CATALOG}
+SHEET_IDS = {key: sheet_id for sheet_id, key, _name, _needs in SHEET_CATALOG}
 # 패널 2D 카드의 다이어그램 묶음 칩(전체·현황도·분석도) — 실무 보고서의 현황도/분석도 구분. 기본(베이스맵·항공사진)은 두 묶음에 다 넣고, 틀은 '전체'에만
 SHEET_GROUP = dict(
     [(key, "analysis") for key in ("figure", "lot_size", "density", "transit", "walk", "green", "public", "road", "axo")] +
@@ -740,7 +740,7 @@ OUTPUT_NAMES = {
     "en": {"area": "area", "vicinity": "vicinity", "more": "+%d", "basemap": "basemap_%d", "sheets_dir": "sheets", "tables_dir": "tables",
            "tables": {"parcels": "parcels", "buildings": "buildings", "sheet_stats": "sheet_stats", "height_src_stats": "height_src_stats", "alignment": "alignment"},
            "styles": {"std": "Standard", "vivid": "Vivid", "mono": "Mono", "dark": "Dark"}},
-}   # 도면 이름은 ko = SHEET_CATALOG 이름, en = 영문 부제. 다른 언어는 "sheets": {키: 이름}을 더한다
+}   # 도면 이름은 여기 말고 i18n.json(SHEET_CATALOG 이름이 키) — non_rhino_utils.get_sheet_label
 RESULT_2D_DIR_FORMAT = "2D_%s_%s"   # (스타일 이름, HHMM) — [2D 자료 만들기]마다 결과 폴더 안 새 폴더. 같은 결과에 스타일을 바꿔 다시 만들면 앞 것을 덮어썼다(2026-10-21 사용자)
 RESULT_2D_DIRNAME = "2D"   # 2D 산출물(베이스맵 .ai·.dwg·sheets/·tables/)을 결과 폴더 안 한곳에 — 패널 2D 카드 [폴더 열기]가 여기를 연다(2026-10-19)
 RESULT_TABLES_DIRNAME = "tables"

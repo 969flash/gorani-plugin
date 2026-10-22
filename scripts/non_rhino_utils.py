@@ -11,7 +11,7 @@ import re
 import os
 
 import constants
-from i18n import tr
+from i18n import get_texts, tr
 
 
 def get_output_lang(options):
@@ -35,14 +35,14 @@ def get_output_name(key, lang, sub=None):
 
 def get_sheet_label(sheet_key, lang):
     # type: (str, str) -> str
-    """도면 이름 — ko는 SHEET_CATALOG 이름, en은 영문 부제, 다른 언어는 OUTPUT_NAMES[lang]['sheets'](없으면 영문)."""
+    """도면 이름 — ko는 SHEET_CATALOG 이름, 다른 언어는 그 이름을 키로 i18n.json에서(없으면 영어). 파일 이름·도면 제목·부제가 같이 쓴다."""
     row = next((r for r in constants.SHEET_CATALOG if r[1] == sheet_key), None)
     if row is None:
         return sheet_key
     if lang == "ko":
         return row[2]
-    named = (constants.OUTPUT_NAMES.get(lang, {}).get("sheets") or {}).get(sheet_key)
-    return named or row[3]
+    entry = get_texts().get(row[2]) or {}
+    return entry.get(lang) or entry.get("en") or row[2]
 
 
 def get_safe_file_part(text):

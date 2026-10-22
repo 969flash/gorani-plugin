@@ -86,7 +86,7 @@ class InitStateTest(unittest.TestCase):
         self.assertEqual(set(state["options"]), set(constants.PANEL_DEFAULT_OPTIONS))
         self.assertEqual([c["id"] for c in state["sheet_catalog"]], list(range(len(constants.SHEET_CATALOG))))
         self.assertEqual(state["sheet_catalog"][constants.SHEET_IDS["elev"]]["needs"], "terrain")
-        self.assertEqual(set(state["sheet_catalog"][0]), {"id", "key", "name", "subtitle", "needs", "korea_only", "group"})
+        self.assertEqual(set(state["sheet_catalog"][0]), {"id", "key", "name", "needs", "korea_only", "group"})
         self.assertTrue(state["sheet_catalog"][constants.SHEET_IDS["zone"]]["korea_only"])   # 용도지역 = Korea 모드 전용
         self.assertFalse(state["sheet_catalog"][constants.SHEET_IDS["figure"]]["korea_only"])
         self.assertEqual(set(state["tile"]), {"url", "fallback_url", "attribution", "abroad_url", "abroad_attribution",

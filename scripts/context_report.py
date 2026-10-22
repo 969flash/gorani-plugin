@@ -276,7 +276,7 @@ def _sheet_stat_rows(prepared, today):
     buildings = get_buildings_in_extent(prepared)
     options = _get(_get(prepared, "request") or {}, "options") or {}
     breaks = tuple(options.get("floor_breaks") or constants.FLOOR_BREAKS_DEFAULT)
-    sheet = dict((key, (sid, tr(name))) for sid, key, name, _en, _needs in constants.SHEET_CATALOG)
+    sheet = dict((key, (sid, tr(name))) for sid, key, name, _needs in constants.SHEET_CATALOG)
     lot_area = lambda lot: _get(lot, "registered_area") or _get(lot, "geometry_area")
     rows = []
     rows += _group(*sheet["land_use"], lots, lambda lot: _get(lot, "land_use_status"), lot_area)
