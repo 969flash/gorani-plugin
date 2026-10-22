@@ -168,28 +168,34 @@ def build_pack(county, pack_dir=PACK_DIR):
     cursor = connection.execute(
         "SELECT * FROM read_parquet(?) WHERE cx BETWEEN ? AND ? AND cy BETWEEN ? AND ? AND ST_Within(ST_Point(cx, cy), ST_GeomFromText(?))",
         [state_path, west, east, south, north, area.wkt])
-    rows, stats, pack_no = [], {"skipped": 0, "grades": {}, "flags": {}}, int(county["geoid"])
+    count, stats, pack_no = 0, {"skipped": 0, "grades": {}, "flags": {}}, int(county["geoid"])
+    os.makedirs(pack_dir, exist_ok=True)
+    pack = sqlite3.connect(path)   # 배치마다 바로 쓴다 — 로스앤젤레스 카운티 300만 동을 메모리에 다 들지 않게
+    pack.execute("PRAGMA journal_mode = MEMORY")
+    pack.execute("PRAGMA synchronous = OFF")
+    pack.executescript(dev_plateau.SCHEMA_SQL)
     while True:
         batch = cursor.fetchmany(20000)
         if not batch:
             break
+        rows = []
         for record in batch:
-            row = get_row(record, pack_no * 10 ** 7 + len(rows) + 1)
+            row = get_row(record, pack_no * 10 ** 7 + count + len(rows) + 1)
             if row is None:
                 stats["skipped"] += 1
                 continue
             rows.append(row)
             stats["grades"][row[10]] = stats["grades"].get(row[10], 0) + 1
             stats["flags"][row[11]] = stats["flags"].get(row[11], 0) + 1
+        pack.executemany("INSERT INTO buildings VALUES (%s)" % ",".join("?" * 27), rows)
+        count += len(rows)
     connection.close()
-    if not rows:
+    if not count:
+        pack.close()
+        os.remove(path)
         return None
     release_date = constants.OVERTURE_RELEASE.split(".")[0]
-    connection = sqlite3.connect(path)
-    connection.execute("PRAGMA journal_mode = MEMORY")
-    connection.execute("PRAGMA synchronous = OFF")
-    connection.executescript(dev_plateau.SCHEMA_SQL)
-    connection.executemany("INSERT INTO buildings VALUES (%s)" % ",".join("?" * 27), rows)
+    connection = pack
     connection.execute("INSERT INTO data_sources VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (
         "overture", "Overture Maps buildings %s — %s, %s" % (constants.OVERTURE_RELEASE, county["name"], county["state"]), constants.OVERTURE_PAGE_URL, release_date,
         datetime.datetime.now().isoformat(timespec="seconds"), "EPSG:4326(소수 %d자리)" % constants.PLATEAU_DIGITS, constants.OVERTURE_LICENSE,
@@ -204,7 +210,7 @@ def build_pack(county, pack_dir=PACK_DIR):
     stats["seconds"] = round(time.time() - started)
     return {"name": name, "label": "%s, %s" % (county["name"], county["state"]), "url": name + ".xz", "size": size, "sha256": sha256,
             "bounds": [round(v, constants.PLATEAU_DIGITS) for v in bounds], "xz_size": os.path.getsize(path + ".xz"),
-            "release": constants.OVERTURE_RELEASE, "buildings": len(rows), "stats": stats}
+            "release": constants.OVERTURE_RELEASE, "buildings": count, "stats": stats}
 
 
 def build(codes=None, states=None, workers=4, force=False):
