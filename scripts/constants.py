@@ -764,6 +764,7 @@ ARCHICAD_COMMAND_NAMESPACE = "GoraniCommand"   # 애드온 명령 이름 공간(
 ARCHICAD_HOST_TIMEOUT = 1800.0  # s — JSON 명령 하나의 응답 대기 상한(건물 수천 동 Morph 한 묶음)
 ARCHICAD_WATCH_SECONDS = 5.0    # s — Archicad가 살아 있는지 보는 간격. 연결 거부가 ARCHICAD_WATCH_MISSES번 이어지면 사이드카를 끝낸다
 ARCHICAD_WATCH_MISSES = 3
+ARCHICAD_LOG_FILE_NAME = "archicad_sidecar.log"   # HOME_DIR 안 — 사이드카 출력(애드온이 띄운 파이썬은 출력을 받는 곳이 없다)
 ARCHICAD_PANEL_SIZE = (440, 860)   # px — Archicad 안 패널 팔레트(ShowScriptUI) 처음 크기. 사용자가 늘리면 Archicad가 기억한다
 ARCHICAD_BATCH = 200            # 요소 만들기 명령 하나에 보내는 Morph 수(속성·레이어 지정은 ×10)
 ARCHICAD_SPLIT_MAX = 2000      # 면 메시 Morph가 거부되면 면마다 나눠 만드는 상한(옹벽 수백 면). 넘으면 그 항목은 빠지고 경고

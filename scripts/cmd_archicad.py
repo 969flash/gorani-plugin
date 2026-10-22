@@ -6,7 +6,7 @@ Archicad에는 파이썬이 없어 Gorani 애드온(archicad/ C++, Tapir에서 �
 SketchUp판처럼 패널을 거치지 않고 사이드카가 바로 HTTP로 부른다. 패널(panel_server 스레드판)은 Archicad 안 브라우저 팔레트(애드온 ShowScriptUI —
 패널 주소로 넘기는 한 줄짜리 페이지)에 띄우고, 안 되면 기본 브라우저로 연다.
 같은 포트로 이미 떠 있는 사이드카가 있으면 그 패널 주소만 다시 열고 끝낸다(메뉴를 두 번 눌러도 엔진은 하나).
-Archicad가 닫히면(JSON 포트 연결 거부) 사이드카도 끝낸다.
+Archicad가 닫히면(JSON 포트 연결 거부) 사이드카도 끝낸다. 출력은 ~/Gorani/archicad_sidecar.log(애드온은 출력을 받지 않는다).
 """
 
 import argparse
@@ -42,7 +42,8 @@ class ArchicadHost(object):
         self.url = "http://127.0.0.1:%d" % port
         self.namespace = namespace or constants.ARCHICAD_COMMAND_NAMESPACE
         self.timeout = constants.ARCHICAD_HOST_TIMEOUT
-        self.baked = {}   # lot_key → [요소 id] — 이번 세션에 구운 것(화면 맞춤)
+        self.baked = {}   # lot_key → [요소 id] — 이번 세션에 구운 것(사본·화면 맞춤)
+        self.last_lot = ""   # 마지막으로 구운 대상지(save_copy가 그 요소를 모듈로)
 
     def api(self, command, params=None):
         # type: (str, dict) -> object
@@ -180,6 +181,11 @@ def main():
     parser.add_argument("--version", default="")
     parser.add_argument("--namespace", default=None)   # 개발 시험 — Tapir 애드온으로 돌릴 때 'TapirCommand'
     args = parser.parse_args()
+    constants = loader.load("constants")
+    os.makedirs(constants.HOME_DIR, exist_ok=True)
+    log = open(os.path.join(constants.HOME_DIR, constants.ARCHICAD_LOG_FILE_NAME), "a", encoding="utf-8", buffering=1)
+    sys.stdout = sys.stderr = log
+    print("[Gorani] %s Archicad %s port %d" % (time.strftime("%Y-%m-%d %H:%M:%S"), args.version, args.port))
     host = ArchicadHost(args.port, args.namespace)
     url = _get_running_url(args.port)
     if url:

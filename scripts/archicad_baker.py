@@ -388,6 +388,7 @@ def bake(host, items, prepared, lot_key=None):
     surfaces = _ensure_surfaces(host, [layer for layer in layers if any(i.layer == layer and (i.faces or i.prisms) for i in items)])
     classification = _ensure_classification(host)
     baked = host.baked.setdefault(lot_key, [])
+    host.last_lot = lot_key
     out, rows, moves = [], [], []
     ground = [item for item in items if item.layer in GROUND_CLASSES and item.faces]
     for item in items:
@@ -477,7 +478,7 @@ def save_copy(host, path, names=None, timing=None):
     path = os.path.join(os.path.dirname(path), constants.ARCHICAD_MODEL_FILE_NAME)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     timing = timing if timing is not None else {}
-    guids = next(reversed(host.baked.values()), []) if host.baked else []
+    guids = host.baked.get(host.last_lot, [])
     t = time.time()
     host.call("SaveAsModuleFile", moduleFilePath=path, elements=[{"elementId": {"guid": g}} for g in guids])
     timing.update(select_s=0.0, write_s=round(time.time() - t, 2), objects=len(guids), bytes=os.path.getsize(path) if os.path.exists(path) else 0)
