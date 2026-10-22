@@ -64,12 +64,22 @@ def get_catalog():
 
 # ── 행 만들기 ───────────────────────────────────────────
 
+def _num(value):
+    # type: (object) -> float
+    """pyogrio 숫자 칸 — None·NaN(빈 값)은 None."""
+    try:
+        return None if value is None or value != value else float(value)
+    except TypeError:
+        return None
+
+
 def get_height(hauteur, etages):
     # type: (float, int) -> tuple
     """hauteur(m, 사진측량 B) → 층수 × 층고(C) → 기본값(D)."""
     low, high = constants.BDTOPO_HEIGHT_RANGE
-    if hauteur is not None and low <= float(hauteur) <= high:
-        return round(float(hauteur), 2), "bdtopo_height", "B"
+    hauteur, etages = _num(hauteur), _num(etages)
+    if hauteur is not None and low <= hauteur <= high:
+        return round(hauteur, 2), "bdtopo_height", "B"
     levels = int(etages) if etages else 0
     if levels > 0:
         base, per = constants.FLOOR_HEIGHT_DEFAULT
@@ -108,11 +118,11 @@ def get_rows(gpkg_path, pack_no, transformer=None):
                 polygons.append(rings)
         if not polygons:
             continue
-        etages = col.get("nombre_d_etages", none)[k]
+        etages = _num(col.get("nombre_d_etages", none)[k])
         height, height_src, grade = get_height(col.get("hauteur", none)[k], etages)
         usage = col.get("usage_1", none)[k] or ""
         usability = constants.BDTOPO_USE.get(usage, "")
-        if usability == "02000" and (col.get("nombre_de_logements", none)[k] or 0) <= 1:
+        if usability == "02000" and (_num(col.get("nombre_de_logements", none)[k]) or 0) <= 1:
             usability = "01000"   # 주거 1호 = 단독주택
         appeared = str(col.get("date_d_apparition", none)[k] or "")[:10]
         use_apr_day = appeared if re.fullmatch(r"\d{4}-\d{2}-\d{2}", appeared) and appeared >= "1500-01-01" else None
