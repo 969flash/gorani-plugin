@@ -83,7 +83,7 @@ description: |-
   What you get
   - 3D: buildings, roads, terrain, rivers, parks and railways on separate layers
   - 2D: Illustrator basemap, urban analysis maps, DWG, CSV tables
-  - Data: Korea nationwide, Japan (PLATEAU buildings), elsewhere OpenStreetMap
+  - Data: Korea nationwide, Japan (PLATEAU), Netherlands (3D Basisvoorziening), France (BD TOPO), elsewhere OpenStreetMap
 
   한 번에 쉽게 하는 사이트 모델링 및 사이트 분석
   패널 언어는 위쪽 언어 버튼에서 한국어로 바꿀 수 있습니다.
@@ -96,7 +96,7 @@ description: |-
   결과물
   - 3D: 건물 매스, 도로, 지형, 하천, 녹지, 철도 (레이어별)
   - 2D: 일러스트레이터 베이스맵, 현황도·분석도, DWG, 조서 CSV
-  - 데이터: 국내 전국, 일본(PLATEAU 건물), 해외 OpenStreetMap
+  - 데이터: 국내 전국, 일본(PLATEAU)·네덜란드(3D Basisvoorziening)·프랑스(BD TOPO) 건물, 해외 OpenStreetMap
 license: MIT
 url: %(url)s
 icon: icon.png
@@ -115,6 +115,8 @@ keywords:
 - osm
 - japan
 - plateau
+- netherlands
+- france
 - gis
 - basemap
 - site-analysis
