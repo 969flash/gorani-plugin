@@ -2,6 +2,7 @@
 #include "ACAPinc.h"
 
 #include "DGModule.hpp"
+#include "FileSystem.hpp"
 #include "Process.hpp"
 
 #include "GoraniLauncher.hpp"
