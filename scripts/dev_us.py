@@ -269,6 +269,9 @@ def upload():
                             allow_patterns=["%s/%s*_context.db.xz" % (constants.US_PACK_DIR, constants.US_PACK_PREFIX)])
     api.upload_file(path_or_fileobj=os.path.join(PACK_DIR, "manifest.json"), path_in_repo="%s/manifest.json" % constants.US_PACK_DIR,
                     repo_id=constants.DATA_REPO_ID, repo_type="dataset", commit_message="미국 건물 팩 매니페스트")
+    import dev_deploy   # 데이터셋 카드(README.md) — 나라별 출처·라이선스 절은 dev_deploy.DATASET_CARD 하나에 있다
+    api.upload_file(path_or_fileobj=dev_deploy.DATASET_CARD.encode("utf-8"), path_in_repo="README.md",
+                    repo_id=constants.DATA_REPO_ID, repo_type="dataset", commit_message="데이터셋 카드: 나라별 건물 팩 출처·라이선스")
     return "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (constants.DATA_REPO_ID, constants.US_PACK_DIR)
 
 

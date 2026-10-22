@@ -373,6 +373,8 @@ COUNTRY_PACKS = {
            "bounds": FR_BOUNDS, "source_id": "bdtopo", "label": "BD TOPO", "code_pattern": r"\d{3}|02[ab]"},   # 데파르트망 075·02a
     "ch": {"dir": CH_PACK_DIR, "manifest": "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, CH_PACK_DIR),
            "bounds": CH_BOUNDS, "source_id": "swisstopo", "label": "swissBUILDINGS3D", "code_pattern": r"\d{4}"},   # 1:25k 도엽 1172
+    "us": {"dir": US_PACK_DIR, "manifest": "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, US_PACK_DIR),
+           "bounds": US_BOUNDS, "source_id": "overture", "label": "Overture", "code_pattern": r"\d{5}"},   # 카운티 FIPS 06037. 상자 넷(2026-10-23)
 }
 PLATEAU_CKAN_URL = "https://www.geospatial.jp/ckan/api/3/action/package_search"   # G空間情報センター. 카탈로그 API 리다이렉트는 404(2026-10-21)
 PLATEAU_CKAN_QUERY = "3D都市モデル（Project PLATEAU）"

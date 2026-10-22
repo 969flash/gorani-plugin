@@ -1,17 +1,100 @@
 {
  "_": "나라별 공식 건물 팩 목록 — 한국 매니페스트 countries[]의 원본. 올리기 = python3 scripts/dev_deploy.py notices. 플러그인은 켤 때 이 목록을 받아 대상지 나라를 고른다(data_pack.get_country_packs). 새 나라는 팩·<나라>/manifest.json을 올린 뒤 여기 한 줄 — 플러그인 판은 올리지 않는다. 칸: code(소문자 2자 = 팩 이름 접두사), label(화면·도면 표기), source_id(팩 data_sources.source_id), manifest(한국 매니페스트 기준 상대경로), bounds[서, 남, 동, 북](겹치면 작은 상자 우선), code_pattern(접두사 뒤 지역 코드 꼴), disabled(true = 내린다). note는 사람용(라이선스·고지).",
  "countries": [
-  {"code": "jp", "name": "일본", "label": "PLATEAU", "source_id": "plateau", "manifest": "jp/manifest.json",
-   "bounds": [122.0, 20.0, 154.0, 46.0], "code_pattern": "\\d{5}",
-   "note": "国土交通省 3D都市モデル(Project PLATEAU) — 公共データ利用規約 第1.0版(CC BY 4.0 호환), 가공 표기. dev_plateau.py"},
-  {"code": "nl", "name": "네덜란드", "label": "3D Basisvoorziening", "source_id": "pdok", "manifest": "nl/manifest.json",
-   "bounds": [3.2, 50.7, 7.3, 53.7], "code_pattern": "\\d{2}[a-z]{2}\\d",
-   "note": "Kadaster 3D Basisvoorziening hoogtestatistieken_gebouwen — CC BY 4.0, 'Bron: Kadaster, 3D Basisvoorziening (CC BY 4.0), bewerkt door Gorani'. dev_nl.py"},
-  {"code": "fr", "name": "프랑스", "label": "BD TOPO", "source_id": "bdtopo", "manifest": "fr/manifest.json",
-   "bounds": [-5.6, 41.2, 9.9, 51.2], "code_pattern": "\\d{3}|02[ab]",
-   "note": "IGN BD TOPO® v3.5 batiment — Licence Ouverte 2.0, 'Source : IGN, BD TOPO® (Licence Ouverte 2.0), traité par Gorani'. 본토·코르시카. dev_fr.py"},
-  {"code": "ch", "name": "스위스", "label": "swissBUILDINGS3D", "source_id": "swisstopo", "manifest": "ch/manifest.json",
-   "bounds": [5.9, 45.8, 10.6, 47.9], "code_pattern": "\\d{4}",
-   "note": "swisstopo swissBUILDINGS3D 3.0 Beta — OGD 이용약관(자유 이용·재배포, 출처 ©swisstopo), 'Source: ©swisstopo, swissBUILDINGS3D 3.0 Beta, processed by Gorani'. 리히텐슈타인 포함. dev_ch.py"}
+  {
+   "code": "jp",
+   "name": "일본",
+   "label": "PLATEAU",
+   "source_id": "plateau",
+   "manifest": "jp/manifest.json",
+   "bounds": [
+    122.0,
+    20.0,
+    154.0,
+    46.0
+   ],
+   "code_pattern": "\\d{5}",
+   "note": "国土交通省 3D都市モデル(Project PLATEAU) — 公共データ利用規約 第1.0版(CC BY 4.0 호환), 가공 표기. dev_plateau.py"
+  },
+  {
+   "code": "nl",
+   "name": "네덜란드",
+   "label": "3D Basisvoorziening",
+   "source_id": "pdok",
+   "manifest": "nl/manifest.json",
+   "bounds": [
+    3.2,
+    50.7,
+    7.3,
+    53.7
+   ],
+   "code_pattern": "\\d{2}[a-z]{2}\\d",
+   "note": "Kadaster 3D Basisvoorziening hoogtestatistieken_gebouwen — CC BY 4.0, 'Bron: Kadaster, 3D Basisvoorziening (CC BY 4.0), bewerkt door Gorani'. dev_nl.py"
+  },
+  {
+   "code": "fr",
+   "name": "프랑스",
+   "label": "BD TOPO",
+   "source_id": "bdtopo",
+   "manifest": "fr/manifest.json",
+   "bounds": [
+    -5.6,
+    41.2,
+    9.9,
+    51.2
+   ],
+   "code_pattern": "\\d{3}|02[ab]",
+   "note": "IGN BD TOPO® v3.5 batiment — Licence Ouverte 2.0, 'Source : IGN, BD TOPO® (Licence Ouverte 2.0), traité par Gorani'. 본토·코르시카. dev_fr.py"
+  },
+  {
+   "code": "ch",
+   "name": "스위스",
+   "label": "swissBUILDINGS3D",
+   "source_id": "swisstopo",
+   "manifest": "ch/manifest.json",
+   "bounds": [
+    5.9,
+    45.8,
+    10.6,
+    47.9
+   ],
+   "code_pattern": "\\d{4}",
+   "note": "swisstopo swissBUILDINGS3D 3.0 Beta — OGD 이용약관(자유 이용·재배포, 출처 ©swisstopo), 'Source: ©swisstopo, swissBUILDINGS3D 3.0 Beta, processed by Gorani'. 리히텐슈타인 포함. dev_ch.py"
+  },
+  {
+   "code": "us",
+   "name": "미국",
+   "label": "Overture",
+   "source_id": "overture",
+   "manifest": "us/manifest.json",
+   "bounds": [
+    [
+     -125.0,
+     24.3,
+     -66.9,
+     49.5
+    ],
+    [
+     -170.0,
+     51.0,
+     -129.0,
+     72.0
+    ],
+    [
+     -161.0,
+     18.5,
+     -154.0,
+     22.5
+    ],
+    [
+     -68.0,
+     17.5,
+     -64.4,
+     18.6
+    ]
+   ],
+   "code_pattern": "\\d{5}",
+   "note": "Overture Maps Foundation buildings(Microsoft ML Buildings·OpenStreetMap·Esri 합본) — ODbL 1.0, 'Source: Overture Maps Foundation (buildings, release <판>, ODbL 1.0) — © OpenStreetMap contributors, Microsoft; processed by Gorani'. 높이는 ML 추정. 본토·알래스카·하와이·푸에르토리코 상자. dev_us.py"
+  }
  ]
 }

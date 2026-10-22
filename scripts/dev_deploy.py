@@ -1059,10 +1059,10 @@ def _fill_manifest(pack_dir):
 
 DATASET_CARD = """---
 license: other
-license_name: kogl-type1-cc-by-and-cc-by-4.0
+license_name: kogl-type1-cc-by-4.0-etalab-2.0-swisstopo-ogd-odbl
 pretty_name: Gorani 데이터 팩
-language: [ko, ja]
-tags: [geospatial, korea, japan, plateau, cadastral, buildings, rhino]
+language: [ko, ja, nl, fr, de, en]
+tags: [geospatial, korea, japan, netherlands, france, switzerland, usa, plateau, overture, cadastral, buildings, rhino]
 ---
 # Gorani 데이터 팩
 
@@ -1088,6 +1088,26 @@ Rhino 플러그인 Gorani가 대상지 주변만 받아 쓰는 지역 단위 SQL
 
 出典：3D都市モデル（Project PLATEAU）各市区町村（各年度）、国土交通省。CC BY 4.0（公共データ利用規約 第1.0版と互換）。著作権は各地方公共団体にあります。
 加工：Gorani が建物の外形・高さ・階数・用途コードだけを抽出し、経緯度（小数6桁）に変換して市区町村ごとの SQLite にしました。国土交通省・地方公共団体が作成したものではありません。
+
+## 네덜란드 — 도엽 건물 팩 (`nl/`, 경위도) / Nederland — gebouwen per kaartblad
+
+- `nl/nl<도엽>_context.db.xz` — Kadaster 3D Basisvoorziening(hoogtestatistieken_gebouwen)의 건물 바닥 윤곽·높이(지붕 50 % − 지반)·건축연도·지붕형만. `nl/manifest.json`.
+- Bron: Kadaster, 3D Basisvoorziening (CC BY 4.0, https://creativecommons.org/licenses/by/4.0/deed.nl), bewerkt door Gorani — alleen omtrek, hoogte, bouwjaar en daktype, omgezet naar WGS84 (6 decimalen).
+
+## 프랑스 — 데파르트망 건물 팩 (`fr/`, 경위도) / France — bâtiments par département
+
+- `fr/fr<데파르트망>_context.db.xz` — IGN BD TOPO® `batiment`의 바닥 윤곽·높이(hauteur, 처마)·층수·용도·출현일만(본토·코르시카). `fr/manifest.json`.
+- Source : IGN, BD TOPO® (Licence Ouverte / Open Licence 2.0, Etalab), traité par Gorani — emprise, hauteur, étages, usage et date d'apparition uniquement, reprojetés en WGS84 (6 décimales).
+
+## 스위스 — 1:25k 도엽 건물 팩 (`ch/`, 경위도) / Schweiz — Gebäude pro Kartenblatt
+
+- `ch/ch<도엽>_context.db.xz` — swisstopo swissBUILDINGS3D 3.0 Beta의 바닥 윤곽(Floor)·높이(GESAMTHOEHE 또는 DACH_MAX − 지반)·종류·용도만(리히텐슈타인 포함). `ch/manifest.json`.
+- Quelle: ©swisstopo, swissBUILDINGS3D 3.0 Beta (OGD-Nutzungsbedingungen — freie Nutzung und Weitergabe mit Quellenangabe), bearbeitet durch Gorani — nur Grundriss, Höhe, Objektart und Nutzung, umgerechnet nach WGS84 (6 Dezimalstellen).
+
+## 미국 — 카운티 건물 팩 (`us/`, 경위도) / United States — buildings per county
+
+- `us/us<카운티 FIPS 5자리>_context.db.xz` — Overture Maps Foundation buildings 테마(Microsoft ML Buildings·OpenStreetMap·Esri Community Maps 합본)의 바닥 윤곽·높이·층수·용도·이름만. 높이는 대부분 Microsoft ML 추정값이다(실측 아님). 카운티 경계는 미국 인구조사국 cartographic boundary(공개). `us/manifest.json`.
+- Source: Overture Maps Foundation (buildings theme, release in each pack's `data_sources`), © OpenStreetMap contributors, Microsoft (Global ML Building Footprints) — **Open Database License (ODbL) 1.0**. The `us/` packs are derivative databases and are themselves made available under ODbL 1.0. Processed by Gorani: footprint, height, floors, class and name only, 6-decimal WGS84, split by county. Heights are mostly machine-learning estimates.
 """
 
 
