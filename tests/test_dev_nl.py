@@ -28,7 +28,10 @@ class CountryPackTest(unittest.TestCase):
         self.assertEqual(data_pack.get_pack_country("11110_context.db"), "")
         self.assertEqual(osm_context.get_country(4.8952, 52.3702), "nl")       # 암스테르담
         self.assertEqual(osm_context.get_country(139.7006, 35.6896), "jp")     # 신주쿠
-        self.assertEqual(osm_context.get_country(2.2945, 48.8584), "")         # 파리 — 팩 없음
+        self.assertEqual(osm_context.get_country(2.2945, 48.8584), "fr")       # 파리
+        self.assertEqual(osm_context.get_country(-73.9857, 40.7484), "")       # 뉴욕 — 팩 없음
+        self.assertEqual(data_pack.get_pack_country("fr075_context.db"), "fr")
+        self.assertEqual(data_pack.get_pack_country("fr02a_context.db"), "fr")
         self.assertEqual(constants.PACK_SOURCE_IDS["pdok"], "nl")
 
 

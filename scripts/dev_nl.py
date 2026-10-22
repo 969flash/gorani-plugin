@@ -40,7 +40,7 @@ COLUMN_ALIASES = {"id": ("identificatie",), "status": ("status", "pandstatus"), 
 USER_AGENT = "Gorani dev_nl (https://969flash.github.io/gorani/)"
 
 
-def _download(url, retries=6):
+def _download(url, retries=12):
     # type: (str, int) -> bytes
     """zip 통째로 받기. PDOK 서버가 10 MB쯤에서 연결을 끊는다(IncompleteRead, 2026-10-22) — 받은 데서 Range로 이어 받는다."""
     import http.client
@@ -65,7 +65,7 @@ def _download(url, retries=6):
             return data
         if not total and data:
             return data
-        time.sleep(2 * (attempt + 1))
+        time.sleep(min(30, 2 * (attempt + 1)))
     raise RuntimeError("받다 끊김: %s (%d/%s bytes)" % (url, len(data), total))
 
 

@@ -328,12 +328,23 @@ PDOK_LICENSE = "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.nl) 
 PDOK_HEIGHT_RANGE = (1.0, 400.0)       # rf_h_roof_50p − rf_h_ground 사용 범위 m(암스테르담 2025 최대 138 m)
 PDOK_YEAR_MIN = 1500                   # BAG oorspronkelijkbouwjaar — 1005 같은 자리표시 연도는 모름으로(암스테르담 25GN1)
 PDOK_SKIP_STATUS = ("Pand gesloopt", "Niet gerealiseerd pand", "Bouwvergunning verleend", "Pand buiten gebruik", "Sloopvergunning verleend")   # BAG pandstatus — 없는·허가만 난 건물
+# 프랑스 — IGN BD TOPO v3.5 `batiment`(Licence Ouverte 2.0). 데파르트망별 7z(GeoPackage 모든 테마, EPSG:2154) — Géoplateforme Atom 피드
+FR_PACK_DIR = "fr"
+FR_PACK_PREFIX = "fr"                  # 팩 이름 fr<데파르트망 3자리 소문자>_context.db — fr075, fr02a
+FR_BOUNDS = (-5.6, 41.2, 9.9, 51.2)    # 프랑스 본토·코르시카 경위도 상자(서, 남, 동, 북) — 해외 데파르트망(LAMB93 아님)은 빼둔다
+BDTOPO_FEED_URL = "https://data.geopf.fr/telechargement/resource/BDTOPO?page=%d"   # 10건씩, 2026-10-22 기준 400쪽 안팎
+BDTOPO_LICENSE = "Licence Ouverte / Open Licence 2.0 (Etalab) — 출처 표기: IGN, BD TOPO®"
+BDTOPO_HEIGHT_RANGE = (1.0, 400.0)     # hauteur 사용 범위 m
+BDTOPO_SKIP_STATES = ("En projet", "Détruit")   # etat_de_l_objet — 없는 건물
+BDTOPO_USE = {"Résidentiel": "02000", "Commercial et services": "04000", "Industriel": "17000", "Agricole": "21000"}   # usage_1 → 국내 대분류(시트 색). 그 밖은 빈 값
 # 나라별 공식 건물 팩(경위도, 매니페스트는 나라마다 따로 — HF 데이터셋 <dir>/manifest.json). 키 = 팩 이름 접두사. 런타임은 대상지 중심이 bounds 안인 나라의 팩을 쓴다
 # source_id = 팩 data_sources.source_id, label = 화면·도면 표기, code_pattern = 접두사 뒤 지역 코드 꼴(한국 시도 슬러그 jpn 같은 이름과 구분)
 COUNTRY_PACKS = {
     "jp": {"dir": JP_PACK_DIR, "manifest": DATA_JP_MANIFEST_URL, "bounds": JP_BOUNDS, "source_id": "plateau", "label": "PLATEAU", "code_pattern": r"\d{5}"},
     "nl": {"dir": NL_PACK_DIR, "manifest": "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, NL_PACK_DIR),
            "bounds": NL_BOUNDS, "source_id": "pdok", "label": "3D Basisvoorziening", "code_pattern": r"\d{2}[a-z]{2}\d"},   # 도엽 25gn1
+    "fr": {"dir": FR_PACK_DIR, "manifest": "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, FR_PACK_DIR),
+           "bounds": FR_BOUNDS, "source_id": "bdtopo", "label": "BD TOPO", "code_pattern": r"\d{3}|02[ab]"},   # 데파르트망 075·02a
 }
 PACK_SOURCE_IDS = {v["source_id"]: k for k, v in COUNTRY_PACKS.items()}   # data_sources.source_id → 나라 코드
 PLATEAU_CKAN_URL = "https://www.geospatial.jp/ckan/api/3/action/package_search"   # G空間情報センター. 카탈로그 API 리다이렉트는 404(2026-10-21)
