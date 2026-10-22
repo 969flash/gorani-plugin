@@ -95,8 +95,8 @@ def fetch_state(state, counties):
     if os.path.exists(path + ".tmp"):   # 죽은 실행이 남긴 조각
         os.remove(path + ".tmp")
     west, south, east, north = get_state_bounds(counties)
-    if state == "AK":
-        west = max(west, -180.0)
+    if state == "AK":   # 알류샨 서쪽(애투섬 등)이 경도 +179°라 상자가 지구 북반구 51~72° 띠 전체가 된다(2026-10-23: 2시간 넘게 받다 죽임) — 동쪽을 -129°로 자른다
+        west, east = max(west, -180.0), min(east, -129.0)
     connection = _connect()
     started = time.time()
     connection.execute("COPY (%s) TO '%s' (FORMAT PARQUET, COMPRESSION ZSTD)" % (SELECT_SQL % (constants.OVERTURE_S3_URL, west, east, south, north), path + ".tmp"))
