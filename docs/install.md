@@ -70,6 +70,20 @@ Rhino 8 명령창에 `PackageManager` → `Gorani` 검색 → 설치 → Rhino�
 - [SketchUp 커브 가져오기]는 면 하나, 또는 끊김 없이 한 바퀴 닫힌 선들을 먼저 선택하고 누른다.
 - 문제가 생기면 `~/Gorani/sketchup_sidecar.log`(계산 쪽 기록)와 창 > Ruby 콘솔을 본다.
 
+## Archicad
+
+1. 설치 — 웹사이트에서 쓰는 Archicad 버전(27~30)과 운영체제에 맞는 zip을 받아 푼다. `Gorani` 폴더를 문서 폴더처럼 계속 둘 곳으로 옮긴다.
+   macOS는 서명하지 않은 애드온이라 터미널에서 한 번 `xattr -dr com.apple.quarantine ~/Documents/Gorani`(폴더 경로)를 실행한다.
+2. Archicad 옵션 > 애드온 관리자(Add-On Manager) > 사용 가능한 애드온 목록 편집 > [추가]에서 폴더 안 `Gorani_AC<버전>_Mac.bundle`(윈도는 `.apx`)을 고르고 [확인].
+3. 메뉴 막대 Gorani > Gorani Site Context… — Archicad 안 팔레트에 패널이 열린다. 쓰는 법은 Rhino와 같다. 생성 중 모델에 넣는 동안 Archicad 화면이 멈춘다.
+
+- 데이터·결과 폴더는 다른 판과 같다(`~/Gorani`).
+- 레이어는 `CTX::…`, 건물은 동마다 Morph, 지형은 Mesh 하나(지형 점으로 만든다 — Archicad 지형 도구로 고칠 수 있다), 도로·녹지·수면은 지형 위로 3 cm 띄운 Morph 면, 필지·대상지는 평면 폴리선이다.
+  모든 요소에 분류 `Gorani > Site context`와 속성 그룹 `Gorani`(높이·층수·용도·사용승인일·높이 출처 …)가 붙는다. 높이는 해발 표고 그대로다.
+- 사본 `context.mod`는 이번에 만든 요소의 모듈 파일이다. [다시 불러오기]는 이것을 핫링크로 놓는다(데모 모드 Archicad는 저장이 막혀 만들어지지 않는다).
+- Rhino판의 2D 도면 레이어(BM::)·DWG 저장은 없다 — `basemap_<축척>.ai`·`sheets/*.svg`를 쓴다.
+- [Archicad 커브 가져오기]는 닫힌 폴리선·채우기·슬래브·영역 하나를 먼저 선택하고 누른다.
+
 ## 5. 사용 통계
 
 도구를 고치고 어디서 얼마나 쓰이는지 알기 위해 Google Analytics로 아래를 보낸다. 이름·파일 경로·도면 내용은 보내지 않는다.
