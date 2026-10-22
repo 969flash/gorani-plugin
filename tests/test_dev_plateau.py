@@ -9,6 +9,7 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
 import constants  # noqa: E402
 import dev_plateau  # noqa: E402
+import non_rhino_utils  # noqa: E402
 
 # 위도·경도·표고 순(EPSG:6697). A = lod0RoofEdge·실측 높이, B = lod1Solid만·층수 9999·높이 -9999, C = BuildingPart 둘
 GML_SAMPLE = b"""<?xml version="1.0" encoding="UTF-8"?>
@@ -110,3 +111,51 @@ class ParseTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+TRAN_SAMPLE = """<?xml version="1.0" encoding="UTF-8"?>
+<core:CityModel xmlns:core="http://www.opengis.net/citygml/2.0" xmlns:tran="http://www.opengis.net/citygml/transportation/2.0"
+  xmlns:gml="http://www.opengis.net/gml">
+  <core:cityObjectMember>
+    <tran:Road gml:id="tran_1">
+      <gml:name>Koshu Kaido</gml:name>
+      <tran:class codeSpace="../../codelists/TransportationComplex_class.xml">1020</tran:class>
+      <tran:function codeSpace="../../codelists/Road_function.xml">2</tran:function>
+      <tran:lod1MultiSurface><gml:MultiSurface><gml:surfaceMember><gml:Polygon><gml:exterior><gml:LinearRing>
+        <gml:posList>35.68 139.70 30 35.68 139.7002 30 35.6801 139.7002 30 35.6801 139.70 30 35.68 139.70 30</gml:posList>
+      </gml:LinearRing></gml:exterior></gml:Polygon></gml:surfaceMember></gml:MultiSurface></tran:lod1MultiSurface>
+      <tran:trafficArea><tran:TrafficArea gml:id="ta_1"><tran:lod2MultiSurface><gml:MultiSurface><gml:surfaceMember><gml:Polygon><gml:exterior><gml:LinearRing>
+        <gml:posList>35.68 139.70 30 35.68 139.7001 30 35.6801 139.7001 30 35.68 139.70 30</gml:posList>
+      </gml:LinearRing></gml:exterior></gml:Polygon></gml:surfaceMember></gml:MultiSurface></tran:lod2MultiSurface></tran:TrafficArea></tran:trafficArea>
+    </tran:Road>
+  </core:cityObjectMember>
+  <core:cityObjectMember>
+    <tran:Road gml:id="tran_2">
+      <tran:function codeSpace="../../codelists/Road_function.xml">9020</tran:function>
+      <tran:lod1MultiSurface><gml:MultiSurface>
+        <gml:surfaceMember><gml:Polygon><gml:exterior><gml:LinearRing><gml:posList>35.69 139.70 0 35.69 139.7002 0 35.6902 139.70 0 35.69 139.70 0</gml:posList></gml:LinearRing></gml:exterior></gml:Polygon></gml:surfaceMember>
+        <gml:surfaceMember><gml:Polygon><gml:exterior><gml:LinearRing><gml:posList>35.69 139.7002 0 35.6902 139.7002 0 35.6902 139.70 0 35.69 139.7002 0</gml:posList></gml:LinearRing></gml:exterior></gml:Polygon></gml:surfaceMember>
+      </gml:MultiSurface></tran:lod1MultiSurface>
+    </tran:Road>
+  </core:cityObjectMember>
+</core:CityModel>
+"""
+
+
+class RoadTest(unittest.TestCase):
+    def test_roads_rows(self):
+        """tran:Road LOD1만 읽고(TrafficArea LOD2는 빼고), 폴리곤 하나는 그대로, 삼각형 둘은 공유 변을 지워 사각형 하나로."""
+        roads = {r["id"]: r for r in dev_plateau.iter_roads(io.BytesIO(TRAN_SAMPLE.encode("utf-8")))}
+        self.assertEqual(sorted(roads), ["tran_1", "tran_2"])
+        self.assertEqual((roads["tran_1"]["function"], roads["tran_1"]["cls"], roads["tran_1"]["name"], len(roads["tran_1"]["polygons"])), ("2", "1020", "Koshu Kaido", 1))
+        row = dev_plateau.get_road_row(roads["tran_1"], 13104000001, "2026-03-31")
+        self.assertEqual(row[:5], (13104000001, "plateau", "road", "surface", "2"))
+        geometry = json.loads(row[9])
+        self.assertEqual(geometry["coordinates"][0][0], [139.7, 35.68])   # 경도·위도로 뒤집음
+        self.assertEqual(json.loads(row[7])["plateau"], "tran_1")
+        self.assertEqual((row[10], row[12], row[13]), (4326, 139.7, 139.7002))
+        merged = json.loads(dev_plateau.get_road_row(roads["tran_2"], 2, None)[9])
+        self.assertEqual(merged["type"], "Polygon")
+        self.assertEqual(len(merged["coordinates"][0]), 5)   # 삼각형 둘 → 사각형(닫힘 점 포함 5)
+        self.assertAlmostEqual(abs(non_rhino_utils.get_ring_area(merged["coordinates"][0])), 0.0002 * 0.0002, delta=1e-10)
+

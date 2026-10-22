@@ -7,6 +7,7 @@ Hugging Face 데이터셋(constants.DATA_REPO_ID)의 jp/. 좌표는 경위도(EP
 
     python3 scripts/dev_plateau.py catalog          # CKAN → data/raw/plateau/catalog.json (도시별 최신 CityGML zip)
     python3 scripts/dev_plateau.py build [코드 …]   # 팩 만들기. 코드가 없으면 카탈로그 전부, 같은 연도 팩이 있으면 건너뛴다
+    python3 scripts/dev_plateau.py roads [코드 …]   # 있는 팩에 도로면(udx/tran, tran:Road LOD1)을 features 표로 넣는다 — bldg는 다시 읽지 않는다
     python3 scripts/dev_plateau.py upload           # 팩·매니페스트·데이터셋 카드를 올린다(huggingface_hub 로그인 먼저)
 """
 
@@ -56,6 +57,15 @@ CREATE TABLE buildings (
     source_id TEXT NOT NULL, reference_date TEXT, min_x REAL NOT NULL, max_x REAL NOT NULL, min_y REAL NOT NULL, max_y REAL NOT NULL
 );
 """   # 한국 컨텍스트 팩(dev_context_builder) 중 런타임이 읽는 칸만. ngii_kind = 원천 용도 코드(OSM 갈래가 building 태그를 두는 자리)
+FEATURES_SQL = """
+CREATE TABLE IF NOT EXISTS features (
+    feature_id INTEGER PRIMARY KEY, source_id TEXT NOT NULL, theme TEXT NOT NULL, kind TEXT NOT NULL, code TEXT, name TEXT, value REAL,
+    attrs_json TEXT, sheet TEXT, geometry_json TEXT NOT NULL, geometry_crs INTEGER NOT NULL, reference_date TEXT,
+    min_x REAL NOT NULL, max_x REAL NOT NULL, min_y REAL NOT NULL, max_y REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_features_bbox ON features(min_x, max_x, min_y, max_y);
+CREATE INDEX IF NOT EXISTS idx_features_theme ON features(theme, kind);
+"""   # 한국 컨텍스트 팩 features와 같은 칸(context_db._feature_from_row) — 도로면(theme road, kind surface, code = tran:function)
 LICENSE = "CC BY 4.0(公共データ利用規約 第1.0版 호환). 저작권은 각 지방공공단체"
 
 
@@ -242,6 +252,164 @@ def iter_buildings(stream):
             yield from _get_buildings(element)
         if depth == 1:
             root.clear()
+
+
+def _get_lod1_polygons(element):
+    # type: (ET.Element) -> list
+    """tran:Road 직속 lod1MultiSurface의 폴리곤 → [[바깥 링, 구멍 …]](get_clean_ring 꼴). LOD1 도로면은 삼각형 여럿으로 쪼개져 있다(신주쿠 457면 → 10,825폴리곤)."""
+    polygons = []
+    for child in element:
+        if _get_name(child) == "lod1MultiSurface":
+            for polygon in (_get_polygon(e) for e in child.iter(GML + "Polygon")):
+                if polygon:
+                    rings = [get_clean_ring(ring) for ring in polygon]
+                    if rings[0]:
+                        polygons.append([rings[0]] + [ring for ring in rings[1:] if ring])
+    return polygons
+
+
+def iter_roads(stream):
+    # type: (object) -> object
+    """tran CityGML 스트림 → 도로 dict {id, function, name, polygons}(tran:Road마다). TrafficArea(LOD2 차로·보도)는 읽지 않는다."""
+    depth, root = 0, None
+    for event, element in ET.iterparse(stream, events=("start", "end")):
+        if event == "start":
+            root = element if root is None else root
+            depth += 1
+            continue
+        depth -= 1
+        if element.tag.endswith("}Road"):
+            polygons = _get_lod1_polygons(element)
+            if polygons:
+                attributes = {_get_name(c): (c.text or "").strip() for c in element if _get_name(c) in ("function", "class") or c.tag == GML + "name"}
+                yield dict(id=element.get(GML + "id") or "", polygons=polygons, function=attributes.get("function", ""),
+                           cls=attributes.get("class", ""), name=attributes.get("name", ""))
+        if depth == 1:
+            root.clear()
+
+
+def get_road_geometry(polygons):
+    # type: (list) -> dict
+    """도로 하나의 LOD1 폴리곤들 → GeoJSON (Multi)Polygon(경위도). 신주쿠 2025는 도로마다 폴리곤 하나(31,433면 전부)라 그대로 쓰고,
+    여럿이면 m로 투영해 공유 변을 지운 외곽으로 합친 뒤(non_rhino_utils.get_merged_rings — m 단위 전제) 경위도로 되돌린다. 합치지 못하면 None."""
+    if len(polygons) == 1:
+        return {"type": "Polygon", "coordinates": polygons[0]}
+    import non_rhino_utils
+    lng0, lat0 = polygons[0][0][0]
+    non_rhino_utils.set_projection(lng0, lat0)
+    try:
+        metric = [[[non_rhino_utils.get_tm_from_wgs84(x, y) for x, y in ring] for ring in polygon] for polygon in polygons]
+        outers, holes = non_rhino_utils.get_merged_rings(metric, constants.PLATEAU_ROAD_TOLERANCE_M)
+        if not outers:
+            return None
+        parts = []
+        for outer in outers:
+            inner = [h for h in holes if non_rhino_utils.is_point_in_ring(h[0][0], h[0][1], outer)]
+            parts.append([[[round(v, constants.PLATEAU_DIGITS) for v in non_rhino_utils.get_wgs84_from_tm(x, y)] for x, y in ring + [ring[0]]]
+                          for ring in [outer] + inner])
+    finally:
+        non_rhino_utils.set_projection()
+    return {"type": "Polygon", "coordinates": parts[0]} if len(parts) == 1 else {"type": "MultiPolygon", "coordinates": parts}
+
+
+def get_road_row(road, feature_id, reference_date):
+    # type: (dict, int, str) -> tuple
+    """도로 dict → features 행(FEATURES_SQL 칸 순서). 외곽을 못 만들거나 일본 밖이면 None."""
+    geometry = get_road_geometry(road["polygons"])
+    if geometry is None:
+        return None
+    rings = geometry["coordinates"] if geometry["type"] == "Polygon" else [r for polygon in geometry["coordinates"] for r in polygon]
+    xs = [p[0] for ring in rings for p in ring]
+    ys = [p[1] for ring in rings for p in ring]
+    west, south, east, north = constants.JP_BOUNDS
+    if not (west <= min(xs) and max(xs) <= east and south <= min(ys) and max(ys) <= north):
+        return None
+    attrs = {"plateau": road["id"], "function": road["function"], "class": road["cls"]}
+    return (feature_id, "plateau", "road", "surface", road["function"], road["name"] or None, None, json.dumps(attrs, ensure_ascii=False, separators=(",", ":")),
+            "", json.dumps(geometry, separators=(",", ":")), 4326, reference_date, min(xs), max(xs), min(ys), max(ys))
+
+
+def add_roads(code, entry, pack_dir=PACK_DIR):
+    # type: (str, dict, str) -> dict
+    """있는 팩(xz)을 풀어 udx/tran/*.gml의 도로면을 features 표에 넣고 다시 xz. 매니페스트 항목(size·sha256·xz_size·roads)을 돌려준다.
+    feature_id = 코드 × 10⁶ + 순번(팩끼리 겹치지 않는다). tran이 없는 도시는 roads 0으로 표만 만든다(런타임이 OSM 버퍼로 메운다)."""
+    started = time.time()
+    name = "%s%s_context.db" % (constants.JP_PACK_PREFIX, code)
+    path = os.path.join(pack_dir, name)
+    if not os.path.exists(path + ".xz"):
+        return None
+    if os.path.exists(path):
+        os.remove(path)
+    subprocess.run(["xz", "-dk", path + ".xz"], check=True)
+    connection = sqlite3.connect(path)
+    connection.execute("PRAGMA journal_mode = MEMORY")
+    connection.execute("PRAGMA synchronous = OFF")
+    connection.executescript(FEATURES_SQL)
+    connection.execute("DELETE FROM features WHERE source_id = 'plateau'")
+    reference_date = connection.execute("SELECT reference_date FROM data_sources WHERE source_id = 'plateau'").fetchone()
+    reference_date = reference_date[0] if reference_date else None
+    archive = zipfile.ZipFile(io.BufferedReader(RangeFile(entry["url"]), ZIP_BUFFER_BYTES))
+    members = sorted(i.filename for i in archive.infolist() if i.filename.startswith("udx/tran/") and i.filename.count("/") == 2
+                     and i.filename.endswith(".gml"))
+    seen, rows, stats = set(), [], {"roads": 0, "skipped": 0, "polygons": 0, "gml_bytes": sum(archive.getinfo(m).compress_size for m in members)}
+    for member in members:
+        with archive.open(member) as stream:
+            for road in iter_roads(stream):
+                if road["id"] in seen:
+                    continue
+                seen.add(road["id"])
+                stats["polygons"] += len(road["polygons"])
+                row = get_road_row(road, int(code) * 10 ** 6 + len(seen), reference_date)
+                if row is None:
+                    stats["skipped"] += 1
+                    continue
+                rows.append(row)
+                stats["roads"] += 1
+                if len(rows) >= BATCH_ROWS:
+                    connection.executemany("INSERT INTO features VALUES (%s)" % ",".join("?" * 16), rows)
+                    rows = []
+    connection.executemany("INSERT INTO features VALUES (%s)" % ",".join("?" * 16), rows)
+    connection.execute("UPDATE data_sources SET note = note || ' · 도로면(tran:Road LOD1 외곽, function 코드)' WHERE source_id = 'plateau' AND note NOT LIKE '%도로면%'")
+    connection.commit()
+    connection.execute("VACUUM")
+    connection.close()
+    size, sha256 = os.path.getsize(path), _get_sha256(path)
+    subprocess.run(["xz", "-6", "-T1", "-f", path], check=True)
+    stats["seconds"] = round(time.time() - started)
+    return {"name": name, "size": size, "sha256": sha256, "xz_size": os.path.getsize(path + ".xz"), "roads": stats["roads"], "stats": stats}
+
+
+def add_roads_all(codes=None, workers=6):
+    # type: (list, int) -> list
+    """매니페스트의 팩(codes만, 없으면 전부)에 도로면을 넣는다. 끝날 때마다 매니페스트(size·sha256·roads)를 고쳐 쓴다. 실패한 코드 목록을 돌려준다."""
+    with open(CATALOG_PATH, encoding="utf-8") as f:
+        catalog = json.load(f)
+    manifest_path = os.path.join(PACK_DIR, "manifest.json")
+    with open(manifest_path, encoding="utf-8") as f:
+        packs = {pack["name"]: pack for pack in json.load(f)["packs"]}
+    todo = [code for code in (codes or sorted(catalog)) if "%s%s_context.db" % (constants.JP_PACK_PREFIX, code) in packs
+            and (codes or "roads" not in packs["%s%s_context.db" % (constants.JP_PACK_PREFIX, code)])]
+    print("PLATEAU 도로면 %d곳 (작업 %d개)" % (len(todo), workers), flush=True)
+    failed = []
+    with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
+        futures = {executor.submit(add_roads, code, catalog[code]): code for code in todo}
+        for future in concurrent.futures.as_completed(futures):
+            code = futures[future]
+            try:
+                result = future.result()
+            except Exception as exc:
+                failed.append(code)
+                print("  %s %s 실패: %r" % (code, catalog[code]["city"], exc), flush=True)
+                continue
+            if result is None:
+                continue
+            pack = packs[result["name"]]
+            pack.update({k: v for k, v in result.items() if k != "stats"})
+            _write_manifest(packs)
+            print("  %s %s: 도로면 %s · %d s · xz %.1f MB" % (code, catalog[code]["city"], format(result["roads"], ","), result["stats"]["seconds"],
+                                                           result["xz_size"] / 1e6), flush=True)
+    print("실패 %d %s" % (len(failed), " ".join(sorted(failed))), flush=True)
+    return failed
 
 
 # ── 행 만들기 ───────────────────────────────────────────
@@ -446,8 +614,8 @@ def upload():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("catalog", "build", "upload"))
-    parser.add_argument("codes", nargs="*", help="시구정촌 코드(build) — 없으면 카탈로그 전부")
+    parser.add_argument("command", choices=("catalog", "build", "roads", "upload"))
+    parser.add_argument("codes", nargs="*", help="시구정촌 코드(build·roads) — 없으면 카탈로그 전부(roads는 아직 없는 팩만)")
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--force", action="store_true", help="같은 연도 팩이 있어도 다시 만든다")
     args = parser.parse_args()
@@ -459,6 +627,8 @@ def main():
         print("PLATEAU 도시 %d곳 — 연도별 %s → %s" % (len(catalog), dict(sorted(years.items())), CATALOG_PATH))
     elif args.command == "build":
         sys.exit(1 if build(args.codes, args.workers, args.force) else 0)
+    elif args.command == "roads":
+        sys.exit(1 if add_roads_all(args.codes, args.workers) else 0)
     else:
         print("올림 →", upload())
 

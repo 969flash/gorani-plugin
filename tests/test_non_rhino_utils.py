@@ -291,3 +291,22 @@ class OutputNameTest(unittest.TestCase):
         self.assertEqual(u.get_sheet_label("land_use", "ko"), "토지이용현황")
         self.assertEqual(u.get_safe_file_part("Land use / 2"), "Land_use_2")
         self.assertEqual(u.get_safe_file_part("녹지·수계"), "녹지수계")
+
+
+class BufferedLineTest(unittest.TestCase):
+    def test_straight_and_bent(self):
+        ring = u.get_buffered_line_ring([(0, 0), (100, 0)], 10)
+        self.assertEqual(ring[0], ring[-1])
+        self.assertAlmostEqual(abs(u.get_ring_area(ring)), 100 * 10 + 3 * 25, delta=1)   # 반원 두 개 = 12각형 내접원
+        for (x, y), inside in (((50, 4.9), True), ((50, 5.1), False), ((-4, 0), True), ((-6, 0), False)):
+            self.assertEqual(u.is_point_in_ring(x, y, ring), inside, (x, y))
+        bent = u.get_buffered_line_ring([(0, 0), (50, 0), (50, 50)], 10)   # ㄱ자 — 바깥 꺾임 호, 안쪽 교점
+        for (x, y), inside in (((47, 25), True), ((40, 45), False), ((54, -4), False), ((53, -3), True), ((56, 3), False)):
+            self.assertEqual(u.is_point_in_ring(x, y, bent), inside, (x, y))
+        hairpin = u.get_buffered_line_ring([(0, 0), (30, 0), (31, 0.5), (0, 1)], 10)   # 되돌아오는 급꺾임 — 캡슐 합집합으로
+        self.assertFalse(u.is_ring_self_intersecting(hairpin))
+        self.assertTrue(u.is_point_in_ring(15, 0.5, hairpin))
+        self.assertFalse(u.is_point_in_ring(15, 7, hairpin))
+        self.assertIsNone(u.get_buffered_line_ring([(0, 0), (0, 0)], 10))
+        self.assertIsNone(u.get_buffered_line_ring([(0, 0), (1, 1)], 0))
+

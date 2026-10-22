@@ -250,9 +250,10 @@ CREATE TABLE IF NOT EXISTS source_files (
 | 요소 | 원천 | 받는 방식 | 형식·기준 |
 |---|---|---|---|
 | 건물 | 국토교통성 3D 도시모델 PLATEAU `bldg` — LOD0 외곽(RoofEdge 우선), `measuredHeight`, 층수, 용도 코드. 306개 시구정촌 최신 연도판(2020~2025년도), 엑스포 회장 제외 | `dev_plateau.py build` → HF `jp/jp<시구정촌코드>_context.db.xz`(합계 압축 2.69 GB, 최대 요코하마 80.5 MB) → 생성 직전 범위만 받는다 | 경위도 소수 6자리, `buildings` 칸은 런타임이 읽는 한국 이름 그대로(`ngii_kind` = 원천 용도 코드, `usability`는 런타임 `constants.PLATEAU_USE`). 층수 9999·높이 -9999 = 모름 |
+| 도로면 | PLATEAU `tran` — `tran:Road` LOD1 외곽 폴리곤(도로마다 하나, 신주쿠 31,433면), `function`(1 고속·2 국도·3 도도부현도·4 시정촌도·5 그 밖·9020 등) | `dev_plateau.py roads` → 같은 팩의 `features`(theme road·kind surface, 한국 컨텍스트 팩과 같은 칸) | 2026-10-22. 팩에 도로면이 없거나(옛 판) 공도가 아닌 길(사유지 통로·공원 길)은 OSM 중심선 버퍼로 메운다(`osm_context.get_surfaces_apart`) |
 | 지형 | 국토지리원 표고 타일 DEM5A → 5B → 5C(z15, 약 8 m 간격), 없으면 같은 타일의 AWS terrarium | 실행 중(세션 캐시만, 저장·재배포 안 함) | 표고 기준 T.P. — PLATEAU와 같다 |
 
 - 라이선스: PLATEAU = 公共データ利用規約 第1.0版(CC BY 4.0 호환), 저작권은 각 지방공공단체, 가공 사실을 따로 적는다(산출물 메타 줄·데이터셋 카드). 지리원 타일 = 실시간 읽기는 출처 표기만. 국외 반출 제한이 없어 국내 서버가 필요 없다.
 - 도시 경계 3차 메시는 이웃 도시 팩에도 들어 있다(도쿄도 팩끼리 같은 gml:id — 국립·국분지 13,245동). 런타임이 `src_key`(gml:id)로, 다른 도시 팩의 같은 자리 건물은 새 연도 팩 것을 남겨 걸러 낸다.
 - 2020년도판 일부(豊中市 등)는 용도 코드가 없다. 건축 연도는 비어 있어 노후도 도면을 만들 수 없다.
-- 갱신: PLATEAU 새 연도판이 나오면 `dev_plateau.py catalog` → `build`(바뀐 도시만) → `upload`.
+- 갱신: PLATEAU 새 연도판이 나오면 `dev_plateau.py catalog` → `build`(바뀐 도시만) → `roads`(그 도시) → `upload`. `build`는 건물만 다시 만들므로 `roads`를 꼭 이어서 돌린다.

@@ -118,13 +118,23 @@ def _get_cdt(rings, loose_pts, epsilon):
     return xy, tris, [set(o) for o in orig_faces]
 
 
+def _get_valid_polygon(polygon, epsilon):
+    # type: (object, float) -> object
+    """자기교차 링(OSM 도로면 버퍼의 짧은 변 안쪽 고리) → make_valid 결과 중 가장 넓은 폴리곤 하나. 분류는 링 번호 = 입력 순서라 하나만 남긴다."""
+    polygon = shapely.set_precision(polygon, epsilon)
+    if shapely.is_valid(polygon):
+        return polygon
+    parts = [g for g in shapely.get_parts(shapely.make_valid(polygon)) if shapely.get_type_id(g) == 3]
+    return max(parts, key=shapely.area) if parts else polygon
+
+
 def _get_overlay_cdt(rings, loose_pts, epsilon):
     # type: (list, list, float) -> tuple
     """_get_cdt의 shapely(GEOS)판 — 같은 모양의 출력을 겹치기(overlay)로 만든다.
     링 테두리를 epsilon 격자로 이어 붙여(교점 포함) 면으로 나누면 면마다 품은 링이 정해진다(대표점 within) → 떨어진 점의 들로네 TIN
     삼각형과 면을 겹쳐 조각 → 조각을 제약 들로네로 삼각형. TIN 껍질 밖의 면은 그대로 삼각형으로 만든다(높이는 지반 조회 폴백).
     ponytail: 삼각형이 CDT 한 번보다 많다(TIN 삼각형이 면 경계에서 잘린다) — 성수 500 m 2배 안팎."""
-    polys = numpy.array([shapely.Polygon(ring) for ring in rings], dtype=object)
+    polys = numpy.array([_get_valid_polygon(shapely.Polygon(ring), epsilon) for ring in rings], dtype=object)
     noded = shapely.unary_union(shapely.get_exterior_ring(polys), grid_size=epsilon)
     cells = shapely.get_parts(shapely.polygonize(shapely.get_parts(noded)))
     cell_rings = [set() for _ in range(len(cells))]
@@ -137,7 +147,11 @@ def _get_overlay_cdt(rings, loose_pts, epsilon):
         cell_ids, tin_ids = shapely.STRtree(tin).query(cells, predicate="intersects")
         outside = shapely.difference(cells, shapely.convex_hull(points), grid_size=epsilon)
         keep = ~shapely.is_empty(outside)
-        pieces = numpy.concatenate([shapely.intersection(cells[cell_ids], tin[tin_ids], grid_size=epsilon), outside[keep]])
+        try:
+            cut = shapely.intersection(cells[cell_ids], tin[tin_ids], grid_size=epsilon)
+        except shapely.errors.GEOSException:   # 스냅 반올림이 드물게 'Ring edge missing'(신주쿠 OSM 도로면 버퍼 2026-10-22) — 격자 없이 자르고 뒤에 맞춘다
+            cut = shapely.set_precision(shapely.intersection(shapely.make_valid(cells[cell_ids]), tin[tin_ids]), epsilon)
+        pieces = numpy.concatenate([cut, outside[keep]])
         owners = numpy.concatenate([cell_ids, numpy.nonzero(keep)[0]])
     parts, piece_ids = shapely.get_parts(shapely.constrained_delaunay_triangles(pieces), return_index=True)
     is_tri = shapely.get_type_id(parts) == 3

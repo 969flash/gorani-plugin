@@ -249,8 +249,9 @@ OSM_OVERPASS_QUERY = """[out:json][timeout:55][bbox:{bbox}];
   way["amenity"~"^(school|kindergarten|college|university|library|hospital|clinic|nursing_home|social_facility|childcare|community_centre|arts_centre|theatre)$"];
   relation["amenity"~"^(school|college|university|hospital)$"]["type"="multipolygon"];
   way["leisure"="sports_centre"]; way["place"="square"];
+  way["area:highway"]; way["amenity"="parking"]; relation["amenity"="parking"]["type"="multipolygon"];
 );
-out geom;"""   # 역·시설 줄은 OSM_PUBLIC_USE와 맞춘다(tests/test_osm_context가 확인)
+out geom;"""   # 역·시설 줄은 OSM_PUBLIC_USE와 맞춘다(tests/test_osm_context가 확인). 도로면 폴리곤(area:highway, 드묾)·주차장 면은 포장면으로
 # 일본(PLATEAU 팩이 있는 곳)은 건물 줄을 빼고 도로·수계·녹지를 먼저 묻고, OSM 건물(PLATEAU 빈 곳 메우기)은 따로 첫 미러에만 묻는다.
 # 도심은 OSM 건물이 많아 한 질의가 통째로 시간 초과됐다(2026-10-22 Rhino 시험: 도쿄타워·시부야·후쿠오카 덴진 — 7곳 중 3곳 도로 없음)
 OSM_OVERPASS_BUILDINGS = 'way["building"]; relation["building"]["type"="multipolygon"];'
@@ -265,6 +266,10 @@ OSM_ROAD_WIDTHS = {   # highway 등급 → 기본 도로폭 m (width·lanes 태�
     "motorway_link": 8.0, "trunk_link": 8.0, "primary_link": 7.0, "secondary_link": 7.0, "tertiary_link": 6.0, "track": 3.0, "steps": 2.0,
 }
 OSM_LANE_WIDTH = 3.3            # m — 차로당 폭
+# OSM 도로는 선(중심선)뿐이라 폭만큼 버퍼해 도로면을 만든다(수치지형도 도로경계 면에 해당). 지도 타일도 같은 방식으로 선을 굵게 그린다
+OSM_ROAD_ARC_SEGMENTS = 3       # 도로면 버퍼의 끝 반원·바깥 꺾임 호 분할(90°당). 폭 6 m 도로 끝 반원 6변 — 꼭짓점 수가 지형 면 분할 시간에 비례한다
+OSM_ROAD_MITER_LIMIT = 4.0      # 버퍼 안쪽 꺾임 교점 허용 거리(폭의 배수) — 예각에서 교점이 멀리 달아나는 것을 막는다
+OSM_ROAD_NO_SURFACE_TAGS = ("tunnel",)   # 이 태그가 'no'가 아니면 도로면을 만들지 않는다(지하 — 지형을 깎지 않는다). 교량은 지형에 얹힌다(ponytail: 교량 높이는 다음에)
 OSM_RAIL_TYPES = ("rail", "subway", "light_rail", "tram", "narrow_gauge", "monorail")
 OSM_GREEN_TAGS = {"leisure": ("park", "garden", "pitch", "playground"), "natural": ("wood", "scrub", "grassland"),
                   "landuse": ("grass", "forest", "meadow", "recreation_ground", "village_green", "cemetery")}
@@ -321,6 +326,8 @@ PLATEAU_DIGITS = 6                     # 경위도 소수 자리(0.11 m) — 원
 PLATEAU_HEIGHT_RANGE = (1.0, 700.0)    # measuredHeight(항공측량 실측) 사용 범위 m — -9999 = 모름, 도쿄 스카이트리 634 m
 PLATEAU_UNKNOWN = 9999                 # 층수 9999·높이 -9999 = 모름(구니타치 2025 실측: 층수 9999 6,155동 = 용도 461 '불명'과 같은 동)
 PLATEAU_MAX_EXTENT_DEG = 0.03          # 건물 최대 폭(경위도) — bbox 질의의 min_x 하한. dev_plateau가 빌드 끝에 넘지 않는지 검사한다
+PLATEAU_ROAD_TOLERANCE_M = 0.02        # 도로면 LOD1 폴리곤이 여럿일 때 합치기(공유 변 지우기) 허용오차 m — 조각은 정점을 정확히 공유한다
+PLATEAU_ROAD_MAX_EXTENT_DEG = 0.1      # 도로면 하나의 최대 폭(경위도) — 간선도로 한 구간이 수 km. bbox 질의의 min_x 하한
 PLATEAU_USE = {   # PLATEAU 용도 코드(zip 안 codelists/Building_usage.xml, 2026-10-21 확인) → 국내 건축물용도 대분류(시트 색). 454 その他·461 不明은 빈 값
     "401": "14000", "402": "04000", "403": "15000", "404": "04000",                   # 業務·商業·宿泊·商業系複合施設
     "411": "01000", "412": "02000", "413": "01000", "414": "02000", "415": "01000",   # 住宅·共同住宅·店舗等併用(共同)住宅·作業所併用住宅
