@@ -132,9 +132,9 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
         "options": site_prefs.get_options(),
         "modes": {"defaults": constants.MODE_DEFAULTS, "shapes": {k: list(v) for k, v in constants.SHAPES_BY_MODE.items()}},
         "recent": site_prefs.get_recent(),
-        "sheet_catalog": [{"id": sheet_id, "key": key, "name": name, "subtitle": en, "needs": needs, "korea_only": key in constants.SHEET_KOREA_ONLY,
+        "sheet_catalog": [{"id": sheet_id, "key": key, "name": name, "needs": needs, "korea_only": key in constants.SHEET_KOREA_ONLY,
                            "group": constants.SHEET_GROUP.get(key, "base")}
-                          for sheet_id, key, name, en, needs in constants.SHEET_CATALOG if key != "aerial" or host.get("aerial", True)],
+                          for sheet_id, key, name, needs in constants.SHEET_CATALOG if key != "aerial" or host.get("aerial", True)],
         "style_presets": {key: dict(preset) for key, preset in constants.STYLE_PRESETS.items()},
         "style_defaults": dict(constants.STYLE_DEFAULTS),
         "style_ramps": {key: list(ramp) for key, ramp in constants.STYLE_RAMPS.items()},

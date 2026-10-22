@@ -3090,8 +3090,8 @@
   "zh": "图底关系图"
  },
  "필지 규모": {
-  "en": "Parcel size",
-  "es": "Tamaño de parcelas",
+  "en": "Plot size",
+  "es": "Tamaño de parcela",
   "ja": "区画規模",
   "zh": "地块规模"
  },
@@ -3102,20 +3102,20 @@
   "zh": "街区密度"
  },
  "대중교통 역세권": {
-  "en": "Transit catchment",
+  "en": "Public transport catchment",
   "es": "Área de influencia del transporte público",
   "ja": "公共交通の駅勢圏",
   "zh": "公共交通站点服务范围"
  },
  "보행권": {
-  "en": "Walking catchment",
-  "es": "Área peatonal",
+  "en": "Walking distance",
+  "es": "Distancia a pie",
   "ja": "徒歩圏",
-  "zh": "步行范围"
+  "zh": "步行距离"
  },
  "녹지·수계": {
-  "en": "Green space and water",
-  "es": "Zonas verdes y agua",
+  "en": "Green and blue infrastructure",
+  "es": "Infraestructura verde y azul",
   "ja": "緑地・水系",
   "zh": "绿地·水系"
  },
@@ -3138,20 +3138,20 @@
   "zh": "土地利用现状"
  },
  "지목 현황": {
-  "en": "Land category",
+  "en": "Cadastral land category",
   "es": "Categoría catastral",
   "ja": "地目現況",
   "zh": "地类现状"
  },
  "용도지구·구역": {
-  "en": "Zoning districts",
-  "es": "Distritos de zonificación",
+  "en": "Overlay zones",
+  "es": "Zonas superpuestas",
   "ja": "用途地区・区域",
   "zh": "用途地区·区域"
  },
  "도시계획시설·지구단위계획": {
-  "en": "Planning facilities and district unit plans",
-  "es": "Equipamientos urbanísticos y planes de unidad de distrito",
+  "en": "Planning facilities and district plans",
+  "es": "Equipamientos urbanísticos y planes de distrito",
   "ja": "都市計画施設・地区単位計画",
   "zh": "城市规划设施·地区单元规划"
  },
@@ -3162,7 +3162,7 @@
   "zh": "建筑用途"
  },
  "건축물 층수": {
-  "en": "Building height (floors)",
+  "en": "Building height (storeys)",
   "es": "Altura de los edificios (plantas)",
   "ja": "建築物階数",
   "zh": "建筑层数"
@@ -3192,20 +3192,20 @@
   "zh": "坡度"
  },
  "경관·조망 (틀)": {
-  "en": "Landscape and views (template)",
-  "es": "Paisaje y vistas (plantilla)",
+  "en": "Townscape and views (template)",
+  "es": "Paisaje urbano y vistas (plantilla)",
   "ja": "景観・眺望（テンプレート）",
   "zh": "景观·眺望（模板）"
  },
  "이미지맵 (틀)": {
-  "en": "City image map (template)",
-  "es": "Mapa de imagen urbana (plantilla)",
+  "en": "Legibility (template)",
+  "es": "Legibilidad (plantilla)",
   "ja": "イメージマップ（テンプレート）",
   "zh": "城市意象地图（模板）"
  },
  "종합분석 (틀)": {
-  "en": "Synthesis (template)",
-  "es": "Síntesis (plantilla)",
+  "en": "Constraints and opportunities (template)",
+  "es": "Condicionantes y oportunidades (plantilla)",
   "ja": "総合分析（テンプレート）",
   "zh": "综合分析（模板）"
  },

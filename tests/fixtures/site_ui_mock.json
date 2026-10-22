@@ -168,7 +168,6 @@
     "id": 0,
     "key": "base",
     "name": "베이스맵",
-    "subtitle": "Base map",
     "needs": "lot",
     "korea_only": false,
     "group": "base"
@@ -177,7 +176,6 @@
     "id": 1,
     "key": "figure",
     "name": "도형-배경도",
-    "subtitle": "Figure-ground",
     "needs": "building",
     "korea_only": false,
     "group": "analysis"
@@ -186,7 +184,6 @@
     "id": 2,
     "key": "lot_size",
     "name": "필지 규모",
-    "subtitle": "Parcel grain",
     "needs": "lot",
     "korea_only": true,
     "group": "analysis"
@@ -195,7 +192,6 @@
     "id": 3,
     "key": "density",
     "name": "블록 밀도",
-    "subtitle": "Block density",
     "needs": "building",
     "korea_only": true,
     "group": "analysis"
@@ -204,7 +200,6 @@
     "id": 4,
     "key": "transit",
     "name": "대중교통 역세권",
-    "subtitle": "Transit catchment",
     "needs": "building",
     "korea_only": false,
     "group": "analysis"
@@ -213,7 +208,6 @@
     "id": 5,
     "key": "walk",
     "name": "보행권",
-    "subtitle": "Walking distance",
     "needs": "road",
     "korea_only": false,
     "group": "analysis"
@@ -222,7 +216,6 @@
     "id": 6,
     "key": "green",
     "name": "녹지·수계",
-    "subtitle": "Green and blue",
     "needs": "building",
     "korea_only": false,
     "group": "analysis"
@@ -231,7 +224,6 @@
     "id": 7,
     "key": "public",
     "name": "생활 공공시설",
-    "subtitle": "Community facilities",
     "needs": "building",
     "korea_only": false,
     "group": "analysis"
@@ -240,7 +232,6 @@
     "id": 8,
     "key": "road",
     "name": "가로 위계",
-    "subtitle": "Street hierarchy",
     "needs": "road",
     "korea_only": false,
     "group": "analysis"
@@ -249,7 +240,6 @@
     "id": 9,
     "key": "land_use",
     "name": "토지이용현황",
-    "subtitle": "Land use",
     "needs": "lot",
     "korea_only": true,
     "group": "status"
@@ -258,7 +248,6 @@
     "id": 10,
     "key": "land_category",
     "name": "지목 현황",
-    "subtitle": "Land category",
     "needs": "lot",
     "korea_only": true,
     "group": "status"
@@ -267,7 +256,6 @@
     "id": 11,
     "key": "zone",
     "name": "용도지역",
-    "subtitle": "Zoning",
     "needs": "lot",
     "korea_only": true,
     "group": "status"
@@ -276,7 +264,6 @@
     "id": 12,
     "key": "district",
     "name": "용도지구·구역",
-    "subtitle": "Districts",
     "needs": "lot",
     "korea_only": true,
     "group": "status"
@@ -285,7 +272,6 @@
     "id": 13,
     "key": "facility",
     "name": "도시계획시설·지구단위계획",
-    "subtitle": "Planning facilities",
     "needs": "lot",
     "korea_only": true,
     "group": "status"
@@ -294,7 +280,6 @@
     "id": 14,
     "key": "use",
     "name": "건축물 용도",
-    "subtitle": "Building use",
     "needs": "building",
     "korea_only": true,
     "group": "status"
@@ -303,7 +288,6 @@
     "id": 15,
     "key": "floor",
     "name": "건축물 층수",
-    "subtitle": "Building height",
     "needs": "building",
     "korea_only": false,
     "group": "status"
@@ -312,7 +296,6 @@
     "id": 16,
     "key": "age",
     "name": "건축물 노후도",
-    "subtitle": "Building age",
     "needs": "building",
     "korea_only": true,
     "group": "status"
@@ -321,7 +304,6 @@
     "id": 17,
     "key": "price",
     "name": "공시지가",
-    "subtitle": "Land price",
     "needs": "lot",
     "korea_only": true,
     "group": "status"
@@ -330,7 +312,6 @@
     "id": 18,
     "key": "elev",
     "name": "표고",
-    "subtitle": "Elevation",
     "needs": "terrain",
     "korea_only": false,
     "group": "status"
@@ -339,7 +320,6 @@
     "id": 19,
     "key": "slope",
     "name": "경사",
-    "subtitle": "Slope",
     "needs": "terrain",
     "korea_only": false,
     "group": "status"
@@ -348,7 +328,6 @@
     "id": 20,
     "key": "view",
     "name": "경관·조망 (틀)",
-    "subtitle": "Views",
     "needs": "lot",
     "korea_only": false,
     "group": "frame"
@@ -357,7 +336,6 @@
     "id": 21,
     "key": "image",
     "name": "이미지맵 (틀)",
-    "subtitle": "Image of the city",
     "needs": "lot",
     "korea_only": false,
     "group": "frame"
@@ -366,7 +344,6 @@
     "id": 22,
     "key": "synthesis",
     "name": "종합분석 (틀)",
-    "subtitle": "Synthesis",
     "needs": "lot",
     "korea_only": false,
     "group": "frame"
@@ -375,7 +352,6 @@
     "id": 23,
     "key": "aerial",
     "name": "항공사진",
-    "subtitle": "Aerial photo",
     "needs": "image",
     "korea_only": false,
     "group": "base"
@@ -384,7 +360,6 @@
     "id": 24,
     "key": "axo",
     "name": "입체 매스도",
-    "subtitle": "Axonometric massing",
     "needs": "building",
     "korea_only": false,
     "group": "analysis"

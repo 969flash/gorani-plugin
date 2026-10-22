@@ -31,9 +31,8 @@ from i18n import get_lang, get_texts, tr
 from non_rhino_utils import (get_lnglat_from_tile, get_polygon_parts_from_geojson, get_ring_area, get_ring_orientation, get_text_width_em, get_tile_m_per_px,
                              get_tile_xy, get_tm_from_wgs84, get_wgs84_from_tm, is_local_projection, is_point_in_ring)
 
-SHEET_NAMES = {sheet_id: name for sheet_id, _key, name, _en, _needs in constants.SHEET_CATALOG}   # 한국어 원문 — 그릴 때 tr(name)
-SHEET_KEYS = {sheet_id: key for sheet_id, key, _name, _en, _needs in constants.SHEET_CATALOG}
-SHEET_SUBTITLES = {sheet_id: en for sheet_id, _key, _name, en, _needs in constants.SHEET_CATALOG}
+SHEET_NAMES = {sheet_id: name for sheet_id, _key, name, _needs in constants.SHEET_CATALOG}   # 한국어 원문 — 그릴 때 tr(name)
+SHEET_KEYS = {sheet_id: key for sheet_id, key, _name, _needs in constants.SHEET_CATALOG}
 _HEX = re.compile(r"#[0-9A-Fa-f]{6}$")
 _LABEL_SKIP = re.compile(constants.SHEET_LABEL_SKIP_PATTERN)
 
@@ -1743,7 +1742,7 @@ def _draw_head(x, y, sheet_id, name, style, k, avail_w):
         title_size = room / max(get_text_width_em(name), 1.0)
     lines = [_text(x, y + number_size * 0.82, number, number_size, fill=style["site"], **{"font-weight": "800", "id": "sheet_number"})]
     if style["subtitle_en"] and get_lang() != "en":
-        lines.append(_text(x + offset, y + number_size * 0.82 - title_size * 1.15, SHEET_SUBTITLES[sheet_id].upper(), fonts["subtitle"] * k * ts,
+        lines.append(_text(x + offset, y + number_size * 0.82 - title_size * 1.15, non_rhino_utils.get_sheet_label(SHEET_KEYS[sheet_id], "en").upper(), fonts["subtitle"] * k * ts,
                            fill=muted, **{"font-weight": "600", "letter-spacing": _fmt(0.25 * k)}))
     lines.append(_text(x + offset, y + number_size * 0.82, name, title_size, fill=ink, **{"font-weight": "800", "id": "sheet_title"}))
     return lines, y + number_size + 2.0 * k
@@ -2219,7 +2218,7 @@ def write_sheets(data, out_dir, sheet_ids=None, options=None):
     os.makedirs(out_dir, exist_ok=True)
     results = []
     lang = non_rhino_utils.get_output_lang(data.options)
-    for sheet_id, key, name, _en, _needs in constants.SHEET_CATALOG:
+    for sheet_id, key, name, _needs in constants.SHEET_CATALOG:
         if sheet_id not in wanted:
             continue
         svg, empty, reason = render_sheet(sheet_id, data)

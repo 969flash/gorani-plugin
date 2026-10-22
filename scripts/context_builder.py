@@ -1216,7 +1216,7 @@ def _run_2d_phases(prepared, options, terrain_tris, progress, response, state, d
     if "sheets" not in skipped:
         state["phase"] = "sheets"
         sheet_ids = get_sheet_ids(options)
-        names = {sheet_id: name for sheet_id, _key, name, _en, _needs in constants.SHEET_CATALOG}
+        names = {sheet_id: name for sheet_id, _key, name, _needs in constants.SHEET_CATALOG}
         sheets_dir = os.path.join(_get_out_2d_dir(prepared), non_rhino_utils.get_output_name("sheets_dir", non_rhino_utils.get_output_lang(options)))
         try:
             data = sheet_svg.SheetData.from_prepared(prepared, terrain_tris)
@@ -1264,7 +1264,7 @@ def _get_abroad_preflight(sources, features, warnings, scales, paper_mm, paper, 
         warnings.append(_warning("info", "abroad", tr("Global — OpenStreetMap·지형 타일을 생성 때 받습니다"),
                                  tr("필지·용도지역 도면은 Korea 모드에만 있고, 건물 높이는 OSM 태그(없으면 {0:.1f} m)입니다. 인터넷 연결이 필요합니다.",
                                     constants.DEFAULT_BUILDING_HEIGHT_M)))
-    empty_sheets = [sheet_id for sheet_id, key, _name, _en, _needs in constants.SHEET_CATALOG if key in constants.SHEET_KOREA_ONLY]
+    empty_sheets = [sheet_id for sheet_id, key, _name, _needs in constants.SHEET_CATALOG if key in constants.SHEET_KOREA_ONLY]
     estimate = {"buildings": 0, "lots": 0, "topo_have": 0, "topo_total": 0, "seconds": int(constants.ESTIMATE_SECONDS_BASE) + 20,
                 "mb": 1, "note": tr("건물 수는 OSM에서 받은 뒤 알 수 있습니다")}
     return {"sources": sources, "extent_geojson": {"type": "FeatureCollection", "features": features}, "estimate": estimate,
@@ -1335,7 +1335,7 @@ def preflight(request, today=None):
                 "pending_mb": round(sum(p.get("xz_size", 0) for p in pending) / 1048576.0) if pending else 0}   # 받기 전 — 건물 수·도엽은 모른다
     available = {"lot": lot_count > 0, "building": buildings > 0 or bool(pending), "image": True,
                  "terrain": counts["themes"].get("terrain", 0) > 0 or bool(pending), "road": counts["themes"].get("road", 0) > 0 or bool(pending)}
-    empty_sheets = [sheet_id for sheet_id, _key, _name, _en, needs in constants.SHEET_CATALOG if not available[needs]]
+    empty_sheets = [sheet_id for sheet_id, _key, _name, needs in constants.SHEET_CATALOG if not available[needs]]
 
     # 베이스맵 프레임
     for scale in scales:
@@ -1578,7 +1578,7 @@ def apply_style(result_dir, style, keep=None):
     meta = _read_meta(result_dir)
     written = [s for s in (meta.get("sheets") or []) if isinstance(s, dict) and s.get("path")]
     ids = [int(s["id"]) for s in written] or get_sheet_ids(meta.get("options") or {})
-    terrain_ids = {sheet_id for sheet_id, _key, _name, _en, needs in constants.SHEET_CATALOG if needs == "terrain"}
+    terrain_ids = {sheet_id for sheet_id, _key, _name, needs in constants.SHEET_CATALOG if needs == "terrain"}
     kept = [sheet_id for sheet_id in ids if sheet_id in terrain_ids and not data.terrain_tris]
     sheets = sheet_svg.write_sheets(data, get_sheets_dir(result_dir), [i for i in ids if i not in kept])
     sheets += [s for s in written if int(s["id"]) in kept]

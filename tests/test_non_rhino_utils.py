@@ -289,5 +289,7 @@ class OutputNameTest(unittest.TestCase):
         self.assertEqual(u.get_output_name("styles", "ko", "vivid"), "선명")
         self.assertEqual(u.get_output_name("styles", "ja", "vivid"), "Vivid")   # 아직 없는 언어 → 영어
         self.assertEqual(u.get_sheet_label("land_use", "ko"), "토지이용현황")
+        self.assertEqual(u.get_sheet_label("lot_size", "en"), "Plot size")   # 파일 이름·제목이 같은 i18n.json 이름
+        self.assertEqual(u.get_sheet_label("lot_size", "ja"), "区画規模")
         self.assertEqual(u.get_safe_file_part("Land use / 2"), "Land_use_2")
         self.assertEqual(u.get_safe_file_part("녹지·수계"), "녹지수계")
