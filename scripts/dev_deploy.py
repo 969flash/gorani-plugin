@@ -648,7 +648,8 @@ def build_web():
 AUTOCAD_BUNDLE = PACKAGE_NAME + ".bundle"
 AUTOCAD_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py", "cmd_blender.py", "cmd_sketchup.py", "cmd_web.py")   # Rhino(Eto)·다른 호스트 진입
 # AutoCAD 자동 로드 번들 — AutoCAD가 켤 때 ApplicationPlugins(Win)·ApplicationAddins(Mac)의 *.bundle을 읽는다. 스토어 게시 지침(2026-10-23 확인):
-# SeriesMax 필수(2025+), Icon·HelpFile, 버전마다 새 ProductCode·고정 UpgradeCode, 명령을 칠 때 불러오기(수요 로드), Plug-ins 탭 리본 패널(부분 CUIX).
+# SeriesMax 필수(2025+), Icon·HelpFile, 버전마다 새 ProductCode·고정 UpgradeCode, Plug-ins(한국어판 '애드인') 탭 리본 패널(부분 CUIX). LISP는 시작할 때 불러온다 —
+# 수요 로드는 권장일 뿐이고, 생성 뒤 COM 넣기·리본 버튼이 언제 와도 돈다(2026-10-23 노트북: 수요 로드에서 버튼이 반응 없음)
 # SeriesMin R24.0 = AutoCAD 2021(LISP 유니코드), SeriesMax R26.0 = 2027(노트북 레지스트리 R26.0). 운영체제마다 번들을 따로 낸다(파이썬 크기, 맥은 리본 없음)
 AUTOCAD_UPGRADE_CODE = "{6E1B7C52-3F0A-4D8E-9B21-7A5C0D4E8F30}"   # 바꾸지 말 것 — 스토어가 이 코드로 업그레이드를 잇는다
 AUTOCAD_SERIES = ("R24.0", "R26.0")
@@ -660,7 +661,7 @@ AUTOCAD_PACKAGE_CONTENTS = """<?xml version="1.0" encoding="utf-8"?>
   <CompanyDetails Name="%(author)s" Email="%(email)s" />
   <Components>
     <RuntimeRequirements OS="%(os)s" Platform="AutoCAD*" SeriesMin="%(series_min)s" SeriesMax="%(series_max)s" SupportPath="./Contents/" />
-    <ComponentEntry AppName="Gorani" ModuleName="./Contents/gorani.lsp" AppDescription="Gorani panel" LoadOnCommandInvocation="True">
+    <ComponentEntry AppName="Gorani" ModuleName="./Contents/gorani.lsp" AppDescription="Gorani panel" LoadOnAutoCADStartup="True">
       <Commands GroupName="GORANI">
         <Command Global="GORANI" Local="GORANI" />
       </Commands>
@@ -709,15 +710,37 @@ def get_autocad_plugin_dir():
     return os.path.expanduser("~/Library/Application Support/Autodesk/ApplicationAddins")
 
 
+# AppManager.cuix가 가진 빈 루트들 — 빠지면 AutoCAD가 MenuGroup(매크로·아이콘)을 읽지 않아 버튼이 글자만 남고 눌러도 반응이 없었다(2026-10-23 노트북)
+AUTOCAD_CUIX_EMPTY_ROOTS = ("AcceleratorRoot", "DigitizerButtonRoot", "DoubleClickRoot", "ImageMenuRoot", "LSPFiles", "MouseButtonRoot", "OverrideRoot",
+                            "PanelSetRoot", "PopMenuRoot", "QuickAccessToolbarRoot", "QuickPropertiesRoot", "RolloverTooltipRoot", "ScreenMenuRoot",
+                            "TabletMenuRoot", "ToolbarRoot", "ToolPanelRoot")
+
+
 def _write_cuix(path):
     # type: (str) -> None
-    """리본 패널 부분 CUIX(zip) — AUTOCAD_CUIX_PARTS + 배지 아이콘 16·32."""
+    """리본 패널 부분 CUIX(zip) — AppManager.cuix와 같은 구성: 루트 .cui 전부(대부분 빈 것) + 목록(Menu_Package_Info.xml) + 배지 아이콘 16·32."""
     import zipfile
+    namespaces = 'xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
+    parts = dict(AUTOCAD_CUIX_PARTS)
+    for root in AUTOCAD_CUIX_EMPTY_ROOTS:
+        parts["%s.cui" % root] = '<?xml version="1.0"?>\n<%s %s />' % (root, namespaces)
+    parts["WorkspaceRoot.cui"] = '<?xml version="1.0"?>\n<WorkspaceRoot %s>\n  <WorkspaceConfigRoot />\n</WorkspaceRoot>' % namespaces
+    cui_names = sorted(name for name in parts if name.endswith(".cui"))
+    images = {"gorani_%d.png" % size: os.path.join(BRAND_DIR, "png", "gorani_badge_%d.png" % size) for size in (16, 32)}
+    parts["_rels/.rels"] = ('<?xml version="1.0" encoding="utf-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                            + "".join('<Relationship Type="CUI" Target="/%s" Id="R%d" />' % (name, n) for n, name in enumerate(cui_names))
+                            + "".join('<Relationship Type="Image" Target="/%s" Id="RI%d" />' % (name, n) for n, name in enumerate(sorted(images)))
+                            + "</Relationships>")
+    stamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    parts["Menu_Package_Info.xml"] = ('<?xml version="1.0" encoding="utf-8"?>\n<MenuPackageParts>\n'
+                                      + "".join('  <PartData PartData_Name="/%s" PartData_Modified="%s" />\n' % (name, stamp)
+                                                for name in sorted(cui_names + list(images)) + ["VirtualMNRRoot", "Menu_Package_Info.xml"])
+                                      + "</MenuPackageParts>")
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for name, text in AUTOCAD_CUIX_PARTS.items():
+        for name, text in parts.items():
             zf.writestr(name, text)
-        for size in (16, 32):
-            zf.write(os.path.join(BRAND_DIR, "png", "gorani_badge_%d.png" % size), "gorani_%d.png" % size)
+        for name, source in images.items():
+            zf.write(source, name)
 
 
 def build_autocad(install=False):
