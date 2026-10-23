@@ -1107,6 +1107,10 @@ CAD_LINETYPES = {"CENTER": ("Center ____ _ ____ _", (31.75, -6.35, 6.35, -6.35))
 # 글꼴(STYLE US-KOR) = (주 글꼴, 한글 큰 글꼴) SHX — 국내 사무소 관행(romans + whgtxt). AutoCAD가 Win·Mac 모두 함께 깔고 호환 CAD도 갖고 있다.
 # TrueType(Mac AppleSDGothicNeo.ttc)은 AutoCAD 2027 Mac에서 한글이 전부 '?'로 나왔다(2026-10-19 사용자 화면)
 CAD_FONT = ("romans.shx", "whgtxt.shx")
+# 한글·영문이 아닌 글자(일본어·중국어·유럽 악센트)가 든 줄의 TrueType 글꼴 — SHX(whgtxt)에는 모양이 없어 '?'가 된다.
+# 맑은 고딕(.ttf, 모든 Windows 기본): 가나·한자·악센트가 다 나왔고, 맑은 고딕에 없는 国·区도 Windows가 다른 글꼴로 채웠다(2026-10-23 AutoCAD 2027 화면).
+# DXF R12는 TrueType 글꼴 이름(확장 데이터 1001)을 받지 않고('테이블의 알 수 없는 그룹 1001'), .ttc 파일 이름(msgothic.ttc·YuGothR.ttc)은 '?'였다
+CAD_TTF_FONT = "malgun.ttf"
 CAD_LAYERS_OFF = ("US-LOT-NO-ALL",)   # 처음엔 꺼 둔 레이어 — 필지마다 지번이 다 뜨면 너무 어지럽다(2026-10-19 사용자 지적)
 CAD_NEAR_LOT_GAP = 30.0   # m — 대상지 bbox를 이만큼 넓힌 상자에 걸리는 필지 = 인접 필지(도로 건너편까지). 지번을 켜 둔다
 CAD_SPOT_GAP_MM = 40.0     # 종이 mm — 표고점은 이 칸마다 하나(1:500 = 20 m). 해외는 지형 타일 격자 표본이라 촘촘하다

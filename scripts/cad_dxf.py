@@ -17,13 +17,30 @@ import basemap_ai
 import constants
 import context_report
 import non_rhino_utils
+from i18n import tr
 
 
 # ── DXF 작성기 ──────────────────────────────────────────────
 
 # '?'가 되는 글자 — CP949에 없거나(—·⚠), CP949에는 있어도 한글 SHX(whgtxt)에 모양이 없는 기호(·±㎡→, 2026-10-23 AutoCAD 2027 Windows 화면).
 # %%p·%%d는 AutoCAD 글자 제어 코드(±·°) — romans.shx가 그린다
+_CP949_FIX_CHARS = "—–⚠·±°㎡²→×"
 CP949_FIX = str.maketrans({"—": "-", "–": "-", "⚠": "!", "\n": " ", "·": "/", "±": "%%p", "°": "%%d", "㎡": "m2", "²": "2", "→": "->", "×": "x"})
+
+def _is_hangul(char):
+    # type: (str) -> bool
+    return "\uac00" <= char <= "\ud7a3" or "\u1100" <= char <= "\u11ff" or "\u3130" <= char <= "\u318f"
+
+
+def get_text_style(content):
+    # type: (str) -> tuple
+    """글자 한 줄 → (글꼴 이름, DXF에 쓸 문자열). 한글·영문(+CP949_FIX로 바꿀 기호)만이면 SHX US-KOR(CP949 그대로),
+    아니면 TrueType US-INTL(CAD_TTF_FONT) + 한글이 아닌 글자는 \\U+XXXX(파일 코드페이지와 무관하게 AutoCAD가 읽는다)."""
+    if all(ord(c) < 128 or _is_hangul(c) or c in _CP949_FIX_CHARS for c in content):
+        return "US-KOR", content.translate(CP949_FIX)
+    return "US-INTL", "".join(c if ord(c) < 128 or _is_hangul(c) else ("\\U+%04X" % ord(c) if ord(c) <= 0xFFFF else "?")
+                              for c in content.replace("\n", " "))
+
 
 def _num(value):
     # type: (float) -> str
@@ -67,7 +84,7 @@ class DxfWriter(object):
 
     def write(self, path, ltscale, point_size):
         # type: (str, float, float) -> int
-        """파일을 쓰고 객체 수를 돌려준다. ltscale = $LTSCALE, point_size = $PDSIZE(도면 단위). CP949에 없는 글자는 '?'."""
+        """파일을 쓰고 객체 수를 돌려준다. ltscale = $LTSCALE, point_size = $PDSIZE(도면 단위). 글꼴·인코딩은 줄마다 get_text_style."""
         body = []
 
         def put(*pairs):
@@ -96,10 +113,14 @@ class DxfWriter(object):
         put((0, "ENDTAB"), (0, "TABLE"), (2, "LAYER"), (70, 1 + len(used)), (0, "LAYER"), (2, "0"), (70, 0), (62, 7), (6, "CONTINUOUS"))
         for name, _description, color, linetype in used:   # 색이 음수면 꺼진 레이어
             put((0, "LAYER"), (2, name), (70, 0), (62, -color if name in constants.CAD_LAYERS_OFF else color), (6, linetype))
-        put((0, "ENDTAB"), (0, "TABLE"), (2, "STYLE"), (70, 2),
+        texts = {id(shape): get_text_style(shape[2]) for shape in self.shapes if shape[0] == "TEXT"}
+        intl = any(style == "US-INTL" for style, _ in texts.values())
+        put((0, "ENDTAB"), (0, "TABLE"), (2, "STYLE"), (70, 3 if intl else 2),
             (0, "STYLE"), (2, "STANDARD"), (70, 0), (40, 0.0), (41, 1.0), (50, 0.0), (71, 0), (42, 2.5), (3, "txt"), (4, ""),
-            (0, "STYLE"), (2, "US-KOR"), (70, 0), (40, 0.0), (41, 1.0), (50, 0.0), (71, 0), (42, 2.5), (3, self.font[0]), (4, self.font[1]),
-            (0, "ENDTAB"), (0, "ENDSEC"), (0, "SECTION"), (2, "ENTITIES"))
+            (0, "STYLE"), (2, "US-KOR"), (70, 0), (40, 0.0), (41, 1.0), (50, 0.0), (71, 0), (42, 2.5), (3, self.font[0]), (4, self.font[1]))
+        if intl:
+            put((0, "STYLE"), (2, "US-INTL"), (70, 0), (40, 0.0), (41, 1.0), (50, 0.0), (71, 0), (42, 2.5), (3, constants.CAD_TTF_FONT), (4, ""))
+        put((0, "ENDTAB"), (0, "ENDSEC"), (0, "SECTION"), (2, "ENTITIES"))
         for shape in self.shapes:
             kind, layer = shape[0], shape[1]
             if kind == "POLYLINE":   # 2D 폴리선 — 고도는 머리 점의 Z(30)
@@ -110,10 +131,11 @@ class DxfWriter(object):
                 put((0, "SEQEND"), (8, layer))
             elif kind == "TEXT":
                 content, x, y, size, angle, left = shape[2:]
-                put((0, "TEXT"), (8, layer), (10, float(x)), (20, float(y)), (30, 0.0), (40, float(size)), (1, content.translate(CP949_FIX)))
+                style, encoded = texts[id(shape)]
+                put((0, "TEXT"), (8, layer), (10, float(x)), (20, float(y)), (30, 0.0), (40, float(size)), (1, encoded))
                 if angle:
                     put((50, float(angle)))
-                put((7, "US-KOR"))
+                put((7, style))
                 if not left:   # 가운데 중간 — 맞춤점(11)이 기준이다
                     put((72, 1), (11, float(x)), (21, float(y)), (31, 0.0), (73, 2))
             else:
@@ -172,12 +194,12 @@ def get_site_lines(target_lots):
     if not lots:
         return []
     first = lots[0]
-    where = first.address + ("" if len(lots) == 1 else " 외 %d필지" % (len(lots) - 1))
+    where = first.address + ("" if len(lots) == 1 else tr(" 외 {0}필지", len(lots) - 1))
     area = sum(float(lot.registered_area or lot.geometry_area or 0.0) for lot in lots)
     categories = sorted({lot.land_category for lot in lots if lot.land_category})
     zones = sorted({name for lot in lots for name in (lot.zone_name, lot.zone_name_2) if name and name != "지정되지않음"})   # 용도지역2 빈칸 값(익선동 166-5)
-    return ["대상지 — %s · 지목 %s · 대장면적 %s㎡ · 용도지역 %s (토지특성정보 %s)" % (
-        where, "·".join(categories) or "-", "{:,.1f}".format(area), "·".join(zones) or "-", first.reference_date or "-")]
+    return [tr("대상지 — {0} · 지목 {1} · 대장면적 {2}㎡ · 용도지역 {3} (토지특성정보 {4})",
+               where, "·".join(categories) or "-", "{:,.1f}".format(area), "·".join(zones) or "-", first.reference_date or "-")]
 
 
 def build_cad(prepared):
@@ -195,6 +217,7 @@ def build_cad(prepared):
     paper = scale / 1000.0 * unit_scale   # 종이 1 mm → 도면 단위
     shift = (0.0, 0.0) if prepared.placement == "world" else tuple(prepared.origin)
     bbox = non_rhino_utils.get_bbox(prepared.extent_ring)
+    abroad = non_rhino_utils.is_local_projection()
     writer = DxfWriter(constants.CAD_LAYERS, constants.CAD_LINETYPES, constants.CAD_FONT)
 
     def to_cad(coords):
@@ -311,7 +334,7 @@ def build_cad(prepared):
                 text(layer, lot.lot_number, *spot)
                 lot_boxes.append(get_text_box(layer, lot.lot_number, *spot))
     # 건물 — 외곽 + 지상층수. 건물이 필지를 거의 채우면 두 면적 중심이 겹친다 → 층수를 지번 아래로(익선동 166-5·137-6)
-    buildings, abroad = 0, non_rhino_utils.is_local_projection()
+    buildings = 0
     for bld in prepared.buildings:
         if basemap_ai.hits(bld, bbox):
             buildings += 1
@@ -350,14 +373,17 @@ def build_cad(prepared):
     writer.polyline("US-REF", [(nx, ny + mark * 2.0), (nx - mark * 0.6, ny - mark * 0.6), (nx, ny), (nx + mark * 0.6, ny - mark * 0.6)], closed=True)
     ref_size = constants.CAD_TEXT_MM["US-REF"] * paper
     writer.text("US-REF", "N", nx, ny + mark * 2.0 + ref_size, ref_size)
-    if prepared.placement == "world":
-        coord_line = "좌표 — EPSG:5186 실제 좌표(TM) · 단위 %s%s" % (unit, " (TM 좌표 × 1000)" if unit == "mm" else "")
+    if abroad:   # 해외 = 대상지 중심 지역 횡메르카토르(non_rhino_utils.set_projection) — EPSG 번호가 없다. 기준점의 경위도를 적는다
+        lng, lat = non_rhino_utils.get_wgs84_from_tm(*prepared.origin)
+        coord_line = tr("좌표 — 십자 기준점(0,0) = 위도 {0:.6f} 경도 {1:.6f} (지역 횡메르카토르, m) · 단위 {2}", lat, lng, unit)
+    elif prepared.placement == "world":
+        coord_line = tr("좌표 — EPSG:5186 실제 좌표(TM) · 단위 {0}", unit) + (tr(" (TM 좌표 × 1000)") if unit == "mm" else "")
     else:
-        coord_line = "좌표 — 십자 기준점(0,0) = EPSG:5186 E %.3f N %.3f m · 단위 %s" % (prepared.origin[0], prepared.origin[1], unit)
-    lines_text = ["%s 현황도 — %s · 글자 크기 1:%d 기준" % (constants.TOOL_NAME, prepared.lot_name.replace("_", " "), scale), coord_line]
+        coord_line = tr("좌표 — 십자 기준점(0,0) = EPSG:5186 E {0:.3f} N {1:.3f} m · 단위 {2}", prepared.origin[0], prepared.origin[1], unit)
+    lines_text = [tr("{0} 현황도 — {1} · 글자 크기 1:{2} 기준", constants.TOOL_NAME, prepared.lot_name.replace("_", " "), scale), coord_line]
     lines_text += get_site_lines(prepared.target_lots)
     lines_text += context_report.get_meta_lines(prepared)
-    lines_text += ["%s  %s" % (name, description) for name, description, *_ in constants.CAD_LAYERS if name in writer.counts or name == "US-REF"]
+    lines_text += ["%s  %s" % (name, tr(description)) for name, description, *_ in constants.CAD_LAYERS if name in writer.counts or name == "US-REF"]
     for n, line in enumerate(lines_text):
         writer.text("US-REF", line, left, bottom - ref_size * (2.0 + 1.8 * n), ref_size, left=True)
     ltscale = scale / 1000.0 * unit_scale

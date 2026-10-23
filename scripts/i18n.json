@@ -5800,5 +5800,161 @@
   "es": "Si borró el bloque o lo quiere en otro dibujo: lo inserta de nuevo en 0,0 del dibujo abierto",
   "ja": "ブロックを消したときや別の図面に入れたいとき — 開いている図面の0,0にもう一度入れます",
   "zh": "删除了图块或想放入其他图纸时 — 在当前图纸 0,0 重新插入"
+ },
+ "넣기": {
+  "en": "Insert",
+  "es": "Insertar",
+  "ja": "入れる",
+  "zh": "插入"
+ },
+ " (TM 좌표 × 1000)": {
+  "en": " (TM coordinates × 1000)",
+  "es": " (coordenadas TM × 1000)",
+  "ja": "（TM座標 × 1000）",
+  "zh": "（TM 坐标 × 1000）"
+ },
+ " 외 {0}필지": {
+  "en": " and {0} more parcels",
+  "es": " y {0} parcelas más",
+  "ja": " ほか{0}筆",
+  "zh": " 等 {0} 块地"
+ },
+ "{0} 현황도 — {1} · 글자 크기 1:{2} 기준": {
+  "en": "{0} existing conditions — {1} · text sized for 1:{2}",
+  "es": "{0} estado actual — {1} · texto a escala 1:{2}",
+  "ja": "{0} 現況図 — {1} · 文字サイズ 1:{2} 基準",
+  "zh": "{0} 现状图 — {1} · 文字按 1:{2}"
+ },
+ "건물 외곽": {
+  "en": "Building outlines",
+  "es": "Contornos de edificios",
+  "ja": "建物外形",
+  "zh": "建筑轮廓"
+ },
+ "건물 지상층수": {
+  "en": "Building floors above ground",
+  "es": "Plantas sobre rasante",
+  "ja": "建物の地上階数",
+  "zh": "建筑地上层数"
+ },
+ "기준점·방위·자료 출처": {
+  "en": "Reference point, north arrow, data sources",
+  "es": "Punto de referencia, norte, fuentes",
+  "ja": "基準点・方位・データ出典",
+  "zh": "基准点、指北、数据来源"
+ },
+ "대상지 — {0} · 지목 {1} · 대장면적 {2}㎡ · 용도지역 {3} (토지특성정보 {4})": {
+  "en": "Site — {0} · land category {1} · registered area {2} m2 · zoning {3} (land data {4})",
+  "es": "Parcela — {0} · categoría {1} · superficie registrada {2} m2 · zonificación {3} (datos del suelo {4})",
+  "ja": "対象地 — {0} · 地目 {1} · 台帳面積 {2}㎡ · 用途地域 {3}（土地特性情報 {4}）",
+  "zh": "场地 — {0} · 地类 {1} · 登记面积 {2}㎡ · 用途地域 {3}（土地特性信息 {4}）"
+ },
+ "대상지 경계": {
+  "en": "Site boundary",
+  "es": "Límite de la parcela",
+  "ja": "対象地境界",
+  "zh": "场地边界"
+ },
+ "도로면 경계 (수치지형도 — 현황)": {
+  "en": "Road edges (topographic map, as built)",
+  "es": "Bordes de calzada (mapa topográfico, estado actual)",
+  "ja": "道路面境界（数値地形図・現況）",
+  "zh": "道路面边界（数字地形图，现状）"
+ },
+ "도로명·현황 도로폭 (수치지형도 — 법정 폭은 지적·도시계획도로로 확인)": {
+  "en": "Road names and measured widths (topographic map — check legal widths with cadastral and planned roads)",
+  "es": "Nombres y anchos medidos de calles (mapa topográfico — compruebe los anchos legales)",
+  "ja": "道路名・現況道路幅（数値地形図 — 法定幅は地籍・都市計画道路で確認）",
+  "zh": "道路名称与现状宽度（数字地形图 — 法定宽度以地籍和规划道路为准）"
+ },
+ "도시계획시설 도로 (저촉 확인용)": {
+  "en": "Planned roads (urban planning facilities, for conflict checks)",
+  "es": "Calles planificadas (para comprobar afecciones)",
+  "ja": "都市計画施設道路（抵触確認用）",
+  "zh": "规划道路（用于冲突检查）"
+ },
+ "등고선 계곡선 (고도 = 표고)": {
+  "en": "Index contours (elevation = height)",
+  "es": "Curvas maestras (cota = altitud)",
+  "ja": "計曲線（高度 = 標高）",
+  "zh": "计曲线（高程 = 标高）"
+ },
+ "등고선 주곡선 (고도 = 표고)": {
+  "en": "Contours (elevation = height)",
+  "es": "Curvas de nivel (cota = altitud)",
+  "ja": "主曲線（高度 = 標高）",
+  "zh": "首曲线（高程 = 标高）"
+ },
+ "등고선 표고": {
+  "en": "Contour labels",
+  "es": "Cotas de curvas",
+  "ja": "等高線標高",
+  "zh": "等高线标注"
+ },
+ "생성 범위": {
+  "en": "Generated extent",
+  "es": "Extensión generada",
+  "ja": "生成範囲",
+  "zh": "生成范围"
+ },
+ "용도지역·구역 이름": {
+  "en": "Zoning and district names",
+  "es": "Nombres de zonas",
+  "ja": "用途地域・区域名",
+  "zh": "用途地域与区域名称"
+ },
+ "용도지역·지구단위계획구역 경계 (UPIS)": {
+  "en": "Zoning and district plan boundaries (UPIS)",
+  "es": "Límites de zonificación y planes de distrito (UPIS)",
+  "ja": "用途地域・地区単位計画区域境界（UPIS）",
+  "zh": "用途地域与地区规划边界（UPIS）"
+ },
+ "좌표 — EPSG:5186 실제 좌표(TM) · 단위 {0}": {
+  "en": "Coordinates — EPSG:5186 real-world (TM) · unit {0}",
+  "es": "Coordenadas — EPSG:5186 reales (TM) · unidad {0}",
+  "ja": "座標 — EPSG:5186 実座標（TM）· 単位 {0}",
+  "zh": "坐标 — EPSG:5186 实际坐标（TM）· 单位 {0}"
+ },
+ "좌표 — 십자 기준점(0,0) = EPSG:5186 E {0:.3f} N {1:.3f} m · 단위 {2}": {
+  "en": "Coordinates — cross mark (0,0) = EPSG:5186 E {0:.3f} N {1:.3f} m · unit {2}",
+  "es": "Coordenadas — cruz (0,0) = EPSG:5186 E {0:.3f} N {1:.3f} m · unidad {2}",
+  "ja": "座標 — 十字の基準点(0,0) = EPSG:5186 E {0:.3f} N {1:.3f} m · 単位 {2}",
+  "zh": "坐标 — 十字基准点(0,0) = EPSG:5186 E {0:.3f} N {1:.3f} m · 单位 {2}"
+ },
+ "좌표 — 십자 기준점(0,0) = 위도 {0:.6f} 경도 {1:.6f} (지역 횡메르카토르, m) · 단위 {2}": {
+  "en": "Coordinates — cross mark (0,0) = latitude {0:.6f} longitude {1:.6f} (local transverse Mercator, m) · unit {2}",
+  "es": "Coordenadas — cruz (0,0) = latitud {0:.6f} longitud {1:.6f} (Mercator transversa local, m) · unidad {2}",
+  "ja": "座標 — 十字の基準点(0,0) = 緯度 {0:.6f} 経度 {1:.6f}（地域横メルカトル、m）· 単位 {2}",
+  "zh": "坐标 — 十字基准点(0,0) = 纬度 {0:.6f} 经度 {1:.6f}（局部横轴墨卡托，m）· 单位 {2}"
+ },
+ "지명": {
+  "en": "Place names",
+  "es": "Topónimos",
+  "ja": "地名",
+  "zh": "地名"
+ },
+ "지번 (나머지 필지 — 처음엔 꺼짐)": {
+  "en": "Lot numbers (other parcels — off at first)",
+  "es": "Números de parcela (resto — apagado al inicio)",
+  "ja": "地番（その他の筆 — 最初は非表示）",
+  "zh": "地号（其他地块 — 默认关闭）"
+ },
+ "지번 (대상지와 인접 필지)": {
+  "en": "Lot numbers (site and neighbors)",
+  "es": "Números de parcela (parcela y colindantes)",
+  "ja": "地番（対象地と隣接筆）",
+  "zh": "地号（场地与相邻地块）"
+ },
+ "지적선 (연속지적도 — 법적 경계는 지적측량으로 확인)": {
+  "en": "Parcel lines (cadastral map — confirm legal boundaries by survey)",
+  "es": "Linderos (catastro — confirme los límites legales con levantamiento)",
+  "ja": "地籍線（連続地籍図 — 法的境界は地籍測量で確認）",
+  "zh": "地籍线（连续地籍图 — 法定边界以测量为准）"
+ },
+ "표고점": {
+  "en": "Spot heights",
+  "es": "Cotas puntuales",
+  "ja": "標高点",
+  "zh": "高程点"
  }
 }

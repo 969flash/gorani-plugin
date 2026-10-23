@@ -263,7 +263,7 @@ def get_area_state(msg, site_db=None):
         return _empty_area_state()
     try:
         request = context_builder.get_request_with_defaults({"target": {"mode": "area", "ring": points}, "site_db": site_db,
-                                                             "options": {"region": msg.get("region")}})   # Global이면 안의 필지를 세지 않는다
+                                                             "options": get_name_options(msg)})   # Global이면 안의 필지를 세지 않는다
         target = context_builder.resolve_target(request)
     except (ValueError, KeyError, FileNotFoundError, RuntimeError) as error:
         return _empty_area_state(str(error.args[0]) if error.args else str(error))
@@ -281,6 +281,13 @@ def get_area_state(msg, site_db=None):
     }
 
 
+def get_name_options(msg):
+    # type: (dict) -> dict
+    """구역·위치 이름(…일대·구역)을 만드는 요청 옵션 — 지역 모드 + 저장한 결과 언어. 결과 언어가 빠지면 기본(한국어)이라
+    영어 패널에 'N35.67 E139.76 일대'가 떴다(2026-10-23, 결과 폴더는 영어)."""
+    return {"region": msg.get("region"), "output_lang": loader.load("site_prefs").get_options().get("output_lang")}
+
+
 def get_point_state(msg, site_db=None):
     # type: (dict, str) -> dict
     """point_state 페이로드 — 위치 하나(지도 클릭·검색 결과)의 이름. center [lng, lat]가 없으면 빈 상태(지움)."""
@@ -292,7 +299,7 @@ def get_point_state(msg, site_db=None):
     non_rhino_utils.set_projection(lng, lat)   # 해외면 지역 원점, 국내면 EPSG:5186
     x, y = non_rhino_utils.get_tm_from_wgs84(lng, lat)
     request = context_builder.get_request_with_defaults({"target": {"mode": "point", "center": [x, y]}, "site_db": site_db,
-                                                         "options": {"region": msg.get("region")}})
+                                                         "options": get_name_options(msg)})
     target = context_builder.resolve_target(request)
     return {"type": "point_state", "ok": True, "center": [round(lng, 7), round(lat, 7)], "center_tm": [round(x, 2), round(y, 2)],
             "lot_name": target.name}

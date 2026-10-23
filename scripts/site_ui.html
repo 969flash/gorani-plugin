@@ -1421,7 +1421,7 @@ function docStatsHtml() {
 function docActsHtml() {
   var r = state.result, c = r.context || {}, imported = !!c.imported;
   var folder = '<button type="button" class="btn sm" data-act="open" data-path="' + esc(r.dir) + '" title="' + esc(r.dir) + '">' + ico("folder") + dirLabel() + "</button>";
-  if (HOST.cad) return '<button type="button" class="btn sm" data-act="import" title="' + tr("블록을 지웠거나 다른 도면에 넣을 때 — 지금 열린 도면 0,0에 다시 넣습니다") + '">' + ico("import") + tr("다시 넣기") + "</button>" + folder;   // DXF는 부산물 — 폴더에 남는다
+  if (HOST.cad) return '<button type="button" class="btn sm" data-act="import" title="' + tr("블록을 지웠거나 다른 도면에 넣을 때 — 지금 열린 도면 0,0에 다시 넣습니다") + '">' + ico("import") + (imported ? tr("다시 넣기") : tr("넣기")) + "</button>" + folder;   // DXF는 부산물 — 폴더에 남는다
   if (HOST.id === "web") return '<button type="button" class="btn" data-act="import">' + ico("eye") + tr("3D 보기") + '</button><button type="button" class="btn" data-act="open" data-path="' + esc(c.path) + '">' + ico("download") + tr("{0} 받기", esc(HOST.model)) + "</button>";
   if (!imported) return '<button type="button" class="btn sm primary" data-act="import" title="' + tr("결과 폴더의 {0}을 지금 열린 파일로 불러옵니다", esc(HOST.model)) + '">' + ico("import") + tr("{0}에 불러오기", esc(hostName())) + "</button>" + folder;
   return folder;

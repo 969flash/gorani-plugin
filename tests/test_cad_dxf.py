@@ -46,6 +46,13 @@ def _entities(pairs):
 
 
 class HelperTest(unittest.TestCase):
+    def test_text_style_by_script(self):
+        """한글·영문은 SHX(CP949 그대로, 기호만 바꿈), 그 밖의 글자가 든 줄은 TrueType + \\U+XXXX — whgtxt에 모양이 없어 '?'가 됐다."""
+        self.assertEqual(cad_dxf.get_text_style("익선동 166-5 · 2F"), ("US-KOR", "익선동 166-5 / 2F"))
+        self.assertEqual(cad_dxf.get_text_style("晴海通り"), ("US-INTL", "\\U+6674\\U+6D77\\U+901A\\U+308A"))
+        self.assertEqual(cad_dxf.get_text_style("Café"), ("US-INTL", "Caf\\U+00E9"))
+        self.assertEqual(cad_dxf.get_text_style("출처 千代田区"), ("US-INTL", "출처 \\U+5343\\U+4EE3\\U+7530\\U+533A"))
+
     def test_cad_pts_shift_and_unit(self):
         self.assertEqual(cad_dxf.get_cad_pts([(204710.0, 549002.5)], (204700.0, 549000.0), 1000.0), [(10000.0, 2500.0)])
         self.assertEqual(cad_dxf.get_cad_pts([(1.0, 2.0)], (0.0, 0.0), 1.0), [(1.0, 2.0)])
@@ -67,6 +74,8 @@ class HelperTest(unittest.TestCase):
 class FixtureTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls.lang = os.environ.get(constants.LANG_ENV)
+        os.environ[constants.LANG_ENV] = "ko"   # 도면 글자는 패널 언어(tr) — 아래 기대값은 한국어
         cls.prepared = context_builder.prepare(_request())
         cls.tmp = tempfile.TemporaryDirectory()
         cls.result = cad_dxf.write_dxf(cls.prepared, cls.tmp.name)
@@ -76,6 +85,10 @@ class FixtureTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.tmp.cleanup()
+        if cls.lang is None:
+            os.environ.pop(constants.LANG_ENV, None)
+        else:
+            os.environ[constants.LANG_ENV] = cls.lang
 
     def test_r12_structure(self):
         self.assertEqual(self.pairs[:4], [(0, "SECTION"), (2, "HEADER"), (9, "$ACADVER"), (1, "AC1009")])
