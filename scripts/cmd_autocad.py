@@ -75,7 +75,15 @@ class _AutoCADController(cmd_site._SiteController):
         raise ValueError(tr("AutoCAD판은 아직 도면의 선을 가져오지 못합니다 — 지도에 구역을 그리세요"))
 
     def _import_context(self, msg):
-        raise ValueError(tr("AutoCAD 명령줄에 GORANI를 입력하면 지금 도면에 들어갑니다"))   # 패널에 [불러오기]는 없다 — 넣기는 생성 끝(_insert)과 GORANI
+        """[다시 넣기] — 결과 폴더의 DXF를 지금 도면에 다시 넣는다(생성 끝의 _insert와 같은 길)."""
+        import glob
+        context_builder = loader.load("context_builder")
+        result_dir = str(msg.get("dir") or "")
+        paths = sorted(glob.glob(os.path.join(context_builder.get_2d_dir(result_dir), "cad_*.dxf")))
+        if not paths:
+            raise ValueError(tr("결과 폴더가 없습니다: {0}", result_dir))
+        result = self._insert({"dir": result_dir, "context": {"path": paths[-1]}})
+        self.push({"type": "imported", "ok": result["imported"], "dir": result_dir, "layers": 0, "objects": 0, "replaced": False, "text": result["import_text"]})
 
     def _zoom_view(self, msg):
         raise ValueError(tr("AutoCAD판은 도면을 움직이지 않습니다 — DXF를 열면 처음부터 대상지 전체가 보입니다"))

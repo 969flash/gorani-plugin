@@ -5675,12 +5675,6 @@
   "ja": "CAD図面を書き出し(DXF)",
   "zh": "写入 CAD 图纸(DXF)"
  },
- "DXF 열기": {
-  "en": "Open DXF",
-  "es": "Abrir DXF",
-  "ja": "DXFを開く",
-  "zh": "打开 DXF"
- },
  "건축 도면": {
   "en": "Architectural drawings",
   "es": "Planos de arquitectura",
@@ -5794,5 +5788,17 @@
   "es": "Escriba GORANI en la línea de comandos de AutoCAD para añadirlo al dibujo actual",
   "ja": "AutoCADのコマンドラインにGORANIと入力すると現在の図面に入ります",
   "zh": "在 AutoCAD 命令行输入 GORANI 即可放入当前图纸"
+ },
+ "다시 넣기": {
+  "en": "Insert again",
+  "es": "Insertar de nuevo",
+  "ja": "もう一度入れる",
+  "zh": "重新插入"
+ },
+ "블록을 지웠거나 다른 도면에 넣을 때 — 지금 열린 도면 0,0에 다시 넣습니다": {
+  "en": "If you deleted the block or want it in another drawing — inserts it again at 0,0 in the open drawing",
+  "es": "Si borró el bloque o lo quiere en otro dibujo: lo inserta de nuevo en 0,0 del dibujo abierto",
+  "ja": "ブロックを消したときや別の図面に入れたいとき — 開いている図面の0,0にもう一度入れます",
+  "zh": "删除了图块或想放入其他图纸时 — 在当前图纸 0,0 重新插入"
  }
 }

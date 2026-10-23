@@ -1421,7 +1421,7 @@ function docStatsHtml() {
 function docActsHtml() {
   var r = state.result, c = r.context || {}, imported = !!c.imported;
   var folder = '<button type="button" class="btn sm" data-act="open" data-path="' + esc(r.dir) + '" title="' + esc(r.dir) + '">' + ico("folder") + dirLabel() + "</button>";
-  if (HOST.cad) return '<button type="button" class="btn sm primary" data-act="open" data-path="' + esc(c.path) + '" title="' + esc(c.path) + '">' + ico("ext") + tr("DXF 열기") + "</button>" + folder;
+  if (HOST.cad) return '<button type="button" class="btn sm" data-act="import" title="' + tr("블록을 지웠거나 다른 도면에 넣을 때 — 지금 열린 도면 0,0에 다시 넣습니다") + '">' + ico("import") + tr("다시 넣기") + "</button>" + folder;   // DXF는 부산물 — 폴더에 남는다
   if (HOST.id === "web") return '<button type="button" class="btn" data-act="import">' + ico("eye") + tr("3D 보기") + '</button><button type="button" class="btn" data-act="open" data-path="' + esc(c.path) + '">' + ico("download") + tr("{0} 받기", esc(HOST.model)) + "</button>";
   if (!imported) return '<button type="button" class="btn sm primary" data-act="import" title="' + tr("결과 폴더의 {0}을 지금 열린 파일로 불러옵니다", esc(HOST.model)) + '">' + ico("import") + tr("{0}에 불러오기", esc(hostName())) + "</button>" + folder;
   return folder;
@@ -1449,7 +1449,7 @@ function applyImported(ok, text, layers, objects) {   // 다시 넣기·문서�
   var ds = $("doc_status"); if (ds) ds.innerHTML = docStatusHtml(ok, text, r.context.path);
   var da = $("doc_acts"); if (da) da.innerHTML = docActsHtml();
   var dg = $("doc_again"); if (dg) dg.innerHTML = docAgainHtml();
-  if (ok) toast(tr("{0}에 불러왔습니다 (객체 {1}개)", hostName(), fmtNum(objects)));
+  if (ok) toast(HOST.cad ? tr("AutoCAD 도면에 넣었습니다") : tr("{0}에 불러왔습니다 (객체 {1}개)", hostName(), fmtNum(objects)));
 }
 // ── 2D 카드 — "2D 자료도 만들까요?" → 진행 → 결과(.ai·다이어그램·CSV) ──
 function renderCard2d() {

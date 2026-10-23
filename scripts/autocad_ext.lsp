@@ -62,7 +62,7 @@
       (vl-file-delete file)
       (if (and path block (findfile path))
         (progn
-          (command "_.-INSERT" (strcat block "=" path) "0,0" "1" "1" "0")
+          (command "_.-INSERT" (if (tblsearch "BLOCK" block) block (strcat block "=" path)) "0,0" "1" "1" "0")   ; 다시 넣기 — 이미 있는 블록을 재정의하면 묻는 질문이 뒤 인자를 먹는다
           (command "_.ZOOM" "_O" (entlast) "")
           (princ (strcat "\nGorani: 지금 도면에 블록 " block "으로 넣었습니다. 분해(EXPLODE)하면 레이어별 선이 됩니다."))
           T)
