@@ -36,7 +36,9 @@ def _get_lnglat_bbox(bounds):
     # type: (tuple) -> tuple
     """TM bounds(min_x, min_y, max_x, max_y) → (south, west, north, east) 경위도."""
     corners = [non_rhino_utils.get_wgs84_from_tm(x, y) for x in (bounds[0], bounds[2]) for y in (bounds[1], bounds[3])]
-    return (min(c[1] for c in corners), min(c[0] for c in corners), max(c[1] for c in corners), max(c[0] for c in corners))
+    # ponytail: 날짜변경선을 넘는 범위는 180°에서 자른다(Overpass 400, 2026-10-23 감사 179.996°) — 건너편 반쪽은 비지만 생성은 된다
+    clamp = lambda lng: max(-180.0, min(180.0, lng))
+    return (min(c[1] for c in corners), clamp(min(c[0] for c in corners)), max(c[1] for c in corners), clamp(max(c[0] for c in corners)))
 
 
 def get_lnglat_bounds(bounds):
@@ -91,14 +93,18 @@ def get_overpass_elements(bounds, query=None, endpoints=None):
     if key in _CACHE:
         return _CACHE[key]
     errors, busy = [], False
-    for endpoint in endpoints or constants.OSM_OVERPASS_URLS:
+    for index, endpoint in enumerate(endpoints or constants.OSM_OVERPASS_URLS):
         try:
-            body = _fetch(endpoint, urllib.parse.urlencode({"data": query}).encode("utf-8"))
-            return _keep(key, json.loads(body.decode("utf-8"))["elements"])
+            body = _fetch(endpoint, urllib.parse.urlencode({"data": query}).encode("utf-8"),
+                          timeout=None if index == 0 else constants.OSM_MIRROR_TIMEOUT_SECONDS)
+            result = json.loads(body.decode("utf-8"))
+            if "runtime error" in (result.get("remark") or ""):   # 200인데 서버가 시간 초과·메모리로 중간에 멈춘 빈 결과 — 캐시하지 않고 다음 미러(2026-10-23 감사)
+                raise RuntimeError(result["remark"][:200])
+            return _keep(key, result["elements"])
         except Exception as error:   # 미러 하나가 막혀도 다음 것을 쓴다
             errors.append("%s: %s" % (endpoint, error))
             # 서버에 닿았는데 붐빔·한도(429·502~504)·응답 지연 — 인터넷 탓이 아니다(2026-10-23: 429인데 '인터넷 연결을 확인하세요'가 떴다)
-            busy = busy or (isinstance(error, urllib.error.HTTPError) and error.code in (429, 502, 503, 504)) or "timed out" in str(error)
+            busy = busy or (isinstance(error, urllib.error.HTTPError) and error.code in (429, 502, 503, 504)) or "timed out" in str(error) or "runtime error" in str(error)
     title = (tr("OSM(Overpass) 서버가 붐빕니다. 1~2분 뒤 다시 시도하세요") if busy
              else tr("OSM(Overpass) 데이터를 받지 못했습니다. 인터넷 연결을 확인하세요"))
     raise RuntimeError(title + "\n" + "\n".join(errors))

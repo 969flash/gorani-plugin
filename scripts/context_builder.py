@@ -815,7 +815,7 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
     _report(progress, "query", 0.3, tr("OpenStreetMap·지형 타일 받는 중"))
     try:
         context = osm_context.load(bounds, today.isoformat())
-    except RuntimeError as exc:
+    except (RuntimeError, OSError) as exc:   # 지형 타일 URLError·시간 초과는 OSError — '예상 밖 오류'로 새지 않게(2026-10-23 감사)
         raise DomainError("osm_failed", str(exc))
     # OSM에는 국내 '무벽·가건물' 구분이 없다 — include_minor_buildings와 무관하게 전부 넣는다
     skipped = get_skipped_phases(options)

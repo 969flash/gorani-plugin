@@ -542,7 +542,8 @@ class _SiteController:
             self.push({"type": "error", "context": context, "text": text, "detail": ""})
         except Exception:
             self.push({"type": "error", "context": context, "text": tr("예상 밖 오류"), "detail": traceback.format_exc()})
-            self._send_stats("error", {"context": context, "error": type(sys.exc_info()[1]).__name__})
+            self._send_stats("app_error", {   # GA4 예약어 'error'는 버려진다(2026-10-23 debug 엔드포인트 NAME_RESERVED)
+                "context": context, "error": type(sys.exc_info()[1]).__name__})
 
     # ── 호스트 연결 (Rhino) — cmd_blender가 같은 이름으로 바꿔 단다 ──
 

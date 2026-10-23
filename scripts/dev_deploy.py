@@ -554,7 +554,7 @@ SKETCHUP_PLATFORMS = {   # 폴더: (python-build-standalone 대상, pip 플랫�
     "mac-x64": ("x86_64-apple-darwin", ("macosx_11_0_x86_64", "macosx_10_13_x86_64", "macosx_10_9_x86_64")),
     "win-x64": ("x86_64-pc-windows-msvc", ("win_amd64",)),
 }
-SKETCHUP_PIP_PACKAGES = ("numpy", "shapely>=2.1")   # shapely 2.1+ = constrained_delaunay_triangles(mesh_geometry 겹치기 CDT)
+SKETCHUP_PIP_PACKAGES = ("numpy", "shapely>=2.1", "certifi")   # certifi = 맥 번들 파이썬은 /etc/ssl/cert.pem(낡음, HARICA 없음)을 써서 일부 HTTPS가 검증 실패(2026-10-23 감사)   # shapely 2.1+ = constrained_delaunay_triangles(mesh_geometry 겹치기 CDT)
 SKETCHUP_PLAIN_NAMES = ("loader.py", "cmd_site.py", "cmd_sketchup.py")
 SKETCHUP_EXCLUDED_NAMES = ("panel_host", "cmd_install", "blender_baker")   # Rhino·Blender 전용
 # 런타임에서 뺄 것(번들 크기) — 런타임 루트 기준 fnmatch(대소문자 구분, * 는 / 도 넘는다). 표준 라이브러리 lib/python3.12(맥)·Lib(윈도)는 {lib}로 쓴다

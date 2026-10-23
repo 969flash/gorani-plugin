@@ -244,7 +244,7 @@ def get_app_stats(run, period, metadata, labels, exclude_dev=False):
         "daily": {"users": _get_daily(daily, dates, "activeUsers"), "new_users": _get_daily(daily, dates, "newUsers"),
                   "opens": _get_daily(daily_events, dates, "eventCount", "eventName", "panel_open"),
                   "builds": _get_daily(daily_events, dates, "eventCount", "eventName", "build"),
-                  "errors": _get_daily(daily_events, dates, "eventCount", "eventName", "error"),
+                  "errors": _get_daily(daily_events, dates, "eventCount", "eventName", "app_error"),   # 0.3.6 전 'error'는 GA4 예약어라 버려졌다
                   "build_failed": _get_daily(daily_result, dates, "eventCount", "customEvent:result", "failed") if daily_result else None},
         "dims": dims, "points": points, "average": average,
         "os": _get_ranked(oses, "operatingSystem", "activeUsers"), "language": _get_ranked(languages, "language", "activeUsers"),
@@ -397,7 +397,7 @@ def get_demo_ga(period, labels, exclude_dev=False):
             "events": {"panel_open": {"count": pair(sum(users) * 2, 1.15), "users": pair(int(sum(users) * .45), 1.12)},
                        "build": {"count": pair(sum(builds), 1.2), "users": pair(int(sum(users) * .3), 1.18)},
                        "pack_download": {"count": pair(int(sum(builds) * .6), 1.1), "users": pair(int(sum(users) * .2), 1.1)},
-                       "error": {"count": pair(int(sum(builds) * .05), .8), "users": pair(int(sum(users) * .04), .9)}},
+                       "app_error": {"count": pair(int(sum(builds) * .05), .8), "users": pair(int(sum(users) * .04), .9)}},
             "daily": {"users": users, "new_users": [int(u * .3) for u in users], "opens": [u * 2 for u in users], "builds": builds,
                       "errors": [int(b * .05 + rand.random()) for b in builds], "build_failed": [int(b * .07) for b in builds]},
             "dims": {"panel_open.version": [["0.3.2", 40 * scale], ["0.3.1", 22 * scale], ["0.2.2", 9 * scale], ["0.1.0", 4 * scale]],
@@ -718,7 +718,7 @@ def get_insights(stats):
             rate = results["ok"] / float(results["ok"] + results["failed"])
             out.append({"level": "good" if rate >= .95 else "warning" if rate >= .85 else "serious", "area": "품질", "page": "rhino",
                         "text": "3D 생성 성공률 %.1f%% (실패 %d건)" % (rate * 100, results["failed"])})
-        errors = [sum(a["events"].get("error", {}).get("count", [0, 0])[i] for a in apps) for i in (0, 1)]
+        errors = [sum(a["events"].get("app_error", {}).get("count", [0, 0])[i] for a in apps) for i in (0, 1)]
         if errors[0] >= 5 and errors[0] > errors[1] * 1.5:
             out.append({"level": "serious", "area": "품질", "page": "rhino",
                         "text": "오류 %d건 — 지난 기간(%d건)보다 크게 늘었습니다" % tuple(errors)})

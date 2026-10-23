@@ -237,8 +237,12 @@ TERRAIN_THEME = "terrain"
 OSM_USER_AGENT = "Gorani/0.3 (Rhino/Blender/SketchUp plugin; https://969flash.github.io/gorani/)"   # Overpass·Nominatim·타일 중계(review_map) — OSM 정책: 앱을 밝힌다
 OSM_CACHE_MAX = 8                # osm_context 응답 캐시 항목 상한(넘으면 비운다) — Blender판은 모듈을 다시 읽지 않아 세션 내내 쌓인다. 같은 대상지 다시 만들기(Overpass 1~2 + 지형 타일 수 장)만 덮으면 된다(도심 Overpass 응답은 수십 MB)
 OSM_TIMEOUT_SECONDS = 60         # 미러 하나당. 공개 Overpass는 자주 붐빈다(2026-10-13 파리 900 m: 독일 504, kumi·coffee 120 s 초과, mail.ru 22 s)
-OSM_OVERPASS_URLS = ("https://overpass-api.de/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-                     "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter")
+# 2026-10-23 감사: overpass-api.de 429·차단일 때 kumi·coffee는 서울에서 60 s 시간 초과, mail.ru는 HARICA 인증서라 Windows·번들 파이썬에서 검증 실패.
+# openstreetmap.fr은 200·1.3 s(자료 기준일 2026-07-21 — 3개월 묵음, 대체로만)
+OSM_OVERPASS_URLS = ("https://overpass-api.de/api/interpreter", "https://overpass.openstreetmap.fr/api/interpreter",
+                     "https://maps.mail.ru/osm/tools/overpass/api/interpreter", "https://overpass.kumi.systems/api/interpreter",
+                     "https://overpass.private.coffee/api/interpreter")
+OSM_MIRROR_TIMEOUT_SECONDS = 30   # 두 번째 미러부터 — 다 죽은 날 생성이 수 분 멈추지 않게(첫 서버는 OSM_TIMEOUT_SECONDS)
 OSM_OVERPASS_QUERY = """[out:json][timeout:55][bbox:{bbox}];
 (
   way["building"]; relation["building"]["type"="multipolygon"];
@@ -873,6 +877,7 @@ SHEET_THUMB_PX = 160             # 패널 도면 칸 썸네일(정사각 지도 
 AERIAL_DPI = 150                 # 인쇄 해상도 목표 — A3 1:5000이면 줌 18(위도 37°에서 0.47 m/px, 타일 ≈150장·SVG ≈4 MB). 원천 정사영상은 25~51 cm
 AERIAL_PREVIEW_DPI = 60          # 패널 '도면 스타일' 미리보기 — 인쇄 해상도 SVG(수 MB)를 웹뷰로 밀지 않는다
 AERIAL_MAX_ZOOM = 19             # VWorld 영상·Esri 공통 최대 줌
+AERIAL_ZOOM_DROPS = 2            # 그 줌에 영상이 없으면(Esri 404) 낮춰 보는 단계 수 — 1:1000 시트 z19 → z17까지
 AERIAL_MAX_TILES = 400           # 한 장 상한 — 넘으면 줌을 한 단계씩 낮춘다(A1 1:5000 줌 18 ≈ 530장 → 17)
 AERIAL_TIMEOUT_SECONDS = 10      # 타일 한 장
 AERIAL_WORKERS = 8               # 동시에 받는 타일 수

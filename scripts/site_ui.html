@@ -1156,6 +1156,7 @@ function initMap(init) {
     if (tiles._url === before) { tileDead = true; $("chip_offline").hidden = false; }   // 폴백도 같은 주소(이미 폴백) — 더 전환하지 않는다
   });
   tiles.on("load", function () { tileErrors = 0; });
+  tiles.on("tileload", function () { if (tileDead) { tileDead = false; tileErrors = 0; $("chip_offline").hidden = true; } });   // 한 번 막혀도 다시 받히면 칩을 내린다(레이캬비크 z19 지연, 2026-10-23)
   map.on("moveend zoomend", function () {
     updateTileSource(); updateGuide();
     if (state.screen === "map") { checkRegionChange(); debounce("move", 250, requestLots); debounce("packs", 600, requestAreaPacks); }
