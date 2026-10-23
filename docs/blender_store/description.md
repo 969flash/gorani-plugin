@@ -22,7 +22,7 @@ Everything is saved in `~/Gorani/result/<site>_<date>/`.
 
 ## Data
 
-- **Netherlands and France**: official building footprints with measured heights (Kadaster 3D Basisvoorziening, CC BY 4.0; IGN BD TOPO, Licence Ouverte 2.0), downloaded per area when you generate.
+- **Netherlands, France and Switzerland**: official building footprints with measured heights (Kadaster 3D Basisvoorziening, CC BY 4.0; IGN BD TOPO, Licence Ouverte 2.0; swisstopo swissBUILDINGS3D, ©swisstopo), downloaded per area when you generate.
 - **Anywhere**: buildings, roads, water and parks from OpenStreetMap (© OpenStreetMap contributors, ODbL) and terrain from public elevation tiles. They are downloaded when you generate.
 - **Japan**: buildings from PLATEAU, the 3D city models of Japan's Ministry of Land, Infrastructure, Transport and Tourism (MLIT), with measured heights and floor counts for 306 municipalities, filled in with OpenStreetMap. Terrain comes from the 5 m elevation tiles of the Geospatial Information Authority of Japan (GSI). Each municipality is downloaded once.
 - **South Korea**: parcels, zoning, buildings and 1:5,000 contours from Korean public data. Each district is downloaded once (tens of MB) to `~/Gorani/data/`. Buildings and contours come from our server in Korea, which counts a daily download limit per install with a random install ID.

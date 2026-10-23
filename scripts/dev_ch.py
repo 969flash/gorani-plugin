@@ -88,10 +88,13 @@ def _ogr(args):
 def read_tile(gdb_path):
     # type: (str) -> dict
     """FileGDB 하나 → {UUID: {kind, use, egid, ground, roof_max, total_height, triangles[[(x, y)]]}} (LV95 m)."""
+    layers = _ogr(["ogrinfo", "-so", "-q", gdb_path])
+    if "Layer: Floor " not in layers:   # Roof·Roof_solid만 있는 타일(1156-24 2022) — 바닥이 없으면 건물도 없다
+        return {}
     work = tempfile.mkdtemp(prefix="swiss_")
     try:
         floor_path = os.path.join(work, "floor.json")
-        _ogr(["ogr2ogr", "-f", "GeoJSON", "-nlt", "MULTIPOLYGON25D", floor_path, gdb_path, "Floor"])
+        _ogr(["ogr2ogr", "-f", "GeoJSON", "-nlt", "MULTIPOLYGON25D", "-skipfailures", floor_path, gdb_path, "Floor"])
         with open(floor_path, encoding="utf-8") as f:
             floor = json.load(f)
         attrs = _ogr(["ogrinfo", "-al", "-geom=NO", "-q", gdb_path, "Building_solid"])
