@@ -114,6 +114,7 @@
 | `dev_nl.py` | (2026-10-22) | 개발 | 네덜란드 건물 팩 — PDOK 3D Basisvoorziening 도엽 zip(GeoPackage) → pyogrio·pyproj로 바닥 윤곽·높이 → `nl<도엽>_context.db.xz` + `nl/manifest.json` → HF `nl/`(올리기는 사용자 확인 뒤) | — |
 | `dev_fr.py` | (2026-10-22) | 개발 | 프랑스 건물 팩 — Géoplateforme Atom 피드 카탈로그 → 데파르트망 7z(py7zr) → GeoPackage `batiment`(pyogrio·pyproj) → `fr<데파르트망>_context.db.xz` + `fr/manifest.json` → HF `fr/`(사용자 확인 뒤) | — |
 | `dev_ch.py` | (2026-10-23) | 개발 | 스위스 건물 팩 — STAC 타일 FileGDB를 GDAL `ogr2ogr`(Floor)·`ogrinfo`(Building_solid)로 읽어 바닥·높이 → `ch<도엽>_context.db.xz` + `ch/manifest.json` → HF `ch/`(사용자 확인 뒤) | — |
+| `remote_config.py` | (2026-10-23) | Rhino·Blender·SketchUp | 원격 설정 — `REMOTE_KEYS` 상수(도면 색·범례·구간·코드표·파라미터·링크)와 번역 사전을 HF `config.json`에서 받아(ETag 캐시 `data/config.json`) `constants`·`i18n`에 덮는다(`apply` — 꼴 검증·dict 내장 키 보존·`COMPAT_MIN`). `build`는 dev_deploy가 올릴 파일을 만든다 | 표준 라이브러리, `constants`·`data_pack`·`i18n` |
 | `dev_us.py` | (2026-10-23) | 개발 | 미국 건물 팩 — Overture Maps buildings(ODbL) S3 GeoParquet를 DuckDB httpfs로 주 상자만 받아 두고(`fetch`), Census 카운티 경계(300 m 넓힘)에 중심점이 든 건물을 카운티 팩으로(`build`) → `us<FIPS5>_context.db.xz` + `us/manifest.json` → HF `us/`(사용자 확인 뒤). 높이 = Overture height(Microsoft ML 추정, B) → 층수(C) → 기본값(D) | duckdb·pyogrio·shapely |
 | `dev_rhino_run.py` | 보유+ | 개발 | 128–130행: `data/*.db` 전부 심링크 | constants |
 | `dev_database_builder.py`·`dev_probe_*.py` | 보유 | 개발 | 필지 DB·08 실측 재현 | — |

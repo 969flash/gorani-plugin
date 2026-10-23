@@ -10,7 +10,8 @@
     python3 scripts/dev_deploy.py repack     # 시도 팩 압축본을 풀어 (줄이고) 시군구 팩으로 나눠 다시 압축
     python3 scripts/dev_deploy.py rebounds   # 매니페스트의 팩 범위만 다시 잰다(시군구 필지 중심점 핵심 범위 — constants.PACK_BOUNDS_*)
     python3 scripts/dev_deploy.py upload     # 필지 팩 + 매니페스트는 Hugging Face(hf auth login 먼저), 컨텍스트·등고선 팩은 국내 버킷(~/.oci/config 먼저)
-    python3 scripts/dev_deploy.py notices    # docs/notices.json(업데이트·공지)·docs/countries.json(나라별 건물 팩 목록)만 Hugging Face 매니페스트에 넣어 올린다 — 팩은 그대로. 새 나라는 이것으로 끝(플러그인 판 없음)
+    python3 scripts/dev_deploy.py notices    # docs/notices.json(업데이트·공지)·docs/countries.json(나라별 건물 팩 목록·services)을 Hugging Face 매니페스트에 넣고, config.json(원격 설정 — remote_config.build: 도면 색·범례·구간·코드표·파라미터·번역)을 같이 올린다 — 팩은 그대로. 새 나라·도면 색·번역 수정은 이것으로 끝(플러그인 판 없음)
+    python3 scripts/dev_deploy.py config     # build/config.json만 만들어 본다(올리지 않음)
 
 yak: 진입 명령 Gorani 하나짜리 .rhp를 rhinocode로 빌드하고(떠 있는 Rhino 8 필요), 그 옆에 scripts/(평문 진입 스크립트 +
      로직 .pyc + 패널 HTML·vendor)를 두고 yak CLI로 묶는다. rhinocode의 Shared 리소스는 폴더 구조를 펴 버려서 쓰지 않는다
@@ -50,6 +51,7 @@ ROOT_DIR = os.path.dirname(SCRIPTS_DIR)
 sys.path.insert(0, SCRIPTS_DIR)
 import constants  # noqa: E402
 import data_pack  # noqa: E402 — countries.json 검증은 런타임과 같은 함수로
+import remote_config  # noqa: E402 — config.json(원격 설정)은 런타임과 같은 함수로 만들고 자가 점검한다
 
 BUILD_DIR = os.path.join(ROOT_DIR, "build")
 NOTICES_PATH = os.path.join(ROOT_DIR, "docs", "notices.json")   # 매니페스트 update·notices 원본 — 칸은 docs/panel_ui.md '업데이트·공지'
@@ -1142,6 +1144,7 @@ def upload():
         json.dump(dict(_read_notices(), version=manifest["version"], packs=public), f, ensure_ascii=False, indent=1)
     with open(os.path.join(stage, "README.md"), "w", encoding="utf-8") as f:
         f.write(DATASET_CARD)
+    build_config(os.path.join(stage, remote_config.CONFIG_FILE_NAME))   # 원격 설정도 같이(매니페스트 옆)
     api = HfApi()
     api.create_repo(constants.DATA_REPO_ID, repo_type="dataset", private=False, exist_ok=True)
     api.upload_large_folder(repo_id=constants.DATA_REPO_ID, repo_type="dataset", folder_path=pack_dir,
@@ -1167,6 +1170,24 @@ def _read_notices():
     return {"update": data.get("update"), "notices": data.get("notices") or [], "countries": countries, "services": services}
 
 
+def build_config(path=None):
+    # type: (str) -> str
+    """constants(remote_config.REMOTE_KEYS) + i18n.json → build/config.json. 올리기 전 자가 점검 — 만든 것을 내장값 사본에 apply해 전부 받아들여지고 값이 같아야 한다."""
+    config = json.loads(json.dumps(remote_config.build(), ensure_ascii=False))   # JSON 왕복(tuple → list, int 키 → 문자열)을 런타임이 되돌리는지까지
+    snapshot = remote_config.get_snapshot()
+    report = remote_config.apply(config, target=snapshot, texts={}, version=remote_config.COMPAT_MIN)
+    bad = report["rejected"] or [name for name in remote_config.REMOTE_KEYS if getattr(snapshot, name) != getattr(constants, name)]
+    if bad or len(report["applied"]) != len(remote_config.REMOTE_KEYS):
+        raise ValueError("config.json 자가 점검 실패: %s" % bad)
+    path = path or os.path.join(BUILD_DIR, remote_config.CONFIG_FILE_NAME)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False)
+    print("  config.json: 상수 %d개 · 번역 %d개 · %.0f KB · compat_min %s" % (len(config["constants"]), len(config["i18n"]), os.path.getsize(path) / 1024.0,
+                                                                      config["compat_min"]), flush=True)
+    return path
+
+
 def upload_notices():
     # type: () -> str
     """Hugging Face의 지금 매니페스트를 받아 update·notices(docs/notices.json)·countries(docs/countries.json)만 바꿔 다시 올린다(팩·팩 목록은 그대로)."""
@@ -1180,8 +1201,11 @@ def upload_notices():
     path = os.path.join(stage, "manifest.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=1)
-    HfApi().upload_file(path_or_fileobj=path, path_in_repo="manifest.json", repo_id=constants.DATA_REPO_ID, repo_type="dataset",
-                        commit_message="manifest: 업데이트·공지·나라 목록")
+    api = HfApi()
+    api.upload_file(path_or_fileobj=path, path_in_repo="manifest.json", repo_id=constants.DATA_REPO_ID, repo_type="dataset",
+                    commit_message="manifest: 업데이트·공지·나라 목록")
+    api.upload_file(path_or_fileobj=build_config(), path_in_repo=remote_config.CONFIG_FILE_NAME, repo_id=constants.DATA_REPO_ID, repo_type="dataset",
+                    commit_message="config.json: 원격 설정(도면·코드표·파라미터·번역)")
     print("  올림: update %s, 공지 %d개, 나라별 건물 팩 %d나라(%s)" % ("있음" if manifest["update"] else "없음", len(manifest["notices"]),
           len(manifest["countries"]), "·".join(c["code"] for c in manifest["countries"])), flush=True)
     return constants.DATA_MANIFEST_URL
@@ -1222,7 +1246,7 @@ def rebounds():
 
 def main():
     parser = argparse.ArgumentParser(description="Yak 패키지·Blender·SketchUp 확장·웹판·데이터 팩 빌드")
-    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "blender", "sketchup", "web", "packs", "repack", "upload", "notices", "rebounds"))
+    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "blender", "sketchup", "web", "packs", "repack", "upload", "notices", "config", "rebounds"))
     parser.add_argument("--sido", help="packs: 쉼표로 구분한 시도 코드만 (기본 data/에 있는 전부)")
     parser.add_argument("--drop", action="store_true", help="packs: 압축 뒤 원본 시도 DB를 지운다(서울 제외)")
     args = parser.parse_args()
@@ -1243,6 +1267,9 @@ def main():
         return
     if args.what == "upload":
         print("manifest: %s" % upload())
+        return
+    if args.what == "config":
+        print("만듦 →", build_config())
         return
     if args.what == "notices":
         print("notices: %s" % upload_notices())
