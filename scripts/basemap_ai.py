@@ -26,7 +26,7 @@ MIN_SEGMENT_MM = 0.05   # 종이에서 이보다 가까운 연속 정점은 버�
 
 # ── 순수 기하 헬퍼 ───────────────────────────────────────────
 
-def _get_parts(geometry):
+def get_parts(geometry):
     # type: (dict) -> list
     """Polygon·MultiPolygon → ``[[outer, hole, ...], ...]`` 세계좌표(닫힘 중복점 제거). 다른 타입은 빈 목록."""
     if not geometry or geometry.get("type") not in ("Polygon", "MultiPolygon"):
@@ -45,7 +45,7 @@ def _get_parts(geometry):
     return parts
 
 
-def _hits(obj, bbox):
+def hits(obj, bbox):
     # type: (object, tuple) -> bool
     """min_x/max_x/min_y/max_y를 가진 DB 객체가 bbox와 겹치는가."""
     return obj.min_x <= bbox[2] and obj.max_x >= bbox[0] and obj.min_y <= bbox[3] and obj.max_y >= bbox[1]
@@ -437,11 +437,11 @@ def build_ai(prepared, scale, writer=None):
         width = get_line_width_mm(edge_layer, scale) if edge_layer else 0.0
         if fill_layer and edge_layer and fill_layer != edge_layer:
             # 칠과 외곽이 다른 레이어(도로면 03 + 도로경계 04, 토지이용 02b + 지적선 08) — 따로 쓴다
-            for rings in get_parts_in_frame(_get_parts(geometry), bbox):
+            for rings in get_parts_in_frame(get_parts(geometry), bbox):
                 writer.polygon(fill_layer, rings, fill_k, None, 0.0)
                 writer.polygon(edge_layer, rings, None, line_k, width)
             return
-        for rings in get_parts_in_frame(_get_parts(geometry), bbox):
+        for rings in get_parts_in_frame(get_parts(geometry), bbox):
             writer.polygon(layer, rings, fill_k, line_k, width)
 
     def lines(layer, geometry, line_k=None):
@@ -467,7 +467,7 @@ def build_ai(prepared, scale, writer=None):
     writer.polygon("00_frame_scale", [frame], frame_fill, frame_line, get_line_width_mm("00_frame_scale", scale))
     # 수치지형도 피처
     for f in prepared.features:
-        if not _hits(f, bbox):
+        if not hits(f, bbox):
             continue
         if f.theme == "water" and f.kind in constants.WATER_SURFACE_KINDS:
             polygon("01_water", None, f.geometry)
@@ -490,7 +490,7 @@ def build_ai(prepared, scale, writer=None):
     # 합필 — 대상 필지의 지적선·지번은 꺼 둔 10b(합필 전 필지)로. 합친 덩어리(site_rings)가 곧 필지다
     merged = {lot.pnu for lot in prepared.target_lots} if getattr(prepared, "mode", "lots") == "lots" and len(prepared.target_lots) > 1 else set()
     for lot in list(prepared.target_lots) + list(prepared.near_lots):
-        if not _hits(lot, bbox):
+        if not hits(lot, bbox):
             continue
         if lot.land_category in constants.LAND_CATEGORIES_WATER:
             polygon("01_water", None, lot.geometry)
@@ -499,7 +499,7 @@ def build_ai(prepared, scale, writer=None):
         elif lot.land_category == constants.LAND_CATEGORY_ROAD:
             polygon("03_road_surface", None, lot.geometry)
         polygon("02b_landuse", "10b_site_lots" if lot.pnu in merged else "08_parcel", lot.geometry)
-        parts = _get_parts(lot.geometry)
+        parts = get_parts(lot.geometry)
         if not parts:
             continue
         outer = max((part[0] for part in parts), key=non_rhino_utils.get_ring_area)
@@ -515,7 +515,7 @@ def build_ai(prepared, scale, writer=None):
     polygon(None, "10_site", {"type": "Polygon", "coordinates": [prepared.extent_ring]})
     # 건물 — 층수 구간마다 칠 + 외곽
     for bld in prepared.buildings:
-        if _hits(bld, bbox):
+        if hits(bld, bbox):
             band = get_building_band(bld.grnd_flr)
             polygon(band, band, bld.geometry)
     # 오버레이 — 공원·녹지 시설 → 02, 용도지역·지구단위 → 11
@@ -528,7 +528,7 @@ def build_ai(prepared, scale, writer=None):
     seen = set()
     for f in prepared.features:
         name = (f.name or "").strip()
-        if not name or name in seen or not _hits(f, bbox):
+        if not name or name in seen or not hits(f, bbox):
             continue
         if f.theme == "label" and f.kind == "place" and f.geometry.get("type") == "Point":
             x, y = float(f.geometry["coordinates"][0]), float(f.geometry["coordinates"][1])

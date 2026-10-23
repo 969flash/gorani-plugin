@@ -131,7 +131,7 @@ UI_FILE_NAMES = ("site_ui.html", "i18n.json")   # i18n.json = 다국어 사전(�
 UI_DIR_NAMES = ("vendor",)
 DOC_FILE_NAMES = ("docs/install.md",)
 EXCLUDED_MODULE_PREFIXES = ("dev_", "cmd_", "probe_", "server_", "blender_", "sketchup_", "web_")     # 개발·실측 전용, 진입 스크립트, 국내 서버(VM) 전용, Blender·SketchUp·웹판
-YAK_EXCLUDED_NAMES = ("mesh_geometry", "panel_server")      # Blender·SketchUp 공용(mathutils·shapely, 브라우저 패널) — Rhino는 안 쓴다
+YAK_EXCLUDED_NAMES = ("mesh_geometry", "panel_server", "cad_dxf")      # Blender·SketchUp 공용(mathutils·shapely, 브라우저 패널)·AutoCAD판 DXF — Rhino는 안 쓴다
 
 # Gorani 명령 본문 — rhinocode가 .rhp에 넣는다.
 COMMAND_SOURCE = '''#! python 3
@@ -148,7 +148,7 @@ runpy.run_path(os.path.join(folder, "scripts", "cmd_site.py"), run_name="__main_
 
 BLENDER_APP = "/Applications/Blender.app/Contents/MacOS/Blender"
 BLENDER_PACKAGE_ID = "gorani"
-BLENDER_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py", "cmd_sketchup.py", "cmd_web.py")    # Rhino 전용(Eto·RhinoCommon), SketchUp 사이드카, 웹판
+BLENDER_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py", "cmd_sketchup.py", "cmd_autocad.py", "cad_dxf.py", "cmd_web.py")    # Rhino 전용(Eto·RhinoCommon), SketchUp·AutoCAD 사이드카, 웹판
 # 확장 약관 1.2 — 함께 넣는 글꼴·이미지는 CC0만. Pretendard(OFL)는 빼고 패널은 시스템 글꼴(Apple SD Gothic Neo·맑은 고딕)로 그린다
 BLENDER_EXCLUDED_ASSETS = ("PretendardVariable.woff2", "LICENSE-pretendard.txt")
 BLENDER_LICENSE_PATH = os.path.join(ROOT_DIR, "docs", "licenses", "GPL-3.0.txt")   # 확장 약관 1.1 — 애드온은 GPL-3.0-or-later
@@ -477,7 +477,7 @@ SKETCHUP_PLATFORMS = {   # 폴더: (python-build-standalone 대상, pip 플랫�
 }
 SKETCHUP_PIP_PACKAGES = ("numpy", "shapely>=2.1")   # shapely 2.1+ = constrained_delaunay_triangles(mesh_geometry 겹치기 CDT)
 SKETCHUP_PLAIN_NAMES = ("loader.py", "cmd_site.py", "cmd_sketchup.py")
-SKETCHUP_EXCLUDED_NAMES = ("panel_host", "cmd_install", "blender_baker")   # Rhino·Blender 전용
+SKETCHUP_EXCLUDED_NAMES = ("panel_host", "cmd_install", "blender_baker", "cad_dxf")   # Rhino·Blender·AutoCAD 전용
 # 런타임에서 뺄 것(번들 크기) — 런타임 루트 기준 glob. 표준 라이브러리 lib/python3.12(맥)·Lib(윈도)는 {lib}로 쓴다
 # 맥 실행 파일 python3.12는 정적 링크라 libpython dylib가 필요 없고, bin/python·python3 링크는 zip에서 18 MB 사본이 된다(2026-10-18 실측)
 SKETCHUP_PYTHON_DROP = ("bin/2to3*", "bin/idle3*", "bin/pip*", "bin/pydoc3*", "bin/python3*-config", "bin/python", "bin/python3", "lib/libpython3*.dylib",
@@ -527,6 +527,17 @@ def _get_site_packages(runtime_dir):
     return os.path.join(runtime_dir, "Lib" if win else os.path.join("lib", "python" + SKETCHUP_PYTHON_VERSION), "site-packages")
 
 
+def _is_exact_case(path, root):
+    # type: (str, str) -> bool
+    """root 아래 path의 경로 조각이 대소문자까지 실제 이름과 같은가."""
+    folder = root
+    for part in os.path.relpath(path, root).split(os.sep):
+        if part not in os.listdir(folder):
+            return False
+        folder = os.path.join(folder, part)
+    return True
+
+
 def _stage_python(python_dir):
     # type: (str) -> str
     """플랫폼마다 런타임을 풀고 numpy·shapely 휠을 깔고 줄인 뒤 .pyc(unchecked-hash)를 만든다. 이 Mac에서 돌릴 파이썬 경로를 돌려준다."""
@@ -548,6 +559,8 @@ def _stage_python(python_dir):
         lib = os.path.relpath(os.path.dirname(_get_site_packages(runtime_dir)), runtime_dir)
         for pattern in SKETCHUP_PYTHON_DROP:
             for path in glob.glob(os.path.join(runtime_dir, pattern.format(lib=lib)), recursive=True):
+                if not _is_exact_case(path, runtime_dir):
+                    continue   # 맥 디스크는 대소문자를 안 가린다 — 'lib/thread*'(맥 Tcl)가 윈도 Lib/threading.py를 지웠다(2026-10-23 노트북 실측)
                 if os.path.isdir(path) and not os.path.islink(path):
                     shutil.rmtree(path)
                 elif os.path.lexists(path):
@@ -604,7 +617,7 @@ def build_sketchup():
 
 WEB_DIR = os.path.join(BUILD_DIR, "web")
 WEB_EXCLUDED_PREFIXES = ("dev_", "probe_", "server_", "blender_", "sketchup_")
-WEB_EXCLUDED_NAMES = ("panel_host", "panel_server", "cmd_install", "cmd_blender", "cmd_sketchup")   # Rhino·Blender·SketchUp 연결
+WEB_EXCLUDED_NAMES = ("panel_host", "panel_server", "cmd_install", "cmd_blender", "cmd_sketchup", "cmd_autocad", "cad_dxf")   # Rhino·Blender·SketchUp·AutoCAD 연결
 
 
 def build_web():
@@ -628,6 +641,131 @@ def build_web():
                                                                   os.path.getsize(os.path.join(WEB_DIR, "panel.html")) / 1e3))
     return WEB_DIR
 
+
+# ── AutoCAD판 번들 ─────────────────────────────────────────
+
+AUTOCAD_BUNDLE = PACKAGE_NAME + ".bundle"
+AUTOCAD_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py", "cmd_blender.py", "cmd_sketchup.py", "cmd_web.py")   # Rhino(Eto)·다른 호스트 진입
+# AutoCAD 자동 로드 번들 — AutoCAD가 켤 때 ApplicationPlugins(Win)·ApplicationAddins(Mac)의 *.bundle을 읽는다. 스토어 게시 지침(2026-10-23 확인):
+# SeriesMax 필수(2025+), Icon·HelpFile, 버전마다 새 ProductCode·고정 UpgradeCode, 명령을 칠 때 불러오기(수요 로드), Plug-ins 탭 리본 패널(부분 CUIX).
+# SeriesMin R24.0 = AutoCAD 2021(LISP 유니코드), SeriesMax R26.0 = 2027(노트북 레지스트리 R26.0). 운영체제마다 번들을 따로 낸다(파이썬 크기, 맥은 리본 없음)
+AUTOCAD_UPGRADE_CODE = "{6E1B7C52-3F0A-4D8E-9B21-7A5C0D4E8F30}"   # 바꾸지 말 것 — 스토어가 이 코드로 업그레이드를 잇는다
+AUTOCAD_SERIES = ("R24.0", "R26.0")
+AUTOCAD_OS = {"win": ("Win64", ("win-x64",)), "mac": ("Mac", ("mac-arm64", "mac-x64"))}   # 번들 이름: (PackageContents OS, 번들 파이썬 플랫폼)
+AUTOCAD_PACKAGE_CONTENTS = """<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage SchemaVersion="1.0" AutodeskProduct="AutoCAD" ProductType="Application" Name="%(name)s" AppVersion="%(version)s"
+  Description="Existing-conditions site drawing (parcels, buildings, roads, contours, zoning) as 2D CAD. Command GORANI." Author="%(author)s"
+  ProductCode="%(product_code)s" UpgradeCode="%(upgrade_code)s" HelpFile="./Contents/help.html" Icon="./Contents/gorani.ico">
+  <CompanyDetails Name="%(author)s" Email="%(email)s" />
+  <Components>
+    <RuntimeRequirements OS="%(os)s" Platform="AutoCAD*" SeriesMin="%(series_min)s" SeriesMax="%(series_max)s" SupportPath="./Contents/" />
+    <ComponentEntry AppName="Gorani" ModuleName="./Contents/gorani.lsp" AppDescription="Gorani panel" LoadOnCommandInvocation="True">
+      <Commands GroupName="GORANI">
+        <Command Global="GORANI" Local="GORANI" />
+      </Commands>
+    </ComponentEntry>%(ribbon)s
+  </Components>
+</ApplicationPackage>
+"""
+AUTOCAD_RIBBON_ENTRY = """
+    <ComponentEntry AppName="GoraniRibbon" ModuleName="./Contents/gorani.cuix" AppDescription="Gorani ribbon panel (Plug-ins tab)" />"""
+# 부분 CUIX — AutoCAD 기본 AppManager.cuix와 같은 구성(2026-10-23 노트북에서 풀어 봄): 별칭 ID_ADDINSTAB 탭은 기존 Plug-ins 탭에 합쳐진다
+AUTOCAD_CUIX_PARTS = {
+    "[Content_Types].xml": '<?xml version="1.0" encoding="utf-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                           '<Default Extension="cui" ContentType="text/xml" /><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml" />'
+                           '<Default Extension="png" ContentType="text/plain" /><Default Extension="xml" ContentType="text/xml" /></Types>',
+    "_rels/.rels": '<?xml version="1.0" encoding="utf-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                   '<Relationship Type="CUI" Target="/Header.cui" Id="R1" /><Relationship Type="CUI" Target="/MenuGroup.cui" Id="R2" />'
+                   '<Relationship Type="CUI" Target="/RibbonRoot.cui" Id="R3" /></Relationships>',
+    "Header.cui": '<?xml version="1.0"?>\n<CustSection xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
+                  '<FileVersion MajorVersion="0" MinorVersion="6" IncrementalVersion="1" UserVersion="0" /><Header><CommonConfiguration><CommonItems>'
+                  '<ModifiedRev MajorVersion="24" MinorVersion="0" UserVersion="0" /></CommonItems></CommonConfiguration></Header></CustSection>',
+    "MenuGroup.cui": '<?xml version="1.0"?>\n<MenuGroup xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Name="GORANI" DisplayName="GORANI">'
+                     '<MacroGroup Name="GoraniMacros" Citizen="A"><MenuMacro UID="MM_GORANI_OPEN"><Macro type="Any">'
+                     '<Revision MajorVersion="24" MinorVersion="0" UserVersion="0"/><ModifiedRev MajorVersion="24" MinorVersion="0" UserVersion="0"/>'
+                     '<Name UID="XLS_GORANI_NAME">Gorani</Name><Command>^C^CGORANI </Command>'
+                     '<HelpString UID="XLS_GORANI_HELP">Open the Gorani panel: existing-conditions site drawing (parcels, buildings, roads, contours, zoning).</HelpString>'
+                     '<SmallImage Name="gorani_16.png"/><LargeImage Name="gorani_32.png"/><CLICommand UID="XLS_GORANI_CLI">GORANI</CLICommand>'
+                     '</Macro></MenuMacro></MacroGroup></MenuGroup>',
+    "RibbonRoot.cui": '<?xml version="1.0"?>\n<RibbonRoot><RibbonPanelSourceCollection xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
+                      '<RibbonPanelSource UID="RBN_GORANI_PANEL" Text="Gorani" HiddenInEditor="false"><ModifiedRev MajorVersion="24" MinorVersion="0" UserVersion="0"/>'
+                      '<Name UID="XLS_GORANI_PANEL">Gorani</Name><RibbonRow UID="RBN_GORANI_ROW"><ModifiedRev MajorVersion="24" MinorVersion="0" UserVersion="0"/>'
+                      '<RibbonCommandButton UID="RBN_GORANI_BUTTON" Id="AcRibbonCommandButton" Text="Gorani" ButtonStyle="LargeWithText" MenuMacroID="MM_GORANI_OPEN" KeyTip="GR">'
+                      '<TooltipTitle UID="XLS_GORANI_TIP">Gorani — site drawing</TooltipTitle><ModifiedRev MajorVersion="24" MinorVersion="0" UserVersion="0"/>'
+                      '</RibbonCommandButton></RibbonRow><RibbonPanelBreak UID="RBN_GORANI_BREAK" Id="AcRibbonPanelBreak"><ModifiedRev MajorVersion="24" MinorVersion="0" UserVersion="0"/>'
+                      '</RibbonPanelBreak></RibbonPanelSource></RibbonPanelSourceCollection><RibbonTabSourceCollection>'
+                      '<RibbonTabSource Text="Plug-ins" UID="RBN_GORANI_TAB" KeyTip="X"><ModifiedRev MajorVersion="24" MinorVersion="0" UserVersion="0"/><Alias>ID_ADDINSTAB</Alias>'
+                      '<RibbonPanelSourceReference UID="RBN_GORANI_PANELREF" PanelId="RBN_GORANI_PANEL" ResizeStyle="Default">'
+                      '<ModifiedRev MajorVersion="24" MinorVersion="0" UserVersion="0"/></RibbonPanelSourceReference></RibbonTabSource></RibbonTabSourceCollection></RibbonRoot>',
+}
+
+
+def get_autocad_plugin_dir():
+    # type: () -> str
+    """이 PC 사용자의 AutoCAD 번들 자리 — Windows %APPDATA%/Autodesk/ApplicationPlugins, Mac ~/Library/Application Support/Autodesk/ApplicationAddins."""
+    if sys.platform.startswith("win"):
+        return os.path.join(os.environ["APPDATA"], "Autodesk", "ApplicationPlugins")
+    return os.path.expanduser("~/Library/Application Support/Autodesk/ApplicationAddins")
+
+
+def _write_cuix(path):
+    # type: (str) -> None
+    """리본 패널 부분 CUIX(zip) — AUTOCAD_CUIX_PARTS + 배지 아이콘 16·32."""
+    import zipfile
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, text in AUTOCAD_CUIX_PARTS.items():
+            zf.writestr(name, text)
+        for size in (16, 32):
+            zf.write(os.path.join(BRAND_DIR, "png", "gorani_badge_%d.png" % size), "gorani_%d.png" % size)
+
+
+def build_autocad(install=False):
+    # type: (bool) -> list
+    """build/autocad/<win|mac>/Gorani.bundle을 모아 운영체제마다 zip(Gorani-autocad-<win|mac>-<버전>.zip)으로 묶는다. zip 경로들을 돌려준다.
+    번들 = PackageContents.xml + Contents/(gorani.lsp, scripts 원본 .py·UI, python/<플랫폼>, help.html, gorani.ico, Windows만 gorani.cuix).
+    파이썬은 SketchUp판과 같은 번들 파이썬(_stage_python) — Windows에는 파이썬이 없고(2026-10-23 노트북 실측: WindowsApps 바로가기뿐)
+    스토어는 설치 즉시 동작을 요구한다. install이면 이 PC 운영체제의 번들을 이 PC의 번들 자리에 복사한다(AutoCAD를 다시 켜면 불러온다)."""
+    import uuid
+    work_dir = os.path.join(BUILD_DIR, "autocad")
+    shutil.rmtree(work_dir, ignore_errors=True)
+    python_dir = os.path.join(work_dir, "python")
+    os.makedirs(python_dir)
+    _stage_python(python_dir)
+    names = [n for n in sorted(os.listdir(SCRIPTS_DIR)) if n.endswith(".py") and n not in AUTOCAD_EXCLUDED_NAMES
+             and not n.startswith(("dev_", "probe_", "server_", "blender_", "sketchup_", "web_"))]
+    archives = []
+    for os_name, (package_os, platforms) in AUTOCAD_OS.items():
+        bundle = os.path.join(work_dir, os_name, AUTOCAD_BUNDLE)
+        contents = os.path.join(bundle, "Contents")
+        target = os.path.join(contents, "scripts")
+        os.makedirs(target)
+        for platform in platforms:
+            shutil.copytree(os.path.join(python_dir, platform), os.path.join(contents, "python", platform), symlinks=True)
+        for name in names + list(UI_FILE_NAMES):
+            shutil.copyfile(os.path.join(SCRIPTS_DIR, name), os.path.join(target, name))
+        for dir_name in UI_DIR_NAMES:
+            shutil.copytree(os.path.join(SCRIPTS_DIR, dir_name), os.path.join(target, dir_name))
+        shutil.copyfile(os.path.join(SCRIPTS_DIR, "autocad_ext.lsp"), os.path.join(contents, "gorani.lsp"))
+        shutil.copyfile(os.path.join(ROOT_DIR, "docs", "autocad_help.html"), os.path.join(contents, "help.html"))
+        shutil.copyfile(os.path.join(BRAND_DIR, "png", "gorani_badge_32.ico"), os.path.join(contents, "gorani.ico"))
+        if os_name == "win":   # 맥 AutoCAD에는 리본이 없다
+            _write_cuix(os.path.join(contents, "gorani.cuix"))
+        product_code = "{%s}" % str(uuid.uuid5(uuid.NAMESPACE_URL, "gorani-autocad-%s-%s" % (os_name, PACKAGE_VERSION))).upper()   # 버전마다 새 코드
+        with open(os.path.join(bundle, "PackageContents.xml"), "w", encoding="utf-8") as f:
+            f.write(AUTOCAD_PACKAGE_CONTENTS % {"name": PACKAGE_NAME, "version": PACKAGE_VERSION, "author": PUBLISHER["name"], "email": PUBLISHER["email"],
+                                                "product_code": product_code, "upgrade_code": AUTOCAD_UPGRADE_CODE, "os": package_os,
+                                                "series_min": AUTOCAD_SERIES[0], "series_max": AUTOCAD_SERIES[1],
+                                                "ribbon": AUTOCAD_RIBBON_ENTRY if os_name == "win" else ""})
+        archives.append(shutil.make_archive(os.path.join(BUILD_DIR, "%s-autocad-%s-%s" % (PACKAGE_NAME, os_name, PACKAGE_VERSION)), "zip",
+                                            os.path.join(work_dir, os_name), AUTOCAD_BUNDLE))
+        if install and os_name == ("win" if sys.platform.startswith("win") else "mac"):
+            installed = os.path.join(get_autocad_plugin_dir(), AUTOCAD_BUNDLE)
+            shutil.rmtree(installed, ignore_errors=True)
+            shutil.copytree(bundle, installed, symlinks=True)
+            print("  설치: %s" % installed)
+    shutil.rmtree(python_dir)
+    print("  모듈 %d개" % len(names))
+    return archives
 
 # ── packs ───────────────────────────────────────────────
 
@@ -1190,8 +1328,9 @@ def rebounds():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Yak 패키지·Blender·SketchUp 확장·웹판·데이터 팩 빌드")
-    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "blender", "sketchup", "web", "packs", "repack", "upload", "notices", "rebounds"))
+    parser = argparse.ArgumentParser(description="Yak 패키지·Blender·SketchUp·AutoCAD 확장·웹판·데이터 팩 빌드")
+    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "blender", "sketchup", "autocad", "web", "packs", "repack", "upload", "notices", "rebounds"))
+    parser.add_argument("--install", action="store_true", help="autocad: 이 PC의 AutoCAD 번들 자리에도 복사한다")
     parser.add_argument("--sido", help="packs: 쉼표로 구분한 시도 코드만 (기본 data/에 있는 전부)")
     parser.add_argument("--drop", action="store_true", help="packs: 압축 뒤 원본 시도 DB를 지운다(서울 제외)")
     args = parser.parse_args()
@@ -1209,6 +1348,11 @@ def main():
     if args.what == "web":
         print("web: %s" % build_web())
         print("  로컬 시험: python3 -m http.server -d build/web 8766 → http://127.0.0.1:8766/ (팩 주소는 ?manifest=)")
+        return
+    if args.what == "autocad":
+        for archive in build_autocad(args.install):
+            print("autocad: %s (%.0f MB)" % (archive, os.path.getsize(archive) / 1e6))
+        print("  설치: zip을 풀어 Gorani.bundle 폴더를 %s 에 두고 AutoCAD를 다시 켠다 → 명령 GORANI" % get_autocad_plugin_dir())
         return
     if args.what == "upload":
         print("manifest: %s" % upload())

@@ -14,7 +14,7 @@ import constants
 from i18n import tr
 
 PREFS_DIR = os.path.join(os.path.expanduser("~"), ".gorani")
-PREFS_PATH = os.path.join(PREFS_DIR, "prefs.json")
+PREFS_PATH = os.path.join(PREFS_DIR, constants.PREFS_FILE_NAME)   # AutoCAD판은 따로(prefs_autocad.json)
 CLIENT_ID_PATH = os.path.join(PREFS_DIR, "client_id")   # 설치 ID — 사용 통계(Rhino)와 국내 데이터 팩 서버 하루 한도(모든 판)
 SOURCE_NEWS_PATH = os.path.join(PREFS_DIR, "source_news.json")
 RECENT_MAX = 5

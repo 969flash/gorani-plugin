@@ -426,3 +426,9 @@ SketchUp(Ruby, sketchup_ext.rb = bsh_gorani/main.rb)            사이드카(번
 | 9 | `sheet_svg` 입력이 로컬(지형 삼각형)·세계(필지·건물) 두 좌표계 | §5 좌표 규칙 1줄(시트·CSV·json은 세계좌표, 로컬은 Rhino 객체만), §6 SVG 행 |
 | 10 | `.ai` 옵션은 sticky — 거부된 토큰은 오류 없이 이전 세션 값으로 내보내짐(job 1007-210846-96b5) | §7.3 런타임 검산 10줄(`%%BoundingBox` ±1 %·명령 이력 '잘못된 옵션') → `export_scale` 경고·`ready=false` |
 | 11 | 무벽/가건물 필터가 `ngii_kind`만 보면 대장 매칭 벌크 건물까지 빠짐·python에서 거름 / `status`는 전부 'active'라 demolished는 항상 0 | §2 `context_db.load_buildings_in_bounds(include_minor)` SQL 1줄 + `TOPO_MINOR_KINDS`, §4.2·§7.1 demolished P1 |
+
+---
+
+## AutoCAD판 (2026-10-18) — 2D만
+
+`cmd_autocad.py`(사이드카, 번들 파이썬 + `panel_server` 브라우저 패널) ← `autocad_ext.lsp`(명령 GORANI, `startapp`). 엔진은 `context_builder.run` 그대로이고 호스트가 `autocad`면 terrain·write_3dm 대신 `_run_cad_phase` → `cad_dxf.write_dxf`(DXF R12, 레이어 `US-*`, mm|m, 원점|실제 좌표, 등고선 고도 = 표고). 지형 메시·베이크·모델 파일 없음, 시트·.ai·CSV는 같다. 원점 적용은 `cad_dxf.get_cad_pts` 한 함수. 상세·처음 써 보기·확인 필요는 `docs/autocad.md`.

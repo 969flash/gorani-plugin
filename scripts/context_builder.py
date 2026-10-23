@@ -139,9 +139,10 @@ def is_global(request):
 
 def get_skipped_phases(options):
     # type: (dict) -> set
-    """콜백이 오지 않는 phase 집합 — v1 refresh·import(항상) + 옵션으로 끈 basemap·sheets·tables. 컨트롤러가 get_progress_message(skipped=)에 그대로 준다."""
+    """콜백이 오지 않는 phase 집합 — v1 refresh·import(항상) + AutoCAD판 terrain + 옵션으로 끈 basemap·sheets·tables. 컨트롤러가 get_progress_message(skipped=)에 그대로 준다."""
     options = options or {}
-    return {"refresh", "import"} | {phase for phase, key in (("basemap", "make_basemap"), ("sheets", "make_sheets"), ("tables", "make_tables"))
+    host_skipped = {"terrain"} if get_host() == "autocad" else set()   # AutoCAD판은 지형 메시를 만들지 않는다
+    return {"refresh", "import"} | host_skipped | {phase for phase, key in (("basemap", "make_basemap"), ("sheets", "make_sheets"), ("tables", "make_tables"))
                                     if not options.get(key)}
 
 
@@ -1018,9 +1019,9 @@ def get_sheet_ids(options):
 
 def get_host():
     # type: () -> str
-    """지금 도는 프로그램 — SketchUp 사이드카·웹판 워커(cmd_sketchup·cmd_web이 환경변수를 둔다)면 'sketchup'·'web', Blender 안이면 'blender',
-    아니면 'rhino'(python3 테스트 포함). constants.HOST_LABELS의 키."""
-    if os.environ.get(constants.HOST_ENV) in ("sketchup", "web"):
+    """지금 도는 프로그램 — SketchUp·AutoCAD 사이드카·웹판 워커(cmd_sketchup·cmd_autocad·cmd_web이 환경변수를 둔다)면 'sketchup'·'autocad'·'web',
+    Blender 안이면 'blender', 아니면 'rhino'(python3 테스트 포함). constants.HOST_LABELS의 키."""
+    if os.environ.get(constants.HOST_ENV) in ("sketchup", "autocad", "web"):
         return os.environ[constants.HOST_ENV]
     try:
         import bpy  # noqa: F401
@@ -1035,6 +1036,8 @@ def get_host_modules():
     SketchUp = mesh_geometry·sketchup_baker(사이드카 → SketchUp 호출), 웹 = mesh_geometry·web_baker(context.glb). 베이커 함수(get_doc_origin·clear_previous·bake·write_ref_and_origin·
     save_copy·zoom_to_site)와 build는 이름이 같다."""
     host = get_host()
+    if host == "autocad":   # 문서가 없다 — 2D DXF만 쓴다(_run_cad_phase)
+        return None, None
     if host == "blender":
         import blender_baker
         import mesh_geometry
@@ -1130,54 +1133,11 @@ def _run_phases(request, progress, doc, response, state):
     state["prepared"] = prepared
     response.update(dir=prepared.result_dir, lot_name=prepared.lot_name, options=dict(prepared.request["options"]), warnings=list(prepared.warnings))
     response["quality"].update(height_src=prepared.stats["height_src"], align=prepared.stats["align"], dates=prepared.meta["dates"])
-    skipped = prepared.skipped_phases
 
-    context_geometry, context_baker = get_host_modules()   # 호스트 모듈은 여기서부터 (prepare까지는 python3로 돈다)
-    import sheet_svg
-
-    # terrain — TIN·분류·투영·압출·커브 전부 (문서 변경 없음)
-    state["phase"] = "terrain"
-    _report(progress, "terrain", 0.0, tr("지형 TIN · 건물 압출"))
-    geo = context_geometry.build(prepared)
-    state["geo"] = geo
-    response["warnings"] += geo.warnings
-    response["quality"]["skipped"] = {"buildings": len(geo.skipped), "lots": 0}
-    _report(progress, "terrain", 1.0, tr("면 {0} · 건물 {1}동", geo.counts["faces"], geo.counts["buildings"]))
-
-    # write_3dm — 이전 베이크 정리 → CTX 베이크(청크마다 콜백) → Ref·원점 → context.3dm 사본(베이스맵은 문서에 굽지 않는다 — basemap_ai가 .ai를 직접 쓴다)
-    state["phase"] = "write_3dm"
-    lot_key = prepared.target_key
-    state["lot_key"] = lot_key
-    _report(progress, "write_3dm", 0.0, tr("이전 베이크 정리"))
-    prepared.result_dir = get_free_result_dir(prepared.result_dir)   # 이전 결과가 있으면 새 폴더 — 첫 베이크 직전에 정해 query·terrain 중 취소·실패는 빈 폴더를 남기지 않는다
-    response["dir"] = prepared.result_dir
-    _reset_result_dir(prepared.result_dir)
-    context_baker.clear_previous(doc, lot_key)
-    state["baked"] = True
-    ids, items, chunk = [], geo.items, constants.RUN_BAKE_CHUNK
-    for start in range(0, len(items), chunk):
-        ids += context_baker.bake(doc, items[start:start + chunk], prepared, lot_key)
-        _report(progress, "write_3dm", 0.7 * min(1.0, (start + chunk) / float(len(items) or 1)), tr("베이크 {0}/{1}", min(start + chunk, len(items)), len(items)))
-    ids += context_baker.write_ref_and_origin(doc, prepared, lot_key)
-    if len(ids) < len(items) + 2:
-        response["warnings"].append(_warning("warn", "skipped", tr("베이크 실패 {0}건", len(items) + 2 - len(ids)), ""))
-    layers = {item.layer for item in items} | {constants.CTX_ROOT_LAYER + "::Ref"}
-    _report(progress, "write_3dm", 0.85, tr("{0} 저장", constants.HOST_LABELS[get_host()]["model"]))
-    state["save_timing"] = {}
-    path = context_baker.save_copy(doc, os.path.join(prepared.result_dir, constants.CONTEXT_MODEL_FILE_NAME), ids, state["save_timing"])
-    response["context"].update(path=path, layers=len(layers), buildings=geo.counts["buildings"], lots=prepared.stats["lots"],
-                               demolished=geo.counts.get("demolished", 0), tin_points=geo.counts["tin_points"], origin=list(prepared.origin),
-                               origin_reused=prepared.origin_reused, placement=prepared.placement, doc_origin=list(prepared.doc_origin),
-                               model_unit=str(getattr(doc, "ModelUnitSystem", "Meters")), imported=True, import_text="")   # Blender 장면은 m 고정
-    if options.get("make_dwg") and constants.DWG_EXPORT_ENABLED and hasattr(context_baker, "save_dwg_from_3dm"):   # DWG는 Rhino만   # 2D 도면(BM::)만 .dwg로 — 실패해도 3dm은 남긴다
-        _report(progress, "write_3dm", 0.95, tr(".dwg 저장"))
-        try:   # 방금 쓴 3dm을 헤드리스로 열어 쓴다 — 활성 문서에서 쓰면 Mac에서 멈춘다(context_baker.save_dwg_from_3dm)
-            os.makedirs(_get_out_2d_dir(prepared), exist_ok=True)
-            dwg_path = os.path.join(_get_out_2d_dir(prepared), get_basemap_file_name(prepared, min(prepared.scales), ".dwg"))
-            response["context"]["dwg"] = context_baker.save_dwg_from_3dm(path, dwg_path, constants.BM_ROOT_LAYER)
-        except Exception as exc:   # noqa: BLE001
-            _phase_failed(response, "write_3dm", exc)
-    _report(progress, "write_3dm", 1.0, tr("객체 {0} · 레이어 {1}", len(ids), len(layers)))
+    if get_host() == "autocad":   # AutoCAD판 = 2D만 — 지형 메시·베이크 없이 현황도 DXF 한 장
+        geo = _run_cad_phase(prepared, progress, response, state)
+    else:
+        geo = _run_model_phases(prepared, progress, doc, response, state)
 
     _run_2d_phases(prepared, options, geo.terrain_tris_world, progress, response, state)
 
@@ -1255,6 +1215,77 @@ def _run_2d_phases(prepared, options, terrain_tris, progress, response, state, d
         except Exception as exc:   # noqa: BLE001
             _phase_failed(response, "tables", exc)
         _report(progress, "tables", 1.0, tr("CSV {0}개", len(response["tables"])))
+
+
+def _run_model_phases(prepared, progress, doc, response, state):
+    # type: (Prepared, object, object, dict, dict) -> object
+    """terrain·write_3dm — 호스트 지오메트리.build → 베이크 → 모델 사본(Rhino·Blender·SketchUp·웹). 반환 ContextGeo(시트가 지형 삼각형을 쓴다)."""
+    options = prepared.request["options"]
+    context_geometry, context_baker = get_host_modules()   # 호스트 모듈은 여기서부터 (prepare까지는 python3로 돈다)
+    # terrain — TIN·분류·투영·압출·커브 전부 (문서 변경 없음)
+    state["phase"] = "terrain"
+    _report(progress, "terrain", 0.0, tr("지형 TIN · 건물 압출"))
+    geo = context_geometry.build(prepared)
+    state["geo"] = geo
+    response["warnings"] += geo.warnings
+    response["quality"]["skipped"] = {"buildings": len(geo.skipped), "lots": 0}
+    _report(progress, "terrain", 1.0, tr("면 {0} · 건물 {1}동", geo.counts["faces"], geo.counts["buildings"]))
+
+    # write_3dm — 이전 베이크 정리 → CTX 베이크(청크마다 콜백) → Ref·원점 → context.3dm 사본(베이스맵은 문서에 굽지 않는다 — basemap_ai가 .ai를 직접 쓴다)
+    state["phase"] = "write_3dm"
+    lot_key = prepared.target_key
+    state["lot_key"] = lot_key
+    _report(progress, "write_3dm", 0.0, tr("이전 베이크 정리"))
+    prepared.result_dir = get_free_result_dir(prepared.result_dir)   # 이전 결과가 있으면 새 폴더 — 첫 베이크 직전에 정해 query·terrain 중 취소·실패는 빈 폴더를 남기지 않는다
+    response["dir"] = prepared.result_dir
+    _reset_result_dir(prepared.result_dir)
+    context_baker.clear_previous(doc, lot_key)
+    state["baked"] = True
+    ids, items, chunk = [], geo.items, constants.RUN_BAKE_CHUNK
+    for start in range(0, len(items), chunk):
+        ids += context_baker.bake(doc, items[start:start + chunk], prepared, lot_key)
+        _report(progress, "write_3dm", 0.7 * min(1.0, (start + chunk) / float(len(items) or 1)), tr("베이크 {0}/{1}", min(start + chunk, len(items)), len(items)))
+    ids += context_baker.write_ref_and_origin(doc, prepared, lot_key)
+    if len(ids) < len(items) + 2:
+        response["warnings"].append(_warning("warn", "skipped", tr("베이크 실패 {0}건", len(items) + 2 - len(ids)), ""))
+    layers = {item.layer for item in items} | {constants.CTX_ROOT_LAYER + "::Ref"}
+    _report(progress, "write_3dm", 0.85, tr("{0} 저장", constants.HOST_LABELS[get_host()]["model"]))
+    state["save_timing"] = {}
+    path = context_baker.save_copy(doc, os.path.join(prepared.result_dir, constants.CONTEXT_MODEL_FILE_NAME), ids, state["save_timing"])
+    response["context"].update(path=path, layers=len(layers), buildings=geo.counts["buildings"], lots=prepared.stats["lots"],
+                               demolished=geo.counts.get("demolished", 0), tin_points=geo.counts["tin_points"], origin=list(prepared.origin),
+                               origin_reused=prepared.origin_reused, placement=prepared.placement, doc_origin=list(prepared.doc_origin),
+                               model_unit=str(getattr(doc, "ModelUnitSystem", "Meters")), imported=True, import_text="")   # Blender 장면은 m 고정
+    if options.get("make_dwg") and constants.DWG_EXPORT_ENABLED and hasattr(context_baker, "save_dwg_from_3dm"):   # DWG는 Rhino만   # 2D 도면(BM::)만 .dwg로 — 실패해도 3dm은 남긴다
+        _report(progress, "write_3dm", 0.95, tr(".dwg 저장"))
+        try:   # 방금 쓴 3dm을 헤드리스로 열어 쓴다 — 활성 문서에서 쓰면 Mac에서 멈춘다(context_baker.save_dwg_from_3dm)
+            os.makedirs(_get_out_2d_dir(prepared), exist_ok=True)
+            dwg_path = os.path.join(_get_out_2d_dir(prepared), get_basemap_file_name(prepared, min(prepared.scales), ".dwg"))
+            response["context"]["dwg"] = context_baker.save_dwg_from_3dm(path, dwg_path, constants.BM_ROOT_LAYER)
+        except Exception as exc:   # noqa: BLE001
+            _phase_failed(response, "write_3dm", exc)
+    _report(progress, "write_3dm", 1.0, tr("객체 {0} · 레이어 {1}", len(ids), len(layers)))
+    return geo
+
+
+def _run_cad_phase(prepared, progress, response, state):
+    # type: (Prepared, object, dict, dict) -> object
+    """AutoCAD판의 write_3dm 자리 — cad_dxf.write_dxf로 2D 현황도 DXF 한 장(문서·베이크 없음). terrain phase는 건너뛴다(get_skipped_phases).
+    ponytail: 시트용 지형 TIN이 없어 표고·경사 시트가 빈다 — 번들 파이썬(shapely)의 mesh_geometry.build_terrain을 붙이면 찬다."""
+    import cad_dxf
+    from context_geometry import ContextGeo
+    state["phase"] = "write_3dm"
+    _report(progress, "write_3dm", 0.0, tr("CAD 도면"))
+    prepared.result_dir = get_free_result_dir(prepared.result_dir)   # _run_model_phases와 같이 — 이전 결과가 있으면 새 폴더
+    response["dir"] = prepared.result_dir
+    _reset_result_dir(prepared.result_dir)
+    result = cad_dxf.write_dxf(prepared, _get_out_2d_dir(prepared))
+    buildings = result["buildings"]
+    response["context"].update(path=result["path"], layers=result["layers"], buildings=buildings, lots=prepared.stats["lots"],
+                               origin=list(prepared.origin), origin_reused=prepared.origin_reused, placement=prepared.placement,
+                               doc_origin=list(prepared.doc_origin), model_unit=result["unit"], imported=False, import_text="")
+    _report(progress, "write_3dm", 1.0, tr("{0} · 객체 {1} · 레이어 {2}", os.path.basename(result["path"]), result["entities"], result["layers"]))
+    return ContextGeo(counts={"buildings": buildings, "curves": result["entities"]})
 
 
 # ── preflight ──────────────────────────────────────────────

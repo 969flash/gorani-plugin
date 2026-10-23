@@ -1056,3 +1056,78 @@ SHEET_USE_KEYS = {   # usability 앞 2자리 → #7 키
 SHEET_FLOOR_BANDS_FIXED = (1, 3, 4, 6)                 # 층수 고정 구간 상한 — 뒤에 options.floor_breaks 2개가 붙는다
 SHEET_ROAD_WIDTH_BREAKS = ((40.0, "w_grand"), (25.0, "w_large"), (12.0, "w_mid"), (10.0, "w_small1"), (8.0, "w_small2"), (0.0, "w_small3"))
 SHEET_LANDLOCKED = "맹지"                               # parcels.road_contact 값
+
+# ── AutoCAD판 (cmd_autocad 사이드카 + gorani.lsp, 2026-10-18) — 3D 없이 2D 현황도 DXF(cad_dxf) ──
+# 사무소는 AutoCAD로 3D를 하지 않는다 → 지형 메시·건물 매스·모델 파일이 없다. 도면은 모형 공간 1:1, 축척은 글자 크기만 정한다.
+# DXF R12 — 가장 오래된 공통 형식이라 AutoCAD·LT·호환 CAD(ZWCAD·캐디안·BricsCAD)가 모두 연다. 선굵기는 없다(사무소 출력은 색 → CTB 펜). DWG는 Autodesk·ODA 라이브러리 없이 쓸 수 없다.
+HOST_LABELS["autocad"] = {"id": "autocad", "name": "AutoCAD", "doc": "CAD 도면", "model": "CAD 도면(.dxf)", "dwg": False, "ask_stats": True, "cad": True,
+                          "ip_center": False}   # Autodesk 스토어 반려 사유 '허락 없는 데이터 전송' — IP로 첫 위치를 묻지 않는다(서울시청에서 연다). GA 속성도 없다(GA_STREAMS)
+CAD_FILE_FORMAT = "cad_%d.dxf"   # 축척 = options.cad_scale(글자 크기 기준)
+# 도면 축척 — 글자 크기만 정한다. 사무소 CAD는 건축물 단위(배치도 1:200~1:600)가 많아 1:500이 기본(2026-10-19 사용자 지적: 1:1000+만으로는 쓰기 어렵다)
+CAD_SCALES = (100, 200, 300, 500, 600, 1000, 1200)
+CAD_DEFAULT_SCALE = 500
+# 도면 단위 → 1 m당 도면 단위. 건축 사무소 도면은 mm. 측량도·수치지형도 DXF(TM 좌표, m)와 겹칠 때는 m + 실제 좌표
+CAD_UNITS = {"mm": 1000.0, "m": 1.0}
+CAD_DEFAULT_UNIT = "mm"
+PANEL_DEFAULT_OPTIONS.update(cad_unit=CAD_DEFAULT_UNIT, cad_scale=CAD_DEFAULT_SCALE)   # 패널 '도면 단위·축척'(AutoCAD판만 보인다) — prefs에 남게
+# 레이어 (이름, 설명, ACI 색, 선종류) — 설명은 도면 아래 범례 글자로도 들어간다. 접두사 US-는 사무소 표준 레이어와 겹치지 않게 — 넣은 뒤 US-*로 한꺼번에 끄고 켠다.
+# 바탕은 회색(외부참조 바탕 도면 관행 — 설계안이 위에 돋보인다), 대상지만 빨강. 색이 CTB 출력 펜을 정하므로 색만으로도 위계가 선다.
+# 해치는 없다(선만) — 외부참조가 무거워지고, 칠이 필요하면 사무소가 HATCH로 금방 한다
+CAD_LAYERS = [
+    ("US-SITE", "대상지 경계", 1, "CONTINUOUS"),
+    ("US-RANGE", "생성 범위", 8, "PHANTOM"),
+    ("US-LOT", "지적선 (연속지적도 — 법적 경계는 지적측량으로 확인)", 9, "CONTINUOUS"),
+    ("US-LOT-NO", "지번 (대상지와 인접 필지)", 9, "CONTINUOUS"),
+    ("US-LOT-NO-ALL", "지번 (나머지 필지 — 처음엔 꺼짐)", 9, "CONTINUOUS"),
+    ("US-BLDG", "건물 외곽", 8, "CONTINUOUS"),
+    ("US-BLDG-FL", "건물 지상층수", 8, "CONTINUOUS"),
+    ("US-ROAD", "도로면 경계 (수치지형도 — 현황)", 8, "CONTINUOUS"),
+    ("US-ROAD-CL", "도로중심선", 9, "CENTER"),
+    ("US-ROAD-TXT", "도로명·현황 도로폭 (수치지형도 — 법정 폭은 지적·도시계획도로로 확인)", 8, "CONTINUOUS"),
+    ("US-RAIL", "철도", 8, "CONTINUOUS"),
+    ("US-WATER", "하천·수면", 4, "CONTINUOUS"),
+    ("US-GREEN", "녹지·공원", 3, "CONTINUOUS"),
+    ("US-CONT", "등고선 주곡선 (고도 = 표고)", 253, "CONTINUOUS"),
+    ("US-CONT-IDX", "등고선 계곡선 (고도 = 표고)", 252, "CONTINUOUS"),
+    ("US-CONT-TXT", "등고선 표고", 252, "CONTINUOUS"),
+    ("US-SPOT", "표고점", 252, "CONTINUOUS"),
+    ("US-ZONE", "용도지역·지구단위계획구역 경계 (UPIS)", 6, "DASHED"),
+    ("US-ZONE-TXT", "용도지역·구역 이름", 6, "CONTINUOUS"),
+    ("US-PLAN-ROAD", "도시계획시설 도로 (저촉 확인용)", 30, "DASHED"),
+    ("US-LABEL", "지명", 8, "CONTINUOUS"),
+    ("US-REF", "기준점·방위·자료 출처", 7, "CONTINUOUS"),
+]
+# 글자 높이 — 종이 mm. 도면 높이 = mm × 축척 / 1000 m(× 단위). 1:1000 지번 1.5 mm = 1.5 m
+CAD_TEXT_MM = {"US-LOT-NO": 1.5, "US-LOT-NO-ALL": 1.5, "US-BLDG-FL": 1.5, "US-ROAD-TXT": 2.0, "US-CONT-TXT": 1.5, "US-SPOT": 1.2,
+               "US-ZONE-TXT": 2.5, "US-LABEL": 2.5, "US-REF": 2.5}
+# 선종류 — acadiso.lin 값(종이 mm, 음수 = 빈칸). $LTSCALE = 축척 × 단위 / 1000이라 출력하면 이 길이로 나온다
+CAD_LINETYPES = {"CENTER": ("Center ____ _ ____ _", (31.75, -6.35, 6.35, -6.35)),
+                 "DASHED": ("Dashed __ __ __", (12.7, -6.35)),
+                 "PHANTOM": ("Phantom _____ _ _ _____", (31.75, -6.35, 6.35, -6.35, 6.35, -6.35))}
+# 글꼴(STYLE US-KOR) = (주 글꼴, 한글 큰 글꼴) SHX — 국내 사무소 관행(romans + whgtxt). AutoCAD가 Win·Mac 모두 함께 깔고 호환 CAD도 갖고 있다.
+# TrueType(Mac AppleSDGothicNeo.ttc)은 AutoCAD 2027 Mac에서 한글이 전부 '?'로 나왔다(2026-10-19 사용자 화면)
+CAD_FONT = ("romans.shx", "whgtxt.shx")
+CAD_LAYERS_OFF = ("US-LOT-NO-ALL",)   # 처음엔 꺼 둔 레이어 — 필지마다 지번이 다 뜨면 너무 어지럽다(2026-10-19 사용자 지적)
+CAD_NEAR_LOT_GAP = 30.0   # m — 대상지 bbox를 이만큼 넓힌 상자에 걸리는 필지 = 인접 필지(도로 건너편까지). 지번을 켜 둔다
+CAD_LABEL_GAP = 6.0        # 글자 높이 배수 — 등고선 표고 글자끼리 이보다 가까우면 뒤엣것을 뺀다(평창동 1-1에서 195·200이 한 자리)
+CAD_LABEL_MIN_LEN = 40.0   # m — 이보다 짧은 도로중심선·등고선 조각에는 도로폭·표고 글자를 달지 않는다(글자가 선보다 길어진다)
+CAD_MARK_MM = 5.0          # 종이 mm — 기준점 십자 반지름·방위표 크기의 단위
+CAD_PANEL_STATE_FILE = "autocad_panel.json"   # HOME_DIR — 떠 있는 사이드카의 패널 주소(토큰 포함). GORANI를 다시 치면 이 주소를 연다
+CAD_SIDECAR_LOG = "autocad_sidecar.log"       # HOME_DIR — 사이드카 출력(startapp으로 띄워 콘솔이 없다)
+CAD_INSERT_FILE = "autocad_insert.txt"        # HOME_DIR — 지금 도면에 넣을 DXF(1줄 경로, 2줄 블록 이름, UTF-8). gorani.lsp가 읽고 지운다
+CAD_INSERT_TIMEOUT = 15.0                      # s — Windows에서 실행 중인 AutoCAD에 넣기 명령을 보내는 PowerShell(COM) 대기 상한
+# 패널 창 — 기본 브라우저 탭은 크게 떠서 CAD 화면을 덮는다(2026-10-23 사용자 지적). Chromium 앱 모드(주소창·탭 없는 창)를 이 순서로 찾는다
+CAD_PANEL_BROWSERS = {
+    "win": (r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe", r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe",
+            r"%ProgramFiles%\Google\Chrome\Application\chrome.exe", r"%LocalAppData%\Google\Chrome\Application\chrome.exe"),
+    "mac": ("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"),
+}
+CAD_PANEL_SIZE = (480, 900)              # px — 패널 창(Rhino 패널 폭과 비슷하게)
+CAD_PANEL_PROFILE_DIR = "panel_browser"  # HOME_DIR — 앱 창 전용 브라우저 프로필(사용자 브라우저 창에 섞이지 않고 창 크기가 먹는다)
+# AutoCAD 사이드카일 때만 — 건축물 단위 기본값(작은 범위·DXF만)과 따로 저장하는 패널 설정. 환경변수는 cmd_autocad가 constants보다 먼저 둔다
+PREFS_FILE_NAME = "prefs.json"   # ~/.gorani/ — site_prefs
+if os.environ.get(HOST_ENV) == "autocad":
+    PREFS_FILE_NAME = "prefs_autocad.json"   # Rhino판의 반경 500 m·1:5000 설정이 넘어오지 않게
+    RADIUS_MIN = 30
+    PANEL_DEFAULT_OPTIONS.update(radius=100, scales=[1000], make_basemap=False, make_sheets=False)
+    MODE_DEFAULTS = {mode: dict(values, scales=[1000], site_output="curve") for mode, values in MODE_DEFAULTS.items()}   # 3D 바닥 메시가 없다

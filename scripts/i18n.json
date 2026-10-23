@@ -5662,5 +5662,137 @@
   "es": "Alturas: altura medida de {0} (B) y plantas (C); en el resto etiqueta height de OSM (B), plantas (C) o valor por defecto {1:.1f} m (D)",
   "ja": "建物高さ: {0} 実測高さ(B)・階数(C)、ない所は OSM height タグ(B)・階数(C)・既定値 {1:.1f} m(D)",
   "zh": "建筑高度：{0} 实测高度(B)、层数(C)；其余为 OSM height 标签(B)、层数(C)或默认值 {1:.1f} m(D)"
+ },
+ "CAD 도면 생성 완료": {
+  "en": "CAD drawing ready",
+  "es": "Dibujo CAD listo",
+  "ja": "CAD図面の作成完了",
+  "zh": "CAD 图纸已生成"
+ },
+ "CAD 도면 쓰기(DXF)": {
+  "en": "Writing CAD drawing (DXF)",
+  "es": "Escribiendo dibujo CAD (DXF)",
+  "ja": "CAD図面を書き出し(DXF)",
+  "zh": "写入 CAD 图纸(DXF)"
+ },
+ "DXF 열기": {
+  "en": "Open DXF",
+  "es": "Abrir DXF",
+  "ja": "DXFを開く",
+  "zh": "打开 DXF"
+ },
+ "건축 도면": {
+  "en": "Architectural drawings",
+  "es": "Planos de arquitectura",
+  "ja": "建築図面",
+  "zh": "建筑图纸"
+ },
+ "글자 크기만 정합니다 — 도면은 1:1로 그립니다": {
+  "en": "Sets text size only. The drawing is drawn at 1:1",
+  "es": "Solo fija el tamaño del texto. El dibujo se traza a 1:1",
+  "ja": "文字の大きさだけを決めます。図面は1:1で描きます",
+  "zh": "只决定文字大小，图纸按 1:1 绘制"
+ },
+ "도면 단위": {
+  "en": "Drawing units",
+  "es": "Unidades del dibujo",
+  "ja": "図面単位",
+  "zh": "图纸单位"
+ },
+ "도면 축척": {
+  "en": "Drawing scale",
+  "es": "Escala del dibujo",
+  "ja": "図面縮尺",
+  "zh": "图纸比例"
+ },
+ "측량도·수치지형도 DXF와 겹칠 때 — GIS 좌표와 같이": {
+  "en": "To overlay survey or topographic DXFs. Use with GIS coordinates",
+  "es": "Para superponer DXF topográficos o de levantamiento. Úselo con coordenadas SIG",
+  "ja": "測量図・数値地形図のDXFと重ねるとき。GIS座標と一緒に",
+  "zh": "与测量图、地形图 DXF 叠加时使用，配合 GIS 坐标"
+ },
+ "AutoCAD판은 도면을 움직이지 않습니다 — DXF를 열면 처음부터 대상지 전체가 보입니다": {
+  "en": "The AutoCAD version does not move your view. The DXF opens showing the whole site",
+  "es": "La versión de AutoCAD no mueve la vista. El DXF se abre mostrando todo el sitio",
+  "ja": "AutoCAD版は図面を動かしません。DXFを開くと最初から対象地全体が見えます",
+  "zh": "AutoCAD 版不会移动视图，打开 DXF 即可看到整个场地"
+ },
+ "AutoCAD판은 아직 도면의 선을 가져오지 못합니다 — 지도에 구역을 그리세요": {
+  "en": "The AutoCAD version cannot pick lines from your drawing yet. Draw the area on the map",
+  "es": "La versión de AutoCAD aún no puede tomar líneas de su dibujo. Dibuje el área en el mapa",
+  "ja": "AutoCAD版はまだ図面の線を取り込めません。地図に区域を描いてください",
+  "zh": "AutoCAD 版暂时无法读取图纸中的线，请在地图上绘制区域"
+ },
+ "CAD 도면": {
+  "en": "CAD drawing",
+  "es": "Dibujo CAD",
+  "ja": "CAD図面",
+  "zh": "CAD 图纸"
+ },
+ "{0} · 객체 {1} · 레이어 {2}": {
+  "en": "{0} · {1} objects · {2} layers",
+  "es": "{0} · {1} objetos · {2} capas",
+  "ja": "{0} · オブジェクト {1} · レイヤー {2}",
+  "zh": "{0} · 对象 {1} · 图层 {2}"
+ },
+ "건너뜀 — 2D 도면만(AutoCAD)": {
+  "en": "Skipped: 2D drawing only (AutoCAD)",
+  "es": "Omitido: solo dibujo 2D (AutoCAD)",
+  "ja": "スキップ: 2D図面のみ(AutoCAD)",
+  "zh": "已跳过：仅 2D 图纸(AutoCAD)"
+ },
+ "CAD 도면 만들기": {
+  "en": "Create CAD drawing",
+  "es": "Crear dibujo CAD",
+  "ja": "CAD図面を作成",
+  "zh": "生成 CAD 图纸"
+ },
+ "CAD 도면 다시 만들기": {
+  "en": "Recreate CAD drawing",
+  "es": "Volver a crear el dibujo CAD",
+  "ja": "CAD図面を作り直す",
+  "zh": "重新生成 CAD 图纸"
+ },
+ "도면 설정": {
+  "en": "Drawing settings",
+  "es": "Ajustes del dibujo",
+  "ja": "図面設定",
+  "zh": "图纸设置"
+ },
+ "AutoCAD 밖에서 만듭니다. 그동안 AutoCAD를 계속 쓸 수 있습니다.": {
+  "en": "This runs outside AutoCAD. You can keep using AutoCAD meanwhile.",
+  "es": "Se ejecuta fuera de AutoCAD. Puede seguir usando AutoCAD mientras tanto.",
+  "ja": "AutoCADの外で作成します。その間もAutoCADを使えます。",
+  "zh": "在 AutoCAD 之外生成，期间可以继续使用 AutoCAD。"
+ },
+ "CAD 도면 만드는 중": {
+  "en": "Creating CAD drawing",
+  "es": "Creando dibujo CAD",
+  "ja": "CAD図面を作成中",
+  "zh": "正在生成 CAD 图纸"
+ },
+ "CAD 도면을 만들지 못했습니다": {
+  "en": "Could not create the CAD drawing",
+  "es": "No se pudo crear el dibujo CAD",
+  "ja": "CAD図面を作成できませんでした",
+  "zh": "无法生成 CAD 图纸"
+ },
+ "AutoCAD 도면에 넣었습니다": {
+  "en": "Added to your AutoCAD drawing",
+  "es": "Añadido a su dibujo de AutoCAD",
+  "ja": "AutoCAD図面に入れました",
+  "zh": "已放入 AutoCAD 图纸"
+ },
+ "지금 도면 0,0에 블록으로 넣었습니다. 분해(EXPLODE)하면 레이어별 선이 됩니다.": {
+  "en": "Inserted into the current drawing at 0,0 as a block. EXPLODE it to get lines on their own layers.",
+  "es": "Insertado en el dibujo actual en 0,0 como bloque. Use EXPLODE para obtener líneas en sus capas.",
+  "ja": "現在の図面の0,0にブロックで入れました。分解(EXPLODE)するとレイヤーごとの線になります。",
+  "zh": "已作为图块插入当前图纸 0,0。分解(EXPLODE)后变为各图层的线。"
+ },
+ "AutoCAD 명령줄에 GORANI를 입력하면 지금 도면에 들어갑니다": {
+  "en": "Type GORANI in the AutoCAD command line to add it to the current drawing",
+  "es": "Escriba GORANI en la línea de comandos de AutoCAD para añadirlo al dibujo actual",
+  "ja": "AutoCADのコマンドラインにGORANIと入力すると現在の図面に入ります",
+  "zh": "在 AutoCAD 命令行输入 GORANI 即可放入当前图纸"
  }
 }

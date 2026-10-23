@@ -69,7 +69,7 @@ _i18n = loader.load("i18n")   # 모듈 객체는 loader가 다시 읽어도 같�
 PANEL_STICKY_KEY = "gorani_site_panel"
 ENV_TEMPLATE = "VWORLD_API_KEY=\n"
 # 콜백이 오지 않는 phase의 행 오른쪽 글(panel_ui.md 진행률 규약)
-SKIPPED_DETAILS = {"refresh": "건너뜀 — v1 미구현", "import": "건너뜀 — 베이크로 대체"}
+SKIPPED_DETAILS = {"refresh": "건너뜀 — v1 미구현", "import": "건너뜀 — 베이크로 대체", "terrain": "건너뜀 — 2D 도면만(AutoCAD)"}
 SKIPPED_OPTION_DETAIL = "건너뜀 — 옵션"
 SEARCH_MAX_MATCHES = 8
 _EMPTY_FC = {"type": "FeatureCollection", "features": []}

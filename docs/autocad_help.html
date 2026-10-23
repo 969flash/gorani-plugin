@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gorani for AutoCAD — Help</title>
+<style>
+body { font: 15px/1.6 -apple-system, "Segoe UI", sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #111418; }
+h1 { font-size: 24px; } h2 { font-size: 18px; margin-top: 32px; } code { background: #f1f3f6; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>Gorani for AutoCAD</h1>
+<p>Gorani draws the existing conditions around your site as a 2D CAD drawing: parcels and lot numbers, building outlines with floor counts, road edges and widths, contours, zoning boundaries. It is free.</p>
+
+<h2>Use</h2>
+<ol>
+<li>Click <b>Plug-ins &gt; Gorani</b> on the ribbon, or type <code>GORANI</code> in the command line. A small Gorani window opens.</li>
+<li>Pick parcels on the map, draw an area, or drop a point. Set the drawing unit (mm or m) and the text scale.</li>
+<li>Click <b>Create CAD drawing</b>. On Windows the drawing is inserted into the current drawing at 0,0 as a block. On Mac, type <code>GORANI</code> again to insert it.</li>
+<li>EXPLODE the block to get lines on their own <code>US-*</code> layers. The DXF file also stays in the <code>Gorani/result</code> folder in your user folder.</li>
+</ol>
+
+<h2>Data</h2>
+<p>Korea uses public data (cadastral map, building register, 1:5,000 digital topographic map, urban planning data). The first time you use an area, Gorani downloads that area's data pack. Outside Korea it uses OpenStreetMap. Parcel lines are not survey results: confirm legal boundaries and road widths with a survey before design.</p>
+
+<h2>Privacy</h2>
+<p>Gorani asks before sending anonymous usage statistics. See <a href="https://969flash.github.io/gorani/en/">969flash.github.io/gorani</a>.</p>
+
+<h2>Uninstall</h2>
+<p>Remove Gorani in the Autodesk App Manager, or delete the <code>Gorani.bundle</code> folder from ApplicationPlugins. Your results in the Gorani folder are kept.</p>
+
+<h2>Support</h2>
+<p>bsh969flash@gmail.com</p>
+
+<hr>
+<h1>Gorani — 한국어</h1>
+<ol>
+<li>리본의 <b>플러그인 &gt; Gorani</b>를 누르거나 명령줄에 <code>GORANI</code>를 입력합니다. 작은 Gorani 창이 뜹니다.</li>
+<li>지도에서 필지를 고르거나 구역을 그리거나 위치를 찍습니다. 도면 단위(mm·m)와 글자 축척을 정합니다.</li>
+<li><b>CAD 도면 만들기</b>를 누릅니다. Windows는 지금 도면 0,0에 블록으로 들어갑니다. 맥은 <code>GORANI</code>를 한 번 더 입력하면 들어갑니다.</li>
+<li>블록을 분해(EXPLODE)하면 <code>US-*</code> 레이어별 선이 됩니다. DXF 파일은 사용자 폴더의 <code>Gorani/result</code>에도 남습니다.</li>
+</ol>
+<p>지적선은 측량 성과가 아닙니다. 법적 경계와 도로 폭은 설계 전에 측량으로 확인하세요. 문의: bsh969flash@gmail.com</p>
+</body>
+</html>
