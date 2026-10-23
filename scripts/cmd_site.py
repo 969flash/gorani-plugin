@@ -491,6 +491,10 @@ class _SiteController:
         self._opened = False
         self._keep = {}                # 마지막 결과의 시트 데이터(지형 삼각형 포함) — 도면 스타일 미리보기·적용이 다시 쓴다
         self._map_center = None        # 첫 init에 IP로 짐작한 지도 첫 위치 [lng, lat] — 못 받으면 None(서울시청)
+        try:   # 원격 설정(도면 색·범례·구간·번역) — 캐시를 먼저 덮는다(패널 HTML의 번역 사전이 호스트 생성 때 심기므로 init보다 앞서야 한다). 새 것은 _init이 받는다
+            loader.load("remote_config").apply(loader.load("remote_config").load_cached())
+        except Exception:
+            pass
 
     def _send_stats(self, name, params):
         # type: (str, dict) -> None
@@ -574,6 +578,10 @@ class _SiteController:
         self._preflight_memo.clear()   # 키 유무·새 판은 메모 키에 없으므로 init마다 비운다
         try:   # 공지·업데이트 — 처음 한 번만 짧게 기다린다. 오프라인·서버 장애면 공지 없이 연다(사용자를 막지 않는다)
             loader.load("data_pack").get_manifest(timeout=loader.load("constants").NOTICE_TIMEOUT_SECONDS)
+        except Exception:
+            pass
+        try:   # 원격 설정(remote_config) — 같은 예산. 못 받으면 캐시·내장값. 틀린 항목은 그 항목만 건너뛴다
+            loader.load("remote_config").refresh(timeout=loader.load("constants").NOTICE_TIMEOUT_SECONDS)
         except Exception:
             pass
         if not self._opened:   # 지도는 첫 init_state로만 만든다(JS initMap)
@@ -733,7 +741,7 @@ class _SiteController:
         # type: (list, bool, str) -> bool
         """팩을 차례로 받으며 data_progress{text, fraction}를 푸시한다(1 % 단위 — 조각마다 보내면 수천 번이다).
         끝에 data_progress{done, ok, text}. 다 받았으면 True, 멈추거나 실패하면 False(받은 팩은 남는다). 호출자가 _running을 관리한다.
-        manifest_url = 팩이 실린 매니페스트(None = 한국, 나라별 건물 팩은 constants.COUNTRY_PACKS[...]["manifest"]) — 주소가 바뀌었을 때 다시 읽는다."""
+        manifest_url = 팩이 실린 매니페스트(None = 한국, 나라별 건물 팩은 data_pack.get_country_packs()[...]["manifest"]) — 주소가 바뀌었을 때 다시 읽는다."""
         data_pack = loader.load("data_pack")
         names = list(dict.fromkeys(get_region_name(pack) for pack in packs))
         region = tr("{0} 외 {1}곳", names[0], len(names) - 1) if len(names) > 1 else names[0]
@@ -796,6 +804,7 @@ class _SiteController:
         data_pack = loader.load("data_pack")
         manifest_url = None
         try:
+            data_pack.get_manifest()   # init이 3 s 안에 못 받았으면 여기서(나라 목록·서비스 주소) — 이미 받았으면 캐시
             bounds = self._context_builder.get_query_bounds(request)
             if bounds:
                 packs = [pack for pack in data_pack.get_missing_packs(data_pack.get_manifest(), bounds=bounds) if pack["name"][:5].isdigit()]
