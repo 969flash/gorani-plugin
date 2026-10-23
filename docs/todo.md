@@ -22,7 +22,7 @@
 
 ## 코드
 
-- [ ] 나라별 건물 팩 다음: 미국 — `dev_us.py`(Overture Maps buildings, ODbL) 완성·델라웨어 시험·Rhino 드라이버 PASS(2026-10-23). 남은 것: 전체 빌드(56주, 약 7~8시간, 팩 약 14 GB)·HF `us/` 올리기·`countries.json`에 us 넣고 `dev_deploy.py notices` — 전부 사용자 허락 뒤. 중국은 보류(OSM 그대로, 근거 research/country_buildings.md)·독일(주별). 스위스는 0.3.4에 들어감(252도엽). 3DBAG는 PDOK로 대신함. 프랑스 BD TOPO `hauteur`는 처마 높이 — 지붕 50 %로 바꿀 원천 없음. 새 나라는 `docs/countries.json` 한 줄 + `dev_deploy.py notices`(플러그인 판 없음).
+- [ ] 나라별 건물 팩 다음: 미국 — `dev_us.py`(Overture Maps buildings, ODbL) 완성·델라웨어 시험·Rhino 드라이버 PASS(2026-10-23). 전체 빌드 끝(3,234팩 1.6억 동 xz 14.82 GB, 2026-10-23 08:30). HF `us/` 올리는 중(동시 2, `build/us_upload.log`). 남은 것: 올리기 검증 → `dev_deploy.py notices`(countries에 us — 허락 뒤) → 0.3.5 묶음(내장 목록·웹 문구). 중국은 보류(OSM 그대로, 근거 research/country_buildings.md)·독일(주별). 스위스는 0.3.4에 들어감(252도엽). 3DBAG는 PDOK로 대신함. 프랑스 BD TOPO `hauteur`는 처마 높이 — 지붕 50 %로 바꿀 원천 없음. 새 나라는 `docs/countries.json` 한 줄 + `dev_deploy.py notices`(플러그인 판 없음).
 
 - [ ] Global 도로면 다음 단계(2026-10-22 도로면 1차 뒤): 교량(`attrs.bridge`)은 지금 지형에 얹힌다 — 양끝 높이로 띄우기. 보도(OSM `sidewalk=*`)·연석은 없다. PLATEAU `brid`(교량)·`veg`(가로수)·`luse`(토지이용)·`wtr`을 팩에 더할지. OSM 버퍼끼리 겹친 자리의 베이스맵 경계선(04)은 아직 안 그린다(Rhino Boolean 합집합이 생기면 그린다).
 

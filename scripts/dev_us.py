@@ -270,13 +270,14 @@ def build(codes=None, states=None, workers=4, force=False):
     return failed
 
 
-def upload():
-    # type: () -> str
-    """build/packs/us/의 팩을 Hugging Face 데이터셋 us/에 올린 뒤 매니페스트를 올린다. 외부 공개 — 사용자 확인 뒤에만."""
+def upload(workers=2):
+    # type: (int) -> str
+    """build/packs/us/의 팩을 Hugging Face 데이터셋 us/에 올린 뒤 매니페스트·데이터셋 카드를 올린다. 외부 공개 — 사용자 확인 뒤에만.
+    workers = 동시 업로드 수(기본 2 — 14.8 GB라 사용자 회선을 다 먹지 않게. 끊겨도 다시 돌리면 이어서 올린다)."""
     from huggingface_hub import HfApi
     api = HfApi()
     api.upload_large_folder(repo_id=constants.DATA_REPO_ID, repo_type="dataset", folder_path=os.path.dirname(os.path.realpath(PACK_DIR)),
-                            allow_patterns=["%s/%s*_context.db.xz" % (constants.US_PACK_DIR, constants.US_PACK_PREFIX)])
+                            allow_patterns=["%s/%s*_context.db.xz" % (constants.US_PACK_DIR, constants.US_PACK_PREFIX)], num_workers=workers)
     api.upload_file(path_or_fileobj=os.path.join(PACK_DIR, "manifest.json"), path_in_repo="%s/manifest.json" % constants.US_PACK_DIR,
                     repo_id=constants.DATA_REPO_ID, repo_type="dataset", commit_message="미국 건물 팩 매니페스트")
     import dev_deploy   # 데이터셋 카드(README.md) — 나라별 출처·라이선스 절은 dev_deploy.DATASET_CARD 하나에 있다
@@ -290,7 +291,7 @@ def main():
     parser.add_argument("command", choices=("catalog", "fetch", "build", "upload"))
     parser.add_argument("codes", nargs="*", help="fetch: 주(USPS 2자, 없으면 전부) · build: 카운티 FIPS 5자리(없으면 받아 둔 주 전부)")
     parser.add_argument("--state", action="append", help="build: 이 주의 카운티만(여러 번 가능)")
-    parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--workers", type=int, default=4, help="build 작업 수 / upload 동시 업로드 수(올릴 때는 2쯤)")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
     if args.command == "catalog":
@@ -308,7 +309,7 @@ def main():
     elif args.command == "build":
         sys.exit(1 if build(args.codes, args.state, args.workers, args.force) else 0)
     else:
-        print("올림 →", upload())
+        print("올림 →", upload(args.workers))
 
 
 if __name__ == "__main__":
