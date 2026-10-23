@@ -1,6 +1,7 @@
 """배포 빌더 — Yak 패키지와 데이터 팩을 만든다 (Rhino 밖 전용, macOS).
 
     python3 scripts/dev_deploy.py            # 둘 다
+    python3 scripts/dev_deploy.py smoke      # 배포 전 점검만 — yak·blender·sketchup 빌드는 먼저 이걸 돌리고 실패하면 멈춘다
     python3 scripts/dev_deploy.py yak        # build/Gorani-<버전>-rh8_0-any.yak
     python3 scripts/dev_deploy.py blender    # build/blender_repo/gorani-<버전>.zip + index.json(정적 확장 저장소)
     python3 scripts/dev_deploy.py sketchup   # build/bsh_gorani-<버전>.rbz (Extension Warehouse·확장 관리자 설치)
@@ -380,6 +381,83 @@ def _set_rui_icons(rui_path):
             sys.exit(".rui에 <%s> 아이콘 자리가 없습니다 — rhinocode 출력 형식이 바뀌었는지 확인하세요: %s" % (mode, rui_path))
     with open(rui_path, "w", encoding="utf-8") as f:
         f.write(text)
+
+
+# 배포 전 점검 — 패널 지도 타일을 키 없는 설치본의 길 그대로 받아 본다. 곳마다 그림이 달라야 통과:
+# 막힘('Access blocked')·키 필요·자료 없음 그림은 어디서나 같다(2026-10-23 OSM 차단 사고 — 개발 PC는 .env VWorld 키로 OSM을 안 써 몰랐다)
+SMOKE_PLACES = {"domestic": ((126.9784, 37.5665), (129.0756, 35.1796)),   # 서울시청·부산시청 — url·aerial_url(국내)
+                "abroad": ((2.3488, 48.8534), (139.7671, 35.6812))}       # 파리·도쿄 — abroad_url·abroad_aerial_url
+SMOKE_ZOOM = 16
+SMOKE_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36 Edg/130.0"   # 웹뷰처럼, Referer 없이
+SMOKE_MIN_BYTES = 1000
+
+
+def check_tiles():
+    # type: () -> None
+    """배포 전 점검. 실패하면 sys.exit — 빌드하지 않는다.
+
+    입력:
+        없음. 네트워크가 필요하다.
+    처리:
+        .env 없는 HOME·키 없는 환경에서 호스트별(rhino 중계 스레드, sketchup·blender의 panel_server 경로) get_tile_config를 만들고
+        지도·영상 주소마다 두 곳의 타일을 받는다. 개발 PC에 VWorld 키가 있으면 키 있는 설정도 본다.
+    출력:
+        없음. 통과한 주소를 찍는다.
+    """
+    import math
+    import tempfile
+    import urllib.request
+    from unittest.mock import patch
+    import panel_server
+    import pnu_loader
+    import review_map
+
+    def get_xyz(lng, lat):
+        n = 2 ** SMOKE_ZOOM
+        return SMOKE_ZOOM, int((lng + 180) / 360 * n), int((1 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2 * n)
+
+    def fetch(url):
+        request = urllib.request.Request(url, headers={"User-Agent": SMOKE_USER_AGENT})
+        with urllib.request.urlopen(request, timeout=15) as response:
+            return response.headers.get("Content-Type", ""), response.read()
+
+    class Controller(object):
+        push = None
+
+    key = pnu_loader.get_local_env_value(constants.VWORLD_API_KEY_ENV)
+    bridge = panel_server.Bridge(Controller())   # sketchup·blender 패널 출처(상대 경로 /osm/)
+    base = bridge.url.split("/?")[0]
+    cases = []
+    with tempfile.TemporaryDirectory() as home:
+        for host in ("rhino", "sketchup"):
+            env = {constants.HOST_ENV: host} if host != "rhino" else {}
+            with patch.dict(os.environ, env), patch.object(pnu_loader, "HOME_DIR", home), patch.object(pnu_loader, "get_local_env_value", return_value=None):
+                os.environ.pop(constants.VWORLD_API_KEY_ENV, None)
+                cases.append((host, review_map.get_tile_config()))
+                if key:
+                    with patch.object(pnu_loader, "get_local_env_value", return_value=key):
+                        cases.append((host + "+key", review_map.get_tile_config()))
+    failures, checked = [], set()
+    for label, config in cases:
+        for field, region in (("url", "domestic"), ("aerial_url", "domestic"), ("abroad_url", "abroad"), ("abroad_aerial_url", "abroad")):
+            template = config[field]
+            if not template or (template, region) in checked:
+                continue
+            checked.add((template, region))
+            url = base + template if template.startswith("/") else template
+            try:
+                tiles = [fetch(url.format(**dict(zip("zxy", get_xyz(*place))))) for place in SMOKE_PLACES[region]]
+            except Exception as error:
+                failures.append("%s %s: %s" % (label, field, error))
+                continue
+            bad = [kind for kind, body in tiles if not kind.startswith("image/")] + ["%d B" % len(body) for _, body in tiles if len(body) < SMOKE_MIN_BYTES]
+            if bad or tiles[0][1] == tiles[1][1]:
+                failures.append("%s %s: %s" % (label, field, ", ".join(bad) or "두 곳 타일이 같다(막힘·키 필요·자료 없음 그림)"))
+                continue
+            print("  타일 통과: %s %s" % (label, field))
+    bridge.server.shutdown()
+    if failures:
+        sys.exit("배포 전 점검 실패 — 패널 지도 타일:\n  " + "\n  ".join(failures))
 
 
 def build_yak():
@@ -1192,12 +1270,16 @@ def rebounds():
 
 def main():
     parser = argparse.ArgumentParser(description="Yak 패키지·Blender·SketchUp 확장·웹판·데이터 팩 빌드")
-    parser.add_argument("what", nargs="?", default="all", choices=("all", "yak", "blender", "sketchup", "web", "packs", "repack", "upload", "notices", "rebounds"))
+    parser.add_argument("what", nargs="?", default="all", choices=("all", "smoke", "yak", "blender", "sketchup", "web", "packs", "repack", "upload", "notices", "rebounds"))
     parser.add_argument("--sido", help="packs: 쉼표로 구분한 시도 코드만 (기본 data/에 있는 전부)")
     parser.add_argument("--drop", action="store_true", help="packs: 압축 뒤 원본 시도 DB를 지운다(서울 제외)")
     args = parser.parse_args()
     if args.what in ("all", "yak") and sys.version_info[:2] != (3, 9):
         sys.exit("Rhino 8의 CPython(3.9)과 같은 Python 3.9로 실행해야 .pyc가 호환됩니다. 현재: %d.%d" % sys.version_info[:2])
+    if args.what in ("all", "smoke", "yak", "blender", "sketchup"):   # 배포 전 점검 — 건너뛰는 옵션 없음
+        check_tiles()
+        if args.what == "smoke":
+            return
     if args.what == "blender":
         print("blender: %s" % build_blender())
         print("  설치: Blender 4.2+ 환경 설정 > Get Extensions > Install from Disk, 또는 Blender -c extension install-file -r user_default -e <zip>")
