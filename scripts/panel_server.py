@@ -4,6 +4,7 @@
     POST /cmd?token=…     명령 → inbox 큐 → 호스트 메인 스레드가 pump()로 컨트롤러에 넘긴다.
                           cancel·host_reply만 서버 스레드에서 바로 넘긴다(메인 스레드는 생성·호스트 호출로 막혀 있다)
     GET  /events?token=…  상태 푸시(SSE). 새로 연결하면 앞 연결은 다음 대기 끝에 닫힌다(탭 하나)
+    GET  /osm/z/x/y.png   OSM 타일 중계(토큰 없음) — 127.0.0.1 Referer는 OSM이 막는다(review_map.send_osm_tile)
 토큰은 서버를 켤 때마다 새로 만든다 — 다른 웹 페이지가 로컬 서버로 명령(open_path 등)을 보내지 못하게 한다.
 서버 스레드는 호스트(bpy 등)를 건드리지 않는다. 메시지 계약은 docs/panel_ui.md.
 Blender는 기본 브라우저(cmd_blender), SketchUp은 UI::HtmlDialog(sketchup_ext.rb)가 이 주소를 연다.
@@ -70,6 +71,10 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         return None
 
     def do_GET(self):
+        if self.path.startswith("/osm/"):   # 지도 타일 중계 — Leaflet이 토큰 없이 부른다(OSM 타일만 돌려준다)
+            import review_map
+            review_map.send_osm_tile(self)
+            return
         path = self._get_path()
         if path == "/":
             body = get_html().encode("utf-8")
