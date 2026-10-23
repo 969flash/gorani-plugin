@@ -796,6 +796,7 @@ class _SiteController:
         data_pack = loader.load("data_pack")
         manifest_url = None
         try:
+            data_pack.get_manifest()   # init이 3 s 안에 못 받았으면 여기서(나라 목록·서비스 주소) — 이미 받았으면 캐시
             bounds = self._context_builder.get_query_bounds(request)
             if bounds:
                 packs = [pack for pack in data_pack.get_missing_packs(data_pack.get_manifest(), bounds=bounds) if pack["name"][:5].isdigit()]

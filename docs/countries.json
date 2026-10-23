@@ -96,5 +96,7 @@
    "code_pattern": "\\d{5}",
    "note": "Overture Maps Foundation buildings(Microsoft ML Buildings·OpenStreetMap·Esri 합본) — ODbL 1.0, 'Source: Overture Maps Foundation (buildings, release <판>, ODbL 1.0) — © OpenStreetMap contributors, Microsoft; processed by Gorani'. 높이는 ML 추정. 본토·알래스카·하와이·푸에르토리코 상자. dev_us.py"
   }
- ]
+ ],
+ "_services": "services = 플러그인이 쓰는 외부 주소 덮어쓰기(data_pack.get_service) — overpass(목록)·nominatim·terrain_tiles. 비우면 내장 상수(constants.OSM_*). 미러가 죽었을 때 판 없이 바꾼다. https만.",
+ "services": {}
 }

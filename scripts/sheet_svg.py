@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from xml.sax.saxutils import escape
 
 import constants
+import data_pack
 import non_rhino_utils
 from i18n import get_lang, get_texts, tr
 from non_rhino_utils import (get_lnglat_from_tile, get_polygon_parts_from_geojson, get_ring_area, get_ring_orientation, get_text_width_em, get_tile_m_per_px,
@@ -1616,8 +1617,7 @@ def _get_card_lines(key, data, items, counts, measures, ctx=None):
                 lines.append(tr("평균 {0:.1f}층 · 최고 {1}층", sum(floors) / float(len(floors)), max(floors)))
             src = data.stats.get("height_src") or {}
             if src:
-                names = constants.SHEET_HEIGHT_SRC_LABELS
-                lines.append(tr("높이 출처 {0}", " · ".join("%s %d %%" % (tr(names.get(k, k)), round(v * 100))
+                lines.append(tr("높이 출처 {0}", " · ".join("%s %d %%" % (data_pack.get_height_src_label(k), round(v * 100))
                                                         for k, v in sorted(src.items(), key=lambda kv: -kv[1]))))
             grade = data.stats.get("height_grade") or {}
             if grade:

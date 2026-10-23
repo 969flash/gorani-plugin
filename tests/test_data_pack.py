@@ -149,6 +149,29 @@ class LocalPackTest(unittest.TestCase):
         self.assertEqual(set(packs), set(constants.COUNTRY_PACKS))
         self.assertEqual(packs["jp"]["bounds"], [constants.JP_BOUNDS])
 
+    def test_height_src_label_and_services(self):
+        """새 나라 팩의 height_src(overture_levels …)는 코드 사전 없이 팩 라벨로 범례에 나오고, 매니페스트 services가 외부 주소를 덮는다(https만)."""
+        import constants
+        saved = data_pack._MANIFEST.get(constants.DATA_MANIFEST_URL)
+        data_pack._MANIFEST[constants.DATA_MANIFEST_URL] = {"version": "t", "packs": [], "countries": [
+            {"code": "xx", "label": "NewLand 3D", "source_id": "newland", "manifest": "xx/manifest.json", "bounds": [10, 10, 11, 11], "code_pattern": r"\d{3}"}],
+            "services": {"overpass": ["https://overpass.example.org/api/interpreter", "http://plain.example.org"], "nominatim": "ftp://bad", "terrain_tiles": 5}}
+        try:
+            self.assertEqual(data_pack.get_height_src_label("plateau_height"), "PLATEAU 실측 높이")      # 내장 사전
+            self.assertEqual(data_pack.get_height_src_label("overture_levels"), "Overture 층수")        # 내장 나라
+            self.assertEqual(data_pack.get_height_src_label("newland_height"), "NewLand 3D 높이")      # 매니페스트로만 아는 나라
+            self.assertEqual(data_pack.get_height_src_label("newland_lidar"), "NewLand 3D lidar")
+            self.assertEqual(data_pack.get_height_src_label("mystery"), "mystery")
+            self.assertEqual(data_pack.get_service("overpass", constants.OSM_OVERPASS_URLS), ("https://overpass.example.org/api/interpreter",))   # http는 버림
+            self.assertEqual(data_pack.get_service("nominatim", constants.OSM_NOMINATIM_URL), constants.OSM_NOMINATIM_URL)   # https 아님 → 내장
+            self.assertEqual(data_pack.get_service("terrain_tiles", constants.OSM_TERRAIN_URL), constants.OSM_TERRAIN_URL)
+        finally:
+            if saved is None:
+                data_pack._MANIFEST.pop(constants.DATA_MANIFEST_URL, None)
+            else:
+                data_pack._MANIFEST[constants.DATA_MANIFEST_URL] = saved
+        self.assertEqual(data_pack.get_service("overpass", constants.OSM_OVERPASS_URLS), tuple(constants.OSM_OVERPASS_URLS))   # 매니페스트 없음
+
     def test_countries_json_matches_builtin(self):
         """docs/countries.json(매니페스트 원본)은 전부 검증을 지나고, 내장 constants.COUNTRY_PACKS와 값이 같다 — 오프라인 내장 목록이 원격과 어긋나지 않게."""
         import constants

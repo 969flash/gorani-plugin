@@ -5662,5 +5662,23 @@
   "es": "Alturas: altura medida de {0} (B) y plantas (C); en el resto etiqueta height de OSM (B), plantas (C) o valor por defecto {1:.1f} m (D)",
   "ja": "建物高さ: {0} 実測高さ(B)・階数(C)、ない所は OSM height タグ(B)・階数(C)・既定値 {1:.1f} m(D)",
   "zh": "建筑高度：{0} 实测高度(B)、层数(C)；其余为 OSM height 标签(B)、层数(C)或默认值 {1:.1f} m(D)"
+ },
+ "{0} 높이": {
+  "en": "{0} height",
+  "es": "Altura {0}",
+  "ja": "{0}の高さ",
+  "zh": "{0} 高度"
+ },
+ "{0} 층수": {
+  "en": "{0} floors",
+  "es": "Plantas {0}",
+  "ja": "{0}の階数",
+  "zh": "{0} 层数"
+ },
+ "{0} 지붕 높이": {
+  "en": "{0} roof height",
+  "es": "Altura de cubierta {0}",
+  "ja": "{0}の屋根高さ",
+  "zh": "{0} 屋顶高度"
  }
 }

@@ -85,7 +85,7 @@ description: |-
   What you get
   - 3D: buildings, roads, terrain, rivers, parks and railways on separate layers
   - 2D: Illustrator basemap, urban analysis maps, DWG, CSV tables
-  - Data: Korea nationwide, Japan (PLATEAU), Netherlands (3D Basisvoorziening), France (BD TOPO), Switzerland (swissBUILDINGS3D), elsewhere OpenStreetMap
+  - Data: Korea nationwide; official building data with heights where available (Japan, Netherlands, France, Switzerland, United States and more — the list grows without plugin updates, see the website); elsewhere OpenStreetMap
 
   한 번에 쉽게 하는 사이트 모델링 및 사이트 분석
   패널 언어는 위쪽 언어 버튼에서 한국어로 바꿀 수 있습니다.
@@ -98,7 +98,7 @@ description: |-
   결과물
   - 3D: 건물 매스, 도로, 지형, 하천, 녹지, 철도 (레이어별)
   - 2D: 일러스트레이터 베이스맵, 현황도·분석도, DWG, 조서 CSV
-  - 데이터: 국내 전국, 일본(PLATEAU)·네덜란드(3D Basisvoorziening)·프랑스(BD TOPO)·스위스(swissBUILDINGS3D) 건물, 해외 OpenStreetMap
+  - 데이터: 국내 전국, 공식 건물 데이터(높이 포함)가 있는 나라는 그것(일본·네덜란드·프랑스·스위스·미국 등 — 플러그인 업데이트 없이 늘어납니다, 웹사이트 참고), 그 밖은 OpenStreetMap
 license: MIT
 url: %(url)s
 icon: icon.png
@@ -1159,11 +1159,12 @@ def _read_notices():
     with open(NOTICES_PATH, encoding="utf-8") as f:
         data = json.load(f)
     with open(COUNTRIES_PATH, encoding="utf-8") as f:
-        countries = json.load(f)["countries"]
+        remote = json.load(f)
+    countries, services = remote["countries"], remote.get("services") or {}
     bad = [entry.get("code") for entry in countries if not entry.get("disabled") and data_pack._get_country_pack(entry) is None]
     if bad:
         raise ValueError("docs/countries.json 항목이 틀렸습니다(code 2자·bounds 4수·code_pattern 정규식·manifest·source_id·label): %s" % bad)
-    return {"update": data.get("update"), "notices": data.get("notices") or [], "countries": countries}
+    return {"update": data.get("update"), "notices": data.get("notices") or [], "countries": countries, "services": services}
 
 
 def upload_notices():

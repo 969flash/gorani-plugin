@@ -184,6 +184,30 @@ def get_pack_label(source_id):
     return get_country_packs()[code]["label"] if code else ""
 
 
+def get_height_src_label(src):
+    # type: (str) -> str
+    """높이 출처 키(height_src) → 표기. 내장 사전(constants.SHEET_HEIGHT_SRC_LABELS)에 없으면 '<source_id>_<종류>'를 나라별 팩 라벨 + 종류
+    (constants.HEIGHT_SRC_KIND_LABELS)로 읽는다 — 새 나라 팩(pdok_height·overture_levels …)이 코드 수정 없이 범례에 나오게. 모르면 키 그대로."""
+    if src in constants.SHEET_HEIGHT_SRC_LABELS:
+        return tr(constants.SHEET_HEIGHT_SRC_LABELS[src])
+    source_id, _, kind = src.partition("_")
+    label = get_pack_label(source_id)
+    if label and kind in constants.HEIGHT_SRC_KIND_LABELS:
+        return tr(constants.HEIGHT_SRC_KIND_LABELS[kind], label)
+    return "%s %s" % (label, kind) if label else src
+
+
+def get_service(key, default):
+    # type: (str, object) -> object
+    """한국 매니페스트 services[key]가 있으면 그것, 없으면 default — Overpass 미러·Nominatim·지형 타일 주소가 바뀌어도 플러그인 판 없이 돌린다(원본 docs/countries.json).
+    default가 목록이면 목록(https 주소만 남긴다, 비면 default), 아니면 https 문자열 하나."""
+    value = ((_MANIFEST.get(constants.DATA_MANIFEST_URL) or {}).get("services") or {}).get(key)
+    if isinstance(default, (list, tuple)):
+        urls = [v for v in value if isinstance(v, str) and v.startswith("https://")] if isinstance(value, (list, tuple)) else []
+        return tuple(urls) or tuple(default)
+    return value if isinstance(value, str) and value.startswith("https://") else default
+
+
 def get_pack_country(name):
     # type: (str) -> str
     """나라별 건물 팩 파일 이름(jp<시구정촌코드>_context.db·nl<도엽>_context.db)이면 나라 코드(get_country_packs 키), 아니면 "".
