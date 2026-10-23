@@ -15,6 +15,7 @@ import lzma
 import os
 import re
 import sqlite3
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -34,18 +35,26 @@ def get_data_dir():
 
 
 _MANIFEST = {}   # 매니페스트 주소 → 받은 매니페스트 — 지도를 옮길 때마다(area_packs) 다시 받지 않는다
+_FAILED = {}     # 매니페스트 주소 → 마지막으로 못 받은 시각 — 막힌 망에서 지도를 옮길 때마다 기다리지 않게(retry_after)
 
 
-def get_manifest(manifest_url=None, refresh=False, timeout=None):
-    # type: (str, bool, float) -> dict
+def get_manifest(manifest_url=None, refresh=False, timeout=None, retry_after=0):
+    # type: (str, bool, float, float) -> dict
     """매니페스트를 받아 dict로(Rhino 세션 동안 한 번). 각 팩의 url을 절대 URL로 바꿔 둔다. 주소가 비었으면 ValueError.
-    timeout = 기다리는 한도(초, None = DATA_TIMEOUT_SECONDS) — 패널 열기는 NOTICE_TIMEOUT_SECONDS로 짧게 기다린다."""
+    timeout = 기다리는 한도(초, None = DATA_TIMEOUT_SECONDS) — 패널 열기는 NOTICE_TIMEOUT_SECONDS로 짧게 기다린다.
+    retry_after = 최근 이 초 안에 못 받았으면 묻지 않고 IOError(지도 이동 area_packs — 2026-10-23 감사: 막힌 망에서 이동마다 UI가 30 s 멈췄다)."""
     manifest_url = manifest_url or constants.DATA_MANIFEST_URL
     if not manifest_url:
         raise ValueError("데이터 주소가 아직 정해지지 않았습니다(constants.DATA_MANIFEST_URL)")
     if refresh or manifest_url not in _MANIFEST:
-        with urllib.request.urlopen(manifest_url, timeout=timeout or constants.DATA_TIMEOUT_SECONDS) as response:
-            manifest = json.loads(response.read().decode("utf-8"))
+        if retry_after and time.time() - _FAILED.get(manifest_url, 0) < retry_after:
+            raise IOError("manifest unavailable (recent failure)")
+        try:
+            with urllib.request.urlopen(manifest_url, timeout=timeout or constants.DATA_TIMEOUT_SECONDS) as response:
+                manifest = json.loads(response.read().decode("utf-8"))
+        except Exception:
+            _FAILED[manifest_url] = time.time()
+            raise
         for pack in manifest["packs"]:
             pack["url"] = urllib.parse.urljoin(manifest_url, pack["url"])
         _MANIFEST[manifest_url] = manifest

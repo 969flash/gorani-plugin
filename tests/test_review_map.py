@@ -86,6 +86,22 @@ class OsmProxyTest(unittest.TestCase):
         self.assertIn("Gorani", seen[0][1])
 
 
+class ForeignOriginTest(unittest.TestCase):
+    def test_korea_map_after_foreign_point(self):
+        # 해외 위치를 찍은 뒤에도 서울 지도 필지가 보이고, 해외 원점은 그대로 남는다(2026-10-23 도쿄 → 서울 필지 0)
+        fixture = Path(__file__).resolve().parent / "fixtures" / "seongsu_site.db"
+        bbox = [127.050, 37.540, 127.060, 37.548]
+        before = len(review_map.get_parcels_in_bbox(bbox, database_path=fixture)["geojson"]["features"])
+        try:
+            non_rhino_utils.set_projection(139.70, 35.66)
+            after = len(review_map.get_parcels_in_bbox(bbox, database_path=fixture)["geojson"]["features"])
+            self.assertTrue(non_rhino_utils.is_local_projection())
+        finally:
+            non_rhino_utils.set_projection()
+        self.assertGreater(before, 0)
+        self.assertEqual(before, after)
+
+
 class MapInitTest(unittest.TestCase):
     def test_ip_center(self):
         # ipinfo.io의 loc은 "위도,경도" — 지도에는 [lng, lat]로 뒤집어 도시 배율로 연다

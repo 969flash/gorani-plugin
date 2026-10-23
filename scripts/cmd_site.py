@@ -236,6 +236,13 @@ def _empty_area_state(text=""):
             "offsets": [], "area": 0.0, "lots": 0, "lots_area": 0.0, "lot_name": "", "target_geojson": _EMPTY_FC, "warnings": []}
 
 
+def _get_name_options(msg):
+    # type: (dict) -> dict
+    """구역·위치 이름(…_일대·…_vicinity)을 결과 폴더와 같은 언어로 — prefs의 output_lang. 없으면 한국어라 해외 사용자 패널에
+    '일대'·'구역'이 떴다(2026-10-23 가상 사용자 시험)."""
+    return {"region": msg.get("region"), "output_lang": loader.load("site_prefs").get_options().get("output_lang")}
+
+
 def get_area_state(msg, site_db=None):
     # type: (dict, str) -> dict
     """area_state 페이로드 — 구역 링 하나를 정리·검사하고 안의 필지를 센다.
@@ -263,7 +270,7 @@ def get_area_state(msg, site_db=None):
         return _empty_area_state()
     try:
         request = context_builder.get_request_with_defaults({"target": {"mode": "area", "ring": points}, "site_db": site_db,
-                                                             "options": {"region": msg.get("region")}})   # Global이면 안의 필지를 세지 않는다
+                                                             "options": _get_name_options(msg)})   # Global이면 안의 필지를 세지 않는다
         target = context_builder.resolve_target(request)
     except (ValueError, KeyError, FileNotFoundError, RuntimeError) as error:
         return _empty_area_state(str(error.args[0]) if error.args else str(error))
@@ -292,7 +299,7 @@ def get_point_state(msg, site_db=None):
     non_rhino_utils.set_projection(lng, lat)   # 해외면 지역 원점, 국내면 EPSG:5186
     x, y = non_rhino_utils.get_tm_from_wgs84(lng, lat)
     request = context_builder.get_request_with_defaults({"target": {"mode": "point", "center": [x, y]}, "site_db": site_db,
-                                                         "options": {"region": msg.get("region")}})
+                                                         "options": _get_name_options(msg)})
     target = context_builder.resolve_target(request)
     return {"type": "point_state", "ok": True, "center": [round(lng, 7), round(lat, 7)], "center_tm": [round(x, 2), round(y, 2)],
             "lot_name": target.name}
@@ -314,14 +321,14 @@ def get_area_packs(bbox, seq=None, manifest=None):
     west, south, east, north = (float(v) for v in bbox)
     if not non_rhino_utils.is_korea((west + east) / 2.0, (south + north) / 2.0):
         return empty
-    corners = [non_rhino_utils.get_tm_from_wgs84(x, y) for x in (west, east) for y in (south, north)] if not non_rhino_utils.is_local_projection() else []
-    if not corners:
-        return empty
+    with non_rhino_utils.korea_projection():   # 해외 대상지 원점이 남아 있어도 국내 팩 범위로
+        corners = [non_rhino_utils.get_tm_from_wgs84(x, y) for x in (west, east) for y in (south, north)]
     bounds = (min(c[0] for c in corners), min(c[1] for c in corners), max(c[0] for c in corners), max(c[1] for c in corners))
     try:
         data_dir = data_pack.get_data_dir()
         # 시군구 필지 팩 중 파일이 없는 것만 — 새 판은 생성할 때 범위 안에서 받는다. 옛 시도 팩은 대상이 아니다
-        missing = [pack for pack in data_pack.get_missing_packs(manifest or data_pack.get_manifest(), bounds=bounds)
+        manifest = manifest or data_pack.get_manifest(timeout=constants.NOTICE_TIMEOUT_SECONDS, retry_after=constants.MANIFEST_RETRY_SECONDS)   # UI 스레드 — 짧게
+        missing = [pack for pack in data_pack.get_missing_packs(manifest, bounds=bounds)
                    if pack["name"][:5].isdigit() and pack["name"].endswith("_site.db")
                    and not os.path.exists(os.path.join(data_dir, pack["name"]))]
     except Exception:   # 오프라인 — 지도는 그대로 쓴다

@@ -65,10 +65,10 @@ def is_japan(lng, lat):
     return west <= lng <= east and south <= lat <= north and not non_rhino_utils.is_korea(lng, lat)
 
 
-def _fetch(url, data=None):
-    # type: (str, bytes) -> bytes
+def _fetch(url, data=None, timeout=None):
+    # type: (str, bytes, float) -> bytes
     request = urllib.request.Request(url, data=data, headers={"User-Agent": constants.OSM_USER_AGENT})
-    with urllib.request.urlopen(request, timeout=constants.OSM_TIMEOUT_SECONDS) as response:
+    with urllib.request.urlopen(request, timeout=timeout or constants.OSM_TIMEOUT_SECONDS) as response:
         return response.read()
 
 
@@ -90,14 +90,18 @@ def get_overpass_elements(bounds, query=None, endpoints=None):
     key = ("overpass", query)
     if key in _CACHE:
         return _CACHE[key]
-    errors = []
+    errors, busy = [], False
     for endpoint in endpoints or constants.OSM_OVERPASS_URLS:
         try:
             body = _fetch(endpoint, urllib.parse.urlencode({"data": query}).encode("utf-8"))
             return _keep(key, json.loads(body.decode("utf-8"))["elements"])
         except Exception as error:   # 미러 하나가 막혀도 다음 것을 쓴다
             errors.append("%s: %s" % (endpoint, error))
-    raise RuntimeError(tr("OSM(Overpass) 데이터를 받지 못했습니다. 인터넷 연결을 확인하세요") + "\n" + "\n".join(errors))
+            # 서버에 닿았는데 붐빔·한도(429·502~504)·응답 지연 — 인터넷 탓이 아니다(2026-10-23: 429인데 '인터넷 연결을 확인하세요'가 떴다)
+            busy = busy or (isinstance(error, urllib.error.HTTPError) and error.code in (429, 502, 503, 504)) or "timed out" in str(error)
+    title = (tr("OSM(Overpass) 서버가 붐빕니다. 1~2분 뒤 다시 시도하세요") if busy
+             else tr("OSM(Overpass) 데이터를 받지 못했습니다. 인터넷 연결을 확인하세요"))
+    raise RuntimeError(title + "\n" + "\n".join(errors))
 
 
 # ── 도형 ────────────────────────────────────────────────
@@ -592,7 +596,7 @@ def search_places(query, limit):
     네트워크 오류면 빈 목록."""
     url = constants.OSM_NOMINATIM_URL + "?" + urllib.parse.urlencode({"q": query, "format": "jsonv2", "limit": limit})
     try:
-        places = json.loads(_fetch(url).decode("utf-8"))
+        places = json.loads(_fetch(url, timeout=constants.OSM_SEARCH_TIMEOUT_SECONDS).decode("utf-8"))
     except Exception:
         return []
     return [{"name": p.get("display_name", ""), "center": [round(float(p["lon"]), 7), round(float(p["lat"]), 7)]} for p in places]

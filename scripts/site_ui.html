@@ -1530,7 +1530,7 @@ function made2dHtml(m) {
     // 베이스맵·다른 축척·CAD는 한 덩어리(줄마다 괘선이던 것을 라벨 열 하나로, 2026-10-19 Rhino QA)
     html += '<div class="fblock"><div class="frow"><span class="k">' + tr("베이스맵") + '</span><span id="exported_list" class="files"></span></div>' +
       '<div class="frow" id="more_scales"></div>' +
-      (bm.dwg ? '<div class="frow"><span class="k">CAD</span><span class="files"><button type="button" class="link" data-act="open" data-path="' + esc(bm.dwg) + '">' + esc(bm.dwg.split("/").pop()) + "</button></span></div>" : "") +
+      (bm.dwg ? '<div class="frow"><span class="k">CAD</span><span class="files"><button type="button" class="link" data-act="open" data-path="' + esc(bm.dwg) + '">' + esc(bm.dwg.split(/[\\/]/).pop()) + "</button></span></div>" : "") +
       '<div id="bm_err"></div></div>';
   }
   if (sheets.length) {

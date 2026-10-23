@@ -244,29 +244,30 @@ def get_parcels_in_bbox(bbox, limit=5000, database_path=None):
         properties = {pnu, address, jibun, land_category, area}.
     """
     min_lng, min_lat, max_lng, max_lat = [float(value) for value in bbox]
-    x_low, y_low = non_rhino_utils.get_tm_from_wgs84(min_lng, min_lat)
-    x_high, y_high = non_rhino_utils.get_tm_from_wgs84(max_lng, max_lat)
-    lots, truncated = lot_db.load_parcels_in_bounds(
-        min(x_low, x_high),
-        min(y_low, y_high),
-        max(x_low, x_high),
-        max(y_low, y_high),
-        limit,
-        database_path,
-    )
-    features = [
-        _get_feature(
-            lot,
-            {
-                "pnu": lot.pnu,
-                "address": lot.address,
-                "jibun": _get_jibun(lot.address),
-                "land_category": lot.land_category,
-                "area": lot.area,
-            },
+    with non_rhino_utils.korea_projection():   # 필지는 국내 DB 좌표 — 해외 대상지 원점이 남아 있어도
+        x_low, y_low = non_rhino_utils.get_tm_from_wgs84(min_lng, min_lat)
+        x_high, y_high = non_rhino_utils.get_tm_from_wgs84(max_lng, max_lat)
+        lots, truncated = lot_db.load_parcels_in_bounds(
+            min(x_low, x_high),
+            min(y_low, y_high),
+            max(x_low, x_high),
+            max(y_low, y_high),
+            limit,
+            database_path,
         )
-        for lot in lots
-    ]
+        features = [
+            _get_feature(
+                lot,
+                {
+                    "pnu": lot.pnu,
+                    "address": lot.address,
+                    "jibun": _get_jibun(lot.address),
+                    "land_category": lot.land_category,
+                    "area": lot.area,
+                },
+            )
+            for lot in lots
+        ]
     return {
         "geojson": {"type": "FeatureCollection", "features": features},
         "truncated": truncated,

@@ -557,14 +557,15 @@ SKETCHUP_PLATFORMS = {   # 폴더: (python-build-standalone 대상, pip 플랫�
 SKETCHUP_PIP_PACKAGES = ("numpy", "shapely>=2.1")   # shapely 2.1+ = constrained_delaunay_triangles(mesh_geometry 겹치기 CDT)
 SKETCHUP_PLAIN_NAMES = ("loader.py", "cmd_site.py", "cmd_sketchup.py")
 SKETCHUP_EXCLUDED_NAMES = ("panel_host", "cmd_install", "blender_baker")   # Rhino·Blender 전용
-# 런타임에서 뺄 것(번들 크기) — 런타임 루트 기준 glob. 표준 라이브러리 lib/python3.12(맥)·Lib(윈도)는 {lib}로 쓴다
+# 런타임에서 뺄 것(번들 크기) — 런타임 루트 기준 fnmatch(대소문자 구분, * 는 / 도 넘는다). 표준 라이브러리 lib/python3.12(맥)·Lib(윈도)는 {lib}로 쓴다
 # 맥 실행 파일 python3.12는 정적 링크라 libpython dylib가 필요 없고, bin/python·python3 링크는 zip에서 18 MB 사본이 된다(2026-10-18 실측)
 SKETCHUP_PYTHON_DROP = ("bin/2to3*", "bin/idle3*", "bin/pip*", "bin/pydoc3*", "bin/python3*-config", "bin/python", "bin/python3", "lib/libpython3*.dylib",
                         "include", "share", "lib/pkgconfig",
                         "lib/tcl*", "lib/tk*", "lib/itcl*", "lib/thread*", "lib/libtcl*", "lib/libtk*", "Scripts", "libs", "tcl",
                         "DLLs/_tkinter.pyd", "DLLs/tcl*.dll", "DLLs/tk*.dll", "{lib}/config-3.12-darwin", "{lib}/lib-dynload/_tkinter*",
                         "{lib}/idlelib", "{lib}/tkinter", "{lib}/turtledemo", "{lib}/test", "{lib}/ensurepip", "{lib}/lib2to3", "{lib}/pydoc_data",
-                        "{lib}/site-packages/pip", "{lib}/site-packages/pip-*", "{lib}/site-packages/numpy/**/tests", "{lib}/site-packages/shapely/tests")
+                        "{lib}/site-packages/pip", "{lib}/site-packages/pip-*", "{lib}/site-packages/numpy/tests", "{lib}/site-packages/numpy/**/tests", "{lib}/site-packages/shapely/tests")
+SKETCHUP_PYTHON_KEEP = ("threading.py", "queue.py", "http/server.py", "sqlite3/__init__.py", "ssl.py", "json/__init__.py")   # 지우면 사이드카가 못 뜬다
 SKETCHUP_ROOT_SOURCE = '''# Gorani — 도시설계 착수용 대지 컨텍스트(주변 건물·도로·지형·수계 3D, 베이스맵, 현황도). 본문은 %(id)s/main.rb
 require "sketchup.rb"
 require "extensions.rb"
@@ -609,7 +610,7 @@ def _get_site_packages(runtime_dir):
 def _stage_python(python_dir):
     # type: (str) -> str
     """플랫폼마다 런타임을 풀고 numpy·shapely 휠을 깔고 줄인 뒤 .pyc(unchecked-hash)를 만든다. 이 Mac에서 돌릴 파이썬 경로를 돌려준다."""
-    import glob
+    import fnmatch
     import tarfile
     host_python = os.path.join(python_dir, "mac-arm64", "bin", "python3.12")
     for platform in SKETCHUP_PLATFORMS:   # mac-arm64가 처음 — 그 pip로 다른 플랫폼 휠도 받는다
@@ -625,13 +626,22 @@ def _stage_python(python_dir):
     for platform in SKETCHUP_PLATFORMS:
         runtime_dir = os.path.join(python_dir, platform)
         lib = os.path.relpath(os.path.dirname(_get_site_packages(runtime_dir)), runtime_dir)
-        for pattern in SKETCHUP_PYTHON_DROP:
-            for path in glob.glob(os.path.join(runtime_dir, pattern.format(lib=lib)), recursive=True):
+        # 실제 파일 이름을 걸으며 대소문자까지 맞춘다 — glob은 macOS(대소문자 무시)에서 lib/thread*(Tcl)로 윈도 Lib/threading.py를 지웠다(2026-10-23, 0.2.0 rbz)
+        patterns = [pattern.format(lib=lib) for pattern in SKETCHUP_PYTHON_DROP]
+        for root, dir_names, file_names in os.walk(runtime_dir):
+            for name in list(dir_names) + file_names:
+                path = os.path.join(root, name)
+                if not any(fnmatch.fnmatchcase(os.path.relpath(path, runtime_dir).replace(os.sep, "/"), pattern) for pattern in patterns):
+                    continue
                 if os.path.isdir(path) and not os.path.islink(path):
                     shutil.rmtree(path)
+                    dir_names.remove(name)
                 elif os.path.lexists(path):
                     os.remove(path)
         shutil.rmtree(os.path.join(_get_site_packages(runtime_dir), "bin"), ignore_errors=True)
+        for name in SKETCHUP_PYTHON_KEEP:   # 사이드카가 쓰는 표준 모듈이 지워졌으면 멈춘다 — 윈도 런타임은 이 Mac에서 돌려 볼 수 없다
+            if not os.path.exists(os.path.join(runtime_dir, lib, name)):
+                sys.exit("%s 런타임에 %s가 없습니다 — SKETCHUP_PYTHON_DROP을 확인하세요" % (platform, name))
         subprocess.run([host_python, "-m", "compileall", "-q", "-f", "-j", "0", "--invalidation-mode", "unchecked-hash",
                         os.path.join(runtime_dir, lib)], check=True)
     return host_python
