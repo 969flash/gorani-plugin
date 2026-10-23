@@ -243,6 +243,7 @@ def build_cad(prepared):
     # 수치지형도 피처 — 도로중심선은 조각마다 현황 폭, 이름은 처음 붙는 조각 하나에 같이. 등고선은 고도 = 표고
     road_names, place_names = set(), set()
     contour_spots, contour_gap = [], constants.CAD_TEXT_MM["US-CONT-TXT"] * scale / 1000.0 * constants.CAD_LABEL_GAP
+    spot_cells, spot_gap = set(), constants.CAD_SPOT_GAP_MM * scale / 1000.0
     for f in prepared.features:
         if not basemap_ai.hits(f, bbox):
             continue
@@ -280,7 +281,9 @@ def build_cad(prepared):
                 text("US-CONT-TXT", "%g" % f.value, x, y, angle)
         elif f.theme == "terrain" and f.kind in ("spot", "benchmark") and geometry.get("type") == "Point" and f.value is not None:
             x, y = float(geometry["coordinates"][0]), float(geometry["coordinates"][1])
-            if inside(x, y):
+            cell = (int(x // spot_gap), int(y // spot_gap))   # 해외 표고점은 지형 타일 격자 표본이라 촘촘하다(긴자 200 m에 676점) — 칸마다 하나
+            if inside(x, y) and cell not in spot_cells:
+                spot_cells.add(cell)
                 px, py = to_cad([(x, y)])[0]
                 size = constants.CAD_TEXT_MM["US-SPOT"] * paper
                 writer.point("US-SPOT", px, py, f.value * unit_scale)
@@ -308,14 +311,16 @@ def build_cad(prepared):
                 text(layer, lot.lot_number, *spot)
                 lot_boxes.append(get_text_box(layer, lot.lot_number, *spot))
     # 건물 — 외곽 + 지상층수. 건물이 필지를 거의 채우면 두 면적 중심이 겹친다 → 층수를 지번 아래로(익선동 166-5·137-6)
-    buildings = 0
+    buildings, abroad = 0, non_rhino_utils.is_local_projection()
     for bld in prepared.buildings:
         if basemap_ai.hits(bld, bbox):
             buildings += 1
             outline("US-BLDG", bld.geometry)
             spot = get_centroid(bld.geometry)
-            if spot and int(bld.grnd_flr or 0) > 0:
-                label = "%dF" % int(bld.grnd_flr)
+            label = "%dF" % int(bld.grnd_flr) if int(bld.grnd_flr or 0) > 0 else ""
+            if not label and abroad and (bld.height_m or 0) > 0:   # 층수 없이 높이만 있는 나라 건물 팩(네덜란드 등) — 한국 층수 0(무벽건물 등)은 비운다
+                label = "H%dm" % round(bld.height_m)
+            if spot and label:
                 x, y = spot
                 for box in lot_boxes:
                     mine = get_text_box("US-BLDG-FL", label, x, y)
