@@ -4,7 +4,12 @@
 Rhino를 import하지 않아 python3로 바로 테스트할 수 있다.
 """
 
+import http.server
 import json
+import os
+import re
+import socketserver
+import threading
 import urllib.request
 
 import constants
@@ -21,8 +26,14 @@ VWORLD_ATTRIBUTION = "© VWorld"
 OSM_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
 OSM_ATTRIBUTION = "© OpenStreetMap contributors"
 # 해외 배경(VWorld는 국내만) — OSM 표준 타일. 소량 사용·출처 표기 조건(타일 이용 정책). CARTO는 2026-10 기준 키가 필요해 쓰지 않는다
-ABROAD_TILE_URL = OSM_TILE_URL
 ABROAD_ATTRIBUTION = OSM_ATTRIBUTION
+# OSM 타일 중계 — 웹뷰가 직접 받으면 막힌다: file://(Rhino)은 Referer가 없고 127.0.0.1(Blender·SketchUp) Referer도 거절
+# ('Access blocked' 타일, 2026-10-23 해외 사용자 신고·curl 재현). 앱을 밝힌 User-Agent(constants.OSM_USER_AGENT)로 받으면 통과한다
+OSM_PROXY_PATH = "/osm/{z}/{x}/{y}.png"   # Rhino는 아래 중계 서버, Blender·SketchUp은 panel_server가 같은 출처에서
+OSM_PROXY_PATTERN = re.compile(r"^/osm/(\d{1,2})/(\d+)/(\d+)\.png$")
+OSM_PROXY_PORT_ENV = "GORANI_TILE_PORT"   # loader가 모듈을 다시 읽어도 Rhino 세션에 서버 하나
+OSM_PROXY_TIMEOUT = 5   # s — Blender는 메인 스레드가 받는다. 오프라인이면 타일마다 이만큼 멈춘다
+OSM_PROXY_CACHE = "max-age=604800"   # OSM 응답에 없으면 7일 — 캐시는 웹뷰 HTTP 캐시가 한다(타일 정책: 받은 타일 캐시)
 # 위성·항공 영상 — 국내는 VWorld 영상지도(국토지리정보원 정사영상, 줌 19까지, 2026-10-14 키로 받아짐 확인)
 VWORLD_AERIAL_URL_TEMPLATE = "https://api.vworld.kr/req/wmts/1.0.0/%s/Satellite/{z}/{y}/{x}.jpeg"
 VWORLD_AERIAL_ATTRIBUTION = "© VWorld 영상지도"
@@ -52,9 +63,10 @@ def get_tile_config():
         "aerial_url", "aerial_attribution", "abroad_aerial_url", "abroad_aerial_attribution"}``.
         abroad_aerial_url(Esri)은 국내 영상을 못 받을 때의 폴백도 겸한다.
     """
+    osm_url = get_osm_url()
     config = {
-        "url": OSM_TILE_URL, "fallback_url": OSM_TILE_URL, "attribution": OSM_ATTRIBUTION,
-        "abroad_url": ABROAD_TILE_URL, "abroad_attribution": ABROAD_ATTRIBUTION,
+        "url": osm_url, "fallback_url": osm_url, "attribution": OSM_ATTRIBUTION,
+        "abroad_url": osm_url, "abroad_attribution": ABROAD_ATTRIBUTION,
         "aerial_url": ESRI_AERIAL_URL, "aerial_attribution": ESRI_AERIAL_ATTRIBUTION,
         "abroad_aerial_url": ESRI_AERIAL_URL, "abroad_aerial_attribution": ESRI_AERIAL_ATTRIBUTION,
     }
@@ -66,6 +78,81 @@ def get_tile_config():
     if not constants.HOST_LABELS[context_builder.get_host()].get("aerial", True):   # Blender — 위성 영상 없음(패널은 [위성]을 숨긴다)
         config.update(aerial_url="", abroad_aerial_url="")
     return config
+
+
+def get_osm_url():
+    # type: () -> str
+    """패널이 받을 OSM 타일 주소 틀.
+
+    입력:
+        없음.
+    처리:
+        Rhino는 127.0.0.1 중계 서버를 세션에 한 번 띄운다(스레드). Blender·SketchUp은 panel_server가 같은 출처 경로로 중계한다.
+        웹판은 페이지에 Referer가 있어 OSM을 그대로 쓴다.
+    출력:
+        Leaflet 타일 URL 틀.
+    """
+    import context_builder   # 호스트 판정 — 모듈 수준 import는 순환
+    host = context_builder.get_host()
+    if host == "web":
+        return OSM_TILE_URL
+    if host != "rhino":
+        return OSM_PROXY_PATH
+    port = os.environ.get(OSM_PROXY_PORT_ENV)
+    if not port:
+        server = _ProxyServer(("127.0.0.1", 0), _ProxyHandler)
+        threading.Thread(target=server.serve_forever, name="gorani-tiles", daemon=True).start()
+        port = os.environ[OSM_PROXY_PORT_ENV] = str(server.server_address[1])
+    return "http://127.0.0.1:%s%s" % (port, OSM_PROXY_PATH)
+
+
+def send_osm_tile(handler):
+    # type: (http.server.BaseHTTPRequestHandler) -> None
+    """중계 요청 하나에 답한다 — '/osm/z/x/y.png'를 OSM에서 앱 User-Agent로 받아 그대로 돌려준다.
+
+    입력:
+        handler: 요청 처리기(이 모듈의 중계 서버 또는 panel_server).
+    처리:
+        경로가 틀리면 404, 받기 실패는 502(패널 tileerror → 폴백·오프라인 칩).
+    출력:
+        없음. handler에 응답을 쓴다.
+    """
+    match = OSM_PROXY_PATTERN.match(handler.path.split("?")[0])
+    if not match:
+        handler.send_error(404)
+        return
+    z, x, y = match.groups()
+    request = urllib.request.Request(OSM_TILE_URL.format(z=z, x=x, y=y), headers={"User-Agent": constants.OSM_USER_AGENT})
+    try:
+        with urllib.request.urlopen(request, timeout=OSM_PROXY_TIMEOUT) as response:
+            body = response.read()
+            cache = response.headers.get("Cache-Control") or OSM_PROXY_CACHE
+    except Exception:
+        handler.send_error(502)
+        return
+    handler.send_response(200)
+    handler.send_header("Content-Type", "image/png")
+    handler.send_header("Cache-Control", cache)
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+class _ProxyHandler(http.server.BaseHTTPRequestHandler):
+    """Rhino 중계 서버 — /osm/ 타일만."""
+    do_GET = send_osm_tile
+
+    def log_message(self, *args):
+        pass
+
+
+class _ProxyServer(http.server.ThreadingHTTPServer):
+    daemon_threads = True
+
+    def server_bind(self):
+        """socket.getfqdn(역방향 DNS)을 건너뛴다 — panel_server._Bind와 같은 이유(Mac에서 35 s)."""
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = "127.0.0.1", self.server_address[1]
 
 
 def get_ip_center():

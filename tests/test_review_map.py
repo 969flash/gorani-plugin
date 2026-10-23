@@ -45,7 +45,7 @@ class TileConfigTest(unittest.TestCase):
             config = review_map.get_tile_config()
         self.assertIn("api.vworld.kr", config["url"])
         self.assertIn("TESTKEY", config["url"])
-        self.assertIn("openstreetmap", config["fallback_url"])
+        self.assertIn("/osm/{z}/{x}/{y}.png", config["fallback_url"])   # OSM은 중계로(Referer 없는 웹뷰는 막힌다)
         self.assertIn("TESTKEY/Satellite", config["aerial_url"])   # 위성 배경·항공사진 시트
         self.assertIn("arcgisonline", config["abroad_aerial_url"])   # 해외·VWorld 영상 폴백
 
@@ -57,9 +57,33 @@ class TileConfigTest(unittest.TestCase):
                 pnu_loader, "HOME_DIR", Path(temp_dir)
             ):
                 config = review_map.get_tile_config()
-        self.assertIn("openstreetmap", config["url"])
+        self.assertIn("/osm/{z}/{x}/{y}.png", config["url"])
         self.assertEqual(config["url"], config["fallback_url"])
         self.assertIn("arcgisonline", config["aerial_url"])   # 키 없으면 영상은 Esri
+
+
+class OsmProxyTest(unittest.TestCase):
+    def test_rhino_proxy_serves_tile(self):
+        # Rhino 중계 서버가 OSM 주소로 앱 User-Agent를 붙여 받고 PNG를 돌려준다(네트워크는 가짜)
+        import urllib.request as request_module
+        real_urlopen = request_module.urlopen
+        seen = []
+
+        def fake_urlopen(request, timeout=None):
+            if not isinstance(request, request_module.Request):
+                return real_urlopen(request, timeout=timeout)   # 테스트가 중계 서버를 부르는 길
+            seen.append((request.full_url, request.get_header("User-agent")))
+            response = io.BytesIO(b"PNG")
+            response.headers = {}
+            return response
+
+        with patch.object(request_module, "urlopen", fake_urlopen):
+            url = review_map.get_osm_url().format(z=16, x=55880, y=25360)
+            with real_urlopen(url, timeout=5) as response:
+                self.assertEqual(response.read(), b"PNG")
+                self.assertIn("max-age", response.headers["Cache-Control"])
+        self.assertEqual(seen[0][0], "https://tile.openstreetmap.org/16/55880/25360.png")
+        self.assertIn("Gorani", seen[0][1])
 
 
 class MapInitTest(unittest.TestCase):
