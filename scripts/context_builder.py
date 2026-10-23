@@ -269,7 +269,12 @@ def _get_origin(center, doc_origin):
                                                     math.hypot(center[0] - origin[0], center[1] - origin[1]), constants.ORIGIN_MAX_OFFSET))
         return origin, True
     snap = constants.ORIGIN_SNAP
-    return (math.floor(center[0] / snap) * snap, math.floor(center[1] / snap) * snap), False
+    origin = (math.floor(center[0] / snap) * snap, math.floor(center[1] / snap) * snap)
+    if origin == (0.0, 0.0):
+        # 문서 원점 (0, 0)은 'GIS 좌표' 문서 표시다. 해외 지역 투영(원점 = 중심 0.01° 반올림)에서 중심이 격자점 북동 100 m 안이면
+        # 내림이 (0, 0)이 되어 2D·다시 만들기가 placement_mismatch로 막혔다(사하라 N25.0000 E23.4000, 2026-10-23 가상 사용자) — 한 칸 옮긴다
+        origin = (-snap, -snap)
+    return origin, False
 
 
 def _get_origins(center, doc_origin, placement):
