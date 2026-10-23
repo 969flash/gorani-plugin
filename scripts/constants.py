@@ -1117,6 +1117,7 @@ CAD_PANEL_STATE_FILE = "autocad_panel.json"   # HOME_DIR — 떠 있는 사이�
 CAD_SIDECAR_LOG = "autocad_sidecar.log"       # HOME_DIR — 사이드카 출력(startapp으로 띄워 콘솔이 없다)
 CAD_INSERT_FILE = "autocad_insert.txt"        # HOME_DIR — 지금 도면에 넣을 DXF(1줄 경로, 2줄 블록 이름, UTF-8). gorani.lsp가 읽고 지운다
 CAD_INSERT_TIMEOUT = 15.0                      # s — Windows에서 실행 중인 AutoCAD에 넣기 명령을 보내는 PowerShell(COM) 대기 상한
+CAD_WATCH_SECONDS = 3.0                        # s — AutoCAD가 꺼졌는지 보는 간격. 꺼지면 사이드카와 패널 창도 끝난다
 # 패널 창 — 기본 브라우저 탭은 크게 떠서 CAD 화면을 덮는다(2026-10-23 사용자 지적). Chromium 앱 모드(주소창·탭 없는 창)를 이 순서로 찾는다
 CAD_PANEL_BROWSERS = {
     "win": (r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe", r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe",

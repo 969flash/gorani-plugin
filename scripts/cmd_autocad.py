@@ -12,6 +12,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import urllib.request
 import webbrowser
 
@@ -115,6 +116,45 @@ def _open_panel(url):
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def _is_autocad_alive(parent_pid):
+    # type: (int) -> bool
+    """AutoCAD가 아직 떠 있나. Windows = 사이드카를 띄운 부모(startapp → acad.exe)가 살아 있나,
+    맥 = AutoCAD 프로세스가 하나라도 있나(SHELL 경유라 부모 셸은 바로 끝난다)."""
+    if sys.platform.startswith("win"):
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.OpenProcess(0x1000, False, parent_pid)   # PROCESS_QUERY_LIMITED_INFORMATION — os.kill(pid, 0)은 윈도에서 프로세스를 죽인다
+        if not handle:
+            return False
+        code = ctypes.c_ulong()
+        kernel32.GetExitCodeProcess(handle, ctypes.byref(code))
+        kernel32.CloseHandle(handle)
+        return code.value == 259   # STILL_ACTIVE
+    try:
+        names = subprocess.run(["ps", "-axo", "comm"], capture_output=True, text=True, timeout=10).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return True   # 못 보면 살아 있다고 친다
+    return "/Autodesk/AutoCAD" in names
+
+
+def _watch_autocad(bridge, state_path):
+    # type: (object, str) -> None
+    """AutoCAD가 꺼지면 패널 창을 닫고(superseded — 패널이 window.close) 사이드카도 끝낸다. 백그라운드 스레드."""
+    import time
+    constants = loader.load("constants")
+    parent_pid = os.getppid()
+    while _is_autocad_alive(parent_pid):
+        time.sleep(constants.CAD_WATCH_SECONDS)
+    bridge.push({"type": "superseded"})
+    time.sleep(1.0)   # 패널이 받고 닫을 틈
+    try:
+        os.remove(state_path)
+    except OSError:
+        pass
+    print("AutoCAD closed — sidecar exits")
+    os._exit(0)
+
+
 def _get_live_url(state_path):
     # type: (str) -> str
     """앞서 띄운 사이드카가 아직 응답하면 그 패널 주소, 아니면 None."""
@@ -143,7 +183,7 @@ def main():
         json.dump({"url": bridge.url, "pid": os.getpid()}, f)
     print("Gorani AutoCAD panel: %s" % bridge.url)
     _open_panel(bridge.url)
-    # ponytail: 사이드카는 꺼지지 않는다(startapp은 부모와 이어진 파이프가 없다) — 쉬는 동안 메모리만 쓴다. 문제가 되면 마지막 명령 뒤 몇 시간이면 끝내기
+    threading.Thread(target=_watch_autocad, args=(bridge, state_path), daemon=True).start()   # AutoCAD를 끄면 같이 끝난다
     while True:
         bridge.dispatch(bridge.inbox.get())
 
