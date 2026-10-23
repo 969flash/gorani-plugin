@@ -145,7 +145,20 @@ import Rhino
 import System
 
 folder = os.path.dirname(Rhino.PlugIns.PlugIn.PathFromId(System.Guid("%(plugin_id)s")))
-runpy.run_path(os.path.join(folder, "scripts", "cmd_site.py"), run_name="__main__")
+script = os.path.join(folder, "scripts", "cmd_site.py")
+if not os.path.exists(script):
+    # Rhino를 끄지 않고 Package Manager로 업데이트하면 켤 때 읽은 옛 판 폴더의 scripts가 지워진다(2026-10-23 0.3.4 → 0.3.5 사용자 신고).
+    # 옆 판 폴더 중 가장 새 것을 쓰고, 그것도 없으면 재시작을 안내한다
+    def version_key(name):
+        return tuple(int(part) if part.isdigit() else 0 for part in name.split("."))
+    root = os.path.dirname(folder)
+    versions = sorted((name for name in os.listdir(root) if os.path.exists(os.path.join(root, name, "scripts", "cmd_site.py"))),
+                      key=version_key) if os.path.isdir(root) else []
+    script = os.path.join(root, versions[-1], "scripts", "cmd_site.py") if versions else ""
+if script:
+    runpy.run_path(script, run_name="__main__")
+else:
+    Rhino.UI.Dialogs.ShowMessage("Gorani was updated. Please restart Rhino to finish the update.", "Gorani")
 '''
 
 BLENDER_APP = "/Applications/Blender.app/Contents/MacOS/Blender"
