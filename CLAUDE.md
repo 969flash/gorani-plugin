@@ -85,6 +85,7 @@
 - 유틸 함수는 `get_`·`is_`·`has_` 등 역할이 보이는 이름과 단·복수형. 입력 형상은 바꾸지 않고 복제한 결과를 반환. `def` 바로 아래 `# type:`(실제 타입 이름)과 `입력`·`처리`·`출력` docstring.
 - Rhino가 필요 없는 좌표·GeoJSON 연산은 `non_rhino_utils.py`(Rhino import 금지, python3로 테스트), RhinoCommon 범용 연산은 `utils.py`.
 - **폴백·휴리스틱 분기에는 그 분기를 유발한 실제 데이터(PNU·건물 id·도엽)를 주석으로 남긴다.**
+- **배포 전 점검은 무조건이다(건너뛰기 금지).** ① `dev_deploy.py yak|blender|sketchup`이 먼저 `check_tiles`(= `dev_deploy.py smoke`)를 돌린다 — 키 없는 설치본의 길 그대로 패널 지도 타일을 받아 보고, 실패하면 빌드가 멈춘다. ② 빌드한 패키지를 실제로 깔고(VWorld 키 없는 `~/Gorani`) 패널을 열어 서울·해외 지도를 화면으로 본다. 개발 저장소의 `.env` 키 때문에 개발 PC에서는 사용자 첫 화면이 안 보인다 — 2026-10-23 OSM 'Access blocked'가 0.3.4까지 나갔다.
 - 테스트는 `tests/`에 unittest. Rhino 없이 도는 모듈(DB·주소·좌표·지도·SVG)은 python3로 바로 돌린다: `python3 -m unittest discover tests`. Blender판은 `Blender -b --factory-startup --python-exit-code 1 --python tests/test_blender.py`. SketchUp 사이드카는 번들 파이썬으로 `build/sketchup/bsh_gorani/python/mac-arm64/bin/python3.12 -m unittest tests/test_sketchup.py`(가짜 SketchUp이 host_call에 답한다 — Ruby 쪽은 SketchUp 안에서만).
 
 ## 폴더 구조
