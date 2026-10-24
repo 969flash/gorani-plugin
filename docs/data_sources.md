@@ -272,7 +272,7 @@ CREATE TABLE IF NOT EXISTS source_files (
   매니페스트·`config.json`은 저장소 파일(HF와 같은 경로 — `raw.githubusercontent.com/…/main/manifest.json`, 상대경로 `jp/manifest.json`이 그대로 풀린다),
   팩은 폴더마다 릴리스(태그 `kr`·`jp`·`fr`·`ch`·`nl`·`us`, 릴리스당 자산 1,000개 상한이라 `nl-2`·`us-2`…로 잇는다)에 두고 사본 매니페스트가 절대 주소로 가리킨다.
   릴리스 태그를 `data`·`data/jp`처럼 겹쳐 둘 수는 없다(git 참조 — 만들기가 HTTP 500). HF에 팩·매니페스트를 올린 뒤(①·③, `dev_deploy upload`·`notices`) 꼭
-  `python3 scripts/dev_deploy.py mirror`를 돌린다 — 크기·sha256이 같은 팩은 건너뛰고 바뀐 것만 옮긴다(첫 사본 5,479개·32.8 GB, 이 Mac에서 약 2시간). Rhino·SketchUp판은 HF 그대로.
+  `python3 scripts/dev_deploy.py mirror`를 돌린다 — 크기·sha256이 같은 팩은 건너뛰고 바뀐 것만 옮긴다. GitHub 2차 한도(쓰기 요청 시간당 약 500건) 때문에 하나씩 7.5 s 간격으로 올린다 — 첫 사본 5,479개·32.8 GB는 반나절(2026-10-25: 4개 동시로 1시간에 약 1,100개 올리자 막혔다). Rhino·SketchUp판은 HF 그대로.
 
 ### 프랑스 — IGN BD TOPO® 건물 팩 (`fr/`, 경위도, 2026-10-22)
 

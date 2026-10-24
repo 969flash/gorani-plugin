@@ -1376,8 +1376,12 @@ def upload_notices():
 # ── GitHub 사본(Blender판 데이터) ─────────────────────────
 
 MIRROR_SKIP_NAMES = (".gitattributes", "README.md")   # 데이터셋 카드는 사본 저장소 README로(mirror가 따로 올린다)
-MIRROR_WORKERS = 4
-MIRROR_RETRIES = 5
+# GitHub 2차 한도 — 쓰기 요청(자산 올리기 포함) 시간당 약 500건. 2026-10-25 첫 사본에서 4개 동시로 1시간에 약 1,100개를 올리자
+# 'secondary rate limit … scraping GitHub'로 막혔다. 하나씩, 시작 간격을 두고 올리고, 막히면 길게 쉰다(되풀이하면 계정이 제한될 수 있다)
+MIRROR_INTERVAL = 7.5          # s — 자산 하나 올리기 시작 간격(시간당 480개 이하)
+MIRROR_RETRIES = 5             # 그 밖의 오류(HF 끊김 등) — 60 s × 횟수만큼 쉬고 다시
+MIRROR_LIMIT_RETRIES = 12      # 2차 한도 — MIRROR_LIMIT_WAIT씩 쉬고 다시
+MIRROR_LIMIT_WAIT = 900        # s
 
 
 def _get_hf_files():
@@ -1446,12 +1450,11 @@ def mirror(dirs=None):
 
     입력: dirs = 옮길 데이터셋 폴더(""는 한국 필지 팩이 있는 맨 위, 기본 전부). 개인 계정 gh 로그인 필요.
     처리: 팩은 폴더마다 릴리스(태그 kr·jp·…)에 — 팩이 DATA_GITHUB_ASSET_MAX를 넘으면 us-2 …로 잇는다(이미 올린 팩은 그 자리에 둔다).
-          크기·sha256이 같은 팩은 건너뛴다. 팩을 다 올린 뒤 매니페스트·config.json을 저장소 같은 경로에 쓴다 — 매니페스트의 상대 팩 주소는
+          크기·sha256이 같은 팩은 건너뛴다. 하나씩 MIRROR_INTERVAL 간격(GitHub 2차 한도) — 첫 사본 5,479개는 반나절 걸린다. 팩을 다 올린 뒤 매니페스트·config.json을 저장소 같은 경로에 쓴다 — 매니페스트의 상대 팩 주소는
           실제 릴리스의 절대 주소로 바꾸고, 국내 서버 주소(컨텍스트·등고선 팩)와 countries[].manifest(상대 "jp/manifest.json")는 그대로 둔다.
           HF에서 지운 팩은 사본에 남는다(매니페스트가 가리키지 않으니 쓰이지 않는다).
     출력: 사본 한국 매니페스트 주소. 팩·매니페스트를 고친 뒤(dev_deploy upload·notices, dev_plateau 등) 이것을 돌린다.
     """
-    import concurrent.futures
     import tempfile
     import time
     import urllib.request
@@ -1471,19 +1474,25 @@ def mirror(dirs=None):
 
     def fetch_and_upload(item):
         folder, tag, name = item
-        for attempt in range(MIRROR_RETRIES):   # GitHub 2차 한도(쓰기 요청이 몰리면 403·429)·HF 끊김 — 쉬었다 다시
+        errors, limits = 0, 0
+        while True:
+            started = time.time()
             try:
                 with tempfile.TemporaryDirectory() as tmp:
                     path = os.path.join(tmp, name)
                     with urllib.request.urlopen(hf_base + (folder + "/" if folder else "") + name, timeout=120) as response, open(path, "wb") as out:
                         shutil.copyfileobj(response, out, 1024 * 1024)
                     _gh("release", "upload", tag, path, "--clobber", "-R", constants.DATA_GITHUB_REPO)
+                time.sleep(max(0.0, MIRROR_INTERVAL - (time.time() - started)))
                 return name
             except Exception as error:
-                if attempt == MIRROR_RETRIES - 1:
+                limited = any(word in str(error) for word in ("secondary rate limit", "scraping GitHub", "HTTP 429", "HTTP 403"))
+                errors, limits = errors + (not limited), limits + limited
+                if errors >= MIRROR_RETRIES or limits >= MIRROR_LIMIT_RETRIES:
                     raise
-                print("  다시(%d) %s: %s" % (attempt + 1, name, str(error)[:200]), flush=True)
-                time.sleep(60 * (attempt + 1))
+                wait = MIRROR_LIMIT_WAIT if limited else 60 * errors
+                print("  %s %s — %d s 쉬고 다시: %s" % ("한도" if limited else "오류", name, wait, str(error)[:120]), flush=True)
+                time.sleep(wait)
 
     for folder in sorted(by_dir, key=lambda f: (f != "", f)):   # 한국 필지 팩부터
         base_tag = folder or "kr"
@@ -1510,10 +1519,9 @@ def mirror(dirs=None):
             if not have or have[0] != size or (sha and have[1] and have[1] != sha):
                 todo.append((folder, tag, name))
         print("%s → %s: 파일 %d개, 올릴 팩 %d개" % (folder or "(맨 위)", "·".join(tags), len(files), len(todo)), flush=True)
-        with concurrent.futures.ThreadPoolExecutor(MIRROR_WORKERS) as pool:
-            for index, name in enumerate(pool.map(fetch_and_upload, todo), 1):
-                if index % 20 == 0 or index == len(todo):
-                    print("  %d/%d %s" % (index, len(todo), name), flush=True)
+        for index, name in enumerate(map(fetch_and_upload, todo), 1):
+            if index % 20 == 0 or index == len(todo):
+                print("  %d/%d %s" % (index, len(todo), name), flush=True)
         for name in (n for n, _, _ in files if n in repo_files):
             data = fetch(folder, name)
             if name == "manifest.json":
