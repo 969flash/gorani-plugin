@@ -58,3 +58,39 @@ https://developer.blender.org/docs/features/extensions/moderation/guidelines/ ·
 심사 질문에 답할 때(영어):
 - Threading: "The add-on itself never starts a thread in Blender. The panel server runs on Blender's main thread with non-blocking sockets polled from a timer and from the progress callback. The threaded branch in panel_server.py is used only by our SketchUp sidecar, a separate process."
 - Data packs: "Downloads are data only (SQLite of public Korean GIS data), free and without login, on explicit user action. No code is downloaded."
+
+## 2026-10-25 심사 반려와 0.3.6
+
+심사 댓글(요지): vworld.kr 접속 안 됨, overpass.kumi.systems·overpass.private.coffee 접속 안 됨(시험은 했나), s3.amazonaws.com은 무료인가,
+Hugging Face는 자유·오픈소스가 아니니 빼라, Oracle Cloud는 뭔가 — "링크를 모아 놓았을 뿐 계획이 없다. AI 모델 연결·유료 서비스 연결을 빼고 다시 내라."
+
+고친 것(0.3.6):
+- 데이터 팩은 GitHub 사본 `969flash/gorani-data`(Blender판만 — `dev_deploy.py mirror`, docs/data_sources.md 'GitHub 사본'). HF는 Blender 패키지에 주소가 없다.
+- VWorld 키·검색·타일 주소를 Blender 패키지에서 비운다(`dev_deploy.BLENDER_CONSTANT_PATCHES` — 키 이름이 비어 늘 '키 없음' 경로).
+  같이 비우는 것: Esri 영상·ipinfo.io·GA·yak·관리·원천 수집 주소. 남은 주소는 `BLENDER_ALLOWED_HOSTS` 검사 — 새 서비스를 넣으면 빌드가 멈춘다.
+- Overpass 미러: 응답 없는 kumi·private.coffee, 504인 mail.ru를 뺐다(모든 호스트).
+- `basemap_ai.py`의 ai는 Adobe Illustrator 형식이다 — 'AI 모델'로 읽힐 수 있어 답변에 한 줄 적었다.
+
+설치본 점검(0.3.6 zip, 격리 Blender 5.2 + 빈 HOME, 2026-10-25): 패널 서울·파리 지도(OSM 중계) 정상, 위치 방식 생성 —
+서울 을지로 R300(GitHub 필지 팩 + 국내 서버 팩, 1,233동) · 파리 R300(GitHub 프랑스 팩 5개 + Overpass + AWS 지형) · 도쿄 신주쿠 R300(GitHub 일본 팩 + GSI 지형).
+
+### Network (심사 답변 원문 — 새 서비스를 넣으면 여기와 BLENDER_ALLOWED_HOSTS를 같이 고친다)
+
+Thank you for the review, and sorry for the messy first submission. You were right on several points. I re-read the guidelines and uploaded version 0.3.6, which cleans this up.
+
+**What changed in 0.3.6**
+- Hugging Face is removed. The data packs now come from a GitHub repository: https://github.com/969flash/gorani-data (sources and licenses are in its README). Hugging Face was only a file host for these public GIS files. The add-on does not use any AI model. (`basemap_ai.py` writes Adobe Illustrator `.ai` files. "ai" is the file format.)
+- VWorld is removed. vworld.kr is the Korean government's map portal, and it blocks access from outside Korea. That is why you could not open it. The Blender build no longer contains any VWorld code path.
+- The dead Overpass mirrors (overpass.kumi.systems, overpass.private.coffee) and maps.mail.ru are removed.
+- The build now checks every URL in the package against an allow list, so no other service can slip in.
+
+**Where the data comes from.** Everything is free, with no account and no API key. Requests happen only after the user clicks, and only when Online Access is on.
+1. Panel map: OpenStreetMap standard tiles (tile.openstreetmap.org), with an identifying User-Agent as the tile usage policy asks.
+2. Buildings, roads and water anywhere: OpenStreetMap through the Overpass API. The add-on uses overpass-api.de (the main public instance), with overpass.openstreetmap.fr (OSM France) as fallback. Both are listed at https://wiki.openstreetmap.org/wiki/Overpass_API#Public_Overpass_API_instances. Place search uses nominatim.openstreetmap.org.
+3. Terrain anywhere: Terrain Tiles from the Registry of Open Data on AWS (s3.amazonaws.com/elevation-tiles-prod). This is a free public dataset: https://registry.opendata.aws/terrain-tiles/. The add-on downloads plain image files over HTTPS; no AWS account or key is needed. For sites in Japan it uses the Japanese government's GSI elevation tiles instead (cyberjapandata.gsi.go.jp, free: https://maps.gsi.go.jp/development/ichiran.html).
+4. Official open building data for Korea (parcels), Japan, the Netherlands, France, Switzerland and the USA: SQLite packs on GitHub. The manifest comes from raw.githubusercontent.com and the packs from github.com releases. Each pack is checked against the sha256 in the manifest.
+5. Korea only, buildings, roads and contours: this data comes from Korea's national base map. Korean law (Spatial Data Act, Article 16) does not allow it to be stored outside Korea. So it is served as static files from a small server in Korea (Oracle Cloud, always-free tier, 150.230.249.1). Users need no account, and nobody pays for it. Each file is checked against the sha256 in the manifest from GitHub.
+
+Links that open in the browser only when the user clicks them: the project website, and the Korean land-use plan page (eum.go.kr) for a selected parcel. The add-on sends no analytics.
+
+I tested every service above on 2026-10-25. With the 0.3.6 package, a full build works in Seoul, Paris and Tokyo.
