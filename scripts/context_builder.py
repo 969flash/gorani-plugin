@@ -269,7 +269,12 @@ def _get_origin(center, doc_origin):
                                                     math.hypot(center[0] - origin[0], center[1] - origin[1]), constants.ORIGIN_MAX_OFFSET))
         return origin, True
     snap = constants.ORIGIN_SNAP
-    return (math.floor(center[0] / snap) * snap, math.floor(center[1] / snap) * snap), False
+    origin = (math.floor(center[0] / snap) * snap, math.floor(center[1] / snap) * snap)
+    if origin == (0.0, 0.0):
+        # 문서 원점 (0, 0)은 'GIS 좌표' 문서 표시다. 해외 지역 투영(원점 = 중심 0.01° 반올림)에서 중심이 격자점 북동 100 m 안이면
+        # 내림이 (0, 0)이 되어 2D·다시 만들기가 placement_mismatch로 막혔다(사하라 N25.0000 E23.4000, 2026-10-23 가상 사용자) — 한 칸 옮긴다
+        origin = (-snap, -snap)
+    return origin, False
 
 
 def _get_origins(center, doc_origin, placement):
@@ -537,8 +542,8 @@ def _get_align_stats(samples):
 def get_abroad_sources(today=None, country=""):
     # type: (datetime.date, str) -> list
     """해외 대상지의 원천 상태 4건(lot·building·terrain·api) — 필지 없음, 건물·지형은 생성 때 OSM·지형 타일에서 받는다.
-    country(constants.COUNTRY_PACKS 키)가 있으면 건물은 그 나라 팩(있는 지역만)·OSM, 일본은 지형도 지리원 5 m 타일."""
-    label = constants.COUNTRY_PACKS[country]["label"] if country else ""
+    country(data_pack.get_country_packs 키)가 있으면 건물은 그 나라 팩(있는 지역만)·OSM, 일본은 지형도 지리원 5 m 타일."""
+    label = data_pack.get_country_packs()[country]["label"] if country else ""
     today = (today or datetime.date.today()).isoformat()
     def row(source_id, name, level, text):
         return {"id": source_id, "label": tr(constants.SOURCE_LABELS[source_id]), "name": name, "date": today if level == "ok" else "",
@@ -693,7 +698,7 @@ def get_query_bounds(request):
 
 def get_pack_download(request):
     # type: (dict) -> tuple
-    """Global 대상지가 나라별 건물 팩(constants.COUNTRY_PACKS)이 있는 나라면 (조회 범위 경위도 (서, 남, 동, 북), 그 나라 매니페스트 주소), 아니면 None —
+    """Global 대상지가 나라별 건물 팩(data_pack.get_country_packs)이 있는 나라면 (조회 범위 경위도 (서, 남, 동, 북), 그 나라 매니페스트 주소), 아니면 None —
     cmd_site가 생성 직전에 팩을 받는 데 쓴다. 투영은 패널이 대상지를 정할 때 맞춰 둔 것(set_projection)."""
     request = get_request_with_defaults(request)
     if not is_global(request):
@@ -706,7 +711,7 @@ def get_pack_download(request):
         return None
     radius = float(options.get("radius") or constants.CONTEXT_RADIUS)
     bounds = osm_context.get_lnglat_bounds(_get_query_extent(target, radius, options.get("shape") or "circle", paper_mm, scales, has_2d(options))[3])
-    return bounds, constants.COUNTRY_PACKS[country]["manifest"]
+    return bounds, data_pack.get_country_packs()[country]["manifest"]
 
 
 def get_jp_query_bounds(request):
@@ -815,7 +820,7 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
     _report(progress, "query", 0.3, tr("OpenStreetMap·지형 타일 받는 중"))
     try:
         context = osm_context.load(bounds, today.isoformat())
-    except RuntimeError as exc:
+    except (RuntimeError, OSError) as exc:   # 지형 타일 URLError·시간 초과는 OSError — '예상 밖 오류'로 새지 않게(2026-10-23 감사)
         raise DomainError("osm_failed", str(exc))
     # OSM에는 국내 '무벽·가건물' 구분이 없다 — include_minor_buildings와 무관하게 전부 넣는다
     skipped = get_skipped_phases(options)
@@ -832,7 +837,7 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
     prepared.stats = {"height_src": height["height_src"], "height_grade": height["height_grade"], "grade_ab": round(grade_ab, 4),
                       "buildings": height["n"], "lots": 0, "sheets": [], "sheets_needed": [], "align": _get_align_stats([]), "mismatch_count": 0}
     source_ids = {s.source_id for s in context.sources}
-    pack_label = "·".join(constants.COUNTRY_PACKS[constants.PACK_SOURCE_IDS[i]]["label"] for i in sorted(source_ids & set(constants.PACK_SOURCE_IDS)))   # PLATEAU 등
+    pack_label = "·".join(data_pack.get_pack_label(i) for i in sorted(source_ids & set(data_pack.get_pack_source_ids())))   # PLATEAU 등
     if "osm" not in source_ids:   # Overpass가 막혔다 — 팩 건물·지형만(osm_context.load)
         warnings.append(_warning("warn", "osm_missing", tr("OpenStreetMap을 받지 못해 도로·수계·녹지 없이 만들었습니다"),
                                  tr("{0} 건물과 지형만 들어 있습니다. 잠시 뒤 다시 만들면 도로·수계·녹지가 들어갑니다.", pack_label)))

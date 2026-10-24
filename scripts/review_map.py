@@ -31,6 +31,7 @@ ABROAD_ATTRIBUTION = OSM_ATTRIBUTION
 # ('Access blocked' 타일, 2026-10-23 해외 사용자 신고·curl 재현). 앱을 밝힌 User-Agent(constants.OSM_USER_AGENT)로 받으면 통과한다
 OSM_PROXY_PATH = "/osm/{z}/{x}/{y}.png"   # Rhino는 아래 중계 서버, Blender·SketchUp은 panel_server가 같은 출처에서
 OSM_PROXY_PATTERN = re.compile(r"^/osm/(\d{1,2})/(\d+)/(\d+)\.png$")
+OSM_PROXY_PORT = 47613   # Rhino 중계 고정 포트(임의로 고른 사용자 영역 번호)
 OSM_PROXY_PORT_ENV = "GORANI_TILE_PORT"   # loader가 모듈을 다시 읽어도 Rhino 세션에 서버 하나
 OSM_PROXY_TIMEOUT = 5   # s — Blender는 메인 스레드가 받는다. 오프라인이면 타일마다 이만큼 멈춘다
 OSM_PROXY_CACHE = "max-age=604800"   # OSM 응답에 없으면 7일 — 캐시는 웹뷰 HTTP 캐시가 한다(타일 정책: 받은 타일 캐시)
@@ -100,7 +101,10 @@ def get_osm_url():
         return OSM_PROXY_PATH
     port = os.environ.get(OSM_PROXY_PORT_ENV)
     if not port:
-        server = _ProxyServer(("127.0.0.1", 0), _ProxyHandler)
+        try:   # 늘 같은 포트 — 주소가 같아야 웹뷰 HTTP 캐시가 다음 세션에도 쓰인다(타일 정책: 캐시). 쓰이고 있으면(Rhino 둘) 아무 포트
+            server = _ProxyServer(("127.0.0.1", OSM_PROXY_PORT), _ProxyHandler)
+        except OSError:
+            server = _ProxyServer(("127.0.0.1", 0), _ProxyHandler)
         threading.Thread(target=server.serve_forever, name="gorani-tiles", daemon=True).start()
         port = os.environ[OSM_PROXY_PORT_ENV] = str(server.server_address[1])
     return "http://127.0.0.1:%s%s" % (port, OSM_PROXY_PATH)
@@ -125,6 +129,8 @@ def send_osm_tile(handler):
     request = urllib.request.Request(OSM_TILE_URL.format(z=z, x=x, y=y), headers={"User-Agent": constants.OSM_USER_AGENT})
     try:
         with urllib.request.urlopen(request, timeout=OSM_PROXY_TIMEOUT) as response:
+            if response.headers.get("X-Blocked"):   # 막힘도 200 + 그림이다 — 오류로 넘겨 패널이 오프라인 칩을 띄우게(배포 전 점검 check_tiles도 잡는다)
+                raise IOError(response.headers["X-Blocked"])
             body = response.read()
             cache = response.headers.get("Cache-Control") or OSM_PROXY_CACHE
     except Exception:
@@ -244,29 +250,30 @@ def get_parcels_in_bbox(bbox, limit=5000, database_path=None):
         properties = {pnu, address, jibun, land_category, area}.
     """
     min_lng, min_lat, max_lng, max_lat = [float(value) for value in bbox]
-    x_low, y_low = non_rhino_utils.get_tm_from_wgs84(min_lng, min_lat)
-    x_high, y_high = non_rhino_utils.get_tm_from_wgs84(max_lng, max_lat)
-    lots, truncated = lot_db.load_parcels_in_bounds(
-        min(x_low, x_high),
-        min(y_low, y_high),
-        max(x_low, x_high),
-        max(y_low, y_high),
-        limit,
-        database_path,
-    )
-    features = [
-        _get_feature(
-            lot,
-            {
-                "pnu": lot.pnu,
-                "address": lot.address,
-                "jibun": _get_jibun(lot.address),
-                "land_category": lot.land_category,
-                "area": lot.area,
-            },
+    with non_rhino_utils.korea_projection():   # 필지는 국내 DB 좌표 — 해외 대상지 원점이 남아 있어도
+        x_low, y_low = non_rhino_utils.get_tm_from_wgs84(min_lng, min_lat)
+        x_high, y_high = non_rhino_utils.get_tm_from_wgs84(max_lng, max_lat)
+        lots, truncated = lot_db.load_parcels_in_bounds(
+            min(x_low, x_high),
+            min(y_low, y_high),
+            max(x_low, x_high),
+            max(y_low, y_high),
+            limit,
+            database_path,
         )
-        for lot in lots
-    ]
+        features = [
+            _get_feature(
+                lot,
+                {
+                    "pnu": lot.pnu,
+                    "address": lot.address,
+                    "jibun": _get_jibun(lot.address),
+                    "land_category": lot.land_category,
+                    "area": lot.area,
+                },
+            )
+            for lot in lots
+        ]
     return {
         "geojson": {"type": "FeatureCollection", "features": features},
         "truncated": truncated,

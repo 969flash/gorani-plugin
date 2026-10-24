@@ -46,7 +46,9 @@ def get_html():
     html = read("site_ui.html")
     html = html.replace("<!--VENDOR_CSS-->", "<style>" + read("vendor", "leaflet.css") + "</style>")
     html = html.replace("<!--VENDOR_JS-->", "<script>" + read("vendor", "leaflet.js") + "</script>")
-    html = html.replace("<!--I18N-->", "<script>window.I18N = " + read("i18n.json").replace("</", "<\\/") + ";</script>")   # 다국어 사전 — 패널 tr()
+    import json
+    import i18n   # 다국어 사전 — 패널 tr(). 파일이 아니라 i18n.get_texts()(원격 설정 remote_config가 덮은 뒤)
+    html = html.replace("<!--I18N-->", "<script>window.I18N = " + json.dumps(i18n.get_texts(), ensure_ascii=False).replace("</", "<\\/") + ";</script>")
     font_path = os.path.join(SCRIPTS_DIR, "vendor", "PretendardVariable.woff2")
     if not os.path.exists(font_path):
         return html.replace('url("<!--FONT_WOFF2-->") format("woff2-variations")', 'local("Pretendard Variable")')   # 깔려 있으면 쓴다(빈 data URI는 콘솔 경고)

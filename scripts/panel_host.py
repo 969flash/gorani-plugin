@@ -100,8 +100,9 @@ def _get_ui_file_uri():
         vendor_js = f.read()
     html = html.replace("<!--VENDOR_CSS-->", "<style>" + vendor_css + "</style>")
     html = html.replace("<!--VENDOR_JS-->", "<script>" + vendor_js + "</script>")
-    with open(os.path.join(SCRIPTS_DIR, "i18n.json"), encoding="utf-8") as f:   # 다국어 사전 — 패널 tr()
-        html = html.replace("<!--I18N-->", "<script>window.I18N = " + f.read().replace("</", "<\\/") + ";</script>")
+    import json
+    import i18n   # 다국어 사전 — 패널 tr(). 파일이 아니라 i18n.get_texts()(원격 설정 remote_config가 덮은 뒤)
+    html = html.replace("<!--I18N-->", "<script>window.I18N = " + json.dumps(i18n.get_texts(), ensure_ascii=False).replace("</", "<\\/") + ";</script>")
     # 번들 폰트는 base64 data URI로 심는다 — file:// 페이지의 폰트 파일
     # 참조는 Chromium(WebView2) CORS에 막힐 수 있다
     with open(

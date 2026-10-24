@@ -5662,5 +5662,35 @@
   "es": "Alturas: altura medida de {0} (B) y plantas (C); en el resto etiqueta height de OSM (B), plantas (C) o valor por defecto {1:.1f} m (D)",
   "ja": "建物高さ: {0} 実測高さ(B)・階数(C)、ない所は OSM height タグ(B)・階数(C)・既定値 {1:.1f} m(D)",
   "zh": "建筑高度：{0} 实测高度(B)、层数(C)；其余为 OSM height 标签(B)、层数(C)或默认值 {1:.1f} m(D)"
+ },
+ "OSM(Overpass) 서버가 붐빕니다. 1~2분 뒤 다시 시도하세요": {
+  "en": "The OSM (Overpass) server is busy. Try again in a minute or two",
+  "es": "El servidor de OSM (Overpass) está saturado. Vuelve a intentarlo en uno o dos minutos",
+  "ja": "OSM(Overpass)サーバーが混み合っています。1〜2分後にもう一度お試しください",
+  "zh": "OSM（Overpass）服务器繁忙。请过一两分钟再试"
+ },
+ "이 지역의 건물·지형 데이터를 받지 못했습니다. 인터넷 연결을 확인하고 잠시 뒤 다시 만드세요": {
+  "en": "Couldn't download building and terrain data for this area. Check your internet connection and try again shortly",
+  "es": "No se pudieron descargar los datos de edificios y terreno de esta zona. Revisa tu conexión a internet y vuelve a intentarlo en un momento",
+  "ja": "この地域の建物・地形データを取得できませんでした。インターネット接続を確認し、しばらくしてからもう一度作成してください",
+  "zh": "无法下载该地区的建筑和地形数据。请检查网络连接，稍后再试"
+ },
+ "{0} 높이": {
+  "en": "{0} height",
+  "es": "Altura {0}",
+  "ja": "{0}の高さ",
+  "zh": "{0} 高度"
+ },
+ "{0} 층수": {
+  "en": "{0} floors",
+  "es": "Plantas {0}",
+  "ja": "{0}の階数",
+  "zh": "{0} 层数"
+ },
+ "{0} 지붕 높이": {
+  "en": "{0} roof height",
+  "es": "Altura de cubierta {0}",
+  "ja": "{0}の屋根高さ",
+  "zh": "{0} 屋顶高度"
  }
 }

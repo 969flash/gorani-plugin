@@ -635,7 +635,7 @@ var listItems = [], listIndex = -1, toastAction = null;
 function $(id) { return document.getElementById(id); }
 function ico(name) { return '<svg class="ico" aria-hidden="true"><use href="#i-' + name + '"/></svg>'; }
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-function fmtNum(n, d) { return (n == null || isNaN(n)) ? "–" : Number(n).toLocaleString("ko-KR", { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 }); }
+function fmtNum(n, d) { return (n == null || isNaN(n)) ? "–" : Number(n).toLocaleString(LANG || "en", { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 }); }
 function fmtArea(n) { return fmtNum(n, 1) + " " + sqm(); }
 function mmdd(d) { return d && d.length >= 10 ? d.slice(5, 10) : (d || "–"); }
 function fmtTime(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2); }
@@ -1156,6 +1156,7 @@ function initMap(init) {
     if (tiles._url === before) { tileDead = true; $("chip_offline").hidden = false; }   // 폴백도 같은 주소(이미 폴백) — 더 전환하지 않는다
   });
   tiles.on("load", function () { tileErrors = 0; });
+  tiles.on("tileload", function () { if (tileDead) { tileDead = false; tileErrors = 0; $("chip_offline").hidden = true; } });   // 한 번 막혀도 다시 받히면 칩을 내린다(레이캬비크 z19 지연, 2026-10-23)
   map.on("moveend zoomend", function () {
     updateTileSource(); updateGuide();
     if (state.screen === "map") { checkRegionChange(); debounce("move", 250, requestLots); debounce("packs", 600, requestAreaPacks); }
@@ -1530,7 +1531,7 @@ function made2dHtml(m) {
     // 베이스맵·다른 축척·CAD는 한 덩어리(줄마다 괘선이던 것을 라벨 열 하나로, 2026-10-19 Rhino QA)
     html += '<div class="fblock"><div class="frow"><span class="k">' + tr("베이스맵") + '</span><span id="exported_list" class="files"></span></div>' +
       '<div class="frow" id="more_scales"></div>' +
-      (bm.dwg ? '<div class="frow"><span class="k">CAD</span><span class="files"><button type="button" class="link" data-act="open" data-path="' + esc(bm.dwg) + '">' + esc(bm.dwg.split("/").pop()) + "</button></span></div>" : "") +
+      (bm.dwg ? '<div class="frow"><span class="k">CAD</span><span class="files"><button type="button" class="link" data-act="open" data-path="' + esc(bm.dwg) + '">' + esc(bm.dwg.split(/[\\/]/).pop()) + "</button></span></div>" : "") +
       '<div id="bm_err"></div></div>';
   }
   if (sheets.length) {

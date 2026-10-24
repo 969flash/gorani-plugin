@@ -236,6 +236,13 @@ def _empty_area_state(text=""):
             "offsets": [], "area": 0.0, "lots": 0, "lots_area": 0.0, "lot_name": "", "target_geojson": _EMPTY_FC, "warnings": []}
 
 
+def _get_name_options(msg):
+    # type: (dict) -> dict
+    """구역·위치 이름(…_일대·…_vicinity)을 결과 폴더와 같은 언어로 — prefs의 output_lang. 없으면 한국어라 해외 사용자 패널에
+    '일대'·'구역'이 떴다(2026-10-23 가상 사용자 시험)."""
+    return {"region": msg.get("region"), "output_lang": loader.load("site_prefs").get_options().get("output_lang")}
+
+
 def get_area_state(msg, site_db=None):
     # type: (dict, str) -> dict
     """area_state 페이로드 — 구역 링 하나를 정리·검사하고 안의 필지를 센다.
@@ -263,7 +270,7 @@ def get_area_state(msg, site_db=None):
         return _empty_area_state()
     try:
         request = context_builder.get_request_with_defaults({"target": {"mode": "area", "ring": points}, "site_db": site_db,
-                                                             "options": {"region": msg.get("region")}})   # Global이면 안의 필지를 세지 않는다
+                                                             "options": _get_name_options(msg)})   # Global이면 안의 필지를 세지 않는다
         target = context_builder.resolve_target(request)
     except (ValueError, KeyError, FileNotFoundError, RuntimeError) as error:
         return _empty_area_state(str(error.args[0]) if error.args else str(error))
@@ -292,7 +299,7 @@ def get_point_state(msg, site_db=None):
     non_rhino_utils.set_projection(lng, lat)   # 해외면 지역 원점, 국내면 EPSG:5186
     x, y = non_rhino_utils.get_tm_from_wgs84(lng, lat)
     request = context_builder.get_request_with_defaults({"target": {"mode": "point", "center": [x, y]}, "site_db": site_db,
-                                                         "options": {"region": msg.get("region")}})
+                                                         "options": _get_name_options(msg)})
     target = context_builder.resolve_target(request)
     return {"type": "point_state", "ok": True, "center": [round(lng, 7), round(lat, 7)], "center_tm": [round(x, 2), round(y, 2)],
             "lot_name": target.name}
@@ -314,14 +321,14 @@ def get_area_packs(bbox, seq=None, manifest=None):
     west, south, east, north = (float(v) for v in bbox)
     if not non_rhino_utils.is_korea((west + east) / 2.0, (south + north) / 2.0):
         return empty
-    corners = [non_rhino_utils.get_tm_from_wgs84(x, y) for x in (west, east) for y in (south, north)] if not non_rhino_utils.is_local_projection() else []
-    if not corners:
-        return empty
+    with non_rhino_utils.korea_projection():   # 해외 대상지 원점이 남아 있어도 국내 팩 범위로
+        corners = [non_rhino_utils.get_tm_from_wgs84(x, y) for x in (west, east) for y in (south, north)]
     bounds = (min(c[0] for c in corners), min(c[1] for c in corners), max(c[0] for c in corners), max(c[1] for c in corners))
     try:
         data_dir = data_pack.get_data_dir()
         # 시군구 필지 팩 중 파일이 없는 것만 — 새 판은 생성할 때 범위 안에서 받는다. 옛 시도 팩은 대상이 아니다
-        missing = [pack for pack in data_pack.get_missing_packs(manifest or data_pack.get_manifest(), bounds=bounds)
+        manifest = manifest or data_pack.get_manifest(timeout=constants.NOTICE_TIMEOUT_SECONDS, retry_after=constants.MANIFEST_RETRY_SECONDS)   # UI 스레드 — 짧게
+        missing = [pack for pack in data_pack.get_missing_packs(manifest, bounds=bounds)
                    if pack["name"][:5].isdigit() and pack["name"].endswith("_site.db")
                    and not os.path.exists(os.path.join(data_dir, pack["name"]))]
     except Exception:   # 오프라인 — 지도는 그대로 쓴다
@@ -491,6 +498,10 @@ class _SiteController:
         self._opened = False
         self._keep = {}                # 마지막 결과의 시트 데이터(지형 삼각형 포함) — 도면 스타일 미리보기·적용이 다시 쓴다
         self._map_center = None        # 첫 init에 IP로 짐작한 지도 첫 위치 [lng, lat] — 못 받으면 None(서울시청)
+        try:   # 원격 설정(도면 색·범례·구간·번역) — 캐시를 먼저 덮는다(패널 HTML의 번역 사전이 호스트 생성 때 심기므로 init보다 앞서야 한다). 새 것은 _init이 받는다
+            loader.load("remote_config").apply(loader.load("remote_config").load_cached())
+        except Exception:
+            pass
 
     def _send_stats(self, name, params):
         # type: (str, dict) -> None
@@ -535,7 +546,8 @@ class _SiteController:
             self.push({"type": "error", "context": context, "text": text, "detail": ""})
         except Exception:
             self.push({"type": "error", "context": context, "text": tr("예상 밖 오류"), "detail": traceback.format_exc()})
-            self._send_stats("error", {"context": context, "error": type(sys.exc_info()[1]).__name__})
+            self._send_stats("app_error", {   # GA4 예약어 'error'는 버려진다(2026-10-23 debug 엔드포인트 NAME_RESERVED)
+                "context": context, "error": type(sys.exc_info()[1]).__name__})
 
     # ── 호스트 연결 (Rhino) — cmd_blender가 같은 이름으로 바꿔 단다 ──
 
@@ -574,6 +586,10 @@ class _SiteController:
         self._preflight_memo.clear()   # 키 유무·새 판은 메모 키에 없으므로 init마다 비운다
         try:   # 공지·업데이트 — 처음 한 번만 짧게 기다린다. 오프라인·서버 장애면 공지 없이 연다(사용자를 막지 않는다)
             loader.load("data_pack").get_manifest(timeout=loader.load("constants").NOTICE_TIMEOUT_SECONDS)
+        except Exception:
+            pass
+        try:   # 원격 설정(remote_config) — 같은 예산. 못 받으면 캐시·내장값. 틀린 항목은 그 항목만 건너뛴다
+            loader.load("remote_config").refresh(timeout=loader.load("constants").NOTICE_TIMEOUT_SECONDS)
         except Exception:
             pass
         if not self._opened:   # 지도는 첫 init_state로만 만든다(JS initMap)
@@ -733,7 +749,7 @@ class _SiteController:
         # type: (list, bool, str) -> bool
         """팩을 차례로 받으며 data_progress{text, fraction}를 푸시한다(1 % 단위 — 조각마다 보내면 수천 번이다).
         끝에 data_progress{done, ok, text}. 다 받았으면 True, 멈추거나 실패하면 False(받은 팩은 남는다). 호출자가 _running을 관리한다.
-        manifest_url = 팩이 실린 매니페스트(None = 한국, 나라별 건물 팩은 constants.COUNTRY_PACKS[...]["manifest"]) — 주소가 바뀌었을 때 다시 읽는다."""
+        manifest_url = 팩이 실린 매니페스트(None = 한국, 나라별 건물 팩은 data_pack.get_country_packs()[...]["manifest"]) — 주소가 바뀌었을 때 다시 읽는다."""
         data_pack = loader.load("data_pack")
         names = list(dict.fromkeys(get_region_name(pack) for pack in packs))
         region = tr("{0} 외 {1}곳", names[0], len(names) - 1) if len(names) > 1 else names[0]
@@ -796,6 +812,7 @@ class _SiteController:
         data_pack = loader.load("data_pack")
         manifest_url = None
         try:
+            data_pack.get_manifest()   # init이 3 s 안에 못 받았으면 여기서(나라 목록·서비스 주소) — 이미 받았으면 캐시
             bounds = self._context_builder.get_query_bounds(request)
             if bounds:
                 packs = [pack for pack in data_pack.get_missing_packs(data_pack.get_manifest(), bounds=bounds) if pack["name"][:5].isdigit()]

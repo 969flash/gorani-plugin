@@ -237,8 +237,15 @@ TERRAIN_THEME = "terrain"
 OSM_USER_AGENT = "Gorani/0.3 (Rhino/Blender/SketchUp plugin; https://969flash.github.io/gorani/)"   # Overpass·Nominatim·타일 중계(review_map) — OSM 정책: 앱을 밝힌다
 OSM_CACHE_MAX = 8                # osm_context 응답 캐시 항목 상한(넘으면 비운다) — Blender판은 모듈을 다시 읽지 않아 세션 내내 쌓인다. 같은 대상지 다시 만들기(Overpass 1~2 + 지형 타일 수 장)만 덮으면 된다(도심 Overpass 응답은 수십 MB)
 OSM_TIMEOUT_SECONDS = 60         # 미러 하나당. 공개 Overpass는 자주 붐빈다(2026-10-13 파리 900 m: 독일 504, kumi·coffee 120 s 초과, mail.ru 22 s)
-OSM_OVERPASS_URLS = ("https://overpass-api.de/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-                     "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter")
+# 2026-10-23 감사: overpass-api.de 429·차단일 때 kumi·coffee는 서울에서 60 s 시간 초과, mail.ru는 HARICA 인증서라 Windows·번들 파이썬에서 검증 실패.
+# openstreetmap.fr은 200·1.3 s(자료 기준일 2026-07-21 — 3개월 묵음, 대체로만).
+# 2026-10-25 다시 확인: kumi·coffee는 응답 없음, mail.ru 504 → 뺐다(Blender 심사: 접속 안 되는 서버를 왜 쓰냐). 미러가 더 필요하면 매니페스트 services.overpass로
+OSM_OVERPASS_URLS = ("https://overpass-api.de/api/interpreter", "https://overpass.openstreetmap.fr/api/interpreter")
+OSM_MIRROR_TIMEOUT_SECONDS = 30   # 두 번째 미러부터 — 다 죽은 날 생성이 수 분 멈추지 않게(첫 서버는 OSM_TIMEOUT_SECONDS)
+# 첫 서버(overpass-api.de)가 502·503·504(순간 붐빔)면 쉬었다 한 번 더 — 2026-10-25 가상 사용자 트롬쇠 2D: 502 직후 같은 질의가 58 s에 4.9 MB로 받아졌다.
+# 두 번째(openstreetmap.fr)는 응답을 약 1.8 MB에서 끊어(200인데 JSON이 깨짐) 큰 질의의 대체가 못 된다
+OSM_GATEWAY_RETRIES = 1
+OSM_GATEWAY_WAIT_SECONDS = 10
 OSM_OVERPASS_QUERY = """[out:json][timeout:55][bbox:{bbox}];
 (
   way["building"]; relation["building"]["type"="multipolygon"];
@@ -287,12 +294,19 @@ OSM_PUBLIC_USE = {"school": "10000", "kindergarten": "10000", "college": "10000"
                   "hospital": "09000", "clinic": "09000", "nursing_home": "11000", "social_facility": "11000", "childcare": "11000",
                   "community_centre": "05000", "arts_centre": "05000", "theatre": "05000", "sports_centre": "13000"}
 OSM_NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"   # 지명 검색 — 사용자가 [검색]을 누를 때 한 번
+OSM_SEARCH_TIMEOUT_SECONDS = 10   # 지명 검색은 UI 스레드에서 기다린다 — Overpass 60 s를 쓰면 막힌 망에서 검색 한 번에 1분 멈췄다(2026-10-23 감사)
 OSM_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 OSM_TERRAIN_ZOOM = 13           # 픽셀 약 19 m(적도)·15 m(위도 37°). 원천 DEM이 약 30 m라 더 키워도 정밀해지지 않는다
 OSM_TERRAIN_STEP = 2            # 픽셀 건너뛰기 — 표고점 간격 약 30 m
 
 # 데이터 팩 받기(data_pack.py) — Yak 설치본은 DB 없이 깔리고 패널에서 받는다
 DATA_REPO_ID = "hooooooooon/urbandesigntool-data"   # Hugging Face 공개 데이터셋(필지 시군구 팩 + 매니페스트) — dev_deploy upload
+# 같은 데이터셋의 GitHub 사본 — Blender판만 이쪽을 읽는다(dev_deploy blender가 DATA_MANIFEST_URL을 바꿔 넣는다. 확장 심사 2026-10-25: 'Hugging Face는 빼라').
+# 매니페스트·config.json은 저장소 파일(HF와 같은 폴더 구조 — 상대경로 "jp/manifest.json"이 그대로 풀린다), 팩은 폴더마다 릴리스(태그 kr·jp·…,
+# 자산 1,000개 상한이라 넘치면 us-2 …)에 두고 매니페스트가 절대 주소로 가리킨다. 릴리스 태그는 data·data/jp처럼 겹칠 수 없다(git 참조) — dev_deploy.py mirror
+DATA_GITHUB_REPO = "969flash/gorani-data"
+DATA_GITHUB_MANIFEST_URL = "https://raw.githubusercontent.com/%s/main/manifest.json" % DATA_GITHUB_REPO
+DATA_GITHUB_ASSET_MAX = 950            # 릴리스 하나에 넣는 팩 수(GitHub 상한 1,000)
 DATA_MANIFEST_URL = "https://huggingface.co/datasets/%s/resolve/main/manifest.json" % DATA_REPO_ID
 # 수치지형도에서 나온 컨텍스트·등고선 팩은 국내 서버에만 둔다 — 수치지형도는 기본측량성과라 국외 반출에 허가가 필요하다
 # (공간정보관리법 제16조). Oracle Cloud 춘천 리전 Always Free 버킷(공개 읽기·목록 금지). 계정을 유료로 올리지 말 것 —
@@ -317,7 +331,7 @@ PACK_BOUNDS_MARGIN = 200.0             # m — 시군구 분할 격자 한 칸(�
 # 한국 팩 올리기(dev_deploy upload)가 일본 항목을 덮지 않고, 한국 대상지는 일본 목록을 받지 않는다.
 JP_PACK_DIR = "jp"                     # 데이터셋 안 폴더·로컬 build/packs/jp
 JP_PACK_PREFIX = "jp"                  # 팩 이름 jp<시구정촌코드>_context.db — 시구정촌 코드(5자리)가 한국 시군구 코드와 겹친다
-DATA_JP_MANIFEST_URL = "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, JP_PACK_DIR)
+DATA_JP_MANIFEST_URL = DATA_MANIFEST_URL.rsplit("/", 1)[0] + "/%s/manifest.json" % JP_PACK_DIR
 JP_BOUNDS = (122.0, 20.0, 154.0, 46.0)   # 일본 경위도 상자(서, 남, 동, 북) — 범위 밖 좌표는 원천 오류로 버린다
 # 네덜란드 — Kadaster 3D Basisvoorziening '2D 건물 + 높이 통계'(hoogtestatistieken_gebouwen, CC BY 4.0). 도엽(bladnr) zip 안 GeoPackage, EPSG:28992
 NL_PACK_DIR = "nl"
@@ -344,18 +358,39 @@ CH_BOUNDS = (5.9, 45.8, 10.6, 47.9)    # 스위스·리히텐슈타인 경위도
 SWISS_STAC_ITEMS_URL = "https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissbuildings3d_3_0/items?limit=100"
 SWISS_LICENSE = "swisstopo OGD 이용약관(2022-08-26, Version 1.3.2021) — 자유 이용·가공·배포, 출처 표기 \"©swisstopo\""
 SWISS_HEIGHT_RANGE = (1.0, 400.0)      # 솔리드 최고 z − 최저 z 사용 범위 m
+# 미국 — Overture Maps buildings(ODbL. Microsoft ML Buildings·OpenStreetMap·Esri Community Maps 합본 — 미국 높이는 대부분 Microsoft ML 추정, 로스앤젤레스 98.8 %·오스틴 89.3 %
+# 2026-10-23 실측 docs/research/country_buildings.md). 공식 출처(FEMA USA Structures)는 높이가 1/4뿐이고 약관이 갈려 쓰지 않는다. 카운티(Census FIPS 5자리)마다 팩 하나 — dev_us.py
+US_PACK_DIR = "us"
+US_PACK_PREFIX = "us"                  # 팩 이름 us<카운티 FIPS 5자리>_context.db — us06037 로스앤젤레스
+US_BOUNDS = ((-125.0, 24.3, -66.9, 49.5), (-170.0, 51.0, -129.0, 72.0), (-161.0, 18.5, -154.0, 22.5), (-68.0, 17.5, -64.4, 18.6))   # 본토·알래스카·하와이·푸에르토리코/버진아일랜드(서, 남, 동, 북)
+OVERTURE_RELEASE = "2026-10-21.0"      # 달마다 새 판 — 바꾸면 fetch부터 다시
+OVERTURE_S3_URL = "s3://overturemaps-us-west-2/release/%s/theme=buildings/type=building/*" % OVERTURE_RELEASE   # 익명 읽기(DuckDB httpfs, us-west-2)
+OVERTURE_PAGE_URL = "https://overturemaps.org"
+OVERTURE_LICENSE = "ODbL 1.0 (Open Database License) — 출처 표기: Overture Maps Foundation, © OpenStreetMap contributors, Microsoft (Global ML Building Footprints)"
+OVERTURE_HEIGHT_RANGE = (1.0, 700.0)   # height 사용 범위 m(One World Trade Center 541 m)
+OVERTURE_USE_CLASS = {"apartments": "02000", "dormitory": "02000", "hotel": "15000", "office": "14000", "warehouse": "18000", "garage": "20000", "garages": "20000",
+                      "parking": "20000", "school": "10000", "university": "10000", "college": "10000", "hospital": "09000", "church": "06000"}   # class 우선
+OVERTURE_USE_SUBTYPE = {"residential": "01000", "commercial": "04000", "industrial": "17000", "agricultural": "21000", "education": "10000", "medical": "09000",
+                        "religious": "06000", "civic": "14000", "transportation": "08000", "entertainment": "05000", "military": "23000"}   # subtype → 국내 대분류(시트 색). service·outbuilding은 빈 값
+CENSUS_COUNTY_URL = "https://www2.census.gov/geo/tiger/GENZ2024/shp/cb_2024_us_county_500k.zip"   # 카운티 경계(미국 정부 저작물, 공개). GEOID = FIPS 5자리, 3,235개(준주 포함)
+US_COUNTY_BUFFER_DEG = 0.003           # 카운티 경계를 넓혀 건물 중심을 배정(약 300 m) — 해안선 간략화(1:500k)로 빠지는 부두·매립지 건물. 겹친 건물은 런타임이 src_key로 한 번만
 # 나라별 공식 건물 팩(경위도, 매니페스트는 나라마다 따로 — HF 데이터셋 <dir>/manifest.json). 키 = 팩 이름 접두사. 런타임은 대상지 중심이 bounds 안인 나라의 팩을 쓴다
 # source_id = 팩 data_sources.source_id, label = 화면·도면 표기, code_pattern = 접두사 뒤 지역 코드 꼴(한국 시도 슬러그 jpn 같은 이름과 구분)
+# manifest = 한국 매니페스트(DATA_MANIFEST_URL) 기준 상대경로 — data_pack이 urljoin으로 푼다(HF·GitHub 사본 어느 쪽이든 같은 꼴).
+# ※ 내장 기본값일 뿐이다 — 런타임은 data_pack.get_country_packs()(한국 매니페스트 countries[]가 덮는다, 원본 docs/countries.json, 올리기 dev_deploy.py notices).
+#    새 나라는 여기 말고 docs/countries.json에 넣는다 — 데이터만 바뀌는 일에 플러그인 판을 올리지 않는다(2026-10-23, 0.3.3·0.3.4를 나라 추가만으로 올린 뒤).
+#    여기 값은 countries.json과 같게 둔다(tests/test_data_pack.py가 맞춘다) — 오프라인 사용자에게 지금 넷 나라는 그대로 돌게.
 COUNTRY_PACKS = {
-    "jp": {"dir": JP_PACK_DIR, "manifest": DATA_JP_MANIFEST_URL, "bounds": JP_BOUNDS, "source_id": "plateau", "label": "PLATEAU", "code_pattern": r"\d{5}"},
-    "nl": {"dir": NL_PACK_DIR, "manifest": "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, NL_PACK_DIR),
+    "jp": {"dir": JP_PACK_DIR, "manifest": "jp/manifest.json", "bounds": JP_BOUNDS, "source_id": "plateau", "label": "PLATEAU", "code_pattern": r"\d{5}"},
+    "nl": {"dir": NL_PACK_DIR, "manifest": "nl/manifest.json",
            "bounds": NL_BOUNDS, "source_id": "pdok", "label": "3D Basisvoorziening", "code_pattern": r"\d{2}[a-z]{2}\d"},   # 도엽 25gn1
-    "fr": {"dir": FR_PACK_DIR, "manifest": "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, FR_PACK_DIR),
+    "fr": {"dir": FR_PACK_DIR, "manifest": "fr/manifest.json",
            "bounds": FR_BOUNDS, "source_id": "bdtopo", "label": "BD TOPO", "code_pattern": r"\d{3}|02[ab]"},   # 데파르트망 075·02a
-    "ch": {"dir": CH_PACK_DIR, "manifest": "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, CH_PACK_DIR),
+    "ch": {"dir": CH_PACK_DIR, "manifest": "ch/manifest.json",
            "bounds": CH_BOUNDS, "source_id": "swisstopo", "label": "swissBUILDINGS3D", "code_pattern": r"\d{4}"},   # 1:25k 도엽 1172
+    "us": {"dir": US_PACK_DIR, "manifest": "us/manifest.json",
+           "bounds": US_BOUNDS, "source_id": "overture", "label": "Overture", "code_pattern": r"\d{5}"},   # 카운티 FIPS 06037. 상자 넷(2026-10-23)
 }
-PACK_SOURCE_IDS = {v["source_id"]: k for k, v in COUNTRY_PACKS.items()}   # data_sources.source_id → 나라 코드
 PLATEAU_CKAN_URL = "https://www.geospatial.jp/ckan/api/3/action/package_search"   # G空間情報センター. 카탈로그 API 리다이렉트는 404(2026-10-21)
 PLATEAU_CKAN_QUERY = "3D都市モデル（Project PLATEAU）"
 PLATEAU_SKIP_CODES = ("27999",)        # 2025 오사카·간사이 엑스포 회장 — 철거 중인 임시 행사장
@@ -532,8 +567,9 @@ HEIGHT_GRADES = ("A", "B", "C", "D")
 # ═════════════════════════════════════════════════════════
 # 패널 — docs/panel_ui.md·docs/ui_spec.md
 # ═════════════════════════════════════════════════════════
-PANEL_VERSION = "0.3.5"   # 배포 버전 하나(Yak·Blender·SketchUp 패키지 버전 = dev_deploy.PACKAGE_VERSION). 매니페스트 update.latest·min과 비교한다
+PANEL_VERSION = "0.3.6"   # 배포 버전 하나(Yak·Blender·SketchUp 패키지 버전 = dev_deploy.PACKAGE_VERSION). 매니페스트 update.latest·min과 비교한다
 NOTICE_TIMEOUT_SECONDS = 3   # 패널을 열 때 매니페스트(공지·업데이트)를 기다리는 한도 — 못 받으면 공지 없이 연다
+MANIFEST_RETRY_SECONDS = 60   # 지도 이동(area_packs)이 매니페스트를 못 받았으면 이만큼은 다시 묻지 않는다 — 막힌 망에서 이동마다 멈추지 않게
 # 언어 — 패널 헤더에서 고른다(options.lang). 사전은 scripts/i18n.json 하나(패널 JS·Python 공용, i18n.py)
 LANGS = ("en", "ko", "es", "ja", "zh")   # 고르기 순서. zh = 중국어 간체
 DEFAULT_LANG = "en"   # food4Rhino 심사(2026-10-21 McNeel 메일 '영어가 없으면 올릴 수 없다') — 처음 설치는 영어. 0.3.0 전에 쓰던 설치본은 한국어 그대로(site_prefs.get_options)
@@ -846,7 +882,8 @@ SHEET_PARCEL_MAX_SCALE = 3000    # 이 축척보다 작은 도면(1:5000)은 지
 SHEET_FADE_TO_PAPER = 0.45       # 주제도의 바탕(가구·건물·녹지·수계)을 종이색 쪽으로 이만큼 흐린다 — 주제 색이 먼저 읽히게
 SHEET_HEIGHT_SRC_LABELS = {"height": "대장 높이", "grnd_flr": "대장 층수", "topo_flr": "지형도 층수", "hub": "건축HUB", "default": "기본값",
                            "osm_height": "OSM 높이", "osm_levels": "OSM 층수",
-                           "plateau_height": "PLATEAU 실측 높이", "plateau_levels": "PLATEAU 층수"}  # 층수 카드, A.4 HEIGHT_SRC
+                           "plateau_height": "PLATEAU 실측 높이", "plateau_levels": "PLATEAU 층수"}  # 층수 카드, A.4 HEIGHT_SRC. 여기 없는 키는 data_pack.get_height_src_label이 팩 라벨로 만든다
+HEIGHT_SRC_KIND_LABELS = {"height": "{0} 높이", "height_rel": "{0} 높이", "levels": "{0} 층수", "roof": "{0} 지붕 높이"}   # '<source_id>_<종류>' 꼴 height_src의 종류 — 새 나라 팩은 코드 수정 없이
 SHEET_HATCH = {"landlocked": {"stroke": "#D83A3A", "stroke-width": 0.25, "spacing_mm": 1.5}}   # <pattern id="hatch_<키>"> 45° 사선
 # 지명 라벨에서 뺄 이름 — 수치지형도 명칭 레이어에 공사장 안내가 섞여 있다(성수 '성수동오피스신축공사(24년01월예정)' 2026-10-13 실측)
 SHEET_LABEL_SKIP_PATTERN = r"공사|예정|\d{2}년"
@@ -871,6 +908,7 @@ SHEET_THUMB_PX = 160             # 패널 도면 칸 썸네일(정사각 지도 
 AERIAL_DPI = 150                 # 인쇄 해상도 목표 — A3 1:5000이면 줌 18(위도 37°에서 0.47 m/px, 타일 ≈150장·SVG ≈4 MB). 원천 정사영상은 25~51 cm
 AERIAL_PREVIEW_DPI = 60          # 패널 '도면 스타일' 미리보기 — 인쇄 해상도 SVG(수 MB)를 웹뷰로 밀지 않는다
 AERIAL_MAX_ZOOM = 19             # VWorld 영상·Esri 공통 최대 줌
+AERIAL_ZOOM_DROPS = 2            # 그 줌에 영상이 없으면(Esri 404) 낮춰 보는 단계 수 — 1:1000 시트 z19 → z17까지
 AERIAL_MAX_TILES = 400           # 한 장 상한 — 넘으면 줌을 한 단계씩 낮춘다(A1 1:5000 줌 18 ≈ 530장 → 17)
 AERIAL_TIMEOUT_SECONDS = 10      # 타일 한 장
 AERIAL_WORKERS = 8               # 동시에 받는 타일 수
