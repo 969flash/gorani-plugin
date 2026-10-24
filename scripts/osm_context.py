@@ -15,6 +15,7 @@ import sqlite3
 import math
 import re
 import struct
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -95,17 +96,22 @@ def get_overpass_elements(bounds, query=None, endpoints=None):
         return _CACHE[key]
     errors, busy = [], False
     for index, endpoint in enumerate(endpoints or data_pack.get_service("overpass", constants.OSM_OVERPASS_URLS)):   # 매니페스트 services.overpass가 미러 목록을 덮을 수 있다
-        try:
-            body = _fetch(endpoint, urllib.parse.urlencode({"data": query}).encode("utf-8"),
-                          timeout=None if index == 0 else constants.OSM_MIRROR_TIMEOUT_SECONDS)
-            result = json.loads(body.decode("utf-8"))
-            if "runtime error" in (result.get("remark") or ""):   # 200인데 서버가 시간 초과·메모리로 중간에 멈춘 빈 결과 — 캐시하지 않고 다음 미러(2026-10-23 감사)
-                raise RuntimeError(result["remark"][:200])
-            return _keep(key, result["elements"])
-        except Exception as error:   # 미러 하나가 막혀도 다음 것을 쓴다
-            errors.append("%s: %s" % (endpoint, error))
-            # 서버에 닿았는데 붐빔·한도(429·502~504)·응답 지연 — 인터넷 탓이 아니다(2026-10-23: 429인데 '인터넷 연결을 확인하세요'가 떴다)
-            busy = busy or (isinstance(error, urllib.error.HTTPError) and error.code in (429, 502, 503, 504)) or "timed out" in str(error) or "runtime error" in str(error)
+        for attempt in range(1 + (constants.OSM_GATEWAY_RETRIES if index == 0 else 0)):
+            try:
+                body = _fetch(endpoint, urllib.parse.urlencode({"data": query}).encode("utf-8"),
+                              timeout=None if index == 0 else constants.OSM_MIRROR_TIMEOUT_SECONDS)
+                result = json.loads(body.decode("utf-8"))
+                if "runtime error" in (result.get("remark") or ""):   # 200인데 서버가 시간 초과·메모리로 중간에 멈춘 빈 결과 — 캐시하지 않고 다음 미러(2026-10-23 감사)
+                    raise RuntimeError(result["remark"][:200])
+                return _keep(key, result["elements"])
+            except Exception as error:   # 미러 하나가 막혀도 다음 것을 쓴다
+                if isinstance(error, urllib.error.HTTPError) and error.code in (502, 503, 504) and attempt < constants.OSM_GATEWAY_RETRIES and index == 0:
+                    time.sleep(constants.OSM_GATEWAY_WAIT_SECONDS)   # 첫 서버의 순간 붐빔 — 잠깐 쉬고 한 번 더
+                    continue
+                errors.append("%s: %s" % (endpoint, error))
+                # 서버에 닿았는데 붐빔·한도(429·502~504)·응답 지연 — 인터넷 탓이 아니다(2026-10-23: 429인데 '인터넷 연결을 확인하세요'가 떴다)
+                busy = busy or (isinstance(error, urllib.error.HTTPError) and error.code in (429, 502, 503, 504)) or "timed out" in str(error) or "runtime error" in str(error)
+                break
     title = (tr("OSM(Overpass) 서버가 붐빕니다. 1~2분 뒤 다시 시도하세요") if busy
              else tr("OSM(Overpass) 데이터를 받지 못했습니다. 인터넷 연결을 확인하세요"))
     raise RuntimeError(title + "\n" + "\n".join(errors))

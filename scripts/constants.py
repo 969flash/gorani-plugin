@@ -242,6 +242,10 @@ OSM_TIMEOUT_SECONDS = 60         # 미러 하나당. 공개 Overpass는 자주 �
 # 2026-10-25 다시 확인: kumi·coffee는 응답 없음, mail.ru 504 → 뺐다(Blender 심사: 접속 안 되는 서버를 왜 쓰냐). 미러가 더 필요하면 매니페스트 services.overpass로
 OSM_OVERPASS_URLS = ("https://overpass-api.de/api/interpreter", "https://overpass.openstreetmap.fr/api/interpreter")
 OSM_MIRROR_TIMEOUT_SECONDS = 30   # 두 번째 미러부터 — 다 죽은 날 생성이 수 분 멈추지 않게(첫 서버는 OSM_TIMEOUT_SECONDS)
+# 첫 서버(overpass-api.de)가 502·503·504(순간 붐빔)면 쉬었다 한 번 더 — 2026-10-25 가상 사용자 트롬쇠 2D: 502 직후 같은 질의가 58 s에 4.9 MB로 받아졌다.
+# 두 번째(openstreetmap.fr)는 응답을 약 1.8 MB에서 끊어(200인데 JSON이 깨짐) 큰 질의의 대체가 못 된다
+OSM_GATEWAY_RETRIES = 1
+OSM_GATEWAY_WAIT_SECONDS = 10
 OSM_OVERPASS_QUERY = """[out:json][timeout:55][bbox:{bbox}];
 (
   way["building"]; relation["building"]["type"="multipolygon"];
