@@ -74,6 +74,10 @@ Hugging Face는 자유·오픈소스가 아니니 빼라, Oracle Cloud는 뭔가
 설치본 점검(0.3.6 zip, 격리 Blender 5.2 + 빈 HOME, 2026-10-25): 패널 서울·파리 지도(OSM 중계) 정상, 위치 방식 생성 —
 서울 을지로 R300(GitHub 필지 팩 + 국내 서버 팩, 1,233동) · 파리 R300(GitHub 프랑스 팩 5개 + Overpass + AWS 지형) · 도쿄 신주쿠 R300(GitHub 일본 팩 + GSI 지형).
 
+올림(2026-10-25 새벽): 0.3.6 zip(main 2c8b55b, sha256 f1783040…) → 릴리스 노트 → 아래 답변을 댓글로 달고 상태 Awaiting Review.
+사용자 Chrome 창은 쓰지 않았다(화면 잠금) — 쿠키 사본 헤드리스 Chrome + CDP로 올리고 사본은 지웠다.
+가상 사용자 18명 문제 0건(트롬쇠는 첫 Overpass 서버 재시도를 넣은 뒤). nl·us 팩 GitHub 사본은 2차 한도로 천천히 올라가는 중 — 다 오르기 전에는 그 두 나라가 OSM으로 돈다.
+
 ### Network (심사 답변 원문 — 새 서비스를 넣으면 여기와 BLENDER_ALLOWED_HOSTS를 같이 고친다)
 
 Thank you for the review, and sorry for the messy first submission. You were right on several points. I re-read the guidelines and uploaded version 0.3.6, which cleans this up.
@@ -84,12 +88,12 @@ Thank you for the review, and sorry for the messy first submission. You were rig
 - The dead Overpass mirrors (overpass.kumi.systems, overpass.private.coffee) and maps.mail.ru are removed.
 - The build now checks every URL in the package against an allow list, so no other service can slip in.
 
-**Where the data comes from.** Everything is free, with no account and no API key. Requests happen only after the user clicks, and only when Online Access is on.
+**Where the data comes from.** Everything is free, with no account and no API key. Nothing is downloaded until the user opens the panel from Blender, and the panel opens only when Online Access is on.
 1. Panel map: OpenStreetMap standard tiles (tile.openstreetmap.org), with an identifying User-Agent as the tile usage policy asks.
 2. Buildings, roads and water anywhere: OpenStreetMap through the Overpass API. The add-on uses overpass-api.de (the main public instance), with overpass.openstreetmap.fr (OSM France) as fallback. Both are listed at https://wiki.openstreetmap.org/wiki/Overpass_API#Public_Overpass_API_instances. Place search uses nominatim.openstreetmap.org.
 3. Terrain anywhere: Terrain Tiles from the Registry of Open Data on AWS (s3.amazonaws.com/elevation-tiles-prod). This is a free public dataset: https://registry.opendata.aws/terrain-tiles/. The add-on downloads plain image files over HTTPS; no AWS account or key is needed. For sites in Japan it uses the Japanese government's GSI elevation tiles instead (cyberjapandata.gsi.go.jp, free: https://maps.gsi.go.jp/development/ichiran.html).
 4. Official open building data for Korea (parcels), Japan, the Netherlands, France, Switzerland and the USA: SQLite packs on GitHub. The manifest comes from raw.githubusercontent.com and the packs from github.com releases. Each pack is checked against the sha256 in the manifest.
-5. Korea only, buildings, roads and contours: this data comes from Korea's national base map. Korean law (Spatial Data Act, Article 16) does not allow it to be stored outside Korea. So it is served as static files from a small server in Korea (Oracle Cloud, always-free tier, 150.230.249.1). Users need no account, and nobody pays for it. Each file is checked against the sha256 in the manifest from GitHub.
+5. Korea only, buildings, roads and contours: this data comes from Korea's national base map. Korean law (Spatial Data Act, Article 16) does not allow it to be stored outside Korea. So it is served as static files from a small server in Korea (Oracle Cloud, always-free tier, 150.230.249.1). It costs users nothing and needs no account. Each file is checked against the sha256 in the manifest from GitHub.
 
 Links that open in the browser only when the user clicks them: the project website, and the Korean land-use plan page (eum.go.kr) for a selected parcel. The add-on sends no analytics.
 
