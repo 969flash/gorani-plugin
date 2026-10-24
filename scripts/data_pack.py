@@ -365,11 +365,10 @@ def _open_pack(pack, client_id, manifest_url):
     # type: (dict, str, str) -> tuple
     """팩 주소를 연다. 403·404면 국내 서버 주소가 바뀐 것일 수 있어(문지기 서버로 옮김·되돌림) 매니페스트를 새로 받아 한 번만 다시 연다.
     문지기 서버의 하루 한도(429)는 사용자에게 보일 문장으로 바꾼다. 출력: (응답, 실제로 받는 팩 dict)."""
-    headers = {"User-Agent": "%s/%s" % (constants.TOOL_NAME, constants.PANEL_VERSION)}
-    if client_id and not pack["name"].endswith("_site.db") and not is_jp_pack(pack["name"]):   # 필지·일본 팩(Hugging Face)에는 보내지 않는다
-        headers["X-UDT-Client"] = client_id   # 국내 문지기 서버가 설치마다 하루 한도를 센다(docs/domestic_gate.md)
-
     def open_url(url):
+        headers = {"User-Agent": "%s/%s" % (constants.TOOL_NAME, constants.PANEL_VERSION)}
+        if client_id and url.startswith(constants.DATA_DOMESTIC_BASE_URL):   # 국내 문지기 서버에만 — 설치마다 하루 한도를 센다(docs/domestic_gate.md).
+            headers["X-UDT-Client"] = client_id   # 필지·나라별 팩(Hugging Face·GitHub)에는 보내지 않는다(2026-10-25: 나라별 팩에도 붙고 있었다)
         try:
             return urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=constants.DATA_TIMEOUT_SECONDS)
         except urllib.error.HTTPError as exc:

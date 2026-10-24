@@ -210,7 +210,9 @@ def search_lots(query, database_path=None, limit=None):
 
 
 def get_local_env_value(key):
-    """Rhino GUI에서도 쓸 수 있도록 HOME_DIR의 .env(gitignore)를 보조로 읽는다."""
+    """Rhino GUI에서도 쓸 수 있도록 HOME_DIR의 .env(gitignore)를 보조로 읽는다. key가 비면 ""(Blender판은 VWorld 키 이름을 비워 둔다)."""
+    if not key:
+        return ""
     value = os.environ.get(key)
     if value:
         return value.strip()

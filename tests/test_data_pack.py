@@ -106,11 +106,13 @@ class LocalPackTest(unittest.TestCase):
         original = data_pack.urllib.request.urlopen
         data_pack.urllib.request.urlopen = fake_urlopen
         try:
-            for name in ("11110_context.db", "jp13104_context.db"):   # 국내 서버 팩은 보내고 일본 팩은 보내지 않는다
+            # 국내 서버 주소로 받는 팩에만 보낸다 — 일본·나라별 팩(Hugging Face·GitHub 사본)에는 보내지 않는다
+            for name, base in (("11110_context.db", data_pack.constants.DATA_DOMESTIC_BASE_URL), ("jp13104_context.db", "https://example.com/"),
+                               ("nl25gn1_context.db", "https://github.com/x/y/releases/download/nl/")):
                 sent.clear()
                 with self.assertRaises(OSError):
-                    data_pack._open_pack({"name": name, "url": "https://example.com/%s.xz" % name}, "install-id", None)
-                self.assertEqual(sent.get("X-udt-client"), None if name.startswith("jp") else "install-id")
+                    data_pack._open_pack({"name": name, "url": "%s%s.xz" % (base, name)}, "install-id", None)
+                self.assertEqual(sent.get("X-udt-client"), "install-id" if name.startswith("1") else None)
         finally:
             data_pack.urllib.request.urlopen = original
 

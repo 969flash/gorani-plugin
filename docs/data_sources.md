@@ -268,6 +268,11 @@ CREATE TABLE IF NOT EXISTS source_files (
 - 런타임: 나라 목록 `docs/countries.json`의 `nl`(한국 매니페스트 `countries[]` → `data_pack.get_country_packs`, 내장 기본값 `constants.COUNTRY_PACKS`) — 대상지 중심이 그 상자 안이면 생성 직전에 범위에 걸치는 도엽 팩을 받고(`cmd_site._download_for_generate`), `osm_context.load_plateau_buildings`가 팩 건물을 먼저, OSM 건물은 겹치지 않는 것만. 도로면은 OSM 버퍼(팩에 features 표 없음), 지형은 Terrain Tiles.
 - 조사 근거·다른 나라 후보(프랑스 BD TOPO·스위스 swissBUILDINGS3D·독일): `docs/research/country_buildings.md`.
 - **새 나라 추가 절차(2026-10-23)**: ① `dev_<나라>.py catalog → build → upload`(팩 + `<나라>/manifest.json`, HF 올리기는 사용자 확인 뒤) ② `docs/countries.json`에 한 줄(코드·상자·라벨·source_id·고지) ③ `python3 scripts/dev_deploy.py notices`. 플러그인 판은 올리지 않는다 — 깔린 플러그인이 켤 때 목록을 받는다. 내리기는 `disabled: true`.
+- **GitHub 사본(Blender판, 2026-10-25)**: Blender 확장 심사가 'Hugging Face는 빼라'고 해서 Blender판은 같은 데이터셋의 GitHub 사본 `969flash/gorani-data`를 읽는다.
+  매니페스트·`config.json`은 저장소 파일(HF와 같은 경로 — `raw.githubusercontent.com/…/main/manifest.json`, 상대경로 `jp/manifest.json`이 그대로 풀린다),
+  팩은 폴더마다 릴리스(태그 `kr`·`jp`·`fr`·`ch`·`nl`·`us`, 릴리스당 자산 1,000개 상한이라 `nl-2`·`us-2`…로 잇는다)에 두고 사본 매니페스트가 절대 주소로 가리킨다.
+  릴리스 태그를 `data`·`data/jp`처럼 겹쳐 둘 수는 없다(git 참조 — 만들기가 HTTP 500). HF에 팩·매니페스트를 올린 뒤(①·③, `dev_deploy upload`·`notices`) 꼭
+  `python3 scripts/dev_deploy.py mirror`를 돌린다 — 크기·sha256이 같은 팩은 건너뛰고 바뀐 것만 옮긴다(첫 사본 5,479개·32.8 GB, 이 Mac에서 약 2시간). Rhino·SketchUp판은 HF 그대로.
 
 ### 프랑스 — IGN BD TOPO® 건물 팩 (`fr/`, 경위도, 2026-10-22)
 
