@@ -11,7 +11,8 @@
     python3 scripts/dev_deploy.py repack     # 시도 팩 압축본을 풀어 (줄이고) 시군구 팩으로 나눠 다시 압축
     python3 scripts/dev_deploy.py rebounds   # 매니페스트의 팩 범위만 다시 잰다(시군구 필지 중심점 핵심 범위 — constants.PACK_BOUNDS_*)
     python3 scripts/dev_deploy.py upload     # 필지 팩 + 매니페스트는 Hugging Face(hf auth login 먼저), 컨텍스트·등고선 팩은 국내 버킷(~/.oci/config 먼저)
-    python3 scripts/dev_deploy.py notices    # docs/notices.json(업데이트·공지)만 Hugging Face 매니페스트에 넣어 올린다 — 팩은 그대로
+    python3 scripts/dev_deploy.py notices    # docs/notices.json(업데이트·공지)·docs/countries.json(나라별 건물 팩 목록·services)을 Hugging Face 매니페스트에 넣고, config.json(원격 설정 — remote_config.build: 도면 색·범례·구간·코드표·파라미터·번역)을 같이 올린다 — 팩은 그대로. 새 나라·도면 색·번역 수정은 이것으로 끝(플러그인 판 없음)
+    python3 scripts/dev_deploy.py config     # build/config.json만 만들어 본다(올리지 않음)
 
 yak: 진입 명령 Gorani 하나짜리 .rhp를 rhinocode로 빌드하고(떠 있는 Rhino 8 필요), 그 옆에 scripts/(평문 진입 스크립트 +
      로직 .pyc + 패널 HTML·vendor)를 두고 yak CLI로 묶는다. rhinocode의 Shared 리소스는 폴더 구조를 펴 버려서 쓰지 않는다
@@ -50,9 +51,12 @@ SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SCRIPTS_DIR)
 sys.path.insert(0, SCRIPTS_DIR)
 import constants  # noqa: E402
+import data_pack  # noqa: E402 — countries.json 검증은 런타임과 같은 함수로
+import remote_config  # noqa: E402 — config.json(원격 설정)은 런타임과 같은 함수로 만들고 자가 점검한다
 
 BUILD_DIR = os.path.join(ROOT_DIR, "build")
 NOTICES_PATH = os.path.join(ROOT_DIR, "docs", "notices.json")   # 매니페스트 update·notices 원본 — 칸은 docs/panel_ui.md '업데이트·공지'
+COUNTRIES_PATH = os.path.join(ROOT_DIR, "docs", "countries.json")   # 매니페스트 countries 원본 — 나라별 건물 팩 목록(data_pack.get_country_packs). 새 나라는 여기에만(플러그인 판 없이)
 RHINO_BIN_DIR = "/Applications/Rhino 8.app/Contents/Resources/bin"
 BRAND_DIR = os.path.join(ROOT_DIR, "docs", "brand")      # 로고 원본 SVG(currentColor)와 크기별 PNG — docs/brand/logo.html
 TOOLBAR_ICON_COLORS = {"light": "#111418", "dark": "#E8ECF2"}   # Rhino 도구 막대 라이트·다크 아이콘 색 = DESIGN.md 잉크·다크 잉크
@@ -84,7 +88,7 @@ description: |-
   What you get
   - 3D: buildings, roads, terrain, rivers, parks and railways on separate layers
   - 2D: Illustrator basemap, urban analysis maps, DWG, CSV tables
-  - Data: Korea nationwide, Japan (PLATEAU), Netherlands (3D Basisvoorziening), France (BD TOPO), Switzerland (swissBUILDINGS3D), elsewhere OpenStreetMap
+  - Data: Korea nationwide; official building data with heights where available (Japan, Netherlands, France, Switzerland, United States and more — the list grows without plugin updates, see the website); elsewhere OpenStreetMap
 
   한 번에 쉽게 하는 사이트 모델링 및 사이트 분석
   패널 언어는 위쪽 언어 버튼에서 한국어로 바꿀 수 있습니다.
@@ -97,7 +101,7 @@ description: |-
   결과물
   - 3D: 건물 매스, 도로, 지형, 하천, 녹지, 철도 (레이어별)
   - 2D: 일러스트레이터 베이스맵, 현황도·분석도, DWG, 조서 CSV
-  - 데이터: 국내 전국, 일본(PLATEAU)·네덜란드(3D Basisvoorziening)·프랑스(BD TOPO)·스위스(swissBUILDINGS3D) 건물, 해외 OpenStreetMap
+  - 데이터: 국내 전국, 공식 건물 데이터(높이 포함)가 있는 나라는 그것(일본·네덜란드·프랑스·스위스·미국 등 — 플러그인 업데이트 없이 늘어납니다, 웹사이트 참고), 그 밖은 OpenStreetMap
 license: MIT
 url: %(url)s
 icon: icon.png
@@ -1158,10 +1162,10 @@ def _fill_manifest(pack_dir):
 
 DATASET_CARD = """---
 license: other
-license_name: kogl-type1-cc-by-and-cc-by-4.0
+license_name: kogl-type1-cc-by-4.0-etalab-2.0-swisstopo-ogd-odbl
 pretty_name: Gorani 데이터 팩
-language: [ko, ja]
-tags: [geospatial, korea, japan, plateau, cadastral, buildings, rhino]
+language: [ko, ja, nl, fr, de, en]
+tags: [geospatial, korea, japan, netherlands, france, switzerland, usa, plateau, overture, cadastral, buildings, rhino]
 ---
 # Gorani 데이터 팩
 
@@ -1187,6 +1191,26 @@ Rhino 플러그인 Gorani가 대상지 주변만 받아 쓰는 지역 단위 SQL
 
 出典：3D都市モデル（Project PLATEAU）各市区町村（各年度）、国土交通省。CC BY 4.0（公共データ利用規約 第1.0版と互換）。著作権は各地方公共団体にあります。
 加工：Gorani が建物の外形・高さ・階数・用途コードだけを抽出し、経緯度（小数6桁）に変換して市区町村ごとの SQLite にしました。国土交通省・地方公共団体が作成したものではありません。
+
+## 네덜란드 — 도엽 건물 팩 (`nl/`, 경위도) / Nederland — gebouwen per kaartblad
+
+- `nl/nl<도엽>_context.db.xz` — Kadaster 3D Basisvoorziening(hoogtestatistieken_gebouwen)의 건물 바닥 윤곽·높이(지붕 50 % − 지반)·건축연도·지붕형만. `nl/manifest.json`.
+- Bron: Kadaster, 3D Basisvoorziening (CC BY 4.0, https://creativecommons.org/licenses/by/4.0/deed.nl), bewerkt door Gorani — alleen omtrek, hoogte, bouwjaar en daktype, omgezet naar WGS84 (6 decimalen).
+
+## 프랑스 — 데파르트망 건물 팩 (`fr/`, 경위도) / France — bâtiments par département
+
+- `fr/fr<데파르트망>_context.db.xz` — IGN BD TOPO® `batiment`의 바닥 윤곽·높이(hauteur, 처마)·층수·용도·출현일만(본토·코르시카). `fr/manifest.json`.
+- Source : IGN, BD TOPO® (Licence Ouverte / Open Licence 2.0, Etalab), traité par Gorani — emprise, hauteur, étages, usage et date d'apparition uniquement, reprojetés en WGS84 (6 décimales).
+
+## 스위스 — 1:25k 도엽 건물 팩 (`ch/`, 경위도) / Schweiz — Gebäude pro Kartenblatt
+
+- `ch/ch<도엽>_context.db.xz` — swisstopo swissBUILDINGS3D 3.0 Beta의 바닥 윤곽(Floor)·높이(GESAMTHOEHE 또는 DACH_MAX − 지반)·종류·용도만(리히텐슈타인 포함). `ch/manifest.json`.
+- Quelle: ©swisstopo, swissBUILDINGS3D 3.0 Beta (OGD-Nutzungsbedingungen — freie Nutzung und Weitergabe mit Quellenangabe), bearbeitet durch Gorani — nur Grundriss, Höhe, Objektart und Nutzung, umgerechnet nach WGS84 (6 Dezimalstellen).
+
+## 미국 — 카운티 건물 팩 (`us/`, 경위도) / United States — buildings per county
+
+- `us/us<카운티 FIPS 5자리>_context.db.xz` — Overture Maps Foundation buildings 테마(Microsoft ML Buildings·OpenStreetMap·Esri Community Maps 합본)의 바닥 윤곽·높이·층수·용도·이름만. 높이는 대부분 Microsoft ML 추정값이다(실측 아님). 카운티 경계는 미국 인구조사국 cartographic boundary(공개). `us/manifest.json`.
+- Source: Overture Maps Foundation (buildings theme, release in each pack's `data_sources`), © OpenStreetMap contributors, Microsoft (Global ML Building Footprints) — **Open Database License (ODbL) 1.0**. The `us/` packs are derivative databases and are themselves made available under ODbL 1.0. Processed by Gorani: footprint, height, floors, class and name only, 6-decimal WGS84, split by county. Heights are mostly machine-learning estimates.
 """
 
 
@@ -1221,6 +1245,7 @@ def upload():
         json.dump(dict(_read_notices(), version=manifest["version"], packs=public), f, ensure_ascii=False, indent=1)
     with open(os.path.join(stage, "README.md"), "w", encoding="utf-8") as f:
         f.write(DATASET_CARD)
+    build_config(os.path.join(stage, remote_config.CONFIG_FILE_NAME))   # 원격 설정도 같이(매니페스트 옆)
     api = HfApi()
     api.create_repo(constants.DATA_REPO_ID, repo_type="dataset", private=False, exist_ok=True)
     api.upload_large_folder(repo_id=constants.DATA_REPO_ID, repo_type="dataset", folder_path=pack_dir,
@@ -1233,15 +1258,40 @@ def upload():
 
 def _read_notices():
     # type: () -> dict
-    """docs/notices.json → {"update", "notices"}. 매니페스트를 올릴 때마다 넣어 팩을 다시 올려도 공지가 지워지지 않게 한다."""
+    """docs/notices.json + docs/countries.json → {"update", "notices", "countries"}. 매니페스트를 올릴 때마다 넣어 팩을 다시 올려도 공지·나라 목록이 지워지지 않게 한다.
+    나라 항목이 런타임 검증(data_pack._get_country_pack)에 걸리면 올리기 전에 멈춘다 — 플러그인은 그 나라를 말없이 건너뛰므로 여기서 잡는다."""
     with open(NOTICES_PATH, encoding="utf-8") as f:
         data = json.load(f)
-    return {"update": data.get("update"), "notices": data.get("notices") or []}
+    with open(COUNTRIES_PATH, encoding="utf-8") as f:
+        remote = json.load(f)
+    countries, services = remote["countries"], remote.get("services") or {}
+    bad = [entry.get("code") for entry in countries if not entry.get("disabled") and data_pack._get_country_pack(entry) is None]
+    if bad:
+        raise ValueError("docs/countries.json 항목이 틀렸습니다(code 2자·bounds 4수·code_pattern 정규식·manifest·source_id·label): %s" % bad)
+    return {"update": data.get("update"), "notices": data.get("notices") or [], "countries": countries, "services": services}
+
+
+def build_config(path=None):
+    # type: (str) -> str
+    """constants(remote_config.REMOTE_KEYS) + i18n.json → build/config.json. 올리기 전 자가 점검 — 만든 것을 내장값 사본에 apply해 전부 받아들여지고 값이 같아야 한다."""
+    config = json.loads(json.dumps(remote_config.build(), ensure_ascii=False))   # JSON 왕복(tuple → list, int 키 → 문자열)을 런타임이 되돌리는지까지
+    snapshot = remote_config.get_snapshot()
+    report = remote_config.apply(config, target=snapshot, texts={}, version=remote_config.COMPAT_MIN)
+    bad = report["rejected"] or [name for name in remote_config.REMOTE_KEYS if getattr(snapshot, name) != getattr(constants, name)]
+    if bad or len(report["applied"]) != len(remote_config.REMOTE_KEYS):
+        raise ValueError("config.json 자가 점검 실패: %s" % bad)
+    path = path or os.path.join(BUILD_DIR, remote_config.CONFIG_FILE_NAME)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False)
+    print("  config.json: 상수 %d개 · 번역 %d개 · %.0f KB · compat_min %s" % (len(config["constants"]), len(config["i18n"]), os.path.getsize(path) / 1024.0,
+                                                                      config["compat_min"]), flush=True)
+    return path
 
 
 def upload_notices():
     # type: () -> str
-    """Hugging Face의 지금 매니페스트를 받아 update·notices만 docs/notices.json으로 바꿔 다시 올린다(팩·팩 목록은 그대로)."""
+    """Hugging Face의 지금 매니페스트를 받아 update·notices(docs/notices.json)·countries(docs/countries.json)만 바꿔 다시 올린다(팩·팩 목록은 그대로)."""
     import urllib.request
     from huggingface_hub import HfApi
     with urllib.request.urlopen(constants.DATA_MANIFEST_URL, timeout=constants.DATA_TIMEOUT_SECONDS) as response:
@@ -1252,9 +1302,13 @@ def upload_notices():
     path = os.path.join(stage, "manifest.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=1)
-    HfApi().upload_file(path_or_fileobj=path, path_in_repo="manifest.json", repo_id=constants.DATA_REPO_ID, repo_type="dataset",
-                        commit_message="manifest: 업데이트·공지")
-    print("  올림: update %s, 공지 %d개" % ("있음" if manifest["update"] else "없음", len(manifest["notices"])), flush=True)
+    api = HfApi()
+    api.upload_file(path_or_fileobj=path, path_in_repo="manifest.json", repo_id=constants.DATA_REPO_ID, repo_type="dataset",
+                    commit_message="manifest: 업데이트·공지·나라 목록")
+    api.upload_file(path_or_fileobj=build_config(), path_in_repo=remote_config.CONFIG_FILE_NAME, repo_id=constants.DATA_REPO_ID, repo_type="dataset",
+                    commit_message="config.json: 원격 설정(도면·코드표·파라미터·번역)")
+    print("  올림: update %s, 공지 %d개, 나라별 건물 팩 %d나라(%s)" % ("있음" if manifest["update"] else "없음", len(manifest["notices"]),
+          len(manifest["countries"]), "·".join(c["code"] for c in manifest["countries"])), flush=True)
     return constants.DATA_MANIFEST_URL
 
 
@@ -1293,7 +1347,7 @@ def rebounds():
 
 def main():
     parser = argparse.ArgumentParser(description="Yak 패키지·Blender·SketchUp 확장·웹판·데이터 팩 빌드")
-    parser.add_argument("what", nargs="?", default="all", choices=("all", "smoke", "yak", "blender", "sketchup", "web", "packs", "repack", "upload", "notices", "rebounds"))
+    parser.add_argument("what", nargs="?", default="all", choices=("all", "smoke", "yak", "blender", "sketchup", "web", "packs", "repack", "upload", "notices", "config", "rebounds"))
     parser.add_argument("--sido", help="packs: 쉼표로 구분한 시도 코드만 (기본 data/에 있는 전부)")
     parser.add_argument("--drop", action="store_true", help="packs: 압축 뒤 원본 시도 DB를 지운다(서울 제외)")
     args = parser.parse_args()
@@ -1318,6 +1372,9 @@ def main():
         return
     if args.what == "upload":
         print("manifest: %s" % upload())
+        return
+    if args.what == "config":
+        print("만듦 →", build_config())
         return
     if args.what == "notices":
         print("notices: %s" % upload_notices())

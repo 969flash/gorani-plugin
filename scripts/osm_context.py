@@ -50,12 +50,13 @@ def get_lnglat_bounds(bounds):
 
 def get_country(lng, lat):
     # type: (float, float) -> str
-    """경위도가 나라별 건물 팩(constants.COUNTRY_PACKS) 상자 안이면 그 나라 코드, 아니면 "". 상자가 겹치면(프랑스 상자 안의 스위스) 작은 상자가 이긴다."""
+    """경위도가 나라별 건물 팩(data_pack.get_country_packs — 매니페스트 countries[], 내장 constants.COUNTRY_PACKS) 상자 안이면 그 나라 코드, 아니면 "".
+    상자가 겹치면(프랑스 상자 안의 스위스) 작은 상자가 이긴다."""
     found = []
-    for code, pack in constants.COUNTRY_PACKS.items():
-        west, south, east, north = pack["bounds"]
-        if west <= lng <= east and south <= lat <= north:
-            found.append(((east - west) * (north - south), code))
+    for code, pack in data_pack.get_country_packs().items():
+        for west, south, east, north in pack["bounds"]:   # 나라 하나에 상자 여럿(미국 본토·알래스카·하와이)
+            if west <= lng <= east and south <= lat <= north:
+                found.append(((east - west) * (north - south), code))
     return min(found)[1] if found else ""
 
 
@@ -93,7 +94,7 @@ def get_overpass_elements(bounds, query=None, endpoints=None):
     if key in _CACHE:
         return _CACHE[key]
     errors, busy = [], False
-    for index, endpoint in enumerate(endpoints or constants.OSM_OVERPASS_URLS):
+    for index, endpoint in enumerate(endpoints or data_pack.get_service("overpass", constants.OSM_OVERPASS_URLS)):   # 매니페스트 services.overpass가 미러 목록을 덮을 수 있다
         try:
             body = _fetch(endpoint, urllib.parse.urlencode({"data": query}).encode("utf-8"),
                           timeout=None if index == 0 else constants.OSM_MIRROR_TIMEOUT_SECONDS)
@@ -284,7 +285,7 @@ def load_plateau_buildings(lnglat_bounds, data_dir=None):
             building = context_db._building_from_row(row)
             building.geometry = _get_tm_geometry(building.geometry)
             building.min_x, building.max_x, building.min_y, building.max_y = _get_bounds(building.geometry)
-            building.usability = constants.PLATEAU_USE.get(building.ngii_kind, "") if source["source_id"] == "plateau" else (building.usability or "")
+            building.usability = (building.usability or "") or (constants.PLATEAU_USE.get(building.ngii_kind, "") if source["source_id"] == "plateau" else "")   # 팩 값 먼저 — 옛 PLATEAU 팩만 코드 사전
             building.reference_date = date
             group.append(building)
         group = get_buildings_apart(group, buildings)
@@ -558,7 +559,7 @@ def _get_terrain_tile(zoom, tx, ty, japan):
                 break
             except Exception:   # 404(없는 타일)뿐 아니라 5xx·시간 초과도 '없음'으로 — 지리원이 잠깐 막혀도 일본 생성이 통째로 죽지 않게 AWS로 간다(2026-10-22 통합 리뷰)
                 continue
-        _keep(key, tile or ("aws_terrain", decode_png(_fetch(constants.OSM_TERRAIN_URL.format(z=zoom, x=tx, y=ty)))))
+        _keep(key, tile or ("aws_terrain", decode_png(_fetch(data_pack.get_service("terrain_tiles", constants.OSM_TERRAIN_URL).format(z=zoom, x=tx, y=ty)))))
     return _CACHE[key]
 
 
@@ -600,7 +601,7 @@ def search_places(query, limit):
     # type: (str, int) -> list
     """지명·주소 → [{"name", "center": [lng, lat]}]. 국내 필지 검색이 비었을 때만 부른다(Nominatim 이용 정책: 초당 1건, 식별 가능한 User-Agent).
     네트워크 오류면 빈 목록."""
-    url = constants.OSM_NOMINATIM_URL + "?" + urllib.parse.urlencode({"q": query, "format": "jsonv2", "limit": limit})
+    url = data_pack.get_service("nominatim", constants.OSM_NOMINATIM_URL) + "?" + urllib.parse.urlencode({"q": query, "format": "jsonv2", "limit": limit})
     try:
         places = json.loads(_fetch(url, timeout=constants.OSM_SEARCH_TIMEOUT_SECONDS).decode("utf-8"))
     except Exception:

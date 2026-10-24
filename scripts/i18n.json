@@ -5674,5 +5674,23 @@
   "es": "No se pudieron descargar los datos de edificios y terreno de esta zona. Revisa tu conexión a internet y vuelve a intentarlo en un momento",
   "ja": "この地域の建物・地形データを取得できませんでした。インターネット接続を確認し、しばらくしてからもう一度作成してください",
   "zh": "无法下载该地区的建筑和地形数据。请检查网络连接，稍后再试"
+ },
+ "{0} 높이": {
+  "en": "{0} height",
+  "es": "Altura {0}",
+  "ja": "{0}の高さ",
+  "zh": "{0} 高度"
+ },
+ "{0} 층수": {
+  "en": "{0} floors",
+  "es": "Plantas {0}",
+  "ja": "{0}の階数",
+  "zh": "{0} 层数"
+ },
+ "{0} 지붕 높이": {
+  "en": "{0} roof height",
+  "es": "Altura de cubierta {0}",
+  "ja": "{0}の屋根高さ",
+  "zh": "{0} 屋顶高度"
  }
 }

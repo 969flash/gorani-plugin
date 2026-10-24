@@ -349,8 +349,27 @@ CH_BOUNDS = (5.9, 45.8, 10.6, 47.9)    # 스위스·리히텐슈타인 경위도
 SWISS_STAC_ITEMS_URL = "https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissbuildings3d_3_0/items?limit=100"
 SWISS_LICENSE = "swisstopo OGD 이용약관(2022-08-26, Version 1.3.2021) — 자유 이용·가공·배포, 출처 표기 \"©swisstopo\""
 SWISS_HEIGHT_RANGE = (1.0, 400.0)      # 솔리드 최고 z − 최저 z 사용 범위 m
+# 미국 — Overture Maps buildings(ODbL. Microsoft ML Buildings·OpenStreetMap·Esri Community Maps 합본 — 미국 높이는 대부분 Microsoft ML 추정, 로스앤젤레스 98.8 %·오스틴 89.3 %
+# 2026-10-23 실측 docs/research/country_buildings.md). 공식 출처(FEMA USA Structures)는 높이가 1/4뿐이고 약관이 갈려 쓰지 않는다. 카운티(Census FIPS 5자리)마다 팩 하나 — dev_us.py
+US_PACK_DIR = "us"
+US_PACK_PREFIX = "us"                  # 팩 이름 us<카운티 FIPS 5자리>_context.db — us06037 로스앤젤레스
+US_BOUNDS = ((-125.0, 24.3, -66.9, 49.5), (-170.0, 51.0, -129.0, 72.0), (-161.0, 18.5, -154.0, 22.5), (-68.0, 17.5, -64.4, 18.6))   # 본토·알래스카·하와이·푸에르토리코/버진아일랜드(서, 남, 동, 북)
+OVERTURE_RELEASE = "2026-10-21.0"      # 달마다 새 판 — 바꾸면 fetch부터 다시
+OVERTURE_S3_URL = "s3://overturemaps-us-west-2/release/%s/theme=buildings/type=building/*" % OVERTURE_RELEASE   # 익명 읽기(DuckDB httpfs, us-west-2)
+OVERTURE_PAGE_URL = "https://overturemaps.org"
+OVERTURE_LICENSE = "ODbL 1.0 (Open Database License) — 출처 표기: Overture Maps Foundation, © OpenStreetMap contributors, Microsoft (Global ML Building Footprints)"
+OVERTURE_HEIGHT_RANGE = (1.0, 700.0)   # height 사용 범위 m(One World Trade Center 541 m)
+OVERTURE_USE_CLASS = {"apartments": "02000", "dormitory": "02000", "hotel": "15000", "office": "14000", "warehouse": "18000", "garage": "20000", "garages": "20000",
+                      "parking": "20000", "school": "10000", "university": "10000", "college": "10000", "hospital": "09000", "church": "06000"}   # class 우선
+OVERTURE_USE_SUBTYPE = {"residential": "01000", "commercial": "04000", "industrial": "17000", "agricultural": "21000", "education": "10000", "medical": "09000",
+                        "religious": "06000", "civic": "14000", "transportation": "08000", "entertainment": "05000", "military": "23000"}   # subtype → 국내 대분류(시트 색). service·outbuilding은 빈 값
+CENSUS_COUNTY_URL = "https://www2.census.gov/geo/tiger/GENZ2024/shp/cb_2024_us_county_500k.zip"   # 카운티 경계(미국 정부 저작물, 공개). GEOID = FIPS 5자리, 3,235개(준주 포함)
+US_COUNTY_BUFFER_DEG = 0.003           # 카운티 경계를 넓혀 건물 중심을 배정(약 300 m) — 해안선 간략화(1:500k)로 빠지는 부두·매립지 건물. 겹친 건물은 런타임이 src_key로 한 번만
 # 나라별 공식 건물 팩(경위도, 매니페스트는 나라마다 따로 — HF 데이터셋 <dir>/manifest.json). 키 = 팩 이름 접두사. 런타임은 대상지 중심이 bounds 안인 나라의 팩을 쓴다
 # source_id = 팩 data_sources.source_id, label = 화면·도면 표기, code_pattern = 접두사 뒤 지역 코드 꼴(한국 시도 슬러그 jpn 같은 이름과 구분)
+# ※ 내장 기본값일 뿐이다 — 런타임은 data_pack.get_country_packs()(한국 매니페스트 countries[]가 덮는다, 원본 docs/countries.json, 올리기 dev_deploy.py notices).
+#    새 나라는 여기 말고 docs/countries.json에 넣는다 — 데이터만 바뀌는 일에 플러그인 판을 올리지 않는다(2026-10-23, 0.3.3·0.3.4를 나라 추가만으로 올린 뒤).
+#    여기 값은 countries.json과 같게 둔다(tests/test_data_pack.py가 맞춘다) — 오프라인 사용자에게 지금 넷 나라는 그대로 돌게.
 COUNTRY_PACKS = {
     "jp": {"dir": JP_PACK_DIR, "manifest": DATA_JP_MANIFEST_URL, "bounds": JP_BOUNDS, "source_id": "plateau", "label": "PLATEAU", "code_pattern": r"\d{5}"},
     "nl": {"dir": NL_PACK_DIR, "manifest": "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, NL_PACK_DIR),
@@ -359,8 +378,9 @@ COUNTRY_PACKS = {
            "bounds": FR_BOUNDS, "source_id": "bdtopo", "label": "BD TOPO", "code_pattern": r"\d{3}|02[ab]"},   # 데파르트망 075·02a
     "ch": {"dir": CH_PACK_DIR, "manifest": "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, CH_PACK_DIR),
            "bounds": CH_BOUNDS, "source_id": "swisstopo", "label": "swissBUILDINGS3D", "code_pattern": r"\d{4}"},   # 1:25k 도엽 1172
+    "us": {"dir": US_PACK_DIR, "manifest": "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, US_PACK_DIR),
+           "bounds": US_BOUNDS, "source_id": "overture", "label": "Overture", "code_pattern": r"\d{5}"},   # 카운티 FIPS 06037. 상자 넷(2026-10-23)
 }
-PACK_SOURCE_IDS = {v["source_id"]: k for k, v in COUNTRY_PACKS.items()}   # data_sources.source_id → 나라 코드
 PLATEAU_CKAN_URL = "https://www.geospatial.jp/ckan/api/3/action/package_search"   # G空間情報センター. 카탈로그 API 리다이렉트는 404(2026-10-21)
 PLATEAU_CKAN_QUERY = "3D都市モデル（Project PLATEAU）"
 PLATEAU_SKIP_CODES = ("27999",)        # 2025 오사카·간사이 엑스포 회장 — 철거 중인 임시 행사장
@@ -852,7 +872,8 @@ SHEET_PARCEL_MAX_SCALE = 3000    # 이 축척보다 작은 도면(1:5000)은 지
 SHEET_FADE_TO_PAPER = 0.45       # 주제도의 바탕(가구·건물·녹지·수계)을 종이색 쪽으로 이만큼 흐린다 — 주제 색이 먼저 읽히게
 SHEET_HEIGHT_SRC_LABELS = {"height": "대장 높이", "grnd_flr": "대장 층수", "topo_flr": "지형도 층수", "hub": "건축HUB", "default": "기본값",
                            "osm_height": "OSM 높이", "osm_levels": "OSM 층수",
-                           "plateau_height": "PLATEAU 실측 높이", "plateau_levels": "PLATEAU 층수"}  # 층수 카드, A.4 HEIGHT_SRC
+                           "plateau_height": "PLATEAU 실측 높이", "plateau_levels": "PLATEAU 층수"}  # 층수 카드, A.4 HEIGHT_SRC. 여기 없는 키는 data_pack.get_height_src_label이 팩 라벨로 만든다
+HEIGHT_SRC_KIND_LABELS = {"height": "{0} 높이", "height_rel": "{0} 높이", "levels": "{0} 층수", "roof": "{0} 지붕 높이"}   # '<source_id>_<종류>' 꼴 height_src의 종류 — 새 나라 팩은 코드 수정 없이
 SHEET_HATCH = {"landlocked": {"stroke": "#D83A3A", "stroke-width": 0.25, "spacing_mm": 1.5}}   # <pattern id="hatch_<키>"> 45° 사선
 # 지명 라벨에서 뺄 이름 — 수치지형도 명칭 레이어에 공사장 안내가 섞여 있다(성수 '성수동오피스신축공사(24년01월예정)' 2026-10-13 실측)
 SHEET_LABEL_SKIP_PATTERN = r"공사|예정|\d{2}년"

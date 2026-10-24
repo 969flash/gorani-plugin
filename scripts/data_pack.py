@@ -5,8 +5,10 @@
                                       "size": 원본 바이트, "sha256": 원본 sha256, "bounds": [min_x, min_y, max_x, max_y]}, ...]}
 url은 매니페스트 위치 기준 상대경로 또는 절대 URL(컨텍스트·등고선 팩은 국내 서버). 받은 팩의 sha256·bounds는 data/packs.json에 적어
 다음 확인 때 바뀐 팩만 다시 받고, 조회 때 대상지에 걸리는 시도 파일만 연다. 표준 라이브러리만 쓴다. 매니페스트는 dev_deploy.py가 만든다.
-일본 건물 팩(jp<시구정촌코드>_context.db, bounds 경위도)은 따로 된 매니페스트(constants.DATA_JP_MANIFEST_URL, dev_plateau.py)에 있다 —
-한국 조회(get_local_paths)는 이 파일을 열지 않고, 일본 조회는 get_jp_paths로 연다.
+나라별 건물 팩(jp<시구정촌코드>_context.db·nl<도엽>_context.db …, bounds 경위도)은 나라마다 따로 된 매니페스트(<나라>/manifest.json)에 있다 —
+한국 조회(get_local_paths)는 이 파일을 열지 않고, 나라별 조회는 get_jp_paths로 연다. 나라 목록(상자·매니페스트 주소·라벨)은 한국 매니페스트의
+countries[](원본 docs/countries.json)가 주고 constants.COUNTRY_PACKS는 못 받았을 때의 내장 기본값이다(get_country_packs) —
+새 나라는 팩과 매니페스트만 올리고 플러그인 판은 올리지 않는다(2026-10-23).
 """
 
 import hashlib
@@ -128,15 +130,102 @@ def get_local_paths(kind, bounds=None, sido_codes=None, data_dir=None, sgg_codes
     return paths
 
 
+def _get_boxes(bounds):
+    # type: (object) -> list
+    """경위도 상자 [서, 남, 동, 북] 하나 또는 그 목록(미국처럼 본토·알래스카·하와이) → [(서, 남, 동, 북), …]. 틀리면 None."""
+    try:
+        boxes = [bounds] if bounds and not isinstance(bounds[0], (list, tuple)) else list(bounds or [])
+        boxes = [tuple(float(v) for v in box) for box in boxes]
+    except (TypeError, ValueError):
+        return None
+    if not boxes or any(len(box) != 4 or not (-180 <= box[0] < box[2] <= 180 and -90 <= box[1] < box[3] <= 90) for box in boxes):
+        return None
+    return boxes
+
+
+def _get_country_pack(entry):
+    # type: (dict) -> dict
+    """매니페스트 countries[] 한 항목(또는 constants.COUNTRY_PACKS 한 값 + code) → {dir, manifest, bounds[(서, 남, 동, 북), …], source_id, label, code_pattern}.
+    칸이 하나라도 틀리면 None — 그 나라만 건너뛴다(매니페스트 한 줄 때문에 패널이 멈추지 않게). manifest는 한국 매니페스트 기준 상대경로("us/manifest.json")도 된다."""
+    if not isinstance(entry, dict):
+        return None
+    code, pattern, boxes = entry.get("code"), entry.get("code_pattern"), _get_boxes(entry.get("bounds"))
+    manifest = urllib.parse.urljoin(constants.DATA_MANIFEST_URL, str(entry.get("manifest") or ""))
+    try:
+        re.compile(pattern)
+    except (TypeError, re.error):
+        return None
+    if not (isinstance(code, str) and re.fullmatch(r"[a-z]{2}", code) and isinstance(pattern, str) and pattern and boxes
+            and manifest.startswith(("https://", "http://")) and entry.get("source_id") and entry.get("label")):
+        return None
+    return {"dir": code, "manifest": manifest, "bounds": boxes, "source_id": str(entry["source_id"]), "label": str(entry["label"]), "code_pattern": pattern}
+
+
+def get_country_packs():
+    # type: () -> dict
+    """나라별 건물 팩 목록 {나라 코드: {manifest, bounds, source_id, label, code_pattern}} — 내장(constants.COUNTRY_PACKS) 위에 이번 세션에
+    받아 둔 한국 매니페스트의 countries[]를 덮는다(disabled: true인 나라는 뺀다 — 원천 약관이 바뀌었을 때). 네트워크 접근 없음(패널 init이 받아 둔다),
+    못 받았으면 내장 목록 그대로. 새 나라·상자·주소는 docs/countries.json → dev_deploy.py notices로만 바꾼다 — 플러그인 판을 올리지 않는다(2026-10-23)."""
+    packs = {code: _get_country_pack(dict(pack, code=code)) for code, pack in constants.COUNTRY_PACKS.items()}   # 내장도 같은 꼴로(bounds 목록)
+    manifest = _MANIFEST.get(constants.DATA_MANIFEST_URL) or {}
+    for entry in manifest.get("countries") or []:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("disabled"):
+            packs.pop(entry.get("code"), None)
+            continue
+        pack = _get_country_pack(entry)
+        if pack:
+            packs[entry["code"]] = pack
+    return packs
+
+
+def get_pack_source_ids():
+    # type: () -> dict
+    """팩 data_sources.source_id → 나라 코드(plateau → jp, pdok → nl …)."""
+    return {pack["source_id"]: code for code, pack in get_country_packs().items()}
+
+
+def get_pack_label(source_id):
+    # type: (str) -> str
+    """팩 source_id → 화면·도면 표기(plateau → "PLATEAU"). 나라별 팩이 아니면 ""."""
+    code = get_pack_source_ids().get(source_id)
+    return get_country_packs()[code]["label"] if code else ""
+
+
+def get_height_src_label(src):
+    # type: (str) -> str
+    """높이 출처 키(height_src) → 표기. 내장 사전(constants.SHEET_HEIGHT_SRC_LABELS)에 없으면 '<source_id>_<종류>'를 나라별 팩 라벨 + 종류
+    (constants.HEIGHT_SRC_KIND_LABELS)로 읽는다 — 새 나라 팩(pdok_height·overture_levels …)이 코드 수정 없이 범례에 나오게. 모르면 키 그대로."""
+    if src in constants.SHEET_HEIGHT_SRC_LABELS:
+        return tr(constants.SHEET_HEIGHT_SRC_LABELS[src])
+    source_id, _, kind = src.partition("_")
+    label = get_pack_label(source_id)
+    if label and kind in constants.HEIGHT_SRC_KIND_LABELS:
+        return tr(constants.HEIGHT_SRC_KIND_LABELS[kind], label)
+    return "%s %s" % (label, kind) if label else src
+
+
+def get_service(key, default):
+    # type: (str, object) -> object
+    """한국 매니페스트 services[key]가 있으면 그것, 없으면 default — Overpass 미러·Nominatim·지형 타일 주소가 바뀌어도 플러그인 판 없이 돌린다(원본 docs/countries.json).
+    default가 목록이면 목록(https 주소만 남긴다, 비면 default), 아니면 https 문자열 하나."""
+    value = ((_MANIFEST.get(constants.DATA_MANIFEST_URL) or {}).get("services") or {}).get(key)
+    if isinstance(default, (list, tuple)):
+        urls = [v for v in value if isinstance(v, str) and v.startswith("https://")] if isinstance(value, (list, tuple)) else []
+        return tuple(urls) or tuple(default)
+    return value if isinstance(value, str) and value.startswith("https://") else default
+
+
 def get_pack_country(name):
     # type: (str) -> str
-    """나라별 건물 팩 파일 이름(jp<시구정촌코드>_context.db·nl<도엽>_context.db)이면 나라 코드(constants.COUNTRY_PACKS 키), 아니면 "".
+    """나라별 건물 팩 파일 이름(jp<시구정촌코드>_context.db·nl<도엽>_context.db)이면 나라 코드(get_country_packs 키), 아니면 "".
     칸은 한국 팩과 같지만 좌표가 경위도라 한국 조회와 섞지 않는다."""
     suffix = "_context.db"
     if not name.endswith(suffix):
         return ""
     code, rest = name[:2], name[2:-len(suffix)]
-    pack = constants.COUNTRY_PACKS.get(code)
+    pack = get_country_packs().get(code)
     return code if pack and re.fullmatch(pack["code_pattern"], rest) else ""
 
 
