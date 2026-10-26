@@ -80,6 +80,27 @@ class ParseTest(unittest.TestCase):
         for value in constants.OSM_PUBLIC_USE:   # Overpass가 시설 면을 받아 와야 용도를 줄 수 있다
             self.assertIn(value, constants.OSM_OVERPASS_QUERY)
 
+    def test_first_server_gateway_retry(self):
+        """첫 Overpass 서버가 502면 쉬었다 한 번 더 묻는다(2026-10-25 트롬쇠) — 두 번째 미러로 바로 넘어가지 않는다."""
+        import io
+        import urllib.error
+        calls = []
+
+        def fake_fetch(url, data=None, timeout=None):
+            calls.append(url)
+            if len(calls) == 1:
+                raise urllib.error.HTTPError(url, 502, "Bad Gateway", {}, io.BytesIO(b""))
+            return json.dumps({"elements": [{"id": 7}]}).encode("utf-8")
+        saved = osm_context._fetch, constants.OSM_GATEWAY_WAIT_SECONDS
+        osm_context._fetch, constants.OSM_GATEWAY_WAIT_SECONDS = fake_fetch, 0
+        osm_context._CACHE.clear()
+        try:
+            elements = osm_context.get_overpass_elements((200000.0, 550000.0, 200100.0, 550100.0), endpoints=("https://a/api", "https://b/api"))
+        finally:
+            osm_context._fetch, constants.OSM_GATEWAY_WAIT_SECONDS = saved
+            osm_context._CACHE.clear()
+        self.assertEqual((elements, calls), ([{"id": 7}], ["https://a/api", "https://a/api"]))
+
     def test_elements_to_context(self):
         non_rhino_utils.set_projection(2.29, 48.86)
         try:

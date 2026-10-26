@@ -152,9 +152,11 @@ def list_styles(styles_dir=None):
 def save_style(name, style, styles_dir=None):
     # type: (str, dict, str) -> list
     """스타일 하나를 styles/<이름>.json으로 쓴다(같은 이름은 덮어쓴다). 이름의 경로 문자는 지운다. 반환 list_styles()."""
-    clean = re.sub(r'[\\/:*?"<>|]', "", str(name or "")).strip()[:40]
+    clean = re.sub(r'[\\/:*?"<>|]', "", str(name or "")).strip()[:40].rstrip(". ")
     if not clean or clean.startswith("."):
         raise ValueError(tr("스타일 이름을 적어 주세요"))
+    if re.fullmatch(r"(CON|PRN|AUX|NUL|COM\d|LPT\d)", clean.split(".")[0].upper()):   # 윈도 예약 이름 — CON은 조용히 사라지고 AUX는 오류(2026-10-23 감사)
+        clean = "_" + clean
     styles_dir = styles_dir or get_styles_dir()
     _write_json(os.path.join(styles_dir, clean + ".json"), dict(style or {}, name=clean))
     return list_styles(styles_dir)

@@ -478,6 +478,21 @@ class AerialSheetTest(unittest.TestCase):
         self.assertLessEqual(len(calls), 2)   # 막힌 망 — 소스마다 한 장만 시도하고(시트·썸네일 공통) 타일마다 시간 초과를 기다리지 않는다
         self.assertIn(review_map.ESRI_AERIAL_URL.split("/")[2], review_map.get_tile_config()["abroad_aerial_url"])
 
+    def test_missing_zoom_falls_back_lower(self):
+        # Esri가 그 줌에 자료가 없으면(404 → None) 한 단계 낮춘 줌으로 채운다 — 정선·울릉도·트롬쇠 z19 회색 그림(2026-10-23)
+        calls = []
+
+        def fetch(url):
+            calls.append(url)
+            zoom = url.split("/tile/")[1].split("/")[0]
+            return None if zoom == calls[0].split("/tile/")[1].split("/")[0] else FAKE_TILE   # 첫 줌만 404
+
+        with patch.dict(os.environ, {}, clear=True), patch.object(sheet_svg, "_fetch_tile", fetch):
+            result = sheet_svg.write_sheets(make_data(), tempfile.mkdtemp(), [ID["aerial"]])[0]
+        first = int(calls[0].split("/tile/")[1].split("/")[0])
+        self.assertFalse(result["empty"])
+        self.assertTrue(any("/tile/%d/" % (first - 1) in u for u in calls))
+
 
 class AxoSheetTest(unittest.TestCase):
     """입체 매스도 — 시점 축, 볼록 자르기, 벽 보임·그리는 순서, 시트·썸네일."""

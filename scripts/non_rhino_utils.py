@@ -6,6 +6,7 @@ Rhino 커브·벡터·Brep을 다루는 연산은 ``utils.py``에 둔다.
 좌표 단위를 임의로 변환하지 않으며 프로젝트 내부 좌표는 m로 유지한다.
 """
 
+import contextlib
 import math
 import re
 import os
@@ -317,6 +318,21 @@ def set_projection(lng=None, lat=None):
     else:
         os.environ[PROJECTION_ENV] = "%.2f,%.2f" % (float(lng), float(lat))
     _apply_projection()
+
+
+@contextlib.contextmanager
+def korea_projection():
+    # type: () -> object
+    """잠깐 EPSG:5186으로 — 지도 필지·팩 조회가 해외 대상지 원점(프로세스 전역)을 지우지 않게 하고, 끝나면 되돌린다.
+    2026-10-23: 도쿄를 한 번 찍으면 서울 지도의 필지(1132 → 0)와 [받기] 칩이 사라졌다."""
+    saved = os.environ.get(PROJECTION_ENV)
+    set_projection()
+    try:
+        yield
+    finally:
+        if saved:
+            os.environ[PROJECTION_ENV] = saved
+        _apply_projection()
 
 
 def _apply_projection():

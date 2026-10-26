@@ -18,6 +18,7 @@ import json
 import os
 
 import constants
+import data_pack
 import lot_db
 import non_rhino_utils
 from i18n import tr
@@ -123,9 +124,9 @@ def _get_abroad_meta_lines(prepared):
     일본은 PLATEAU 건물(도시·연도, CC BY 4.0 가공 표기)과 지리원 표고 타일을 쓴 만큼 적는다."""
     dates = get_source_dates(prepared)
     sources = {getattr(s, "source_id", ""): s for s in getattr(prepared, "sources", None) or []}
-    packs = [sources[i] for i in sorted(set(sources) & set(constants.PACK_SOURCE_IDS))]   # 나라별 건물 팩 출처(plateau·pdok …)
+    packs = [sources[i] for i in sorted(set(sources) & set(data_pack.get_pack_source_ids()))]   # 나라별 건물 팩 출처(plateau·pdok …)
     plateau, gsi = (packs[0] if packs else None), "gsi_dem" in sources
-    pack_label = "·".join(constants.COUNTRY_PACKS[constants.PACK_SOURCE_IDS[p.source_id]]["label"] for p in packs)
+    pack_label = "·".join(data_pack.get_pack_label(p.source_id) for p in packs)
     crs_name = tr("대상지 중심 횡메르카토르(GRS80, 축척 1)") if non_rhino_utils.is_local_projection() else "EPSG:5186"
     if not plateau and not gsi:
         return [
@@ -137,7 +138,7 @@ def _get_abroad_meta_lines(prepared):
             tr("건물 높이: OSM height 태그(B)·층수(C)·기본값 {0:.1f} m(D)", constants.DEFAULT_BUILDING_HEIGHT_M),
         ]
     osm = sources.get("osm")   # Overpass가 막히면 없다(osm_context.load)
-    data = ["%s %s" % (constants.COUNTRY_PACKS[constants.PACK_SOURCE_IDS[p.source_id]]["label"], p.reference_date) for p in packs] + (["OpenStreetMap %s" % osm.reference_date] if osm else [])
+    data = ["%s %s" % (data_pack.get_pack_label(p.source_id), p.reference_date) for p in packs] + (["OpenStreetMap %s" % osm.reference_date] if osm else [])
     data.append("国土地理院 標高タイル" if gsi else "Terrain Tiles")
     credits = [tr("{0}、国土交通省 (CC BY 4.0, Gorani 가공)", p.name) if p.source_id == "plateau" else (p.note or p.name) for p in packs] + (
         ["© OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright)"] if osm else []) + [

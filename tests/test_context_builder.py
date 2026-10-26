@@ -683,5 +683,14 @@ class ProgressMessageTest(unittest.TestCase):
             context_builder.get_progress_message("bake", 0.0, "", ())
 
 
+class OriginTest(unittest.TestCase):
+    def test_origin_mode_never_uses_world_marker(self):
+        # 해외 지역 투영에서 중심이 원점 북동 100 m 안이면 내림이 (0, 0) — 'GIS 좌표' 문서 표시와 겹쳐 2D가 막혔다(2026-10-23)
+        origin, reused, doc_origin = context_builder._get_origins((40.0, 70.0), None, "origin")
+        self.assertNotEqual(doc_origin, (0.0, 0.0))
+        self.assertEqual(context_builder._get_origins((40.0, 70.0), doc_origin, "origin")[0], origin)   # 같은 문서에 다시 — 막히지 않는다
+        self.assertEqual(context_builder._get_origins((40.0, 70.0), None, "world")[2], (0.0, 0.0))
+
+
 if __name__ == "__main__":
     unittest.main()

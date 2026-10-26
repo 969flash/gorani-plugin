@@ -31,3 +31,29 @@ Global 모드는 OSM 건물에 높이 태그가 드물어 기본값(3.8 m·층�
 - 이용약관 원문(swisstopo "Terms of use for free geodata and geoservices", 2022-08-26 게시, Version 1.3.2021): 데이터는 "may be used, distributed and made accessible", 가공·상업 이용 허용. 출처 표기 의무 — "©swisstopo" 또는 "Federal Office of Topography swisstopo". 과다 사용 시 접근 제한 가능.
 - CityGML 배포는 EGID가 있는 주(AG·AI·AR·BE·BL·BS·GL·JU·TG + 취리히시)만이라 전국이 아니다 → 전국 FileGDB(STAC `ch.swisstopo.swissbuildings3d_3_0`, 6,728타일, 1:25k 도엽 256장)를 쓴다. FileGDB MultiPatch는 pyogrio가 못 읽어 GDAL(brew)의 `ogr2ogr`로 변환한다.
 
+
+## 미국·중국 조사 (2026-10-23)
+
+사용자 요청: 미국은 데이터가 크니 OSM인지 좋은 공개 데이터가 있는지 보고 대응, 다음은 중국(폐쇄적 — 기대 낮음).
+
+### 미국 — 결론: Overture Maps buildings(ODbL) 하나로 카운티 팩
+
+| 후보 | 라이선스 | 높이 | 받기 | 판단 |
+|---|---|---|---|---|
+| **Overture Maps buildings**(Microsoft ML Buildings·OSM·Esri Community Maps·Google Open Buildings 합본) | 테마 전체 ODbL(docs.overturemaps.org/attribution — Microsoft ML도 ODbL로 제공). 우리 OSM 사용과 같은 라이선스 | DuckDB로 S3 직접 셈(판 2026-10-21.0): 로스앤젤레스 도심 10 km 상자 105,095동 중 height 98.8 %, 오스틴 89.3 %(출처 Microsoft ML Buildings·OSM). 전 세계는 약 8 %뿐이라 미국이 특별히 좋다 | `s3://overturemaps-us-west-2/release/<판>/theme=buildings/type=building/` GeoParquet, 익명 읽기. bbox 칸으로 행 그룹 건너뛰기 — LA 상자 첫 질의 326 s(메타 읽기), 다음부터 5~8 s | **채택**. 높이는 ML 추정(`height_src overture_height`, B — 실측은 아님을 문서에 적는다). 층수(`num_floors`)·용도(`subtype`·`class`)·이름 있음. 달마다 새 판 |
+| FEMA·ORNL **USA Structures** | ArcGIS Hub·DataLumos는 CC BY 4.0, data.gov는 "U.S. Government Works" — 갈린다. Hub API에 licenseInfo 없음(2026-10-23) | HEIGHT 약 32M / 125M동(NGA 출처만) | 주별 FileGDB zip 56개 약 42 GB(disasters.geoplatform.gov → gis-fema.hub.arcgis.com) | 높이가 1/4뿐이고 약관이 갈려 보류. 용도(OCC_CLS·PRIM_OCC)는 Overture보다 낫다 — 나중에 보강 후보 |
+| Microsoft GlobalMLBuildingFootprints | CDLA Permissive 2.0 | 2023-06 기준 174M동에 높이, 2026-01~02 미국 Vexcel 2021~2025 높이 추가(1.0~1.2M씩) | 타일 csv.gz(GeoJSON 줄) | Overture가 같은 데이터를 GERS id로 합쳐 두므로 따로 받지 않는다 |
+| 3D-GloBFP(Che 2024 ESSD, 2020년 기준 XGBoost 높이) | CC BY 4.0(Zenodo 15487037·Figshare 10파트) | 33 소구역 R² 0.66~0.96, RMSE 1.9~14.6 m | 격자 shapefile zip 10파트 약 200 GB. readme는 중국·미국을 성·주 단위 파일이라 하나 Figshare 목록에서 `_CN`·`_US` 파일을 찾지 못함(2026-10-23) | 미국은 Overture가 낫다. 다른 나라 보강 후보 |
+| GlobalBuildingAtlas(TUM 2025, LoD1) | **CC BY-NC 4.0** | 전 세계 | HF zhu-xlab/GBA.LoD1 1.05 TB | 비영리 한정이라 제외(실무 사용자) |
+
+- 팩 단위: Census 카운티(cb_2024_us_county_500k, GEOID 5자리, 3,235개 — 준주 포함). 주 단위는 캘리포니아 1,200만 동이라 너무 크다. 건물은 중심점이 든 카운티에(경계 300 m 넓혀서 — 해안 간략화, 겹침은 런타임 src_key 중복 제거).
+- 나라 상자: 본토·알래스카·하와이·푸에르토리코 네 개(`constants.US_BOUNDS`) — 매니페스트 `countries[].bounds`가 상자 목록을 받도록 했다(캐나다·멕시코가 본토 상자에 걸리지 않게).
+- 고지: "Source: Overture Maps Foundation (buildings, release <판>, ODbL 1.0) — © OpenStreetMap contributors, Microsoft; processed by Gorani". ODbL은 share-alike라 팩(데이터베이스)도 ODbL로 둔다 — 데이터셋 카드에 적는다.
+
+### 중국 — 결론: 당분간 OSM 그대로(보류)
+
+- 공식 공개 건물 데이터 없음. 민간(百度·高德)은 폐쇄.
+- 연구 데이터: ① **East Asian buildings**(Shi 2023, 中山大·武漢大, Zenodo 8174931, CC BY 4.0, 23 GB) — 중국·일본·남북한·몽골 바닥 윤곽, 높이는 안 적혀 있음(Overture 베이징 건물의 출처가 이것). ② **CNBH-10m**(Wu 2023, 10 m 래스터 높이 2020, Zenodo 7923866 — 라이선스 칸 비어 있음, 확인 필요). ③ 3D-GloBFP 중국 성 파일은 찾지 못함.
+- Overture 베이징 둥청 7 km 상자: 50,336동 중 height 1.1 % → 높이는 사실상 없다.
+- 법: 测绘法·2015 지도관리조례가 지도 데이터의 국외 보관·반출을 제한한다(확인 필요 — 2차 자료뿐). 연구 데이터(CC BY)는 저자들이 공개한 것이지만, 우리가 중국 건물 팩을 HF(미국)에 두는 것은 위험을 떠안는 일이라 사용자 결정 사항.
+- 만들려면: ①의 윤곽 + ②의 래스터 높이(중심점 표본, 등급 C)로 성(省)별 팩. 품질은 ML 추정이라 '참고' 수준.

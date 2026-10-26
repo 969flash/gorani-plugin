@@ -106,13 +106,86 @@ class LocalPackTest(unittest.TestCase):
         original = data_pack.urllib.request.urlopen
         data_pack.urllib.request.urlopen = fake_urlopen
         try:
-            for name in ("11110_context.db", "jp13104_context.db"):   # 국내 서버 팩은 보내고 일본 팩은 보내지 않는다
+            # 한국 시군구 컨텍스트·등고선 팩(국내 서버)에만 보낸다 — 필지·일본·나라별 팩(Hugging Face·GitHub 사본)에는 보내지 않는다
+            for name, base in (("11110_context.db", "https://example.com/"), ("11110_site.db", "https://example.com/"),
+                               ("jp13104_context.db", "https://example.com/"), ("nl25gn1_context.db", "https://github.com/x/y/releases/download/nl/")):
                 sent.clear()
                 with self.assertRaises(OSError):
-                    data_pack._open_pack({"name": name, "url": "https://example.com/%s.xz" % name}, "install-id", None)
-                self.assertEqual(sent.get("X-udt-client"), None if name.startswith("jp") else "install-id")
+                    data_pack._open_pack({"name": name, "url": "%s%s.xz" % (base, name)}, "install-id", None)
+                self.assertEqual(sent.get("X-udt-client"), "install-id" if name == "11110_context.db" else None)
         finally:
             data_pack.urllib.request.urlopen = original
+
+    def test_country_packs_from_manifest(self):
+        """한국 매니페스트 countries[]가 내장 나라 목록을 덮는다 — 새 나라는 플러그인 판 없이. 틀린 항목은 그 나라만 건너뛰고 disabled는 뺀다."""
+        import constants
+        import osm_context
+        saved = data_pack._MANIFEST.get(constants.DATA_MANIFEST_URL)
+        data_pack._MANIFEST[constants.DATA_MANIFEST_URL] = {"version": "t", "packs": [], "countries": [
+            {"code": "us", "label": "Overture", "source_id": "overture", "manifest": "us/manifest.json", "code_pattern": r"\d{5}",
+             "bounds": [[-125, 24, -66, 50], [-170, 51, -129, 72]]},                                                 # 본토 + 알래스카(상자 여럿)
+            {"code": "fr", "disabled": True},                                                                            # 원천 약관이 바뀌어 내렸다
+            {"code": "xx", "label": "상자 3수", "source_id": "x", "manifest": "xx/manifest.json", "bounds": [1, 2, 3], "code_pattern": r"\d"},
+            {"code": "yy", "label": "정규식 틀림", "source_id": "y", "manifest": "yy/manifest.json", "bounds": [1, 2, 3, 4], "code_pattern": "("},
+            {"code": "zzz", "label": "코드 3자", "source_id": "z", "manifest": "zz/manifest.json", "bounds": [1, 2, 3, 4], "code_pattern": r"\d"},
+            "문자열"]}
+        try:
+            packs = data_pack.get_country_packs()
+            self.assertEqual(packs["us"]["manifest"], "https://huggingface.co/datasets/%s/resolve/main/us/manifest.json" % constants.DATA_REPO_ID)
+            self.assertEqual(packs["us"]["bounds"], [(-125.0, 24.0, -66.0, 50.0), (-170.0, 51.0, -129.0, 72.0)])
+            self.assertEqual(set(packs), {"jp", "nl", "ch", "us"})
+            self.assertEqual(osm_context.get_country(-118.2437, 34.0522), "us")   # 로스앤젤레스
+            self.assertEqual(osm_context.get_country(-149.9003, 61.2181), "us")   # 앵커리지 — 둘째 상자
+            self.assertEqual(osm_context.get_country(2.2945, 48.8584), "")        # 파리 — 프랑스를 내렸다
+            self.assertEqual(osm_context.get_country(8.6416, 46.8807), "ch")      # 알트도르프 — 내장 그대로
+            self.assertEqual(data_pack.get_pack_country("us06037_context.db"), "us")
+            self.assertEqual(data_pack.get_pack_source_ids()["overture"], "us")
+            self.assertEqual(data_pack.get_pack_label("overture"), "Overture")
+            self.assertEqual(data_pack.get_pack_label("osm"), "")
+        finally:
+            if saved is None:
+                data_pack._MANIFEST.pop(constants.DATA_MANIFEST_URL, None)
+            else:
+                data_pack._MANIFEST[constants.DATA_MANIFEST_URL] = saved
+        packs = data_pack.get_country_packs()   # 매니페스트를 못 받았으면 내장 목록(상자는 목록 꼴)
+        self.assertEqual(set(packs), set(constants.COUNTRY_PACKS))
+        self.assertEqual(packs["jp"]["bounds"], [constants.JP_BOUNDS])
+
+    def test_height_src_label_and_services(self):
+        """새 나라 팩의 height_src(overture_levels …)는 코드 사전 없이 팩 라벨로 범례에 나오고, 매니페스트 services가 외부 주소를 덮는다(https만)."""
+        import constants
+        saved = data_pack._MANIFEST.get(constants.DATA_MANIFEST_URL)
+        data_pack._MANIFEST[constants.DATA_MANIFEST_URL] = {"version": "t", "packs": [], "countries": [
+            {"code": "xx", "label": "NewLand 3D", "source_id": "newland", "manifest": "xx/manifest.json", "bounds": [10, 10, 11, 11], "code_pattern": r"\d{3}"}],
+            "services": {"overpass": ["https://overpass.example.org/api/interpreter", "http://plain.example.org"], "nominatim": "ftp://bad", "terrain_tiles": 5}}
+        try:
+            self.assertEqual(data_pack.get_height_src_label("plateau_height"), "PLATEAU 실측 높이")      # 내장 사전
+            self.assertEqual(data_pack.get_height_src_label("overture_levels"), "Overture 층수")        # 내장 나라
+            self.assertEqual(data_pack.get_height_src_label("newland_height"), "NewLand 3D 높이")      # 매니페스트로만 아는 나라
+            self.assertEqual(data_pack.get_height_src_label("newland_lidar"), "NewLand 3D lidar")
+            self.assertEqual(data_pack.get_height_src_label("mystery"), "mystery")
+            self.assertEqual(data_pack.get_service("overpass", constants.OSM_OVERPASS_URLS), ("https://overpass.example.org/api/interpreter",))   # http는 버림
+            self.assertEqual(data_pack.get_service("nominatim", constants.OSM_NOMINATIM_URL), constants.OSM_NOMINATIM_URL)   # https 아님 → 내장
+            self.assertEqual(data_pack.get_service("terrain_tiles", constants.OSM_TERRAIN_URL), constants.OSM_TERRAIN_URL)
+        finally:
+            if saved is None:
+                data_pack._MANIFEST.pop(constants.DATA_MANIFEST_URL, None)
+            else:
+                data_pack._MANIFEST[constants.DATA_MANIFEST_URL] = saved
+        self.assertEqual(data_pack.get_service("overpass", constants.OSM_OVERPASS_URLS), tuple(constants.OSM_OVERPASS_URLS))   # 매니페스트 없음
+
+    def test_countries_json_matches_builtin(self):
+        """docs/countries.json(매니페스트 원본)은 전부 검증을 지나고, 내장 constants.COUNTRY_PACKS와 값이 같다 — 오프라인 내장 목록이 원격과 어긋나지 않게."""
+        import constants
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "countries.json")
+        with open(path, encoding="utf-8") as f:
+            entries = json.load(f)["countries"]
+        remote = {entry["code"]: data_pack._get_country_pack(entry) for entry in entries}
+        self.assertTrue(all(remote.values()), [code for code, pack in remote.items() if not pack])
+        data_pack._MANIFEST.pop(constants.DATA_MANIFEST_URL, None)   # 내장만
+        builtin = data_pack.get_country_packs()
+        for code in constants.COUNTRY_PACKS:
+            self.assertEqual(builtin[code], remote[code], code)
 
     def test_group_without_table(self):
         """상한을 넘어 묶음으로 나뉠 때 테이블이 없는 묶음(등고선 팩만)은 건너뛴다. 어디에도 없으면 오류."""

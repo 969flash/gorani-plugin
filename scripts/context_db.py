@@ -108,6 +108,8 @@ def _open_database(database_path=None, bounds=None):
             paths.append(str(terrain_path))
     else:
         paths = data_pack.get_local_paths("context", bounds) + data_pack.get_local_paths("terrain", bounds)
+    if not paths and not database_path and not DEFAULT_DATABASE_PATH.exists():   # 설치본 — 이 범위 팩을 못 받았다(오프라인·하루 한도·서버 장애)
+        raise FileNotFoundError(tr("이 지역의 건물·지형 데이터를 받지 못했습니다. 인터넷 연결을 확인하고 잠시 뒤 다시 만드세요"))
     if not paths:
         raise FileNotFoundError(
             tr("컨텍스트 DB가 없습니다: {0}\npython3 scripts/dev_context_builder.py 로 만드세요", database_path or DEFAULT_DATABASE_PATH)

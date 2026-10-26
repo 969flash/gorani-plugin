@@ -272,7 +272,7 @@ def upload():
                             allow_patterns=["%s/%s*_context.db.xz" % (constants.NL_PACK_DIR, constants.NL_PACK_PREFIX)])
     api.upload_file(path_or_fileobj=os.path.join(PACK_DIR, "manifest.json"), path_in_repo="%s/manifest.json" % constants.NL_PACK_DIR,
                     repo_id=constants.DATA_REPO_ID, repo_type="dataset", commit_message="네덜란드 건물 팩 매니페스트")
-    return constants.COUNTRY_PACKS["nl"]["manifest"]
+    return constants.DATA_MANIFEST_URL.rsplit("/", 1)[0] + "/" + constants.COUNTRY_PACKS["nl"]["manifest"]
 
 
 def main():

@@ -20,12 +20,14 @@ import re
 import statistics
 import struct
 import sys
+import urllib.error
 import urllib.request
 import zlib
 from dataclasses import dataclass, field
 from xml.sax.saxutils import escape
 
 import constants
+import data_pack
 import non_rhino_utils
 from i18n import get_lang, get_texts, tr
 from non_rhino_utils import (get_lnglat_from_tile, get_polygon_parts_from_geojson, get_ring_area, get_ring_orientation, get_text_width_em, get_tile_m_per_px,
@@ -1086,11 +1088,17 @@ def _draw_template(key, subject, classify_fn, entries, items, data, style, frame
 
 def _fetch_tile(url):
     # type: (str) -> bytes
-    """영상 타일 한 장. 못 받으면 b"" — 한 장 실패(오프라인·404)로 도면 쓰기가 멈추지 않는다."""
+    """영상 타일 한 장. 못 받으면 b"" — 한 장 실패로 도면 쓰기가 멈추지 않는다. 서버가 404(그 줌에 자료 없음)면 None — 줌을 낮출 신호."""
+    if "arcgisonline.com" in url:   # 자료 없는 줌은 'Map data not yet available' 회색 그림(200) 대신 404 — 줌을 낮춰 다시 받는다(정선·울릉도·트롬쇠 z19, 2026-10-23 감사)
+        url += "?blankTile=false"
     try:
         request = urllib.request.Request(url, headers={"User-Agent": constants.OSM_USER_AGENT})
         with urllib.request.urlopen(request, timeout=constants.AERIAL_TIMEOUT_SECONDS) as response:
+            if not response.headers.get("Content-Type", "image/").startswith("image/"):   # VWorld 키 오류는 200 XML(ExceptionReport)
+                return b""
             return response.read()
+    except urllib.error.HTTPError as error:
+        return None if error.code == 404 else b""
     except Exception:
         return b""
 
@@ -1123,30 +1131,33 @@ def _get_aerial_images(data, frame, rect, px_per_mm):
         sources.insert(0, (config["aerial_url"], config["aerial_attribution"]))
     sources = [source for source in sources if source[0]]   # 영상 없는 호스트(Blender)는 주소가 비어 있다 — 빈 시트
     attribution, keys = "", []
-    zoom, tiles, m_per_px = get_aerial_tiles(frame, rect, px_per_mm)
     fetch = lambda key: _fetch_tile(key[1].format(z=key[2], x=key[3], y=key[4]))
-    for url, attribution in sources:
-        keys = [("aerial", url, zoom, tx, ty) for tx, ty in tiles]
-        missing = [key for key in keys if key not in data.cache]
-        if ("aerial_dead", url) in data.cache:
-            continue
-        if missing and len(missing) == len(keys):   # 이 줌 첫 요청 — 가운데 한 장 먼저. 막힌 망에서 타일마다 시간 초과(10 s)를 기다리지 않는다
-            probe = missing.pop(len(missing) // 2)
-            body = fetch(probe)
-            if not body:
-                data.cache[("aerial_dead", url)] = True
+    for drop in range(constants.AERIAL_ZOOM_DROPS + 1):   # 이 줌에 영상이 없으면(시골·북유럽 z19) 한 단계씩 낮춘다
+        zoom, tiles, m_per_px = get_aerial_tiles(frame, rect, px_per_mm / 2 ** drop)
+        for url, attribution in sources:
+            keys = [("aerial", url, zoom, tx, ty) for tx, ty in tiles]
+            missing = [key for key in keys if key not in data.cache]
+            if ("aerial_dead", url) in data.cache or ("aerial_dead", url, zoom) in data.cache:
                 continue
-            data.cache[probe] = body
-        if sys.platform == "emscripten":   # 웹판(Pyodide)은 스레드를 못 띄운다 — 차례로 받는다
-            bodies = list(map(fetch, missing))
-        else:   # 영상 타일만 스레드로 받는다 — Blender는 영상이 없어 여기 오지 않는다(확장 심사: Blender 안 스레드 금지)
-            from concurrent.futures import ThreadPoolExecutor
-            with ThreadPoolExecutor(constants.AERIAL_WORKERS) as pool:
-                bodies = list(pool.map(fetch, missing))
-        for key, body in zip(missing, bodies):
-            if body:
-                data.cache[key] = body
-        if sum(1 for key in keys if key in data.cache) * 2 > len(keys):
+            if missing and len(missing) == len(keys):   # 이 줌 첫 요청 — 가운데 한 장 먼저. 막힌 망에서 타일마다 시간 초과(10 s)를 기다리지 않는다
+                probe = missing.pop(len(missing) // 2)
+                body = fetch(probe)
+                if not body:   # 404면 이 줌만, 연결 실패면 이 소스 전부 포기
+                    data.cache[("aerial_dead", url, zoom) if body is None else ("aerial_dead", url)] = True
+                    continue
+                data.cache[probe] = body
+            if sys.platform == "emscripten":   # 웹판(Pyodide)은 스레드를 못 띄운다 — 차례로 받는다
+                bodies = list(map(fetch, missing))
+            else:   # 영상 타일만 스레드로 받는다 — Blender는 영상이 없어 여기 오지 않는다(확장 심사: Blender 안 스레드 금지)
+                from concurrent.futures import ThreadPoolExecutor
+                with ThreadPoolExecutor(constants.AERIAL_WORKERS) as pool:
+                    bodies = list(pool.map(fetch, missing))
+            for key, body in zip(missing, bodies):
+                if body:
+                    data.cache[key] = body
+            if sum(1 for key in keys if key in data.cache) * 2 > len(keys):
+                break
+        if keys and sum(1 for key in keys if key in data.cache) * 2 > len(keys):
             break
     lines = []
     for key in keys:
@@ -1616,8 +1627,7 @@ def _get_card_lines(key, data, items, counts, measures, ctx=None):
                 lines.append(tr("평균 {0:.1f}층 · 최고 {1}층", sum(floors) / float(len(floors)), max(floors)))
             src = data.stats.get("height_src") or {}
             if src:
-                names = constants.SHEET_HEIGHT_SRC_LABELS
-                lines.append(tr("높이 출처 {0}", " · ".join("%s %d %%" % (tr(names.get(k, k)), round(v * 100))
+                lines.append(tr("높이 출처 {0}", " · ".join("%s %d %%" % (data_pack.get_height_src_label(k), round(v * 100))
                                                         for k, v in sorted(src.items(), key=lambda kv: -kv[1]))))
             grade = data.stats.get("height_grade") or {}
             if grade:
