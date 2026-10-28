@@ -881,13 +881,13 @@ function settingsHtml(open) {
       SEG("placement", "origin", tr("원점(0,0)"), (o.placement !== "world" ? " checked" : "") + ' title="' + tr(PLACEMENT_TITLE.origin) + '"') +
       SEG("placement", "world", tr("GIS 좌표"), (o.placement === "world" ? " checked" : "") + ' title="' + tr(PLACEMENT_TITLE.world) + '"') + "</div>")) +
     row(tr("지형"), '<div class="seg" role="radiogroup" aria-label="' + tr("지형 표현") + '">' + [0, 1, 2, 5].map(function (step) {
-      return SEG("terrain_step", step, step ? tr("계단 {0} m", step) : tr("매끈"), (+(o.terrain_step || 0) === step ? " checked" : "") + (step ? ' title="' + tr("등고 모형처럼 단마다 평평한 지형") + '"' : ""));
+      return SEG("terrain_step", step, step ? tr("계단 {0} m", step) : tr("매끈하게"), (+(o.terrain_step || 0) === step ? " checked" : "") + (step ? ' title="' + tr("등고 모형처럼 단마다 평평한 지형") + '"' : ""));
     }).join("") + "</div>") +
     row("", '<label class="chk"><input type="checkbox" name="terrain_block"' + (o.terrain_block !== false ? " checked" : "") + ">" + tr("지형을 바닥까지 채우기") + "</label>") +
     (canSite ? row(tr("대상지"), '<div class="seg" role="radiogroup" aria-label="' + tr("대상지 바닥면") + '">' + SEG("site_output", "curve", tr("Line"), (o.site_output !== "mesh" ? " checked" : "") + ' title="' + tr("대상지 경계선만 냅니다") + '"') +
         SEG("site_output", "mesh", tr("Surface"), (o.site_output === "mesh" ? " checked" : "") + ' title="' + tr("경계선과 함께, 대상지 경계로 자른 지형을 따로 냅니다") + '"') + "</div>") +
       row("", '<label class="chk"><input type="checkbox" name="flatten_site"' + (o.flatten_site ? " checked" : "") + ">" + tr("대상지 평탄화") + "</label>" +
-        '<select class="sm" name="flatten_level" id="flatten_level" aria-label="' + tr("평평하게 할 높이") + '"' + (o.flatten_site ? "" : " disabled") + ">" +
+        '<select class="sm" name="flatten_level" id="flatten_level" aria-label="' + tr("평평하게 할 높이") + '"' + (o.flatten_site ? "" : " hidden") + ">" +
         [["mean", "경계 평균 높이"], ["min", "경계 최저 높이"], ["max", "경계 최고 높이"]].map(function (x) { return '<option value="' + x[0] + '"' + (o.flatten_level === x[0] ? " selected" : "") + ">" + tr(x[1]) + "</option>"; }).join("") + "</select>") : "") +
     (glob ? "" : row("", '<label class="chk" title="' + tr("용도지역, 지구, 구역, 도시계획시설, 지구단위계획 경계") + '"><input type="checkbox" name="include_zoning"' + (o.include_zoning ? " checked" : "") + ">" + tr("용도지역 경계선") + "</label>")) +
     "</div></details>";
@@ -903,7 +903,7 @@ function updateSummaries() {
     s.textContent = p.join(", ");
   }
   var rh = $("radius_hint"); if (rh) rh.hidden = !(sizeOf(o) > 1000);
-  var fl = $("flatten_level"); if (fl) fl.disabled = !o.flatten_site;
+  var fl = $("flatten_level"); if (fl) fl.hidden = !o.flatten_site;   // 평탄화를 켰을 때만 높이 기준이 보인다
   var ba = $("bm_auto"); if (ba) ba.innerHTML = autoScaleHtml();
   var ss = $("sheets_count"); if (ss) ss.textContent = tr("{0}장", sheetPick().length);
   var mb = $("make2d_btn");

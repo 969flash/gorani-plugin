@@ -587,12 +587,6 @@
   "ja": "階段状 {0} m",
   "zh": "阶梯 {0} m"
  },
- "매끈": {
-  "en": "Smooth",
-  "es": "Suave",
-  "ja": "滑らか",
-  "zh": "平滑"
- },
  "등고 모형처럼 단마다 평평한 지형": {
   "en": "Flat terraces, like a contour model",
   "es": "Terrazas planas, como una maqueta de curvas de nivel",
@@ -5734,5 +5728,11 @@
   "es": "El ámbito no es un círculo ni un rectángulo, así que no se recortó en su borde",
   "ja": "範囲が円や四角形ではないため、境界で切っていません",
   "zh": "范围不是圆形或矩形，因此未在边界裁切"
+ },
+ "매끈하게": {
+  "en": "Smooth",
+  "es": "Suave",
+  "ja": "滑らか",
+  "zh": "平滑"
  }
 }
