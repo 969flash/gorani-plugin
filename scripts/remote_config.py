@@ -4,7 +4,7 @@
 플러그인은 켤 때(cmd_site._init) 받아 HOME_DIR/data/config.json에 캐시하고(ETag로 안 바뀌면 안 받는다), 못 받으면 캐시, 그것도 없으면 내장값으로 돈다.
 apply()가 constants 모듈 속성과 i18n 사전을 덮는다 — 이름이 REMOTE_KEYS에 있고, 꼴(dict·list·str·수)이 내장값과 같고, dict는 내장 키를 다 가질 때만.
 상수의 '꼴'을 바꾸는 판을 낼 때는 COMPAT_MIN을 그 판으로 올린다 — 옛 설치본은 compat_min보다 낮으면 원격 설정을 받지 않고 내장값으로 돈다.
-표준 라이브러리만(Rhino·Blender·SketchUp·python3 공통). 2026-10-23 — 도면 색 하나 고치려고 판을 올리던 것을 끝내려고.
+표준 라이브러리만(모든 호스트·python3 공통). 2026-10-23 — 도면 색 하나 고치려고 판을 올리던 것을 끝내려고.
 """
 
 import json

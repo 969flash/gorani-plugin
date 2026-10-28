@@ -1,6 +1,7 @@
 """Blender판 — 엔진 run(베이크·context.blend)·다시 넣기·브라우저 패널 브리지. Blender 안에서만 돈다(python3 discover는 skip).
 
     /Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup --python-exit-code 1 --python tests/test_blender.py
+빌드한 확장 패키지(`# [blender-cut]` 구간을 뺀 판)로 돌리려면 GORANI_BLENDER_PACKAGE=build/blender (dev_deploy.py blender가 만든 폴더).
 """
 
 import importlib.util
@@ -26,7 +27,14 @@ SITE_DB = str(FIXTURE_DIR / "seongsu_site.db")
 CONTEXT_DB = str(FIXTURE_DIR / "seongsu_context.db")
 HAS_FIXTURES = os.path.exists(SITE_DB) and os.path.exists(CONTEXT_DB)
 
-if bpy is not None:
+PACKAGE_DIR = os.environ.get("GORANI_BLENDER_PACKAGE")
+GEO_UTILS = "geo_utils" if PACKAGE_DIR else "non_rhino_utils"   # 패키지는 이름을 바꿔 싣는다(dev_deploy.BLENDER_RENAMES)
+
+if bpy is not None and PACKAGE_DIR:   # 설치본과 같은 패키지 상대 import
+    sys.path.insert(0, os.path.abspath(PACKAGE_DIR))
+    cmd_blender = importlib.import_module("gorani.scripts.cmd_blender")
+    loader = cmd_blender.loader
+elif bpy is not None:
     _spec = importlib.util.spec_from_file_location("gorani_cmd_blender", str(SCRIPTS_DIR / "cmd_blender.py"))
     cmd_blender = importlib.util.module_from_spec(_spec)
     sys.modules[_spec.name] = cmd_blender
@@ -134,7 +142,7 @@ class CurveRingTest(unittest.TestCase):
         try:
             ring, problem = cmd_blender.get_curve_ring(obj, 1.0)
             self.assertEqual(problem, "")
-            self.assertAlmostEqual(loader.load("non_rhino_utils").get_ring_area(ring), math.pi * 50.0 ** 2, delta=0.01 * math.pi * 50.0 ** 2)
+            self.assertAlmostEqual(loader.load(GEO_UTILS).get_ring_area(ring), math.pi * 50.0 ** 2, delta=0.01 * math.pi * 50.0 ** 2)
             obj.data.splines[0].use_cyclic_u = False
             self.assertIsNone(cmd_blender.get_curve_ring(obj, 1.0)[0])
         finally:
@@ -196,7 +204,7 @@ class BridgeTest(unittest.TestCase):
                 break
         self.assertEqual(received[0]["type"], "init_state")
         self.assertEqual(received[0]["host"]["id"], "blender")
-        self.assertFalse(received[0]["host"]["ask_stats"])   # Blender판은 사용 통계를 묻지도 보내지도 않는다
+        self.assertFalse(received[0]["host"].get("ask_stats"))   # Blender판은 사용 통계를 묻지도 보내지도 않는다(패키지에는 키도 없다)
         self.assertNotIn("aerial", [sheet["key"] for sheet in received[0]["sheet_catalog"]])
         self.assertEqual(received[0]["tile"]["abroad_aerial_url"], "")
         self.assertIsNone(received[0]["update"])

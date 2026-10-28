@@ -8,9 +8,11 @@ import http.server
 import json
 import os
 import re
+import urllib.request
+# [blender-cut] Rhino 타일 중계 서버
 import socketserver
 import threading
-import urllib.request
+# [/blender-cut]
 
 import constants
 import lot_db
@@ -27,9 +29,9 @@ OSM_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
 OSM_ATTRIBUTION = "© OpenStreetMap contributors"
 # 해외 배경(VWorld는 국내만) — OSM 표준 타일. 소량 사용·출처 표기 조건(타일 이용 정책). CARTO는 2026-10 기준 키가 필요해 쓰지 않는다
 ABROAD_ATTRIBUTION = OSM_ATTRIBUTION
-# OSM 타일 중계 — 웹뷰가 직접 받으면 막힌다: file://(Rhino)은 Referer가 없고 127.0.0.1(Blender·SketchUp) Referer도 거절
+# OSM 타일 중계 — 웹뷰가 직접 받으면 막힌다: file:// 페이지는 Referer가 없고 127.0.0.1 Referer도 거절
 # ('Access blocked' 타일, 2026-10-23 해외 사용자 신고·curl 재현). 앱을 밝힌 User-Agent(constants.OSM_USER_AGENT)로 받으면 통과한다
-OSM_PROXY_PATH = "/osm/{z}/{x}/{y}.png"   # Rhino는 아래 중계 서버, Blender·SketchUp은 panel_server가 같은 출처에서
+OSM_PROXY_PATH = "/osm/{z}/{x}/{y}.png"   # 패널 서버(panel_server)가 같은 출처에서 중계한다
 OSM_PROXY_PATTERN = re.compile(r"^/osm/(\d{1,2})/(\d+)/(\d+)\.png$")
 OSM_PROXY_PORT = 47613   # Rhino 중계 고정 포트(임의로 고른 사용자 영역 번호)
 OSM_PROXY_PORT_ENV = "GORANI_TILE_PORT"   # loader가 모듈을 다시 읽어도 Rhino 세션에 서버 하나
@@ -88,26 +90,27 @@ def get_osm_url():
     입력:
         없음.
     처리:
-        Rhino는 127.0.0.1 중계 서버를 세션에 한 번 띄운다(스레드). Blender·SketchUp은 panel_server가 같은 출처 경로로 중계한다.
-        웹판은 페이지에 Referer가 있어 OSM을 그대로 쓴다.
+        패널 서버(panel_server)가 같은 출처 경로로 중계한다.
     출력:
         Leaflet 타일 URL 틀.
     """
+    # [blender-cut] 웹판은 페이지에 Referer가 있어 OSM을 그대로, Rhino는 127.0.0.1 중계 서버를 세션에 한 번 띄운다(스레드)
     import context_builder   # 호스트 판정 — 모듈 수준 import는 순환
     host = context_builder.get_host()
     if host == "web":
         return OSM_TILE_URL
-    if host != "rhino":
-        return OSM_PROXY_PATH
-    port = os.environ.get(OSM_PROXY_PORT_ENV)
-    if not port:
-        try:   # 늘 같은 포트 — 주소가 같아야 웹뷰 HTTP 캐시가 다음 세션에도 쓰인다(타일 정책: 캐시). 쓰이고 있으면(Rhino 둘) 아무 포트
-            server = _ProxyServer(("127.0.0.1", OSM_PROXY_PORT), _ProxyHandler)
-        except OSError:
-            server = _ProxyServer(("127.0.0.1", 0), _ProxyHandler)
-        threading.Thread(target=server.serve_forever, name="gorani-tiles", daemon=True).start()
-        port = os.environ[OSM_PROXY_PORT_ENV] = str(server.server_address[1])
-    return "http://127.0.0.1:%s%s" % (port, OSM_PROXY_PATH)
+    if host == "rhino":
+        port = os.environ.get(OSM_PROXY_PORT_ENV)
+        if not port:
+            try:   # 늘 같은 포트 — 주소가 같아야 웹뷰 HTTP 캐시가 다음 세션에도 쓰인다(타일 정책: 캐시). 쓰이고 있으면(Rhino 둘) 아무 포트
+                server = _ProxyServer(("127.0.0.1", OSM_PROXY_PORT), _ProxyHandler)
+            except OSError:
+                server = _ProxyServer(("127.0.0.1", 0), _ProxyHandler)
+            threading.Thread(target=server.serve_forever, name="gorani-tiles", daemon=True).start()
+            port = os.environ[OSM_PROXY_PORT_ENV] = str(server.server_address[1])
+        return "http://127.0.0.1:%s%s" % (port, OSM_PROXY_PATH)
+    # [/blender-cut]
+    return OSM_PROXY_PATH
 
 
 def send_osm_tile(handler):
@@ -144,6 +147,7 @@ def send_osm_tile(handler):
     handler.wfile.write(body)
 
 
+# [blender-cut]
 class _ProxyHandler(http.server.BaseHTTPRequestHandler):
     """Rhino 중계 서버 — /osm/ 타일만."""
     do_GET = send_osm_tile
@@ -159,6 +163,7 @@ class _ProxyServer(http.server.ThreadingHTTPServer):
         """socket.getfqdn(역방향 DNS)을 건너뛴다 — panel_server._Bind와 같은 이유(Mac에서 35 s)."""
         socketserver.TCPServer.server_bind(self)
         self.server_name, self.server_port = "127.0.0.1", self.server_address[1]
+# [/blender-cut]
 
 
 def get_ip_center():
