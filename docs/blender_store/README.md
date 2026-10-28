@@ -123,16 +123,16 @@ Blender에 없는 라이브러리 5개(Rhino·scriptcontext·System·Eto.Forms·
 
 ### 0.3.7 답변(초안 — 올릴 때 댓글로)
 
-Thank you for the review. Version 0.3.7 addresses each point.
+Thanks. 0.3.7 is up.
 
-- `threading` and `queue`: removed from the package. The panel server runs on Blender's main thread: a `bpy.app.timers` timer polls a non-blocking socket. The timer starts only when the user opens the panel, and stops when the add-on is disabled or Online Access is turned off.
-- `docs` folder: removed. The zip now contains only the add-on code, the panel HTML, its translation table, Leaflet (BSD-2-Clause) and the license.
-- Rhino, scriptcontext, System, Eto.Forms, shapely: these were imports for the Rhino and SketchUp versions of the same tool. They sat behind try/except and never ran in Blender. The Blender build now strips all Rhino and SketchUp code, so the package imports only the Python standard library, `bpy`, `mathutils` and `numpy`. No wheels are needed.
-- `Scene` tag: removed.
-- The SketchUp segment in `context_builder.py`: removed, together with every other non-Blender code path (Rhino document handling, the SketchUp bridge, DWG export, the Rhino map tile proxy).
-- `usage_stats`: it was usage analytics for the Rhino version. The Blender version never sent anything (the old package shipped an empty stub). The module, the consent prompt and every call to it are now gone from the package.
+- threading / queue: gone. The panel server never used threads in Blender, but code for our SketchUp version lived in the same file. That code is no longer in the package.
+- docs folder: removed.
+- Rhino, scriptcontext, System, Eto.Forms, shapely: same story. They belonged to the Rhino and SketchUp versions and sat behind try/except. The Blender package is now built without that code, so it only imports the standard library, bpy, mathutils and numpy.
+- Scene tag: removed.
+- SketchUp code in context_builder.py: removed, along with the other Rhino and SketchUp parts.
+- usage_stats: analytics for the Rhino version. The Blender build never sent anything, and the module is now out of the package.
 
-The build now stops if any of these come back: imports outside the standard library and `bpy`/`mathutils`/`numpy`, thread modules, `sys.path`/`sys.modules` changes, names of other programs in the code, or a `docs` folder.
+I also added a build check so these can't come back by accident.
 
 ### 0.3.7 What's New(초안)
 
