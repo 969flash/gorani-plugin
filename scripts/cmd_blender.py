@@ -1,6 +1,6 @@
 """Gorani Blender 확장 진입 — 등록·버튼·브라우저 패널 브리지·컨트롤러(cmd_site._SiteController 상속).
 
-Blender에는 웹뷰가 없어 패널(site_ui.html)을 기본 브라우저로 연다. 서버·토큰은 panel_server.Bridge(SketchUp판과 공용)의 스레드 없는 판 —
+Blender에는 웹뷰가 없어 패널(site_ui.html)을 기본 브라우저로 연다. 서버·토큰은 panel_server.Bridge(스레드 없음) —
 Blender 메인 스레드가 타이머(bpy.app.timers)로 bridge.pump()를 돌려 연결을 받고 명령을 컨트롤러로 넘긴다. 생성 중에는 진행 콜백의 _pump가
 bridge.poll()로 cancel·새 탭을 받는다(Rhino의 RhinoApp.Wait 자리). 확장 심사가 Blender 안 스레드를 막는다. 메시지 계약은 docs/panel_ui.md.
 
@@ -158,14 +158,30 @@ class _BlenderController(cmd_site._SiteController):
 
 def get_bridge():
     # type: () -> object
-    """panel_server.Bridge 하나(첫 [패널 열기]에 만든다)."""
+    """panel_server.Bridge 하나(첫 [패널 열기]에 만든다). 타이머도 이때 건다 — 패널을 열지 않으면 아무것도 돌지 않는다."""
     global _bridge
     if _bridge is None:
-        _bridge = loader.load("panel_server").Bridge(_BlenderController(), threaded=False)
+        _bridge = loader.load("panel_server").Bridge(_BlenderController())
+    if not bpy.app.timers.is_registered(_pump_timer):
+        bpy.app.timers.register(_pump_timer, first_interval=POLL_SECONDS, persistent=True)
     return _bridge
 
 
+def _close_bridge():
+    # type: () -> None
+    global _bridge
+    if bpy.app.timers.is_registered(_pump_timer):
+        bpy.app.timers.unregister(_pump_timer)
+    if _bridge is not None:
+        _bridge.close()
+        _bridge = None
+
+
 def _pump_timer():
+    if not bpy.app.online_access:   # 패널을 연 뒤 온라인 접근을 껐다 — 서버를 닫는다(다시 켜고 [패널 열기])
+        _close_bridge()
+        _tag_redraw()
+        return None
     if _bridge is not None:
         _bridge.pump()
     return POLL_SECONDS
@@ -251,17 +267,10 @@ def register():
         bpy.utils.register_class(cls)
     bpy.types.TOPBAR_MT_file_import.append(_draw_import_menu)
     bpy.app.translations.register(__name__, TRANSLATIONS)
-    if not bpy.app.timers.is_registered(_pump_timer):
-        bpy.app.timers.register(_pump_timer, first_interval=POLL_SECONDS, persistent=True)
 
 
 def unregister():
-    global _bridge
-    if bpy.app.timers.is_registered(_pump_timer):
-        bpy.app.timers.unregister(_pump_timer)
-    if _bridge is not None:
-        _bridge.close()
-        _bridge = None
+    _close_bridge()
     bpy.app.translations.unregister(__name__)
     bpy.types.TOPBAR_MT_file_import.remove(_draw_import_menu)
     for cls in reversed(_CLASSES):

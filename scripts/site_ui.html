@@ -239,7 +239,7 @@ label.chk { display: flex; align-items: center; min-height: 32px; }
    상한 256 = 3D 설정을 접은 트레이 중 가장 긴 것(구역 + 범위 직접 입력 + 큰 범위 안내, 480 폭 다섯 언어 최대 254). 남는 높이는 전부 지도.
    3D 설정·필지 정보를 펼치면 트레이 안 스크롤(scrollTray). 2026-10-22 Rhino 480×900: 상한 392(펼친 높이)에서는 접은 트레이 아래가 비었다.
    480 = 헤더 49 + 도구줄 40 + 위 여백 12 + 푸터 57 + 지도 최소 314 + 간격 8 (2026-10-21 Rhino QA: 창을 키워도 아래 카드가 잘렸다) */
-/* 좌우 8 px 여백 = 최근 대상지 줄(.mlist margin 0 -8px)의 자리 — 없으면 줄이 8 px 넘쳐 가로 스크롤바가 생긴다(2026-10-21 SketchUp QA, 늘 보이는 스크롤바) */
+/* 좌우 8 px 여백 = 최근 대상지 줄(.mlist margin 0 -8px)의 자리 — 없으면 줄이 8 px 넘쳐 가로 스크롤바가 생긴다(2026-10-21 QA, 늘 보이는 스크롤바) */
 .tray { flex: none; height: clamp(200px, calc(100vh - 480px), 256px); margin: 8px -8px 0; padding: 0 8px 8px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
 .tray.scrolled { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px); mask-image: linear-gradient(to bottom, transparent 0, #000 16px); }   /* 스크롤하면 위 끝을 흐려 지도와 붙어 보이지 않게 */
 .tray-empty .tray-h { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 11px; line-height: 16px; font-weight: 600; color: var(--ink-3); }
@@ -427,7 +427,7 @@ footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-
   .modes .t { display: none; }
   .sheet-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-/* 넓은 창(Blender 브라우저 탭, 키운 Rhino·SketchUp 창) — 지도는 왼쪽을 다 쓰고 도구줄·트레이는 오른쪽 한 열(448 = Rhino 창 480 − 여백 32).
+/* 넓은 창(브라우저 탭, 키운 패널 창) — 지도는 왼쪽을 다 쓰고 도구줄·트레이는 오른쪽 한 열(448 = Rhino 창 480 − 여백 32).
    그대로 두면 지도가 가로로 납작해지고 트레이 줄이 화면 끝까지 퍼졌다(2026-10-21 Blender 1440×900) */
 @media (min-width: 960px) {
   body[data-screen="map"] section[data-screen="map"] { padding-bottom: 16px; }
@@ -521,7 +521,7 @@ footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-
 "use strict";
 // ── 브리지 (docs/panel_ui.md) ──
 window.__outbox = []; window.__seq = 0;
-// 브라우저 패널(Blender·SketchUp — panel_server가 127.0.0.1에 띄운 서버): 명령은 POST cmd, 상태는 SSE events. 토큰이 없으면 웹뷰(Rhino)
+// 브라우저 패널(panel_server가 127.0.0.1에 띄운 서버): 명령은 POST cmd, 상태는 SSE events. 토큰이 없으면 웹뷰(Rhino)
 var BRIDGE_TOKEN = (location.search.match(/[?&]token=([\w-]+)/) || [])[1];
 // 웹판(web_app.html이 iframe으로 띄운다): 명령은 부모 창으로, 푸시는 부모가 app.receive로 넘긴다
 var WEB = /[?&]web=1/.test(location.search) && window.parent !== window;
@@ -1749,9 +1749,11 @@ function renderBlocker() {
 }
 // ── 업데이트 모달 — init_state.update {latest, min, title, body, items, deadline}. min 미만 = 강제, latest 미만 = 권장 ──
 var UPDATE_STEPS = {   // 글은 표시할 때 tr()
-  rhino: ["Rhino 도구 → 패키지 관리자", "Gorani 검색 → 업데이트", "Rhino 다시 시작"],
   blender: ["편집 → 환경설정 → 확장", "Gorani 업데이트", "Blender 다시 시작"],
+  // [blender-cut] Blender 확장 패키지에서 빼는 구간(dev_deploy.get_blender_source)
+  rhino: ["Rhino 도구 → 패키지 관리자", "Gorani 검색 → 업데이트", "Rhino 다시 시작"],
   sketchup: ["확장 → 확장 관리자", "Gorani 업데이트", "SketchUp 다시 시작"]   // 한국어 SketchUp 메뉴 이름(영어판 Extensions → Extension Manager)
+  // [/blender-cut]
 };
 function cmpVer(a, b) {
   var x = String(a || "0").split("."), y = String(b || "0").split(".");
@@ -1815,7 +1817,7 @@ function closeNotice(id) {
   renderNoticeBands(); renderMenu(); toast(tr("닫은 공지는 메뉴에서 다시 볼 수 있습니다"));
 }
 // ── 더보기 메뉴 — 최근 대상지 · 설정 · 안내 · 공지 ──
-// 메뉴에 남기는 것만(2026-10-19 QA): 최근 대상지 · 폴더 경로 · 한국 자료 · 사용 통계(Blender·SketchUp) · 고라니 웹페이지 · 버전.
+// 메뉴에 남기는 것만(2026-10-19 QA): 최근 대상지 · 폴더 경로 · 한국 자료 · 사용 통계(동의제 호스트) · 고라니 웹페이지 · 버전.
 // 뺀 것 — VWorld 키(.env, 개발자용 — install.md), 다시 확인(팩을 저절로 받는다), 로컬 install.md(웹페이지로)
 function renderMenu() {
   var init = state.init, el = $("menu"); if (!init || !state.menuOpen) return;
@@ -1840,7 +1842,9 @@ function renderMenu() {
       row(tr("결과 언어"), '<div class="seg" role="group" aria-label="' + tr("결과 폴더와 파일 이름 언어") + '">' + ((init.output_langs || [["ko", "한국어"], ["en", "English"]]).map(function (x) {
           return segBtn("output_lang", ' data-v="' + esc(x[0]) + '" title="' + tr("결과 폴더, 2D 폴더, 도면과 조서 파일 이름을 이 언어로 만듭니다") + '"' + (lock ? " disabled" : ""), state.options.output_lang === x[0], esc(x[1]));
         }).join("")) + "</div>", "") +
+      // [blender-cut]
       (HOST.ask_stats ? row(tr("사용 통계"), init.stats_consent ? tr("보냄") : tr("보내지 않음"), '<button type="button" class="btn sm" data-act="stats" data-on="' + (init.stats_consent ? "0" : "1") + '">' + (init.stats_consent ? tr("끄기") : tr("켜기")) + "</button>", tr(STATS_TEXT)) : "") +
+      // [/blender-cut]
     "</div>" +
     "<h3>" + tr("도움") + "</h3>" +
     '<div class="mlist">' + row(tr("웹페이지"), '<button type="button" class="link" data-act="open_url" data-key="' + siteKey() + '" title="' + tr("설치와 사용법") + '">' + esc(String((init.links || {})[siteKey()] || (init.links || {}).website || tr("고라니 웹페이지")).replace(/^https?:\/\//, "").replace(/\/$/, "")) + "</button>", "") + "</div>" +
@@ -1868,20 +1872,23 @@ function loadRecent(i) {   // 최근 대상지는 필지 방식 기록이다(sit
   if (forceOsm()) { state.options.region = "kr"; send({ cmd: "save_prefs", options: state.options }); }
   resetLots("lots", r.pnus.slice());
 }
-// 사용 통계 동의(Blender·SketchUp — 확장 약관). 답하기 전까지 한 번 묻고, 바꾸기는 더보기 메뉴 설정
-var STATS_TEXT = "대상지 위치, 결과, 오류 종류만 보내고 이름이나 파일은 보내지 않습니다";   // 표시할 때 tr()
 function renderStatsBand() {
+  // [blender-cut] 사용 통계 동의(확장 약관 — 동의한 사람만). 답하기 전까지 한 번 묻고, 바꾸기는 더보기 메뉴 설정. Blender 확장 패키지에는 통계가 없다
   var init = state.init, old = $("stats_band");
   if (old) old.parentNode.removeChild(old);
   if (!init || !HOST.ask_stats || init.stats_consent !== null) return;
   var d = document.createElement("div"); d.className = "band lv-info"; d.id = "stats_band";
   d.innerHTML = "<span>" + tr("도구를 고치는 데 쓸 사용 통계를 보낼까요?") + " " + tr(STATS_TEXT) + '</span><button type="button" class="btn sm" data-act="stats" data-on="1">' + tr("보내기") + '</button><button type="button" class="btn sm" data-act="stats" data-on="0">' + tr("보내지 않기") + "</button>";
   $("init_warnings").appendChild(d);
+  // [/blender-cut]
 }
+// [blender-cut]
+var STATS_TEXT = "대상지 위치, 결과, 오류 종류만 보내고 이름이나 파일은 보내지 않습니다";   // 표시할 때 tr()
 function setStats(on) {
   send({ cmd: "stats_consent", on: on }); state.init.stats_consent = on;
   renderStatsBand(); renderMenu(); toast(on ? tr("사용 통계를 보냅니다") : tr("사용 통계를 보내지 않습니다"));
 }
+// [/blender-cut]
 function showErrorBand(text) {
   var d = document.createElement("div"); d.className = "band lv-danger"; d.setAttribute("role", "alert");
   d.innerHTML = "<span>" + esc(text) + '</span><button type="button" class="ib sm" data-act="dismiss" aria-label="' + tr("닫기") + '" title="' + tr("닫기") + '">' + ico("x") + "</button>";
@@ -2005,7 +2012,9 @@ var ACTIONS = {
     try { document.execCommand("copy"); b.textContent = tr("복사됨"); } catch (e) { b.textContent = tr("복사 실패"); }
     document.body.removeChild(ta);
   },
+  // [blender-cut]
   stats: function (b) { setStats(b.dataset.on === "1"); },
+  // [/blender-cut]
   dismiss: function (b) { b.parentNode.parentNode.removeChild(b.parentNode); },
   update_later: function () { state.options.update_later_date = todayStr(); send({ cmd: "save_prefs", options: state.options }); renderUpdate(); },   // 권장 모달은 하루 한 번
   close_notice: function (b) { closeNotice(b.dataset.id); },
@@ -2210,8 +2219,9 @@ var handlers = {
     }
   },
   busy: function (m) { state.busy = !!m.on; state.busyLabel = m.label || ""; updateCancelBtn(); },
-  // SketchUp판 — 사이드카가 모델 작업을 부탁한다. Ruby(sketchup_ext.rb)가 끝나면 send({cmd: "host_reply"})로 답한다
+  // [blender-cut] SketchUp판 — 사이드카가 모델 작업을 부탁한다. Ruby(sketchup_ext.rb)가 끝나면 send({cmd: "host_reply"})로 답한다
   host_call: function (m) { if (window.sketchup) window.sketchup.host_call(JSON.stringify(m)); },
+  // [/blender-cut]
   sheet_ai: function (m) { if (m.ok && m.paths.length > 1) toast(tr("레이어 .ai {0}장을 썼습니다", m.paths.length)); },
   sheet_view: function (m) {
     if (m.path !== viewer.path) return;   // 넘기는 사이 늦게 온 장

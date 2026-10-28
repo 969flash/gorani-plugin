@@ -1146,12 +1146,15 @@ def _get_aerial_images(data, frame, rect, px_per_mm):
                     data.cache[("aerial_dead", url, zoom) if body is None else ("aerial_dead", url)] = True
                     continue
                 data.cache[probe] = body
-            if sys.platform == "emscripten":   # 웹판(Pyodide)은 스레드를 못 띄운다 — 차례로 받는다
-                bodies = list(map(fetch, missing))
-            else:   # 영상 타일만 스레드로 받는다 — Blender는 영상이 없어 여기 오지 않는다(확장 심사: Blender 안 스레드 금지)
+            bodies = None
+            # [blender-cut] 영상 타일만 스레드로 받는다 — 확장 심사가 Blender 안 스레드를 막는다(Blender판은 영상이 없어 여기 오지 않는다)
+            if sys.platform != "emscripten":
                 from concurrent.futures import ThreadPoolExecutor
                 with ThreadPoolExecutor(constants.AERIAL_WORKERS) as pool:
                     bodies = list(pool.map(fetch, missing))
+            # [/blender-cut]
+            if bodies is None:   # 차례로 — 웹판(Pyodide)은 스레드를 못 띄운다
+                bodies = list(map(fetch, missing))
             for key, body in zip(missing, bodies):
                 if body:
                     data.cache[key] = body

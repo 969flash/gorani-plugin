@@ -1,20 +1,23 @@
-"""컨텍스트 지오메트리 — Prepared(세계좌표 m) → RhinoCommon 객체(로컬 좌표) BakeItem 목록 (docs/code_map.md §5~§7.1).
-
-    build(prepared) -> ContextGeo                 지형·건물·커브 전부
-    build_terrain(prepared) -> (meshes, tris, counts)   TIN → 면 분류 → 수면 평탄 → 분류별 Mesh
-    build_buildings(prepared, tin_mesh) -> (items, counts, skipped, warnings)
-    build_curves(prepared) -> items               Site·Parcels·Roads::centerline·Ref 범위·도엽 경계·(옵션) Zoning::<구분>::<종류>
-
-RhinoDoc은 쓰지 않는다 — 객체를 만들어 돌려줄 뿐 문서는 context_baker가 만진다.
-원점 적용(세계 → 로컬)은 get_local_pts 한 함수에서만 한다. sheet_svg용 삼각형은 세계좌표로 되돌려 준다.
-Rhino가 없으면(Blender·python3) 순수 파이썬 도우미(get_tin_points·get_parts·NearestXYZ·get_class_polygons·get_building_attrs·get_zoning_rings)만 쓴다 —
-mesh_geometry(Blender·SketchUp판)가 같은 규칙으로 지형을 만든다.
-"""
+"""컨텍스트 지오메트리 규칙 — 지형 TIN 입력점·분류 폴리곤·용도지역 링·건물 속성(mesh_geometry가 쓰는 순수 파이썬 도우미)."""
+# [blender-cut]
+# Rhino판: Prepared(세계좌표 m) → RhinoCommon 객체(로컬 좌표) BakeItem 목록 (docs/code_map.md §5~§7.1).
+#
+#     build(prepared) -> ContextGeo                 지형·건물·커브 전부
+#     build_terrain(prepared) -> (meshes, tris, counts)   TIN → 면 분류 → 수면 평탄 → 분류별 Mesh
+#     build_buildings(prepared, tin_mesh) -> (items, counts, skipped, warnings)
+#     build_curves(prepared) -> items               Site·Parcels·Roads::centerline·Ref 범위·도엽 경계·(옵션) Zoning::<구분>::<종류>
+#
+# RhinoDoc은 쓰지 않는다 — 객체를 만들어 돌려줄 뿐 문서는 context_baker가 만진다.
+# 원점 적용(세계 → 로컬)은 get_local_pts 한 함수에서만 한다. sheet_svg용 삼각형은 세계좌표로 되돌려 준다.
+# Rhino가 없으면(Blender·python3) 순수 파이썬 도우미(get_tin_points·get_parts·NearestXYZ·get_class_polygons·get_building_attrs·get_zoning_rings)만 쓴다 —
+# mesh_geometry(Blender·SketchUp판)가 같은 규칙으로 지형을 만든다.
+# [/blender-cut]
 
 import math
 import time
 from dataclasses import dataclass, field
 
+# [blender-cut]
 try:
     import Rhino
     import Rhino.Geometry as rg
@@ -22,6 +25,7 @@ try:
     from System.Collections.Generic import List
 except ImportError:   # Blender·python3 — 순수 파이썬 도우미만
     Rhino = rg = Intersection = List = None
+# [/blender-cut]
 
 import basemap_ai
 import constants
@@ -36,6 +40,7 @@ CLASS_LAYERS = {"terrain": "Terrain", "water": "Water", "road": "Roads", "green"
 SITE_LAYERS = {"site_wall": "Terrain::site_wall", "site_original": "Terrain::site_original"}   # site_ground는 옵션 따라(_get_terrain_items)
 
 
+# [blender-cut] Rhino판 베이크 항목(mesh_geometry.BakeItem이 메시판)
 @dataclass
 class BakeItem:
     """베이크 한 건. layer는 FullPath('CTX::Buildings'), geometry는 로컬 좌표 RhinoCommon 객체, attrs는 UserString(키 → str).
@@ -46,6 +51,7 @@ class BakeItem:
     attrs: dict = field(default_factory=dict)
     name: str = ""
     text_height: float = 0.0
+# [/blender-cut]
 
 
 @dataclass
@@ -61,6 +67,7 @@ class ContextGeo:
 
 # ── 좌표 ───────────────────────────────────────────────────
 
+# [blender-cut]
 def get_local_pts(coords, origin, z=None):
     # type: (list, tuple, float) -> list
     """세계좌표 → 로컬 Point3d 목록. 원점(E, N)을 빼는 유일한 자리.
@@ -75,6 +82,7 @@ def get_local_pts(coords, origin, z=None):
         cz = z if z is not None else (float(c[2]) if len(c) > 2 else 0.0)
         pts.append(rg.Point3d(float(c[0]) - ox, float(c[1]) - oy, cz))
     return pts
+# [/blender-cut]
 
 
 def _layer(name):
@@ -170,6 +178,7 @@ def get_zoning_rings(prepared):
     return rings
 
 
+# [blender-cut]
 def _get_ring_crv(ring, origin, z):
     # type: (list, tuple, float) -> rg.PolylineCurve
     """``[(x, y)]`` 세계좌표 링 → 닫힌 PolylineCurve(로컬, Z 고정)."""
@@ -193,6 +202,7 @@ def _get_prism_mesh(part, origin, base_z, height):
     for hole in part[1:]:
         ext.AddInnerProfile(_get_ring_crv(hole, origin, base_z))
     return rg.Mesh.CreateFromExtrusion(ext, rg.MeshingParameters.Minimal)
+# [/blender-cut]
 
 
 class NearestXYZ(object):
@@ -316,6 +326,7 @@ def get_tin_points(prepared):
     return list(pts.values()), water_polys, counts
 
 
+# [blender-cut]
 def _get_closed_crv(ring):
     # type: (list) -> rg.PolylineCurve
     """로컬 링 [(x, y)] → Z=0 닫힌 PolylineCurve."""
@@ -710,6 +721,7 @@ def _project_to_mesh(mesh, pts):
     else:   # out 인자가 반환되지 않는 바인딩이면 1:1로 간주할 수 없다 — 빈 결과로 폴백 ①에 맡긴다
         out, indices = [], []
     return list(out or []), list(indices or [])
+# [/blender-cut]
 
 
 def get_building_attrs(b, height_src):
@@ -721,6 +733,7 @@ def get_building_attrs(b, height_src):
             "USABILITY": b.usability, "USEAPR_DAY": b.use_apr_day, "BLD_NM": b.bld_nm, "STATUS": b.status, "DEMOL_DAY": ""}
 
 
+# [blender-cut]
 def build_buildings(prepared, tin_mesh):
     # type: (object, rg.Mesh) -> tuple
     """범위 안 건물 → 동별 Mesh BakeItem (code_map §5.5; 2026-10-08 Extrusion → Mesh — 첫 음영 화면 18.7 s → 0.9 s).
@@ -946,3 +959,4 @@ def build(prepared):
     if options.get("clean_edge") and get_clip_ring(prepared) is None:
         warnings.append(_warning("info", "clean_edge_skipped", tr("경계 정리는 원·사각형 범위에서만 됩니다. 이번 범위는 그대로 냈습니다")))
     return ContextGeo(items=items, terrain_tris_world=tris, counts=counts, skipped=skipped, warnings=warnings)
+# [/blender-cut]

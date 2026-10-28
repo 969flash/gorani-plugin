@@ -205,7 +205,7 @@ class BridgeTest(unittest.TestCase):
     """host_reply는 서버 스레드에서 바로 컨트롤러 응답 큐로(메인 스레드는 응답을 기다리며 막혀 있다)."""
 
     def test_host_reply_bypasses_inbox(self):
-        bridge = loader.load("panel_server").Bridge(cmd_sketchup._SketchUpController("test"))
+        bridge = loader.load("panel_server").Bridge(cmd_sketchup._SketchUpController("test"), threaded=True)
         try:
             body = json.dumps({"cmd": "host_reply", "id": 9, "ok": True, "result": [1]}).encode("utf-8")
             request = urllib.request.Request(bridge.url.replace("/?", "/cmd?"), data=body, method="POST")
