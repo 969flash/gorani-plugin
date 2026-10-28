@@ -1186,7 +1186,7 @@ def _draw_aerial(key, subject, classify_fn, entries, items, data, style, frame, 
 
 
 # ─────────────────────────────────────────────
-# 입체 매스도 — 범위 안 건물(발자국 × height_m)을 평행 투상(등각). 지형은 평탄 가정(경계 정리면 지형 덩어리), 그리기는 화가 알고리즘(먼 것부터)
+# 입체 매스도 — 범위 안 건물(발자국 × height_m)을 평행 투상(등각). 지형은 평탄 또는 지형 덩어리(style.axo_ground), 그리기는 화가 알고리즘(먼 것부터)
 # ─────────────────────────────────────────────
 
 class AxoFrame(Frame):
@@ -1216,16 +1216,16 @@ def _get_open_ring(ring, orientation):
     return ring if get_ring_orientation(ring) == orientation else ring[::-1]
 
 
-def get_axo_scene(data, view, box):
-    # type: (SheetData, str, tuple) -> dict
+def get_axo_scene(data, view, box, ground="block"):
+    # type: (SheetData, str, tuple, str) -> dict
     """입체 매스도 형상(색 없음, 종이 mm — 지도 칸 좌상단 원점). 범위 링 + 범위 안 건물이 지도 칸에 꽉 차게 맞춘다.
     반환 {ground: {road|water|green: [[링]]}, site: [링], extent: 링, faces: [(road|wall_a|wall_b|roof, [링], 대상지 안)], site_pt, extent_bottom,
     north, heights, count, block: [(wall_a|wall_b, 4각형)], contours: [(점, 점)]}. data.cache에 시점·칸별로 둔다 — 스타일 미리보기를 다시 그려도 재계산하지 않는다.
-    경계 정리(options.clean_edge)이고 지형 삼각형이 있으면 지형 덩어리 — 윗면·바닥·건물이 지반 높이에 서고, 범위 옆면(block)·등고선(contours)을 더한다.
-    건물은 범위 링으로 자른다(3D와 같다).
+    ground = block(style.axo_ground 기본)이고 지형 삼각형이 있으면 지형 덩어리 — 윗면·바닥·건물이 지반 높이에 서고, 범위 옆면(block)·등고선(contours)을 더한다.
+    건물은 늘 범위 링으로 자른다(3D와 같다).
     ponytail: 건물 순서는 발자국 bbox 중심 깊이 — 긴 건물과 붙은 작은 건물은 가끔 앞뒤가 틀린다. 문제가 되면 면 단위 깊이 정렬(BSP)로.
     ponytail: 지형이 자기를 가리지 않는다고 본다(시점 반대로 35° 넘는 비탈이 없음) — 산 뒤 도로·등고선이 비친다. 문제가 되면 삼각형 깊이 정렬로."""
-    cache_key = ("axo", view, tuple(box), tuple(data.paper_mm))
+    cache_key = ("axo", view, ground, tuple(box), tuple(data.paper_mm))
     if cache_key in data.cache:
         return data.cache[cache_key]
     right, up, toward = get_axo_axes(view)
@@ -1237,14 +1237,14 @@ def get_axo_scene(data, view, box):
         extent = [(b[0], b[1]), (b[2], b[1]), (b[2], b[3]), (b[0], b[3])]
     ext_bounds = _get_ring_bounds(extent)
     site_rings = data.site_rings or [part[0] for lot in data.target_lots for part in get_polygon_parts_from_geojson(lot.geometry)]
-    clip = non_rhino_utils.get_convex_ring(extent) if data.options.get("clean_edge") and data.terrain_tris else None
-    terrain = non_rhino_utils.TriangleZ(data.terrain_tris) if clip else None
+    clip = non_rhino_utils.get_convex_ring(extent)
+    terrain = non_rhino_utils.TriangleZ(data.terrain_tris) if clip and ground == "block" and data.terrain_tris else None
     ground_z = terrain.get_z if terrain else (lambda x, y: 0.0)
     pieces, count = [], 0   # (링들 — 외곽 반시계·구멍 시계, 바닥 Z, 높이, 대상지 안)
     for building in data.buildings:
         bx, by = _get_item_center(building)
         parts = get_polygon_parts_from_geojson(building.geometry)
-        if clip:   # 경계 정리 — 걸친 동은 잘라 넣고 다 밖인 동만 뺀다
+        if clip:   # 걸친 동은 잘라 넣고 다 밖인 동만 뺀다
             parts = non_rhino_utils.get_clipped_parts(parts, clip) if _intersects(_get_item_bounds(building), ext_bounds) else []
             if not parts:
                 continue
@@ -1363,7 +1363,7 @@ def _get_axo_colors(style):
     colors = {(kind, False): color for kind, color in base.items()}
     colors.update({(kind, True): get_mixed_color(color, site, constants.AXO_SITE_TINT) for kind, color in base.items()})
     colors["edge"] = get_mixed_color(building, ink, constants.AXO_EDGE_SHADE)
-    block = style["block"]   # 경계 정리 지형 덩어리 — 옆면은 바닥색을 벽처럼 어둡게, 등고선은 바닥색 쪽 옅은 선
+    block = style["block"]   # 지형 덩어리 — 옆면은 바닥색을 벽처럼 어둡게, 등고선은 바닥색 쪽 옅은 선
     colors.update({("block", "wall_a"): get_mixed_color(block, ink, constants.AXO_WALL_SHADE[0] * 2),
                    ("block", "wall_b"): get_mixed_color(block, ink, constants.AXO_WALL_SHADE[1] * 1.5),
                    "block_edge": get_mixed_color(block, ink, constants.AXO_EDGE_SHADE), "contour": get_mixed_color(block, ink, constants.AXO_CONTOUR_SHADE)})
@@ -1380,11 +1380,11 @@ def _draw_axo(key, subject, classify_fn, entries, items, data, style, frame, fra
     """입체 매스도 — 지도 칸 전체: 바닥(범위·도로·수계·녹지·대상지) → 건물 면(먼 것부터) → 대상지 지시선·범위 라벨.
     평면용 바탕·지적·범위 밖 흐리기·지명 라벨은 render_sheet가 건너뛴다. 북쪽 방향·높이는 ctx로 정보 열·카드에 넘긴다."""
     k = get_template_scale(data.paper_mm)
-    scene = get_axo_scene(data, style["axo_view"], frame.paper_mm)
+    scene = get_axo_scene(data, style["axo_view"], frame.paper_mm, style["axo_ground"])
     colors = _get_axo_colors(style)
     ls, paper, site = style["line_scale"], style["paper"], style["site"]
     lines = []
-    if scene["block"]:   # 경계 정리 — 지형 덩어리 옆면(카메라 쪽만)
+    if scene["block"]:   # 지형 덩어리 옆면(카메라 쪽만)
         lines.append('<g id="axo_block" stroke="%s" stroke-width="%s" stroke-linejoin="round">' % (colors["block_edge"], _fmt(constants.AXO_LINE_MM * ls)))
         lines += ['<path fill="%s" d="%s"/>' % (colors[("block", kind)], _poly_d([quad])) for kind, quad in scene["block"]]
         lines.append("</g>")
@@ -2202,7 +2202,7 @@ def _get_aerial_thumbnail(data, style, frame, rect):
 def _get_axo_thumbnail(data, style, frame, rect, px):
     # type: (SheetData, dict, Frame, tuple, int) -> str
     """입체 매스도 썸네일 — 장면 면(종이 mm)을 같은 격자 채우기로. 종이 mm (x, y)를 세계 (x, −y)로 두면 축척 1000 Frame이 항등 변환이다."""
-    scene = get_axo_scene(data, style["axo_view"], frame.paper_mm)
+    scene = get_axo_scene(data, style["axo_view"], frame.paper_mm, style["axo_ground"])
     colors = _get_axo_colors(style)
     shapes, fills = [], []
 

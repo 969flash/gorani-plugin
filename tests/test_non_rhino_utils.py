@@ -138,7 +138,7 @@ class OrientationAndBboxTest(unittest.TestCase):
 
 
 class CleanEdgeTest(unittest.TestCase):
-    """경계 정리 — 볼록 판정·선/건물 자르기·덩어리 바닥 높이·옆면."""
+    """범위로 자르기·지형 덩어리 — 볼록 판정·선/건물 자르기·덩어리 바닥 높이·옆면."""
 
     BOX = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)]
 

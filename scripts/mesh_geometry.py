@@ -437,8 +437,8 @@ def build_terrain(prepared):
     meshes["all"] = _join(ground_parts)
     if not meshes["all"][1]:
         raise RuntimeError(tr("범위 안 지형 면이 없습니다"))
-    clip = get_clip_ring(prepared)
-    if clip is not None:   # 경계 정리 — 윗면 범위 경계에서 바닥까지 옆면·바닥면(context_geometry.build_terrain과 같은 규칙)
+    clip = get_clip_ring(prepared) if (prepared.request.get("options") or {}).get("terrain_block") else None
+    if clip is not None:   # 지형을 바닥까지 채우기 — 윗면 범위 경계에서 바닥까지 옆면·바닥면(context_geometry.build_terrain과 같은 규칙)
         tops = [meshes[k] for k in ("terrain", "road", "green", "rail", "water", "site_ground") if k in meshes]
         base = non_rhino_utils.get_block_base(min(v[2] for verts, _faces in tops for v in verts), clip)
         block = non_rhino_utils.get_block_skirt(tops, [(x - ox, y - oy) for x, y in clip], base)
@@ -612,7 +612,7 @@ def build_curves(prepared):
             items.append(BakeItem(_layer("Site"), "area", polylines=[closed(ring)],
                                   attrs={"KIND": "area", "AREA_M2": "%.1f" % non_rhino_utils.get_ring_area(ring), "LOTS": str(len(prepared.target_lots))}))
     in_site = {lot.pnu for lot in prepared.target_lots} if mode == "area" else set()
-    clip = get_clip_ring(prepared)   # 경계 정리 — 주변 필지·도로중심선·용도지역을 범위 링으로 자른다
+    clip = get_clip_ring(prepared)   # 주변 필지·도로중심선·용도지역을 범위 링으로 자른다
     parcels, parcels_in_site = [], []
     for lot in context_report.get_lots_in_extent(prepared):
         if lot.pnu in targets:
@@ -662,7 +662,7 @@ def build(prepared):
     counts["curves"] = sum(len(item.polylines) for item in curve_items)
     counts["items"] = len(items)
     counts["demolished"] = 0
-    if (prepared.request.get("options") or {}).get("clean_edge") and get_clip_ring(prepared) is None:
-        warnings.append({"level": "info", "code": "clean_edge_skipped", "text": tr("경계 정리는 원·사각형 범위에서만 됩니다. 이번 범위는 그대로 냈습니다"),
+    if get_clip_ring(prepared) is None:
+        warnings.append({"level": "info", "code": "clip_skipped", "text": tr("범위가 원이나 사각형이 아니라 경계에서 자르지 않았습니다"),
                          "detail": "", "action": None, "center": None})
     return ContextGeo(items=items, terrain_tris_world=tris, counts=counts, skipped=skipped, warnings=warnings)

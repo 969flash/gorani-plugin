@@ -1076,7 +1076,7 @@ def get_stepped_edges(a, b, step):
 
 
 # ═════════════════════════════════════════════════════════
-# 경계 정리(options.clean_edge) — 범위 링으로 자르기·지형 덩어리(옆면·바닥). 3D(Rhino·Blender·SketchUp)와 입체 매스도가 같이 쓴다
+# 범위 링으로 자르기(늘)·지형 덩어리(옆면·바닥, options.terrain_block·style.axo_ground). 3D(Rhino·Blender·SketchUp)와 입체 매스도가 같이 쓴다
 # ═════════════════════════════════════════════════════════
 
 def get_convex_ring(ring):

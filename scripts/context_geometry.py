@@ -115,9 +115,7 @@ def get_parts(geometry):
 
 def get_clip_ring(prepared):
     # type: (object) -> list
-    """경계 정리(options.clean_edge)면 자르기용 범위 링(세계좌표, 반시계 볼록), 아니면 None. 오목한 범위(예전 buffer·site)도 None."""
-    if not (prepared.request.get("options") or {}).get("clean_edge"):
-        return None
+    """자르기용 범위 링(세계좌표, 반시계 볼록). 건물·커브는 늘 범위 링으로 자른다. 오목한 범위(예전 buffer·site)면 None."""
     return non_rhino_utils.get_convex_ring(prepared.extent_ring)
 
 
@@ -649,8 +647,8 @@ def build_terrain(prepared):
         counts["site_output"] = "mesh" if site_mesh_out else "flatten_only"
         ground_parts.append(meshes["site_ground"])
     meshes["all"] = _join([m.DuplicateMesh() for m in ground_parts])
-    clip = get_clip_ring(prepared)
-    if clip is not None:   # 경계 정리 — 윗면(분류별 + 수면 + 대상지) 범위 경계에서 바닥까지 옆면·바닥면
+    clip = get_clip_ring(prepared) if options.get("terrain_block") else None
+    if clip is not None:   # 지형을 바닥까지 채우기 — 윗면(분류별 + 수면 + 대상지) 범위 경계에서 바닥까지 옆면·바닥면
         t = time.time()
         tops = [_get_mesh_faces(meshes[k]) for k in ("terrain", "road", "green", "rail", "water", "site_ground") if k in meshes]
         base = non_rhino_utils.get_block_base(min(v[2] for verts_, _f in tops for v in verts_), clip)
@@ -840,7 +838,7 @@ def build_curves(prepared):
         items.append(BakeItem(_layer("Site"), _get_ring_crv(ring, origin, 0.0),
                               {"KIND": "area", "AREA_M2": "%.1f" % non_rhino_utils.get_ring_area(ring), "LOTS": str(len(prepared.target_lots))}, "area"))
     in_site = {lot.pnu for lot in prepared.target_lots} if mode == "area" else set()
-    clip = get_clip_ring(prepared)   # 경계 정리 — 주변 필지·도로중심선·용도지역을 범위 링으로 자른다
+    clip = get_clip_ring(prepared)   # 주변 필지·도로중심선·용도지역을 범위 링으로 자른다
     for lot in context_report.get_lots_in_extent(prepared):
         if lot.pnu in targets:
             continue
@@ -956,7 +954,7 @@ def build(prepared):
     counts["curves"] = len(curve_items)
     counts["items"] = len(items)
     counts["demolished"] = 0   # v1: status 전부 active (code_map §7.1 P1)
-    if options.get("clean_edge") and get_clip_ring(prepared) is None:
-        warnings.append(_warning("info", "clean_edge_skipped", tr("경계 정리는 원·사각형 범위에서만 됩니다. 이번 범위는 그대로 냈습니다")))
+    if get_clip_ring(prepared) is None:
+        warnings.append(_warning("info", "clip_skipped", tr("범위가 원이나 사각형이 아니라 경계에서 자르지 않았습니다")))
     return ContextGeo(items=items, terrain_tris_world=tris, counts=counts, skipped=skipped, warnings=warnings)
 # [/blender-cut]

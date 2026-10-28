@@ -132,18 +132,18 @@ class SteppedTerrainTest(unittest.TestCase):
         level = counts["site_level"]   # 0.01 m 반올림 값
         self.assertTrue(all(abs(v[2] - level) <= 0.005 or v[2] == round(v[2]) for v in meshes["site_wall"][0]))
 
-    def test_clean_edge_block(self):
+    def test_terrain_block(self):
         constants = loader.load("constants")
         for shape in ("rect", "circle"):
             request = {"target": {"mode": "lots", "pnus": [constants.TEST_CONTEXT_PNU]}, "site_db": SITE_DB, "context_db": CONTEXT_DB,
-                       "options": {"radius": 300, "shape": shape, "clean_edge": True, "site_output": "mesh"}}
+                       "options": {"radius": 300, "shape": shape, "terrain_block": True, "site_output": "mesh"}}
             prepared = loader.load("context_builder").prepare(request)
             meshes, _tris, counts = loader.load("mesh_geometry").build_terrain(prepared)
             _assert_block_closed(self, prepared, meshes, counts)
 
 
 def _assert_block_closed(test, prepared, meshes, counts):
-    """경계 정리 — 범위 링 위 윗면 변마다 옆면 변이 하나씩 붙는다(덩어리가 둘레에서 닫힘), 옆면 아래 = 바닥 높이."""
+    """지형을 바닥까지 채우기 — 범위 링 위 윗면 변마다 옆면 변이 하나씩 붙는다(덩어리가 둘레에서 닫힘), 옆면 아래 = 바닥 높이."""
     ring = [(x - prepared.origin[0], y - prepared.origin[1]) for x, y in loader.load("context_geometry").get_clip_ring(prepared)]
 
     def on_ring(p):

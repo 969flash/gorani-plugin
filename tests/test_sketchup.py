@@ -56,7 +56,7 @@ def _request(result_root, **options):
 
 
 def _assert_block_closed(test, prepared, meshes, counts):
-    """경계 정리 — 범위 링 위 윗면 변마다 옆면 변이 하나씩 붙는다(덩어리가 둘레에서 닫힘), 옆면 아래 = 바닥 높이."""
+    """지형을 바닥까지 채우기 — 범위 링 위 윗면 변마다 옆면 변이 하나씩 붙는다(덩어리가 둘레에서 닫힘), 옆면 아래 = 바닥 높이."""
     ring = [(x - prepared.origin[0], y - prepared.origin[1]) for x, y in loader.load("context_geometry").get_clip_ring(prepared)]
 
     def on_ring(p):
@@ -149,9 +149,9 @@ class MeshGeometryTest(unittest.TestCase):
         self.assertGreater(len(zs), 1)
         self.assertTrue(all(z == round(z) for z in zs), sorted(zs)[:5])
 
-    def test_clean_edge_block(self):
+    def test_terrain_block(self):
         for step in (0, 2):
-            prepared = loader.load("context_builder").prepare(_request(None, radius=300, shape="rect", flatten_site=False, clean_edge=True, terrain_step=step))
+            prepared = loader.load("context_builder").prepare(_request(None, radius=300, shape="rect", flatten_site=False, terrain_block=True, terrain_step=step))
             meshes, _tris, counts = loader.load("mesh_geometry").build_terrain(prepared)
             _assert_block_closed(self, prepared, meshes, counts)
 
