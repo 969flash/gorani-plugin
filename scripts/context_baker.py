@@ -1,13 +1,16 @@
-"""Rhino 문서를 만지는 유일한 모듈 — 베이크(= 3dm 생성)·원점 기록·사본 저장·재삽입·줌 (docs/code_map.md §2·§6·§7).
-
-Rhino 안에서만 import된다. context_geometry가 만든 BakeItem(layer, geometry, attrs, name)을 받아 굽는다 — 좌표는 이미 로컬 m이고,
-여기서는 문서 단위 환산(Transform.Scale 복제본)과 원점 기록(CTX::Ref UserString · doc.Strings · EarthAnchorPoint)만 한다.
-모든 베이크 객체에 UDT_MANAGED=1 · UDT_LOT_KEY를 붙여 clear_previous가 같은 키의 객체만 지운다(사용자 객체 보존).
-
-    bake(doc, items, prepared) → [Guid]           write_ref_and_origin(doc, prepared) → [Guid]
-    save_copy(doc, path, object_ids, timing) → path   import_3dm(doc, result_dir, lot_key) → {ok, layers, objects, replaced, text}
-    clear_previous(doc, lot_key) → (objects, layers)  zoom_to_site(doc, result_dir, center_lng_lat) → bool
-"""
+"""레이어 색·대상지 키·CTX::Ref 속성·결과 메타 읽기 — 베이커들이 같이 쓰는 순수 파이썬 도우미."""
+# [blender-cut]
+# Rhino 문서를 만지는 유일한 모듈 — 베이크(= 3dm 생성)·원점 기록·사본 저장·재삽입·줌 (docs/code_map.md §2·§6·§7).
+#
+# Rhino 안에서만 import된다. context_geometry가 만든 BakeItem(layer, geometry, attrs, name)을 받아 굽는다 — 좌표는 이미 로컬 m이고,
+# 여기서는 문서 단위 환산(Transform.Scale 복제본)과 원점 기록(CTX::Ref UserString · doc.Strings · EarthAnchorPoint)만 한다.
+# 모든 베이크 객체에 UDT_MANAGED=1 · UDT_LOT_KEY를 붙여 clear_previous가 같은 키의 객체만 지운다(사용자 객체 보존).
+#
+#     bake(doc, items, prepared) → [Guid]           write_ref_and_origin(doc, prepared) → [Guid]
+#     save_copy(doc, path, object_ids, timing) → path   import_3dm(doc, result_dir, lot_key) → {ok, layers, objects, replaced, text}
+#     clear_previous(doc, lot_key) → (objects, layers)  zoom_to_site(doc, result_dir, center_lng_lat) → bool
+# """
+# [/blender-cut]
 
 import hashlib
 import json
@@ -17,6 +20,7 @@ import re
 import time
 import types
 
+# [blender-cut]
 try:
     import Rhino
     import System
@@ -24,11 +28,14 @@ try:
     from System.Drawing import Color
 except ImportError:   # Blender — blender_baker가 순수 파이썬 도우미(get_lot_key·get_ref_attrs·read_meta)만 쓴다
     Rhino = System = List = Color = None
+# [/blender-cut]
 
 import constants
 import non_rhino_utils
 from context_builder import DomainError
+# [blender-cut]
 from context_geometry import get_local_pts
+# [/blender-cut]
 from i18n import tr
 
 _CMYK_RE = re.compile(rb"^(\S+) (\S+) (\S+) (\S+) ([kK])(?=\r?$)", re.M)   # Rhino .ai는 CRLF — \r은 남긴다
@@ -42,6 +49,7 @@ def get_lot_key(pnus):
     return hashlib.sha1(",".join(sorted(str(p) for p in pnus)).encode("utf-8")).hexdigest()[:8]
 
 
+# [blender-cut]
 def get_model_unit_scale(doc):
     # type: (object) -> float
     """내부 m → 문서 단위 배율. 입력: RhinoDoc. 처리: RhinoMath.UnitScale. 출력: 양수 배율. None/Custom 단위면 DomainError(doc_unit_invalid)."""
@@ -83,6 +91,7 @@ def _set_doc_origin(doc, origin):
     anchor.ModelEast = Rhino.Geometry.Vector3d.XAxis
     anchor.Name = "%s origin E %.0f N %.0f" % (constants.TOOL_NAME, origin[0], origin[1])
     doc.EarthAnchorPoint = anchor
+# [/blender-cut]
 
 
 def _get_bm_leaf(full_path):
@@ -125,6 +134,7 @@ def get_layer_rgb(full_path):
     return (0, 0, 0)
 
 
+# [blender-cut]
 def _ensure_layer(doc, full_path, rgb=None, layer_cache=None):
     # type: (object, str, tuple, dict) -> int
     """'CTX::Buildings' 같은 FullPath의 레이어를 부모부터 만들고 최하위 인덱스를 돌려준다. 색은 이미 있는 레이어에도 다시 적용."""
@@ -310,6 +320,7 @@ def bake(doc, items, prepared, lot_key=None):
         doc.Views.RedrawEnabled = redraw
         doc.Views.Redraw()
     return ids
+# [/blender-cut]
 
 
 def get_ref_attrs(prepared):
@@ -334,6 +345,7 @@ def get_ref_attrs(prepared):
     }
 
 
+# [blender-cut]
 def write_ref_and_origin(doc, prepared, lot_key=None):
     # type: (object, object, str) -> list
     """원점 기록 세 곳 중 ①②(code_map §6): CTX::Ref 원점 Point+TextDot(UserString 전부) 베이크, doc.Strings 3키 + EarthAnchorPoint.
@@ -482,6 +494,7 @@ def _set_file_layer_states(doc, path, indexes):
             layer.SetPersistentVisibility(src.GetPersistentVisibility())
     if not model.Write(path, 0):
         raise RuntimeError(tr("Rhino 파일 레이어 상태를 저장할 수 없습니다: {0}", path))
+# [/blender-cut]
 
 
 # ── 재삽입·줌 ────────────────────────────────────────────────
@@ -495,6 +508,7 @@ def read_meta(result_dir):
         return {}
 
 
+# [blender-cut]
 def import_3dm(doc, result_dir, lot_key=None):
     # type: (object, str, str) -> dict
     """<result_dir>/context.3dm을 문서에 다시 넣는다(panel_ui.md import_context). 출력 {ok, layers, objects, replaced, text, shift}.
@@ -572,6 +586,7 @@ def zoom_to_site(doc, result_dir, center_lng_lat=None):
     view.ActiveViewport.ZoomBoundingBox(box)
     view.Redraw()
     return True
+# [/blender-cut]
 
 
 # ── 베이스맵 ────────────────────────────────────────────────

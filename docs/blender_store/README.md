@@ -38,25 +38,24 @@ https://developer.blender.org/docs/features/extensions/moderation/guidelines/ ·
 
 반영함:
 - 라이선스 GPL-3.0-or-later(+ Leaflet BSD-2-Clause, 저작권 칸에 적음), 원본 .py(난독화·.pyc 없음). 함께 넣는 글꼴·이미지는 CC0만 — Pretendard(OFL)는 빼고 시스템 글꼴.
-- Blender 안 스레드 금지 — 패널 서버는 메인 스레드 poll(`panel_server.Bridge(threaded=False)`). 스레드 코드는 SketchUp 분기·위성 영상 분기에만 있고 Blender에서는 돌지 않는다.
-- 분석 전송 금지(동의를 받아도) — Blender판은 사용 통계가 없다(`usage_stats`는 빈 판, `GA_STREAMS`에 blender 없음).
+- Blender 안 스레드 금지 — 패널 서버는 메인 스레드 poll(`panel_server.Bridge` 기본값). 스레드 코드(SketchUp 분기·Rhino 타일 중계·위성 영상)는 패키지에서 뺀다(아래 2026-10-28).
+- 분석 전송 금지(동의를 받아도) — Blender 패키지에는 사용 통계가 없다(`usage_stats`·동의 창·`_send_stats` 호출을 뺀다).
 - `sys.path`·`sys.modules` 조작·모듈 다시 읽기 금지 — 패키지의 `loader.py`는 상대 import만, 진입 분기는 패키지 쪽만 남긴다.
 - 상용·키 필요 서비스 금지 — Esri 위성 영상을 끈다(지도 [위성]·항공사진 도면 없음). OSM·Overpass·Nominatim·지형 타일은 무료·무가입이라 된다.
 - 자체 업데이터 금지 — 매니페스트 업데이트 모달을 끈다(공지 띠는 남김). 코드 내려받기 없음(데이터 팩만).
 - 영어 기본(심사 약 39건) — 패널은 첫 설치가 영어(0.3.0 다국어: 한·영·서·일·중), Blender 단추·메시지는 영어 + Blender 번역 시스템(ko_KR·es·ja_JP·zh_HANS).
 - 사용자가 하지 않은 제3자 전송 금지 — 지도 첫 위치 IP 짐작(ipinfo.io)을 끈다(`HOST_LABELS` `ip_center`).
 - `bpy.app.online_access`가 꺼져 있으면 패널을 열지 않는다. 파일·폴더 열기는 `wm.path_open`·`wm.url_open`.
-- 매니페스트: 태그 `Import-Export`·`Scene`('3D View'는 자주 빼라고 한다), `support` = GitHub 이슈(스토어 'Report Issues'), tagline 64자 이하.
+- 매니페스트: 태그 `Import-Export`만('3D View'·'Scene'은 빼라고 한다), `support` = GitHub 이슈(스토어 'Report Issues'), tagline 64자 이하.
 - 업로드는 Blender ID 2단계 인증이 켜져 있어야 한다.
 
 남은 위험(심사 댓글이 오면 고친다):
 - 데이터 팩(Hugging Face·국내 서버)을 받는 것 — 무료·무가입 데이터라 OSM과 같다고 보지만 '외부 에셋 팩'으로 볼 수도 있다. 국내 서버 요청에는 설치 ID가 붙는다(하루 한도) — 설명에 적어 두었다.
-- 패키지에 Rhino 코드가 섞여 있다(`context_baker`·`context_geometry`의 공용 함수를 쓴다 — RhinoCommon import는 try 안).
 - 쓰는 위치 `~/Gorani`·`~/.gorani` — 금지는 아니지만 '결과 폴더를 고르는 설정'을 권할 수 있다.
 - 도면·조서의 지명(OSM 이름·국내 주소)은 데이터 그대로라 번역되지 않는다.
 
 심사 질문에 답할 때(영어):
-- Threading: "The add-on itself never starts a thread in Blender. The panel server runs on Blender's main thread with non-blocking sockets polled from a timer and from the progress callback. The threaded branch in panel_server.py is used only by our SketchUp sidecar, a separate process."
+- Threading: "The add-on never starts a thread. The panel server runs on Blender's main thread with non-blocking sockets polled from a timer and from the progress callback."
 - Data packs: "Downloads are data only (SQLite of public Korean GIS data), free and without login, on explicit user action. No code is downloaded."
 
 ## 2026-10-25 심사 반려와 0.3.6
@@ -98,3 +97,43 @@ Thank you for the review, and sorry for the messy first submission. You were rig
 Links that open in the browser only when the user clicks them: the project website, and the Korean land-use plan page (eum.go.kr) for a selected parcel. The add-on sends no analytics.
 
 I tested every service above on 2026-10-25. With the 0.3.6 package, a full build works in Seoul, Paris and Tokyo.
+
+## 2026-10-28 심사 반려와 0.3.7
+
+심사 댓글(요지): `threading`·`queue`는 Blender를 죽이니 안 된다(필요하면 subprocess). `docs` 폴더를 빼라 — 실행에 필요한 파일만.
+Blender에 없는 라이브러리 5개(Rhino·scriptcontext·System·Eto.Forms·shapely)는 휠로 실어라. `Scene` 태그를 빼라.
+`context_builder.py`에 다른 프로그램(SketchUp) 구간이 있다 — 애드온은 Blender 전용이어야 한다. `usage_stats`는 뭔가.
+
+고친 것(0.3.7):
+- 공용 모듈의 Rhino·SketchUp·웹판·사용 통계 구간을 소스에서 `# [blender-cut]` … `# [/blender-cut]`(패널 HTML은 `// [blender-cut]`)로 감싸고
+  `dev_deploy.get_blender_source`가 Blender 패키지에서 뺀다. 번역 사전에서도 Rhino·SketchUp·사용 통계 문구를 뺀다. `non_rhino_utils`는 패키지에서 `geo_utils`.
+- 빌드 점검 `dev_deploy.get_blender_problems` — 문법, 표준 라이브러리·bpy·mathutils·numpy 밖 import, 스레드 import, sys.path·sys.modules,
+  코드(주석·docstring 제외)의 다른 프로그램 이름, 정의 안 된 이름·모듈 속성(구간을 빼서 생긴 구멍), `docs/` 폴더, HTML·사전의 SketchUp·통계 흔적. 하나라도 있으면 빌드가 멈춘다.
+- `docs/install.md`를 싣지 않는다. 태그는 `Import-Export`만. `usage_stats.py`·동의 창·`stats_consent` 명령을 뺀다.
+- 패널 타이머는 [패널 열기] 때만 건다(전에는 등록하자마자 0.1 s마다). 패널을 연 뒤 온라인 접근을 끄면 서버를 닫는다.
+- 확인: python3 단위 시험, Blender 시험(저장소 소스·잘라 낸 패키지 두 판 — `GORANI_BLENDER_PACKAGE=build/blender`), SketchUp 사이드카 시험,
+  0.3.7 zip을 격리 Blender 5.2(빈 HOME, --online-mode)에 깔아 파리 R200 생성(GitHub 프랑스 팩 + Overpass + AWS 지형, 155 s).
+
+자가 리뷰(별도 에이전트, 2026-10-28)에서 나왔지만 고치지 않은 것 — 심사가 물으면 고친다:
+- 국내 서버 팩 요청에 설치 ID 헤더(`X-UDT-Client`, 하루 한도) — 설명에 적어 둠. 빼려면 서버가 IP로 세야 한다.
+- 생성이 Blender 메인 스레드에서 동기로 돈다 — Overpass가 느리면 Blender 화면이 그동안 멈춘다(브라우저 패널은 진행을 받는다). 심사가 권한 대로 하려면 받기를 subprocess로.
+- 쓰는 위치 `~/Gorani`·`~/.gorani`(공식 문서는 `bpy.utils.extension_path_user` 권장) — Rhino판과 결과 폴더를 같이 쓴다.
+- `os.environ` 쓰기(`i18n` 언어·`geo_utils` 투영 원점 — Rhino 모듈 다시 읽기 대비), 원격 설정·매니페스트가 서비스 주소를 바꿀 수 있음, 압축된 `leaflet.js`
+  (압축 전 원본은 문서 주석에 외부 주소 18개가 들어 있어 주소를 하나하나 묻는 이 심사자에게 역효과라 압축본을 둔다), File > Import 메뉴가 파일 대신 브라우저를 연다.
+
+### 0.3.7 답변(초안 — 올릴 때 댓글로)
+
+Thank you for the review. Version 0.3.7 addresses each point.
+
+- `threading` and `queue`: removed from the package. The panel server runs on Blender's main thread: a `bpy.app.timers` timer polls a non-blocking socket. The timer starts only when the user opens the panel, and stops when the add-on is disabled or Online Access is turned off.
+- `docs` folder: removed. The zip now contains only the add-on code, the panel HTML, its translation table, Leaflet (BSD-2-Clause) and the license.
+- Rhino, scriptcontext, System, Eto.Forms, shapely: these were imports for the Rhino and SketchUp versions of the same tool. They sat behind try/except and never ran in Blender. The Blender build now strips all Rhino and SketchUp code, so the package imports only the Python standard library, `bpy`, `mathutils` and `numpy`. No wheels are needed.
+- `Scene` tag: removed.
+- The SketchUp segment in `context_builder.py`: removed, together with every other non-Blender code path (Rhino document handling, the SketchUp bridge, DWG export, the Rhino map tile proxy).
+- `usage_stats`: it was usage analytics for the Rhino version. The Blender version never sent anything (the old package shipped an empty stub). The module, the consent prompt and every call to it are now gone from the package.
+
+The build now stops if any of these come back: imports outside the standard library and `bpy`/`mathutils`/`numpy`, thread modules, `sys.path`/`sys.modules` changes, names of other programs in the code, or a `docs` folder.
+
+### 0.3.7 What's New(초안)
+
+Blender-only package. Removed code for other programs, the usage statistics module and the docs folder. The panel timer now runs only while the panel is open, and the panel server closes when Online Access is turned off.

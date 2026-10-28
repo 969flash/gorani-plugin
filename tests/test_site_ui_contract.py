@@ -252,7 +252,7 @@ class BridgeTest(unittest.TestCase):
         """브라우저 패널을 새 탭에서 다시 열면 앞 탭의 이벤트 줄은 superseded를 받고 끝난다 — 두 탭이 15 s마다 줄을 서로 뺏지 않는다."""
         import panel_server
         controller = type("Controller", (), {"handle": lambda self, msg: None, "on_close": lambda self: None})()
-        bridge = panel_server.Bridge(controller)
+        bridge = panel_server.Bridge(controller, threaded=True)
         try:
             old = bridge.subscribe()
             new = bridge.subscribe()

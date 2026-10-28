@@ -35,17 +35,22 @@ packs: data/의 시도별 `<시도>_site.db`·`<시도>_context.db`마다 필지
 
 import argparse
 import ast
+import builtins
 import datetime
 import hashlib
 import json
 import os
+import pkgutil
 import py_compile
 import re
 import shutil
 import sqlite3
 import statistics
 import subprocess
+import symtable
 import sys
+import sysconfig
+import tokenize
 
 import shapely
 
@@ -169,7 +174,17 @@ else:
 
 BLENDER_APP = "/Applications/Blender.app/Contents/MacOS/Blender"
 BLENDER_PACKAGE_ID = "gorani"
-BLENDER_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py", "cmd_sketchup.py", "cmd_web.py")    # Rhino 전용(Eto·RhinoCommon), SketchUp 사이드카, 웹판
+BLENDER_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py", "cmd_sketchup.py", "cmd_web.py", "usage_stats.py")    # Rhino 전용(Eto·RhinoCommon·사용 통계), SketchUp 사이드카, 웹판
+# 확장 심사(2026-10-28): 애드온에는 Blender 코드만 — 다른 프로그램(Rhino·SketchUp) 분기, Blender에 없는 라이브러리 import, 스레드(threading·queue)는 안 된다.
+# 공용 모듈의 그런 구간은 소스에서 `# [blender-cut]` … `# [/blender-cut]` 줄(패널 HTML은 `// [blender-cut]`)로 감싸 두고 패키지에서 뺀다(get_blender_source).
+# 남으면 get_blender_problems가 빌드를 멈춘다. 번역 사전은 다른 프로그램·사용 통계 문구를 뺀다(BLENDER_I18N_DROPPED)
+BLENDER_CUT = re.compile(r"^[ \t]*(?:#|//) \[blender-cut\][^\n]*\n.*?^[ \t]*(?:#|//) \[/blender-cut\][^\n]*\n", re.S | re.M)
+BLENDER_I18N_DROPPED = re.compile(r"(?i)rhino|라이노|sketchup|사용 통계")
+BLENDER_UI_FOREIGN = re.compile(r"(?i)sketchup|stats_consent|ask_stats|usage_stats")   # 패널 HTML·번역 사전에 남으면 안 되는 말(HTML 주석의 Rhino 이야기는 둔다)
+BLENDER_RENAMES = {"non_rhino_utils": "geo_utils"}   # 모듈 이름에 다른 프로그램 이름을 남기지 않는다(같은 내용, 이름만)
+BLENDER_PYTHON_MODULES = ("bpy", "mathutils", "bmesh", "bpy_extras", "gpu", "numpy")   # Blender가 함께 싣는 모듈 — 이 밖(표준 라이브러리 제외)은 휠로 실어야 한다
+BLENDER_BANNED_MODULES = ("threading", "queue", "_thread", "concurrent", "multiprocessing", "asyncio")   # Blender 안 스레드 — 심사: Blender를 죽인다(subprocess는 된다)
+BLENDER_FOREIGN_WORDS = re.compile(r"(?i)rhino|sketchup|archicad|autocad|usage_stats|analytics")   # 코드(이름·문자열, 주석·docstring 제외)에 남으면 안 되는 말
 # 확장 약관 1.2 — 함께 넣는 글꼴·이미지는 CC0만. Pretendard(OFL)는 빼고 패널은 시스템 글꼴(Apple SD Gothic Neo·맑은 고딕)로 그린다
 BLENDER_EXCLUDED_ASSETS = ("PretendardVariable.woff2", "LICENSE-pretendard.txt")
 BLENDER_LICENSE_PATH = os.path.join(ROOT_DIR, "docs", "licenses", "GPL-3.0.txt")   # 확장 약관 1.1 — 애드온은 GPL-3.0-or-later
@@ -234,8 +249,8 @@ BLENDER_SOURCE_OVERRIDES = {"loader.py": BLENDER_LOADER_SOURCE, "usage_stats.py"
 BLENDER_CONSTANT_PATCHES = {
     "constants.py": {
         "DATA_MANIFEST_URL": "DATA_GITHUB_MANIFEST_URL", "DATA_REPO_ID": '""', "DATA_DOMESTIC_BUCKET_URL": '""',
-        "VWORLD_API_KEY_ENV": '""', "VWORLD_SEARCH_URL": '""', "GA_STREAMS": "{}", "GA_ENDPOINT": '""',
-        "ADMIN_YAK_VERSIONS_URL": '""', "ADMIN_HF_API_URL": '""', "ADMIN_STORE_URLS": "{}",
+        "VWORLD_API_KEY_ENV": '""', "VWORLD_SEARCH_URL": '""',
+        "OSM_USER_AGENT": '"Gorani/0.3 (Blender add-on; https://969flash.github.io/gorani/)"',
         "PDOK_ITEMS_URL": '""', "BDTOPO_FEED_URL": '""', "SWISS_STAC_ITEMS_URL": '""', "PLATEAU_CKAN_URL": '""', "CENSUS_COUNTY_URL": '""', "OVERTURE_S3_URL": '""',
     },
     "review_map.py": {"VWORLD_TILE_URL_TEMPLATE": '""', "VWORLD_AERIAL_URL_TEMPLATE": '""', "ESRI_AERIAL_URL": '""', "IP_LOCATE_URL": '""'},
@@ -255,7 +270,7 @@ BLENDER_ALLOWED_HOSTS = (
 # `if __package__:` … `else:` 진입 분기(cmd_site·cmd_blender) — 패키지에서는 앞쪽만 남긴다(뒤쪽은 Rhino·저장소 시험용 sys.modules 넣기)
 PACKAGE_BRANCH = re.compile(r"^if __package__:[^\n]*\n((?:    [^\n]*\n)+)else:[^\n]*\n(?:    [^\n]*\n)+", re.M)
 # 확장 매니페스트 — 칸 규칙은 Blender 매뉴얼 Extensions > Getting started(tagline·permissions 사유 64자 이하, 끝 마침표 없음).
-# 태그: 심사가 '3D View'를 자주 빼라고 한다. support = 스토어 'Report Issues' 칸(공개 이슈 트래커). Leaflet(BSD-2-Clause)을 넣어 라이선스·저작권에 적는다
+# 태그: 심사가 '3D View'·'Scene'을 빼라고 했다(2026-10-28 — 장면 도구가 아니다). support = 스토어 'Report Issues' 칸(공개 이슈 트래커). Leaflet(BSD-2-Clause)을 넣어 라이선스·저작권에 적는다
 BLENDER_MANIFEST = '''schema_version = "1.0.0"
 id = "%(id)s"
 version = "%(version)s"
@@ -265,7 +280,7 @@ maintainer = "%(maintainer)s"
 type = "add-on"
 website = "https://969flash.github.io/gorani/"
 support = "https://github.com/969flash/gorani-plugin/issues"
-tags = ["Import-Export", "Scene"]
+tags = ["Import-Export"]
 blender_version_min = "4.2.0"
 license = ["SPDX:GPL-3.0-or-later", "SPDX:BSD-2-Clause"]
 copyright = ["2026 sanghoon", "2010-2023 Volodymyr Agafonkin (Leaflet)", "2010-2011 CloudMade (Leaflet)"]
@@ -468,7 +483,7 @@ def check_tiles():
         push = None
 
     key = pnu_loader.get_local_env_value(constants.VWORLD_API_KEY_ENV)
-    bridge = panel_server.Bridge(Controller())   # sketchup·blender 패널 출처(상대 경로 /osm/)
+    bridge = panel_server.Bridge(Controller(), threaded=True)   # sketchup·blender 패널 출처(상대 경로 /osm/) — 점검은 서버 스레드로 받는다
     base = bridge.url.split("/?")[0]
     cases = []
     with tempfile.TemporaryDirectory() as home:
@@ -555,6 +570,105 @@ def get_patched_source(source, patches):
     return "".join(lines)
 
 
+def get_blender_source(source, name, module_names):
+    # type: (str, str, list) -> str
+    """Blender 패키지에 넣을 모듈 소스 — `# [blender-cut]` 구간을 빼고(BLENDER_CUT), 상수를 바꿔 넣고(BLENDER_CONSTANT_PATCHES),
+    import를 패키지 상대로 바꾸고(get_package_source), 모듈 이름을 바꾼다(BLENDER_RENAMES). 구간을 뺀 자리의 빈 줄은 두 줄로 줄인다."""
+    source = re.sub(r"\n{4,}", "\n\n\n", BLENDER_CUT.sub("", source))
+    source = get_package_source(get_patched_source(source, BLENDER_CONSTANT_PATCHES.get(name, {})), module_names)
+    for old, new in BLENDER_RENAMES.items():
+        source = re.sub(r"\b%s\b" % old, new, source)
+    return source
+
+
+def _get_defined_names(table):
+    # type: (symtable.SymbolTable) -> set
+    """모듈 symtable에서 최상위에 정의되는 이름(대입·import·def·class, 함수 안 global 대입 포함)."""
+    names = {sym.get_name() for sym in table.get_symbols() if sym.is_assigned() or sym.is_imported() or sym.is_namespace()}
+    stack = list(table.get_children())
+    while stack:
+        child = stack.pop()
+        names |= {sym.get_name() for sym in child.get_symbols() if sym.is_declared_global() and sym.is_assigned()}
+        stack += child.get_children()
+    return names
+
+
+def get_blender_problems(package_dir):
+    # type: (str) -> list
+    """Blender 패키지 자가 점검 — 심사에서 걸린 것(2026-10-25·28)이 다시 들어가지 않게. 문제 ["상대경로:줄: 내용"].
+    문법, Blender에 없는 라이브러리·스레드 import, sys.path·sys.modules, 코드의 다른 프로그램 이름(BLENDER_FOREIGN_WORDS),
+    정의 안 된 전역 이름·모듈 속성(`# [blender-cut]`으로 정의만 빠지고 쓰는 곳이 남은 경우), 실행에 필요 없는 docs/ 폴더."""
+    stdlib = set(getattr(sys, "stdlib_module_names", ())) or (   # 3.9(yak 빌드 파이썬)는 표준 라이브러리 폴더를 훑는다
+        set(sys.builtin_module_names) | {m.name for m in pkgutil.iter_modules([sysconfig.get_paths()["stdlib"], os.path.join(sysconfig.get_paths()["stdlib"], "lib-dynload")])})
+    problems = ["%s: 실행에 필요 없는 문서 폴더" % os.path.relpath(os.path.join(package_dir, d), package_dir) for d in ("docs",)
+                if os.path.exists(os.path.join(package_dir, d))]
+    for folder, _, names in os.walk(package_dir):
+        for name in sorted(n for n in names if n.endswith((".html", ".json"))):
+            with open(os.path.join(folder, name), encoding="utf-8") as f:
+                problems += ["%s:%d: 다른 프로그램·통계 흔적 %s" % (os.path.relpath(os.path.join(folder, name), package_dir), n, m.group(0))
+                             for n, line in enumerate(f, 1) for m in [BLENDER_UI_FOREIGN.search(line)] if m]
+    sources, trees, defined, own = {}, {}, {}, {}
+    for folder, _, names in os.walk(package_dir):
+        for name in sorted(n for n in names if n.endswith(".py")):
+            path = os.path.join(folder, name)
+            rel = os.path.relpath(path, package_dir)
+            with open(path, encoding="utf-8") as f:
+                sources[rel] = f.read()
+            try:
+                trees[rel] = ast.parse(sources[rel])
+            except SyntaxError as error:
+                problems.append("%s:%s: 문법 오류 %s" % (rel, error.lineno, error.msg))
+                continue
+            own[rel] = _get_defined_names(symtable.symtable(sources[rel], rel, "exec"))
+            if name != "__init__.py":
+                defined[name[:-3]] = own[rel]
+    known = set(dir(builtins)) | {"__file__", "__name__", "__package__", "__spec__", "__doc__", "__path__"}
+    for rel, tree in trees.items():
+        found = []
+        docstrings = {node.body[0].value.lineno for node in ast.walk(tree) if isinstance(node, (ast.Module, ast.FunctionDef, ast.ClassDef))
+                      and node.body and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant)
+                      and isinstance(node.body[0].value.value, str)}
+        aliases = {alias.asname or alias.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.level == 1 and not node.module
+                   for alias in node.names}   # from . import m — 이 파일에서 모듈을 가리키는 이름(같은 이름의 지역 변수는 보지 않는다)
+        for node in ast.walk(tree):
+            modules = []
+            if isinstance(node, ast.Import):
+                modules = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.level == 0:
+                modules = [node.module]
+            for module in modules:
+                top = module.split(".")[0]
+                if top in BLENDER_BANNED_MODULES:
+                    found.append((node.lineno, "스레드 import %s" % module))
+                elif top not in stdlib and top not in BLENDER_PYTHON_MODULES:
+                    found.append((node.lineno, "Blender에 없는 라이브러리 import %s" % module))
+            if isinstance(node, ast.ImportFrom) and node.level == 1 and node.module in defined:   # from .m import a
+                found += [(node.lineno, "%s에 없는 이름 %s" % (node.module, alias.name)) for alias in node.names if alias.name not in defined[node.module]]
+            if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+                if node.value.id == "sys" and node.attr in ("path", "modules"):
+                    found.append((node.lineno, "sys.%s" % node.attr))
+                elif node.value.id in aliases and node.value.id in defined and node.attr not in defined[node.value.id]:   # constants.X
+                    found.append((node.lineno, "%s에 없는 이름 %s" % (node.value.id, node.attr)))
+            if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Attribute)
+                    and node.value.func.attr == "load" and node.value.args and isinstance(node.value.args[0], ast.Constant)
+                    and node.value.args[0].value in defined and node.attr not in defined[node.value.args[0].value]):   # loader.load("m").X
+                found.append((node.lineno, "%s에 없는 이름 %s" % (node.value.args[0].value, node.attr)))
+        top = symtable.symtable(sources[rel], rel, "exec")
+        stack = [top]
+        while stack:
+            table = stack.pop()
+            for sym in table.get_symbols():
+                implicit = sym.is_global() if table is not top else not (sym.is_assigned() or sym.is_imported() or sym.is_namespace())
+                if sym.is_referenced() and implicit and sym.get_name() not in own[rel] and sym.get_name() not in known:
+                    found.append((table.get_lineno(), "정의 안 된 이름 %s" % sym.get_name()))
+            stack += table.get_children()
+        for token in tokenize.generate_tokens(iter(sources[rel].splitlines(True)).__next__):
+            if (token.type == tokenize.NAME or token.type == tokenize.STRING and token.start[0] not in docstrings) and BLENDER_FOREIGN_WORDS.search(token.string):
+                found.append((token.start[0], "다른 프로그램 흔적 %s" % token.string[:60]))
+        problems += ["%s:%d: %s" % (rel, line, text) for line, text in sorted(set(found))]
+    return problems
+
+
 def get_foreign_hosts(package_dir, allowed):
     # type: (str, tuple) -> list
     """package_dir 안 글 파일의 http(s) 주소 중 호스트가 allowed 밖인 것 ["상대경로: 호스트"]. 그림·글꼴처럼 UTF-8이 아닌 파일은 건너뛴다."""
@@ -593,19 +707,21 @@ def build_blender():
              and not n.startswith(("dev_", "probe_", "server_", "sketchup_", "web_"))]
     for name in names:
         with open(os.path.join(SCRIPTS_DIR, name), encoding="utf-8") as f:
-            source = get_package_source(get_patched_source(BLENDER_SOURCE_OVERRIDES.get(name) or f.read(), BLENDER_CONSTANT_PATCHES.get(name, {})),
-                                        [n[:-3] for n in names])
-        with open(os.path.join(target, name), "w", encoding="utf-8") as f:
+            source = get_blender_source(BLENDER_SOURCE_OVERRIDES.get(name) or f.read(), name, [n[:-3] for n in names])
+        with open(os.path.join(target, BLENDER_RENAMES.get(name[:-3], name[:-3]) + ".py"), "w", encoding="utf-8") as f:
             f.write(source)
     with open(os.path.join(target, "__init__.py"), "w", encoding="utf-8") as f:
         f.write('"""Gorani 로직 모듈 — Blender 확장에서는 하위 패키지."""\n')
     for name in UI_FILE_NAMES:
-        shutil.copyfile(os.path.join(SCRIPTS_DIR, name), os.path.join(target, name))
+        with open(os.path.join(SCRIPTS_DIR, name), encoding="utf-8") as f:
+            text = f.read()
+        if name.endswith(".json"):   # 번역 사전 — 다른 프로그램·사용 통계 문구는 빼고 같은 꼴로
+            texts = {key: value for key, value in json.loads(text).items() if not BLENDER_I18N_DROPPED.search(json.dumps([key, value], ensure_ascii=False))}
+            text = json.dumps(texts, ensure_ascii=False, indent=1) + "\n"
+        with open(os.path.join(target, name), "w", encoding="utf-8") as f:
+            f.write(BLENDER_CUT.sub("", text))
     for dir_name in UI_DIR_NAMES:
         shutil.copytree(os.path.join(SCRIPTS_DIR, dir_name), os.path.join(target, dir_name), ignore=shutil.ignore_patterns(*BLENDER_EXCLUDED_ASSETS))
-    for path in DOC_FILE_NAMES:
-        os.makedirs(os.path.join(package_dir, os.path.dirname(path)), exist_ok=True)
-        shutil.copyfile(os.path.join(ROOT_DIR, path), os.path.join(package_dir, path))
     shutil.copyfile(BLENDER_LICENSE_PATH, os.path.join(package_dir, "LICENSE"))
     with open(os.path.join(package_dir, "__init__.py"), "w", encoding="utf-8") as f:
         f.write(BLENDER_INIT_SOURCE)
@@ -616,6 +732,9 @@ def build_blender():
     foreign = get_foreign_hosts(package_dir, BLENDER_ALLOWED_HOSTS)
     if foreign:   # 확장 심사 2026-10-25 — 쓰지 않는 외부 주소가 남으면 싣지 않는다
         sys.exit("Blender 패키지에 허용 목록(BLENDER_ALLOWED_HOSTS) 밖 주소가 있습니다:\n  " + "\n  ".join(foreign))
+    problems = get_blender_problems(package_dir)
+    if problems:   # 확장 심사 2026-10-28 — 다른 프로그램 코드·Blender에 없는 라이브러리·스레드가 남으면 싣지 않는다
+        sys.exit("Blender 패키지 점검 실패 %d건(scripts의 `# [blender-cut]` 구간을 확인):\n  " % len(problems) + "\n  ".join(problems))
     os.makedirs(repo_dir)
     _run_blender("build", "--source-dir", package_dir, "--output-dir", repo_dir)
     _run_blender("server-generate", "--repo-dir", repo_dir, "--html")

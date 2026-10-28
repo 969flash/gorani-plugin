@@ -106,6 +106,7 @@ def add_recent(pnus, label, total_area, date, path=PREFS_PATH):
     return data["recent"]
 
 
+# [blender-cut] 사용 통계 동의 — Blender 확장 패키지에는 통계가 없다
 def get_stats_consent(path=PREFS_PATH):
     # type: (str) -> object
     """사용 통계 동의 — True(보냄)·False(안 보냄)·None(아직 안 물음). 동의를 묻는 호스트(constants.HOST_LABELS ask_stats)만 쓴다."""
@@ -119,6 +120,7 @@ def save_stats_consent(on, path=PREFS_PATH):
     data["stats_consent"] = bool(on)
     _write_json(path, data)
     return data["stats_consent"]
+# [/blender-cut]
 
 
 def get_source_news(path=SOURCE_NEWS_PATH):

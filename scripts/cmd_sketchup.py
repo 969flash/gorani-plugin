@@ -158,7 +158,7 @@ def _read_parent(controller):
 def main():
     # type: () -> None
     version = sys.argv[1] if len(sys.argv) > 1 else ""
-    bridge = loader.load("panel_server").Bridge(_SketchUpController(version))
+    bridge = loader.load("panel_server").Bridge(_SketchUpController(version), threaded=True)
     sys.stdout.write(bridge.url + "\n")
     sys.stdout.flush()
     sys.stdout = sys.stderr   # 남은 print는 로그로 — SketchUp은 첫 줄만 읽는다(안 읽는 파이프가 차면 막힌다)
