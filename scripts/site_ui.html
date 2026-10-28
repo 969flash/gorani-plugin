@@ -598,7 +598,7 @@ var DEFAULTS = { lang: "en", output_lang: null, region: null, mode: "lots", plac
   make_basemap: false, paper: "A3", paper_mm: [420, 297], scales: [5000], basemap_layers_on: [], basemap_preset: "a3",
   make_sheets: false, sheet_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24], floor_breaks: [12, 20], elev_preset: "20m",
   make_tables: false, include_minor_buildings: false,
-  include_zoning: true, terrain_vertex_color: false, terrain_step: 0, make_dwg: false, zoom_after_import: true, style: { preset: "std" }, update_later_date: "", closed_notices: [] };
+  include_zoning: true, terrain_vertex_color: false, terrain_step: 0, clean_edge: false, make_dwg: false, zoom_after_import: true, style: { preset: "std" }, update_later_date: "", closed_notices: [] };
 // 3D 생성(generate)에 늘 덮어 보내는 값 — 화면에 없는 옵션이 옛 prefs로 몰래 켜지지 않게(docs/ui_spec.md §3.4). 2D는 결과 화면 make_2d가 만든다
 var FIXED_3D = { make_basemap: false, make_sheets: false, make_tables: false, make_dwg: false, import_after: true, zoom_after_import: true, include_minor_buildings: false };
 var KEYS_2D = ["output_lang", "make_basemap", "paper", "paper_mm", "scales", "basemap_layers_on", "make_dwg", "make_sheets", "sheet_ids", "floor_breaks", "elev_preset", "make_tables", "style"];
@@ -875,6 +875,7 @@ function settingsHtml(open) {
     row(tr("지형"), '<div class="seg" role="radiogroup" aria-label="' + tr("지형 표현") + '">' + [0, 1, 2, 5].map(function (step) {
       return SEG("terrain_step", step, step ? tr("계단 {0} m", step) : tr("매끈"), (+(o.terrain_step || 0) === step ? " checked" : "") + (step ? ' title="' + tr("등고 모형처럼 단마다 평평한 지형") + '"' : ""));
     }).join("") + "</div>") +
+    row("", '<label class="chk" title="' + tr("범위 경계로 건물·필지·도로를 자르고, 지형을 바닥까지 채운 덩어리로 만듭니다") + '"><input type="checkbox" name="clean_edge"' + (o.clean_edge ? " checked" : "") + ">" + tr("경계 정리") + "</label>") +
     (canSite ? row(tr("대상지"), '<div class="seg" role="radiogroup" aria-label="' + tr("대상지 바닥면") + '">' + SEG("site_output", "curve", tr("Line"), (o.site_output !== "mesh" ? " checked" : "") + ' title="' + tr("대상지 경계선만 냅니다") + '"') +
         SEG("site_output", "mesh", tr("Surface"), (o.site_output === "mesh" ? " checked" : "") + ' title="' + tr("경계선과 함께, 대상지 경계로 자른 지형을 따로 냅니다") + '"') + "</div>") +
       row("", '<label class="chk"><input type="checkbox" name="flatten_site"' + (o.flatten_site ? " checked" : "") + ">" + tr("대상지 평탄화") + "</label>" +
@@ -888,6 +889,7 @@ function updateSummaries() {
   var s = $("s3d_sum");
   if (s) {
     var p = [o.placement === "world" && !isAbroad(targetCenter()) ? tr("GIS 좌표") : tr("원점(0,0)"), +o.terrain_step ? tr("계단 {0} m", o.terrain_step) : tr("지형 매끈")];
+    if (o.clean_edge) p.push(tr("경계 정리"));
     if (state.mode === "lots" || state.mode === "area") { if (o.site_output === "mesh") p.push(tr("Surface")); if (o.flatten_site) p.push(tr("평탄화")); }
     if (!glob && !o.include_zoning) p.push(tr("경계선 뺌"));
     s.textContent = p.join(", ");

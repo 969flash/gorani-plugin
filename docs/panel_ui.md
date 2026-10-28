@@ -356,6 +356,7 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
  "include_zoning":true,                                // Korea만 보인다   // CTX::Zoning::<구분>::<종류> — 용도지역·용도지구·용도구역·도시계획시설·지구단위계획(현황도 11~13 범례 색, 범위 bbox로 자름)
  "terrain_vertex_color":false,
  "terrain_step":0,                                     // 지형 표현(③ 지형): 0 = 매끈, 1|2|5 = 계단형(등고 모형) 단 간격 m. 지반·수면 메시를 단마다 수평면 + 수직 벽으로, 건물 바닥도 계단 지반 기준
+ "clean_edge":false,                                   // 경계 정리: 범위 링으로 건물·필지·도로중심선·용도지역을 자르고 지형을 바닥까지 덩어리로(CTX::Terrain::block, BASE_M). 원·사각형 범위만. 입체 매스도도 지형 덩어리
  "make_dwg":false,                                     // 3dm 2D 도면(BM::)만 basemap_<축척>.dwg로도 저장(고급 > 3dm). 결과 경로는 done.context.dwg
  "zoom_after_import":true,
  "style":{"preset":"std"}}                              // 도면 스타일 — 사용자가 고른·바꾼 값. 해석은 sheet_svg.get_style(STYLE_*): 색 10개(paper·block·road·green·water·building·rail·site·extent·ink),

@@ -132,6 +132,41 @@ class SteppedTerrainTest(unittest.TestCase):
         level = counts["site_level"]   # 0.01 m 반올림 값
         self.assertTrue(all(abs(v[2] - level) <= 0.005 or v[2] == round(v[2]) for v in meshes["site_wall"][0]))
 
+    def test_clean_edge_block(self):
+        constants = loader.load("constants")
+        for shape in ("rect", "circle"):
+            request = {"target": {"mode": "lots", "pnus": [constants.TEST_CONTEXT_PNU]}, "site_db": SITE_DB, "context_db": CONTEXT_DB,
+                       "options": {"radius": 300, "shape": shape, "clean_edge": True, "site_output": "mesh"}}
+            prepared = loader.load("context_builder").prepare(request)
+            meshes, _tris, counts = loader.load("mesh_geometry").build_terrain(prepared)
+            _assert_block_closed(self, prepared, meshes, counts)
+
+
+def _assert_block_closed(test, prepared, meshes, counts):
+    """경계 정리 — 범위 링 위 윗면 변마다 옆면 변이 하나씩 붙는다(덩어리가 둘레에서 닫힘), 옆면 아래 = 바닥 높이."""
+    ring = [(x - prepared.origin[0], y - prepared.origin[1]) for x, y in loader.load("context_geometry").get_clip_ring(prepared)]
+
+    def on_ring(p):
+        for (ax, ay), (bx, by) in zip(ring, ring[1:] + ring[:1]):
+            dx, dy = bx - ax, by - ay
+            t = max(0.0, min(1.0, ((p[0] - ax) * dx + (p[1] - ay) * dy) / (dx * dx + dy * dy)))
+            if math.hypot(p[0] - ax - dx * t, p[1] - ay - dy * t) < 1e-3:
+                return True
+        return False
+
+    edges = {}
+    for key in ("terrain", "road", "green", "rail", "water", "site_ground", "block"):
+        verts, faces = meshes.get(key, ([], []))
+        for face in faces:
+            for k in range(len(face)):
+                p, q = verts[face[k]], verts[face[(k + 1) % len(face)]]
+                if math.hypot(q[0] - p[0], q[1] - p[1]) > 1e-6 and on_ring(p) and on_ring(q) and on_ring(((p[0] + q[0]) / 2, (p[1] + q[1]) / 2)):
+                    edge = frozenset((tuple(round(c, 4) for c in p), tuple(round(c, 4) for c in q)))
+                    edges[edge] = edges.get(edge, 0) + 1
+    test.assertTrue(edges)
+    test.assertEqual({n for e, n in edges.items() if all(v[2] > counts["block_base"] for v in e)}, {2})
+    test.assertEqual(min(v[2] for v in meshes["block"][0]), counts["block_base"])
+
 
 @unittest.skipUnless(bpy is not None, "Blender 안에서만 돈다")
 class CurveRingTest(unittest.TestCase):
