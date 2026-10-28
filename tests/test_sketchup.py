@@ -6,6 +6,7 @@ numpy·shapely 2.1+가 있는 파이썬(번들 파이썬)에서만 돈다 — �
 
 import importlib.util
 import json
+import math
 import os
 import sys
 import tempfile
@@ -52,6 +53,32 @@ def _request(result_root, **options):
     base = {"radius": 500, "shape": "buffer", "flatten_site": True, "site_output": "mesh", "make_sheets": False, "make_basemap": False}
     return {"target": {"mode": "lots", "pnus": [constants.TEST_CONTEXT_PNU]}, "site_db": SITE_DB, "context_db": CONTEXT_DB,
             "result_root": result_root, "options": dict(base, **options)}
+
+
+def _assert_block_closed(test, prepared, meshes, counts):
+    """경계 정리 — 범위 링 위 윗면 변마다 옆면 변이 하나씩 붙는다(덩어리가 둘레에서 닫힘), 옆면 아래 = 바닥 높이."""
+    ring = [(x - prepared.origin[0], y - prepared.origin[1]) for x, y in loader.load("context_geometry").get_clip_ring(prepared)]
+
+    def on_ring(p):
+        for (ax, ay), (bx, by) in zip(ring, ring[1:] + ring[:1]):
+            dx, dy = bx - ax, by - ay
+            t = max(0.0, min(1.0, ((p[0] - ax) * dx + (p[1] - ay) * dy) / (dx * dx + dy * dy)))
+            if math.hypot(p[0] - ax - dx * t, p[1] - ay - dy * t) < 1e-3:
+                return True
+        return False
+
+    edges = {}
+    for key in ("terrain", "road", "green", "rail", "water", "site_ground", "block"):
+        verts, faces = meshes.get(key, ([], []))
+        for face in faces:
+            for k in range(len(face)):
+                p, q = verts[face[k]], verts[face[(k + 1) % len(face)]]
+                if math.hypot(q[0] - p[0], q[1] - p[1]) > 1e-6 and on_ring(p) and on_ring(q) and on_ring(((p[0] + q[0]) / 2, (p[1] + q[1]) / 2)):
+                    edge = frozenset((tuple(round(c, 4) for c in p), tuple(round(c, 4) for c in q)))
+                    edges[edge] = edges.get(edge, 0) + 1
+    test.assertTrue(edges)
+    test.assertEqual({n for e, n in edges.items() if all(v[2] > counts["block_base"] for v in e)}, {2})
+    test.assertEqual(min(v[2] for v in meshes["block"][0]), counts["block_base"])
 
 
 class FakeSketchUp(object):
@@ -121,6 +148,12 @@ class MeshGeometryTest(unittest.TestCase):
         zs = {v[2] for v in meshes["terrain"][0]}
         self.assertGreater(len(zs), 1)
         self.assertTrue(all(z == round(z) for z in zs), sorted(zs)[:5])
+
+    def test_clean_edge_block(self):
+        for step in (0, 2):
+            prepared = loader.load("context_builder").prepare(_request(None, radius=300, shape="rect", flatten_site=False, clean_edge=True, terrain_step=step))
+            meshes, _tris, counts = loader.load("mesh_geometry").build_terrain(prepared)
+            _assert_block_closed(self, prepared, meshes, counts)
 
 
 @unittest.skipUnless(READY, "numpy·shapely 번들 파이썬 + fixture DB에서만")

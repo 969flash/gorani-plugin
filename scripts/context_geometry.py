@@ -32,7 +32,7 @@ from context_builder import DomainError
 from i18n import tr
 
 TOPO_SOURCE_ID = "ngii_topo_5000"
-CLASS_LAYERS = {"terrain": "Terrain", "water": "Water", "road": "Roads", "green": "Green", "rail": "Rail"}
+CLASS_LAYERS = {"terrain": "Terrain", "water": "Water", "road": "Roads", "green": "Green", "rail": "Rail", "block": "Terrain::block"}
 SITE_LAYERS = {"site_wall": "Terrain::site_wall", "site_original": "Terrain::site_original"}   # site_ground는 옵션 따라(_get_terrain_items)
 
 
@@ -103,6 +103,41 @@ def get_parts(geometry):
     if not geometry or geometry.get("type") not in ("Polygon", "MultiPolygon"):
         return []
     return [[_strip_ring(ring) for ring in part if len(ring) >= 3] for part in non_rhino_utils.get_polygon_parts_from_geojson(geometry)]
+
+
+def get_clip_ring(prepared):
+    # type: (object) -> list
+    """경계 정리(options.clean_edge)면 자르기용 범위 링(세계좌표, 반시계 볼록), 아니면 None. 오목한 범위(예전 buffer·site)도 None."""
+    if not (prepared.request.get("options") or {}).get("clean_edge"):
+        return None
+    return non_rhino_utils.get_convex_ring(prepared.extent_ring)
+
+
+def get_building_parts(prepared, clip):
+    # type: (object, list) -> tuple
+    """범위 안 건물과 파트 → ``(buildings, parts_by_building, clipped)``. clip(get_clip_ring)이 있으면 파트를 범위 링으로 자르고
+    다 밖인 동은 뺀다(clipped = 잘리거나 빠진 동 수). 없으면 지금처럼 범위 bbox와 겹치는 동 전부."""
+    buildings = context_report.get_buildings_in_extent(prepared)
+    parts = [get_parts(b.geometry) for b in buildings]
+    if clip is None:
+        return buildings, parts, 0
+    kept, kept_parts, clipped = [], [], 0
+    for b, building_parts in zip(buildings, parts):
+        cut = non_rhino_utils.get_clipped_parts(building_parts, clip)
+        clipped += cut != building_parts
+        if cut:
+            kept.append(b)
+            kept_parts.append(cut)
+    return kept, kept_parts, clipped
+
+
+def get_clipped_curves(rings, lines, clip):
+    # type: (list, list, list) -> tuple
+    """닫힌 링·열린 선(세계좌표)을 clip으로 자른다 → ``(rings, lines)``. clip이 None이면 그대로. 다 밖인 것은 빠진다."""
+    if clip is None:
+        return rings, lines
+    rings = [r for r in (non_rhino_utils.get_convex_clipped_ring(ring, clip) for ring in rings) if len(r) >= 3]
+    return rings, [piece for line in lines for piece in non_rhino_utils.get_clipped_lines(line, clip)]
 
 
 def get_zoning_layer(overlay):
@@ -448,7 +483,12 @@ def _get_site_wall(site_mesh, level, step=0.0):
 def _get_stepped(mesh, step):
     # type: (rg.Mesh, float) -> rg.Mesh
     """메시 → 계단 지형 메시(non_rhino_utils.get_stepped_mesh). 다시 용접하지 않는다 — 벽과 단 면 정점을 따로 둬야 모서리가 선다."""
-    verts, faces = non_rhino_utils.get_stepped_mesh(*_get_mesh_faces(mesh), step=step)
+    return _get_rhino_mesh(*non_rhino_utils.get_stepped_mesh(*_get_mesh_faces(mesh), step=step))
+
+
+def _get_rhino_mesh(verts, faces):
+    # type: (list, list) -> rg.Mesh
+    """(정점 [(x,y,z)], 면 [3·4각형]) → Mesh(배정밀도 정점, 법선 계산)."""
     out = rg.Mesh()
     out.Vertices.UseDoublePrecisionVertices = True
     out.Vertices.AddVertices(List[rg.Point3d]([rg.Point3d(*v) for v in verts]))
@@ -598,6 +638,15 @@ def build_terrain(prepared):
         counts["site_output"] = "mesh" if site_mesh_out else "flatten_only"
         ground_parts.append(meshes["site_ground"])
     meshes["all"] = _join([m.DuplicateMesh() for m in ground_parts])
+    clip = get_clip_ring(prepared)
+    if clip is not None:   # 경계 정리 — 윗면(분류별 + 수면 + 대상지) 범위 경계에서 바닥까지 옆면·바닥면
+        t = time.time()
+        tops = [_get_mesh_faces(meshes[k]) for k in ("terrain", "road", "green", "rail", "water", "site_ground") if k in meshes]
+        base = non_rhino_utils.get_block_base(min(v[2] for verts_, _f in tops for v in verts_), clip)
+        block = non_rhino_utils.get_block_skirt(tops, [(x - ox, y - oy) for x, y in clip], base)
+        if block[1]:
+            meshes["block"] = _get_rhino_mesh(*block)
+        counts.update(block_base=base, block_s=round(time.time() - t, 3))
     counts["faces"] = sum(m.Faces.Count for k, m in meshes.items() if k in ("terrain", "road", "green", "rail", "site_ground"))
     counts["quads"] = sum(m.Faces.QuadCount for k, m in meshes.items() if k in ("terrain", "road", "green", "rail", "site_ground"))
     counts["faces_by_class"] = {k: m.Faces.Count for k, m in meshes.items() if k != "all"}
@@ -622,6 +671,8 @@ def _get_terrain_items(prepared, meshes, counts):
             attrs = {"KIND": "field|park|forest"}
         elif cls == "rail":
             attrs = {"KIND": "surface", "SRC": TOPO_SOURCE_ID}
+        elif cls == "block":
+            attrs = {"KIND": "block", "BASE_M": "%g" % counts["block_base"]}
         elif cls.startswith("site_"):
             flat = "site_level" in counts
             attrs = {"KIND": {"site_ground": "flattened" if flat else "natural", "site_wall": "edge_wall", "site_original": "natural"}[cls]}
@@ -680,12 +731,10 @@ def build_buildings(prepared, tin_mesh):
     출력: ``(items, counts, skipped, warnings)``. skipped = 건너뛴 동 'BLD_ID(사유)' 목록, counts에 투영·폴백·실패 수.
     """
     origin = prepared.origin
-    buildings = context_report.get_buildings_in_extent(prepared)
+    buildings, parts_by_building, clipped = get_building_parts(prepared, get_clip_ring(prepared))
     top_z = tin_mesh.GetBoundingBox(True).Max.Z + 1.0
-    pts, owner, parts_by_building = [], [], []
-    for bi, b in enumerate(buildings):
-        parts = get_parts(b.geometry)
-        parts_by_building.append(parts)
+    pts, owner = [], []
+    for bi, parts in enumerate(parts_by_building):
         for part in parts:
             for ring in part:
                 pts.extend(get_local_pts(ring, origin, top_z))
@@ -699,7 +748,8 @@ def build_buildings(prepared, tin_mesh):
         z_min[bi] = min(z_min.get(bi, p.Z), p.Z)
         z_max[bi] = max(z_max.get(bi, p.Z), p.Z)
     counts = {"buildings_in_extent": len(buildings), "project_in": len(pts), "project_out": len(out), "project_indices": len(indices),
-              "project_s": round(time.time() - t, 3), "fallback_nearest": 0, "fallback_skipped": 0, "extrude_failed": 0, "parts": 0}
+              "project_s": round(time.time() - t, 3), "fallback_nearest": 0, "fallback_skipped": 0, "extrude_failed": 0, "parts": 0,
+              "clipped": clipped}
     nearest = None
     items, skipped = [], []
     t = time.time()
@@ -777,21 +827,22 @@ def build_curves(prepared):
         items.append(BakeItem(_layer("Site"), _get_ring_crv(ring, origin, 0.0),
                               {"KIND": "area", "AREA_M2": "%.1f" % non_rhino_utils.get_ring_area(ring), "LOTS": str(len(prepared.target_lots))}, "area"))
     in_site = {lot.pnu for lot in prepared.target_lots} if mode == "area" else set()
+    clip = get_clip_ring(prepared)   # 경계 정리 — 주변 필지·도로중심선·용도지역을 범위 링으로 자른다
     for lot in context_report.get_lots_in_extent(prepared):
         if lot.pnu in targets:
             continue
         attrs = {"PNU": lot.pnu, "JIMOK": lot.land_category or "", "ZONE": lot.zone_name or ""}
         if lot.pnu in in_site:
             attrs["IN_SITE"] = "1"
-        for part in get_parts(lot.geometry):
-            for ring in part:
-                items.append(BakeItem(_layer("Parcels"), _get_ring_crv(ring, origin, 0.0), attrs))
+        for ring in get_clipped_curves([ring for part in get_parts(lot.geometry) for ring in part], [], clip)[0]:
+            items.append(BakeItem(_layer("Parcels"), _get_ring_crv(ring, origin, 0.0), attrs))
     ex0, ey0, ex1, ey1 = non_rhino_utils.get_bbox(prepared.extent_ring)
     for f in prepared.context.get_features("road", "centerline"):
         if f.geometry.get("type") != "LineString" or f.max_x < ex0 or f.min_x > ex1 or f.max_y < ey0 or f.min_y > ey1:
             continue
         attrs = {"WIDTH_M": "" if f.value is None else "%g" % f.value, "LANES": str((f.attrs or {}).get("차로수", "")), "NAME": f.name or ""}
-        items.append(BakeItem(_layer("Roads::centerline"), rg.PolylineCurve(get_local_pts(f.geometry["coordinates"], origin, 0.0)), attrs, f.name or ""))
+        for line in get_clipped_curves([], [f.geometry["coordinates"]], clip)[1]:
+            items.append(BakeItem(_layer("Roads::centerline"), rg.PolylineCurve(get_local_pts(line, origin, 0.0)), attrs, f.name or ""))
     items.append(BakeItem(_layer("Ref"), _get_ring_crv(prepared.extent_ring, origin, 0.0),
                           {"KIND": "extent", "RADIUS_M": "%g" % prepared.radius, "SHAPE": prepared.shape}, "extent"))
     for code in (prepared.stats or {}).get("sheets") or []:
@@ -801,7 +852,8 @@ def build_curves(prepared):
     if (prepared.request.get("options") or {}).get("include_zoning"):
         for layer, o, ring in get_zoning_rings(prepared):
             attrs = {"THEME": o.theme, "KIND": o.kind or "", "NAME": o.name or "", "NOTICE_NO": o.notice_number or ""}
-            items.append(BakeItem(_layer(layer), _get_ring_crv(ring, origin, 0.0), attrs, o.name or ""))
+            for cut in get_clipped_curves([ring], [], clip)[0]:
+                items.append(BakeItem(_layer(layer), _get_ring_crv(cut, origin, 0.0), attrs, o.name or ""))
     return items
 
 
@@ -891,4 +943,6 @@ def build(prepared):
     counts["curves"] = len(curve_items)
     counts["items"] = len(items)
     counts["demolished"] = 0   # v1: status 전부 active (code_map §7.1 P1)
+    if options.get("clean_edge") and get_clip_ring(prepared) is None:
+        warnings.append(_warning("info", "clean_edge_skipped", tr("경계 정리는 원·사각형 범위에서만 됩니다. 이번 범위는 그대로 냈습니다")))
     return ContextGeo(items=items, terrain_tris_world=tris, counts=counts, skipped=skipped, warnings=warnings)

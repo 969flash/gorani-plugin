@@ -30,7 +30,7 @@ import constants
 import data_pack
 import non_rhino_utils
 from i18n import get_lang, get_texts, tr
-from non_rhino_utils import (get_lnglat_from_tile, get_polygon_parts_from_geojson, get_ring_area, get_ring_orientation, get_text_width_em, get_tile_m_per_px,
+from non_rhino_utils import (get_convex_clipped_ring, get_lnglat_from_tile, get_polygon_parts_from_geojson, get_ring_area, get_ring_orientation, get_text_width_em, get_tile_m_per_px,
                              get_tile_xy, get_tm_from_wgs84, get_wgs84_from_tm, is_local_projection, is_point_in_ring)
 
 SHEET_NAMES = {sheet_id: name for sheet_id, _key, name, _needs in constants.SHEET_CATALOG}   # 한국어 원문 — 그릴 때 tr(name)
@@ -1183,7 +1183,7 @@ def _draw_aerial(key, subject, classify_fn, entries, items, data, style, frame, 
 
 
 # ─────────────────────────────────────────────
-# 입체 매스도 — 범위 안 건물(발자국 × height_m)을 평행 투상(등각). 지형은 평탄 가정, 그리기는 화가 알고리즘(먼 것부터)
+# 입체 매스도 — 범위 안 건물(발자국 × height_m)을 평행 투상(등각). 지형은 평탄 가정(경계 정리면 지형 덩어리), 그리기는 화가 알고리즘(먼 것부터)
 # ─────────────────────────────────────────────
 
 class AxoFrame(Frame):
@@ -1204,29 +1204,6 @@ def get_axo_axes(view):
     return (-hy, hx, 0.0), (-math.sin(el) * hx, -math.sin(el) * hy, math.cos(el)), (math.cos(el) * hx, math.cos(el) * hy, math.sin(el))
 
 
-def get_convex_clipped_ring(ring, clip):
-    # type: (list, list) -> list
-    """링을 볼록 링 clip(반시계, 닫힘 점 없음)으로 자른다 — Sutherland–Hodgman. 출력: 새 링(비면 []).
-    ponytail: 분석 범위가 원·사각형(볼록)이라는 가정. 필지 버퍼처럼 오목한 범위는 오목한 쪽이 조금 덜 잘린다 — 문제가 되면 다각형 불리언으로."""
-    output = [tuple(p[:2]) for p in ring]
-    for (ax, ay), (bx, by) in zip(clip, clip[1:] + clip[:1]):
-        if not output:
-            break
-        inputs, output = output, []
-        side = lambda p: (bx - ax) * (p[1] - ay) - (by - ay) * (p[0] - ax)   # ≥ 0 = 변의 왼쪽(안쪽)
-        prev = inputs[-1]
-        prev_side = side(prev)
-        for cur in inputs:
-            cur_side = side(cur)
-            if (cur_side >= 0) != (prev_side >= 0):
-                t = prev_side / (prev_side - cur_side)
-                output.append((prev[0] + (cur[0] - prev[0]) * t, prev[1] + (cur[1] - prev[1]) * t))
-            if cur_side >= 0:
-                output.append(cur)
-            prev, prev_side = cur, cur_side
-    return output
-
-
 def _get_open_ring(ring, orientation):
     # type: (list, int) -> list
     """닫힘 점을 뺀 (x, y) 링을 orientation(+1 반시계, −1 시계) 방향으로."""
@@ -1240,8 +1217,11 @@ def get_axo_scene(data, view, box):
     # type: (SheetData, str, tuple) -> dict
     """입체 매스도 형상(색 없음, 종이 mm — 지도 칸 좌상단 원점). 범위 링 + 범위 안 건물이 지도 칸에 꽉 차게 맞춘다.
     반환 {ground: {road|water|green: [[링]]}, site: [링], extent: 링, faces: [(road|wall_a|wall_b|roof, [링], 대상지 안)], site_pt, extent_bottom,
-    north, heights, count}. data.cache에 시점·칸별로 둔다 — 스타일 미리보기를 다시 그려도 재계산하지 않는다.
-    ponytail: 건물 순서는 발자국 bbox 중심 깊이 — 긴 건물과 붙은 작은 건물은 가끔 앞뒤가 틀린다. 문제가 되면 면 단위 깊이 정렬(BSP)로."""
+    north, heights, count, block: [(wall_a|wall_b, 4각형)], contours: [(점, 점)]}. data.cache에 시점·칸별로 둔다 — 스타일 미리보기를 다시 그려도 재계산하지 않는다.
+    경계 정리(options.clean_edge)이고 지형 삼각형이 있으면 지형 덩어리 — 윗면·바닥·건물이 지반 높이에 서고, 범위 옆면(block)·등고선(contours)을 더한다.
+    건물은 범위 링으로 자른다(3D와 같다).
+    ponytail: 건물 순서는 발자국 bbox 중심 깊이 — 긴 건물과 붙은 작은 건물은 가끔 앞뒤가 틀린다. 문제가 되면 면 단위 깊이 정렬(BSP)로.
+    ponytail: 지형이 자기를 가리지 않는다고 본다(시점 반대로 35° 넘는 비탈이 없음) — 산 뒤 도로·등고선이 비친다. 문제가 되면 삼각형 깊이 정렬로."""
     cache_key = ("axo", view, tuple(box), tuple(data.paper_mm))
     if cache_key in data.cache:
         return data.cache[cache_key]
@@ -1254,24 +1234,42 @@ def get_axo_scene(data, view, box):
         extent = [(b[0], b[1]), (b[2], b[1]), (b[2], b[3]), (b[0], b[3])]
     ext_bounds = _get_ring_bounds(extent)
     site_rings = data.site_rings or [part[0] for lot in data.target_lots for part in get_polygon_parts_from_geojson(lot.geometry)]
-    pieces, count = [], 0   # (링들 — 외곽 반시계·구멍 시계, 높이, 대상지 안)
+    clip = non_rhino_utils.get_convex_ring(extent) if data.options.get("clean_edge") and data.terrain_tris else None
+    terrain = non_rhino_utils.TriangleZ(data.terrain_tris) if clip else None
+    ground_z = terrain.get_z if terrain else (lambda x, y: 0.0)
+    pieces, count = [], 0   # (링들 — 외곽 반시계·구멍 시계, 바닥 Z, 높이, 대상지 안)
     for building in data.buildings:
         bx, by = _get_item_center(building)
-        if not (ext_bounds[0] <= bx <= ext_bounds[2] and ext_bounds[1] <= by <= ext_bounds[3] and is_point_in_ring(bx, by, extent)):
+        parts = get_polygon_parts_from_geojson(building.geometry)
+        if clip:   # 경계 정리 — 걸친 동은 잘라 넣고 다 밖인 동만 뺀다
+            parts = non_rhino_utils.get_clipped_parts(parts, clip) if _intersects(_get_item_bounds(building), ext_bounds) else []
+            if not parts:
+                continue
+        elif not (ext_bounds[0] <= bx <= ext_bounds[2] and ext_bounds[1] <= by <= ext_bounds[3] and is_point_in_ring(bx, by, extent)):
             continue
         count += 1
         height = float(getattr(building, "height_m", 0.0) or constants.DEFAULT_BUILDING_HEIGHT_M)
         on_site = any(is_point_in_ring(bx, by, ring) for ring in site_rings)
-        for part in get_polygon_parts_from_geojson(building.geometry):
-            rings = [_get_open_ring(ring, 1 if i == 0 else -1) for i, ring in enumerate(part) if len(ring) >= 4]
+        for part in parts:
+            rings = [_get_open_ring(ring, 1 if i == 0 else -1) for i, ring in enumerate(part) if len(ring) >= 3]
+            rings = [ring for ring in rings if len(ring) >= 3]
             if rings and len(rings[0]) >= 3:
-                pieces.append((rings, height, on_site))
+                base = min(ground_z(x, y) for x, y in rings[0]) if terrain else 0.0   # 3D와 같이 발자국 최저 지반
+                pieces.append((rings, base, height, on_site))
 
     def screen(x, y, z):
         dx, dy = x - cx, y - cy
         return dx * right[0] + dy * right[1], dx * up[0] + dy * up[1] + z * up[2]
 
-    points = [screen(x, y, 0.0) for x, y in extent] + [screen(x, y, h) for rings, h, _ in pieces for x, y in rings[0]]
+    # 지형에 얹는 링 조밀화 간격 — 범위 둘레 ÷ 600(500 m 사각형 3.3 m)
+    drape_step = max(constants.TERRAIN_GRID, sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(extent, extent[1:] + extent[:1])) / 600.0)
+    rim, block_base = [], 0.0
+    if terrain:   # 범위 링 — 윗면 테두리·옆면 윗선
+        rim = [(x, y, ground_z(x, y)) for x, y in non_rhino_utils.get_resampled_ring(extent, drape_step)]
+        inside_tris = [tri for tri in data.terrain_tris if tri[3] != "outside"]
+        block_base = non_rhino_utils.get_block_base(min([p[2] for tri in inside_tris for p in tri[:3]] + [p[2] for p in rim]), extent)
+    points = ([screen(x, y, block_base) for x, y in extent] + [screen(x, y, z) for x, y, z in rim]
+              + [screen(x, y, base + h) for rings, base, h, _ in pieces for x, y in rings[0]])
     xs, ys = [p[0] for p in points], [p[1] for p in points]
     w, h = float(box[0]), float(box[1])
     margin = constants.AXO_MARGIN_MM * get_template_scale(data.paper_mm)
@@ -1285,6 +1283,11 @@ def get_axo_scene(data, view, box):
     def depth(x, y):
         return (x - cx) * toward[0] + (y - cy) * toward[1]
 
+    def draped(ring):   # 바닥 링 → 종이 점. 지형이면 조밀화해 지반에 얹는다
+        if not terrain:
+            return [paper(x, y) for x, y in ring]
+        return [paper(x, y, ground_z(x, y)) for x, y in non_rhino_utils.get_resampled_ring(ring, drape_step)]
+
     ground = {}
     for layer, items in _get_ground_items(data).items():
         ground[layer] = []
@@ -1292,11 +1295,35 @@ def get_axo_scene(data, view, box):
             if not _intersects(_get_item_bounds(item), ext_bounds) or (item.geometry or {}).get("type") not in ("Polygon", "MultiPolygon"):
                 continue
             for part in get_polygon_parts_from_geojson(item.geometry):
-                rings = [[paper(x, y) for x, y in clipped] for clipped in (get_convex_clipped_ring(r, extent) for r in part) if len(clipped) >= 3]
+                rings = [draped(clipped) for clipped in (get_convex_clipped_ring(r, extent) for r in part) if len(clipped) >= 3]
                 if rings:
                     ground[layer].append(rings)
+    block, contours, step = [], [], 0.0
+    if terrain:   # 옆면 — 카메라 쪽 변을 같은 방향(wall_a|wall_b)끼리 이어 면 하나로(변마다 면이면 이음매가 줄무늬로 보인다)
+        kinds = []
+        for (ax, ay, _az), (bx, by, _bz) in zip(rim, rim[1:] + rim[:1]):
+            nx, ny = by - ay, ax - bx   # 바깥 법선(범위 반시계)
+            kinds.append(None if nx * toward[0] + ny * toward[1] <= 0 else "wall_a" if nx * right[0] + ny * right[1] >= 0 else "wall_b")
+        start = next((i for i in range(len(kinds)) if kinds[i] != kinds[i - 1]), 0)   # 방향이 바뀌는 변부터 돌아야 면이 둘로 쪼개지지 않는다
+        run, run_kind = [], None
+        for k in range(len(kinds) + 1):
+            i = (start + k) % len(kinds)
+            kind = kinds[i] if k < len(kinds) else None
+            if kind != run_kind and run:
+                block.append((run_kind, [paper(x, y, block_base) for x, y, _z in run] + [paper(x, y, z) for x, y, z in reversed(run)]))
+                run = []
+            if kind:
+                run = run or [rim[i]]
+                run.append(rim[(i + 1) % len(rim)])
+            run_kind = kind
+        zs = [p[2] for tri in inside_tris for p in tri[:3]]
+        relief = (max(zs) - min(zs)) if zs else 0.0
+        step = next((s_ for s_ in constants.AXO_CONTOUR_STEPS if relief / s_ <= constants.AXO_CONTOUR_MAX), constants.AXO_CONTOUR_STEPS[-1])
+        for a, b in non_rhino_utils.get_contour_segments(inside_tris, step):
+            for piece in non_rhino_utils.get_clipped_lines([a[:2], b[:2]], clip):
+                contours.append(tuple(paper(x, y, a[2]) for x, y in piece))
     faces = []
-    for rings, height, on_site in sorted(pieces, key=lambda piece: depth(*_get_ring_center(piece[0][0]))):
+    for rings, base, height, on_site in sorted(pieces, key=lambda piece: depth(*_get_ring_center(piece[0][0]))):
         walls = []
         for ring in rings:
             for (ax, ay), (bx, by) in zip(ring, ring[1:] + ring[:1]):
@@ -1304,19 +1331,22 @@ def get_axo_scene(data, view, box):
                 if nx * toward[0] + ny * toward[1] <= 0:
                     continue   # 카메라 반대쪽 벽
                 kind = "wall_a" if nx * right[0] + ny * right[1] >= 0 else "wall_b"
-                walls.append((depth((ax + bx) * 0.5, (ay + by) * 0.5), kind, [paper(ax, ay), paper(bx, by), paper(bx, by, height), paper(ax, ay, height)]))
+                walls.append((depth((ax + bx) * 0.5, (ay + by) * 0.5), kind,
+                              [paper(ax, ay, base), paper(bx, by, base), paper(bx, by, base + height), paper(ax, ay, base + height)]))
         walls.sort(key=lambda wall: wall[0])
         faces += [(kind, [quad], on_site) for _depth, kind, quad in walls]
-        faces.append(("roof", [[paper(x, y, height) for x, y in ring] for ring in rings], on_site))
+        faces.append(("roof", [[paper(x, y, base + height) for x, y in ring] for ring in rings], on_site))
     site_xy = _get_ring_center([p for ring in site_rings for p in ring]) if site_rings else (cx, cy)
-    site_top = max([h_ for _, h_, inside in pieces if inside] or [0.0])
+    site_top = max([b_ + h_ for _, b_, h_, inside in pieces if inside] or [ground_z(*site_xy)])
     north_a, north_b = paper(cx, cy), paper(cx, cy + 1.0)
     north = (north_b[0] - north_a[0], north_b[1] - north_a[1])
     norm = math.hypot(*north) or 1.0
-    extent_mm = [paper(x, y) for x, y in extent]
-    scene = {"ground": ground, "site": [[paper(x, y) for x, y in _get_open_ring(ring, 1)] for ring in site_rings], "extent": extent_mm, "faces": faces,
-             "site_pt": paper(site_xy[0], site_xy[1], site_top), "extent_bottom": (sum(p[0] for p in extent_mm) / len(extent_mm), max(p[1] for p in extent_mm)),
-             "north": (north[0] / norm, north[1] / norm), "heights": [h_ for _, h_, _ in pieces], "count": count}
+    extent_mm = [paper(x, y, z) for x, y, z in rim] if terrain else [paper(x, y) for x, y in extent]
+    bottom_mm = [paper(x, y, block_base) for x, y in extent] if terrain else extent_mm
+    scene = {"ground": ground, "site": [draped(_get_open_ring(ring, 1)) for ring in site_rings], "extent": extent_mm, "faces": faces,
+             "site_pt": paper(site_xy[0], site_xy[1], site_top), "extent_bottom": (sum(p[0] for p in bottom_mm) / len(bottom_mm), max(p[1] for p in bottom_mm)),
+             "north": (north[0] / norm, north[1] / norm), "heights": [h_ for _, _b, h_, _ in pieces], "count": count, "block": block, "contours": contours,
+             "block_base": block_base, "contour_step": step}
     data.cache[cache_key] = scene
     return scene
 
@@ -1330,6 +1360,10 @@ def _get_axo_colors(style):
     colors = {(kind, False): color for kind, color in base.items()}
     colors.update({(kind, True): get_mixed_color(color, site, constants.AXO_SITE_TINT) for kind, color in base.items()})
     colors["edge"] = get_mixed_color(building, ink, constants.AXO_EDGE_SHADE)
+    block = style["block"]   # 경계 정리 지형 덩어리 — 옆면은 바닥색을 벽처럼 어둡게, 등고선은 바닥색 쪽 옅은 선
+    colors.update({("block", "wall_a"): get_mixed_color(block, ink, constants.AXO_WALL_SHADE[0] * 2),
+                   ("block", "wall_b"): get_mixed_color(block, ink, constants.AXO_WALL_SHADE[1] * 1.5),
+                   "block_edge": get_mixed_color(block, ink, constants.AXO_EDGE_SHADE), "contour": get_mixed_color(block, ink, constants.AXO_CONTOUR_SHADE)})
     return colors
 
 
@@ -1346,18 +1380,27 @@ def _draw_axo(key, subject, classify_fn, entries, items, data, style, frame, fra
     scene = get_axo_scene(data, style["axo_view"], frame.paper_mm)
     colors = _get_axo_colors(style)
     ls, paper, site = style["line_scale"], style["paper"], style["site"]
-    lines = ['<g id="axo_ground" fill-rule="evenodd">',
-             '<path id="ground" fill="%s" d="%s"/>' % (style["block"], _poly_d([scene["extent"]]))]
+    lines = []
+    if scene["block"]:   # 경계 정리 — 지형 덩어리 옆면(카메라 쪽만)
+        lines.append('<g id="axo_block" stroke="%s" stroke-width="%s" stroke-linejoin="round">' % (colors["block_edge"], _fmt(constants.AXO_LINE_MM * ls)))
+        lines += ['<path fill="%s" d="%s"/>' % (colors[("block", kind)], _poly_d([quad])) for kind, quad in scene["block"]]
+        lines.append("</g>")
+    lines += ['<g id="axo_ground" fill-rule="evenodd">',
+              '<path id="ground" fill="%s" d="%s"/>' % (style["block"], _poly_d([scene["extent"]]))]
     for layer in ("road", "water", "green"):
         lines.append('<g id="ground_%s" fill="%s">' % (layer, style[layer]))
         lines += ['<path d="%s"/>' % _poly_d(polygon) for polygon in scene["ground"][layer]]
         lines.append("</g>")
+    if scene["contours"]:
+        lines.append('<path id="contours" fill="none" stroke="%s" stroke-width="%s" d="%s"/>' % (
+            colors["contour"], _fmt(constants.AXO_LINE_MM * 0.6 * ls), "".join("M%s %sL%s %s" % (_fmt(a[0]), _fmt(a[1]), _fmt(b[0]), _fmt(b[1])) for a, b in scene["contours"])))
     lines.append('<g id="site" fill="%s" fill-opacity="0.35" stroke="%s" stroke-width="%s" stroke-linejoin="round">'
                  % (site, site, _fmt(constants.SHEET_LINE_MM["site"] * ls * 0.6)))
     lines += ['<path d="%s"/>' % _poly_d([ring]) for ring in scene["site"]]
     lines.append("</g>")
-    lines.append('<path id="extent" fill="none" stroke="%s" stroke-width="%s" stroke-dasharray="2 1.2" d="%s"/>'
-                 % (style["extent"], _fmt(constants.SHEET_LINE_MM["extent"] * ls * 1.5), _poly_d([scene["extent"]])))
+    if not scene["block"]:   # 덩어리면 모서리가 곧 범위다
+        lines.append('<path id="extent" fill="none" stroke="%s" stroke-width="%s" stroke-dasharray="2 1.2" d="%s"/>'
+                     % (style["extent"], _fmt(constants.SHEET_LINE_MM["extent"] * ls * 1.5), _poly_d([scene["extent"]])))
     lines.append("</g>")
     lines.append('<g id="theme" stroke="%s" stroke-width="%s" stroke-linejoin="round" fill-rule="evenodd">'
                  % (colors["edge"], _fmt(constants.AXO_LINE_MM * ls)))
@@ -1378,7 +1421,8 @@ def _draw_axo(key, subject, classify_fn, entries, items, data, style, frame, fra
     lines.append("</g>")
     ctx = data.options.get("_ctx")
     if ctx is not None:
-        ctx.update(axo_north=scene["north"], axo_heights=scene["heights"], axo_view=style["axo_view"])
+        ctx.update(axo_north=scene["north"], axo_heights=scene["heights"], axo_view=style["axo_view"],
+                   axo_block=(scene["contour_step"], scene["block_base"]) if scene["block"] else None)
     return lines, {"bld": scene["count"]}, {"bld": float(scene["count"])}, []
 
 
@@ -1601,7 +1645,10 @@ def _get_card_lines(key, data, items, counts, measures, ctx=None):
         lines = [tr("{0} 시점 · 범위 안 건물 {1}동", tr(constants.AXO_VIEWS[ctx.get("axo_view", "se")][0]), fmt0(total_count))]
         if heights:
             lines.append(tr("최고 {0:.0f} m · 평균 {1:.1f} m", max(heights), sum(heights) / len(heights)))
-        lines.append(tr("평행 투상(축척 없음) · 지형은 평탄 가정 · 시점은 도면 스타일에서"))
+        if ctx.get("axo_block"):
+            lines.append(tr("평행 투상(축척 없음) · 지형 실제 높이(과장 없음) · 등고선 {0:g} m · 바닥 표고 {1:g} m", *ctx["axo_block"]))
+        else:
+            lines.append(tr("평행 투상(축척 없음) · 지형은 평탄 가정 · 시점은 도면 스타일에서"))
     elif key == "aerial":
         if total_count:
             lines = [tr("영상 {0}", ctx.get("aerial_attribution", "")), tr("지상 해상도 약 {0:.2f} m/px · 촬영 시기 확인 필요", ctx.get("aerial_m_per_px", 0.0))]
@@ -2160,6 +2207,8 @@ def _get_axo_thumbnail(data, style, frame, rect, px):
         shapes.append(SimpleShape({"type": "Polygon", "coordinates": [[(x, -y) for x, y in ring] for ring in rings]}))
         fills.append(color)
 
+    for kind, quad in scene["block"]:
+        add([quad], colors[("block", kind)])
     add([scene["extent"]], style["block"])
     for layer in ("road", "water", "green"):
         for polygon in scene["ground"][layer]:

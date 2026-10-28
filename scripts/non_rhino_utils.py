@@ -1073,3 +1073,250 @@ def get_stepped_edges(a, b, step):
         if pts[k] != pts[k + 1]:
             out.append(((pts[k][0], pts[k][1], z), (pts[k + 1][0], pts[k + 1][1], z)))
     return out
+
+
+# ═════════════════════════════════════════════════════════
+# 경계 정리(options.clean_edge) — 범위 링으로 자르기·지형 덩어리(옆면·바닥). 3D(Rhino·Blender·SketchUp)와 입체 매스도가 같이 쓴다
+# ═════════════════════════════════════════════════════════
+
+def get_convex_ring(ring):
+    # type: (list) -> list
+    """범위 링 → 볼록이면 반시계·닫힘 점 없는 (x, y) 링, 오목하면 None. 패널 범위(원·사각형)는 늘 볼록이다."""
+    pts = [(float(p[0]), float(p[1])) for p in ring]
+    if len(pts) > 1 and pts[0] == pts[-1]:
+        pts.pop()
+    if len(pts) < 3:
+        return None
+    if get_ring_orientation(pts) < 0:
+        pts.reverse()
+    n = len(pts)
+    for i in range(n):
+        (ax, ay), (bx, by), (cx, cy) = pts[i - 1], pts[i], pts[(i + 1) % n]
+        if (bx - ax) * (cy - by) - (by - ay) * (cx - bx) < -1e-6:
+            return None
+    return pts
+
+
+def get_convex_clipped_ring(ring, clip):
+    # type: (list, list) -> list
+    """링을 볼록 링 clip(반시계, 닫힘 점 없음)으로 자른다 — Sutherland–Hodgman. 출력: 새 링(비면 []).
+    ponytail: 분석 범위가 원·사각형(볼록)이라는 가정. 필지 버퍼처럼 오목한 범위는 오목한 쪽이 조금 덜 잘린다 — 문제가 되면 다각형 불리언으로."""
+    output = [tuple(p[:2]) for p in ring]
+    for (ax, ay), (bx, by) in zip(clip, clip[1:] + clip[:1]):
+        if not output:
+            break
+        inputs, output = output, []
+        side = lambda p: (bx - ax) * (p[1] - ay) - (by - ay) * (p[0] - ax)   # ≥ 0 = 변의 왼쪽(안쪽)
+        prev = inputs[-1]
+        prev_side = side(prev)
+        for cur in inputs:
+            cur_side = side(cur)
+            if (cur_side >= 0) != (prev_side >= 0):
+                t = prev_side / (prev_side - cur_side)
+                output.append((prev[0] + (cur[0] - prev[0]) * t, prev[1] + (cur[1] - prev[1]) * t))
+            if cur_side >= 0:
+                output.append(cur)
+            prev, prev_side = cur, cur_side
+    return output
+
+
+def get_clipped_lines(line, clip):
+    # type: (list, list) -> list
+    """열린 폴리라인 ``[(x, y)]``을 볼록 링 clip(반시계)으로 자른다 — 변마다 Cyrus–Beck.
+    출력: 안쪽 토막 폴리라인 목록(이어지는 변은 한 토막). 다 밖이면 []."""
+    edges = list(zip(clip, clip[1:] + clip[:1]))
+    pieces, current = [], []
+    for a, b in zip(line, line[1:]):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        t0, t1 = 0.0, 1.0
+        for (ax, ay), (bx, by) in edges:
+            ex, ey = bx - ax, by - ay
+            side = ex * (a[1] - ay) - ey * (a[0] - ax)   # t = 0에서 ≥ 0 = 안쪽
+            rate = ex * dy - ey * dx
+            if rate == 0:
+                if side < 0:
+                    t0, t1 = 1.0, 0.0
+                    break
+                continue
+            if rate > 0:
+                t0 = max(t0, -side / rate)
+            else:
+                t1 = min(t1, -side / rate)
+            if t0 > t1:
+                break
+        if t0 > t1:
+            if current:
+                pieces.append(current)
+            current = []
+            continue
+        p, q = (a[0] + dx * t0, a[1] + dy * t0), (a[0] + dx * t1, a[1] + dy * t1)
+        if not (current and t0 == 0.0):
+            if current:
+                pieces.append(current)
+            current = [p]
+        current.append(q)
+        if t1 < 1.0:
+            pieces.append(current)
+            current = []
+    if current:
+        pieces.append(current)
+    return [piece for piece in pieces if len(piece) >= 2]
+
+
+def get_clipped_parts(parts, clip):
+    # type: (list, list) -> list
+    """건물 파트 ``[[외곽, 구멍…]]``을 볼록 링 clip으로 자른다. 다 안이면 그대로, 걸치면 외곽만 잘라 안에 다 든 구멍만 남긴다, 다 밖이면 뺀다.
+    ponytail: 잘린 외곽에 걸친 구멍(중정)은 버린다 — 범위 경계의 중정 건물은 드물다."""
+    def inside(ring):
+        return all(is_point_in_ring(p[0], p[1], clip) for p in ring)
+
+    out = []
+    for part in parts:
+        if not part:
+            continue
+        if inside(part[0]):
+            out.append(part)
+            continue
+        outer = get_convex_clipped_ring(part[0], clip)
+        if len(outer) >= 3 and get_ring_area(outer) > 0.01:
+            out.append([outer] + [hole for hole in part[1:] if inside(hole)])
+    return out
+
+
+def get_block_base(min_z, ring):
+    # type: (float, list) -> float
+    """지형 덩어리 바닥 높이 = 범위 안 최저 지반 − 두께, BLOCK_BASE_SNAP m 단위로 내림.
+    두께 = max(BLOCK_MIN_DEPTH, 범위 짧은 변 × BLOCK_DEPTH_RATIO) — 모형 받침처럼 범위 크기에 비례(500 m 사각형 15 m).
+    해발 0 m를 바닥으로 하면 두께가 대상지 표고에 끌려간다(서울 평지 20 m, 산지 수백 m, 네덜란드 간척지는 음수)."""
+    min_x, min_y, max_x, max_y = get_bbox(ring)
+    depth = max(constants.BLOCK_MIN_DEPTH, min(max_x - min_x, max_y - min_y) * constants.BLOCK_DEPTH_RATIO)
+    snap = constants.BLOCK_BASE_SNAP
+    return math.floor((min_z - depth) / snap) * snap
+
+
+def get_block_skirt(meshes, ring, base_z, tol=1e-3):
+    # type: (list, list, float, float) -> tuple
+    """지형 윗면 메시들의 범위 경계 → 옆면(바닥까지 수직 벽) + 바닥면. 지형이 모형처럼 닫힌 덩어리가 된다.
+
+    입력: meshes ``[(verts, faces)]`` — 범위 링으로 잘린 지형 윗면(분류별, 로컬 m). ring = 같은 좌표의 볼록 링(반시계). base_z = 바닥 높이.
+    처리: 메시마다 한 면에만 속한 변 중 두 끝·가운데가 범위 링 위(tol 안)이고 다른 메시와 겹치지 않는 변 → 그 변에서 base_z까지 4각형(바깥을 본다).
+          윗선 = 윗면 경계 정점 그대로라 틈이 없다. 계단 지형의 수직 변(평면 길이 0)은 건너뛴다.
+          바닥 = 벽 아랫점을 링 중심 둘레 각도순으로 늘어놓은 부채꼴(아래를 본다) — 벽 아랫선과 정점이 같다.
+    출력: ``(verts, faces)`` — 면은 3·4각형. 경계 변이 없으면 ([], []).
+    """
+    n = len(ring)
+    cx, cy = sum(p[0] for p in ring) / n, sum(p[1] for p in ring) / n
+    segments = [(ring[i], ring[(i + 1) % n]) for i in range(n)]
+    inner = min(abs((b[0] - a[0]) * (cy - a[1]) - (b[1] - a[1]) * (cx - a[0])) / (math.hypot(b[0] - a[0], b[1] - a[1]) or 1.0) for a, b in segments)
+    on_ring = {}
+
+    def is_on_ring(x, y):
+        key = (round(x, 6), round(y, 6))
+        hit = on_ring.get(key)
+        if hit is None:
+            hit = False
+            if math.hypot(x - cx, y - cy) > inner - tol:   # 내접원 안은 경계에서 멀다 — 원 범위는 거의 다 여기서 걸러진다
+                for (ax, ay), (bx, by) in segments:
+                    dx, dy = bx - ax, by - ay
+                    t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / ((dx * dx + dy * dy) or 1.0)))
+                    if math.hypot(x - ax - dx * t, y - ay - dy * t) <= tol:
+                        hit = True
+                        break
+            on_ring[key] = hit
+        return hit
+
+    verts, faces, index, bottom = [], [], {}, {}
+
+    def vertex(x, y, z):
+        key = (round(x, 6), round(y, 6), round(z, 6))
+        if key not in index:
+            index[key] = len(verts)
+            verts.append((x, y, z))
+        return index[key]
+
+    candidates = []   # 메시마다 한 면에만 속한 변 중 범위 링 위인 것
+    for mesh_verts, mesh_faces in meshes:
+        edges = {}
+        for face in mesh_faces:
+            for k in range(len(face)):
+                a, b = face[k], face[(k + 1) % len(face)]
+                if a != b:
+                    edges[(min(a, b), max(a, b))] = edges.get((min(a, b), max(a, b)), 0) + 1
+        for (a, b), count in edges.items():
+            p, q = mesh_verts[a], mesh_verts[b]
+            if count == 1 and math.hypot(q[0] - p[0], q[1] - p[1]) >= 1e-6 and is_on_ring(p[0], p[1]) and is_on_ring(q[0], q[1]) \
+                    and is_on_ring((p[0] + q[0]) * 0.5, (p[1] + q[1]) * 0.5):
+                candidates.append((p, q))
+    # 두 메시(지형·도로)가 같이 가진 평면 변은 경계 근처 안쪽 변이다 — 둘 다 벽을 세우면 겹친다(성수 R=300 사각형, 길이 2 mm 변 3개)
+    xy_key = lambda p, q: frozenset(((round(p[0], 4), round(p[1], 4)), (round(q[0], 4), round(q[1], 4))))
+    shared = {}
+    for p, q in candidates:
+        shared[xy_key(p, q)] = shared.get(xy_key(p, q), 0) + 1
+    for p, q in candidates:
+        if shared[xy_key(p, q)] > 1:
+            continue
+        if (q[1] - p[1]) * ((p[0] + q[0]) * 0.5 - cx) - (q[0] - p[0]) * ((p[1] + q[1]) * 0.5 - cy) < 0:
+            p, q = q, p   # 진행 방향 오른쪽 = 바깥
+        faces.append((vertex(p[0], p[1], base_z), vertex(q[0], q[1], base_z), vertex(q[0], q[1], q[2]), vertex(p[0], p[1], p[2])))
+        for x, y in (p[:2], q[:2]):
+            bottom[(round(x, 6), round(y, 6))] = (x, y)
+    if len(bottom) >= 3:
+        center = vertex(cx, cy, base_z)
+        rim = sorted(bottom.values(), key=lambda p: math.atan2(p[1] - cy, p[0] - cx))
+        ids = [vertex(x, y, base_z) for x, y in rim]
+        faces += [(center, ids[(k + 1) % len(ids)], ids[k]) for k in range(len(ids))]
+    return verts, faces
+
+
+class TriangleZ(object):
+    """세계좌표 삼각형 ``[((x,y,z)×3, …)]``의 높이 조회 — 격자 칸에 걸친 삼각형의 무게중심 보간(겹치면 높은 면). 입체 매스도 지형이 쓴다."""
+
+    def __init__(self, tris, cell=20.0):
+        # type: (list, float) -> None
+        self.cell = float(cell)
+        self.cells = {}
+        self.min_z = min((p[2] for tri in tris for p in tri[:3]), default=0.0)
+        for tri in tris:
+            (x0, y0, z0), (x1, y1, z1), (x2, y2, z2) = tri[0], tri[1], tri[2]
+            det = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)
+            if abs(det) < 1e-9:
+                continue
+            item = (x0, y0, z0, x1 - x0, y1 - y0, x2 - x0, y2 - y0, 1.0 / det, z1 - z0, z2 - z0)
+            for i in range(int(math.floor(min(x0, x1, x2) / self.cell)), int(math.floor(max(x0, x1, x2) / self.cell)) + 1):
+                for j in range(int(math.floor(min(y0, y1, y2) / self.cell)), int(math.floor(max(y0, y1, y2) / self.cell)) + 1):
+                    self.cells.setdefault((i, j), []).append(item)
+
+    def get_z(self, x, y):
+        # type: (float, float) -> float
+        """수직 투영 Z. 빗나가면(삼각형 밖) 전체 최저 Z — TIN이 범위보다 넓어 범위 안에서는 거의 없다."""
+        best = None
+        for x0, y0, z0, e1x, e1y, e2x, e2y, inv, dz1, dz2 in self.cells.get((int(math.floor(x / self.cell)), int(math.floor(y / self.cell))), ()):
+            dx, dy = x - x0, y - y0
+            u = (dx * e2y - dy * e2x) * inv
+            v = (e1x * dy - e1y * dx) * inv
+            if u >= -1e-9 and v >= -1e-9 and u + v <= 1.0 + 1e-9:
+                z = z0 + u * dz1 + v * dz2
+                if best is None or z > best:
+                    best = z
+        return self.min_z if best is None else best
+
+
+def get_contour_segments(tris, step):
+    # type: (list, float) -> list
+    """삼각형 ``[((x,y,z)×3, …)]`` → 등고선 토막 ``[((x,y,z), (x,y,z))]`` (step m 간격, 삼각형마다 높이 하나에 토막 하나).
+    정점 z = 높이면 위쪽으로 친다 — 변마다 교차가 0개 또는 2개라 토막이 끊기지 않는다."""
+    out = []
+    for tri in tris:
+        pts = tri[:3]
+        zs = [p[2] for p in pts]
+        for k in range(int(math.floor(min(zs) / step)) + 1, int(math.floor(max(zs) / step)) + 1):
+            level = k * step
+            hits = []
+            for i in range(3):
+                a, b = pts[i], pts[(i + 1) % 3]
+                if (a[2] >= level) != (b[2] >= level):
+                    t = (level - a[2]) / (b[2] - a[2])
+                    hits.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, level))
+            if len(hits) == 2:
+                out.append((hits[0], hits[1]))
+    return out

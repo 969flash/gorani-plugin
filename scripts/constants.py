@@ -599,6 +599,7 @@ CTX_LAYERS = {   # 이름: (RGB)
     "Water": (46, 125, 224), "Roads": (168, 168, 162), "Green": (228, 235, 226), "Rail": (110, 110, 110),
     "Bridges": (150, 150, 150), "Zoning": (200, 120, 40), "QA::cadastre_mismatch": (255, 0, 255), "Ref": (0, 0, 0),
     "Site::ground": (236, 150, 120), "Site::lots": (235, 140, 140), "Terrain::site_flat": (214, 196, 170), "Terrain::site_wall": (150, 140, 128), "Terrain::site_original": (236, 232, 222),
+    "Terrain::block": (200, 192, 180),   # 경계 정리 — 지형 덩어리 옆면·바닥
 }
 # CTX::Zoning 하위 레이어 — overlays theme → 'CTX::Zoning::<이름>::<종류>'. 종류는 용도지역이면 현황도 11 범례 이름, 나머지는 overlay.kind.
 # 색은 현황도 11~13 범례 색(context_baker.get_layer_rgb). 현황도에 없는 theme(건축선 notice_road)은 넣지 않는다.
@@ -729,6 +730,7 @@ PANEL_DEFAULT_OPTIONS = {
     "include_minor_buildings": False,
     "include_zoning": True,   # CTX::Zoning — 용도지역·용도지구·용도구역·도시계획시설·지구단위계획 경계(현황도 11~13의 2D 커브)
     "terrain_vertex_color": False,
+    "clean_edge": False,   # 경계 정리 — 범위 링으로 건물·커브를 자르고 지형을 바닥까지 덩어리로(Terrain::block). 입체 매스도도 지형 덩어리로 그린다
     "terrain_step": 0,   # 지형 표현: 0 = 매끈(TIN), > 0 = 계단형(등고 모형) 단 간격 m — 패널은 1·2·5 m. 국내 원천 등고선은 5 m 간격이라 1·2 m 단은 보간값
     "make_dwg": False,   # 2D 도면(BM::)을 .dwg로도 — CAD 사용자용. 기본 off
     "zoom_after_import": True,
@@ -781,6 +783,11 @@ TERRAIN_GRID = 3.0              # m — 출력 지형 메시 칸(2026-10-10: 들
 TERRAIN_GRID_MAX_FACES = 250000 # 범위 bbox ÷ 칸² 상한 — 넘으면 칸을 키운다(위치 1:5000 용지 4.2×3.0 km → 약 7 m)
 TERRAIN_MARGIN = 20.0           # m — TIN 입력 범위 여유 (범위 bbox ∪ 건물 bbox + 이 값)
 TERRAIN_STEP_SNAP = 1e-4        # m — 계단 지형: 단 경계에서 이만큼 안의 정점은 경계 위로 본다(투영 오차로 생기는 실오라기 면 방지)
+# 경계 정리(options.clean_edge, 2026-10-28) — 지형을 모형 받침처럼 바닥까지 덩어리로. 바닥 = 범위 안 최저 지반 − 두께, 5 m 단위 내림.
+# 해발 0 m 바닥은 버렸다 — 두께가 표고에 끌려간다(서울 평지 20 m·산지 수백 m, 해수면 아래 간척지는 음수)
+BLOCK_DEPTH_RATIO = 0.03        # 두께 = 범위 짧은 변 × 이 값(500 m 사각형 15 m) — 등각 다이어그램에서 받침이 얇은 판으로 읽히는 비율
+BLOCK_MIN_DEPTH = 5.0           # m — 두께 하한(작은 범위)
+BLOCK_BASE_SNAP = 5.0           # m — 바닥 높이를 이 단위로 내림(BASE_M이 읽기 쉬운 값이 되게)
 CLASSIFY_GRID = 50.0            # m — 면 분류용 격자 버킷
 WATER_LIFT = 0.02               # m — 수면 메시를 지형 위로 띄우는 높이
 WATER_EDGE_STEP = 2.0           # m — 수면 경계 조밀화 간격 (TIN 입력, code_map §5.1)
@@ -920,6 +927,9 @@ AXO_MARGIN_MM = 10.0             # 지도 칸 가장자리 여백(A3 기준 — 
 AXO_LINE_MM = 0.12               # 건물 모서리 선(평면 건물선 0.05 mm는 입체에서 묻힌다)
 AXO_WALL_SHADE = (0.12, 0.28)    # 벽 두 방향(화면 오른쪽·왼쪽을 향한 면)을 글자색 쪽으로 섞는 비율 — 지붕은 건물색 그대로
 AXO_EDGE_SHADE = 0.6             # 모서리 선 = 건물색을 글자색 쪽으로 이만큼
+AXO_CONTOUR_STEPS = (1.0, 2.0, 5.0, 10.0, 20.0, 50.0)   # 경계 정리 입체 매스도 등고선 간격 후보 m — 고저차 ÷ 간격이 AXO_CONTOUR_MAX 이하인 첫 값
+AXO_CONTOUR_MAX = 20
+AXO_CONTOUR_SHADE = 0.45         # 등고선 = 바닥색을 글자색 쪽으로 이만큼
 AXO_SITE_TINT = 0.55             # 대상지 안 건물 면을 대상지 색 쪽으로 섞는 비율 — 대상지가 먼저 읽히게
 
 # ── 도면 스타일 (패널 '도면 스타일' 화면 · HOME_DIR/styles/*.json · options.style) ──
