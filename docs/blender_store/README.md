@@ -114,6 +114,10 @@ Blender에 없는 라이브러리 5개(Rhino·scriptcontext·System·Eto.Forms·
 - 확인: python3 단위 시험, Blender 시험(저장소 소스·잘라 낸 패키지 두 판 — `GORANI_BLENDER_PACKAGE=build/blender`), SketchUp 사이드카 시험,
   0.3.7 zip을 격리 Blender 5.2(빈 HOME, --online-mode)에 깔아 파리 R200 생성(GitHub 프랑스 팩 + Overpass + AWS 지형, 155 s).
 
+올림(2026-10-28 낮): 가상 사용자 18명 문제 0건, 설치본 패널 서울·파리 지도 확인(헤드리스 Chrome) → PR #35 main 머지(cc37d9c) → 0.3.7 zip(sha256 dad37367…)·릴리스 노트 →
+아래 답변을 댓글로 달고 상태 Awaiting Review. 쿠키 사본 헤드리스 Chrome(포트 9461 — 9334는 다른 세션이 붙어 탭을 열었다)으로 올리고 사본은 지웠다.
+올리기 양식: 약관 체크는 click + change 이벤트를 내야 [Upload New Version]이 켜진다.
+
 자가 리뷰(별도 에이전트, 2026-10-28)에서 나왔지만 고치지 않은 것 — 심사가 물으면 고친다:
 - 국내 서버 팩 요청에 설치 ID 헤더(`X-UDT-Client`, 하루 한도) — 설명에 적어 둠. 빼려면 서버가 IP로 세야 한다.
 - 생성이 Blender 메인 스레드에서 동기로 돈다 — Overpass가 느리면 Blender 화면이 그동안 멈춘다(브라우저 패널은 진행을 받는다). 심사가 권한 대로 하려면 받기를 subprocess로.
