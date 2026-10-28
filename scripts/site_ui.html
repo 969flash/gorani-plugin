@@ -896,9 +896,10 @@ function updateSummaries() {
   var o = state.options, glob = isGlobal();
   var s = $("s3d_sum");
   if (s) {
-    var p = [o.placement === "world" && !isAbroad(targetCenter()) ? tr("GIS 좌표") : tr("원점(0,0)"), +o.terrain_step ? tr("계단 {0} m", o.terrain_step) : tr("지형 매끈")];
+    // 요약 = 줄 이름 + 고른 칸("지형 매끈하게", "대상지 Surface") — 펼친 화면과 같은 말
+    var p = [o.placement === "world" && !isAbroad(targetCenter()) ? tr("GIS 좌표") : tr("원점(0,0)"), tr("지형") + " " + (+o.terrain_step ? tr("계단 {0} m", o.terrain_step) : tr("매끈하게"))];
     if (o.terrain_block === false) p.push(tr("지형 표면만"));   // 기본(채움)은 요약에 쓰지 않는다
-    if (state.mode === "lots" || state.mode === "area") { if (o.site_output === "mesh") p.push(tr("Surface")); if (o.flatten_site) p.push(tr("평탄화")); }
+    if (state.mode === "lots" || state.mode === "area") { if (o.site_output === "mesh") p.push(tr("대상지") + " " + tr("Surface")); if (o.flatten_site) p.push(tr("평탄화")); }
     if (!glob && !o.include_zoning) p.push(tr("경계선 뺌"));
     s.textContent = p.join(", ");
   }
