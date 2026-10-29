@@ -5,6 +5,7 @@
 SketchUp 쪽 모양: 대상지마다 최상위 그룹 하나('Gorani <대상지명>', 속성 GORANI_LOT_KEY) 안에 레이어(태그 'CTX::Buildings')마다 그룹,
 건물은 동마다 그룹. 좌표는 로컬 m(SketchUp이 인치로 바꾼다) — 실제 좌표 방식은 대상지 그룹을 계산 원점만큼 옮긴다.
 문서 원점은 모델 속성(constants.DOC_ORIGIN_KEYS), 사본은 대상지 그룹 정의를 context.skp로 저장한 것(로컬 좌표, 원점 = context.json origin).
+Rhino 7판(cmd_rhino7 → rhino7_host.cs)도 같은 호출 이름·인자를 받아 이 파일을 그대로 쓴다 — 대상지 그룹 대신 CTX 레이어의 객체, 사본은 context.3dm.
 
     bake(host, items, prepared, lot_key) → [id]         write_ref_and_origin(host, prepared, lot_key) → [id, id]
     save_copy(host, path, ids, timing) → context.skp    import_skp(host, result_dir) → {ok, layers, objects, replaced, text}
@@ -98,10 +99,17 @@ def write_ref_and_origin(host, prepared, lot_key=None):
     return ids
 
 
+def _get_model_file_name():
+    # type: () -> str
+    """사본 파일 이름 — SketchUp은 context.skp, Rhino 7(같은 호출을 쓰는 rhino7_host.cs)은 context.3dm."""
+    import context_builder   # 호스트 판정 — 모듈 수준 import는 순환
+    return constants.HOST_LABELS[context_builder.get_host()]["model"]
+
+
 def save_copy(host, path, names=None, timing=None):
     # type: (object, str, list, dict) -> str
-    """마지막으로 구운 대상지 그룹 정의를 사본 context.skp로 쓴다(path의 파일 이름은 무시하고 같은 폴더). 좌표는 로컬 — 원점은 context.json."""
-    path = os.path.join(os.path.dirname(path), constants.SKETCHUP_MODEL_FILE_NAME)
+    """마지막으로 구운 대상지 그룹 정의를 사본 context.skp(Rhino 7은 context.3dm)로 쓴다(path의 파일 이름은 무시하고 같은 폴더). 좌표는 로컬 — 원점은 context.json."""
+    path = os.path.join(os.path.dirname(path), _get_model_file_name())
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     timing = timing if timing is not None else {}
     t = time.time()
@@ -116,7 +124,7 @@ def import_skp(host, result_dir):
     # type: (object, str) -> dict
     """<result_dir>/context.skp를 모델에 다시 넣는다(blender_baker.import_blend와 같은 규칙). 같은 lot_key 그룹을 먼저 지우고,
     파일 원점(context.json origin) − 모델 원점만큼 옮긴다(차이 > ORIGIN_MAX_OFFSET이면 거부). 모델에 원점이 없으면 파일의 문서 원점을 기록."""
-    path = os.path.join(result_dir, constants.SKETCHUP_MODEL_FILE_NAME)
+    path = os.path.join(result_dir, _get_model_file_name())
     result = {"ok": False, "layers": 0, "objects": 0, "replaced": False, "text": "", "shift": [0.0, 0.0]}
     if not os.path.exists(path):
         result["text"] = tr("파일이 없습니다: {0}", path)
