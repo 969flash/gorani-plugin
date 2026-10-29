@@ -5,6 +5,7 @@
     python3 scripts/dev_deploy.py yak        # build/Gorani-<버전>-rh8_0-any.yak
     python3 scripts/dev_deploy.py blender    # build/blender_repo/gorani-<버전>.zip + index.json(정적 확장 저장소)
     python3 scripts/dev_deploy.py sketchup   # build/bsh_gorani-<버전>.rbz (Extension Warehouse·확장 관리자 설치)
+    python3 scripts/dev_deploy.py rhino7     # build/Gorani-<버전>-rh7_0-mac.yak·-win.yak (Rhino 7 — .NET SDK 필요)
     python3 scripts/dev_deploy.py web        # build/web/ (정적 파일 — 웹사이트 app/에 올린다)
     python3 scripts/dev_deploy.py packs      # build/packs/*.db.xz + manifest.json
     python3 scripts/dev_deploy.py packs --sido 43 --drop   # 시도 하나만 압축하고 원본 DB를 지운다(전국 빌드 흐름)
@@ -25,6 +26,9 @@ sketchup: SketchUp 확장(.rbz = zip) — 뿌리 bsh_gorani.rb(등록) + bsh_gor
      + 로직 .pyc + 패널 HTML·vendor) + python/<플랫폼>/(python-build-standalone 3.12 + numpy·shapely, 플랫폼 셋: mac-arm64·mac-x64·win-x64).
      SketchUp에는 파이썬이 없어 확장이 번들 파이썬으로 사이드카(cmd_sketchup)를 띄운다. 런타임 tar는 build/cache/에 받아 둔다.
      .pyc는 번들 파이썬(3.12)으로 컴파일한다(unchecked-hash — zip이 수정 시각을 2초 단위로 줄여도 다시 컴파일하지 않는다).
+rhino7: Rhino 7판 yak(플랫폼마다 하나 — mac·win) — Gorani.rhp(scripts/rhino7_host.cs를 dotnet으로, RhinoCommon 7.0) + scripts/(SketchUp판과 같은
+     평문 진입 스크립트 + cmd_rhino7.py + 로직 .pyc) + python/<플랫폼>/(SketchUp판과 같은 번들 파이썬). Rhino 7에는 CPython 3이 없어 .rhp가 번들 파이썬으로
+     사이드카(cmd_rhino7)를 띄운다. 같은 버전에 rh8_0-any(yak)와 함께 올리면 PackageManager가 Rhino 버전에 맞는 쪽을 받는다.
 web: 브라우저판 정적 파일 — index.html(scripts/web_app.html) + panel.html(site_ui.html에 vendor 주입, panel_server.get_html) + web_worker.js
      + scripts.zip(로직 원본 .py — 워커가 Pyodide 가상 파일계에 푼다). Pyodide·numpy·shapely·three.js는 CDN에서 받는다(web_worker.js·web_app.html 맨 위).
 packs: data/의 시도별 `<시도>_site.db`·`<시도>_context.db`마다 필지(rtree 제거)·컨텍스트(등고선 제외)·등고선 팩을
@@ -174,7 +178,7 @@ else:
 
 BLENDER_APP = "/Applications/Blender.app/Contents/MacOS/Blender"
 BLENDER_PACKAGE_ID = "gorani"
-BLENDER_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py", "cmd_sketchup.py", "cmd_web.py", "usage_stats.py")    # Rhino 전용(Eto·RhinoCommon·사용 통계), SketchUp 사이드카, 웹판
+BLENDER_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py", "cmd_sketchup.py", "cmd_rhino7.py", "cmd_web.py", "usage_stats.py")    # Rhino 전용(Eto·RhinoCommon·사용 통계), SketchUp·Rhino 7 사이드카, 웹판
 # 확장 심사(2026-10-28): 애드온에는 Blender 코드만 — 다른 프로그램(Rhino·SketchUp) 분기, Blender에 없는 라이브러리 import, 스레드(threading·queue)는 안 된다.
 # 공용 모듈의 그런 구간은 소스에서 `# [blender-cut]` … `# [/blender-cut]` 줄(패널 HTML은 `// [blender-cut]`)로 감싸 두고 패키지에서 뺀다(get_blender_source).
 # 남으면 get_blender_problems가 빌드를 멈춘다. 번역 사전은 다른 프로그램·사용 통계 문구를 뺀다(BLENDER_I18N_DROPPED)
@@ -844,6 +848,22 @@ def _stage_python(python_dir):
     return host_python
 
 
+def _stage_sidecar_scripts(target, host_python, plain_names):
+    # type: (str, str, tuple) -> int
+    """사이드카 판(SketchUp·Rhino 7)의 scripts/ — 평문 진입 스크립트 + UI 에셋 + 로직 .pyc(번들 파이썬 3.12로 컴파일). 컴파일한 모듈 수를 돌려준다."""
+    for name in plain_names + UI_FILE_NAMES:
+        shutil.copyfile(os.path.join(SCRIPTS_DIR, name), os.path.join(target, name))
+    for dir_name in UI_DIR_NAMES:
+        shutil.copytree(os.path.join(SCRIPTS_DIR, dir_name), os.path.join(target, dir_name))
+    names = [n[:-3] for n in sorted(os.listdir(SCRIPTS_DIR)) if n.endswith(".py") and n[:-3] not in SKETCHUP_EXCLUDED_NAMES
+             and n[:-3] != "loader" and not n.startswith(("dev_", "cmd_", "probe_", "server_", "blender_", "web_"))]
+    compile_source = ("import py_compile, sys\nsource, target = sys.argv[1:3]\n"
+                      "for name in sys.argv[3:]:\n"
+                      "    py_compile.compile(source + '/' + name + '.py', cfile=target + '/' + name + '.pyc', dfile=name + '.py', doraise=True, optimize=2)\n")
+    subprocess.run([host_python, "-I", "-c", compile_source, SCRIPTS_DIR, target] + names, check=True)
+    return len(names)
+
+
 def build_sketchup():
     # type: () -> str
     """build/sketchup/에 확장 폴더를 모아 build/bsh_gorani-<버전>.rbz로 묶는다. rbz 경로를 돌려준다."""
@@ -854,16 +874,7 @@ def build_sketchup():
     target = os.path.join(ext_dir, "scripts")
     os.makedirs(target)
     host_python = _stage_python(os.path.join(ext_dir, "python"))
-    for name in SKETCHUP_PLAIN_NAMES + UI_FILE_NAMES:
-        shutil.copyfile(os.path.join(SCRIPTS_DIR, name), os.path.join(target, name))
-    for dir_name in UI_DIR_NAMES:
-        shutil.copytree(os.path.join(SCRIPTS_DIR, dir_name), os.path.join(target, dir_name))
-    names = [n[:-3] for n in sorted(os.listdir(SCRIPTS_DIR)) if n.endswith(".py") and n[:-3] not in SKETCHUP_EXCLUDED_NAMES
-             and n[:-3] != "loader" and not n.startswith(("dev_", "cmd_", "probe_", "server_", "blender_", "web_"))]
-    compile_source = ("import py_compile, sys\nsource, target = sys.argv[1:3]\n"
-                      "for name in sys.argv[3:]:\n"
-                      "    py_compile.compile(source + '/' + name + '.py', cfile=target + '/' + name + '.pyc', dfile=name + '.py', doraise=True, optimize=2)\n")
-    subprocess.run([host_python, "-I", "-c", compile_source, SCRIPTS_DIR, target] + names, check=True)
+    count = _stage_sidecar_scripts(target, host_python, SKETCHUP_PLAIN_NAMES)
     shutil.copyfile(os.path.join(SCRIPTS_DIR, "sketchup_ext.rb"), os.path.join(ext_dir, "main.rb"))
     os.makedirs(os.path.join(ext_dir, "icons"))
     # 도구 막대 아이콘 — Windows는 SVG, macOS는 PNG(SketchUp 맥은 SVG 대신 PDF를 받는다 — PNG는 48 px를 줄여 그린다)
@@ -876,7 +887,7 @@ def build_sketchup():
     with open(os.path.join(work_dir, SKETCHUP_EXT_ID + ".rb"), "w", encoding="utf-8") as f:
         f.write(SKETCHUP_ROOT_SOURCE % {"id": SKETCHUP_EXT_ID, "version": PACKAGE_VERSION, "creator": PUBLISHER["name"],
                                         "year": datetime.date.today().year})
-    print("  로직 모듈 %d개 컴파일" % len(names))
+    print("  로직 모듈 %d개 컴파일" % count)
     rbz = os.path.join(BUILD_DIR, "%s-%s.rbz" % (SKETCHUP_EXT_ID, PACKAGE_VERSION))
     with zipfile.ZipFile(rbz, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
         for folder, _dirs, files in os.walk(work_dir):
@@ -886,11 +897,88 @@ def build_sketchup():
     return rbz
 
 
+# ── rhino7 ──────────────────────────────────────────────
+
+RHINO7_PLATFORMS = {"mac": ("mac-arm64", "mac-x64"), "win": ("win-x64",)}   # yak 배포판 플랫폼 → 번들 파이썬 폴더(SKETCHUP_PLATFORMS)
+RHINO7_PLAIN_NAMES = SKETCHUP_PLAIN_NAMES + ("cmd_rhino7.py",)   # cmd_rhino7이 cmd_sketchup 컨트롤러를 상속한다
+# Rhino 7.0 첫 판의 RhinoCommon — yak은 .rhp가 참조한 RhinoCommon 버전으로 배포판(rh7_0)을 정한다. 더 새 SR로 빌드하면 rh7_<SR>이 되어 그 아래 SR에는 안 보인다
+RHINO7_RHINOCOMMON_VERSION = "7.0.20314.3001"
+RHINO7_CSPROJ = '''<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>%(name)s</AssemblyName>
+    <TargetExt>.rhp</TargetExt>
+    <Version>%(version)s</Version>
+    <LangVersion>latest</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="%(source)s" />
+    <PackageReference Include="RhinoCommon" Version="%(rhinocommon)s" ExcludeAssets="runtime" />
+  </ItemGroup>
+</Project>
+'''
+
+
+def _build_rhino7_plugin(project_dir):
+    # type: (str) -> str
+    """scripts/rhino7_host.cs → Gorani.rhp(net48). dotnet SDK가 없으면 멈춘다. .rhp 경로를 돌려준다."""
+    dotnet = os.path.expanduser("~/.dotnet/dotnet")   # dotnet-install.sh 설치 자리(2026-10-29 이 Mac — /usr/local/share/dotnet은 런타임뿐)
+    dotnet = dotnet if os.path.exists(dotnet) else shutil.which("dotnet")
+    os.makedirs(project_dir)
+    with open(os.path.join(project_dir, PACKAGE_NAME + ".csproj"), "w", encoding="utf-8") as f:
+        f.write(RHINO7_CSPROJ % {"name": PACKAGE_NAME, "version": PACKAGE_VERSION, "source": os.path.join(SCRIPTS_DIR, "rhino7_host.cs"),
+                                 "rhinocommon": RHINO7_RHINOCOMMON_VERSION})
+    output_dir = os.path.join(project_dir, "out")
+    result = subprocess.run([dotnet, "build", "-c", "Release", "-o", output_dir, "-nologo"], cwd=project_dir, capture_output=True, text=True,
+                            env=dict(os.environ, DOTNET_CLI_TELEMETRY_OPTOUT="1"))
+    path = os.path.join(output_dir, PACKAGE_NAME + ".rhp")
+    if result.returncode != 0 or not os.path.exists(path):
+        sys.exit("Rhino 7 플러그인 빌드 실패 — .NET SDK(dotnet)가 필요합니다.\n%s%s" % (result.stdout[-4000:], result.stderr[-2000:]))
+    return path
+
+
+def build_rhino7():
+    # type: () -> list
+    """build/rhino7/에 번들 파이썬·scripts·Gorani.rhp를 한 번 모으고 플랫폼마다(mac·win) yak을 묶는다. yak 경로 목록을 돌려준다."""
+    work_dir = os.path.join(BUILD_DIR, "rhino7")
+    shutil.rmtree(work_dir, ignore_errors=True)
+    python_dir = os.path.join(work_dir, "python")
+    scripts_dir = os.path.join(work_dir, "scripts")
+    os.makedirs(scripts_dir)
+    host_python = _stage_python(python_dir)
+    print("  로직 모듈 %d개 컴파일" % _stage_sidecar_scripts(scripts_dir, host_python, RHINO7_PLAIN_NAMES))
+    plugin = _build_rhino7_plugin(os.path.join(work_dir, "project"))
+    packages = []
+    for platform, folders in RHINO7_PLATFORMS.items():
+        package_dir = os.path.join(work_dir, platform)
+        shutil.copytree(scripts_dir, os.path.join(package_dir, "scripts"))
+        for folder in folders:   # 링크는 원본 내용으로(yak을 푸는 Rhino가 링크를 모른다)
+            shutil.copytree(os.path.join(python_dir, folder), os.path.join(package_dir, "python", folder))
+        shutil.copyfile(plugin, os.path.join(package_dir, PACKAGE_NAME + ".rhp"))
+        shutil.copyfile(os.path.join(BRAND_DIR, "png", "gorani_128.png"), os.path.join(package_dir, "icon.png"))
+        for path in DOC_FILE_NAMES:
+            os.makedirs(os.path.join(package_dir, os.path.dirname(path)), exist_ok=True)
+            shutil.copyfile(os.path.join(ROOT_DIR, path), os.path.join(package_dir, path))
+        with open(os.path.join(package_dir, "manifest.yml"), "w", encoding="utf-8") as f:
+            f.write(YAK_MANIFEST % {"name": PACKAGE_NAME, "version": PACKAGE_VERSION, "author": PUBLISHER["name"],
+                                    "url": WEBSITE_URL, "plugin_id": PLUGIN_ID})
+        result = subprocess.run([os.path.join(RHINO_BIN_DIR, "yak"), "build", "--platform", platform],
+                                cwd=package_dir, capture_output=True, text=True)
+        built = [name for name in os.listdir(package_dir) if name.endswith(".yak")]
+        if result.returncode != 0 or len(built) != 1 or "-rh7_0-" not in built[0]:
+            sys.exit("yak build 실패(rh7_0 배포판이어야 한다)\n%s%s%s" % (built, result.stdout, result.stderr))
+        packages.append(os.path.join(BUILD_DIR, built[0]))
+        shutil.move(os.path.join(package_dir, built[0]), packages[-1])
+    return packages
+
+
 # ── web ─────────────────────────────────────────────────
 
 WEB_DIR = os.path.join(BUILD_DIR, "web")
 WEB_EXCLUDED_PREFIXES = ("dev_", "probe_", "server_", "blender_", "sketchup_")
-WEB_EXCLUDED_NAMES = ("panel_host", "panel_server", "cmd_install", "cmd_blender", "cmd_sketchup")   # Rhino·Blender·SketchUp 연결
+WEB_EXCLUDED_NAMES = ("panel_host", "panel_server", "cmd_install", "cmd_blender", "cmd_sketchup", "cmd_rhino7")   # Rhino·Blender·SketchUp 연결
 
 
 def build_web():
@@ -1692,14 +1780,14 @@ def rebounds():
 
 def main():
     parser = argparse.ArgumentParser(description="Yak 패키지·Blender·SketchUp 확장·웹판·데이터 팩 빌드")
-    parser.add_argument("what", nargs="?", default="all", choices=("all", "smoke", "yak", "blender", "sketchup", "web", "packs", "repack", "upload", "notices", "config", "rebounds", "mirror"))
+    parser.add_argument("what", nargs="?", default="all", choices=("all", "smoke", "yak", "blender", "sketchup", "rhino7", "web", "packs", "repack", "upload", "notices", "config", "rebounds", "mirror"))
     parser.add_argument("--sido", help="packs: 쉼표로 구분한 시도 코드만 (기본 data/에 있는 전부)")
     parser.add_argument("--drop", action="store_true", help="packs: 압축 뒤 원본 시도 DB를 지운다(서울 제외)")
     parser.add_argument("--dirs", help="mirror: 쉼표로 구분한 데이터셋 폴더만(맨 위 = 빈 이름, 예: ',jp') — 기본 전부")
     args = parser.parse_args()
     if args.what in ("all", "yak") and sys.version_info[:2] != (3, 9):
         sys.exit("Rhino 8의 CPython(3.9)과 같은 Python 3.9로 실행해야 .pyc가 호환됩니다. 현재: %d.%d" % sys.version_info[:2])
-    if args.what in ("all", "smoke", "yak", "blender", "sketchup"):   # 배포 전 점검 — 건너뛰는 옵션 없음
+    if args.what in ("all", "smoke", "yak", "blender", "sketchup", "rhino7"):   # 배포 전 점검 — 건너뛰는 옵션 없음
         check_tiles()
         if args.what == "smoke":
             return
@@ -1711,6 +1799,11 @@ def main():
         rbz = build_sketchup()
         print("sketchup: %s (%.0f MB)" % (rbz, os.path.getsize(rbz) / 1e6))
         print("  설치: SketchUp 2022+ 확장 > Extension Manager > Install Extension, 올리기: docs/sketchup_store.md")
+        return
+    if args.what == "rhino7":
+        for path in build_rhino7():
+            print("rhino7: %s (%.0f MB)" % (path, os.path.getsize(path) / 1e6))
+        print("  설치: Rhino 7에 .yak 파일을 끌어다 놓고 다시 켠다. 올리기는 yak과 같은 버전으로 yak push(허락 받은 뒤)")
         return
     if args.what == "web":
         print("web: %s" % build_web())

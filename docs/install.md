@@ -1,11 +1,12 @@
 # 설치
 
-Rhino 8, Blender 4.2 이상, SketchUp 2022 이상. 파이썬·pip 패키지를 따로 깔 필요가 없다(프로그램 내장 파이썬 — SketchUp판은 확장에 든 파이썬).
+Rhino 7·8, Blender 4.2 이상, SketchUp 2022 이상. 파이썬·pip 패키지를 따로 깔 필요가 없다(프로그램 내장 파이썬 — SketchUp판·Rhino 7판은 패키지에 든 파이썬).
 Blender는 아래 [Blender](#blender), SketchUp은 [SketchUp](#sketchup) 절.
 
 ## 1. 플러그인 설치
 
-Rhino 8 명령창에 `PackageManager` → `Gorani` 검색 → 설치 → Rhino를 다시 켠다.
+Rhino 8 명령창에 `PackageManager` → `Gorani` 검색 → 설치 → Rhino를 다시 켠다. Rhino 7도 같다 — PackageManager가 Rhino 7용 판을 골라 받는다.
+Rhino 7판은 패널이 Mac은 Rhino 안 창, Windows는 Edge 창으로 열리고, DWG 저장이 없다.
 
 ## 2. 데이터 받기 (지역마다 처음 한 번)
 
