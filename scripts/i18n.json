@@ -587,12 +587,6 @@
   "ja": "階段状 {0} m",
   "zh": "阶梯 {0} m"
  },
- "매끈": {
-  "en": "Smooth",
-  "es": "Suave",
-  "ja": "滑らか",
-  "zh": "平滑"
- },
  "등고 모형처럼 단마다 평평한 지형": {
   "en": "Flat terraces, like a contour model",
   "es": "Terrazas planas, como una maqueta de curvas de nivel",
@@ -670,12 +664,6 @@
   "es": "Límites de zonificación",
   "ja": "用途地域の境界線",
   "zh": "用途分区边界线"
- },
- "지형 매끈": {
-  "en": "Smooth terrain",
-  "es": "Terreno suave",
-  "ja": "滑らかな地形",
-  "zh": "地形平滑"
  },
  "평탄화": {
   "en": "Flattened",
@@ -5693,24 +5681,6 @@
   "ja": "{0}の屋根高さ",
   "zh": "{0} 屋顶高度"
  },
- "경계 정리": {
-  "en": "Clean edges",
-  "es": "Bordes limpios",
-  "ja": "境界を整える",
-  "zh": "整理边界"
- },
- "범위 경계로 건물·필지·도로를 자르고, 지형을 바닥까지 채운 덩어리로 만듭니다": {
-  "en": "Trims buildings, parcels and roads at the extent edge and turns the terrain into a solid block down to a base.",
-  "es": "Recorta edificios, parcelas y calles en el borde del ámbito y convierte el terreno en un bloque sólido hasta una base.",
-  "ja": "範囲の境界で建物・筆界・道路を切り、地形を底まで埋めた塊にします。",
-  "zh": "在范围边界裁切建筑、地块和道路，并把地形做成填充到底面的实体块。"
- },
- "경계 정리는 원·사각형 범위에서만 됩니다. 이번 범위는 그대로 냈습니다": {
-  "en": "Clean edges works only with circle or rectangle extents. This extent was left as is.",
-  "es": "Bordes limpios solo funciona con ámbitos circulares o rectangulares. Este ámbito se dejó tal cual.",
-  "ja": "境界を整えるのは円・四角形の範囲だけです。この範囲はそのまま出しました。",
-  "zh": "整理边界仅适用于圆形或矩形范围。本次范围保持原样。"
- },
  "평행 투상(축척 없음) · 지형 실제 높이(과장 없음) · 등고선 {0:g} m · 바닥 표고 {1:g} m": {
   "en": "Parallel projection (no scale) · true terrain height (no exaggeration) · contours {0:g} m · base elevation {1:g} m",
   "es": "Proyección paralela (sin escala) · altura real del terreno (sin exageración) · curvas cada {0:g} m · cota de la base {1:g} m",
@@ -5728,5 +5698,47 @@
   "es": "Falló Rhino {0}: {1}",
   "ja": "Rhino {0} に失敗しました: {1}",
   "zh": "Rhino {0} 失败：{1}"
+ },
+ "지형을 바닥까지 채우기": {
+  "en": "Fill terrain to base",
+  "es": "Rellenar terreno hasta la base",
+  "ja": "地形を底まで埋める",
+  "zh": "地形填充到底"
+ },
+ "지형 표면만": {
+  "en": "Terrain surface only",
+  "es": "Solo superficie del terreno",
+  "ja": "地形の表面のみ",
+  "zh": "仅地形表面"
+ },
+ "입체 매스도 지형": {
+  "en": "Massing terrain",
+  "es": "Terreno de la axonometría",
+  "ja": "立体マス図の地形",
+  "zh": "体块轴测图地形"
+ },
+ "지형 덩어리": {
+  "en": "Terrain block",
+  "es": "Bloque de terreno",
+  "ja": "地形の塊",
+  "zh": "地形实体"
+ },
+ "평평하게": {
+  "en": "Flat",
+  "es": "Plano",
+  "ja": "平坦",
+  "zh": "平面"
+ },
+ "범위가 원이나 사각형이 아니라 경계에서 자르지 않았습니다": {
+  "en": "The extent is not a circle or rectangle, so nothing was trimmed at its edge",
+  "es": "El ámbito no es un círculo ni un rectángulo, así que no se recortó en su borde",
+  "ja": "範囲が円や四角形ではないため、境界で切っていません",
+  "zh": "范围不是圆形或矩形，因此未在边界裁切"
+ },
+ "매끈하게": {
+  "en": "Smooth",
+  "es": "Suave",
+  "ja": "滑らか",
+  "zh": "平滑"
  }
 }

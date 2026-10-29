@@ -519,7 +519,7 @@ class AxoSheetTest(unittest.TestCase):
         data = make_data()
         data.features, data.overlays, data.near_lots = [], [], []
         data.buildings = [_building(1, cx, cy - 100, height_m=10.0), _building(2, cx, cy + 100, height_m=20.0)]   # 남동 시점에서 북쪽(2)이 멀다
-        scene = sheet_svg.get_axo_scene(data, "se", (273.0, 273.0))
+        scene = sheet_svg.get_axo_scene(data, "se", (273.0, 273.0), "flat")
         kinds = [kind for kind, _rings, _site in scene["faces"]]
         self.assertEqual((kinds[2], kinds[5], len(kinds)), ("roof", "roof", 6))   # 동마다 보이는 벽 둘(남·동) → 지붕
         self.assertEqual(set(kinds[:2]), {"wall_a", "wall_b"})   # 화면 오른쪽·왼쪽을 향한 벽은 다른 색
@@ -543,24 +543,28 @@ class AxoSheetTest(unittest.TestCase):
         self.assertNotEqual(open(result["path"], encoding="utf-8").read(), se_svg)   # 시점(도면 스타일)이 그림을 바꾼다
 
 
-    def test_clean_edge_terrain_block(self):
+    def test_terrain_block(self):
         cx, cy = CENTER
-        data = make_data(clean_edge=True)
+        data = make_data()
         data.features, data.overlays, data.near_lots = [], [], []
         # 범위(±500 m)를 덮는 비탈 TIN: z = 20 + (x − cx) / 20 → 서쪽 끝 −5 m, 동쪽 끝 45 m
         x0, y0, x1, y1 = cx - 520, cy - 520, cx + 520, cy + 520
         z = lambda x: 20.0 + (x - cx) / 20.0
         data.terrain_tris = [((x0, y0, z(x0)), (x1, y0, z(x1)), (x1, y1, z(x1)), "terrain"), ((x0, y0, z(x0)), (x1, y1, z(x1)), (x0, y1, z(x0)), "terrain")]
         data.buildings = [_building(1, cx + 200, cy, height_m=10.0), _building(2, cx + 498, cy, height_m=10.0), _building(3, cx + 600, cy, height_m=10.0)]
-        scene = sheet_svg.get_axo_scene(data, "se", (273.0, 273.0))
+        scene = sheet_svg.get_axo_scene(data, "se", (273.0, 273.0))   # 기본 = 지형 덩어리
         self.assertEqual(scene["count"], 2)   # 범위 밖 동은 빠지고 경계에 걸친 동은 잘려 남는다
         self.assertEqual({kind for kind, _quad in scene["block"]}, {"wall_a", "wall_b"})   # 남동 시점 — 남·동 옆면
         self.assertTrue(scene["contours"])
-        flat = sheet_svg.get_axo_scene(make_data(), "se", (273.0, 273.0))
-        self.assertEqual((flat["block"], flat["contours"]), ([], []))   # 끄면 지금처럼 평면
+        flat = sheet_svg.get_axo_scene(data, "se", (273.0, 273.0), "flat")
+        self.assertEqual((flat["block"], flat["contours"], flat["count"]), ([], [], 2))   # 평평하게 — 덩어리 없이, 자르기는 그대로
         root = ET.fromstring(sheet_svg.render_sheet(ID["axo"], data)[0])
         self.assertIsNotNone(root.find(".//*[@id='axo_block']"))
         self.assertIsNone(root.find(".//*[@id='extent']"))   # 덩어리면 범위 점선을 따로 긋지 않는다
+        data.options["style"] = {"axo_ground": "flat"}
+        data.cache.clear()
+        root = ET.fromstring(sheet_svg.render_sheet(ID["axo"], data)[0])
+        self.assertIsNone(root.find(".//*[@id='axo_block']"))   # 스타일 axo_ground가 도면을 바꾼다
 
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
