@@ -197,8 +197,13 @@ def _get_prism_mesh(part, origin, base_z, height):
     ext = rg.Extrusion.Create(_get_ring_crv(part[0], origin, base_z), plane, float(height), True)
     if ext is None:
         return None
+    _ok, to_profile = ext.GetProfileTransformation(0.0).TryGetInverse()
     for hole in part[1:]:
-        ext.AddInnerProfile(_get_ring_crv(hole, origin, base_z))
+        # 구멍은 세계 좌표가 아니라 단면 좌표로 받는다 — 그대로 넣으면 Z ≠ 0이라 거절돼 안뜰이 메워졌다
+        # (2026-10-30 Rhino 8 실측, 성수 BLD_ID 929230: 부피 206.3 → 183.2 m³ = 외곽 − 구멍)
+        hole_crv = _get_ring_crv(hole, origin, base_z)
+        hole_crv.Transform(to_profile)
+        ext.AddInnerProfile(hole_crv)
     return rg.Mesh.CreateFromExtrusion(ext, rg.MeshingParameters.Minimal)
 # [/blender-cut]
 

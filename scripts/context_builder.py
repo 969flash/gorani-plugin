@@ -1024,8 +1024,8 @@ def get_sheet_ids(options):
 def get_host():
     # type: () -> str
     """지금 도는 프로그램 이름 — constants.HOST_LABELS의 키."""
-    # [blender-cut] SketchUp 사이드카·웹판 워커는 환경변수(cmd_sketchup·cmd_web), 그 밖에 bpy가 없으면 Rhino(python3 테스트 포함)
-    if os.environ.get(constants.HOST_ENV) in ("sketchup", "web"):
+    # [blender-cut] SketchUp·Rhino 7 사이드카·웹판 워커는 환경변수(cmd_sketchup·cmd_rhino7·cmd_web), 그 밖에 bpy가 없으면 Rhino(python3 테스트 포함)
+    if os.environ.get(constants.HOST_ENV) in ("sketchup", "rhino7", "web"):
         return os.environ[constants.HOST_ENV]
     try:
         import bpy  # noqa: F401
@@ -1039,9 +1039,9 @@ def get_host_modules():
     # type: () -> tuple
     """(지오메트리, 베이커) 모듈. 호스트마다 베이커 함수(get_doc_origin·clear_previous·bake·write_ref_and_origin·save_copy·zoom_to_site)와
     build의 이름이 같다. Blender = mesh_geometry·blender_baker."""
-    # [blender-cut] Rhino = context_geometry·context_baker, SketchUp = mesh_geometry·sketchup_baker(사이드카 → SketchUp 호출), 웹 = mesh_geometry·web_baker(context.glb)
+    # [blender-cut] Rhino = context_geometry·context_baker, SketchUp·Rhino 7 = mesh_geometry·sketchup_baker(사이드카 → 호스트 호출, 이름·인자가 같다), 웹 = mesh_geometry·web_baker(context.glb)
     host = get_host()
-    if host == "sketchup":
+    if host in ("sketchup", "rhino7"):
         import mesh_geometry
         import sketchup_baker
         return mesh_geometry, sketchup_baker

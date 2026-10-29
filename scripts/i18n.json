@@ -5687,6 +5687,18 @@
   "ja": "平行投影(縮尺なし)・地形は実際の高さ(誇張なし)・等高線 {0:g} m・底面標高 {1:g} m",
   "zh": "平行投影(无比例)·地形为真实高度(无夸张)·等高线 {0:g} m·底面高程 {1:g} m"
  },
+ "Rhino가 응답하지 않습니다({0})": {
+  "en": "Rhino did not respond ({0})",
+  "es": "Rhino no respondió ({0})",
+  "ja": "Rhinoが応答しません（{0}）",
+  "zh": "Rhino 没有响应（{0}）"
+ },
+ "Rhino {0} 실패: {1}": {
+  "en": "Rhino {0} failed: {1}",
+  "es": "Falló Rhino {0}: {1}",
+  "ja": "Rhino {0} に失敗しました: {1}",
+  "zh": "Rhino {0} 失败：{1}"
+ },
  "지형을 바닥까지 채우기": {
   "en": "Fill terrain to base",
   "es": "Rellenar terreno hasta la base",

@@ -45,7 +45,7 @@ keys = ("BLD_ID", "PNU", "PNU_SRC", "GRND_FLR", "FLR_SRC", "UGRND_FLR", "HEIGHT_
         "USABILITY", "USEAPR_DAY", "BLD_NM", "STATUS", "DEMOL_DAY")
 z_lo, z_hi, slope = [], [], 0
 for item in items:
-    assert item.layer == "CTX::Buildings" and isinstance(item.geometry, rg.Mesh) and item.geometry.IsValid
+    assert item.layer == "CTX::Buildings" and isinstance(item.geometry, rg.Mesh) and item.geometry.IsValid and item.geometry.IsClosed
     assert tuple(item.attrs.keys()) == keys, item.attrs.keys()
     bb = item.geometry.GetBoundingBox(True)
     z_lo.append(bb.Min.Z)
@@ -57,6 +57,11 @@ result["extrusions"] = {"n": len(items), "base_z": [round(min(z_lo), 2), round(m
 print("extrusions", result["extrusions"])
 tin_bb = tin.GetBoundingBox(True)
 assert tin_bb.Min.Z - 0.01 <= min(z_lo) and max(z_lo) <= tin_bb.Max.Z + 0.01, "base_z가 TIN Z 범위 밖"
+# 안뜰 — 구멍이 빠지면 꽉 찬 덩어리가 된다(_get_prism_mesh 단면 좌표). BLD_ID 929230 = (외곽 54.284 − 구멍 6.073 ㎡) × 3.8 m, 메워지면 206.3
+courtyard = next(item for item in items if item.attrs["BLD_ID"] == "929230")
+result["courtyard_m3"] = round(courtyard.geometry.Volume(), 1)
+print("courtyard 929230 %.1f m3" % result["courtyard_m3"])
+assert abs(result["courtyard_m3"] - 183.2) < 0.5, "안뜰 부피 %.1f (183.2 기대)" % result["courtyard_m3"]
 
 t = time.time()
 curves = context_geometry.build_curves(prepared)
