@@ -123,10 +123,19 @@ class StatsTest(unittest.TestCase):
         app = {"totals": {"users": [10, 20]}, "events": {"panel_open": {"users": [10, 0], "count": [10, 0]},
                                                        "build": {"users": [2, 0], "count": [3, 0]}},
                "dims": {"build.result": [["ok", 7], ["failed", 3]]}}
-        insights = dev_stats.get_insights({"ga": {"apps": {"rhino": app}}, "bucket": {"size": 18, "limit": 20}})
+        yak = {"latest": "0.3.5", "versions": [["0.3.5", "2026-10-22", 18, ["Rhino 8"]]]}
+        insights = dev_stats.get_insights({"ga": {"apps": {"rhino": app}}, "bucket": {"size": 18, "limit": 20}, "yak": yak})
         levels = dict((x["area"], x["level"]) for x in insights)
         self.assertEqual((levels["사용자"], levels["활성화"], levels["품질"], levels["서버"]), ("serious", "warning", "serious", "serious"))
         self.assertEqual(insights[0]["level"], "serious")
+        self.assertEqual(levels["배포"], "warning")   # 최신 판에 Rhino 7판이 없다
+        builds = dev_stats.get_yak_builds({"distributions": [{"rhino_version": "rh7_0", "platform": "mac"}, {"rhino_version": "rh8_0", "platform": "any"},
+                                                             {"rhino_version": "rh7_0", "platform": "win"}]})
+        self.assertEqual(builds, ["Rhino 8", "Rhino 7 win", "Rhino 7 mac"])
+        yak["versions"][0][3] = ["Rhino 8", "Rhino 7 mac"]   # 한 플랫폼만 올렸다
+        self.assertIn("(win)", [x["text"] for x in dev_stats.get_insights({"yak": yak}) if x["area"] == "배포"][0])
+        yak["versions"][0][3] = builds
+        self.assertNotIn("배포", [x["area"] for x in dev_stats.get_insights({"yak": yak})])
 
 
 if __name__ == "__main__":

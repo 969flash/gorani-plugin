@@ -401,7 +401,7 @@ def get_demo_ga(period, labels, exclude_dev=False):
             "daily": {"users": users, "new_users": [int(u * .3) for u in users], "opens": [u * 2 for u in users], "builds": builds,
                       "errors": [int(b * .05 + rand.random()) for b in builds], "build_failed": [int(b * .07) for b in builds]},
             "dims": {"panel_open.version": [["0.3.2", 40 * scale], ["0.3.1", 22 * scale], ["0.2.2", 9 * scale], ["0.1.0", 4 * scale]],
-                     "panel_open.rhino": [["8.24", 30 * scale], ["8.21", 12 * scale], ["8.9", 4 * scale]],
+                     "panel_open.rhino": [["8.24", 30 * scale], ["8.21", 12 * scale], ["7.37", 6 * scale], ["8.9", 4 * scale]],
                      "build.mode": [["lots", 60 * scale], ["point", 31 * scale], ["area", 14 * scale]],
                      "build.result": [["ok", 93 * scale], ["failed", 7 * scale], ["cancelled", 5 * scale]],
                      "build.korea": [["1", int(100 * korea_share * scale)], ["0", int(100 * (1 - korea_share) * scale)]],
@@ -470,12 +470,19 @@ def get_inventory(manifests):
     return [kinds[k] + sums[k] for k in kinds if sums[k][0]]
 
 
+def get_yak_builds(version):
+    # type: (dict) -> list
+    """yak 버전 하나의 배포판 이름 — rh8_0-any → 'Rhino 8', rh7_0-mac → 'Rhino 7 mac'. Rhino 8판과 7판은 같은 버전으로 같이 올린다."""
+    return sorted(("Rhino %s%s" % (d["rhino_version"][2:].split("_")[0], "" if d["platform"] == "any" else " " + d["platform"])
+                   for d in version.get("distributions", [])), reverse=True)
+
+
 def get_yak():
     # type: () -> dict
     versions = _get_json(constants.ADMIN_YAK_VERSIONS_URL)
     package = _get_json(constants.ADMIN_YAK_VERSIONS_URL.replace("/versions/", "/packages/"))
     return {"total": max(sum(v.get("download_count", 0) for v in versions), package.get("download_count", 0)), "latest": package.get("version"),
-            "versions": [[v["version"], v["created_at"][:10], v.get("download_count", 0)] for v in versions]}
+            "versions": [[v["version"], v["created_at"][:10], v.get("download_count", 0), get_yak_builds(v)] for v in versions]}
 
 
 def get_stores():
@@ -686,7 +693,7 @@ def get_insights(stats):
     """
     입력: get_stats 결과.
     처리: CEO·마케팅·운영이 먼저 볼 것을 규칙으로 고른다 — 활성 사용자 변화, 활성화율(패널 연 사람 중 3D 만든 사람), 생성 성공률,
-          오류 급증, 최신 버전 사용률, 해외 비중, 웹 → 설치 의도, 서버 용량·월 전송량, 하루 한도 거절.
+          오류 급증, 최신 버전 사용률, 해외 비중, 웹 → 설치 의도, yak 최신 판의 Rhino 7판 누락, 서버 용량·월 전송량, 하루 한도 거절.
     출력: [{"level": good|warning|serious|info, "area": 영역, "text": 문장, "page": 자세히 볼 화면}] — 나쁜 것 먼저.
     """
     out = []
@@ -735,6 +742,12 @@ def get_insights(stats):
         copied = web["events"].get("copy_command", {}).get("users", [0, 0])[0]
         out.append({"level": "info", "area": "유입", "page": "web",
                     "text": "웹 방문자 %d명 중 %.1f%%가 설치 명령을 복사했습니다" % (web["totals"]["users"][0], 100.0 * copied / web["totals"]["users"][0])})
+    yak = stats.get("yak") or {}
+    latest = [v for v in yak.get("versions", []) if v[0] == yak.get("latest")]
+    missing = [p for p in ("mac", "win") if latest and "Rhino 7 " + p not in latest[0][3]]   # dev_deploy.RHINO7_PLATFORMS
+    if missing:
+        out.append({"level": "warning", "area": "배포", "page": "rhino",
+                    "text": "yak 최신 %s에 Rhino 7판(%s)이 없습니다 — Rhino 7 사용자가 받을 수 없습니다(dev_deploy.py rhino7)" % (latest[0][0], "·".join(missing))})
     bucket = stats.get("bucket")
     if bucket and bucket["size"] >= bucket["limit"] * .65:
         share = bucket["size"] / float(bucket["limit"])

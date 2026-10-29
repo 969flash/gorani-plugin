@@ -633,7 +633,7 @@ var HOSTS = [{ key: "rhino", name: "Rhino", c: "var(--s1)" }, { key: "sketchup",
 var PROGRAMS = HOSTS.concat([{ key: "blender", name: "Blender", c: "var(--s4)" }, { key: "web", name: "웹사이트", c: "var(--s3)" }]);
 var PAGES = {
   overview: ["개요", "프로그램별 다운로드·사용자와 지금 볼 것"],
-  rhino: ["Rhino", "Rhino 8 플러그인 — 다운로드·사용·생성 결과·오류"],
+  rhino: ["Rhino", "Rhino 7·8 플러그인 — 다운로드·사용·생성 결과·오류"],
   sketchup: ["SketchUp", "SketchUp 확장 — 사용 통계에 동의한 사용자만"],
   blender: ["Blender", "Blender 확장 — 스토어 규정상 사용 통계 없음"],
   web: ["웹사이트", "방문에서 설치까지 — 웹 GA·yak"],
@@ -688,11 +688,11 @@ function totalPair(key) { var p = [0, 0]; appsOn().forEach(function (x) { p[0] +
 function hasDim(key) { return appsOn().some(function (x) { return (x.s.dims[key] || []).length; }); }
 function isMissing(param) { return appsOn().some(function (x) { return x.s.missing.indexOf(param) >= 0; }); }
 function waitNote(param) { return isMissing(param) ? param + " 등록 필요" : "등록됨 · 쌓이는 중"; }   // 맞춤 측정기준은 등록한 뒤 이벤트부터 쌓인다
-function dimRows(key, map) {   // 호스트를 합친 [[값, 횟수]] 많은 순. map = 값 → 표시 이름
+function dimRows(key, map) {   // 호스트를 합친 [[값, 횟수]] 많은 순. map = 값 → 표시 이름(사전 또는 함수 — 같은 이름은 합친다)
   var c = {}, order = [];
   appsOn().forEach(function (x) {
     (x.s.dims[key] || []).forEach(function (r) {
-      var k = map ? (map[r[0]] || r[0]) : r[0];
+      var k = !map ? r[0] : typeof map === "function" ? map(r[0]) : map[r[0]] || r[0];
       if (!(k in c)) { c[k] = 0; order.push(k); }
       c[k] += r[1];
     });
@@ -1034,12 +1034,13 @@ function renderProgram() {
     ["범위 반경", "생성 횟수", "build.radius", { label: function (v) { return v + " m"; }, color: c }],
     ["결과 좌표", "생성 횟수", "build.placement", { map: LABELS.placement, share: true }],
     [key === "rhino" ? "Rhino 버전" : "SketchUp 버전", "패널 열기", key === "rhino" ? "panel_open.rhino" : "panel_open.host", { color: c }],
+    key === "rhino" && ["Rhino 7 · 8", "패널 열기", "panel_open.rhino", { map: function (v) { return "Rhino " + String(v).split(".")[0]; }, share: true }],   // Rhino 7판도 같은 rhino 키(7.x)
     ["3D를 만든 시군구", "PNU 기준", "build.region", { color: c }],
     ["지역 데이터 받기", "받은 횟수", "pack_download.packs", { color: c }],
     ["실패 원인", "build 오류 코드", "build.error", { color: "var(--critical)" }],
     ["오류가 난 곳", "error 이벤트", "error.context", { map: LABELS.context, color: "var(--critical)" }],
     ["오류 종류", "예외 이름", "error.error", { color: "var(--critical)" }]
-  ], filled = [], waiting = [];
+  ].filter(Boolean), filled = [], waiting = [];
   items.forEach(function (it) {
     var rows = typeof it[2] === "string" ? dimRows(it[2], it[3].map) : it[2];
     if (rows.length) filled.push(card(4, it[0], it[1], it[3].share ? shareBar(rows, it[3]) : barList(rows, it[3])));
@@ -1111,7 +1112,7 @@ function funnelSteps() {
 }
 function yakVersions() {
   var y = D.yak;
-  return card(6, "yak 버전별 다운로드", "Rhino 패키지 서버 공개 숫자", y ? table(["버전", "올린 날", "다운로드"], y.versions.map(function (v) { return [esc(v[0]) + (v[0] === D.latest_version ? " <small>(최신)</small>" : ""), esc(v[1]), fmtNum(v[2])]; }), [2]) +
+  return card(6, "yak 버전별 다운로드", "Rhino 패키지 서버 공개 숫자", y ? table(["버전", "올린 날", "배포판", "다운로드"], y.versions.map(function (v) { return [esc(v[0]) + (v[0] === D.latest_version ? " <small>(최신)</small>" : ""), esc(v[1]), esc((v[3] || []).join(" · ")), fmtNum(v[2])]; }), [3]) +
     '<p class="note">yak은 버전별 숫자를 늦게 세거나 0으로 둘 때가 있습니다 — 패키지 전체 누적(' + fmtNum(y.total) + ")을 기준으로 보세요.</p>" : empty("yak에 연결하지 못했습니다"));
 }
 

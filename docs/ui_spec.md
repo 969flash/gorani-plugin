@@ -2,7 +2,7 @@
 
 - 2026-10-19 개편. 사용자 시험 피드백(대상지·범위·옵션·결과 4단계가 길고, 범위 형태가 방식마다 다르고, 옵션·자료 상태·신뢰도가 이해되지 않음)을 반영해 **2화면(지도 → 결과)**으로 다시 짰다. 옛 4단계 스펙은 git 기록에 있다.
 - 구현 계약(명령·푸시·상태)은 `docs/panel_ui.md`가 원본이다. 이 문서는 화면·행동·문안을 정한다. 시각 토큰은 `DESIGN.md`.
-- 제약: Eto WebView 1장(480×900, 리사이즈 가능, 도킹 불가) · 단일 HTML + 바닐라 JS · Leaflet·Pretendard 인라인 · 같은 HTML을 Blender(브라우저)·SketchUp(HtmlDialog)도 쓴다.
+- 제약: Eto WebView 1장(480×900, 리사이즈 가능, 도킹 불가) · 단일 HTML + 바닐라 JS · Leaflet·Pretendard 인라인 · 같은 HTML을 Blender(브라우저)·SketchUp(HtmlDialog)·Rhino 7(Mac Eto WebView·Windows Edge 앱 창)도 쓴다.
 
 ## 1. 원칙
 

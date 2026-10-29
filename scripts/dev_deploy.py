@@ -81,6 +81,7 @@ PUBLISHER = {"name": "sanghoon", "email": "bsh969flash@gmail.com"}
 WEBSITE_URL = "https://969flash.github.io/gorani/en/"   # PackageManager 링크 — 영어 페이지(한국어 페이지는 거기서 링크, food4Rhino 심사 2026-10-21)
 # yak manifest — rhinocode가 쓰는 manifest.yml은 url·검색어가 비고 버전에 +빌드번호가 붙는다. PackageManager 목록·검색에 보일 내용으로 갈아 쓴다.
 # 설명은 영어를 먼저 쓴다(food4Rhino 심사 2026-10-21 — 영어가 없으면 올릴 수 없다).
+# Rhino 8판(build_yak)·Rhino 7판(build_rhino7)이 같이 쓴다 — yak 서버는 버전마다 설명이 하나다. Rhino 7판에 없는 것은 '(Rhino 8)'을 붙인다.
 # PackageManager 검색은 이름·설명·검색어를 다 본다(2026-10-19 yak search 실측 — 'terrain'·'roads'가 설명만으로 걸림). 설명은 쉬운 말로, 사람들이 찾을 낱말을 넣는다.
 # guid: 검색어는 지우지 말 것 — Rhino가 이 플러그인 id로 패키지를 찾는다. 검색어는 영문·숫자·-·_만(공백이면 yak push가 400).
 YAK_MANIFEST = '''name: %(name)s
@@ -89,7 +90,8 @@ authors:
 - %(author)s
 description: |-
   The city around your site, modeled in Rhino.
-  It's free. The panel is in English, Korean, Spanish, Japanese and Chinese.
+  It's free. Works in Rhino 7 and 8.
+  The panel is in English, Korean, Spanish, Japanese and Chinese.
 
   How to use
   1. Restart Rhino after installing.
@@ -98,10 +100,11 @@ description: |-
 
   What you get
   - 3D: buildings, roads, terrain, rivers, parks and railways on separate layers
-  - 2D: Illustrator basemap, urban analysis maps, DWG, CSV tables
+  - 2D: Illustrator basemap, urban analysis maps, DWG (Rhino 8), CSV tables
   - Data: Korea nationwide; official building data with heights where available (Japan, Netherlands, France, Switzerland, United States and more — the list grows without plugin updates, see the website); elsewhere OpenStreetMap
 
   한 번에 쉽게 하는 사이트 모델링 및 사이트 분석
+  라이노 7과 8에서 씁니다.
   패널 언어는 위쪽 언어 버튼에서 한국어로 바꿀 수 있습니다.
 
   사용 방법
@@ -111,7 +114,7 @@ description: |-
 
   결과물
   - 3D: 건물 매스, 도로, 지형, 하천, 녹지, 철도 (레이어별)
-  - 2D: 일러스트레이터 베이스맵, 현황도·분석도, DWG, 조서 CSV
+  - 2D: 일러스트레이터 베이스맵, 현황도·분석도, DWG(라이노 8), 조서 CSV
   - 데이터: 국내 전국, 공식 건물 데이터(높이 포함)가 있는 나라는 그것(일본·네덜란드·프랑스·스위스·미국 등 — 플러그인 업데이트 없이 늘어납니다, 웹사이트 참고), 그 밖은 OpenStreetMap
 license: MIT
 url: %(url)s
@@ -1829,6 +1832,7 @@ def main():
         return
     if args.what in ("all", "yak"):
         print("yak: %s" % build_yak())
+        print("  Rhino 7판(dev_deploy.py rhino7)도 같은 버전으로 같이 올린다 — 한쪽만 올리면 다른 쪽 사용자는 업데이트 안내만 받고 받을 판이 없다")
     if args.what in ("all", "packs"):
         manifest_path = build_packs(args.sido.split(",") if args.sido else None, args.drop)
         print("packs: %s" % manifest_path)
