@@ -2123,12 +2123,6 @@
   "ja": "非表示",
   "zh": "已关闭"
  },
- "아직 없습니다. 필지로 만들면 여기에 남습니다": {
-  "en": "Nothing yet. Sites made from parcels appear here",
-  "es": "Aún no hay nada. Los sitios creados con parcelas aparecen aquí",
-  "ja": "まだありません。区画で作成すると、ここに残ります",
-  "zh": "暂无记录。用地块方式生成后会显示在这里"
- },
  "설정": {
   "en": "Settings",
   "es": "Ajustes",
