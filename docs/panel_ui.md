@@ -117,14 +117,14 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 
 `level` 규칙(data_sources §2.4): `warn` = 경과 ≥ 노랑 임계 AND `newer_date` 있음, `danger` = 경과 ≥ 빨강 임계(새 판 무관), `missing` = 원천 없음(컨텍스트 DB 없음·키 없음), 그 외 `ok`. 생성은 어느 경우도 막지 않는다.
 
-### 브라우저 호스트 (Blender·SketchUp)
+### 브라우저 호스트 (Blender·SketchUp·Rhino 7)
 
-Blender·SketchUp에는 Rhino식 웹뷰 브리지가 없어 `panel_server.Bridge`가 127.0.0.1에 서버를 띄우고 `/?token=<세션 토큰>`을 연다 —
-Blender는 기본 브라우저(`cmd_blender.py`), SketchUp은 `UI::HtmlDialog`(`sketchup_ext.rb`가 사이드카 `cmd_sketchup.py`의 첫 줄 주소를 연다). JS는 URL에 토큰이 있으면
+Blender·SketchUp·Rhino 7에는 Rhino 8식 웹뷰 브리지가 없어 `panel_server.Bridge`가 127.0.0.1에 서버를 띄우고 `/?token=<세션 토큰>`을 연다 —
+Blender는 기본 브라우저(`cmd_blender.py`), SketchUp은 `UI::HtmlDialog`(`sketchup_ext.rb`가 사이드카 `cmd_sketchup.py`의 첫 줄 주소를 연다), Rhino 7은 Mac = Eto WebView·Windows = Edge 앱 창(`rhino7_host.cs`가 사이드카 `cmd_rhino7.py`의 첫 줄 주소를 연다 — Rhino 7 Windows 웹뷰는 IE). JS는 URL에 토큰이 있으면
 `send()`를 `POST cmd?token=…`(본문 = 명령 JSON)으로, 푸시는 `EventSource("events?token=…")`의 `data:` 한 줄(= 푸시 JSON)로 받는다.
 이벤트 줄이 열린 뒤(`onopen`) `init`을 보낸다 — 다시 연결돼도 init으로 전부 다시 받는다. 새 이벤트 줄이 열리면 앞 줄로는 보내지 않는다(탭 하나) —
 앞 줄에는 마지막으로 `{"type":"superseded"}`를 보내고, 그 탭은 이벤트 줄을 닫고(다시 붙지 않음) '새 탭에서 열렸습니다' + [이 탭에서 계속](새로 고침)만 보인다.
-명령은 호스트 메인 스레드(Blender = bpy.app.timers, SketchUp 사이드카 = 메인 루프)에서 처리하고, `cancel`·`host_reply`만 바로 받는다(SketchUp = 서버 스레드, Blender = 스레드 없이 메인 스레드 `poll` — 생성 중에는 진행 콜백이 `poll`을 불러 cancel·새 탭을 받는다). 토큰이 틀리면 403.
+명령은 호스트 메인 스레드(Blender = bpy.app.timers, SketchUp·Rhino 7 사이드카 = 메인 루프)에서 처리하고, `cancel`·`host_reply`만 바로 받는다(SketchUp = 서버 스레드 — Rhino 7의 `host_reply`는 stdin을 읽는 스레드, Blender = 스레드 없이 메인 스레드 `poll` — 생성 중에는 진행 콜백이 `poll`을 불러 cancel·새 탭을 받는다). 토큰이 틀리면 403.
 Blender판 `init_state.host`는 `ask_stats:false`(통계 없음)·`aerial:false`(`tile`의 영상 주소가 비고 [위성]·항공사진 도면 없음)·`update_notice:false`(`update` 늘 null)·`ip_center:false`(`map`은 늘 서울시청)다.
 
 SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지지 못해 패널을 거쳐 Ruby를 부른다(엔진 `run`은 응답을 기다리며 막혀 있다):
@@ -137,6 +137,8 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 `method` = `get_model_attrs{keys}`·`set_model_attrs{values}`·`clear{lot_key}`·`bake{path}`·`ref{…}`·`save{path}`·`zoom{lot_key, box, min_span}`·`import{path, lot_key, lot_name, shift}`·`pick_curve{}`
 (`sketchup_baker`·`cmd_sketchup`이 부르고 `sketchup_ext.rb`의 `rpc_<method>`가 받는다). `window.sketchup`이 없는 창(일반 브라우저)이면 무시한다 — 사이드카는 `SKETCHUP_HOST_TIMEOUT` 뒤 실패. 패널 창을 닫으면 Ruby가 사이드카 stdin으로 `{"cmd":"panel_closed"}`를 보내 생성 중이면 취소하고, 기다리던 호출은 바로 실패한다(다시 연 패널의 init이 막히지 않게).
 
+Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드카 stdout 한 줄(`{"type":"host_call",…}`)로 쓰고, `rhino7_host.cs`가 stdin 한 줄(`{"cmd":"host_reply",…}`)로 답한다(Edge 창은 Rhino에 닿지 못한다). 베이커는 `sketchup_baker` 그대로이고 사본만 `context.3dm`이다. Mac 패널 창을 닫으면 stdin `panel_closed`, Rhino가 끝나면 stdin EOF로 사이드카도 끝난다.
+
 ### 푸시 정의
 
 ```jsonc
@@ -145,7 +147,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
  "blocked":false,                                 // true = 필지 DB 없음 → 블로커(차단은 이것뿐. 컨텍스트 DB 없음은 경고)
  "paths":{"root":"<HOME_DIR>","lot_db":"data/seoul_site.db","context_db":"data/seoul_context.db","env":".env","install_doc":"docs/install.md"},
  "generator":{"ok":true,"python":"Rhino Python","text":"Rhino 내장"},   // 항상 ok. UI 호환용(블로커 3행째는 ✓ 고정). Blender면 "Blender …"
- "host":{"id":"rhino","name":"Rhino","doc":"Rhino 문서","model":"context.3dm","dwg":true,"ask_stats":false},   // constants.HOST_LABELS — 패널 문구(문서 이름·모델 파일)와 DWG 옵션 표시. Blender = {"id":"blender","name":"Blender","doc":"Blender 장면","model":"context.blend","dwg":false,"ask_stats":true}, SketchUp = {"id":"sketchup",…,"model":"context.skp","dwg":false,"ask_stats":true}
+ "host":{"id":"rhino","name":"Rhino","doc":"Rhino 문서","model":"context.3dm","dwg":true,"ask_stats":false},   // constants.HOST_LABELS — 패널 문구(문서 이름·모델 파일)와 DWG 옵션 표시. Blender = {"id":"blender","name":"Blender","doc":"Blender 장면","model":"context.blend","dwg":false,"ask_stats":true}, SketchUp = {"id":"sketchup",…,"model":"context.skp","dwg":false,"ask_stats":true}, Rhino 7 = Rhino와 같고 `"dwg":false`
  "output_langs":[["ko","한국어"],["en","English"]],   // constants.OUTPUT_LANGS — 메뉴 '결과 언어' 칸
  "links":{"website":"https://969flash.github.io/gorani/"},   // constants.PANEL_LINKS — 메뉴 '웹페이지' 줄이 주소를 링크로 보여 주고, 누르면 open_url{key}
  "stats_consent":null,                            // 사용 통계 동의 true|false|null(안 물음) — host.ask_stats(Blender + 측정 ID 있음)면 null일 때 정보 띠로 한 번 묻고([보내기]·[보내지 않음] → stats_consent{on}), 더보기 메뉴 설정에서 바꾼다
@@ -484,7 +486,7 @@ GA4 Measurement Protocol로 데몬 스레드에서 보내고 실패는 버린다
 
 | 이벤트 | 보내는 곳 | 매개변수 |
 |---|---|---|
-| `panel_open` | 첫 `init` | `version`·`rhino`·`has_lot_db`·`packs`(받은 시군구 필지 팩 수) |
+| `panel_open` | 첫 `init` | `version`·`rhino`(Rhino 버전 — Rhino 7판도 이 키, 7.x) 또는 `host`(SketchUp `sketchup <버전>`)·`has_lot_db`·`packs`(받은 시군구 필지 팩 수) |
 | `build` | `generate` 끝(성공·실패·취소) | `mode`·`lng`·`lat`·`korea` + 필지 `pnus`·`pnus_2`…(5개씩 최대 20필지)·`lot_count`·`area` / 구역 `area`·`width`·`height`(링은 보내지 않는다) + `result`·`error`·`elapsed_s`·`radius`·`shape`·`placement`·`buildings` |
 | `pack_download` | `download_data` 끝 | `packs`(시군구 코드)·`count`·`requested` |
 | `error` | `_guard`의 예상 밖 예외 | `context`·`error`(예외 타입명) |

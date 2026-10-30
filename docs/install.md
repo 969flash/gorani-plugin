@@ -34,7 +34,7 @@ Rhino 7판은 패널이 Mac은 Rhino 안 창, Windows는 Edge 창으로 열리�
 - [받기]가 멈췄다: 다시 누르면 남은 팩만 받는다.
 - 해외 생성이 실패: OSM 서버(Overpass)가 붐빌 때가 있다 — 잠시 뒤 다시.
 - .ai를 열 때 '레거시 텍스트 업데이트'를 묻는다: 업데이트하지 않아도 한글은 보인다.
-- 로그: 결과 폴더 `log.txt`, 패널 진단 `임시폴더/gorani_panel_debug.log`.
+- 로그: 결과 폴더 `log.txt`, 패널 진단 `임시폴더/gorani_panel_debug.log`. Rhino 7판은 계산 쪽 기록 `~/Gorani/rhino7_sidecar.log`도 본다.
 
 ## Blender
 

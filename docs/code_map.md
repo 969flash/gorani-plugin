@@ -281,7 +281,7 @@ def get_progress_message(phase, fraction, text, skipped, details):
 
 ### 5.x Blender판 (`mesh_geometry`·`blender_baker`, 2026-10-15 — 2026-10-18 `blender_geometry` → `mesh_geometry`로 이름을 바꿔 SketchUp판과 함께 쓴다)
 
-`context_builder.run`은 `get_host_modules()`로 지오메트리·베이커 쌍을 고른다(bpy가 있으면 Blender, 환경변수 `GORANI_HOST=sketchup`이면 SketchUp). 규칙은 위와 같고 방법만 다르다.
+`context_builder.run`은 `get_host_modules()`로 지오메트리·베이커 쌍을 고른다(bpy가 있으면 Blender, 환경변수 `GORANI_HOST=sketchup`이면 SketchUp, `rhino7`이면 Rhino 7판 — SketchUp과 같은 쌍). 규칙은 위와 같고 방법만 다르다.
 
 - 지형: TIN = `mathutils.geometry.delaunay_2d_cdt`(볼록 껍질). 면 분할 대신 범위 링·분류 폴리곤 링(외곽·구멍)·대상지 링을 **제약 면**으로, TIN 점을 내부 정점으로 CDT 한 번 → 삼각형마다 품은 링 목록(`orig_faces`)으로 분류(외곽 안 + 같은 파트 구멍 밖, 우선순위 앞이 이김) → 정점 Z = TIN `BVHTree.ray_cast`(빗나가면 최근접 정점). 쿼드 격자가 아니라 TIN 점 + 경계 정점 삼각형이다. 성수 R=500 TIN 0.04 s·분류 CDT 0.06 s.
 - 건물: 발자국 정점 수직 투영 최저 Z, 뚜껑은 `tessellate_polygon`(구멍 포함). 동마다 객체 대신 **메시 하나 + 면 속성** `building_id`·`height`·`floors`(수천 객체는 Blender가 느리다).
@@ -309,6 +309,17 @@ SketchUp(Ruby, sketchup_ext.rb = bsh_gorani/main.rb)            사이드카(번
 - 사본: 대상지 그룹 정의 `save_copy` → `context.skp`(로컬 좌표, 원점 = context.json `origin`). 다시 넣기는 `definitions.load` + 원점 차이만큼 옮긴 인스턴스.
 - 사이드카는 `-B`(확장 폴더에 `__pycache__`를 쓰면 서명 파일 목록이 바뀐다), stdout 첫 줄만 주소·그 뒤는 stderr = `~/Gorani/sketchup_sidecar.log`, stdin 한 줄은 Ruby 알림(패널 닫힘 `panel_closed` → Rhino 창 닫기처럼 생성 취소, 기다리던 host_call은 바로 실패), stdin EOF(SketchUp 종료)에 끝난다. 응답 없는 host_call은 `SKETCHUP_HOST_TIMEOUT` 뒤 실패.
 - 배포: `dev_deploy.py sketchup` → `build/bsh_gorani-<버전>.rbz`(약 90 MB — 런타임 셋, numpy OpenBLAS가 절반). 올리기는 `docs/sketchup_store.md`.
+
+### 5.w Rhino 7판 (`cmd_rhino7`·`rhino7_host.cs` + SketchUp판 사이드카, 2026-10-30)
+
+Rhino 7에는 CPython 3이 없다(IronPython 2.7). 엔진은 SketchUp판 사이드카(번들 파이썬·`mesh_geometry`·`sketchup_baker`)를 그대로 쓰고 호스트만 C#(`Gorani.rhp`, net48·RhinoCommon 7.0)으로 붙인다.
+
+- 호출 길: SketchUp은 패널을 거쳐 Ruby를 부르지만, Rhino 7은 사이드카 stdout 한 줄(`host_call`)·stdin 한 줄(`host_reply`·`panel_closed`)로 바로 부른다(Windows 패널은 Edge 앱 창이라 Rhino에 닿는 다리가 없다). 호출 이름·인자는 `sketchup_ext.rb`의 `rpc_*`와 같다.
+- 패널: Mac = Rhino 안 Eto WebView, Windows = Edge `--app` 창(Rhino 7 Windows 웹뷰는 IE). 둘 다 `panel_server` 주소를 연다. `init_state.host` = `HOST_LABELS["rhino7"]`(id `rhino` — 패널 문구는 Rhino, DWG 없음, 커브 고르기 프롬프트 없이 미리 고른 커브만).
+- 문서 모양은 Rhino 8판과 같다 — CTX 레이어·UserString·동별 닫힌 Mesh·`doc.Strings` 원점, 사본 `context.3dm`. RhinoCommon 7.0에는 `Mesh.CreateFromExtrusion`이 없어 Extrusion → `ToBrep(true)` + SimplePlanes, 안뜰 구멍은 단면 좌표(`GetProfileTransformation` 역변환)로 넣는다.
+- 사용 통계: Rhino 속성(`GA_STREAMS["rhino7"]` = rhino)에 `panel_open.rhino` = Rhino 버전(7.x) — 관리자 대시보드 [Rhino]의 'Rhino 7 · 8'이 앞자리로 가른다. 끄는 설정 없음(Rhino 8판과 같다).
+- 배포: `dev_deploy.py rhino7`(.NET SDK) → `rh7_0-mac`·`rh7_0-win` yak. Rhino 8판(`rh8_0-any`)과 늘 같은 버전으로 같이 올린다 — 한쪽만 올리면 매니페스트 업데이트 안내가 받을 수 없는 판을 권한다. 대시보드 yak 표에 버전마다 배포판이 보이고, 최신 판에 Rhino 7판이 없으면 개요에 경고가 뜬다.
+- 시험: `tests/test_rhino7.py`(번들 파이썬 — 가짜 Rhino가 줄 약속으로 답한다). C# 쪽은 Rhino 7 안에서만(2026-10-30 Mac 7.37 실측, Windows 미확인).
 
 ---
 
