@@ -587,12 +587,6 @@
   "ja": "階段状 {0} m",
   "zh": "阶梯 {0} m"
  },
- "매끈": {
-  "en": "Smooth",
-  "es": "Suave",
-  "ja": "滑らか",
-  "zh": "平滑"
- },
  "등고 모형처럼 단마다 평평한 지형": {
   "en": "Flat terraces, like a contour model",
   "es": "Terrazas planas, como una maqueta de curvas de nivel",
@@ -670,12 +664,6 @@
   "es": "Límites de zonificación",
   "ja": "用途地域の境界線",
   "zh": "用途分区边界线"
- },
- "지형 매끈": {
-  "en": "Smooth terrain",
-  "es": "Terreno suave",
-  "ja": "滑らかな地形",
-  "zh": "地形平滑"
  },
  "평탄화": {
   "en": "Flattened",
@@ -2134,12 +2122,6 @@
   "es": "Cerrado",
   "ja": "非表示",
   "zh": "已关闭"
- },
- "아직 없습니다. 필지로 만들면 여기에 남습니다": {
-  "en": "Nothing yet. Sites made from parcels appear here",
-  "es": "Aún no hay nada. Los sitios creados con parcelas aparecen aquí",
-  "ja": "まだありません。区画で作成すると、ここに残ります",
-  "zh": "暂无记录。用地块方式生成后会显示在这里"
  },
  "설정": {
   "en": "Settings",
@@ -5201,11 +5183,11 @@
   "ja": "書き出し中",
   "zh": "正在导出"
  },
- "대상지 3D가 문서에 없습니다. 먼저 Rhino에 불러오세요": {
-  "en": "This site's 3D isn't in the document. Load it into Rhino first",
-  "es": "El 3D de este sitio no está en el documento. Cárgalo primero en Rhino",
-  "ja": "対象地の3Dがドキュメントにありません。先にRhinoに読み込んでください",
-  "zh": "文档中没有该场地的 3D。请先载入 Rhino"
+ "대상지 3D가 열린 파일에 없습니다. 먼저 불러오세요": {
+  "en": "This site's 3D isn't in the open file. Import it first",
+  "es": "El 3D de este sitio no está en el archivo abierto. Impórtalo primero",
+  "ja": "対象地の3Dが開いているファイルにありません。先に読み込んでください",
+  "zh": "当前文件中没有该场地的 3D。请先导入"
  },
  "PNU 형식이 아닙니다: {0}": {
   "en": "Not a valid PNU: {0}",
@@ -5728,5 +5710,125 @@
   "es": "Archicad está ocupado. Termine lo que está dibujando o pulse Esc, cierre los cuadros de diálogo abiertos y vuelva a intentarlo",
   "ja": "Archicad は別の作業中です。作図を終えるか Esc を押し、開いているダイアログを閉じてから、もう一度試してください",
   "zh": "Archicad 正忙。请完成正在绘制的内容或按 Esc，关闭打开的对话框后重试"
+ },
+ "OSM(Overpass) 서버가 붐빕니다. 1~2분 뒤 다시 시도하세요": {
+  "en": "The OSM (Overpass) server is busy. Try again in a minute or two",
+  "es": "El servidor de OSM (Overpass) está saturado. Vuelve a intentarlo en uno o dos minutos",
+  "ja": "OSM(Overpass)サーバーが混み合っています。1〜2分後にもう一度お試しください",
+  "zh": "OSM（Overpass）服务器繁忙。请过一两分钟再试"
+ },
+ "이 지역의 건물·지형 데이터를 받지 못했습니다. 인터넷 연결을 확인하고 잠시 뒤 다시 만드세요": {
+  "en": "Couldn't download building and terrain data for this area. Check your internet connection and try again shortly",
+  "es": "No se pudieron descargar los datos de edificios y terreno de esta zona. Revisa tu conexión a internet y vuelve a intentarlo en un momento",
+  "ja": "この地域の建物・地形データを取得できませんでした。インターネット接続を確認し、しばらくしてからもう一度作成してください",
+  "zh": "无法下载该地区的建筑和地形数据。请检查网络连接，稍后再试"
+ },
+ "{0} 높이": {
+  "en": "{0} height",
+  "es": "Altura {0}",
+  "ja": "{0}の高さ",
+  "zh": "{0} 高度"
+ },
+ "{0} 층수": {
+  "en": "{0} floors",
+  "es": "Plantas {0}",
+  "ja": "{0}の階数",
+  "zh": "{0} 层数"
+ },
+ "{0} 지붕 높이": {
+  "en": "{0} roof height",
+  "es": "Altura de cubierta {0}",
+  "ja": "{0}の屋根高さ",
+  "zh": "{0} 屋顶高度"
+ },
+ "평행 투상(축척 없음) · 지형 실제 높이(과장 없음) · 등고선 {0:g} m · 바닥 표고 {1:g} m": {
+  "en": "Parallel projection (no scale) · true terrain height (no exaggeration) · contours {0:g} m · base elevation {1:g} m",
+  "es": "Proyección paralela (sin escala) · altura real del terreno (sin exageración) · curvas cada {0:g} m · cota de la base {1:g} m",
+  "ja": "平行投影(縮尺なし)・地形は実際の高さ(誇張なし)・等高線 {0:g} m・底面標高 {1:g} m",
+  "zh": "平行投影(无比例)·地形为真实高度(无夸张)·等高线 {0:g} m·底面高程 {1:g} m"
+ },
+ "Rhino가 응답하지 않습니다({0})": {
+  "en": "Rhino did not respond ({0})",
+  "es": "Rhino no respondió ({0})",
+  "ja": "Rhinoが応答しません（{0}）",
+  "zh": "Rhino 没有响应（{0}）"
+ },
+ "Rhino {0} 실패: {1}": {
+  "en": "Rhino {0} failed: {1}",
+  "es": "Falló Rhino {0}: {1}",
+  "ja": "Rhino {0} に失敗しました: {1}",
+  "zh": "Rhino {0} 失败：{1}"
+ },
+ "지형을 바닥까지 채우기": {
+  "en": "Fill terrain to base",
+  "es": "Rellenar terreno hasta la base",
+  "ja": "地形を底まで埋める",
+  "zh": "地形填充到底"
+ },
+ "지형 표면만": {
+  "en": "Terrain surface only",
+  "es": "Solo superficie del terreno",
+  "ja": "地形の表面のみ",
+  "zh": "仅地形表面"
+ },
+ "입체 매스도 지형": {
+  "en": "Massing terrain",
+  "es": "Terreno de la axonometría",
+  "ja": "立体マス図の地形",
+  "zh": "体块轴测图地形"
+ },
+ "지형 덩어리": {
+  "en": "Terrain block",
+  "es": "Bloque de terreno",
+  "ja": "地形の塊",
+  "zh": "地形实体"
+ },
+ "평평하게": {
+  "en": "Flat",
+  "es": "Plano",
+  "ja": "平坦",
+  "zh": "平面"
+ },
+ "범위가 원이나 사각형이 아니라 경계에서 자르지 않았습니다": {
+  "en": "The extent is not a circle or rectangle, so nothing was trimmed at its edge",
+  "es": "El ámbito no es un círculo ni un rectángulo, así que no se recortó en su borde",
+  "ja": "範囲が円や四角形ではないため、境界で切っていません",
+  "zh": "范围不是圆形或矩形，因此未在边界裁切"
+ },
+ "매끈하게": {
+  "en": "Smooth",
+  "es": "Suave",
+  "ja": "滑らか",
+  "zh": "平滑"
+ },
+ "{0} 지우기": {
+  "en": "Remove {0}",
+  "es": "Quitar {0}",
+  "ja": "{0}を削除",
+  "zh": "删除{0}"
+ },
+ "최근 대상지에서 지우기": {
+  "en": "Remove from recent sites",
+  "es": "Quitar de sitios recientes",
+  "ja": "最近の対象地から削除",
+  "zh": "从最近的场地中删除"
+ },
+ "새로 설치한 판으로 엽니다: {0}": {
+  "en": "Opening the newly installed version: {0}",
+  "es": "Abriendo la versión recién instalada: {0}",
+  "ja": "新しくインストールした版で開きます: {0}",
+  "zh": "使用新安装的版本打开：{0}"
+ },
+ "문의": {
+  "en": "Contact",
+  "es": "Contacto",
+  "ja": "お問い合わせ",
+  "zh": "联系"
+ },
+ "메일 보내기": {
+  "en": "Send an email",
+  "es": "Enviar un correo",
+  "ja": "メールを送る",
+  "zh": "发送邮件"
  }
 }

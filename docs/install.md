@@ -1,11 +1,12 @@
 # 설치
 
-Rhino 8, Blender 4.2 이상, SketchUp 2022 이상. 파이썬·pip 패키지를 따로 깔 필요가 없다(프로그램 내장 파이썬 — SketchUp판은 확장에 든 파이썬).
+Rhino 7·8, Blender 4.2 이상, SketchUp 2022 이상. 파이썬·pip 패키지를 따로 깔 필요가 없다(프로그램 내장 파이썬 — SketchUp판·Rhino 7판은 패키지에 든 파이썬).
 Blender는 아래 [Blender](#blender), SketchUp은 [SketchUp](#sketchup) 절.
 
 ## 1. 플러그인 설치
 
-Rhino 8 명령창에 `PackageManager` → `Gorani` 검색 → 설치 → Rhino를 다시 켠다.
+Rhino 8 명령창에 `PackageManager` → `Gorani` 검색 → 설치 → Rhino를 다시 켠다. Rhino 7도 같다 — PackageManager가 Rhino 7용 판을 골라 받는다.
+Rhino 7판은 패널이 Mac은 Rhino 안 창, Windows는 Edge 창으로 열리고, DWG 저장이 없다.
 
 ## 2. 데이터 받기 (지역마다 처음 한 번)
 
@@ -33,7 +34,7 @@ Rhino 8 명령창에 `PackageManager` → `Gorani` 검색 → 설치 → Rhino�
 - [받기]가 멈췄다: 다시 누르면 남은 팩만 받는다.
 - 해외 생성이 실패: OSM 서버(Overpass)가 붐빌 때가 있다 — 잠시 뒤 다시.
 - .ai를 열 때 '레거시 텍스트 업데이트'를 묻는다: 업데이트하지 않아도 한글은 보인다.
-- 로그: 결과 폴더 `log.txt`, 패널 진단 `임시폴더/gorani_panel_debug.log`.
+- 로그: 결과 폴더 `log.txt`, 패널 진단 `임시폴더/gorani_panel_debug.log`. Rhino 7판은 계산 쪽 기록 `~/Gorani/rhino7_sidecar.log`도 본다.
 
 ## Blender
 

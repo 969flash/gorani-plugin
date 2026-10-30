@@ -21,6 +21,11 @@ import threading
 import time
 
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+try:   # 번들 파이썬의 기본 인증서 묶음 대신 certifi — 맥은 /etc/ssl/cert.pem이 낡아 일부 HTTPS가 검증 실패한다(Rhino·Blender는 certifi를 이미 쓴다)
+    import certifi
+    os.environ.setdefault("SSL_CERT_FILE", certifi.where())
+except ImportError:
+    pass
 os.environ["GORANI_HOST"] = "sketchup"   # constants.HOST_ENV — context_builder.get_host가 본다(constants보다 먼저)
 _spec = importlib.util.spec_from_file_location("gorani_cmd_site", os.path.join(SCRIPTS_DIR, "cmd_site.py"))
 cmd_site = importlib.util.module_from_spec(_spec)
@@ -153,7 +158,7 @@ def _read_parent(controller):
 def main():
     # type: () -> None
     version = sys.argv[1] if len(sys.argv) > 1 else ""
-    bridge = loader.load("panel_server").Bridge(_SketchUpController(version))
+    bridge = loader.load("panel_server").Bridge(_SketchUpController(version), threaded=True)
     sys.stdout.write(bridge.url + "\n")
     sys.stdout.flush()
     sys.stdout = sys.stderr   # 남은 print는 로그로 — SketchUp은 첫 줄만 읽는다(안 읽는 파이프가 차면 막힌다)

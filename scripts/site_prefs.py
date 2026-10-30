@@ -106,6 +106,17 @@ def add_recent(pnus, label, total_area, date, path=PREFS_PATH):
     return data["recent"]
 
 
+def remove_recent(pnus, path=PREFS_PATH):
+    # type: (list, str) -> list
+    """최근 대상지에서 같은 PNU 묶음을 지운다(패널 x). 돌려주는 값은 남은 목록."""
+    key = tuple(sorted(pnus or []))
+    data = _read_json(path)
+    data["recent"] = [item for item in get_recent(path) if tuple(sorted(item.get("pnus") or [])) != key]
+    _write_json(path, data)
+    return data["recent"]
+
+
+# [blender-cut] 사용 통계 동의 — Blender 확장 패키지에는 통계가 없다
 def get_stats_consent(path=PREFS_PATH):
     # type: (str) -> object
     """사용 통계 동의 — True(보냄)·False(안 보냄)·None(아직 안 물음). 동의를 묻는 호스트(constants.HOST_LABELS ask_stats)만 쓴다."""
@@ -119,6 +130,7 @@ def save_stats_consent(on, path=PREFS_PATH):
     data["stats_consent"] = bool(on)
     _write_json(path, data)
     return data["stats_consent"]
+# [/blender-cut]
 
 
 def get_source_news(path=SOURCE_NEWS_PATH):
@@ -152,9 +164,11 @@ def list_styles(styles_dir=None):
 def save_style(name, style, styles_dir=None):
     # type: (str, dict, str) -> list
     """스타일 하나를 styles/<이름>.json으로 쓴다(같은 이름은 덮어쓴다). 이름의 경로 문자는 지운다. 반환 list_styles()."""
-    clean = re.sub(r'[\\/:*?"<>|]', "", str(name or "")).strip()[:40]
+    clean = re.sub(r'[\\/:*?"<>|]', "", str(name or "")).strip()[:40].rstrip(". ")
     if not clean or clean.startswith("."):
         raise ValueError(tr("스타일 이름을 적어 주세요"))
+    if re.fullmatch(r"(CON|PRN|AUX|NUL|COM\d|LPT\d)", clean.split(".")[0].upper()):   # 윈도 예약 이름 — CON은 조용히 사라지고 AUX는 오류(2026-10-23 감사)
+        clean = "_" + clean
     styles_dir = styles_dir or get_styles_dir()
     _write_json(os.path.join(styles_dir, clean + ".json"), dict(style or {}, name=clean))
     return list_styles(styles_dir)

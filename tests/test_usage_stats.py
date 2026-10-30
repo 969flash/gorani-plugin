@@ -27,6 +27,13 @@ class UsageStatsTest(unittest.TestCase):
         self.assertEqual(params["n"], 1.5)
         self.assertIn("engagement_time_msec", params)
 
+    def test_dev_mark_only_on_admin_pc(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(constants, "ADMIN_DIR", tmp):
+                self.assertEqual(usage_stats.get_payload("build", {}, "cid")["events"][0]["params"]["dev"], 1)
+            with mock.patch.object(constants, "ADMIN_DIR", os.path.join(tmp, "none")):
+                self.assertNotIn("dev", usage_stats.get_payload("build", {}, "cid")["events"][0]["params"])
+
     def test_lots_pnus_split(self):
         non_rhino_utils.set_projection()
         pnus = ["1120011500103330%03d" % i for i in range(12)]

@@ -137,6 +137,63 @@ class OrientationAndBboxTest(unittest.TestCase):
         self.assertEqual(u.get_bbox({"type": "Point", "coordinates": [1, 2]}), (1.0, 2.0, 1.0, 2.0))
 
 
+class CleanEdgeTest(unittest.TestCase):
+    """범위로 자르기·지형 덩어리 — 볼록 판정·선/건물 자르기·덩어리 바닥 높이·옆면."""
+
+    BOX = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)]
+
+    def test_convex_ring(self):
+        self.assertEqual(u.get_convex_ring(list(reversed(self.BOX)) + [self.BOX[0]])[0], (0.0, 0.0))
+        self.assertEqual(u.get_ring_orientation(u.get_convex_ring(list(reversed(self.BOX)))), 1)   # 시계 → 반시계
+        self.assertIsNone(u.get_convex_ring([(0, 0), (10, 0), (5, 2), (10, 10), (0, 10)]))   # 오목
+
+    def test_clipped_lines(self):
+        self.assertEqual(u.get_clipped_lines([(-5.0, 5.0), (15.0, 5.0)], self.BOX), [[(0.0, 5.0), (10.0, 5.0)]])
+        pieces = u.get_clipped_lines([(5.0, 5.0), (15.0, 5.0), (15.0, 8.0), (5.0, 8.0), (5.0, 9.0)], self.BOX)   # 나갔다 다시 들어온다
+        self.assertEqual(pieces, [[(5.0, 5.0), (10.0, 5.0)], [(10.0, 8.0), (5.0, 8.0), (5.0, 9.0)]])
+        self.assertEqual(u.get_clipped_lines([(20.0, 0.0), (20.0, 10.0)], self.BOX), [])
+
+    def test_clipped_parts(self):
+        inside = [[(1, 1), (2, 1), (2, 2), (1, 2), (1, 1)]]
+        cross = [[(8, 4), (14, 4), (14, 6), (8, 6), (8, 4)], [(8.5, 4.5), (9, 4.5), (9, 5), (8.5, 4.5)], [(11, 5), (12, 5), (12, 5.5), (11, 5)]]
+        out = u.get_clipped_parts([inside, cross, [[(20, 20), (21, 20), (21, 21), (20, 20)]]], self.BOX)
+        self.assertEqual(out[0], inside)   # 다 안 = 그대로
+        self.assertAlmostEqual(u.get_ring_area(out[1][0]), 4.0)   # 걸친 외곽 = 잘림, 다 밖 = 빠짐
+        self.assertEqual(len(out), 2)
+        self.assertEqual(len(out[1]), 2)   # 안에 든 구멍만 남는다
+
+    def test_block_base(self):
+        ring = [(0, 0), (500, 0), (500, 500), (0, 500)]
+        self.assertEqual(u.get_block_base(23.4, ring), 5.0)    # 23.4 − 15 = 8.4 → 5 m 단위 내림
+        self.assertEqual(u.get_block_base(-3.0, ring), -20.0)  # 해수면 아래(간척지)도 같은 규칙
+        self.assertEqual(u.get_block_base(10.0, [(0, 0), (50, 0), (50, 50), (0, 50)]), 5.0)   # 작은 범위는 두께 하한 5 m
+
+    def test_block_skirt_closes_top(self):
+        # 윗면 = 10 × 10을 2 × 2 쿼드로, z = x(비탈). 덩어리(윗면 + 옆면 + 바닥)의 모든 변이 정확히 두 면에 걸려야 닫힌 것
+        verts = [(x * 5.0, y * 5.0, x * 5.0) for y in range(3) for x in range(3)]
+        faces = [(y * 3 + x, y * 3 + x + 1, (y + 1) * 3 + x + 1, (y + 1) * 3 + x) for y in range(2) for x in range(2)]
+        skirt_verts, skirt_faces = u.get_block_skirt([(verts, faces)], self.BOX, -5.0)
+        self.assertEqual(len(skirt_faces), 8 + 8)   # 경계 변 8개 → 벽 8, 바닥 부채꼴 8
+        edges = {}
+        for vs, fs in ((verts, faces), (skirt_verts, skirt_faces)):
+            for f in fs:
+                for k in range(len(f)):
+                    key = frozenset((tuple(round(c, 6) for c in vs[f[k]]), tuple(round(c, 6) for c in vs[f[(k + 1) % len(f)]])))
+                    edges[key] = edges.get(key, 0) + 1
+        self.assertEqual(set(edges.values()), {2})
+        for f in skirt_faces[:8]:   # 벽 법선(정점 순서)이 바깥
+            a, b = skirt_verts[f[0]], skirt_verts[f[1]]
+            nx, ny = b[1] - a[1], a[0] - b[0]
+            self.assertGreater(nx * ((a[0] + b[0]) / 2 - 5) + ny * ((a[1] + b[1]) / 2 - 5), 0)
+
+    def test_contours(self):
+        tri = ((0, 0, 0.0), (10, 0, 10.0), (0, 10, 0.0))
+        segments = u.get_contour_segments([tri], 5.0)
+        self.assertEqual([round(s[0][2]) for s in segments], [5, 10])   # 꼭짓점이 딱 10 m면 길이 0 토막
+        self.assertAlmostEqual(segments[0][0][0], 5.0)
+        self.assertAlmostEqual(u.TriangleZ([tri]).get_z(5.0, 2.0), 5.0)
+
+
 class ExtentRingTest(unittest.TestCase):
     def setUp(self):
         lot = lot_db.load([constants.TEST_CONTEXT_PNU], FIXTURE_SITE_DB).lots[0]

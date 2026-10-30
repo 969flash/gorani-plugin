@@ -478,6 +478,21 @@ class AerialSheetTest(unittest.TestCase):
         self.assertLessEqual(len(calls), 2)   # 막힌 망 — 소스마다 한 장만 시도하고(시트·썸네일 공통) 타일마다 시간 초과를 기다리지 않는다
         self.assertIn(review_map.ESRI_AERIAL_URL.split("/")[2], review_map.get_tile_config()["abroad_aerial_url"])
 
+    def test_missing_zoom_falls_back_lower(self):
+        # Esri가 그 줌에 자료가 없으면(404 → None) 한 단계 낮춘 줌으로 채운다 — 정선·울릉도·트롬쇠 z19 회색 그림(2026-10-23)
+        calls = []
+
+        def fetch(url):
+            calls.append(url)
+            zoom = url.split("/tile/")[1].split("/")[0]
+            return None if zoom == calls[0].split("/tile/")[1].split("/")[0] else FAKE_TILE   # 첫 줌만 404
+
+        with patch.dict(os.environ, {}, clear=True), patch.object(sheet_svg, "_fetch_tile", fetch):
+            result = sheet_svg.write_sheets(make_data(), tempfile.mkdtemp(), [ID["aerial"]])[0]
+        first = int(calls[0].split("/tile/")[1].split("/")[0])
+        self.assertFalse(result["empty"])
+        self.assertTrue(any("/tile/%d/" % (first - 1) in u for u in calls))
+
 
 class AxoSheetTest(unittest.TestCase):
     """입체 매스도 — 시점 축, 볼록 자르기, 벽 보임·그리는 순서, 시트·썸네일."""
@@ -504,7 +519,7 @@ class AxoSheetTest(unittest.TestCase):
         data = make_data()
         data.features, data.overlays, data.near_lots = [], [], []
         data.buildings = [_building(1, cx, cy - 100, height_m=10.0), _building(2, cx, cy + 100, height_m=20.0)]   # 남동 시점에서 북쪽(2)이 멀다
-        scene = sheet_svg.get_axo_scene(data, "se", (273.0, 273.0))
+        scene = sheet_svg.get_axo_scene(data, "se", (273.0, 273.0), "flat")
         kinds = [kind for kind, _rings, _site in scene["faces"]]
         self.assertEqual((kinds[2], kinds[5], len(kinds)), ("roof", "roof", 6))   # 동마다 보이는 벽 둘(남·동) → 지붕
         self.assertEqual(set(kinds[:2]), {"wall_a", "wall_b"})   # 화면 오른쪽·왼쪽을 향한 벽은 다른 색
@@ -526,6 +541,30 @@ class AxoSheetTest(unittest.TestCase):
         self.assertTrue(result["thumb"].startswith("data:image/png;base64,"))
         se_svg = sheet_svg.render_sheet(ID["axo"], make_data(style={"axo_view": "se"}))[0]
         self.assertNotEqual(open(result["path"], encoding="utf-8").read(), se_svg)   # 시점(도면 스타일)이 그림을 바꾼다
+
+
+    def test_terrain_block(self):
+        cx, cy = CENTER
+        data = make_data()
+        data.features, data.overlays, data.near_lots = [], [], []
+        # 범위(±500 m)를 덮는 비탈 TIN: z = 20 + (x − cx) / 20 → 서쪽 끝 −5 m, 동쪽 끝 45 m
+        x0, y0, x1, y1 = cx - 520, cy - 520, cx + 520, cy + 520
+        z = lambda x: 20.0 + (x - cx) / 20.0
+        data.terrain_tris = [((x0, y0, z(x0)), (x1, y0, z(x1)), (x1, y1, z(x1)), "terrain"), ((x0, y0, z(x0)), (x1, y1, z(x1)), (x0, y1, z(x0)), "terrain")]
+        data.buildings = [_building(1, cx + 200, cy, height_m=10.0), _building(2, cx + 498, cy, height_m=10.0), _building(3, cx + 600, cy, height_m=10.0)]
+        scene = sheet_svg.get_axo_scene(data, "se", (273.0, 273.0))   # 기본 = 지형 덩어리
+        self.assertEqual(scene["count"], 2)   # 범위 밖 동은 빠지고 경계에 걸친 동은 잘려 남는다
+        self.assertEqual({kind for kind, _quad in scene["block"]}, {"wall_a", "wall_b"})   # 남동 시점 — 남·동 옆면
+        self.assertTrue(scene["contours"])
+        flat = sheet_svg.get_axo_scene(data, "se", (273.0, 273.0), "flat")
+        self.assertEqual((flat["block"], flat["contours"], flat["count"]), ([], [], 2))   # 평평하게 — 덩어리 없이, 자르기는 그대로
+        root = ET.fromstring(sheet_svg.render_sheet(ID["axo"], data)[0])
+        self.assertIsNotNone(root.find(".//*[@id='axo_block']"))
+        self.assertIsNone(root.find(".//*[@id='extent']"))   # 덩어리면 범위 점선을 따로 긋지 않는다
+        data.options["style"] = {"axo_ground": "flat"}
+        data.cache.clear()
+        root = ET.fromstring(sheet_svg.render_sheet(ID["axo"], data)[0])
+        self.assertIsNone(root.find(".//*[@id='axo_block']"))   # 스타일 axo_ground가 도면을 바꾼다
 
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"

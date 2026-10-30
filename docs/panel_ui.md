@@ -77,6 +77,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `open_url` | `key`(`constants.PANEL_LINKS`의 키 — 지금은 `website`) 또는 `notice`(공지 id) | — (`error{context:"open"}`) | 더보기 메뉴 '고라니 웹페이지'·업데이트 [업데이트 방법]은 `key`, 공지 [자세히]는 `notice` — 매니페스트에서 그 공지의 http(s) 주소를 찾아 연다. 임의 URL은 받지 않는다 |
 | `open_eum` | `pnu`(19자리) | — (`error{context:"open"}`) | ① 필지 정보 [토지이음 ↗]. Python이 `constants.EUM_LAND_USE_URL % pnu`를 만들어 OS 브라우저로 연다(임의 URL은 받지 않는다) |
 | `save_prefs` | `options` | — | `prefs.json`에 `options`만 덮어쓴다(`recent`는 `generate` 성공 시 Python이 갱신) |
+| `remove_recent` | `pnus` | 없음 (`error{context:"init"}`) | 최근 대상지 줄의 x — 같은 PNU 묶음을 `prefs.json` `recent`에서 지운다. JS가 `init.recent`에서 먼저 빼고 트레이를 다시 그린다 |
 | `style_preview` | `dir`, `sheet_id`(0~15), `style`(스타일 dict), `seq` | `style_preview`(같은 `seq`) / `error{context:"style"}` | ③ 2D 카드 다이어그램 타일 [편집]의 스타일 화면(만들기 전). `context_builder.preview_sheet` — 한 장을 스타일로 다시 그린 SVG 문자열(파일 안 씀). 시트 데이터는 컨트롤러 `_keep`(이번 세션 생성 결과, 지형 삼각형 포함). 2D를 아직 안 만들었으면 3D를 만든 Prepared를 그대로 써서 다시 조회하지 않는다(`get_sheet_data(quick=True)` — 자료는 3D 범위까지. 다시 prepare하면 Global은 OSM·지형 타일을 또 받아 55 s 걸렸다, 2026-10-19). `_keep`이 다른 결과면 `context.json`으로 한 번 prepare(지형 시트는 비어 나온다). SVG id·`url(#…)`은 `pv_` 접두어(패널 `#map`과 겹치지 않게). JS 250 ms 디바운스, 늦은 `seq`는 버린다 |
 | `apply_style` | `dir`, `style` | `busy{on}` → `style_applied` → `busy{off}` | `context_builder.apply_style` — 결과 폴더의 시트 전부 + 이미 쓴 `basemap_<축척>.ai`를 다시 쓰고 `context.json.options.style`을 바꾼다. 지형 삼각형이 없으면 지형 시트 파일은 그대로(`kept`). JS는 성공하면 `options.style`을 `save_prefs`. **2026-10-19부터 패널은 보내지 않는다** — 스타일은 만들기 전에 정하고 [적용]은 `options.style`만 바꾼다 |
 | `save_style` | `name`, `style` | `styles` / `error{context:"style"}` | `site_prefs.save_style` → `HOME_DIR/styles/<이름>.json`(경로 문자 제거, 같은 이름 덮어씀). 사무소 표준을 파일로 나눠 쓴다 |
@@ -117,14 +118,14 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 
 `level` 규칙(data_sources §2.4): `warn` = 경과 ≥ 노랑 임계 AND `newer_date` 있음, `danger` = 경과 ≥ 빨강 임계(새 판 무관), `missing` = 원천 없음(컨텍스트 DB 없음·키 없음), 그 외 `ok`. 생성은 어느 경우도 막지 않는다.
 
-### 브라우저 호스트 (Blender·SketchUp)
+### 브라우저 호스트 (Blender·SketchUp·Rhino 7)
 
-Blender·SketchUp에는 Rhino식 웹뷰 브리지가 없어 `panel_server.Bridge`가 127.0.0.1에 서버를 띄우고 `/?token=<세션 토큰>`을 연다 —
-Blender는 기본 브라우저(`cmd_blender.py`), SketchUp은 `UI::HtmlDialog`(`sketchup_ext.rb`가 사이드카 `cmd_sketchup.py`의 첫 줄 주소를 연다). JS는 URL에 토큰이 있으면
+Blender·SketchUp·Rhino 7에는 Rhino 8식 웹뷰 브리지가 없어 `panel_server.Bridge`가 127.0.0.1에 서버를 띄우고 `/?token=<세션 토큰>`을 연다 —
+Blender는 기본 브라우저(`cmd_blender.py`), SketchUp은 `UI::HtmlDialog`(`sketchup_ext.rb`가 사이드카 `cmd_sketchup.py`의 첫 줄 주소를 연다), Rhino 7은 Mac = Eto WebView·Windows = Edge 앱 창(`rhino7_host.cs`가 사이드카 `cmd_rhino7.py`의 첫 줄 주소를 연다 — Rhino 7 Windows 웹뷰는 IE). JS는 URL에 토큰이 있으면
 `send()`를 `POST cmd?token=…`(본문 = 명령 JSON)으로, 푸시는 `EventSource("events?token=…")`의 `data:` 한 줄(= 푸시 JSON)로 받는다.
 이벤트 줄이 열린 뒤(`onopen`) `init`을 보낸다 — 다시 연결돼도 init으로 전부 다시 받는다. 새 이벤트 줄이 열리면 앞 줄로는 보내지 않는다(탭 하나) —
 앞 줄에는 마지막으로 `{"type":"superseded"}`를 보내고, 그 탭은 이벤트 줄을 닫고(다시 붙지 않음) '새 탭에서 열렸습니다' + [이 탭에서 계속](새로 고침)만 보인다.
-명령은 호스트 메인 스레드(Blender = bpy.app.timers, SketchUp 사이드카 = 메인 루프)에서 처리하고, `cancel`·`host_reply`만 바로 받는다(SketchUp = 서버 스레드, Blender = 스레드 없이 메인 스레드 `poll` — 생성 중에는 진행 콜백이 `poll`을 불러 cancel·새 탭을 받는다). 토큰이 틀리면 403.
+명령은 호스트 메인 스레드(Blender = bpy.app.timers, SketchUp·Rhino 7 사이드카 = 메인 루프)에서 처리하고, `cancel`·`host_reply`만 바로 받는다(SketchUp = 서버 스레드 — Rhino 7의 `host_reply`는 stdin을 읽는 스레드, Blender = 스레드 없이 메인 스레드 `poll` — 생성 중에는 진행 콜백이 `poll`을 불러 cancel·새 탭을 받는다). 토큰이 틀리면 403.
 Blender판 `init_state.host`는 `ask_stats:false`(통계 없음)·`aerial:false`(`tile`의 영상 주소가 비고 [위성]·항공사진 도면 없음)·`update_notice:false`(`update` 늘 null)·`ip_center:false`(`map`은 늘 서울시청)다.
 
 SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지지 못해 패널을 거쳐 Ruby를 부른다(엔진 `run`은 응답을 기다리며 막혀 있다):
@@ -137,6 +138,8 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 `method` = `get_model_attrs{keys}`·`set_model_attrs{values}`·`clear{lot_key}`·`bake{path}`·`ref{…}`·`save{path}`·`zoom{lot_key, box, min_span}`·`import{path, lot_key, lot_name, shift}`·`pick_curve{}`
 (`sketchup_baker`·`cmd_sketchup`이 부르고 `sketchup_ext.rb`의 `rpc_<method>`가 받는다). `window.sketchup`이 없는 창(일반 브라우저)이면 무시한다 — 사이드카는 `SKETCHUP_HOST_TIMEOUT` 뒤 실패. 패널 창을 닫으면 Ruby가 사이드카 stdin으로 `{"cmd":"panel_closed"}`를 보내 생성 중이면 취소하고, 기다리던 호출은 바로 실패한다(다시 연 패널의 init이 막히지 않게).
 
+Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드카 stdout 한 줄(`{"type":"host_call",…}`)로 쓰고, `rhino7_host.cs`가 stdin 한 줄(`{"cmd":"host_reply",…}`)로 답한다(Edge 창은 Rhino에 닿지 못한다). 베이커는 `sketchup_baker` 그대로이고 사본만 `context.3dm`이다. Mac 패널 창을 닫으면 stdin `panel_closed`, Rhino가 끝나면 stdin EOF로 사이드카도 끝난다.
+
 ### 푸시 정의
 
 ```jsonc
@@ -145,9 +148,9 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
  "blocked":false,                                 // true = 필지 DB 없음 → 블로커(차단은 이것뿐. 컨텍스트 DB 없음은 경고)
  "paths":{"root":"<HOME_DIR>","lot_db":"data/seoul_site.db","context_db":"data/seoul_context.db","env":".env","install_doc":"docs/install.md"},
  "generator":{"ok":true,"python":"Rhino Python","text":"Rhino 내장"},   // 항상 ok. UI 호환용(블로커 3행째는 ✓ 고정). Blender면 "Blender …"
- "host":{"id":"rhino","name":"Rhino","doc":"Rhino 문서","model":"context.3dm","dwg":true,"ask_stats":false},   // constants.HOST_LABELS — 패널 문구(문서 이름·모델 파일)와 DWG 옵션 표시. Blender = {"id":"blender","name":"Blender","doc":"Blender 장면","model":"context.blend","dwg":false,"ask_stats":true}, SketchUp = {"id":"sketchup",…,"model":"context.skp","dwg":false,"ask_stats":true}
+ "host":{"id":"rhino","name":"Rhino","doc":"Rhino 문서","model":"context.3dm","dwg":true,"ask_stats":false},   // constants.HOST_LABELS — 패널 문구(문서 이름·모델 파일)와 DWG 옵션 표시. Blender = {"id":"blender","name":"Blender","doc":"Blender 장면","model":"context.blend","dwg":false,"ask_stats":true}, SketchUp = {"id":"sketchup",…,"model":"context.skp","dwg":false,"ask_stats":true}, Rhino 7 = Rhino와 같고 `"dwg":false`
  "output_langs":[["ko","한국어"],["en","English"]],   // constants.OUTPUT_LANGS — 메뉴 '결과 언어' 칸
- "links":{"website":"https://969flash.github.io/gorani/"},   // constants.PANEL_LINKS — 메뉴 '웹페이지' 줄이 주소를 링크로 보여 주고, 누르면 open_url{key}
+ "links":{"website":"https://969flash.github.io/gorani/","contact":"mailto:gorani.3d@gmail.com"},   // constants.PANEL_LINKS — 메뉴 '웹페이지'·'문의' 줄이 주소를 링크로 보여 주고(문의는 메일 주소), 누르면 open_url{key}
  "stats_consent":null,                            // 사용 통계 동의 true|false|null(안 물음) — host.ask_stats(Blender + 측정 ID 있음)면 null일 때 정보 띠로 한 번 묻고([보내기]·[보내지 않음] → stats_consent{on}), 더보기 메뉴 설정에서 바꾼다
  "can_download":true,                             // DATA_MANIFEST_URL이 있으면 블로커에 [DB 받기]·[멈추기]
  "sources":[source, source, source, source],      // id = lot, building, terrain, api 순서 고정(더보기 메뉴 자료 칸·블로커 체크리스트·첫 실행 모드 판정)
@@ -156,10 +159,10 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
          "aerial_url":"…","aerial_attribution":"…","abroad_aerial_url":"…","abroad_aerial_attribution":"…"},   // review_map.get_tile_config(). 지도 중심이 map.korea_bounds 밖(또는 그 안 일본 모서리 map.korea_cut — 후쿠오카·쓰시마)이면 abroad_url(OSM). 지도 오른쪽 아래 [위성]을 누르면 aerial_url(VWorld 영상, 키 없으면 Esri) — 해외·폴백 뒤는 abroad_aerial_url(Esri)
  "map":{"center":[126.9784,37.5665],"zoom":16},              // review_map.get_map_init(map_center) — 첫 init에 IP로 짐작한 도시(zoom 12, get_ip_center), 못 받으면 서울시청(zoom 16)
  "options":{…옵션 키 전부, prefs.json 복원 또는 기본값…},
- "recent":[{"pnus":["…"],"label":"성수동2가 277-17 외 1","total_area":1234.5,"date":"2026-10-06"}],   // 최대 5, 필지 방식만. 더보기 메뉴 [최근 대상지] → 필지 방식으로 select_lots. done 때 JS가 같은 꼴로 앞에 넣는다(다음 init까지)
+ "recent":[{"pnus":["…"],"label":"성수동2가 277-17 외 1","total_area":1234.5,"date":"2026-10-06"}],   // 최대 5, 필지 방식만. 트레이(대상지 없을 때)에 5개까지(더보기 메뉴에서는 뺐다, 2026-10-30), 줄을 누르면 필지 방식으로 select_lots, 오른쪽 x는 remove_recent. done 때 JS가 같은 꼴로 앞에 넣는다(다음 init까지)
  "sheet_catalog":[{"id":0,"key":"base","name":"베이스맵","needs":"lot","korea_only":false,"group":"base"},…,{"id":19,"key":"slope","name":"경사","needs":"terrain","korea_only":false,"group":"status"}],   // group = constants.SHEET_GROUP: base(베이스맵·항공사진)·status(현황도)·analysis(분석도)·frame(틀) — 2D 카드 묶음 칩   // constants.SHEET_CATALOG 25장(분석도 8 · 현황도 12 · 틀 3 · 항공사진 1 · 입체 매스도 1, needs image = 영상 타일). done.sheets[].thumb = 160 px PNG data URI(패널 도면 칸, 항공사진만 SVG data URI)
  "style_presets":{"std":{"name":"표준","paper":"#FFFFFF",…,"ramp":"warm"},"vivid":…,"mono":…,"dark":…},   // constants.STYLE_PRESETS
- "style_defaults":{"layout":"side","line_scale":1.0,"text_scale":1.0,"font":"sans","fade_outside":0.55,"labels":true,"subtitle_en":true,"project":"","axo_view":"se"},
+ "style_defaults":{"layout":"side","line_scale":1.0,"text_scale":1.0,"font":"sans","fade_outside":0.55,"labels":true,"subtitle_en":true,"project":"","axo_view":"se","axo_ground":"block"},
  "style_ramps":{"warm":["#FBEFC9",…],…},
  "styles":[{"name":"OO건축 표준","style":{…}}],     // HOME_DIR/styles/*.json
  "update":null,                                   // 매니페스트 update — 아래 '업데이트·공지'. 못 받았으면 null
@@ -257,7 +260,7 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 ## 업데이트·공지 (2026-10-21)
 
 이미 깔린 플러그인에 코드 수정 없이 알린다. 원본은 `docs/notices.json`, 올리기는 `python3 scripts/dev_deploy.py notices`(HF 매니페스트의 `update`·`notices`만 바꾼다. `upload`도 같이 넣는다).
-보통은 관리자 페이지 `python3 scripts/dev_admin.py`로 한다 — 이 Mac의 127.0.0.1에만 뜨고(실행마다 새 토큰, 인터넷에 올리지 않는다), 고친 것은 초안(`docs/notices.json`)에 바로 저장한다. 공지는 패널 띠 모양으로(게시됨·새로 추가·수정됨·내림), 버전 안내는 구간(안내 없음·업데이트 권장·사용 불가)으로 보여 주고 구간마다 그 버전 사용자 화면을 실제 패널(목 모드)로 미리 본다. [게시하기]는 바뀐 점을 보여 주고 확인을 받은 뒤 올리고, [변경 취소]는 초안을 게시된 내용으로 되돌린다. 새 버전·사용 불가 기준이 `PANEL_VERSION`보다 높으면(아직 배포 안 한 버전) 저장·게시를 막는다.
+보통은 관리자 페이지로 한다 — 저장소 루트의 `관리자_페이지.command`를 더블클릭(= `python3 scripts/dev_admin.py`) — 이 Mac의 127.0.0.1에만 뜨고(실행마다 새 토큰, 인터넷에 올리지 않는다), 고친 것은 초안(`docs/notices.json`)에 바로 저장한다. 공지는 패널 띠 모양으로(게시됨·새로 추가·수정됨·내림), 버전 안내는 구간(안내 없음·업데이트 권장·사용 불가)으로 보여 주고 구간마다 그 버전 사용자 화면을 실제 패널(목 모드)로 미리 본다. [게시하기]는 바뀐 점을 보여 주고 확인을 받은 뒤 올리고, [변경 취소]는 초안을 게시된 내용으로 되돌린다. 새 버전·사용 불가 기준이 `PANEL_VERSION`보다 높으면(아직 배포 안 한 버전) 저장·게시를 막는다. 관리자 페이지 첫 화면은 대시보드다(사이드바: 개요·사용·유입·웹·품질·데이터·서버 | 공지·버전·연결). `dev_stats.py`가 GA(서비스 계정이 볼 수 있는 Rhino·SketchUp·웹 속성 — 측정 ID로 구분)·yak·Hugging Face·국내 서버(nginx 기록·버킷)를 모아 직전 같은 길이 기간과 비교하고, 규칙으로 고른 인사이트(활성화율·성공률·최신 버전 사용률·무료 한도 등)를 낸다. 대시보드가 읽는 GA 이벤트 매개변수는 `constants.ADMIN_GA_DIMENSIONS`이고 [연결]의 버튼이 맞춤 측정기준으로 한 번에 등록한다(서비스 계정 = 편집자). 열쇠는 저장소 밖(`constants.ADMIN_DIR`), 국내 서버 기록은 서버가 2주만 남겨 같은 곳에 이어 붙여 둔다. 주소 뒤 `&demo=1`은 GA 자리에 예시 데이터(연결 전 화면 확인).
 
 ```json
 {"update": {"latest": "0.3.0", "min": "0.2.0", "body": "새 버전부터 계정으로 로그인합니다. 무료로 계속 쓸 수 있습니다.",
@@ -271,6 +274,10 @@ SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지�
 - 공지 → 위쪽 띠는 한 번에 하나(업데이트 > 공지 순서), 나머지는 띠의 `+N` → 더보기 메뉴 '공지' 목록. 띠 [×]는 `options.closed_notices`에 id를 넣고, 메뉴에서는 계속 보인다(흐리게 '닫음'). `level`: `warn` = 주황(꼭 알아야 할 것), `info` = 파랑. 빨강은 오류에만.
 - 공지 `id`는 바꾸지 않는다 — 바꾸면 닫은 사람에게 다시 뜬다. 목 패널: `site_ui.html?mock=1&step=1&update=soft|hard`(공지 견본 셋 포함), `&notice=1`은 공지만.
 - 버전은 `constants.PANEL_VERSION` 하나 — 배포할 때 올린다. 0.1.0 이전 설치본에는 이 확인이 없다(그 사용자는 막을 수 없다).
+- `countries[]`(2026-10-23) — 나라별 공식 건물 팩 목록. 원본 `docs/countries.json`, 올리기는 같은 `dev_deploy.py notices`(`upload`도 같이 넣는다). 항목 `{code(소문자 2자 = 팩 이름 접두사), label, source_id, manifest(한국 매니페스트 기준 상대경로 가능), bounds[서, 남, 동, 북] 또는 그 목록(미국처럼 본토·알래스카·하와이), code_pattern, disabled?}`. 플러그인은 `init`에 받아 둔 매니페스트의 이 목록으로 대상지 나라를 고르고(`data_pack.get_country_packs` → `osm_context.get_country`, 상자가 겹치면 작은 것), 못 받았으면 내장 `constants.COUNTRY_PACKS`(같은 값). 틀린 항목은 그 나라만 건너뛰고 `disabled: true`는 내장에서도 뺀다. **새 나라 = 팩·`<나라>/manifest.json` 올리기 + 이 목록 한 줄 — 플러그인 판은 올리지 않는다**(0.3.3·0.3.4를 나라 추가만으로 올린 뒤 바꿈). 생성 직전(`_download_for_generate`)에도 매니페스트를 한 번 더 받아 둔다(init 3 s 안에 못 받은 경우).
+- `services{}`(2026-10-23) — 외부 주소 덮어쓰기(같은 `docs/countries.json`의 `services`): `overpass`(미러 목록)·`nominatim`·`terrain_tiles`(`{z}/{x}/{y}` 틀). `data_pack.get_service(key, 내장값)` — https만 받고 틀리면 내장 상수. 미러가 죽거나 주소가 바뀌어도 판 없이.
+- **원격 설정 `config.json`**(2026-10-23, 매니페스트 옆) — 코드가 아니라 '값'을 판 없이 바꾼다: 도면 색·범례·틀 치수(`STYLE_PRESETS`·`SHEET_LEGENDS`·`SHEET_*_MM`·`BM_LAYERS`), 분류 구간·코드표(`SHEET_*_BREAKS`·`SHEET_*_KEYS`·`PLATEAU_USE`·`OSM_BUILDING_USE`), 높이·범위 파라미터(`FLOOR_HEIGHT_*`·`CONTEXT_RADIUS`), OSM 질의·도로폭, `PANEL_LINKS`, 번역 사전 전체. 목록은 `remote_config.REMOTE_KEYS`(원본 = `constants.py`·`i18n.json`, 올리기 = `dev_deploy.py notices`가 `remote_config.build()`로 만들어 같이 올림, 자가 점검 후). 플러그인은 컨트롤러 생성 때 캐시(`HOME_DIR/data/config.json`)를 덮고(패널 HTML에 번역을 심기 전), `init`에서 ETag로 새 것을 받는다(3 s, 못 받으면 캐시·내장값). 덮는 규칙: 이름이 목록에 있고 꼴(dict·list·str·수)이 내장값과 같고 dict는 내장 키를 다 가질 때만, 틀린 항목은 그 항목만 건너뜀. 번역은 `test_i18n`과 같은 규칙(자리표시 일치, 원문에 없는 `" & < >` 금지). **상수의 꼴을 바꾸는 판을 내면 `remote_config.COMPAT_MIN`을 그 판으로** — 옛 설치본은 원격 설정을 받지 않고 내장값으로 돈다. 그리는 코드·새 도면·패널 HTML은 원격으로 바꾸지 않는다(스토어 규정·보안).
+- **데이터 호환 규칙** — 팩·매니페스트만 바꿔도 깔린 플러그인이 그대로 돌게: ① 팩 표는 칸을 더하기만 한다(런타임은 `SELECT *` + 이름 조회라 모르는 칸을 무시한다), 칸 삭제·이름 바꾸기 금지 ② `PRAGMA user_version`은 호환이 깨질 때만 올린다(런타임은 자기보다 낮은 판만 거절한다) ③ 새 `height_src`는 `<source_id>_<height|levels|roof>` 꼴로 — 범례 표기는 `data_pack.get_height_src_label`이 팩 라벨로 만든다 ④ 새 출처(`source_id`)의 고지는 팩 `data_sources.note`에(런타임은 PLATEAU만 코드 특례, 나머지는 note 그대로) ⑤ 용도(`usability`)는 빌드 때 팩에 쓴다(런타임 코드 사전은 옛 PLATEAU 팩용) ⑥ 매니페스트에 모르는 키가 있어도 무시한다.
 
 ## 언어 (2026-10-21)
 
@@ -352,11 +359,13 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
  "include_zoning":true,                                // Korea만 보인다   // CTX::Zoning::<구분>::<종류> — 용도지역·용도지구·용도구역·도시계획시설·지구단위계획(현황도 11~13 범례 색, 범위 bbox로 자름)
  "terrain_vertex_color":false,
  "terrain_step":0,                                     // 지형 표현(③ 지형): 0 = 매끈, 1|2|5 = 계단형(등고 모형) 단 간격 m. 지반·수면 메시를 단마다 수평면 + 수직 벽으로, 건물 바닥도 계단 지반 기준
+ "terrain_block":true,                                 // 지형을 바닥까지 채우기: 지형 옆면·바닥(CTX::Terrain::block, BASE_M). 건물·필지·도로중심선·용도지역은 이 값과 상관없이 늘 범위 링으로 자른다(원·사각형 범위만). 끄면 3D 설정 요약에 '지형 표면만'. 입체 매스도는 style.axo_ground
  "make_dwg":false,                                     // 3dm 2D 도면(BM::)만 basemap_<축척>.dwg로도 저장(고급 > 3dm). 결과 경로는 done.context.dwg
  "zoom_after_import":true,
  "style":{"preset":"std"}}                              // 도면 스타일 — 사용자가 고른·바꾼 값. 해석은 sheet_svg.get_style(STYLE_*): 색 10개(paper·block·road·green·water·building·rail·site·extent·ink),
                                                        // ramp, layout(side|bottom|map), line_scale, text_scale, font(sans|serif), fade_outside, labels, subtitle_en, project, name(저장한 스타일),
                                                        // axo_view(se|sw|ne|nw — 입체 매스도 시점, Rhino 등각. 스타일 화면에서 바꾸면 미리보기가 입체 매스도로 넘어간다)
+                                                       // axo_ground(block|flat — 입체 매스도 지형. block = 지형 덩어리(기본), flat = 평평한 바닥. 3D의 terrain_block과 따로. 바꾸면 미리보기가 입체 매스도로)
 ```
 
 2026-10-19: `make_basemap`·`make_sheets`·`make_tables` 기본 false(3D 먼저). 패널은 `generate`에 이 셋과 `make_dwg`를 false로(DWG는 2D 카드의 베이스맵 'DWG로도 저장' → `make_2d`), `import_after`·`zoom_after_import`를 true로, `include_minor_buildings`를 false로 고정해 보낸다 — prefs의 `make_*`는 결과 화면 2D 카드 체크의 마지막 값이고 `make_2d`가 쓴다. `shape`가 circle·rect가 아니면(옛 prefs) 패널이 circle로 바꾼다.
@@ -413,7 +422,7 @@ Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `r
 
 | 파일 | 내용 | 쓰는 쪽 | 읽는 쪽 |
 |---|---|---|---|
-| `~/.gorani/prefs.json` | `{"options":{…20키…(lang 포함)}, "recent":[{pnus,label,total_area,date}×5]}` | `save_prefs`(options), `generate` 성공(recent 앞에 삽입·중복 제거·5개) | `init` |
+| `~/.gorani/prefs.json` | `{"options":{…20키…(lang 포함)}, "recent":[{pnus,label,total_area,date}×5]}` | `save_prefs`(options), `generate` 성공(recent 앞에 삽입·중복 제거·5개), `remove_recent`(x) | `init` |
 | `~/.gorani/source_news.json` | `{"checked_at":"2026-10-07","building":{"newer_date":"2026-09-09"},"lot":{…},"upis":{…}}` | `dev_check_sources.py`(P1. 없으면 `newer_date:null`) | `preflight`·`init`(배지)·생성기(`done.warnings`) |
 | `~/.gorani/client_id` | 무작위 UUID 한 줄(사용 통계 설치 식별) | `usage_stats.get_client_id`(없으면 생성) | `usage_stats` |
 | `.env`(`HOME_DIR`) | `VWORLD_API_KEY=…`(지도·위성 배경, 항공사진, 주소 보조 검색 — 없으면 OSM·Esri·지명 검색). `= ` 뒤 공백 금지 | 사용자(OS 편집기). 없으면 `open_path`가 한 줄 템플릿 생성 | `pnu_loader._read_local_env_value`(strip)·생성기 |
@@ -478,7 +487,7 @@ GA4 Measurement Protocol로 데몬 스레드에서 보내고 실패는 버린다
 
 | 이벤트 | 보내는 곳 | 매개변수 |
 |---|---|---|
-| `panel_open` | 첫 `init` | `version`·`rhino`·`has_lot_db`·`packs`(받은 시군구 필지 팩 수) |
+| `panel_open` | 첫 `init` | `version`·`rhino`(Rhino 버전 — Rhino 7판도 이 키, 7.x) 또는 `host`(SketchUp `sketchup <버전>`)·`has_lot_db`·`packs`(받은 시군구 필지 팩 수) |
 | `build` | `generate` 끝(성공·실패·취소) | `mode`·`lng`·`lat`·`korea` + 필지 `pnus`·`pnus_2`…(5개씩 최대 20필지)·`lot_count`·`area` / 구역 `area`·`width`·`height`(링은 보내지 않는다) + `result`·`error`·`elapsed_s`·`radius`·`shape`·`placement`·`buildings` |
 | `pack_download` | `download_data` 끝 | `packs`(시군구 코드)·`count`·`requested` |
 | `error` | `_guard`의 예상 밖 예외 | `context`·`error`(예외 타입명) |

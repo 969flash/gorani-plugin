@@ -175,6 +175,7 @@ ADDRESS_SEARCH_MAX_RESULTS = 20
 PANEL_LINKS = {
     "website": "https://969flash.github.io/gorani/",   # 고라니 웹페이지 — 설치·사용법
     "website_en": "https://969flash.github.io/gorani/en/",   # 같은 페이지 영어판 — 패널 언어가 한국어가 아니면 이쪽
+    "contact": "mailto:gorani.3d@gmail.com",   # 문의 메일 — 더보기 메뉴 '문의'(2026-10-30 사용자)
 }
 
 # 토지이음(국토교통부) 토지이용계획 열람 상세 — 패널 필지 정보의 [토지이음 ↗](open_eum)과 parcels.csv eum_url.
@@ -234,11 +235,18 @@ TERRAIN_THEME = "terrain"
 
 # 해외 대상지(osm_context.py) — OSM Overpass + AWS Terrain Tiles. 사용자 PC가 직접 부른다(서버 없음).
 # Overpass 이용 기준: IP당 하루 1만 질의·1 GB 미만(https://wiki.openstreetmap.org/wiki/Overpass_API) — 대상지 1회 1질의
-OSM_USER_AGENT = "Gorani/0.1 (Rhino plugin; https://www.openstreetmap.org/copyright)"
+OSM_USER_AGENT = "Gorani/0.3 (Rhino/Blender/SketchUp plugin; https://969flash.github.io/gorani/)"   # Overpass·Nominatim·타일 중계(review_map) — OSM 정책: 앱을 밝힌다
 OSM_CACHE_MAX = 8                # osm_context 응답 캐시 항목 상한(넘으면 비운다) — Blender판은 모듈을 다시 읽지 않아 세션 내내 쌓인다. 같은 대상지 다시 만들기(Overpass 1~2 + 지형 타일 수 장)만 덮으면 된다(도심 Overpass 응답은 수십 MB)
 OSM_TIMEOUT_SECONDS = 60         # 미러 하나당. 공개 Overpass는 자주 붐빈다(2026-10-13 파리 900 m: 독일 504, kumi·coffee 120 s 초과, mail.ru 22 s)
-OSM_OVERPASS_URLS = ("https://overpass-api.de/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-                     "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter")
+# 2026-10-23 감사: overpass-api.de 429·차단일 때 kumi·coffee는 서울에서 60 s 시간 초과, mail.ru는 HARICA 인증서라 Windows·번들 파이썬에서 검증 실패.
+# openstreetmap.fr은 200·1.3 s(자료 기준일 2026-07-21 — 3개월 묵음, 대체로만).
+# 2026-10-25 다시 확인: kumi·coffee는 응답 없음, mail.ru 504 → 뺐다(Blender 심사: 접속 안 되는 서버를 왜 쓰냐). 미러가 더 필요하면 매니페스트 services.overpass로
+OSM_OVERPASS_URLS = ("https://overpass-api.de/api/interpreter", "https://overpass.openstreetmap.fr/api/interpreter")
+OSM_MIRROR_TIMEOUT_SECONDS = 30   # 두 번째 미러부터 — 다 죽은 날 생성이 수 분 멈추지 않게(첫 서버는 OSM_TIMEOUT_SECONDS)
+# 첫 서버(overpass-api.de)가 502·503·504(순간 붐빔)면 쉬었다 한 번 더 — 2026-10-25 가상 사용자 트롬쇠 2D: 502 직후 같은 질의가 58 s에 4.9 MB로 받아졌다.
+# 두 번째(openstreetmap.fr)는 응답을 약 1.8 MB에서 끊어(200인데 JSON이 깨짐) 큰 질의의 대체가 못 된다
+OSM_GATEWAY_RETRIES = 1
+OSM_GATEWAY_WAIT_SECONDS = 10
 OSM_OVERPASS_QUERY = """[out:json][timeout:55][bbox:{bbox}];
 (
   way["building"]; relation["building"]["type"="multipolygon"];
@@ -287,12 +295,19 @@ OSM_PUBLIC_USE = {"school": "10000", "kindergarten": "10000", "college": "10000"
                   "hospital": "09000", "clinic": "09000", "nursing_home": "11000", "social_facility": "11000", "childcare": "11000",
                   "community_centre": "05000", "arts_centre": "05000", "theatre": "05000", "sports_centre": "13000"}
 OSM_NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"   # 지명 검색 — 사용자가 [검색]을 누를 때 한 번
+OSM_SEARCH_TIMEOUT_SECONDS = 10   # 지명 검색은 UI 스레드에서 기다린다 — Overpass 60 s를 쓰면 막힌 망에서 검색 한 번에 1분 멈췄다(2026-10-23 감사)
 OSM_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 OSM_TERRAIN_ZOOM = 13           # 픽셀 약 19 m(적도)·15 m(위도 37°). 원천 DEM이 약 30 m라 더 키워도 정밀해지지 않는다
 OSM_TERRAIN_STEP = 2            # 픽셀 건너뛰기 — 표고점 간격 약 30 m
 
 # 데이터 팩 받기(data_pack.py) — Yak 설치본은 DB 없이 깔리고 패널에서 받는다
 DATA_REPO_ID = "hooooooooon/urbandesigntool-data"   # Hugging Face 공개 데이터셋(필지 시군구 팩 + 매니페스트) — dev_deploy upload
+# 같은 데이터셋의 GitHub 사본 — Blender판만 이쪽을 읽는다(dev_deploy blender가 DATA_MANIFEST_URL을 바꿔 넣는다. 확장 심사 2026-10-25: 'Hugging Face는 빼라').
+# 매니페스트·config.json은 저장소 파일(HF와 같은 폴더 구조 — 상대경로 "jp/manifest.json"이 그대로 풀린다), 팩은 폴더마다 릴리스(태그 kr·jp·…,
+# 자산 1,000개 상한이라 넘치면 us-2 …)에 두고 매니페스트가 절대 주소로 가리킨다. 릴리스 태그는 data·data/jp처럼 겹칠 수 없다(git 참조) — dev_deploy.py mirror
+DATA_GITHUB_REPO = "969flash/gorani-data"
+DATA_GITHUB_MANIFEST_URL = "https://raw.githubusercontent.com/%s/main/manifest.json" % DATA_GITHUB_REPO
+DATA_GITHUB_ASSET_MAX = 950            # 릴리스 하나에 넣는 팩 수(GitHub 상한 1,000)
 DATA_MANIFEST_URL = "https://huggingface.co/datasets/%s/resolve/main/manifest.json" % DATA_REPO_ID
 # 수치지형도에서 나온 컨텍스트·등고선 팩은 국내 서버에만 둔다 — 수치지형도는 기본측량성과라 국외 반출에 허가가 필요하다
 # (공간정보관리법 제16조). Oracle Cloud 춘천 리전 Always Free 버킷(공개 읽기·목록 금지). 계정을 유료로 올리지 말 것 —
@@ -317,7 +332,7 @@ PACK_BOUNDS_MARGIN = 200.0             # m — 시군구 분할 격자 한 칸(�
 # 한국 팩 올리기(dev_deploy upload)가 일본 항목을 덮지 않고, 한국 대상지는 일본 목록을 받지 않는다.
 JP_PACK_DIR = "jp"                     # 데이터셋 안 폴더·로컬 build/packs/jp
 JP_PACK_PREFIX = "jp"                  # 팩 이름 jp<시구정촌코드>_context.db — 시구정촌 코드(5자리)가 한국 시군구 코드와 겹친다
-DATA_JP_MANIFEST_URL = "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, JP_PACK_DIR)
+DATA_JP_MANIFEST_URL = DATA_MANIFEST_URL.rsplit("/", 1)[0] + "/%s/manifest.json" % JP_PACK_DIR
 JP_BOUNDS = (122.0, 20.0, 154.0, 46.0)   # 일본 경위도 상자(서, 남, 동, 북) — 범위 밖 좌표는 원천 오류로 버린다
 # 네덜란드 — Kadaster 3D Basisvoorziening '2D 건물 + 높이 통계'(hoogtestatistieken_gebouwen, CC BY 4.0). 도엽(bladnr) zip 안 GeoPackage, EPSG:28992
 NL_PACK_DIR = "nl"
@@ -337,16 +352,46 @@ BDTOPO_LICENSE = "Licence Ouverte / Open Licence 2.0 (Etalab) — 출처 표기:
 BDTOPO_HEIGHT_RANGE = (1.0, 400.0)     # hauteur 사용 범위 m
 BDTOPO_SKIP_STATES = ("En projet", "Détruit")   # etat_de_l_objet — 없는 건물
 BDTOPO_USE = {"Résidentiel": "02000", "Commercial et services": "04000", "Industriel": "17000", "Agricole": "21000"}   # usage_1 → 국내 대분류(시트 색). 그 밖은 빈 값
+# 스위스 — swisstopo swissBUILDINGS3D 3.0 Beta(OGD 이용약관: 자유 이용·재배포, 출처 "©swisstopo"). STAC 타일(1:25k 도엽 하위 타일) FileGDB(MultiPatch LoD2) → GDAL ogr2ogr로 읽는다
+CH_PACK_DIR = "ch"
+CH_PACK_PREFIX = "ch"                  # 팩 이름 ch<1:25k 도엽 4자리>_context.db — ch1172
+CH_BOUNDS = (5.9, 45.8, 10.6, 47.9)    # 스위스·리히텐슈타인 경위도 상자(서, 남, 동, 북)
+SWISS_STAC_ITEMS_URL = "https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissbuildings3d_3_0/items?limit=100"
+SWISS_LICENSE = "swisstopo OGD 이용약관(2022-08-26, Version 1.3.2021) — 자유 이용·가공·배포, 출처 표기 \"©swisstopo\""
+SWISS_HEIGHT_RANGE = (1.0, 400.0)      # 솔리드 최고 z − 최저 z 사용 범위 m
+# 미국 — Overture Maps buildings(ODbL. Microsoft ML Buildings·OpenStreetMap·Esri Community Maps 합본 — 미국 높이는 대부분 Microsoft ML 추정, 로스앤젤레스 98.8 %·오스틴 89.3 %
+# 2026-10-23 실측 docs/research/country_buildings.md). 공식 출처(FEMA USA Structures)는 높이가 1/4뿐이고 약관이 갈려 쓰지 않는다. 카운티(Census FIPS 5자리)마다 팩 하나 — dev_us.py
+US_PACK_DIR = "us"
+US_PACK_PREFIX = "us"                  # 팩 이름 us<카운티 FIPS 5자리>_context.db — us06037 로스앤젤레스
+US_BOUNDS = ((-125.0, 24.3, -66.9, 49.5), (-170.0, 51.0, -129.0, 72.0), (-161.0, 18.5, -154.0, 22.5), (-68.0, 17.5, -64.4, 18.6))   # 본토·알래스카·하와이·푸에르토리코/버진아일랜드(서, 남, 동, 북)
+OVERTURE_RELEASE = "2026-10-21.0"      # 달마다 새 판 — 바꾸면 fetch부터 다시
+OVERTURE_S3_URL = "s3://overturemaps-us-west-2/release/%s/theme=buildings/type=building/*" % OVERTURE_RELEASE   # 익명 읽기(DuckDB httpfs, us-west-2)
+OVERTURE_PAGE_URL = "https://overturemaps.org"
+OVERTURE_LICENSE = "ODbL 1.0 (Open Database License) — 출처 표기: Overture Maps Foundation, © OpenStreetMap contributors, Microsoft (Global ML Building Footprints)"
+OVERTURE_HEIGHT_RANGE = (1.0, 700.0)   # height 사용 범위 m(One World Trade Center 541 m)
+OVERTURE_USE_CLASS = {"apartments": "02000", "dormitory": "02000", "hotel": "15000", "office": "14000", "warehouse": "18000", "garage": "20000", "garages": "20000",
+                      "parking": "20000", "school": "10000", "university": "10000", "college": "10000", "hospital": "09000", "church": "06000"}   # class 우선
+OVERTURE_USE_SUBTYPE = {"residential": "01000", "commercial": "04000", "industrial": "17000", "agricultural": "21000", "education": "10000", "medical": "09000",
+                        "religious": "06000", "civic": "14000", "transportation": "08000", "entertainment": "05000", "military": "23000"}   # subtype → 국내 대분류(시트 색). service·outbuilding은 빈 값
+CENSUS_COUNTY_URL = "https://www2.census.gov/geo/tiger/GENZ2024/shp/cb_2024_us_county_500k.zip"   # 카운티 경계(미국 정부 저작물, 공개). GEOID = FIPS 5자리, 3,235개(준주 포함)
+US_COUNTY_BUFFER_DEG = 0.003           # 카운티 경계를 넓혀 건물 중심을 배정(약 300 m) — 해안선 간략화(1:500k)로 빠지는 부두·매립지 건물. 겹친 건물은 런타임이 src_key로 한 번만
 # 나라별 공식 건물 팩(경위도, 매니페스트는 나라마다 따로 — HF 데이터셋 <dir>/manifest.json). 키 = 팩 이름 접두사. 런타임은 대상지 중심이 bounds 안인 나라의 팩을 쓴다
 # source_id = 팩 data_sources.source_id, label = 화면·도면 표기, code_pattern = 접두사 뒤 지역 코드 꼴(한국 시도 슬러그 jpn 같은 이름과 구분)
+# manifest = 한국 매니페스트(DATA_MANIFEST_URL) 기준 상대경로 — data_pack이 urljoin으로 푼다(HF·GitHub 사본 어느 쪽이든 같은 꼴).
+# ※ 내장 기본값일 뿐이다 — 런타임은 data_pack.get_country_packs()(한국 매니페스트 countries[]가 덮는다, 원본 docs/countries.json, 올리기 dev_deploy.py notices).
+#    새 나라는 여기 말고 docs/countries.json에 넣는다 — 데이터만 바뀌는 일에 플러그인 판을 올리지 않는다(2026-10-23, 0.3.3·0.3.4를 나라 추가만으로 올린 뒤).
+#    여기 값은 countries.json과 같게 둔다(tests/test_data_pack.py가 맞춘다) — 오프라인 사용자에게 지금 넷 나라는 그대로 돌게.
 COUNTRY_PACKS = {
-    "jp": {"dir": JP_PACK_DIR, "manifest": DATA_JP_MANIFEST_URL, "bounds": JP_BOUNDS, "source_id": "plateau", "label": "PLATEAU", "code_pattern": r"\d{5}"},
-    "nl": {"dir": NL_PACK_DIR, "manifest": "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, NL_PACK_DIR),
+    "jp": {"dir": JP_PACK_DIR, "manifest": "jp/manifest.json", "bounds": JP_BOUNDS, "source_id": "plateau", "label": "PLATEAU", "code_pattern": r"\d{5}"},
+    "nl": {"dir": NL_PACK_DIR, "manifest": "nl/manifest.json",
            "bounds": NL_BOUNDS, "source_id": "pdok", "label": "3D Basisvoorziening", "code_pattern": r"\d{2}[a-z]{2}\d"},   # 도엽 25gn1
-    "fr": {"dir": FR_PACK_DIR, "manifest": "https://huggingface.co/datasets/%s/resolve/main/%s/manifest.json" % (DATA_REPO_ID, FR_PACK_DIR),
+    "fr": {"dir": FR_PACK_DIR, "manifest": "fr/manifest.json",
            "bounds": FR_BOUNDS, "source_id": "bdtopo", "label": "BD TOPO", "code_pattern": r"\d{3}|02[ab]"},   # 데파르트망 075·02a
+    "ch": {"dir": CH_PACK_DIR, "manifest": "ch/manifest.json",
+           "bounds": CH_BOUNDS, "source_id": "swisstopo", "label": "swissBUILDINGS3D", "code_pattern": r"\d{4}"},   # 1:25k 도엽 1172
+    "us": {"dir": US_PACK_DIR, "manifest": "us/manifest.json",
+           "bounds": US_BOUNDS, "source_id": "overture", "label": "Overture", "code_pattern": r"\d{5}"},   # 카운티 FIPS 06037. 상자 넷(2026-10-23)
 }
-PACK_SOURCE_IDS = {v["source_id"]: k for k, v in COUNTRY_PACKS.items()}   # data_sources.source_id → 나라 코드
 PLATEAU_CKAN_URL = "https://www.geospatial.jp/ckan/api/3/action/package_search"   # G空間情報センター. 카탈로그 API 리다이렉트는 404(2026-10-21)
 PLATEAU_CKAN_QUERY = "3D都市モデル（Project PLATEAU）"
 PLATEAU_SKIP_CODES = ("27999",)        # 2025 오사카·간사이 엑스포 회장 — 철거 중인 임시 행사장
@@ -369,6 +414,7 @@ GSI_TERRAIN_URLS = tuple("https://cyberjapandata.gsi.go.jp/xyz/%s/{z}/{x}/{y}.pn
 GSI_TERRAIN_ZOOM = 15                  # 5 m 타일의 최대 줌 — 위도 35°에서 화소 약 3.9 m. 다 없으면 같은 타일의 AWS terrarium(z15)
 GSI_TERRAIN_STEP = 2                   # 화소 건너뛰기 — 표고점 약 8 m 간격
 GSI_NO_DATA = 1 << 23                  # RGB (128, 0, 0) = 값 없음(수면 등)
+# [blender-cut] 사용 통계·관리자 페이지 — Blender판은 보내지 않는다
 # 사용 통계(usage_stats.py) — GA4 Measurement Protocol. 측정 ID·secret이 비면 보내지 않는다. 끄는 설정 없음(고지는 docs/install.md)
 # 호스트마다 GA4 속성을 따로 둔다 — 웹사이트·Rhino·Blender·SketchUp을 섞지 않고 본다(사용자 결정 2026-10-16). 키 = context_builder.get_host()
 # 값 = (웹 스트림 측정 ID G-…, 관리 > 데이터 스트림 > Measurement Protocol API secret). 비면 그 호스트는 보내지 않는다. secret은 드러나도 된다(가짜 이벤트 주입 위험만)
@@ -377,10 +423,37 @@ GA_STREAMS = {
     "rhino": ("G-NJC4VMHPM1", "Yxwc8yciQiGRUAVajxTBjg"),
     "sketchup": ("G-651J4ER1QV", "10JBBMCITO2ZnpwOFZiiiQ"),   # 속성 "Gorani SketchUp" 559864110, 스트림 16174947817(2026-10-21) — 동의한 사람만
 }
+GA_STREAMS["rhino7"] = GA_STREAMS["rhino"]   # Rhino 7판도 Rhino 속성 — panel_open의 rhino(버전 7.x)로 가른다
 GA_ENDPOINT = "https://www.google-analytics.com/mp/collect"
 GA_TIMEOUT_SECONDS = 5  # 백그라운드 스레드라 패널을 막지 않는다
 GA_PARAM_VALUE_MAX = 100  # GA4 표준 속성 이벤트 매개변수 값 길이 상한(360은 500)
 GA_PNU_PARAMS = 4  # 필지 PNU를 나눠 담는 매개변수 수(값 하나에 5개 → 20필지). 이벤트당 매개변수 상한 25 안에서
+# 관리자 페이지 통계(dev_stats — 이 Mac에서만). 열쇠·쌓은 기록은 저장소 밖 ADMIN_DIR에 둔다(공개 저장소)
+ADMIN_DIR = os.path.join(os.path.expanduser("~"), ".config", "gorani")
+ADMIN_GA_KEY_PATH = os.path.join(ADMIN_DIR, "ga_service_account.json")   # GA4 Data API 서비스 계정 키(GCP gorani-stats) — GA 계정 단위 '편집자'(맞춤 측정기준 등록에 필요)
+ADMIN_DEV_CLIENTS_PATH = os.path.join(ADMIN_DIR, "dev_clients.json")   # 국내 서버 기록에서 '내 시험'으로 표시한 설치 ID 목록(이 Mac 설치 ID는 자동)
+ADMIN_GATE_LOG_PATH = os.path.join(ADMIN_DIR, "udt.log")   # 국내 서버 nginx 기록을 이어 붙인 사본 — 서버는 logrotate로 2주만 남긴다
+ADMIN_GATE_SSH = ("ubuntu", os.path.join(os.path.expanduser("~"), ".ssh", "udt-gate.key"))   # docs/domestic_gate.md
+ADMIN_YAK_VERSIONS_URL = "https://yak.rhino3d.com/versions/%s" % TOOL_NAME   # 버전별 download_count(공개 API)
+ADMIN_HF_API_URL = "https://huggingface.co/api/datasets/%s?expand%%5B%%5D=downloads&expand%%5B%%5D=downloadsAllTime&expand%%5B%%5D=usedStorage" % DATA_REPO_ID   # 데이터셋 전체 합계만(파일별 없음)
+ADMIN_ORACLE_FREE_STORAGE = 20 * 1024 ** 3   # Always Free 오브젝트 스토리지 20 GB(넘으면 유료 — 전환 금지)
+ADMIN_ORACLE_FREE_EGRESS = 10 * 1000 ** 4    # Always Free 아웃바운드 월 10 TB
+ADMIN_STORE_URLS = {   # 프로그램별 배포 자리 — 빈 값 = 아직 공개 전(심사 중). Blender는 이 주소가 200이면 공개된 것으로 본다
+    "rhino": "https://yak.rhino3d.com/packages/Gorani",
+    "sketchup": "",   # Extension Warehouse 심사 중(docs/sketchup_store.md) — 공개되면 페이지 주소를 넣는다
+    "blender": "https://extensions.blender.org/add-ons/gorani/",
+}
+ADMIN_TEST_AGENTS = ("curl/", "HeadlessChrome", "python-requests")   # 국내 서버 기록에서 늘 시험으로 보는 User-Agent
+ADMIN_GA_WEB_ID = "G-ZVM7EZPRPQ"   # 웹사이트 속성 "Gorani 웹"(969flash/gorani assets/site.js). 플러그인 속성은 GA_STREAMS — 이 밖의 속성(옛 Blender)은 대시보드에서 뺀다
+# 대시보드가 쓰는 이벤트 매개변수 — GA 맞춤 측정기준·측정항목으로 등록해야 Data API로 읽힌다(등록한 날부터 쌓임). 관리자 페이지 [연결]에서 한 번에 등록
+# 플러그인 = cmd_site._send_stats(panel_open·build·pack_download·error) + usage_stats.get_target_params, 웹 = site.js track(copy_command·install_tab·demo_chapter)
+ADMIN_GA_DIMENSIONS = {
+    "app": ("version", "host", "rhino", "mode", "result", "korea", "error", "context", "packs", "placement", "shape", "radius",
+            "lng", "lat", "pnus", "pnus_2", "pnus_3", "pnus_4", "dev"),
+    "web": ("host", "command", "chapter", "dev"),   # dev = 개발자 PC·브라우저 표시(usage_stats·site.js) — [내 테스트 제외]
+}
+ADMIN_GA_METRICS = {"app": (("elapsed_s", "SECONDS"), ("buildings", "STANDARD"), ("area", "STANDARD")), "web": ()}
+# [/blender-cut]
 # 테이블별 객체 최대 폭 m — bbox 질의의 min_x 하한에 쓴다. dev_context_builder가 빌드 끝에 넘지 않는지 검사한다.
 # 실측(2026-10-08): 건물 최대 887 m(가로·세로 중 큰 값), features 최대 2,779 m(도엽 1장 높이 — 도엽 단위로 잘려 있다).
 CONTEXT_MAX_EXTENT = {"buildings": 2000.0, "features": 3000.0}   # 부산 건물 최대 1,340 m(2026-10-13 전국 빌드)
@@ -498,8 +571,9 @@ HEIGHT_GRADES = ("A", "B", "C", "D")
 # ═════════════════════════════════════════════════════════
 # 패널 — docs/panel_ui.md·docs/ui_spec.md
 # ═════════════════════════════════════════════════════════
-PANEL_VERSION = "0.3.2"   # 배포 버전 하나(Yak·Blender·SketchUp 패키지 버전 = dev_deploy.PACKAGE_VERSION). 매니페스트 update.latest·min과 비교한다
+PANEL_VERSION = "0.3.7"   # 배포 버전 하나(모든 호스트 패키지 버전 = dev_deploy.PACKAGE_VERSION). 매니페스트 update.latest·min과 비교한다
 NOTICE_TIMEOUT_SECONDS = 3   # 패널을 열 때 매니페스트(공지·업데이트)를 기다리는 한도 — 못 받으면 공지 없이 연다
+MANIFEST_RETRY_SECONDS = 60   # 지도 이동(area_packs)이 매니페스트를 못 받았으면 이만큼은 다시 묻지 않는다 — 막힌 망에서 이동마다 멈추지 않게
 # 언어 — 패널 헤더에서 고른다(options.lang). 사전은 scripts/i18n.json 하나(패널 JS·Python 공용, i18n.py)
 LANGS = ("en", "ko", "es", "ja", "zh")   # 고르기 순서. zh = 중국어 간체
 DEFAULT_LANG = "en"   # food4Rhino 심사(2026-10-21 McNeel 메일 '영어가 없으면 올릴 수 없다') — 처음 설치는 영어. 0.3.0 전에 쓰던 설치본은 한국어 그대로(site_prefs.get_options)
@@ -511,9 +585,11 @@ RESULT_DATE_FORMAT = "%Y%m%d"                  # result/<대상지명>_<YYYYMMDD
 RESULT_DIR_FORMAT = "%s_%s"                    # (대상지명, 날짜)
 CONTEXT_MODEL_FILE_NAME = "context.3dm"
 BLENDER_MODEL_FILE_NAME = "context.blend"      # Blender판 사본(blender_baker.save_copy) — 3dm 대신
+# [blender-cut]
 SKETCHUP_MODEL_FILE_NAME = "context.skp"       # SketchUp판 사본(sketchup_baker.save_copy — 대상지 그룹 정의를 저장)
 WEB_MODEL_FILE_NAME = "context.glb"            # 웹판 사본(web_baker.save_copy) — 페이지 뷰어가 바로 그리고 Blender·Rhino 8이 가져온다
 ARCHICAD_MODEL_FILE_NAME = "context.mod"       # Archicad판 사본(archicad_baker.save_copy — 구운 요소를 모듈로). 다시 넣기는 핫링크
+# [/blender-cut]
 CONTEXT_META_FILE_NAME = "context.json"
 BASEMAP_FILE_FORMAT = "basemap_%d.ai"          # 축척 분모
 # DWG 저장 스위치. 활성 문서에서 .dwg를 쓰면 Mac Rhino 8이 12분 멈춘 뒤 실패했다(2026-10-14 을지로1가 87, job 1014-152138 731 s) →
@@ -530,6 +606,7 @@ CTX_LAYERS = {   # 이름: (RGB)
     "Water": (46, 125, 224), "Roads": (168, 168, 162), "Green": (228, 235, 226), "Rail": (110, 110, 110),
     "Bridges": (150, 150, 150), "Zoning": (200, 120, 40), "QA::cadastre_mismatch": (255, 0, 255), "Ref": (0, 0, 0),
     "Site::ground": (236, 150, 120), "Site::lots": (235, 140, 140), "Terrain::site_flat": (214, 196, 170), "Terrain::site_wall": (150, 140, 128), "Terrain::site_original": (236, 232, 222),
+    "Terrain::block": (200, 192, 180),   # 지형을 바닥까지 채우기 — 지형 덩어리 옆면·바닥
 }
 # CTX::Zoning 하위 레이어 — overlays theme → 'CTX::Zoning::<이름>::<종류>'. 종류는 용도지역이면 현황도 11 범례 이름, 나머지는 overlay.kind.
 # 색은 현황도 11~13 범례 색(context_baker.get_layer_rgb). 현황도에 없는 theme(건축선 notice_road)은 넣지 않는다.
@@ -660,6 +737,7 @@ PANEL_DEFAULT_OPTIONS = {
     "include_minor_buildings": False,
     "include_zoning": True,   # CTX::Zoning — 용도지역·용도지구·용도구역·도시계획시설·지구단위계획 경계(현황도 11~13의 2D 커브)
     "terrain_vertex_color": False,
+    "terrain_block": True,   # 지형을 바닥까지 채우기 — 지형 옆면·바닥(Terrain::block). 범위 링으로 건물·커브를 자르는 것은 늘 한다. 입체 매스도는 style.axo_ground가 따로 정한다
     "terrain_step": 0,   # 지형 표현: 0 = 매끈(TIN), > 0 = 계단형(등고 모형) 단 간격 m — 패널은 1·2·5 m. 국내 원천 등고선은 5 m 간격이라 1·2 m 단은 보간값
     "make_dwg": False,   # 2D 도면(BM::)을 .dwg로도 — CAD 사용자용. 기본 off
     "zoom_after_import": True,
@@ -712,6 +790,11 @@ TERRAIN_GRID = 3.0              # m — 출력 지형 메시 칸(2026-10-10: 들
 TERRAIN_GRID_MAX_FACES = 250000 # 범위 bbox ÷ 칸² 상한 — 넘으면 칸을 키운다(위치 1:5000 용지 4.2×3.0 km → 약 7 m)
 TERRAIN_MARGIN = 20.0           # m — TIN 입력 범위 여유 (범위 bbox ∪ 건물 bbox + 이 값)
 TERRAIN_STEP_SNAP = 1e-4        # m — 계단 지형: 단 경계에서 이만큼 안의 정점은 경계 위로 본다(투영 오차로 생기는 실오라기 면 방지)
+# 지형을 바닥까지 채우기(options.terrain_block, 2026-10-28) — 지형을 모형 받침처럼 바닥까지 덩어리로. 바닥 = 범위 안 최저 지반 − 두께, 5 m 단위 내림.
+# 해발 0 m 바닥은 버렸다 — 두께가 표고에 끌려간다(서울 평지 20 m·산지 수백 m, 해수면 아래 간척지는 음수)
+BLOCK_DEPTH_RATIO = 0.03        # 두께 = 범위 짧은 변 × 이 값(500 m 사각형 15 m) — 등각 다이어그램에서 받침이 얇은 판으로 읽히는 비율
+BLOCK_MIN_DEPTH = 5.0           # m — 두께 하한(작은 범위)
+BLOCK_BASE_SNAP = 5.0           # m — 바닥 높이를 이 단위로 내림(BASE_M이 읽기 쉬운 값이 되게)
 CLASSIFY_GRID = 50.0            # m — 면 분류용 격자 버킷
 WATER_LIFT = 0.02               # m — 수면 메시를 지형 위로 띄우는 높이
 WATER_EDGE_STEP = 2.0           # m — 수면 경계 조밀화 간격 (TIN 입력, code_map §5.1)
@@ -736,25 +819,32 @@ UDT_MANAGED_KEY = "GORANI_MANAGED"  # 베이크 객체 UserString — clear_prev
 UDT_LOT_KEY = "GORANI_LOT_KEY"      # 베이크 객체 UserString — pnus 정렬 sha1 앞 8자리
 DOC_ORIGIN_KEYS = ("GORANI_ORIGIN_E", "GORANI_ORIGIN_N", "GORANI_CRS")   # doc.Strings 문서 수준 원점 기록(Blender는 장면 사용자 속성)
 # 패널이 호스트마다 바꿔 쓰는 이름(init_state.host) — 문서 이름·결과 모델 파일·DWG 저장(Rhino만)·커브 가져오기.
-# ask_stats = 사용 통계를 동의한 사람만 보낸다(Blender 확장 약관 4.5 '사용자 허락 없이 외부 전송 금지', 사용자 결정 2026-10-16 — Rhino는 그대로).
-# SketchUp도 Extension Warehouse 심사(개인정보 정책 위반 = 반려 사유)라 동의제 — GA_STREAMS에 sketchup 속성을 넣기 전에는 묻지도 않는다
 # aerial = 위성 영상(지도 배경·항공사진 시트), update_notice = 매니페스트 업데이트 모달, ip_center = 지도 첫 위치 IP 짐작(ipinfo.io) — 없으면 True, Blender는 셋 다 끈다
 HOST_LABELS = {
+    "blender": {"id": "blender", "name": "Blender", "doc": "Blender 장면", "model": BLENDER_MODEL_FILE_NAME, "dwg": False,
+                # [blender-cut] ask_stats = 사용 통계를 동의한 사람만 보낸다(Blender 확장 약관 4.5 '사용자 허락 없이 외부 전송 금지', 사용자 결정 2026-10-16 — Rhino는 그대로).
+                # 확장 패키지에는 사용 통계가 없다(이 값은 저장소 시험용)
+                "ask_stats": True,
+                # [/blender-cut]
+                "aerial": False, "update_notice": False, "ip_center": False},   # 확장 스토어 약관: 분석 전송·상용 영상(Esri)·제3자 IP 조회 불가, 업데이트는 Blender가 한다
+    # [blender-cut] SketchUp도 Extension Warehouse 심사(개인정보 정책 위반 = 반려 사유)라 동의제 — GA_STREAMS에 sketchup 속성을 넣기 전에는 묻지도 않는다
     "rhino": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": True, "ask_stats": False},
-    "blender": {"id": "blender", "name": "Blender", "doc": "Blender 장면", "model": BLENDER_MODEL_FILE_NAME, "dwg": False, "ask_stats": True,
-                "aerial": False, "update_notice": False, "ip_center": False},   # 확장 스토어 약관: 상용 영상(Esri)·제3자 IP 조회 불가, 업데이트는 Blender가 한다
     "sketchup": {"id": "sketchup", "name": "SketchUp", "doc": "SketchUp 모델", "model": SKETCHUP_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},
+    # Rhino 7판(cmd_rhino7 사이드카 + rhino7_host.cs) — 패널에는 Rhino로 보인다. DWG는 Rhino 8 헤드리스 문서(context_baker.save_dwg)라 없다
+    "rhino7": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": False, "ask_stats": False},
     "archicad": {"id": "archicad", "name": "Archicad", "doc": "Archicad 프로젝트", "model": ARCHICAD_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},   # GA 속성을 만들기 전에는 묻지 않는다
     "web": {"id": "web", "name": "브라우저", "doc": "3D 모델", "model": WEB_MODEL_FILE_NAME, "dwg": False, "ask_stats": False},   # 통계는 웹사이트 GA(페이지)만
+    # [/blender-cut]
 }
-# 메시판(mesh_geometry — Blender·SketchUp)
+# 메시판(mesh_geometry)
 CDT_EPSILON = 1e-4              # m — CDT 근접 판정(mathutils delaunay_2d_cdt는 0이면 안 된다, shapely판은 겹치기 격자). 0.1 mm — 원천 좌표는 mm 반올림
 # Blender판(cmd_blender)
 BLENDER_PANEL_POLL = 0.1        # s — 브라우저 패널 명령을 Blender 메인 스레드에서 꺼내는 간격(bpy.app.timers)
 BLENDER_VIEW_CLIP_END = 20000.0  # m — 줌할 때 3D 뷰 먼 클리핑(기본 1 km면 반경 1 km 지형이 잘린다)
 BLENDER_CURVE_WAIT = 60.0       # s — [Blender 커브 가져오기]를 눌렀는데 고른 커브가 없을 때 Blender에서 고르기를 기다리는 시간(Rhino 고르기 프롬프트 자리)
+# [blender-cut]
 # SketchUp판(cmd_sketchup 사이드카 — 번들 파이썬 + sketchup_ext.rb)
-HOST_ENV = "GORANI_HOST"     # SketchUp 사이드카는 'sketchup', 웹판 워커는 'web'으로 둔다 — context_builder.get_host
+HOST_ENV = "GORANI_HOST"     # SketchUp 사이드카는 'sketchup', Rhino 7 사이드카는 'rhino7', 웹판 워커는 'web'으로 둔다 — context_builder.get_host
 SKETCHUP_HOST_TIMEOUT = 1800.0  # s — 호스트 호출(베이크 등) 응답 대기 상한. 패널을 닫으면(Ruby가 panel_closed를 stdin으로) 기다리지 않고 바로 실패한다
 SKETCHUP_HOST_POLL = 0.5        # s — 응답을 기다리며 패널 닫힘을 확인하는 간격
 SKETCHUP_ZOOM_MIN_SPAN = 400.0  # m — 생성 뒤 화면 맞춤에서 대상지 + 여백의 최소 한 변. 작은 필지도 주변 맥락이 보이게(Rhino는 대상지 + 대각선 반 여백만)
@@ -776,6 +866,7 @@ ARCHICAD_SURFACE_LIFT = 0.03    # m — 도로·녹지·수면 색 면을 지형
 # 반경 상한 — 2026-10-19 실측(Chrome·Apple M5, 성수 333-139): 500 m 5 s·탭 0.8 GB, 1 km 11 s·0.9 GB, 2 km 39 s·1.8 GB(시군구 팩 6곳 681 MB 포함).
 # CPU 4배 감속(오래된 보급형 노트북 가정)이면 500 m 20 s·1 km 45 s. 3 km는 팩만 1.8 GB(10곳)라 탭 메모리에 못 든다
 WEB_MAX_RADIUS = 2000.0
+# [/blender-cut]
 # CTX::Ref UserString 고정 문자열 — deliverables §A.1 Ref 행. TRANSFORM은 UPIS 5174→5186 변환(META_CRS_LINE과 같은 근거), VDATUM은 수치지형도 표고 기준
 REF_TRANSFORM = "EPSG:5189 (UPIS EPSG:5174→5186, 공칭 ±1 m)"
 REF_VDATUM = "인천만 평균해수면(수준원점 26.6871 m)"
@@ -827,7 +918,8 @@ SHEET_PARCEL_MAX_SCALE = 3000    # 이 축척보다 작은 도면(1:5000)은 지
 SHEET_FADE_TO_PAPER = 0.45       # 주제도의 바탕(가구·건물·녹지·수계)을 종이색 쪽으로 이만큼 흐린다 — 주제 색이 먼저 읽히게
 SHEET_HEIGHT_SRC_LABELS = {"height": "대장 높이", "grnd_flr": "대장 층수", "topo_flr": "지형도 층수", "hub": "건축HUB", "default": "기본값",
                            "osm_height": "OSM 높이", "osm_levels": "OSM 층수",
-                           "plateau_height": "PLATEAU 실측 높이", "plateau_levels": "PLATEAU 층수"}  # 층수 카드, A.4 HEIGHT_SRC
+                           "plateau_height": "PLATEAU 실측 높이", "plateau_levels": "PLATEAU 층수"}  # 층수 카드, A.4 HEIGHT_SRC. 여기 없는 키는 data_pack.get_height_src_label이 팩 라벨로 만든다
+HEIGHT_SRC_KIND_LABELS = {"height": "{0} 높이", "height_rel": "{0} 높이", "levels": "{0} 층수", "roof": "{0} 지붕 높이"}   # '<source_id>_<종류>' 꼴 height_src의 종류 — 새 나라 팩은 코드 수정 없이
 SHEET_HATCH = {"landlocked": {"stroke": "#D83A3A", "stroke-width": 0.25, "spacing_mm": 1.5}}   # <pattern id="hatch_<키>"> 45° 사선
 # 지명 라벨에서 뺄 이름 — 수치지형도 명칭 레이어에 공사장 안내가 섞여 있다(성수 '성수동오피스신축공사(24년01월예정)' 2026-10-13 실측)
 SHEET_LABEL_SKIP_PATTERN = r"공사|예정|\d{2}년"
@@ -852,6 +944,7 @@ SHEET_THUMB_PX = 160             # 패널 도면 칸 썸네일(정사각 지도 
 AERIAL_DPI = 150                 # 인쇄 해상도 목표 — A3 1:5000이면 줌 18(위도 37°에서 0.47 m/px, 타일 ≈150장·SVG ≈4 MB). 원천 정사영상은 25~51 cm
 AERIAL_PREVIEW_DPI = 60          # 패널 '도면 스타일' 미리보기 — 인쇄 해상도 SVG(수 MB)를 웹뷰로 밀지 않는다
 AERIAL_MAX_ZOOM = 19             # VWorld 영상·Esri 공통 최대 줌
+AERIAL_ZOOM_DROPS = 2            # 그 줌에 영상이 없으면(Esri 404) 낮춰 보는 단계 수 — 1:1000 시트 z19 → z17까지
 AERIAL_MAX_TILES = 400           # 한 장 상한 — 넘으면 줌을 한 단계씩 낮춘다(A1 1:5000 줌 18 ≈ 530장 → 17)
 AERIAL_TIMEOUT_SECONDS = 10      # 타일 한 장
 AERIAL_WORKERS = 8               # 동시에 받는 타일 수
@@ -863,6 +956,9 @@ AXO_MARGIN_MM = 10.0             # 지도 칸 가장자리 여백(A3 기준 — 
 AXO_LINE_MM = 0.12               # 건물 모서리 선(평면 건물선 0.05 mm는 입체에서 묻힌다)
 AXO_WALL_SHADE = (0.12, 0.28)    # 벽 두 방향(화면 오른쪽·왼쪽을 향한 면)을 글자색 쪽으로 섞는 비율 — 지붕은 건물색 그대로
 AXO_EDGE_SHADE = 0.6             # 모서리 선 = 건물색을 글자색 쪽으로 이만큼
+AXO_CONTOUR_STEPS = (1.0, 2.0, 5.0, 10.0, 20.0, 50.0)   # 지형 덩어리 입체 매스도 등고선 간격 후보 m — 고저차 ÷ 간격이 AXO_CONTOUR_MAX 이하인 첫 값
+AXO_CONTOUR_MAX = 20
+AXO_CONTOUR_SHADE = 0.45         # 등고선 = 바닥색을 글자색 쪽으로 이만큼
 AXO_SITE_TINT = 0.55             # 대상지 안 건물 면을 대상지 색 쪽으로 섞는 비율 — 대상지가 먼저 읽히게
 
 # ── 도면 스타일 (패널 '도면 스타일' 화면 · HOME_DIR/styles/*.json · options.style) ──
@@ -886,8 +982,9 @@ STYLE_PRESETS = {
 }
 STYLE_DEFAULT_PRESET = "std"
 STYLE_DEFAULTS = {"layout": "side", "line_scale": 1.0, "text_scale": 1.0, "font": "sans", "fade_outside": 0.55,
-                  "labels": True, "subtitle_en": True, "project": "", "axo_view": "se"}
-STYLE_CHOICES = {"layout": ("side", "bottom", "map"), "font": ("sans", "serif"), "ramp": tuple(STYLE_RAMPS), "axo_view": tuple(AXO_VIEWS)}
+                  "labels": True, "subtitle_en": True, "project": "", "axo_view": "se", "axo_ground": "block"}
+STYLE_CHOICES = {"layout": ("side", "bottom", "map"), "font": ("sans", "serif"), "ramp": tuple(STYLE_RAMPS), "axo_view": tuple(AXO_VIEWS),
+                 "axo_ground": ("block", "flat")}   # 입체 매스도 지형 — block = 지형 덩어리(지반 높이에 건물, 옆면·등고선), flat = 평평한 바닥. 3D의 terrain_block과 따로 고른다
 STYLE_RANGES = {"line_scale": (0.5, 2.0), "text_scale": (0.8, 1.4), "fade_outside": (0.0, 0.8)}
 STYLE_FONTS = {"sans": "Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif",
                "serif": "'Noto Serif KR', AppleMyungjo, Batang, serif"}

@@ -24,6 +24,7 @@ panel_host.PanelHost(Eto WebView)와 로직 모듈을 잇는다. JS 명령(dict)
     open_path       → 폴더·파일·.env 템플릿을 OS로 연다
     open_eum        → PNU의 토지이음 토지이용계획 열람을 OS 브라우저로 연다(constants.EUM_LAND_USE_URL)
     save_prefs      → site_prefs.save_options
+    remove_recent   → site_prefs.remove_recent (최근 대상지 x — JS가 목록에서 먼저 지운다)
     style_preview   → context_builder.preview_sheet (스타일 바꾼 한 장 SVG 문자열 — 파일 안 씀, seq 에코)
     apply_style     → context_builder.apply_style (시트 전부 + 쓴 .ai 다시 쓰기, busy·style_applied)
     save_style      → site_prefs.save_style (HOME_DIR/styles/<이름>.json → styles)
@@ -40,11 +41,13 @@ import datetime
 import importlib.util
 import json
 import os
+import runpy
 import subprocess
 import sys
 import time
 import traceback
 
+# [blender-cut] Rhino 호스트 — Blender 확장 패키지는 이 표시 구간을 뺀다(dev_deploy.get_blender_source)
 try:
     import Rhino
     import scriptcontext
@@ -52,6 +55,7 @@ try:
     import Eto.Forms as forms
 except ImportError:   # python3 테스트 — 조립 함수만 쓴다
     Rhino = scriptcontext = System = forms = None
+# [/blender-cut]
 
 if __package__:   # Blender 확장 — scripts/가 패키지(최상위 모듈 금지 정책)
     from . import loader
@@ -109,7 +113,9 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
     has_lot_db = os.path.exists(site_db) if site_db else bool(loader.load("data_pack").get_local_paths("site"))
     sources = context_builder.mark_downloadable(context_builder.get_sources(site_db, context_db, today), not site_db)
     host = dict(constants.HOST_LABELS[context_builder.get_host()])
+    # [blender-cut] 사용 통계 — Blender 확장 패키지에는 없다(usage_stats·ask_stats·동의 명령을 뺀다)
     host["ask_stats"] = host["ask_stats"] and loader.load("usage_stats").is_configured()   # 보낼 곳이 없으면 묻지 않는다
+    # [/blender-cut]
     notice = loader.load("data_pack").get_notice_state(manifest)
     if not host.get("update_notice", True):   # Blender — 업데이트는 확장 저장소(Blender)가 알린다
         notice["update"] = None
@@ -121,7 +127,9 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
                   "env": ".env", "install_doc": constants.INSTALL_DOC},
         "generator": {"ok": True, "python": host["name"] + " Python", "text": tr("{0} 내장", host["name"])},
         "host": host,
+        # [blender-cut]
         "stats_consent": site_prefs.get_stats_consent(),
+        # [/blender-cut]
         "links": dict(constants.PANEL_LINKS),
         "output_langs": [list(x) for x in constants.OUTPUT_LANGS],   # 메뉴 '결과물 언어' 칸 — [코드, 이름]   # 메뉴가 주소를 그대로 보여 준다. 여는 건 open_url{key}
         "can_download": bool(constants.DATA_MANIFEST_URL),
@@ -236,6 +244,13 @@ def _empty_area_state(text=""):
             "offsets": [], "area": 0.0, "lots": 0, "lots_area": 0.0, "lot_name": "", "target_geojson": _EMPTY_FC, "warnings": []}
 
 
+def _get_name_options(msg):
+    # type: (dict) -> dict
+    """구역·위치 이름(…_일대·…_vicinity)을 결과 폴더와 같은 언어로 — prefs의 output_lang. 없으면 한국어라 해외 사용자 패널에
+    '일대'·'구역'이 떴다(2026-10-23 가상 사용자 시험)."""
+    return {"region": msg.get("region"), "output_lang": loader.load("site_prefs").get_options().get("output_lang")}
+
+
 def get_area_state(msg, site_db=None):
     # type: (dict, str) -> dict
     """area_state 페이로드 — 구역 링 하나를 정리·검사하고 안의 필지를 센다.
@@ -263,7 +278,7 @@ def get_area_state(msg, site_db=None):
         return _empty_area_state()
     try:
         request = context_builder.get_request_with_defaults({"target": {"mode": "area", "ring": points}, "site_db": site_db,
-                                                             "options": {"region": msg.get("region")}})   # Global이면 안의 필지를 세지 않는다
+                                                             "options": _get_name_options(msg)})   # Global이면 안의 필지를 세지 않는다
         target = context_builder.resolve_target(request)
     except (ValueError, KeyError, FileNotFoundError, RuntimeError) as error:
         return _empty_area_state(str(error.args[0]) if error.args else str(error))
@@ -292,7 +307,7 @@ def get_point_state(msg, site_db=None):
     non_rhino_utils.set_projection(lng, lat)   # 해외면 지역 원점, 국내면 EPSG:5186
     x, y = non_rhino_utils.get_tm_from_wgs84(lng, lat)
     request = context_builder.get_request_with_defaults({"target": {"mode": "point", "center": [x, y]}, "site_db": site_db,
-                                                         "options": {"region": msg.get("region")}})
+                                                         "options": _get_name_options(msg)})
     target = context_builder.resolve_target(request)
     return {"type": "point_state", "ok": True, "center": [round(lng, 7), round(lat, 7)], "center_tm": [round(x, 2), round(y, 2)],
             "lot_name": target.name}
@@ -314,14 +329,14 @@ def get_area_packs(bbox, seq=None, manifest=None):
     west, south, east, north = (float(v) for v in bbox)
     if not non_rhino_utils.is_korea((west + east) / 2.0, (south + north) / 2.0):
         return empty
-    corners = [non_rhino_utils.get_tm_from_wgs84(x, y) for x in (west, east) for y in (south, north)] if not non_rhino_utils.is_local_projection() else []
-    if not corners:
-        return empty
+    with non_rhino_utils.korea_projection():   # 해외 대상지 원점이 남아 있어도 국내 팩 범위로
+        corners = [non_rhino_utils.get_tm_from_wgs84(x, y) for x in (west, east) for y in (south, north)]
     bounds = (min(c[0] for c in corners), min(c[1] for c in corners), max(c[0] for c in corners), max(c[1] for c in corners))
     try:
         data_dir = data_pack.get_data_dir()
         # 시군구 필지 팩 중 파일이 없는 것만 — 새 판은 생성할 때 범위 안에서 받는다. 옛 시도 팩은 대상이 아니다
-        missing = [pack for pack in data_pack.get_missing_packs(manifest or data_pack.get_manifest(), bounds=bounds)
+        manifest = manifest or data_pack.get_manifest(timeout=constants.NOTICE_TIMEOUT_SECONDS, retry_after=constants.MANIFEST_RETRY_SECONDS)   # UI 스레드 — 짧게
+        missing = [pack for pack in data_pack.get_missing_packs(manifest, bounds=bounds)
                    if pack["name"][:5].isdigit() and pack["name"].endswith("_site.db")
                    and not os.path.exists(os.path.join(data_dir, pack["name"]))]
     except Exception:   # 오프라인 — 지도는 그대로 쓴다
@@ -487,11 +502,18 @@ class _SiteController:
         self._skipped = set()
         self._phase_detail = {}
         self._last_phase = "query"
+        # [blender-cut]
         self._session_id = str(int(time.time()))   # 사용 통계 세션 = 패널 하나
+        # [/blender-cut]
         self._opened = False
         self._keep = {}                # 마지막 결과의 시트 데이터(지형 삼각형 포함) — 도면 스타일 미리보기·적용이 다시 쓴다
         self._map_center = None        # 첫 init에 IP로 짐작한 지도 첫 위치 [lng, lat] — 못 받으면 None(서울시청)
+        try:   # 원격 설정(도면 색·범례·구간·번역) — 캐시를 먼저 덮는다(패널 HTML의 번역 사전이 호스트 생성 때 심기므로 init보다 앞서야 한다). 새 것은 _init이 받는다
+            loader.load("remote_config").apply(loader.load("remote_config").load_cached())
+        except Exception:
+            pass
 
+    # [blender-cut] 사용 통계 — cmd_blender는 보내지 않는 판으로 바꿔 단다
     def _send_stats(self, name, params):
         # type: (str, dict) -> None
         """사용 통계 이벤트 하나(usage_stats). 통계 준비 중 어떤 예외도 패널 흐름을 막지 않는다."""
@@ -499,6 +521,7 @@ class _SiteController:
             loader.load("usage_stats").send_event(name, dict(params, session_id=self._session_id))
         except Exception:
             pass
+    # [/blender-cut]
 
     def handle(self, msg):
         # type: (dict) -> None
@@ -514,9 +537,12 @@ class _SiteController:
             "set_area": self._set_area, "set_point": self._set_point, "pick_curve": self._pick_curve,
             "preflight": self._preflight, "generate": self._generate, "make_2d": self._make_2d, "cancel": self._cancel,
             "import_context": self._import_context, "export_basemap": self._export_basemap, "zoom_view": self._zoom_view,
-            "open_path": self._open_path, "open_eum": self._open_eum, "open_url": self._open_url, "save_prefs": self._save_prefs, "download_data": self._download_data,
+            "open_path": self._open_path, "open_eum": self._open_eum, "open_url": self._open_url, "save_prefs": self._save_prefs, "remove_recent": self._remove_recent, "download_data": self._download_data,
             "style_preview": self._style_preview, "apply_style": self._apply_style, "save_style": self._save_style, "sheet_ai": self._sheet_ai,
-            "sheet_view": self._sheet_view, "area_packs": self._area_packs, "stats_consent": self._stats_consent,
+            "sheet_view": self._sheet_view, "area_packs": self._area_packs,
+            # [blender-cut]
+            "stats_consent": self._stats_consent,
+            # [/blender-cut]
         }
         handler = handlers.get(cmd)
         if handler is None:
@@ -535,9 +561,13 @@ class _SiteController:
             self.push({"type": "error", "context": context, "text": text, "detail": ""})
         except Exception:
             self.push({"type": "error", "context": context, "text": tr("예상 밖 오류"), "detail": traceback.format_exc()})
-            self._send_stats("error", {"context": context, "error": type(sys.exc_info()[1]).__name__})
+            # [blender-cut]
+            self._send_stats("app_error", {   # GA4 예약어 'error'는 버려진다(2026-10-23 debug 엔드포인트 NAME_RESERVED)
+                "context": context, "error": type(sys.exc_info()[1]).__name__})
+            # [/blender-cut]
 
     # ── 호스트 연결 (Rhino) — cmd_blender가 같은 이름으로 바꿔 단다 ──
+    # [blender-cut]
 
     def _get_doc(self):
         return Rhino.RhinoDoc.ActiveDoc
@@ -557,6 +587,7 @@ class _SiteController:
         # type: () -> dict
         """panel_open 통계의 호스트 버전 키."""
         return {"rhino": str(Rhino.RhinoApp.Version)}
+    # [/blender-cut]
 
     def _open(self, path):
         """파일·폴더·URL을 OS로 연다(웹판은 내려받기·새 탭)."""
@@ -576,14 +607,20 @@ class _SiteController:
             loader.load("data_pack").get_manifest(timeout=loader.load("constants").NOTICE_TIMEOUT_SECONDS)
         except Exception:
             pass
+        try:   # 원격 설정(remote_config) — 같은 예산. 못 받으면 캐시·내장값. 틀린 항목은 그 항목만 건너뛴다
+            loader.load("remote_config").refresh(timeout=loader.load("constants").NOTICE_TIMEOUT_SECONDS)
+        except Exception:
+            pass
         if not self._opened:   # 지도는 첫 init_state로만 만든다(JS initMap)
             self._map_center = loader.load("review_map").get_ip_center()
         state = get_init_state(map_center=self._map_center)
         self.push(state)
         if not self._opened:   # init은 배지 [다시 확인]에도 온다 — 패널 열기는 한 번만
             self._opened = True
+            # [blender-cut]
             self._send_stats("panel_open", dict(self._get_host_stats(), version=state["version"], has_lot_db=not state["blocked"],
                                                 packs=len(loader.load("data_pack").get_local_paths("site"))))
+            # [/blender-cut]
 
     def _search(self, msg):
         query = (msg.get("query") or "").strip()
@@ -603,6 +640,7 @@ class _SiteController:
     def _set_point(self, msg):
         self.push(get_point_state(msg))
 
+    # [blender-cut] Rhino 커브·문서 — cmd_blender가 같은 이름으로 바꿔 단다
     def _pick_curve(self, msg):
         """Rhino에서 고른 닫힌 커브 하나 → curve_shape. 이미 선택된 커브가 하나면 그것, 없으면 고르기 프롬프트.
         커브 좌표가 실제 위치(이 도구가 만든 문서의 원점 기준, 또는 서울 EPSG:5186 범위)면 located=true + ring_tm,
@@ -633,6 +671,7 @@ class _SiteController:
         unit_scale = 1.0 / context_baker.get_model_unit_scale(doc)   # 문서 단위 → m
         ring, problem = context_geometry.get_curve_ring(curve, unit_scale, doc.ModelAbsoluteTolerance)
         self.push(get_curve_shape(ring, problem, context_baker.get_doc_origin(doc)))
+    # [/blender-cut]
 
     def _preflight(self, msg):
         key = get_preflight_key(msg)
@@ -672,14 +711,18 @@ class _SiteController:
         self._redraw(doc)
         target = request["target"]
         if not response["ok"]:
+            # [blender-cut]
             self._send_build_stats(target, [], response)   # 실패는 필지 DB 자체가 원인일 수 있어 다시 읽지 않는다(PNU만)
+            # [/blender-cut]
             self.push({"type": "log", "level": "error", "text": get_error_log_text(response["error"])})
             self.push(get_failed_progress(response, self._last_phase, self._skipped, self._phase_detail))
             return
         self.push(self._context_builder.get_progress_message(self._last_phase, 1.0, "", self._skipped, self._phase_detail, state="done"))
         self.push(get_done_message(response))
         lots = lot_db.load(target["pnus"]).lots if target["mode"] == "lots" else []
+        # [blender-cut]
         self._send_build_stats(target, lots, response)
+        # [/blender-cut]
         if lots:   # 최근 대상지는 필지 방식만(구역·위치는 다시 그리는 편이 빠르다)
             site_prefs.add_recent(target["pnus"], response["lot_name"].replace("_", " "), sum(lot.area for lot in lots), datetime.date.today().isoformat())
         if response["options"].get("zoom_after_import"):
@@ -708,6 +751,7 @@ class _SiteController:
             self.push({"type": "log", "level": "error", "text": get_error_log_text(response["error"])})
         self.push(dict(response, type="made_2d"))
 
+    # [blender-cut] 사용 통계
     def _send_build_stats(self, target, lots, response):
         # type: (dict, list, dict) -> None
         """생성 한 번 → build 이벤트(대상지 위치·규모, 범위 옵션, 결과·소요 시간)."""
@@ -721,6 +765,7 @@ class _SiteController:
                       radius=options.get("radius"), shape=options.get("shape"), placement=options.get("placement"),
                       buildings=response["context"].get("buildings"))
         self._send_stats("build", params)
+    # [/blender-cut]
 
     def _area_packs(self, msg):
         self.push(get_area_packs(msg.get("bbox") or [], msg.get("seq")))
@@ -733,12 +778,12 @@ class _SiteController:
         # type: (list, bool, str) -> bool
         """팩을 차례로 받으며 data_progress{text, fraction}를 푸시한다(1 % 단위 — 조각마다 보내면 수천 번이다).
         끝에 data_progress{done, ok, text}. 다 받았으면 True, 멈추거나 실패하면 False(받은 팩은 남는다). 호출자가 _running을 관리한다.
-        manifest_url = 팩이 실린 매니페스트(None = 한국, 나라별 건물 팩은 constants.COUNTRY_PACKS[...]["manifest"]) — 주소가 바뀌었을 때 다시 읽는다."""
+        manifest_url = 팩이 실린 매니페스트(None = 한국, 나라별 건물 팩은 data_pack.get_country_packs()[...]["manifest"]) — 주소가 바뀌었을 때 다시 읽는다."""
         data_pack = loader.load("data_pack")
         names = list(dict.fromkeys(get_region_name(pack) for pack in packs))
         region = tr("{0} 외 {1}곳", names[0], len(names) - 1) if len(names) > 1 else names[0]
         total_bytes = float(sum(pack.get("xz_size", 0) for pack in packs)) or 1.0
-        client_id = loader.load("usage_stats").get_client_id()
+        client_id = loader.load("site_prefs").get_client_id()   # 국내 서버가 설치마다 하루 받기 한도를 센다
         done, ok, offset, reason = [], True, 0.0, ""
         for pack in packs:
             last = [-1]
@@ -766,8 +811,10 @@ class _SiteController:
         text = "" if ok else (tr("받기를 멈췄습니다. 받은 지역은 남습니다") if self._cancel_requested
                               else reason or tr("지역 데이터를 다 받지 못했습니다. 인터넷 연결을 확인하세요"))
         self.push({"type": "data_progress", "done": True, "ok": ok, "text": text, "in_generate": in_generate})
+        # [blender-cut]
         self._send_stats("pack_download", {"packs": ",".join(dict.fromkeys(name.split("_")[0] for name in done)), "count": len(done),
                                            "requested": len(packs), "in_generate": in_generate})
+        # [/blender-cut]
         return ok
 
     def _download_data(self, msg):
@@ -796,6 +843,7 @@ class _SiteController:
         data_pack = loader.load("data_pack")
         manifest_url = None
         try:
+            data_pack.get_manifest()   # init이 3 s 안에 못 받았으면 여기서(나라 목록·서비스 주소) — 이미 받았으면 캐시
             bounds = self._context_builder.get_query_bounds(request)
             if bounds:
                 packs = [pack for pack in data_pack.get_missing_packs(data_pack.get_manifest(), bounds=bounds) if pack["name"][:5].isdigit()]
@@ -823,6 +871,7 @@ class _SiteController:
 
         self._defer(run_work)
 
+    # [blender-cut] Rhino 3dm 다시 넣기
     def _import_context(self, msg):
         result_dir = str(msg.get("dir") or "")
         if not os.path.isdir(result_dir):
@@ -839,6 +888,7 @@ class _SiteController:
                 context_baker.zoom_to_site(doc, result_dir)
 
         self._run_busy(tr("문서에 넣는 중"), "import", work)
+    # [/blender-cut]
 
     def _export_basemap(self, msg):
         result_dir = str(msg.get("dir") or "")
@@ -860,7 +910,7 @@ class _SiteController:
     def _zoom_view(self, msg):
         context_baker = loader.load("context_builder").get_host_modules()[1]
         if not context_baker.zoom_to_site(self._get_doc(), str(msg.get("dir") or ""), msg.get("center")):
-            raise ValueError(tr("대상지 3D가 문서에 없습니다. 먼저 Rhino에 불러오세요"))
+            raise ValueError(tr("대상지 3D가 열린 파일에 없습니다. 먼저 불러오세요"))
 
     def _open_path(self, msg):
         self._open(resolve_open_path(msg.get("path")))
@@ -883,11 +933,16 @@ class _SiteController:
             raise ValueError(tr("알 수 없는 링크입니다: {0}", msg.get("key")))
         self._open(url)
 
+    # [blender-cut]
     def _stats_consent(self, msg):
         loader.load("site_prefs").save_stats_consent(bool(msg.get("on")))
+    # [/blender-cut]
 
     def _save_prefs(self, msg):
         loader.load("site_prefs").save_options(msg.get("options") or {})
+
+    def _remove_recent(self, msg):
+        loader.load("site_prefs").remove_recent(msg.get("pnus") or [])
 
     def _get_result_dir(self, msg):
         result_dir = str(msg.get("dir") or "")
@@ -949,14 +1004,54 @@ class _SiteController:
 # error.context — JS가 표시 자리를 고른다(panel_ui.md 오류 규약)
 _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "select", "set_point": "select", "pick_curve": "select",
                    "import_context": "import", "export_basemap": "export",
-                   "zoom_view": "open", "open_path": "open", "open_eum": "open", "open_url": "open", "save_prefs": "init", "stats_consent": "init", "cancel": "generate", "make_2d": "generate", "download_data": "init",
-                   "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style", "sheet_view": "view"}
+                   "zoom_view": "open", "open_path": "open", "open_eum": "open", "open_url": "open", "save_prefs": "init", "remove_recent": "init", "cancel": "generate", "make_2d": "generate", "download_data": "init",
+                   "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style", "sheet_view": "view",
+                   # [blender-cut]
+                   "stats_consent": "init",
+                   # [/blender-cut]
+                   }
+
+
+# [blender-cut] Rhino 패널(Eto 웹뷰)
+def _get_version_key(name):
+    # type: (str) -> tuple
+    """판 폴더 이름 '0.3.7' → (0, 3, 7). 숫자 판이 아니면 None."""
+    parts = name.split(".")
+    return tuple(int(part) for part in parts) if all(part.isdigit() for part in parts) else None
+
+
+def get_newer_script(script_path=None):
+    # type: (str) -> str
+    """Yak 설치본에서 이 판보다 새 판 폴더의 cmd_site.py. 없거나 설치본이 아니면(개발 저장소) None.
+
+    Rhino를 끄지 않고 Package Manager로 업데이트하면 Rhino는 켤 때 읽은 옛 판 .rhp를 쥐고 있고, 옛 판 폴더도 남아
+    Gorani 명령이 옛 판 scripts를 돌린다 — 패널 버전이 그대로였다(2026-10-30, 0.3.3·0.3.7 폴더가 함께 남은 설치본)."""
+    version_dir = os.path.dirname(os.path.dirname(os.path.abspath(script_path or __file__)))   # <패키지>/<판>/scripts/cmd_site.py
+    root, mine = os.path.dirname(version_dir), _get_version_key(os.path.basename(version_dir))
+    if mine is None or not os.path.isdir(root):
+        return None
+    newer = [(key, name) for key, name in ((_get_version_key(name), name) for name in os.listdir(root))
+             if key is not None and key > mine and os.path.exists(os.path.join(root, name, "scripts", "cmd_site.py"))]
+    return os.path.join(root, max(newer)[1], "scripts", "cmd_site.py") if newer else None
 
 
 def _show_panel():
-    """패널을 하나만 띄운다. 이미 떠 있으면 앞으로 가져온다."""
+    """패널을 하나만 띄운다. 이미 떠 있으면 앞으로 가져온다. 새 판이 깔려 있으면 그 판으로 넘기고, 옛 판 패널은 닫고 새로 연다."""
+    newer = get_newer_script()
+    if newer:
+        print("[Gorani] " + tr("새로 설치한 판으로 엽니다: {0}", os.path.basename(os.path.dirname(os.path.dirname(newer)))))
+        runpy.run_path(newer, run_name="__main__")
+        return
     _i18n.set_lang(loader.load("site_prefs").get_options().get("lang"))   # 명령창 문구 — 패널이 언어를 보내기 전에는 저장한 언어
+    version = loader.load("constants").PANEL_VERSION
     existing = scriptcontext.sticky.get(PANEL_STICKY_KEY)
+    if existing is not None and scriptcontext.sticky.get(PANEL_STICKY_KEY + "_version") != version:
+        try:   # 업데이트 전 판이 띄운 패널 — 앞으로 가져오면 옛 판 그대로다
+            existing.form.Close()
+        except Exception:
+            pass
+        scriptcontext.sticky.pop(PANEL_STICKY_KEY, None)
+        existing = None
     if existing is not None:
         try:
             existing.bring_to_front()
@@ -976,8 +1071,10 @@ def _show_panel():
 
     host.on_closed = on_closed
     scriptcontext.sticky[PANEL_STICKY_KEY] = host
+    scriptcontext.sticky[PANEL_STICKY_KEY + "_version"] = version
     host.show()
 
 
 if Rhino is not None:
     _show_panel()
+# [/blender-cut]

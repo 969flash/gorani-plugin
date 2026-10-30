@@ -1,19 +1,19 @@
-"""메시 컨텍스트 지오메트리(Blender·SketchUp판 공용) — Prepared(세계좌표 m) → 로컬 좌표 메시·커브 데이터(BakeItem). context_geometry의 메시판.
+"""메시 컨텍스트 지오메트리 — Prepared(세계좌표 m) → 로컬 좌표 메시·커브 데이터(BakeItem). context_geometry의 메시판.
 
     build(prepared) -> ContextGeo                    지형·건물·커브 전부(context_geometry.ContextGeo와 같은 모양)
     build_terrain(prepared) -> (meshes, tris, counts)
     build_buildings(prepared, ground) -> (items, counts, skipped, warnings)
     build_curves(prepared) -> items
 
-호스트 문서는 쓰지 않는다 — 정점·면 목록만 만들고 장면·모델은 blender_baker·sketchup_baker가 만진다.
-CDT·지반 높이 조회 백엔드는 둘이다(같은 입력 → 같은 모양의 출력):
-    Blender            mathutils(delaunay_2d_cdt·BVHTree·tessellate_polygon)
-    SketchUp 사이드카  shapely(GEOS — 겹치기 + 제약 들로네, numpy) + 격자 점 찾기. 면 채우기가 없어 건물은 각기둥(링·바닥·높이)으로 넘기고
-                       SketchUp이 구멍 있는 면을 그대로 만든다(BakeItem.prisms). Shewchuk triangle은 상업 사용 제한 약관이라 쓰지 않는다
-규칙(TIN 입력점·분류 우선순위·수면·대상지 평탄화·건물 바닥 = 발자국 정점의 최저 지반)은 context_geometry와 같고 방법만 다르다 —
-범위 링·분류 폴리곤 링·대상지 링을 제약 면으로 TIN 점과 함께 CDT 한 번(SketchUp은 겹치기) → 삼각형마다 자기를 품은 입력 링으로 분류
-→ 정점 Z = TIN 수직 투영. 원점 적용(세계 → 로컬)은 이 파일의 get_local_pts 한 함수에서만 한다.
+호스트 문서는 쓰지 않는다 — 정점·면 목록만 만들고 장면은 베이커(blender_baker)가 만진다. CDT·지반 높이 조회는 mathutils(delaunay_2d_cdt·BVHTree).
+규칙(TIN 입력점·분류 우선순위·수면·대상지 평탄화·건물 바닥 = 발자국 정점의 최저 지반) — 범위 링·분류 폴리곤 링·대상지 링을 제약 면으로
+TIN 점과 함께 CDT 한 번 → 삼각형마다 자기를 품은 입력 링으로 분류 → 정점 Z = TIN 수직 투영. 원점 적용(세계 → 로컬)은 이 파일의 get_local_pts 한 함수에서만 한다.
 """
+# [blender-cut]
+# SketchUp 사이드카(번들 파이썬)도 이 파일을 쓴다 — mathutils가 없으면 shapely(GEOS — 겹치기 + 제약 들로네, numpy) + 격자 점 찾기로 같은 모양의 출력을 만든다.
+# 면 채우기가 없어 건물은 각기둥(링·바닥·높이)으로 넘기고 SketchUp이 구멍 있는 면을 그대로 만든다(BakeItem.prisms).
+# Shewchuk triangle은 상업 사용 제한 약관이라 쓰지 않는다. Blender 확장 패키지는 [blender-cut] 구간을 뺀다(dev_deploy.get_blender_source)
+# [/blender-cut]
 
 import math
 import time
@@ -22,16 +22,19 @@ from dataclasses import dataclass, field
 try:   # Blender
     from mathutils import Vector, geometry
     from mathutils.bvhtree import BVHTree
-except ImportError:   # SketchUp 사이드카(번들 파이썬)
+except ImportError:   # mathutils 없음 — python3 시험·아래 [blender-cut] 구간
     geometry = None
+# [blender-cut]
+if geometry is None:
     import numpy
     import shapely
+# [/blender-cut]
 
 import constants
 import context_report
 import non_rhino_utils
-from context_geometry import (CLASS_LAYERS, SITE_LAYERS, TOPO_SOURCE_ID, ContextGeo, NearestXYZ, get_building_attrs, get_class_polygons, get_parts,
-                              get_tin_points, get_zoning_rings)
+from context_geometry import (CLASS_LAYERS, SITE_LAYERS, TOPO_SOURCE_ID, ContextGeo, NearestXYZ, get_building_attrs, get_building_parts, get_class_polygons,
+                              get_clip_ring, get_clipped_curves, get_parts, get_tin_points, get_zoning_rings)
 from i18n import tr
 
 _DOWN = Vector((0.0, 0.0, -1.0)) if geometry is not None else None
@@ -39,9 +42,8 @@ _DOWN = Vector((0.0, 0.0, -1.0)) if geometry is not None else None
 
 @dataclass
 class BakeItem:
-    """베이크 한 건 = Blender 객체·SketchUp 그룹 하나. layer = 컬렉션·태그 이름('CTX::Buildings'), 좌표는 로컬 m.
-    메시는 verts [(x, y, z)] + faces [(a, b, c[, d])] (+ face_attrs {이름: 면마다 값}), 커브는 polylines [([(x, y, z)], 닫힘)],
-    각기둥(SketchUp 건물)은 prisms [(파트 [[외곽 링, 구멍 링…]…], 바닥 Z, 높이, 속성 dict, 이름)] — 동 하나 = 그룹 하나(Rhino판 동별 객체와 같은 속성).
+    """베이크 한 건 = 객체 하나. layer = 컬렉션 이름('CTX::Buildings'), 좌표는 로컬 m.
+    메시는 verts [(x, y, z)] + faces [(a, b, c[, d])] (+ face_attrs {이름: 면마다 값}), 커브는 polylines [([(x, y, z)], 닫힘)].
     attrs는 객체 사용자 속성(키 → str)."""
 
     layer: str
@@ -51,7 +53,9 @@ class BakeItem:
     polylines: list = field(default_factory=list)
     attrs: dict = field(default_factory=dict)
     face_attrs: dict = field(default_factory=dict)
+    # [blender-cut] 각기둥(SketchUp 건물) prisms [(파트 [[외곽 링, 구멍 링…]…], 바닥 Z, 높이, 속성 dict, 이름)] — 동 하나 = 그룹 하나(Rhino판 동별 객체와 같은 속성)
     prisms: list = field(default_factory=list)
+    # [/blender-cut]
 
 
 def get_local_pts(coords, origin, z=None):
@@ -83,6 +87,7 @@ def _get_tin(local_pts, epsilon):
     if geometry is not None:
         out = geometry.delaunay_2d_cdt([Vector(p[:2]) for p in local_pts], [], [], 0, epsilon)
         return [(v.x, v.y, local_pts[orig[0]][2]) for v, orig in zip(out[0], out[3])], [tuple(f) for f in out[2]]
+    # [blender-cut] shapely판
     index = {}
     for i, p in enumerate(local_pts):
         index.setdefault((float(p[0]), float(p[1])), i)
@@ -93,6 +98,7 @@ def _get_tin(local_pts, epsilon):
         face = (index[tuple(a)], index[tuple(b)], index[tuple(c)])
         faces.append(face if _is_ccw(a, b, c) else (face[0], face[2], face[1]))
     return [(float(p[0]), float(p[1]), p[2]) for p in local_pts], faces
+    # [/blender-cut]
 
 
 def _get_cdt(rings, loose_pts, epsilon):
@@ -101,8 +107,10 @@ def _get_cdt(rings, loose_pts, epsilon):
 
     출력: (정점 [(x, y)], 반시계 삼각형 [(a, b, c)], 삼각형마다 자기를 품은 링 번호 집합). 겹친 링은 전부 들어간다.
     """
+    # [blender-cut]
     if geometry is None:
         return _get_overlay_cdt(rings, loose_pts, epsilon)
+    # [/blender-cut]
     verts, faces = [], []
     for ring in rings:
         start = len(verts)
@@ -118,6 +126,7 @@ def _get_cdt(rings, loose_pts, epsilon):
     return xy, tris, [set(o) for o in orig_faces]
 
 
+# [blender-cut] shapely판 CDT
 def _get_valid_polygon(polygon, epsilon):
     # type: (object, float) -> object
     """자기교차 링(OSM 도로면 버퍼의 짧은 변 안쪽 고리) → make_valid 결과 중 가장 넓은 폴리곤 하나(분류는 링 번호 = 입력 순서라 하나만) → epsilon 격자.
@@ -170,11 +179,11 @@ def _get_overlay_cdt(rings, loose_pts, epsilon):
     valid = (cross != 0) & (tris[:, 0] != tris[:, 1]) & (tris[:, 1] != tris[:, 2]) & (tris[:, 0] != tris[:, 2])
     inside = [cell_rings[cell] for cell in owners[piece_ids[valid]].tolist()]
     return [tuple(p) for p in xy.tolist()], [tuple(t) for t in tris[valid].tolist()], inside
+# [/blender-cut]
 
 
 class _Ground(object):
-    """지반 메시의 높이 조회 — 위에서 수직으로 쏴 첫 면의 Z, 빗나가면 최근접 정점 Z(context_geometry._drape 폴백과 같다).
-    Blender는 BVH 광선, SketchUp 사이드카는 격자 칸에 걸친 삼각형(4각형은 둘로)의 무게중심 좌표 — 수직 면은 건너뛰고 겹치면 가장 높은 면."""
+    """지반 메시의 높이 조회 — 위에서 수직으로 쏴(BVH 광선) 첫 면의 Z, 빗나가면 최근접 정점 Z(context_geometry._drape 폴백과 같다)."""
 
     def __init__(self, verts, faces):
         # type: (list, list) -> None
@@ -185,6 +194,7 @@ class _Ground(object):
             self.bvh = BVHTree.FromPolygons([Vector(v) for v in verts], faces)
             self.top = max(v[2] for v in verts) + 100.0
             return
+        # [blender-cut] shapely판 — 격자 칸에 걸친 삼각형(4각형은 둘로)의 무게중심 좌표. 수직 면은 건너뛰고 겹치면 가장 높은 면
         self.cell = constants.SKETCHUP_GROUND_CELL
         self.cells = {}
         for face in faces:
@@ -197,6 +207,7 @@ class _Ground(object):
                 for i in range(int(math.floor(min(x0, x1, x2) / self.cell)), int(math.floor(max(x0, x1, x2) / self.cell)) + 1):
                     for j in range(int(math.floor(min(y0, y1, y2) / self.cell)), int(math.floor(max(y0, y1, y2) / self.cell)) + 1):
                         self.cells.setdefault((i, j), []).append(tri)
+        # [/blender-cut]
 
     def get_z(self, x, y):
         # type: (float, float) -> float
@@ -209,6 +220,7 @@ class _Ground(object):
         if geometry is not None:
             hit = self.bvh.ray_cast(Vector((x, y, self.top)), _DOWN)[0]
             return None if hit is None else hit.z
+        # [blender-cut] shapely판
         best = None
         for x0, y0, z0, e1x, e1y, e2x, e2y, inv, dz1, dz2 in self.cells.get((int(math.floor(x / self.cell)), int(math.floor(y / self.cell))), ()):
             dx, dy = x - x0, y - y0
@@ -219,6 +231,7 @@ class _Ground(object):
                 if best is None or z > best:
                     best = z
         return best
+        # [/blender-cut]
 
     def get_nearest_z(self, x, y):
         # type: (float, float) -> float
@@ -424,6 +437,14 @@ def build_terrain(prepared):
     meshes["all"] = _join(ground_parts)
     if not meshes["all"][1]:
         raise RuntimeError(tr("범위 안 지형 면이 없습니다"))
+    clip = get_clip_ring(prepared) if (prepared.request.get("options") or {}).get("terrain_block") else None
+    if clip is not None:   # 지형을 바닥까지 채우기 — 윗면 범위 경계에서 바닥까지 옆면·바닥면(context_geometry.build_terrain과 같은 규칙)
+        tops = [meshes[k] for k in ("terrain", "road", "green", "rail", "water", "site_ground") if k in meshes]
+        base = non_rhino_utils.get_block_base(min(v[2] for verts, _faces in tops for v in verts), clip)
+        block = non_rhino_utils.get_block_skirt(tops, [(x - ox, y - oy) for x, y in clip], base)
+        if block[1]:
+            meshes["block"] = block
+        counts["block_base"] = base
     surfaces = ("terrain", "road", "green", "rail", "site_ground")
     counts["faces"] = sum(len(m[1]) for k, m in meshes.items() if k in surfaces)
     counts["quads"] = 0
@@ -440,6 +461,8 @@ def _get_terrain_items(meshes, counts):
             continue
         if cls == "terrain":
             attrs = {"SRC": TOPO_SOURCE_ID, "RESAMPLE_M": "%g" % constants.TERRAIN_RESAMPLE, "N_POINTS": str(counts["tin_points"])}
+        elif cls == "block":
+            attrs = {"KIND": "block", "BASE_M": "%g" % counts["block_base"]}
         elif cls == "water":
             bodies = counts["water_bodies"]
             attrs = {"NAME": "; ".join(b["name"] for b in bodies), "LEVEL_M": "; ".join("%.2f" % b["level"] for b in bodies),
@@ -498,18 +521,21 @@ def build_buildings(prepared, ground):
     입력: Prepared, ground = build_terrain()의 meshes["all"](로컬 (정점, 면)).
     처리: 발자국 정점마다 지반 수직 투영 → 동별 최저 Z(base)·고저차 → 투영이 하나도 안 맞은 동은 ① bbox 중심의 최근접 지반 정점 Z
           ② 없으면 건너뜀 → 파트별 각기둥. 동마다 객체를 만들면 수천 개라 Blender가 느려진다 — 한 메시 + 면 속성으로 묶는다.
-          SketchUp(면 채우기 없음)은 동마다 각기둥 하나(prisms)로 넘긴다 — 구멍 있는 면·옆면은 SketchUp이 만든다.
     출력: ``(items, counts, skipped, warnings)``.
     """
     origin = prepared.origin
-    buildings = context_report.get_buildings_in_extent(prepared)
+    buildings, parts_by_building, clipped = get_building_parts(prepared, get_clip_ring(prepared))
     surface = _Ground(*ground)
-    counts = {"buildings_in_extent": len(buildings), "fallback_nearest": 0, "fallback_skipped": 0, "extrude_failed": 0, "parts": 0, "slope_flagged": 0}
-    verts, faces, ids, heights, floors, prisms = [], [], [], [], [], []
+    counts = {"buildings_in_extent": len(buildings), "fallback_nearest": 0, "fallback_skipped": 0, "extrude_failed": 0, "parts": 0, "slope_flagged": 0,
+              "clipped": clipped}
+    verts, faces, ids, heights, floors = [], [], [], [], []
+    # [blender-cut]
+    prisms = []
+    # [/blender-cut]
     skipped = []
     t = time.time()
-    for b in buildings:
-        parts = [[_get_local_ring(ring, origin) for ring in part] for part in get_parts(b.geometry)]
+    for b, world_parts in zip(buildings, parts_by_building):
+        parts = [[_get_local_ring(ring, origin) for ring in part] for part in world_parts]
         if not parts or b.height_m <= 0:
             skipped.append(tr("{0}(빈 발자국·높이 0)", b.building_id))
             counts["fallback_skipped"] += 1
@@ -524,10 +550,12 @@ def build_buildings(prepared, ground):
             counts["fallback_nearest"] += 1
         slope = top - base_z > constants.BUILDING_SLOPE_FLAG
         counts["slope_flagged"] += slope
+        # [blender-cut] SketchUp(면 채우기 없음)은 동마다 각기둥 하나(prisms)로 넘긴다 — 구멍 있는 면·옆면은 SketchUp이 만든다
         if geometry is None:
             prisms.append((parts, base_z, float(b.height_m), get_building_attrs(b, b.height_src + ("~slope" if slope else "")), b.bld_nm))
             counts["parts"] += len(parts)
             continue
+        # [/blender-cut]
         made = 0
         for part in parts:
             added = _add_prism(verts, faces, part, base_z, float(b.height_m))
@@ -543,8 +571,10 @@ def build_buildings(prepared, ground):
     counts["extrude_s"] = round(time.time() - t, 3)
     counts["buildings"] = len(buildings) - counts["fallback_skipped"] - counts["extrude_failed"]
     items = []
+    # [blender-cut]
     if prisms:
         items.append(BakeItem(_layer("Buildings"), "buildings", prisms=prisms, attrs={"COUNT": str(counts["buildings"])}))
+    # [/blender-cut]
     if faces:
         items.append(BakeItem(_layer("Buildings"), "buildings", verts=verts, faces=faces,
                               attrs={"COUNT": str(counts["buildings"]), "HEIGHT_SRC": "see tables/buildings.csv"},
@@ -582,19 +612,21 @@ def build_curves(prepared):
             items.append(BakeItem(_layer("Site"), "area", polylines=[closed(ring)],
                                   attrs={"KIND": "area", "AREA_M2": "%.1f" % non_rhino_utils.get_ring_area(ring), "LOTS": str(len(prepared.target_lots))}))
     in_site = {lot.pnu for lot in prepared.target_lots} if mode == "area" else set()
+    clip = get_clip_ring(prepared)   # 주변 필지·도로중심선·용도지역을 범위 링으로 자른다
     parcels, parcels_in_site = [], []
     for lot in context_report.get_lots_in_extent(prepared):
         if lot.pnu in targets:
             continue
-        rings = [closed(ring) for part in get_parts(lot.geometry) for ring in part]
+        rings = [closed(ring) for ring in get_clipped_curves([ring for part in get_parts(lot.geometry) for ring in part], [], clip)[0]]
         (parcels_in_site if lot.pnu in in_site else parcels).extend(rings)
     if parcels:
         items.append(BakeItem(_layer("Parcels"), "parcels", polylines=parcels))
     if parcels_in_site:
         items.append(BakeItem(_layer("Parcels"), "parcels_in_site", polylines=parcels_in_site, attrs={"IN_SITE": "1"}))
     ex0, ey0, ex1, ey1 = non_rhino_utils.get_bbox(prepared.extent_ring)
-    roads = [(get_local_pts(f.geometry["coordinates"], origin, 0.0), False) for f in prepared.context.get_features("road", "centerline")
+    lines = [f.geometry["coordinates"] for f in prepared.context.get_features("road", "centerline")
              if f.geometry.get("type") == "LineString" and not (f.max_x < ex0 or f.min_x > ex1 or f.max_y < ey0 or f.min_y > ey1)]
+    roads = [(get_local_pts(line, origin, 0.0), False) for line in get_clipped_curves([], lines, clip)[1]]
     if roads:
         items.append(BakeItem(_layer("Roads::centerline"), "road_centerlines", polylines=roads))
     items.append(BakeItem(_layer("Ref"), "extent", polylines=[closed(prepared.extent_ring)],
@@ -609,7 +641,7 @@ def build_curves(prepared):
     if (prepared.request.get("options") or {}).get("include_zoning"):   # 레이어(구분·종류)마다 객체 하나
         zoning = {}
         for layer, _overlay, ring in get_zoning_rings(prepared):
-            zoning.setdefault(layer, []).append(closed(ring))
+            zoning.setdefault(layer, []).extend(closed(cut) for cut in get_clipped_curves([ring], [], clip)[0])
         for layer, rings in zoning.items():
             items.append(BakeItem(_layer(layer), layer.rpartition("::")[2], polylines=rings))
     return items
@@ -630,4 +662,7 @@ def build(prepared):
     counts["curves"] = sum(len(item.polylines) for item in curve_items)
     counts["items"] = len(items)
     counts["demolished"] = 0
+    if get_clip_ring(prepared) is None:
+        warnings.append({"level": "info", "code": "clip_skipped", "text": tr("범위가 원이나 사각형이 아니라 경계에서 자르지 않았습니다"),
+                         "detail": "", "action": None, "center": None})
     return ContextGeo(items=items, terrain_tris_world=tris, counts=counts, skipped=skipped, warnings=warnings)

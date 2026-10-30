@@ -109,10 +109,13 @@
 | `dev_context_builder.py` | 있음+ | 개발 python3 | 도엽 features + GIS건물 병합·높이 규칙(`decide_height`). 139도엽 전체 빌드 완료(372 s). 추가: 정합 샘플(theme `qa`) 적재 | geopandas·pyogrio·shapely·pandas·numpy, constants |
 | `dev_make_fixture.py` | 신규(≈30줄) | 개발 python3(sqlite3만) | 전체 DB 2개를 `ATTACH`하고 `INSERT INTO … SELECT … WHERE bbox 교차`로 `tests/fixtures/seongsu_context.db`(buildings·features·data_sources·source_files)와 `seongsu_site.db`(parcels·overlays·parcel_overlays·parcel_land_use·data_sources, 스키마 v5, `user_version 5`, bbox 인덱스 포함) 생성 | constants |
 | `dev_deploy.py` | 신규 | 개발 | `yak`: rhinocode로 Gorani .rhp 빌드 + scripts/(평문 loader·cmd_site, 로직 .pyc optimize=2) → yak CLI. `packs`: 필지(rtree 제거)·컨텍스트(등고선 제외)·등고선 DB → xz + manifest.json. 받는 쪽은 `data_pack.py` | — |
-| `osm_context.py` | (2026-10-13) | Rhino | Global 모드 컨텍스트 — Overpass 건물·피처 + 지형 타일 → `ContextData`(context_db와 같은 꼴). 일본(2026-10-21): 받아 둔 PLATEAU 팩 건물을 먼저, OSM 건물은 겹치지 않는 것만(`get_buildings_apart`), 지형은 지리원 5 m 타일(없으면 AWS). Overpass가 막혀도 PLATEAU가 있으면 건물·지형만으로 만든다 | `data_pack`·`context_db` 도로면(2026-10-22): OSM은 도로가 선뿐이라 `get_road_surface`가 폭(width → lanes → 등급 기본값)만큼 버퍼한 `road/surface` 피처를 더한다(터널 제외, attrs derived=buffer — 베이스맵은 경계선 없이 채우기만). 일본은 팩의 PLATEAU 도로면(`load_plateau_roads`)을 먼저 쓰고 OSM 버퍼는 중심선 가운데가 그 밖인 것만(`get_surfaces_apart`). `area:highway`·주차장·보행자 광장 면은 면 그대로 나라별 팩(2026-10-22): `get_country`가 `constants.COUNTRY_PACKS` 상자로 나라를 고르고 `load_plateau_buildings`(이름은 옛 것)가 그 나라 팩을 팩마다 따로 읽는다 — 일본 PLATEAU·네덜란드 PDOK |
+| `osm_context.py` | (2026-10-13) | Rhino | Global 모드 컨텍스트 — Overpass 건물·피처 + 지형 타일 → `ContextData`(context_db와 같은 꼴). 일본(2026-10-21): 받아 둔 PLATEAU 팩 건물을 먼저, OSM 건물은 겹치지 않는 것만(`get_buildings_apart`), 지형은 지리원 5 m 타일(없으면 AWS). Overpass가 막혀도 PLATEAU가 있으면 건물·지형만으로 만든다 | `data_pack`·`context_db` 도로면(2026-10-22): OSM은 도로가 선뿐이라 `get_road_surface`가 폭(width → lanes → 등급 기본값)만큼 버퍼한 `road/surface` 피처를 더한다(터널 제외, attrs derived=buffer — 베이스맵은 경계선 없이 채우기만). 일본은 팩의 PLATEAU 도로면(`load_plateau_roads`)을 먼저 쓰고 OSM 버퍼는 중심선 가운데가 그 밖인 것만(`get_surfaces_apart`). `area:highway`·주차장·보행자 광장 면은 면 그대로 나라별 팩(2026-10-22): `get_country`가 나라 목록(`data_pack.get_country_packs` — 한국 매니페스트 `countries[]`, 원본 `docs/countries.json`, 내장 기본값 `constants.COUNTRY_PACKS`) 상자로 나라를 고르고 `load_plateau_buildings`(이름은 옛 것)가 그 나라 팩을 팩마다 따로 읽는다 — 일본 PLATEAU·네덜란드 PDOK |
 | `dev_plateau.py` | (2026-10-21) | 개발 | 일본 건물·도로면 팩 — CKAN 목록 → zip을 HTTP Range로 열어 `udx/bldg` GML만 읽고(`roads`는 있는 팩에 `udx/tran` 도로면을 features 표로 더한다) 시구정촌마다 `jp<코드>_context.db.xz` + `jp/manifest.json` → HF `jp/` | — |
 | `dev_nl.py` | (2026-10-22) | 개발 | 네덜란드 건물 팩 — PDOK 3D Basisvoorziening 도엽 zip(GeoPackage) → pyogrio·pyproj로 바닥 윤곽·높이 → `nl<도엽>_context.db.xz` + `nl/manifest.json` → HF `nl/`(올리기는 사용자 확인 뒤) | — |
 | `dev_fr.py` | (2026-10-22) | 개발 | 프랑스 건물 팩 — Géoplateforme Atom 피드 카탈로그 → 데파르트망 7z(py7zr) → GeoPackage `batiment`(pyogrio·pyproj) → `fr<데파르트망>_context.db.xz` + `fr/manifest.json` → HF `fr/`(사용자 확인 뒤) | — |
+| `dev_ch.py` | (2026-10-23) | 개발 | 스위스 건물 팩 — STAC 타일 FileGDB를 GDAL `ogr2ogr`(Floor)·`ogrinfo`(Building_solid)로 읽어 바닥·높이 → `ch<도엽>_context.db.xz` + `ch/manifest.json` → HF `ch/`(사용자 확인 뒤) | — |
+| `remote_config.py` | (2026-10-23) | Rhino·Blender·SketchUp | 원격 설정 — `REMOTE_KEYS` 상수(도면 색·범례·구간·코드표·파라미터·링크)와 번역 사전을 HF `config.json`에서 받아(ETag 캐시 `data/config.json`) `constants`·`i18n`에 덮는다(`apply` — 꼴 검증·dict 내장 키 보존·`COMPAT_MIN`). `build`는 dev_deploy가 올릴 파일을 만든다 | 표준 라이브러리, `constants`·`data_pack`·`i18n` |
+| `dev_us.py` | (2026-10-23) | 개발 | 미국 건물 팩 — Overture Maps buildings(ODbL) S3 GeoParquet를 DuckDB httpfs로 주 상자만 받아 두고(`fetch`), Census 카운티 경계(300 m 넓힘)에 중심점이 든 건물을 카운티 팩으로(`build`) → `us<FIPS5>_context.db.xz` + `us/manifest.json` → HF `us/`(사용자 확인 뒤). 높이 = Overture height(Microsoft ML 추정, B) → 층수(C) → 기본값(D) | duckdb·pyogrio·shapely |
 | `dev_rhino_run.py` | 보유+ | 개발 | 128–130행: `data/*.db` 전부 심링크 | constants |
 | `dev_database_builder.py`·`dev_probe_*.py` | 보유 | 개발 | 필지 DB·08 실측 재현 | — |
 
@@ -200,7 +203,8 @@ def get_progress_message(phase, fraction, text, skipped, details):
     "demolished": "dashed",                  // P1. v1은 status가 전부 'active'(995,026/995,026)라 항상 0 — 받기만 하고 무시
     "refresh_buildings": false,              // P1. v1은 항상 phase refresh=skipped
     "include_zoning": true, "terrain_vertex_color": false,
-    "terrain_step": 0                        // m. 0 = 매끈, > 0 = 계단 지형(§5 5.2d)
+    "terrain_step": 0,                       // m. 0 = 매끈, > 0 = 계단 지형(§5 5.2d)
+    "terrain_block": true                    // 지형을 바닥까지 채우기(§5 5.2e). 범위 링으로 자르기는 늘 한다
   },
   "result_root": null,                       // null = <루트>/result
   "site_db": null, "context_db": null,       // null = constants 경로. 테스트가 tests/fixtures/seongsu_site.db·seongsu_context.db를 꽂는 자리
@@ -263,6 +267,7 @@ def get_progress_message(phase, fraction, text, skipped, details):
 | 5.2b 출력 지형 = 쿼드 위주 메시(2026-10-10 개정) | TIN은 **보간에만**. 범위 링으로 평면 Brep 하나 → 범위와 겹치는 분류 폴리곤 링 전부 + 대상지 링으로 `BrepFace.Split` → `Mesh.CreateFromBrep`(`SimplePlanes=False`·`MaximumEdgeLength=TERRAIN_GRID` 3 m·`GridAspectRatio=1`) — 영역 경계는 원래 선 그대로, 안쪽은 정사각 쿼드, 경계 옆만 삼각형. 면끼리 모서리를 공유해 이웃 영역 경계 정점이 같다(용접 → 이음매 없음). 영역마다 안쪽 한 점으로 분류(우선순위 PIP) → 정점 Z = TIN 수직 투영 1회. **버린 방법**: 격자를 범위로만 자르고 쿼드 중심으로 분류(경계 계단 — 사용자 거부), 격자를 분류 링 643개로 `SplitWithProjectedPolylines`(243 s·무효 메시) | 반경 500 m: 영역 825·분할 3.0 s·투영 2.3 s, 범위 면적 비 1.0005, 정점 Z − TIN 0.004 mm |
 | 5.2c 대상지 바닥·평탄화 | 대상지 링도 분할 커브에 넣어 대상지 영역을 정확히 떼어 낸다(`site_output=mesh` 또는 `flatten_site`일 때만 — 둘 다 아니면 대상지도 일반 분류). 바닥 메시 = `CTX::Site::ground`(대상지 색 236,150,120, 필지 방식 기본). 평탄화 = 안쪽 정점 Z = 경계 자연 지반 mean|min|max → 바닥 메시(`site_output=mesh`면 Site::ground, 아니면 `CTX::Terrain::site_flat`) + 경계 수직 벽 `CTX::Terrain::site_wall`(대상지 원지형 메시의 바깥 경계 정점 그대로 — 윗선 = 주변 지형 경계 정점, 아랫선 = 평탄 높이. 경계를 다시 뽑아 만들면 정점이 어긋나 틈이 보였다, 2026-10-10) + 원지형 사본 `CTX::Terrain::site_original`(처음 만들 때 레이어 꺼짐). 건물은 최종 지반에 투영 | 필지 5,575.6 ㎡ → 바닥 메시 5,575.9 ㎡, 구역 6만 ㎡ 평탄 60,000.0 ㎡(`driver_target_modes`) |
 | 5.2d 계단 지형(옵션, 2026-10-16) | `terrain_step` > 0이면 분류·수면까지 끝난 지반 메시(terrain·road·green·rail·water, 평탄화 안 한 Site::ground)를 `non_rhino_utils.get_stepped_mesh`로 바꾼다 — 정점 단 = floor(z/step)(경계 0.1 mm 안은 위 단), 한 단 안의 면은 그 높이로, 걸친 면은 삼각형 둘레를 돌며 단마다 다각형 + 단 경계선마다 수직 벽(아래 단 쪽을 본다). 교차점은 늘 아래 → 위 정점으로 보간해 이웃 면·다른 분류 메시와 같은 값. 벽 정점은 단 면과 따로(용접하면 모서리 음영이 뭉개진다). 평탄화 경계 벽 윗선은 `get_stepped_edges`로 같은 교차점·단 높이. 원지형 사본·시트(표고·경사)는 매끈한 TIN 그대로. 건물 바닥 = 계단 지반 최저 | 122,500 쿼드(고저 60 m) 1 m 단 → 41.6만 면 1.15 s(python3) |
+| 5.2e 범위로 자르기(늘)·지형을 바닥까지 채우기(옵션 `terrain_block`, 기본 켬, 2026-10-28) | 원·사각형(볼록) 범위만(`non_rhino_utils.get_convex_ring`, 오목하면 info 경고 `clip_skipped`). ① 지형(`terrain_block`일 때만): 윗면(분류별·수면·대상지)에서 한 면에만 속하고 범위 링 위인 변마다 바닥까지 수직 벽 + 바닥 부채꼴 = `CTX::Terrain::block`(`get_block_skirt` — 윗선이 윗면 경계 정점 그대로라 틈 없음, 두 메시가 같이 가진 변은 뺀다). 바닥 = 범위 안 최저 지반 − max(5 m, 짧은 변 × 3 %)를 5 m 단위 내림(`get_block_base`, UserString `BASE_M`) — 해발 0 m는 두께가 표고에 끌려가 버렸다 ② 건물: 걸친 동은 발자국을 범위 링으로 자르고(Sutherland–Hodgman `get_convex_clipped_ring`) 다 밖인 동은 뺀다 ③ 주변 필지·용도지역 링은 잘라 닫힌 커브로, 도로중심선은 Cyrus–Beck(`get_clipped_lines`). Rhino(`context_geometry`)·Blender/SketchUp(`mesh_geometry`)가 같은 순수 함수를 쓴다. ②③은 늘 한다. 입체 매스도(시트 24)는 3D 옵션과 따로 도면 스타일 `axo_ground`(block 기본 | flat)로 지형 덩어리(윗면·옆면·등고선, `TriangleZ`·`get_contour_segments`) — 지형 삼각형이 있을 때만(다른 세션 결과의 2D는 평면). 건물은 어느 쪽이든 범위 링으로 자른다 | 평창동 361 사각형 500 m: 생성 4.4 s(끔 4.5 s) |
 | 5.3 면 분류 | 면 중심 → `GridIndex`(50 m) 후보 → `is_point_in_ring`(외곽 in AND 구멍 out). 우선순위 water > rail > road > green > terrain, 범위 밖 `outside`. `Mesh.CreateFromFilteredFaceList`로 분류별 메시 | 순수 python 0.69 s vs `Curve.Contains` 0.82 s(2,549 vs 2,546면). 1 km는 bbox 전수 16 s → 격자로 **1 s 안쪽 목표(M2 확인)** |
 | 5.4 수면 | 수면 폴리곤(features water ∪ 지목 하천·구거·유지) 경계 샘플을 `ProjectPointsToMeshes`로 투영 → 최저 Z = 수위 → 내부 정점 Z 고정 → `CTX::Water` 평면 메시(+0.02 m). UserString `NAME`·`LEVEL_M`·`LEVEL_SRC=terrain_min` | — |
 | 5.5 건물 | 발자국 정점 전체를 **`Intersection.ProjectPointsToMeshesEx([terrain], pts, (0,0,-1), tol, out indices)`** 1회 → `indices`로 동 복원(출력은 입력과 1:1이 아니다 — 빗나간 점 소실·다중 적중 중복) → 동별 최저 Z(`base_z`); 투영점 0인 동은 ① 최근접 TIN 정점 Z(`GridIndex`) ② 없으면 건너뛰고 `warnings[code=skipped]`+log; 고저차 >3 m면 `HEIGHT_SRC`에 `~slope` → 외곽 링 `PolylineCurve`(Z=base_z) → `Extrusion.Create(crv, Plane(Point3d(0,0,base_z), ZAxis), height_m, True)` + 구멍 `AddInnerProfile` → **`Mesh.CreateFromExtrusion(ext, MeshingParameters.Minimal)`**, 멀티폴리곤 파트는 한 메시로 `Append` → 동당 Mesh 1개 베이크. None이면 건너뛰고 경고 | Extrusion 그대로 구우면 첫 음영 표시 때 Rhino가 3천여 동의 렌더 메시를 만들어 **18.7 s** 멈췄다 → Mesh로 **0.9 s**. 생성 비용은 같다 |
@@ -276,7 +281,7 @@ def get_progress_message(phase, fraction, text, skipped, details):
 
 ### 5.x Blender판 (`mesh_geometry`·`blender_baker`, 2026-10-15 — 2026-10-18 `blender_geometry` → `mesh_geometry`로 이름을 바꿔 SketchUp판과 함께 쓴다)
 
-`context_builder.run`은 `get_host_modules()`로 지오메트리·베이커 쌍을 고른다(bpy가 있으면 Blender, 환경변수 `GORANI_HOST=sketchup`이면 SketchUp). 규칙은 위와 같고 방법만 다르다.
+`context_builder.run`은 `get_host_modules()`로 지오메트리·베이커 쌍을 고른다(bpy가 있으면 Blender, 환경변수 `GORANI_HOST=sketchup`이면 SketchUp, `rhino7`이면 Rhino 7판 — SketchUp과 같은 쌍). 규칙은 위와 같고 방법만 다르다.
 
 - 지형: TIN = `mathutils.geometry.delaunay_2d_cdt`(볼록 껍질). 면 분할 대신 범위 링·분류 폴리곤 링(외곽·구멍)·대상지 링을 **제약 면**으로, TIN 점을 내부 정점으로 CDT 한 번 → 삼각형마다 품은 링 목록(`orig_faces`)으로 분류(외곽 안 + 같은 파트 구멍 밖, 우선순위 앞이 이김) → 정점 Z = TIN `BVHTree.ray_cast`(빗나가면 최근접 정점). 쿼드 격자가 아니라 TIN 점 + 경계 정점 삼각형이다. 성수 R=500 TIN 0.04 s·분류 CDT 0.06 s.
 - 건물: 발자국 정점 수직 투영 최저 Z, 뚜껑은 `tessellate_polygon`(구멍 포함). 동마다 객체 대신 **메시 하나 + 면 속성** `building_id`·`height`·`floors`(수천 객체는 Blender가 느리다).
@@ -304,6 +309,17 @@ SketchUp(Ruby, sketchup_ext.rb = bsh_gorani/main.rb)            사이드카(번
 - 사본: 대상지 그룹 정의 `save_copy` → `context.skp`(로컬 좌표, 원점 = context.json `origin`). 다시 넣기는 `definitions.load` + 원점 차이만큼 옮긴 인스턴스.
 - 사이드카는 `-B`(확장 폴더에 `__pycache__`를 쓰면 서명 파일 목록이 바뀐다), stdout 첫 줄만 주소·그 뒤는 stderr = `~/Gorani/sketchup_sidecar.log`, stdin 한 줄은 Ruby 알림(패널 닫힘 `panel_closed` → Rhino 창 닫기처럼 생성 취소, 기다리던 host_call은 바로 실패), stdin EOF(SketchUp 종료)에 끝난다. 응답 없는 host_call은 `SKETCHUP_HOST_TIMEOUT` 뒤 실패.
 - 배포: `dev_deploy.py sketchup` → `build/bsh_gorani-<버전>.rbz`(약 90 MB — 런타임 셋, numpy OpenBLAS가 절반). 올리기는 `docs/sketchup_store.md`.
+
+### 5.w Rhino 7판 (`cmd_rhino7`·`rhino7_host.cs` + SketchUp판 사이드카, 2026-10-30)
+
+Rhino 7에는 CPython 3이 없다(IronPython 2.7). 엔진은 SketchUp판 사이드카(번들 파이썬·`mesh_geometry`·`sketchup_baker`)를 그대로 쓰고 호스트만 C#(`Gorani.rhp`, net48·RhinoCommon 7.0)으로 붙인다.
+
+- 호출 길: SketchUp은 패널을 거쳐 Ruby를 부르지만, Rhino 7은 사이드카 stdout 한 줄(`host_call`)·stdin 한 줄(`host_reply`·`panel_closed`)로 바로 부른다(Windows 패널은 Edge 앱 창이라 Rhino에 닿는 다리가 없다). 호출 이름·인자는 `sketchup_ext.rb`의 `rpc_*`와 같다.
+- 패널: Mac = Rhino 안 Eto WebView, Windows = Edge `--app` 창(Rhino 7 Windows 웹뷰는 IE). 둘 다 `panel_server` 주소를 연다. `init_state.host` = `HOST_LABELS["rhino7"]`(id `rhino` — 패널 문구는 Rhino, DWG 없음, 커브 고르기 프롬프트 없이 미리 고른 커브만).
+- 문서 모양은 Rhino 8판과 같다 — CTX 레이어·UserString·동별 닫힌 Mesh·`doc.Strings` 원점, 사본 `context.3dm`. RhinoCommon 7.0에는 `Mesh.CreateFromExtrusion`이 없어 Extrusion → `ToBrep(true)` + SimplePlanes, 안뜰 구멍은 단면 좌표(`GetProfileTransformation` 역변환)로 넣는다.
+- 사용 통계: Rhino 속성(`GA_STREAMS["rhino7"]` = rhino)에 `panel_open.rhino` = Rhino 버전(7.x) — 관리자 대시보드 [Rhino]의 'Rhino 7 · 8'이 앞자리로 가른다. 끄는 설정 없음(Rhino 8판과 같다).
+- 배포: `dev_deploy.py rhino7`(.NET SDK) → `rh7_0-mac`·`rh7_0-win` yak. Rhino 8판(`rh8_0-any`)과 늘 같은 버전으로 같이 올린다 — 한쪽만 올리면 매니페스트 업데이트 안내가 받을 수 없는 판을 권한다. 대시보드 yak 표에 버전마다 배포판이 보이고, 최신 판에 Rhino 7판이 없으면 개요에 경고가 뜬다.
+- 시험: `tests/test_rhino7.py`(번들 파이썬 — 가짜 Rhino가 줄 약속으로 답한다). C# 쪽은 Rhino 7 안에서만(2026-10-30 Mac 7.37 실측, Windows 미확인).
 
 ---
 
@@ -335,6 +351,7 @@ SketchUp(Ruby, sketchup_ext.rb = bsh_gorani/main.rb)            사이드카(번
 | `CTX::Terrain` / `::struct_pts` | Mesh / Point | 236,232,222 | `SRC`·`RESAMPLE_M`·`N_POINTS`·`N_STRUCT_EXCLUDED` | P0 |
 | `CTX::Site::ground` | Mesh | 236,150,120 | `KIND`(natural·flattened)·`LEVEL_M` | 대상지 바닥(옵션) |
 | `CTX::Terrain::site_flat` / `::site_wall` / `::site_original`(꺼짐) | Mesh | 214,196,170 / 150,140,128 / 236,232,222 | `LEVEL_M`·`LEVEL_SRC`(site_edge_mean 등)·`KIND`(flattened·edge_wall·natural) | 평탄화 옵션일 때만(2026-10-10) |
+| `CTX::Terrain::block` | Mesh | 200,192,180 | `KIND`(block)·`BASE_M` | 지형을 바닥까지 채우기(`terrain_block`, 기본 켬) — 지형 옆면·바닥 |
 | `CTX::Water` | Mesh(평면) | 46,125,224 | `NAME`·`LEVEL_M`·`LEVEL_SRC` | P0 |
 | `CTX::Roads` / `::centerline` | Mesh / PolylineCurve | 168,168,162 | 메시 `SRC`; 중심선 `WIDTH_M`·`LANES`·`NAME` | P0 |
 | `CTX::Green` | Mesh | 228,235,226 | `KIND` | P0 |

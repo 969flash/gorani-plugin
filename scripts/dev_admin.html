@@ -4,66 +4,252 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gorani 관리</title>
+<link rel="stylesheet" href="/vendor/leaflet.css">
+<script src="/vendor/leaflet.js"></script>
 <style>
-/* 패널(site_ui.html)과 같은 토큰 — 관리자 페이지도 같은 톤 */
+@font-face { font-family: "Pretendard Variable"; src: url("/vendor/PretendardVariable.woff2") format("woff2"); font-weight: 45 920; font-display: swap; }
+/* 대시보드 토큰 — 차트 색은 dataviz 기본 팔레트 1~3번(검증: validate_palette.js, 흰 바탕·어두운 바탕 통과). 상태색은 따로 둔다 */
 :root {
-  --paper: #f5f6f8; --surface: #ffffff; --line: #e3e6eb; --line-2: #cdd3db;
+  --paper: #f3f5f8; --surface: #ffffff; --sunk: #f6f7f9; --line: #e7eaef; --line-2: #d4d9e1; --grid: #edf0f3;
   --ink: #111418; --ink-2: #4a5260; --ink-3: #7d8798; --hover: #f0f2f5; --press: #e5e8ed;
   --on-ink: #ffffff; --ink-hover: #2b3038;
+  --lime: #d6f5a3; --lime-2: #c4ec84; --lime-ink: #1d2e05;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s1-wash: rgba(42, 120, 214, .10);
+  --r250: #86b6ef; --r350: #5598e7; --r450: #2a78d6; --r550: #1c5cab; --r650: #104281;   /* 깔때기 — 파랑 서열 램프(바탕에 가까운 끝이 2:1 넘게 250부터) */
+  --good: #0ca30c; --good-ink: #006300; --warning: #fab219; --serious: #ec835a; --critical: #d03b3b; --critical-ink: #b02a2a;
+  --info: #2a78d6; --warn-wash: #fff6ea; --warn-ink: #a8460b; --danger-wash: #fdeeee;
   --accent: #0057ff; --accent-ink: #0047d6; --accent-wash: #e9f0ff; --ring: rgba(0, 87, 255, .35);
-  --ok: #1f7a4d; --danger: #c43c3c; --danger-wash: #fdeeee; --warn: #a8460b; --warn-wash: #fff6ea;
+  --ok: #1f7a4d; --danger: #c43c3c; --warn: #a8460b;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #0c1016; --surface: #151b23; --line: #262e39; --line-2: #38424f;
+    --paper: #0c1016; --surface: #151b23; --sunk: #11161d; --line: #262e39; --line-2: #38424f; --grid: #1f2630;
     --ink: #e8ecf2; --ink-2: #a9b3c3; --ink-3: #7f8a9c; --hover: #1c232d; --press: #252d38;
     --on-ink: #111418; --ink-hover: #d3d9e2;
+    --lime: #33461a; --lime-2: #415a20; --lime-ink: #e6f7c8;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s1-wash: rgba(57, 135, 229, .14);
+    --r250: #184f95; --r350: #1c5cab; --r450: #2a78d6; --r550: #5598e7; --r650: #86b6ef;
+    --good-ink: #0ca30c; --critical-ink: #e66767; --warn-wash: #33240f; --warn-ink: #f0a35e; --danger-wash: #3a1b1d;
     --accent: #5b8bff; --accent-ink: #8cb0ff; --accent-wash: #16264a; --ring: rgba(91, 139, 255, .45);
-    --ok: #5cc28f; --danger: #f07272; --danger-wash: #3a1b1d; --warn: #f0a35e; --warn-wash: #33240f;
+    --ok: #5cc28f; --danger: #f07272; --warn: #f0a35e;
     color-scheme: dark;
   }
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--paper); color: var(--ink); font: 13px/1.5 "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body { background: var(--paper); color: var(--ink); font: 13px/1.5 "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 button, input, textarea { font: inherit; color: inherit; }
-header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 24px; background: var(--surface); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-header h1 { margin: 0; font-size: 16px; font-weight: 700; }
+a { color: inherit; }
+.ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* ── 뼈대: 사이드바 + 본문 ── */
+.app { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
+.side { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 4px; padding: 20px 14px; background: var(--surface); border-right: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 10px; padding: 4px 10px 20px; }
+.brand .mark { width: 30px; height: 30px; border-radius: 10px; background: var(--ink); display: grid; place-items: center; }
+.brand .mark i { width: 12px; height: 12px; border-radius: 50%; background: var(--lime-2); display: block; }
+.brand b { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+.brand span { color: var(--ink-3); font-size: 12px; margin-left: -4px; }
+.side .group { padding: 14px 12px 6px; color: var(--ink-3); font-size: 11px; font-weight: 600; letter-spacing: .04em; }
+.nav { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 12px; border-radius: 12px; color: var(--ink-2); text-decoration: none; font-weight: 500; }
+.nav:hover { background: var(--hover); color: var(--ink); }
+.nav[aria-current="page"] { background: var(--ink); color: var(--on-ink); }
+.nav .ico { width: 18px; height: 18px; }
+.nav .count { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--serious); color: #fff; font-size: 11px; font-weight: 600; display: grid; place-items: center; }
+.side .foot { margin-top: auto; padding: 12px; border-radius: 14px; background: var(--sunk); color: var(--ink-2); font-size: 12px; text-decoration: none; display: block; }
+.side .foot b { display: block; color: var(--ink); font-size: 13px; margin-bottom: 6px; }
+.dots { display: flex; gap: 4px; }
+.dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--good); }
+.dots i.off { background: var(--critical); }
+
+.content { min-width: 0; padding: 0 32px 48px; }
+.top { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 22px 0 18px; background: var(--paper); }
+.top h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -.02em; line-height: 1.25; }
+.top p { margin: 2px 0 0; color: var(--ink-3); font-size: 13px; }
+.tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.tools .st { color: var(--ink-3); font-size: 12px; margin-right: 4px; }
+body[data-view="notices"] .tools, body[data-view="sources"] .tools .seg { display: none; }
+body:not([data-view="notices"]) #pub { display: none; }
 #pub { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-#pub .st { color: var(--ink-2); font-size: 12px; }
-#pub .st b { color: var(--ink); font-weight: 600; }
-#pub .st.muted { color: var(--ink-3); }
-#pub .st.warn { color: var(--warn); }
-main { display: grid; grid-template-columns: minmax(0, 1fr) 482px; gap: 24px; max-width: 1180px; margin: 0 auto; padding: 24px; align-items: start; }
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-.card h2 { display: flex; align-items: baseline; gap: 8px; margin: 0 0 12px; font-size: 15px; font-weight: 600; }
-.card h2 .sub { color: var(--ink-3); font-size: 12px; font-weight: 400; }
-.btn { height: 32px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--surface); display: inline-flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+#pub .st { color: var(--ink-2); font-size: 12px; } #pub .st b { color: var(--ink); font-weight: 600; } #pub .st.muted { color: var(--ink-3); } #pub .st.warn { color: var(--warn); }
+.band { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding: 10px 14px; border-radius: 14px; background: var(--warn-wash); color: var(--warn-ink); font-size: 12px; }
+.band:empty { display: none; }
+.band > span { flex: 1; }
+.view { display: none; }
+body[data-view="overview"] #v_overview, body[data-view="rhino"] #v_rhino, body[data-view="sketchup"] #v_sketchup, body[data-view="blender"] #v_blender, body[data-view="web"] #v_web,
+body[data-view="infra"] #v_infra, body[data-view="sources"] #v_sources, body[data-view="notices"] #v_notices { display: block; }
+.loading .view { opacity: .5; transition: opacity .2s; pointer-events: none; }
+
+/* ── 버튼·세그먼트 ── */
+.btn { height: 34px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--surface); display: inline-flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer; white-space: nowrap; text-decoration: none; }
 .btn:hover:not(:disabled) { background: var(--hover); }
 .btn.primary { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
 .btn.primary:hover:not(:disabled) { background: var(--ink-hover); }
 .btn.ghost { border-color: transparent; background: transparent; color: var(--ink-2); }
 .btn.ghost:hover { background: var(--hover); color: var(--ink); }
-.btn.danger { color: var(--danger); }
-.btn.danger:hover { background: var(--danger-wash); }
-.btn.sm { height: 28px; padding: 0 10px; font-size: 12px; }
+.btn.danger { color: var(--danger); } .btn.danger:hover { background: var(--danger-wash); }
+.btn.tog { padding: 0 12px 0 8px; gap: 8px; }
+.btn.tog .sw { width: 28px; height: 16px; border-radius: 8px; background: var(--line-2); position: relative; transition: background .15s; }
+.btn.tog .sw::after { content: ""; position: absolute; left: 2px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); transition: left .15s; }
+.btn.tog[aria-pressed="true"] { border-color: var(--ink); }
+.btn.tog[aria-pressed="true"] .sw { background: var(--ink); }
+.btn.tog[aria-pressed="true"] .sw::after { left: 14px; }
+.why { font-size: 11.5px; color: var(--ink-3); }
+.btn.sm { padding: 0 10px; font-size: 12px; border-radius: 8px; }
+.btn:disabled { opacity: .5; cursor: default; }
 .ib { width: 28px; height: 28px; border: 0; border-radius: 8px; background: none; color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex: none; }
 .ib:hover { background: var(--hover); color: var(--ink); }
 .ib.danger:hover { background: var(--danger-wash); color: var(--danger); }
-.ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex: none; }
-input[type=text], textarea { width: 100%; height: 32px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface); }
+.seg { display: inline-flex; padding: 3px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); gap: 2px; flex: none; }
+.seg button { height: 28px; padding: 0 12px; border: 0; border-radius: 9px; background: none; color: var(--ink-2); cursor: pointer; font-weight: 500; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
+.seg button.info[aria-pressed="true"] { background: var(--accent-wash); color: var(--accent-ink); }
+.seg button.warn[aria-pressed="true"] { background: var(--warn-wash); color: var(--warn); }
+input[type=text], textarea { width: 100%; height: 34px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface); }
 textarea { height: auto; padding: 6px 10px; resize: vertical; }
-input:focus, textarea:focus, .btn:focus-visible, .ib:focus-visible, .seg button:focus-visible, .zone:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+input:focus, textarea:focus, .btn:focus-visible, .ib:focus-visible, .seg button:focus-visible, .zone:focus-visible, .nav:focus-visible, .ins:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+
+/* ── 격자·카드 ── */
+.grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.s3 { grid-column: span 3; } .s4 { grid-column: span 4; } .s5 { grid-column: span 5; } .s6 { grid-column: span 6; }
+.s7 { grid-column: span 7; } .s8 { grid-column: span 8; } .s9 { grid-column: span 9; } .s12 { grid-column: span 12; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px; min-width: 0; }
+.card > .hd { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; min-height: 28px; }
+.card > .hd h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+.card > .hd .sub { color: var(--ink-3); font-size: 12px; }
+.card > .hd .act { margin-left: auto; display: flex; gap: 4px; align-items: center; }
+.card .note { margin: 12px 0 0; color: var(--ink-3); font-size: 11.5px; }
+.empty { color: var(--ink-3); font-size: 12px; padding: 18px 0; text-align: center; }
+.empty a { color: var(--ink-2); }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; color: var(--ink-2); font-size: 12px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.legend i.ln { height: 2px; width: 14px; border-radius: 1px; }
+
+/* ── 숫자 타일 ── */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; margin-bottom: 16px; }
+.tiles.t2 { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.kpi .l { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13px; font-weight: 500; }
+.kpi .l .bub { width: 30px; height: 30px; border-radius: 50%; background: var(--sunk); display: grid; place-items: center; color: var(--ink); }
+.kpi .v { font-size: 28px; font-weight: 650; letter-spacing: -.02em; line-height: 1.15; }
+.kpi .v small { font-size: 14px; font-weight: 500; color: var(--ink-3); margin-left: 2px; }
+.kpi .m { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--ink-3); min-height: 22px; }
+.dl { display: inline-flex; align-items: center; gap: 2px; height: 22px; padding: 0 7px 0 5px; border-radius: 7px; font-size: 12px; font-weight: 600; }
+.dl .ico { width: 13px; height: 13px; stroke-width: 2; }
+.dl.up { background: rgba(12, 163, 12, .12); color: var(--good-ink); }
+.dl.dn { background: rgba(208, 59, 59, .12); color: var(--critical-ink); }
+.dl.nt { background: var(--sunk); color: var(--ink-2); }
+.hero { background: var(--lime); border-color: var(--lime-2); color: var(--lime-ink); padding: 20px 22px; }
+.hero .l { color: var(--lime-ink); font-size: 14px; font-weight: 600; } .hero .l .bub { background: rgba(255, 255, 255, .6); color: var(--lime-ink); }
+.hero .v { font-size: 52px; letter-spacing: -.03em; margin-top: 6px; }
+.hero .m { color: var(--lime-ink); opacity: .85; }
+.hero .dl.up, .hero .dl.dn, .hero .dl.nt { background: rgba(255, 255, 255, .65); }
+.hero .split { display: flex; gap: 18px; margin-top: auto; padding-top: 12px; font-size: 12px; }
+.hero .split b { display: block; font-size: 16px; font-weight: 650; }
+.spark { display: block; width: 100%; height: 48px; margin-top: 6px; }
+
+/* ── 인사이트 ── */
+.ins { display: flex; gap: 12px; align-items: flex-start; width: 100%; padding: 11px 4px; border: 0; border-top: 1px solid var(--line); background: none; text-align: left; cursor: pointer; border-radius: 0; }
+.ins:first-child { border-top: 0; padding-top: 2px; }
+.ins:hover .tx { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
+.ins .lv { flex: none; display: inline-flex; align-items: center; gap: 5px; width: 64px; font-size: 11.5px; font-weight: 600; color: var(--ink-2); padding-top: 1px; }
+.ins .lv .ico { width: 15px; height: 15px; stroke-width: 2; }
+.ins .lv.good .ico { color: var(--good); } .ins .lv.warning .ico { color: var(--warning); } .ins .lv.serious .ico { color: var(--critical); } .ins .lv.info .ico { color: var(--info); }
+.ins .tx { flex: 1; color: var(--ink-2); line-height: 1.5; }
+.ins .ar { color: var(--ink-3); font-size: 11px; flex: none; padding-top: 2px; }
+
+/* ── 막대 목록·비율 막대·게이지·깔때기 ── */
+.bars { display: grid; gap: 9px; }
+.bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: baseline; font-size: 12.5px; }
+.bar .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.bar .n em { font-style: normal; color: var(--ink-3); margin-left: 4px; font-size: 11px; }
+.bar .x { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.bar .x small { color: var(--ink-3); font-weight: 400; margin-left: 6px; }
+.bar .t { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; }
+.bar .t i { display: block; height: 100%; border-radius: 3px; background: var(--s1); }
+.bar.hi .n { font-weight: 600; }
+.more { margin-top: 10px; }
+.share { display: flex; height: 12px; border-radius: 6px; overflow: hidden; gap: 2px; margin: 4px 0 10px; }
+.share i { display: block; height: 100%; }
+.share i:first-child { border-radius: 6px 0 0 6px; } .share i:last-child { border-radius: 0 6px 6px 0; } .share i:only-child { border-radius: 6px; }
+.shares { display: grid; gap: 6px; }
+.shares div { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.shares div i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.shares div b { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+.shares div small { color: var(--ink-3); width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+.meter { display: grid; gap: 6px; padding: 12px 0; border-top: 1px solid var(--line); }
+.meter:first-child { border-top: 0; padding-top: 0; }
+.meter .row { display: flex; align-items: baseline; gap: 8px; }
+.meter .row b { font-weight: 600; }
+.meter .row span { margin-left: auto; color: var(--ink-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+.meter .row span strong { color: var(--ink); font-weight: 600; }
+.meter .t { height: 8px; border-radius: 4px; background: var(--s1-wash); overflow: hidden; }
+.meter .t i { display: block; height: 100%; border-radius: 4px; background: var(--s1); min-width: 3px; }
+.meter .t i.warning { background: var(--warning); } .meter .t i.serious { background: var(--critical); }
+.meter .tag { font-size: 11.5px; color: var(--ink-3); display: flex; align-items: center; gap: 5px; }
+.meter .tag .ico { width: 13px; height: 13px; stroke-width: 2; }
+.meter .tag.warning .ico { color: var(--warning); } .meter .tag.serious .ico { color: var(--critical); } .meter .tag.good .ico { color: var(--good); }
+.funnel { display: grid; gap: 10px; }
+.fs { display: grid; grid-template-columns: 150px minmax(0, 1fr) 92px; gap: 12px; align-items: center; }
+.fs .nm { font-size: 12.5px; color: var(--ink-2); line-height: 1.3; }
+.fs .nm small { display: block; color: var(--ink-3); font-size: 11px; }
+.fs .tr { height: 30px; border-radius: 8px; background: var(--sunk); position: relative; overflow: hidden; }
+.fs .tr i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; min-width: 4px; }
+.fs .vv { text-align: right; font-variant-numeric: tabular-nums; }
+.fs .vv b { display: block; font-size: 15px; font-weight: 650; }
+.fs .vv small { color: var(--ink-3); font-size: 11px; }
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; }
+.stat-row div { padding: 10px 12px; border-radius: 12px; background: var(--sunk); }
+.stat-row span { display: block; color: var(--ink-3); font-size: 11.5px; }
+.stat-row b { font-size: 18px; font-weight: 650; letter-spacing: -.01em; }
+
+/* ── 차트·표·지도 ── */
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; overflow: visible; }
+.chart text { fill: var(--ink-3); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart .gl { stroke: var(--grid); stroke-width: 1; }
+.chart .bl { stroke: var(--line-2); stroke-width: 1; }
+.chart .cx { stroke: var(--ink-3); stroke-width: 1; }
+.chart rect.hit { fill: transparent; }
+.chart g.col:hover path, .chart g.col.on path { opacity: .82; }
+#tip { position: fixed; z-index: 50; pointer-events: none; min-width: 120px; padding: 8px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(17, 20, 24, .12); font-size: 12px; display: none; }
+#tip .d { color: var(--ink-3); font-size: 11px; margin-bottom: 4px; }
+#tip .r { display: flex; align-items: center; gap: 8px; }
+#tip .r i { width: 12px; height: 2px; border-radius: 1px; flex: none; }
+#tip .r b { font-weight: 650; font-variant-numeric: tabular-nums; }
+#tip .r span { color: var(--ink-3); }
+table.tb { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 12.5px; }
+table.tb th { text-align: left; color: var(--ink-3); font-weight: 500; font-size: 11.5px; padding: 6px 8px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); }
+table.tb td { padding: 7px 8px; border-bottom: 1px solid var(--line); }
+table.tb .r { text-align: right; }
+.scroll { max-height: 280px; overflow: auto; }
+.map { height: 340px; border-radius: 12px; overflow: hidden; background: var(--sunk); z-index: 0; }
+.leaflet-container { font: inherit; background: var(--sunk); }
+
+/* ── 연결 ── */
+.src { display: grid; grid-template-columns: 24px 190px minmax(0, 1fr); gap: 12px; align-items: start; padding: 12px 0; border-top: 1px solid var(--line); }
+.src:first-child { border-top: 0; padding-top: 0; }
+.src .ico { width: 18px; height: 18px; stroke-width: 2; margin-top: 1px; }
+.src.on .ico { color: var(--good); } .src.off .ico { color: var(--critical); }
+.src b { font-weight: 600; } .src b small { display: block; color: var(--ink-3); font-weight: 400; font-size: 11.5px; }
+.src span { color: var(--ink-2); word-break: break-all; }
+ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--ink-2); }
+ol.steps code, .card code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; background: var(--sunk); padding: 1px 5px; border-radius: 5px; color: var(--ink); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chips code.miss { color: var(--critical-ink); }
+
+/* ── 공지·버전 (기존 편집기) ── */
+.notices-grid { display: grid; grid-template-columns: minmax(0, 1fr) 482px; gap: 24px; align-items: start; }
+.notices-grid .card { margin-bottom: 16px; }
+.notices-grid .card h2 { display: flex; align-items: baseline; gap: 8px; margin: 0 0 12px; font-size: 15px; font-weight: 600; }
+.notices-grid .card h2 .sub { color: var(--ink-3); font-size: 12px; font-weight: 400; }
 input.ver { width: 96px; font-variant-numeric: tabular-nums; }
-.seg { display: inline-flex; padding: 2px; border-radius: 10px; background: var(--hover); gap: 2px; flex: none; }
-.seg button { height: 28px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--ink-2); cursor: pointer; font-weight: 500; }
-.seg button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 0 0 1px var(--line); }
-.seg button.info[aria-pressed="true"] { color: var(--accent-ink); }
-.seg button.warn[aria-pressed="true"] { color: var(--warn); }
 .row { display: flex; gap: 8px; align-items: center; }
 .lead { margin: 0 0 12px; color: var(--ink-2); }
 .hint { color: var(--ink-3); font-size: 11px; }
-/* 공지 — 패널 띠와 같은 모양으로 보여 준다 */
 .composer { display: grid; gap: 8px; padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
 .nb { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; }
 .nb + .nb { margin-top: 8px; }
@@ -77,8 +263,6 @@ input.ver { width: 96px; font-variant-numeric: tabular-nums; }
 .nb.gone { background: none; border: 1px dashed var(--line-2); color: var(--ink-3); }
 .nb.gone .text { text-decoration: line-through; }
 .nb.edit { display: grid; gap: 8px; background: var(--surface); border: 1px solid var(--accent); color: var(--ink); }
-.empty { color: var(--ink-3); padding: 4px 0; }
-/* 버전 구간 */
 .zones { display: grid; gap: 6px; margin-bottom: 16px; }
 .zone { display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-left-width: 3px; border-radius: 0 10px 10px 0; background: var(--surface); text-align: left; cursor: pointer; width: 100%; }
 .zone:hover { background: var(--hover); }
@@ -97,36 +281,126 @@ input.ver { width: 96px; font-variant-numeric: tabular-nums; }
 #errors:empty { display: none; }
 #errors { margin-bottom: 16px; padding: 10px 12px; border-radius: 12px; background: var(--warn-wash); color: var(--warn); font-size: 12px; }
 #errors ul { margin: 4px 0 0; padding-left: 18px; }
-aside { position: sticky; top: 80px; }
+.notices-grid aside { position: sticky; top: 96px; }
 aside .bar { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
 aside .bar b { font-size: 13px; font-weight: 600; }
 aside .bar span { color: var(--ink-2); font-size: 12px; }
-aside iframe { display: block; width: 482px; height: calc(100vh - 140px); min-height: 560px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
-dialog { border: 1px solid var(--line); border-radius: 12px; padding: 20px; width: min(440px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); }
+aside iframe { display: block; width: 482px; height: calc(100vh - 150px); min-height: 560px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
+dialog { border: 1px solid var(--line); border-radius: 16px; padding: 20px; width: min(440px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); }
 dialog::backdrop { background: rgba(17, 20, 24, .55); }
 dialog h3 { margin: 0 0 8px; font-size: 16px; }
 dialog p { margin: 0 0 8px; color: var(--ink-2); }
 dialog ul { margin: 0 0 16px; padding-left: 18px; color: var(--ink-2); }
 dialog .acts { display: flex; gap: 8px; justify-content: flex-end; }
-#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 8px 14px; border-radius: 10px; background: var(--ink); color: var(--on-ink); font-size: 12px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 8px 14px; border-radius: 10px; background: var(--ink); color: var(--on-ink); font-size: 12px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 60; }
 #toast.on { opacity: 1; }
-@media (max-width: 1080px) { main { grid-template-columns: minmax(0, 1fr); } aside { position: static; } aside iframe { width: 100%; max-width: 482px; height: 760px; } }
+
+/* ── 프로그램 카드(개요 첫 줄)·프로그램 머리 ── */
+.pdot { width: 18px; height: 18px; display: grid; place-items: center; flex: none; }
+.pdot::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--pc); }
+.nav[aria-current="page"] .pdot::before { box-shadow: 0 0 0 2px var(--on-ink); }
+.progs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.prog { display: flex; flex-direction: column; gap: 12px; text-decoration: none; color: inherit; border-top: 4px solid var(--pc); transition: border-color .15s, box-shadow .15s; }
+.prog:hover { box-shadow: 0 6px 22px rgba(17, 20, 24, .08); }
+.prog:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); }
+.ph, .phead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ph i, .phead i { width: 12px; height: 12px; border-radius: 4px; background: var(--pc); flex: none; }
+.ph b { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+.phead { margin: 0 0 16px; } .phead b { font-size: 15px; font-weight: 600; }
+.stt { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--ink-3); font-size: 11.5px; }
+.phead .stt { margin-left: 4px; }
+.prog .stt { flex-basis: 100%; margin-left: 0; }
+.cmp .scroll { max-height: none; }
+.band.wait { background: var(--sunk); color: var(--ink-2); }
+.band.wait .ico { color: var(--warning); }
+.stt::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); }
+.stt.on::before { background: var(--good); } .stt.wait::before { background: var(--warning); } .stt.off::before { background: var(--critical); }
+.big { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.big span { display: block; color: var(--ink-2); font-size: 12.5px; font-weight: 500; }
+.big b { display: block; font-size: 34px; font-weight: 650; letter-spacing: -.02em; line-height: 1.15; margin: 2px 0; }
+.big small { display: flex; align-items: center; gap: 4px; color: var(--ink-3); font-size: 11.5px; min-height: 22px; }
+.prog .spark { color: var(--pc); height: 40px; margin: 0; }
+.spark-empty { height: 40px; display: grid; place-items: center; color: var(--ink-3); font-size: 11.5px; background: var(--sunk); border-radius: 10px; }
+.prog dl { margin: 0; display: grid; }
+.prog dl div { display: flex; justify-content: space-between; padding: 7px 0; border-top: 1px solid var(--line); font-size: 12.5px; }
+.prog dt { color: var(--ink-2); } .prog dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cmp table.tb td:first-child { white-space: nowrap; }
+.cmp table.tb td, .cmp table.tb th { padding: 9px 10px; }
+.cmp table.tb td.r { font-size: 14px; font-weight: 600; }
+.cmp table.tb td:last-child, .cmp table.tb th:last-child { background: var(--sunk); }
+.mute { color: var(--ink-3); font-weight: 400; }
+.tiles + .band { margin-top: -4px; }
+@media (max-width: 1280px) { .progs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 900px) { .progs { grid-template-columns: minmax(0, 1fr); } }
+
+@media (max-width: 1280px) { .s3, .s4, .s5, .s7, .s8, .s9 { grid-column: span 6; } .notices-grid { grid-template-columns: minmax(0, 1fr); } .notices-grid aside { position: static; } aside iframe { width: 100%; max-width: 482px; height: 760px; } }
+@media (max-width: 900px) { .app { grid-template-columns: minmax(0, 1fr); } .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; } .side .group, .side .foot { display: none; } .grid > * { grid-column: span 12 !important; } .content { padding: 0 16px 32px; } }
 </style>
 </head>
-<body>
+<body data-view="overview">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
   <symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M8 7.5v4M8 5h.01"/></symbol>
   <symbol id="i-warn" viewBox="0 0 16 16"><path d="M7.1 2.6a1 1 0 0 1 1.8 0l5.3 9.6a1 1 0 0 1-.9 1.5H2.7a1 1 0 0 1-.9-1.5z"/><path d="M8 6.5v3M8 11.5h.01"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 16 16"><path d="M5.4 1.8h5.2l3.6 3.6v5.2l-3.6 3.6H5.4l-3.6-3.6V5.4z"/><path d="M8 5v3.5M8 11h.01"/></symbol>
+  <symbol id="i-check" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M5.3 8.2l1.8 1.8 3.6-3.8"/></symbol>
+  <symbol id="i-xc" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M5.8 5.8l4.4 4.4M10.2 5.8l-4.4 4.4"/></symbol>
   <symbol id="i-pen" viewBox="0 0 16 16"><path d="M11 2.6a1.6 1.6 0 0 1 2.4 2.4L5 13.4l-3 .6.6-3z"/><path d="M9.5 4l2.5 2.5"/></symbol>
   <symbol id="i-up" viewBox="0 0 16 16"><path d="M8 13V3M4 7l4-4 4 4"/></symbol>
+  <symbol id="i-down" viewBox="0 0 16 16"><path d="M8 3v10M4 9l4 4 4-4"/></symbol>
   <symbol id="i-x" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
   <symbol id="i-undo" viewBox="0 0 16 16"><path d="M5.5 2.5 2.5 5.5l3 3M2.5 5.5h7a4 4 0 0 1 0 8H6"/></symbol>
+  <symbol id="i-home" viewBox="0 0 16 16"><path d="M2.5 7 8 2.5 13.5 7v6a.5.5 0 0 1-.5.5H9.5V10h-3v3.5H3a.5.5 0 0 1-.5-.5z"/></symbol>
+  <symbol id="i-cube" viewBox="0 0 16 16"><path d="M8 1.8 13.5 5v6L8 14.2 2.5 11V5z"/><path d="M2.5 5 8 8.2 13.5 5M8 8.2v6"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 16 16"><path d="M2 11.5 6 7.5l2.5 2.5L14 4.5"/><path d="M10.5 4.5H14V8"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 16 16"><path d="M8 1.8 13 3.8v4c0 3-2.2 5.3-5 6.4-2.8-1.1-5-3.4-5-6.4v-4z"/><path d="M5.8 8l1.6 1.6L10.4 6.6"/></symbol>
+  <symbol id="i-db" viewBox="0 0 16 16"><ellipse cx="8" cy="3.8" rx="5" ry="2"/><path d="M3 3.8v8.4c0 1.1 2.2 2 5 2s5-.9 5-2V3.8M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/></symbol>
+  <symbol id="i-mega" viewBox="0 0 16 16"><path d="M2.5 6.5v3h2l5 3v-9l-5 3z"/><path d="M12 6a2.5 2.5 0 0 1 0 4"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 16 16"><path d="M6 1.8v3M10 1.8v3M4.5 4.8h7v2.7a3.5 3.5 0 0 1-7 0zM8 11v3.2"/></symbol>
+  <symbol id="i-user" viewBox="0 0 16 16"><circle cx="8" cy="5.5" r="2.8"/><path d="M2.8 14c.6-2.6 2.7-4.2 5.2-4.2s4.6 1.6 5.2 4.2"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.3"/><path d="M1.8 8h12.4M8 1.7c1.8 1.8 2.6 4 2.6 6.3S9.8 12.5 8 14.3C6.2 12.5 5.4 10.3 5.4 8S6.2 3.5 8 1.7z"/></symbol>
+  <symbol id="i-down-box" viewBox="0 0 16 16"><path d="M8 2v8M4.8 7 8 10.2 11.2 7M2.5 11.5v1.5a.8.8 0 0 0 .8.8h9.4a.8.8 0 0 0 .8-.8v-1.5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.3"/><path d="M8 4.5V8l2.4 1.6"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 16 16"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3"/></symbol>
+  <symbol id="i-table" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M2 6.5h12M2 10h12M6.5 6.5V13"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 16 16"><path d="M6 3.5 10.5 8 6 12.5"/></symbol>
 </defs></svg>
-<header>
-  <h1>Gorani 관리</h1>
-  <div id="pub"><span class="st muted">불러오는 중</span></div>
-</header>
-<main>
+<div class="app">
+  <nav class="side" aria-label="화면">
+    <div class="brand"><span class="mark"><i></i></span><b>Gorani</b><span>관리</span></div>
+    <a class="nav" href="#overview" data-nav="overview"><svg class="ico"><use href="#i-home"/></svg>개요</a>
+    <div class="group">프로그램</div>
+    <a class="nav" href="#rhino" data-nav="rhino"><span class="pdot" style="--pc:var(--s1)"></span>Rhino</a>
+    <a class="nav" href="#sketchup" data-nav="sketchup"><span class="pdot" style="--pc:var(--s2)"></span>SketchUp</a>
+    <a class="nav" href="#blender" data-nav="blender"><span class="pdot" style="--pc:var(--s4)"></span>Blender</a>
+    <a class="nav" href="#web" data-nav="web"><span class="pdot" style="--pc:var(--s3)"></span>웹사이트</a>
+    <div class="group">운영</div>
+    <a class="nav" href="#infra" data-nav="infra"><svg class="ico"><use href="#i-db"/></svg>데이터·서버</a>
+    <a class="nav" href="#notices" data-nav="notices"><svg class="ico"><use href="#i-mega"/></svg>공지·버전</a>
+    <a class="nav" href="#sources" data-nav="sources"><svg class="ico"><use href="#i-plug"/></svg>연결</a>
+    <a class="foot" href="#sources" id="side_foot"><b>데이터 출처</b><span class="dots"></span></a>
+  </nav>
+  <div class="content" id="content">
+    <header class="top">
+      <div><h1 id="page_title">개요</h1><p id="page_sub"></p></div>
+      <div class="tools">
+        <span class="st" id="stats_time"></span>
+        <button type="button" class="btn tog" data-act="exclude" id="exclude" aria-pressed="false" title="내 PC·브라우저·시험 설치에서 온 기록을 빼고 봅니다"><span class="sw" aria-hidden="true"></span>내 테스트 제외</button>
+        <span class="seg" role="group" aria-label="기간" id="days"><button type="button" data-days="7" aria-pressed="false">7일</button><button type="button" data-days="30" aria-pressed="true">30일</button><button type="button" data-days="90" aria-pressed="false">90일</button></span>
+        <button type="button" class="btn" data-act="refresh"><svg class="ico"><use href="#i-refresh"/></svg>새로고침</button>
+      </div>
+      <div id="pub"><span class="st muted">불러오는 중</span></div>
+    </header>
+    <div class="band" id="band"></div>
+    <div class="band wait" id="band_ex"></div>
+    <section class="view" id="v_overview"></section>
+    <section class="view" id="v_rhino"></section>
+    <section class="view" id="v_sketchup"></section>
+    <section class="view" id="v_blender"></section>
+    <section class="view" id="v_web"></section>
+    <section class="view" id="v_infra"></section>
+    <section class="view" id="v_sources"></section>
+    <section class="view" id="v_notices">
+<div class="notices-grid">
   <section>
     <div id="errors"></div>
     <div class="card">
@@ -153,7 +427,12 @@ dialog .acts { display: flex; gap: 8px; justify-content: flex-end; }
     <div class="bar"><b>미리보기</b><span id="view_label"></span></div>
     <iframe id="preview" title="패널 미리보기"></iframe>
   </aside>
-</main>
+</div>
+
+    </section>
+  </div>
+</div>
+<div id="tip" role="tooltip"></div>
 <dialog id="ask">
   <h3 id="ask_title"></h3>
   <p id="ask_text"></p>
@@ -161,6 +440,7 @@ dialog .acts { display: flex; gap: 8px; justify-content: flex-end; }
   <div class="acts"><button type="button" class="btn" value="no">취소</button><button type="button" class="btn primary" value="yes" id="ask_ok"></button></div>
 </dialog>
 <div id="toast" role="status" aria-live="polite"></div>
+
 <script>
 "use strict";
 var TOKEN = (location.search.match(/[?&]token=([\w-]+)/) || [])[1] || "";
@@ -343,6 +623,637 @@ document.addEventListener("click", function (e) {
   }
 });
 api("/api/state").then(function (r) { apply(r, true); });
+
+
+// ══ 대시보드 — dev_stats.get_stats 결과(D)를 화면별로 그린다. 차트는 SVG 직접(가는 막대·2 px 선·축 하나·표 보기), 지도는 Leaflet ══
+var D = null;
+var V = { view: "overview", host: null, exclude: localStorage.getItem("gorani_admin_exclude") === "1" || /[?&]exclude=1/.test(location.search), days: 30, demo: /[?&]demo=1/.test(location.search), loading: false };
+var CHARTS = {}, MAP_SPECS = [], MAPS = [], UID = 0;
+var HOSTS = [{ key: "rhino", name: "Rhino", c: "var(--s1)" }, { key: "sketchup", name: "SketchUp", c: "var(--s2)" }];
+var PROGRAMS = HOSTS.concat([{ key: "blender", name: "Blender", c: "var(--s4)" }, { key: "web", name: "웹사이트", c: "var(--s3)" }]);
+var PAGES = {
+  overview: ["개요", "프로그램별 다운로드·사용자와 지금 볼 것"],
+  rhino: ["Rhino", "Rhino 7·8 플러그인 — 다운로드·사용·생성 결과·오류"],
+  sketchup: ["SketchUp", "SketchUp 확장 — 사용 통계에 동의한 사용자만"],
+  blender: ["Blender", "Blender 확장 — 스토어 규정상 사용 통계 없음"],
+  web: ["웹사이트", "방문에서 설치까지 — 웹 GA·yak"],
+  infra: ["데이터·서버", "데이터 팩 다운로드와 무료 한도 — 국내 서버·Hugging Face"],
+  sources: ["연결", "데이터 출처 상태와 GA 설정"],
+  notices: ["공지·버전", "패널 위쪽 띠 공지와 업데이트 안내 — 게시하면 사용자가 다음에 패널을 열 때 받습니다"]
+};
+var LABELS = {
+  mode: { lots: "필지로 고르기", area: "구역 그리기", point: "위치만 찍기" },
+  placement: { local: "대상지 원점", world: "실제 좌표" },
+  result: { ok: "성공", failed: "실패", cancelled: "취소" },
+  korea: { "1": "한국", "true": "한국", "True": "한국", "0": "해외", "false": "해외", "False": "해외" },
+  kind: { context: "건물·도로·수계", terrain: "등고선", site: "필지" },
+  host: { rhino: "Rhino", sketchup: "SketchUp", blender: "Blender" },
+  context: { generate: "3D 생성", make_2d: "2D 자료", download: "데이터 받기" }
+};
+var LEVEL = { good: ["check", "좋음"], warning: ["warn", "주의"], serious: ["alert", "위험"], info: ["info", "참고"] };
+
+// ── 숫자 ──
+function sum(a) { var s = 0; (a || []).forEach(function (v) { s += +v || 0; }); return s; }
+function addArr(arrs) {
+  var n = 0; arrs.forEach(function (a) { n = Math.max(n, (a || []).length); });
+  var out = []; for (var i = 0; i < n; i++) out.push(sum(arrs.map(function (a) { return (a || [])[i]; })));
+  return out;
+}
+function fmtNum(v) {
+  if (v == null || isNaN(v)) return "—";
+  var a = Math.abs(v);
+  if (a >= 1e6) return (v / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
+  if (a >= 1e4) return (v / 1e3).toFixed(1).replace(/\.0$/, "") + "K";
+  return (a < 10 && v % 1 ? v.toFixed(1) : Math.round(v).toLocaleString("ko-KR"));
+}
+function fmtBytes(v) { if (v == null) return "—"; var u = ["B", "KB", "MB", "GB", "TB"], i = 0; while (v >= 1024 && i < 4) { v /= 1024; i++; } return (i ? v.toFixed(1) : Math.round(v)) + " " + u[i]; }
+function fmtPct(v, d) { return v == null || isNaN(v) ? "—" : (v * 100).toFixed(d == null ? 0 : d) + "%"; }
+function fmtDur(s) { if (s == null) return "—"; s = Math.round(s); return s >= 60 ? Math.floor(s / 60) + "분 " + (s % 60) + "초" : s + "초"; }
+function fmtDay(iso) { var p = String(iso).split("-"); return +p[1] + "/" + +p[2]; }
+function ratio(a, b) { return b ? a / b : null; }
+
+// ── 데이터 꺼내기 ──
+function appsOn() {   // 지금 화면의 플러그인 — 프로그램 화면이면 그 하나, 아니면 전부
+  var a = (D && D.ga && D.ga.apps) || {};
+  return HOSTS.filter(function (h) { return a[h.key] && (!V.host || V.host === h.key); }).map(function (h) { return { h: h, s: a[h.key] }; });
+}
+function web() { return D && D.ga && D.ga.web; }
+function gaOn() { return appsOn().length > 0 || !!web(); }
+function evPair(name, key) {
+  var p = [0, 0];
+  appsOn().forEach(function (x) { var e = x.s.events[name]; if (e) { p[0] += e[key][0]; p[1] += e[key][1]; } });
+  return p;
+}
+function totalPair(key) { var p = [0, 0]; appsOn().forEach(function (x) { p[0] += x.s.totals[key][0]; p[1] += x.s.totals[key][1]; }); return p; }
+function hasDim(key) { return appsOn().some(function (x) { return (x.s.dims[key] || []).length; }); }
+function isMissing(param) { return appsOn().some(function (x) { return x.s.missing.indexOf(param) >= 0; }); }
+function waitNote(param) { return isMissing(param) ? param + " 등록 필요" : "등록됨 · 쌓이는 중"; }   // 맞춤 측정기준은 등록한 뒤 이벤트부터 쌓인다
+function dimRows(key, map) {   // 호스트를 합친 [[값, 횟수]] 많은 순. map = 값 → 표시 이름(사전 또는 함수 — 같은 이름은 합친다)
+  var c = {}, order = [];
+  appsOn().forEach(function (x) {
+    (x.s.dims[key] || []).forEach(function (r) {
+      var k = !map ? r[0] : typeof map === "function" ? map(r[0]) : map[r[0]] || r[0];
+      if (!(k in c)) { c[k] = 0; order.push(k); }
+      c[k] += r[1];
+    });
+  });
+  return order.map(function (k) { return [k, c[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
+}
+function successRate() { var r = dimRows("build.result"), ok = 0, bad = 0; r.forEach(function (x) { if (x[0] === "ok") ok += x[1]; if (x[0] === "failed") bad += x[1]; }); return ok + bad ? { rate: ok / (ok + bad), failed: bad } : null; }
+function avgOf(key) {   // 호스트별 평균을 생성 수로 가중
+  var w = 0, s = 0;
+  appsOn().forEach(function (x) { var v = (x.s.average || {})[key], n = (x.s.events.build || { count: [0] }).count[0]; if (v != null) { s += v * n; w += n; } });
+  return w ? s / w : null;
+}
+
+// ── 조각 ──
+function ico2(n) { return '<svg class="ico" aria-hidden="true"><use href="#i-' + n + '"/></svg>'; }
+function delta(pair, goodUp) {
+  if (!pair) return "";
+  var c = pair[0], p = pair[1];
+  if (!p) return c ? '<span class="dl nt">직전 기록 없음</span>' : "";
+  var r = (c - p) / p, up = r >= 0, cls = goodUp == null || r === 0 ? "nt" : (up === goodUp ? "up" : "dn");
+  return '<span class="dl ' + cls + '">' + ico2(up ? "up" : "down") + (up ? "+" : "") + (r * 100).toFixed(Math.abs(r) < .1 ? 1 : 0) + "%</span>";
+}
+function sparkSvg(values) {
+  if (!values || values.length < 2) return "";
+  var max = Math.max.apply(null, values.concat([1])), n = values.length;
+  var pts = values.map(function (v, i) { return (100 * i / (n - 1)).toFixed(2) + "," + (28 - 26 * v / max).toFixed(2); });
+  return '<svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polyline points="' + pts.join(" ") +
+    '" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>';
+}
+function kpi(o) {
+  var v = o.value !== undefined ? o.value : (o.pair ? o.pair[0] : null);
+  return '<div class="kpi' + (o.hero ? " hero" : "") + '"><div class="l"><span class="bub">' + ico2(o.icon || "info") + "</span>" + esc(o.label) + "</div>" +
+    '<div class="v">' + (v == null ? "—" : (o.fmt || fmtNum)(v)) + (o.unit && v != null ? "<small>" + esc(o.unit) + "</small>" : "") + "</div>" +
+    '<div class="m">' + (o.pair && v != null ? delta(o.pair, o.goodUp) + (o.pair[1] ? "<span>직전 " + V.days + "일 대비</span>" : "") : "") + (o.sub ? "<span>" + esc(o.sub) + "</span>" : "") + "</div>" +
+    (o.spark ? sparkSvg(o.spark) : "") + (o.extra || "") + "</div>";
+}
+function card(span, title, sub, body, act) {
+  return '<div class="card s' + span + '"><div class="hd"><h2>' + esc(title) + "</h2>" + (sub ? '<span class="sub">' + esc(sub) + "</span>" : "") +
+    '<div class="act">' + (act || "") + "</div></div>" + body + "</div>";
+}
+function grid(cells) { return '<div class="grid">' + cells.join("") + "</div>"; }
+function empty(html) { return '<div class="empty">' + html + "</div>"; }
+function gaEmpty(param) {
+  if (!gaOn()) return empty('GA 연결 전입니다 · <a href="#sources">연결 설정</a>');
+  var missing = appsOn().map(function (x) { return x.s.missing; }).concat(web() ? [web().missing] : []);
+  if (missing.some(function (m) { return m.indexOf(param) >= 0; })) return empty("GA에 <code>" + esc(param) + '</code> 매개변수가 아직 등록되지 않았습니다 · <a href="#sources">한 번에 등록</a>');
+  return empty("<code>" + esc(param) + "</code> 등록됨 — 등록한 뒤 들어온 이벤트부터 쌓입니다");
+}
+function dimCard(span, title, sub, key, opts) {
+  opts = opts || {};
+  var rows = dimRows(key, opts.map);
+  return card(span, title, sub, rows.length ? (opts.share ? shareBar(rows, opts) : barList(rows, opts)) : gaEmpty(key.split(".")[1]));
+}
+function barList(rows, o) {
+  o = o || {};
+  if (!rows || !rows.length) return empty(o.empty || "아직 기록이 없습니다");
+  var lim = o.limit || 7, max = Math.max.apply(null, rows.map(function (r) { return r[1]; }).concat([1])), total = sum(rows.map(function (r) { return r[1]; }));
+  var id = "more" + (++UID);
+  return '<div class="bars" id="' + id + '">' + rows.map(function (r, i) {
+    var name = o.label ? o.label(r[0]) : r[0], parts = String(name).split(" "), code = /^(jp)?\d{5}$/.test(parts[0]) && parts.length > 1;
+    return '<div class="bar' + (o.hi && o.hi(r[0]) ? " hi" : "") + '"' + (i >= lim ? " hidden" : "") + ">" +
+      '<span class="n" title="' + esc(name) + '">' + (code ? esc(parts.slice(1).join(" ")) + "<em>" + esc(parts[0]) + "</em>" : esc(name)) + (o.hi && o.hi(r[0]) ? "<em>최신</em>" : "") + "</span>" +
+      '<span class="x">' + (o.fmt || fmtNum)(r[1]) + "<small>" + (o.sub ? esc(o.sub(r)) : fmtPct(r[1] / total)) + "</small></span>" +
+      '<span class="t"><i style="width:' + (100 * r[1] / max).toFixed(1) + "%;" + (o.color ? "background:" + o.color : "") + '"></i></span></div>';
+  }).join("") + "</div>" + (rows.length > lim ? '<button type="button" class="btn ghost sm more" data-act="more" data-more="' + id + '">전체 ' + rows.length + "개 보기</button>" : "");
+}
+function shareBar(rows, o) {   // 비율 막대 — 4칸까지, 넘으면 '기타'로 접는다(범주 색 1~3 + 기타는 회색)
+  o = o || {};
+  var colors = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--ink-3)"], total = sum(rows.map(function (r) { return r[1]; }));
+  if (!total) return empty("아직 기록이 없습니다");
+  var top = rows.slice(0, 3);
+  if (rows.length > 3) top.push(["기타", sum(rows.slice(3).map(function (r) { return r[1]; }))]);
+  var colorOf = function (r, i) { return o.colors && o.colors[r[0]] ? o.colors[r[0]] : colors[i]; };
+  return '<div class="share">' + top.map(function (r, i) { return '<i style="flex:' + r[1] + ";background:" + colorOf(r, i) + '" title="' + esc(r[0]) + '"></i>'; }).join("") + "</div>" +
+    '<div class="shares">' + top.map(function (r, i) {
+      return '<div><i style="background:' + colorOf(r, i) + '"></i>' + esc(o.label ? o.label(r[0]) : r[0]) + "<b>" + (o.fmt || fmtNum)(r[1]) + "</b><small>" + fmtPct(r[1] / total) + "</small></div>";
+    }).join("") + "</div>";
+}
+function meter(name, used, limit, fmt, sub, limitText) {
+  var p = limit ? used / limit : 0, lv = p >= .85 ? "serious" : p >= .65 ? "warning" : "good";
+  var tag = { good: ["check", "여유"], warning: ["warn", "주의"], serious: ["alert", "위험"] }[lv];
+  return '<div class="meter"><div class="row"><b>' + esc(name) + "</b><span><strong>" + fmt(used) + "</strong> / " + (limitText || fmt(limit)) + "</span></div>" +
+    '<div class="t"><i class="' + lv + '" style="width:' + Math.min(100, p * 100).toFixed(1) + '%"></i></div>' +
+    '<div class="tag ' + lv + '">' + ico2(tag[0]) + tag[1] + " · " + fmtPct(p, p < .01 ? 2 : 0) + (sub ? " · " + esc(sub) : "") + "</div></div>";
+}
+function funnel(steps) {
+  var top = steps[0].value || 1, colors = ["var(--r250)", "var(--r350)", "var(--r450)", "var(--r550)", "var(--r650)"];
+  return '<div class="funnel">' + steps.map(function (s, i) {
+    var prev = i && steps[i - 1].group === s.group ? steps[i - 1].value : null;   // 다른 GA 속성(웹 → 플러그인)으로 넘어가면 전환율을 내지 않는다
+    return '<div class="fs"><div class="nm">' + esc(s.name) + (s.sub ? "<small>" + esc(s.sub) + "</small>" : "") + "</div>" +
+      '<div class="tr"><i style="width:' + Math.max(1, 100 * s.value / top).toFixed(1) + "%;background:" + colors[Math.min(i, 4)] + '"></i></div>' +
+      '<div class="vv"><b>' + fmtNum(s.value) + "</b><small>" + (prev != null ? "이전 단계의 " + fmtPct(ratio(s.value, prev)) : s.group === "app" ? "플러그인 기준" : "기준") + "</small></div></div>";
+  }).join("") + "</div>";
+}
+function stats(items) { return '<div class="stat-row">' + items.map(function (x) { return "<div><span>" + esc(x[0]) + "</span><b>" + x[1] + "</b></div>"; }).join("") + "</div>"; }
+function legend(series, line) { return '<div class="legend">' + series.map(function (s) { return '<span><i class="' + (line ? "ln" : "") + '" style="background:' + s.c + '"></i>' + esc(s.name) + "</span>"; }).join("") + "</div>"; }
+function table(head, rows, right) {
+  return '<div class="scroll"><table class="tb"><thead><tr>' + head.map(function (h, i) { return '<th class="' + (right && right.indexOf(i) >= 0 ? "r" : "") + '">' + esc(h) + "</th>"; }).join("") + "</tr></thead><tbody>" +
+    rows.map(function (r) { return "<tr>" + r.map(function (v, i) { return '<td class="' + (right && right.indexOf(i) >= 0 ? "r" : "") + '">' + v + "</td>"; }).join("") + "</tr>"; }).join("") + "</tbody></table></div>";
+}
+
+// ── 차트(SVG) — 그릴 자리만 만들고 drawCharts가 폭을 재서 그린다 ──
+function chart(type, data, h) { var id = "c" + (++UID); CHARTS[id] = { type: type, data: data, h: h || 220, table: false }; return '<div class="chart" id="' + id + '"></div>'; }
+function tableAct() { return '<button type="button" class="ib" data-act="table" data-chart="c' + UID + '" aria-pressed="false" title="표로 보기" aria-label="표로 보기">' + ico2("table") + "</button>"; }
+function niceStep(max) {
+  var raw = Math.max(max / 4, 1), p = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10)), m = raw / p;
+  return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p;
+}
+function axis(W, L, R, T, ph, top, step, fmt) {
+  var out = "";
+  for (var v = 0; v <= top + 1e-9; v += step) {
+    var y = T + ph - ph * v / top;
+    out += '<line class="' + (v ? "gl" : "bl") + '" x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '"/><text x="' + (L - 8) + '" y="' + (y + 4) + '" text-anchor="end">' + esc(fmt(v)) + "</text>";
+  }
+  return out;
+}
+function xLabels(dates, x, H, pw) {
+  var n = dates.length, k = Math.max(2, Math.min(n, Math.floor(pw / 64))), out = "", seen = {};
+  for (var j = 0; j < k; j++) {
+    var i = Math.round(j * (n - 1) / (k - 1));
+    if (seen[i]) continue; seen[i] = 1;
+    out += '<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="' + (i === 0 ? "start" : i === n - 1 ? "end" : "middle") + '">' + fmtDay(dates[i]) + "</text>";
+  }
+  return out;
+}
+function tipRows(c, i) {
+  var d = c.data, rows = d.series.map(function (s) { return '<div class="r"><i style="background:' + s.c + '"></i><b>' + esc((d.fmt || fmtNum)(s.values[i] || 0)) + "</b><span>" + esc(s.name) + "</span></div>"; });
+  if (c.type === "col" && d.series.length > 1) rows.push('<div class="r"><i></i><b>' + esc((d.fmt || fmtNum)(sum(d.series.map(function (s) { return s.values[i]; })))) + "</b><span>합계</span></div>");
+  return '<div class="d">' + esc(d.dates[i]) + "</div>" + rows.join("");
+}
+function showTip(e, html) {
+  var t = $("tip"); t.innerHTML = html; t.style.display = "block";
+  var x = e.clientX + 14, y = e.clientY + 14, r = t.getBoundingClientRect();
+  if (x + r.width > innerWidth - 8) x = e.clientX - r.width - 14;
+  if (y + r.height > innerHeight - 8) y = e.clientY - r.height - 14;
+  t.style.left = x + "px"; t.style.top = y + "px";
+}
+function hideTip() { $("tip").style.display = "none"; }
+function colPath(x, y, w, h, r) {
+  if (h <= 0) return "";
+  r = Math.min(r, w / 2, h);
+  return "M" + x + "," + (y + h) + "V" + (y + r) + "Q" + x + "," + y + " " + (x + r) + "," + y + "H" + (x + w - r) + "Q" + (x + w) + "," + y + " " + (x + w) + "," + (y + r) + "V" + (y + h) + "Z";
+}
+function drawChart(el, c) {
+  var d = c.data;
+  if (c.table) {
+    el.innerHTML = table(["날짜"].concat(d.series.map(function (s) { return s.name; })),
+      d.dates.map(function (day, i) { return [esc(day)].concat(d.series.map(function (s) { return esc((d.fmt || fmtNum)(s.values[i] || 0)); })); }).reverse(),
+      d.series.map(function (_s, i) { return i + 1; }));
+    return;
+  }
+  var W = el.clientWidth || 600, H = c.h, L = 46, R = 12, T = 10, B = 26, pw = W - L - R, ph = H - T - B, n = d.dates.length;
+  var peak = 0;
+  if (c.type === "col") d.dates.forEach(function (_d, i) { peak = Math.max(peak, sum(d.series.map(function (s) { return s.values[i]; }))); });
+  else d.series.forEach(function (s) { peak = Math.max(peak, Math.max.apply(null, s.values.concat([0]))); });
+  var step = niceStep(peak || 1), top = step * Math.max(1, Math.ceil((peak || 1) / step)), fmt = d.fmt || fmtNum;
+  var y = function (v) { return T + ph - ph * v / top; };
+  var svg = axis(W, L, R, T, ph, top, step, fmt), x;
+  if (c.type === "col") {
+    var band = pw / n, bw = Math.max(2, Math.min(24, band * .7));
+    x = function (i) { return L + band * i + band / 2; };
+    for (var i = 0; i < n; i++) {
+      var base = T + ph, g = "", lastK = -1;
+      d.series.forEach(function (s, k) { if (s.values[i] > 0) lastK = k; });
+      d.series.forEach(function (s, k) {
+        var v = s.values[i] || 0; if (v <= 0) return;
+        var h = ph * v / top, gap = base < T + ph ? 2 : 0;   // 쌓인 칸 사이 2 px 바탕색 틈
+        g += '<path style="fill:' + s.c + '" d="' + colPath(x(i) - bw / 2, base - h + gap, bw, Math.max(0, h - gap), k === lastK ? 4 : 0) + '"/>';
+        base -= h;
+      });
+      svg += '<g class="col" data-i="' + i + '">' + g + '<rect class="hit" x="' + (L + band * i) + '" y="' + T + '" width="' + band + '" height="' + ph + '"/></g>';
+    }
+  } else {
+    x = function (i) { return L + (n > 1 ? pw * i / (n - 1) : pw / 2); };
+    d.series.forEach(function (s) {
+      var pts = s.values.map(function (v, i) { return x(i).toFixed(1) + "," + y(v || 0).toFixed(1); });
+      if (d.series.length === 1) svg += '<path d="M' + x(0) + "," + y(0) + "L" + pts.join("L") + "L" + x(n - 1) + "," + y(0) + 'Z" style="fill:' + s.c + ';opacity:.1"/>';
+      svg += '<polyline points="' + pts.join(" ") + '" fill="none" style="stroke:' + s.c + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+      svg += '<circle cx="' + x(n - 1) + '" cy="' + y(s.values[n - 1] || 0) + '" r="4" style="fill:' + s.c + ';stroke:var(--surface)" stroke-width="2"/>';
+    });
+    svg += '<line class="cx" x1="0" x2="0" y1="' + T + '" y2="' + (T + ph) + '" visibility="hidden"/><rect class="hit ov" x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '"/>';
+  }
+  svg += xLabels(d.dates, x, H, pw);
+  el.innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '" height="' + H + '" role="img" aria-label="' + esc(d.label || "") + '">' + svg + "</svg>";
+  if (c.type === "col") {
+    el.querySelectorAll("g.col").forEach(function (g) {
+      g.addEventListener("pointermove", function (e) { showTip(e, tipRows(c, +g.dataset.i)); });
+      g.addEventListener("pointerleave", hideTip);
+    });
+  } else {
+    var ov = el.querySelector("rect.ov"), cx = el.querySelector("line.cx");
+    ov.addEventListener("pointermove", function (e) {
+      var box = el.querySelector("svg").getBoundingClientRect(), px = (e.clientX - box.left) * W / box.width;
+      var i = Math.max(0, Math.min(n - 1, Math.round((px - L) / (pw / Math.max(1, n - 1)))));
+      cx.setAttribute("x1", x(i)); cx.setAttribute("x2", x(i)); cx.setAttribute("visibility", "visible");
+      showTip(e, tipRows(c, i));
+    });
+    ov.addEventListener("pointerleave", function () { cx.setAttribute("visibility", "hidden"); hideTip(); });
+  }
+}
+function drawCharts() { Object.keys(CHARTS).forEach(function (id) { var el = $(id); if (el && el.offsetParent) drawChart(el, CHARTS[id]); }); }
+function mapBox(points) {
+  if (!points.length) return isMissing("lng") ? empty('3D를 만든 위치가 아직 없습니다 — GA에 <code>lng</code>·<code>lat</code> 등록 필요 · <a href="#sources">연결</a>')
+    : empty("3D를 만든 위치가 아직 없습니다 — <code>lng</code>·<code>lat</code> 등록됨, 새 생성부터 점이 찍힙니다");
+  var id = "map" + (++UID); MAP_SPECS.push({ id: id, points: points });
+  return '<div class="map" id="' + id + '" role="img" aria-label="3D를 만든 위치 지도"></div>';
+}
+function drawMaps() {
+  MAPS.forEach(function (m) { m.remove(); }); MAPS = [];
+  if (!window.L) return;
+  var css = getComputedStyle(document.body), fill = css.getPropertyValue("--s1").trim(), ring = css.getPropertyValue("--surface").trim();
+  MAP_SPECS.forEach(function (spec) {
+    var el = $(spec.id); if (!el || !el.offsetParent) return;
+    var map = L.map(el, { scrollWheelZoom: false, zoomControl: true, attributionControl: true });
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "&copy; OpenStreetMap" }).addTo(map);
+    var bounds = [];
+    spec.points.forEach(function (p) {
+      L.circleMarker([p[1], p[0]], { radius: 4 + Math.sqrt(p[2]) * 1.6, color: ring, weight: 2, fillColor: fill, fillOpacity: .6 })
+        .bindTooltip(fmtNum(p[2]) + "회 · " + p[1].toFixed(3) + ", " + p[0].toFixed(3)).addTo(map);
+      bounds.push([p[1], p[0]]);
+    });
+    map.fitBounds(bounds, { padding: [24, 24], maxZoom: 11 });
+    MAPS.push(map);
+  });
+}
+
+// ── 화면: 개요 ──
+function hostSeries(field) { return appsOn().map(function (x) { return { name: x.h.name, c: x.h.c, values: x.s.daily[field] || [] }; }); }
+function allPoints() { var p = []; appsOn().forEach(function (x) { p = p.concat(x.s.points || []); }); return p; }
+function regionRows() {
+  if (hasDim("build.region")) return [dimRows("build.region"), "3D를 만든 시군구 · GA"];
+  if (hasDim("pack_download.packs")) return [dimRows("pack_download.packs"), "지역 데이터를 받은 곳 · GA"];
+  return [(D.gate ? D.gate.packs : []).map(function (r) { return [r[0], r[1]]; }), "국내 서버에서 받은 팩"];
+}
+function opsCard(span) {
+  var b = D.bucket, g = D.gate, vm = D.vm_disk, body = "";
+  if (b) body += meter("국내 버킷", b.size, b.limit, fmtBytes, "넘으면 유료", "20 GB");
+  if (g) body += meter("이번 달 전송량", g.month_bytes, D.egress_limit, fmtBytes, "Always Free 아웃바운드", "10 TB");
+  if (vm) body += meter("서버 디스크", vm[0], vm[1], fmtBytes);
+  if (D.hf) body += '<div class="meter"><div class="row"><b>Hugging Face 저장</b><span><strong>' + fmtBytes(D.hf.storage) + "</strong></span></div><div class=\"tag\">공개 데이터셋 · 용량 한도 없음</div></div>";
+  return card(span, "운영 상태", "무료 한도", body || empty("서버 정보를 받지 못했습니다 · <a href=\"#sources\">연결</a>"));
+}
+function renderOverview() {
+  var region = regionRows();
+  return '<div class="progs">' + PROGRAMS.map(programCard).join("") + "</div>" +
+    grid([card(7, "프로그램 비교", "최근 " + V.days + "일 · 다운로드는 누적", compareTable()), card(5, "지금 볼 것", "규칙으로 고른 변화", insightList())]) +
+    grid([card(8, "프로그램별 일별 사용자", "웹사이트는 방문자", dailyAll()), opsCard(4)]) +
+    grid([card(8, "3D를 만든 곳", "대상지 중심 · 모든 프로그램", gaOn() ? mapBox(allPoints()) : empty('GA 연결 전입니다 · <a href="#sources">연결 설정</a>')),
+      card(4, "인기 지역", region[1], barList(region[0], { limit: 8 }))]);
+}
+function appOf(key) { return D && D.ga && D.ga.apps && D.ga.apps[key]; }
+function evOf(s, name, key) { return ((s && s.events[name]) || { count: [0, 0], users: [0, 0] })[key || "count"]; }
+function tabClicks(key) {   // 웹사이트 설치 탭에서 그 프로그램을 누른 횟수(install_tab.host)
+  var rows = web() && web().dims["install_tab.host"];
+  if (!rows) return null;
+  var hit = rows.filter(function (r) { return r[0] === key; })[0];
+  return hit ? hit[1] : 0;
+}
+function storeState(key) {
+  var st = (D.stores || {})[key] || {};
+  if (key === "rhino") return ["on", "yak 배포 중"];
+  if (key === "sketchup") return st.live ? ["on", "스토어 공개 · 동의자만 집계"] : ["wait", "스토어 심사 중 · 동의자만 집계"];
+  if (key === "blender") return st.live ? ["on", "스토어 공개 · 통계 없음"] : ["wait", "스토어 심사 중 · 통계 없음"];
+  return web() ? ["on", "GA 연결"] : ["off", "GA 연결 전"];
+}
+function bigNum(label, value, sub) { return "<div><span>" + esc(label) + "</span><b>" + value + "</b><small>" + (sub || "&nbsp;") + "</small></div>"; }
+function programCard(p) {
+  var st = storeState(p.key), big, rows, spark = null;
+  if (p.key === "web") {
+    var w = web();
+    big = [bigNum("방문자", w ? fmtNum(w.totals.users[0]) : "—", w ? delta(w.totals.users, true) : ""),
+      bigNum("설치 명령 복사", w ? fmtNum(evOf(w, "copy_command", "users")[0]) : "—", w ? "사람" : "")];
+    rows = [["설치 탭 클릭", w ? fmtNum(evOf(w, "install_tab")[0]) : "—"], ["세션", w ? fmtNum(w.totals.sessions[0]) : "—"], ["평균 참여", w ? fmtDur(w.totals.engagement[0]) : "—"]];
+    spark = w && w.daily.users;
+  } else {
+    var a = appOf(p.key), down = p.key === "rhino" && D.yak ? fmtNum(D.yak.total) : "—", tab = tabClicks(p.key);
+    big = [bigNum("다운로드", down, p.key === "rhino" ? "yak 누적" : "공개 전"),
+      bigNum("사용자", a ? fmtNum(a.totals.users[0]) : "—", a ? delta(a.totals.users, true) : (p.key === "blender" ? "스토어 규정상 없음" : ""))];
+    rows = [["패널 열기", a ? fmtNum(evOf(a, "panel_open")[0]) : "—"], ["3D 생성", a ? fmtNum(evOf(a, "build")[0]) : "—"],
+      ["웹 설치 탭 클릭", tab == null ? "—" : fmtNum(tab)]];
+    spark = a && a.daily.users;
+  }
+  return '<a class="card prog" href="#' + p.key + '" style="--pc:' + p.c + '"><div class="ph"><i></i><b>' + esc(p.name) + '</b><span class="stt ' + st[0] + '">' + esc(st[1]) + "</span></div>" +
+    '<div class="big">' + big.join("") + "</div>" + (spark && sum(spark) ? sparkSvg(spark) : '<div class="spark-empty">일별 추세 없음</div>') +
+    "<dl>" + rows.map(function (r) { return "<div><dt>" + esc(r[0]) + "</dt><dd>" + r[1] + "</dd></div>"; }).join("") + "</dl></a>";
+}
+function compareTable() {
+  var cols = ["rhino", "sketchup", "blender"], apps = cols.map(appOf);
+  var cell = function (fn) { var vals = apps.map(function (a, i) { return fn(a, cols[i]); }); return vals; };
+  var num = function (vals) { return vals.map(function (v) { return v == null ? '<span class="mute">—</span>' : fmtNum(v); }); };
+  var total = function (vals) { var n = vals.filter(function (v) { return v != null; }); return n.length ? fmtNum(sum(n)) : "—"; };
+  var line = function (label, vals, sub) { return ["<b>" + esc(label) + "</b>" + (sub ? '<small class="mute"> ' + esc(sub) + "</small>" : "")].concat(num(vals), [total(vals)]); };
+  var rate = function (a) { return a && evOf(a, "panel_open", "users")[0] ? evOf(a, "build", "users")[0] / evOf(a, "panel_open", "users")[0] : null; };
+  var rows = [
+    line("다운로드", [D.yak ? D.yak.total : null, null, null], "누적"),
+    line("사용자", cell(function (a) { return a ? a.totals.users[0] : null; })),
+    line("패널 열기", cell(function (a) { return a ? evOf(a, "panel_open")[0] : null; })),
+    line("3D 생성", cell(function (a) { return a ? evOf(a, "build")[0] : null; })),
+    line("3D 만든 사용자", cell(function (a) { return a ? evOf(a, "build", "users")[0] : null; })),
+    ["<b>활성화율</b><small class=\"mute\"> 3D 만든 / 패널 연 사람</small>"].concat(apps.map(function (a) { var r = rate(a); return r == null ? '<span class="mute">—</span>' : fmtPct(r); }), [fmtPct(ratio(sum(apps.map(function (a) { return a ? evOf(a, "build", "users")[0] : 0; })), sum(apps.map(function (a) { return a ? evOf(a, "panel_open", "users")[0] : 0; }))))]),
+    line("오류", cell(function (a) { return a ? evOf(a, "error")[0] : null; })),
+    line("웹 설치 탭 클릭", cols.map(tabClicks))
+  ];
+  return '<div class="cmp">' + table(["", "Rhino", "SketchUp", "Blender", "합계"], rows, [1, 2, 3, 4]) + "</div>" +
+    '<p class="note">SketchUp은 동의한 사용자만, Blender는 스토어 규정상 사용 통계를 보내지 않습니다. 다운로드는 스토어가 공개되면 채워집니다.</p>';
+}
+function insightList() {
+  return D.insights.length ? D.insights.map(function (x) {
+    var lv = LEVEL[x.level];
+    return '<button type="button" class="ins" data-go="' + x.page + '"><span class="lv ' + x.level + '">' + ico2(lv[0]) + lv[1] + '</span><span class="tx">' + esc(x.text) + '</span><span class="ar">' + esc(x.area) + "</span></button>";
+  }).join("") : empty("눈에 띄는 변화가 없습니다");
+}
+function dailyAll() {
+  var series = HOSTS.filter(function (h) { return appOf(h.key); }).map(function (h) { return { name: h.name, c: h.c, values: appOf(h.key).daily.users }; });
+  if (web()) series.push({ name: "웹사이트", c: "var(--s3)", values: web().daily.users });
+  if (!series.length) return empty('GA 연결 전입니다 · <a href="#sources">연결 설정</a>');
+  return legend(series, true) + chart("line", { dates: D.period.dates, series: series, label: "프로그램별 일별 사용자" }) + "";
+}
+
+// ── 화면: 프로그램(Rhino·SketchUp) — V.host로 appsOn()이 그 프로그램만 낸다 ──
+function renderProgram() {
+  var key = V.host, p = PROGRAMS.filter(function (x) { return x.key === key; })[0], a = appOf(key), st = storeState(key);
+  var head = '<div class="phead" style="--pc:' + p.c + '"><i></i><b>' + esc(p.name) + '</b><span class="stt ' + st[0] + '">' + esc(st[1]) + "</span></div>";
+  if (!a) return head + grid([card(12, p.name + " 사용", "", empty(gaOn() ? "이 프로그램의 GA 속성을 찾지 못했습니다 · <a href=\"#sources\">연결</a>" : 'GA 연결 전입니다 · <a href="#sources">연결 설정</a> · <a href="#" data-act="demo">예시로 미리 보기</a>'))]);
+  var builds = evPair("build", "count"), builders = evPair("build", "users"), opens = evPair("panel_open", "users"), sr = successRate();
+  var versions = dimRows("panel_open.version");
+  var tiles = '<div class="tiles">' +
+    kpi({ label: "다운로드", icon: "down-box", value: key === "rhino" && D.yak ? D.yak.total : null, sub: key === "rhino" ? (D.yak ? "yak 누적 · 최신 " + D.yak.latest : "") : "스토어 공개 전" }) +
+    kpi({ label: "사용자", icon: "user", pair: a.totals.users, goodUp: true }) +
+    kpi({ label: "패널 열기", icon: "home", pair: evPair("panel_open", "count"), goodUp: true }) +
+    kpi({ label: "3D 생성", icon: "cube", pair: builds, goodUp: true }) +
+    kpi({ label: "활성화율", icon: "trend", value: ratio(builders[0], opens[0]), fmt: function (v) { return fmtPct(v); }, sub: fmtNum(builders[0]) + " / " + fmtNum(opens[0]) + "명이 3D 생성" }) +
+    kpi({ label: "생성 성공률", icon: "shield", value: sr ? sr.rate : null, fmt: function (v) { return fmtPct(v, 1); }, sub: sr ? "실패 " + fmtNum(sr.failed) + "건" : waitNote("result") }) + "</div>";
+  if (!a.totals.users[0] && !builds[0]) tiles += '<div class="band">' + ico2("info") + "<span>" + (key === "sketchup" ? "SketchUp은 사용 통계에 동의한 사용자만 보냅니다 — 아직 들어온 기록이 없습니다." : "이 기간에 들어온 기록이 없습니다.") + "</span></div>";
+  var c = p.c, items = [   // [제목, 부제, 행 키 | 행, 옵션] — 값이 있는 것만 카드로, 없는 것은 '쌓이는 중' 한 줄로 모은다
+    ["버전 분포", "패널 열기", versions, { hi: function (v) { return v === D.latest_version; }, color: c }],
+    ["대상지 방식", "생성 횟수", "build.mode", { map: LABELS.mode, color: c }],
+    ["한국 · 해외", "생성 횟수", "build.korea", { map: LABELS.korea, share: true }],
+    ["범위 반경", "생성 횟수", "build.radius", { label: function (v) { return v + " m"; }, color: c }],
+    ["결과 좌표", "생성 횟수", "build.placement", { map: LABELS.placement, share: true }],
+    [key === "rhino" ? "Rhino 버전" : "SketchUp 버전", "패널 열기", key === "rhino" ? "panel_open.rhino" : "panel_open.host", { color: c }],
+    key === "rhino" && ["Rhino 7 · 8", "패널 열기", "panel_open.rhino", { map: function (v) { return "Rhino " + String(v).split(".")[0]; }, share: true }],   // Rhino 7판도 같은 rhino 키(7.x)
+    ["3D를 만든 시군구", "PNU 기준", "build.region", { color: c }],
+    ["지역 데이터 받기", "받은 횟수", "pack_download.packs", { color: c }],
+    ["실패 원인", "build 오류 코드", "build.error", { color: "var(--critical)" }],
+    ["오류가 난 곳", "error 이벤트", "error.context", { map: LABELS.context, color: "var(--critical)" }],
+    ["오류 종류", "예외 이름", "error.error", { color: "var(--critical)" }]
+  ].filter(Boolean), filled = [], waiting = [];
+  items.forEach(function (it) {
+    var rows = typeof it[2] === "string" ? dimRows(it[2], it[3].map) : it[2];
+    if (rows.length) filled.push(card(4, it[0], it[1], it[3].share ? shareBar(rows, it[3]) : barList(rows, it[3])));
+    else waiting.push(it[0]);
+  });
+  filled.push(card(4, "사용 환경", "사용자", shareBar(a.os || []) + '<div style="height:14px"></div>' + barList(a.language || [], { limit: 4, color: c })));
+  var points = allPoints();
+  if (!points.length) waiting.push("3D를 만든 곳(지도)");
+  return head + tiles +
+    grid([card(6, "일별 사용자", "", chart("line", { dates: D.period.dates, series: [{ name: "사용자", c: c, values: a.daily.users }], label: "일별 사용자" }), tableAct()),
+      card(6, "일별 3D 생성", "", chart("col", { dates: D.period.dates, series: [{ name: "3D 생성", c: c, values: a.daily.builds }], label: "일별 3D 생성" }), tableAct())]) +
+    (waiting.length ? '<div class="band wait">' + ico2("clock") + "<span><b>쌓이는 중</b> — " + esc(waiting.join(" · ")) +
+      ". GA에 등록한 뒤 들어온 이벤트부터 채워집니다(" + (isMissing("mode") ? '<a href="#sources">등록 필요</a>' : "등록됨") + ").</span></div>" : "") +
+    (points.length ? grid([card(12, "3D를 만든 곳", "대상지 중심 · 원 크기 = 횟수", mapBox(points))]) : "") +
+    grid(filled.concat(key === "rhino" ? [yakVersions()] : []));
+}
+
+// ── 화면: Blender ──
+function renderBlender() {
+  var st = storeState("blender"), store = (D.stores || {}).blender || {}, tab = tabClicks("blender");
+  return '<div class="phead" style="--pc:var(--s4)"><i></i><b>Blender</b><span class="stt ' + st[0] + '">' + esc(st[1]) + "</span></div>" +
+    '<div class="tiles">' + kpi({ label: "다운로드", icon: "down-box", value: null, sub: store.live ? "스토어 페이지에서 확인" : "스토어 공개 전" }) +
+    kpi({ label: "사용자", icon: "user", value: null, sub: "스토어 규정상 통계 없음" }) +
+    kpi({ label: "웹 설치 탭 클릭", icon: "globe", value: tab, sub: tab == null ? "웹 GA 연결 전" : "웹사이트 Blender 탭" }) + "</div>" +
+    grid([card(12, "Blender판에서 볼 수 있는 숫자", "", '<ol class="steps">' +
+      "<li>Blender 확장 스토어는 동의를 받아도 분석 전송을 허락하지 않아 Blender판은 GA를 보내지 않습니다(2026-10-21 심사 기준).</li>" +
+      "<li>스토어가 공개되면 다운로드 수는 스토어 페이지" + (store.url ? ' (<a href="' + esc(store.url) + '" target="_blank" rel="noopener">' + esc(store.url) + "</a>)" : "") + "에 나옵니다.</li>" +
+      "<li>관심도는 웹사이트에서 Blender 설치 탭을 누른 횟수로 봅니다.</li>" +
+      "<li>Blender 사용자의 지역 데이터 다운로드는 국내 서버 기록에 다른 프로그램과 섞여 들어갑니다([데이터·서버]).</li></ol>")]);
+}
+
+function mergeRows(rows) {
+  var c = {}, order = [];
+  rows.forEach(function (r) { if (!(r[0] in c)) { c[r[0]] = 0; order.push(r[0]); } c[r[0]] += r[1]; });
+  return order.map(function (k) { return [k, c[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
+}
+
+// ── 화면: 웹사이트 ──
+function renderWeb() {
+  var w = web(), y = D.yak;
+  var yakTile = kpi({ label: "yak 다운로드", icon: "down-box", value: y ? y.total : null, sub: y ? "누적 · 최신 " + y.latest : "yak 연결 안 됨" });
+  if (!w) return '<div class="tiles">' + yakTile + "</div>" + grid([card(12, "웹사이트", "", empty('웹 GA가 연결되면 방문·유입·설치 의도가 여기에 나옵니다 · <a href="#sources">연결 설정</a> · <a href="#" data-act="demo">예시로 미리 보기</a>'))]) + grid([yakVersions()]);
+  var copied = (w.events.copy_command || { users: [0, 0] }).users, tabbed = (w.events.install_tab || { users: [0, 0] }).users, demo = (w.events.demo_play || { users: [0, 0] }).users;
+  var series = [{ name: "방문자", c: "var(--s3)", values: w.daily.users }];
+  return '<div class="tiles">' +
+    kpi({ label: "방문자", icon: "user", pair: w.totals.users, goodUp: true }) +
+    kpi({ label: "신규 방문자", icon: "user", pair: w.totals.new_users, goodUp: true }) +
+    kpi({ label: "세션", icon: "globe", pair: w.totals.sessions, goodUp: true }) +
+    kpi({ label: "평균 참여 시간", icon: "clock", pair: w.totals.engagement, fmt: fmtDur, goodUp: true }) +
+    kpi({ label: "설치 의도율", icon: "down-box", value: ratio(copied[0], w.totals.users[0]), fmt: function (v) { return fmtPct(v, 1); }, sub: fmtNum(copied[0]) + "명이 설치 명령 복사" }) +
+    yakTile + "</div>" + grid([card(12, "설치에서 사용까지", "기간 내 사용자", funnel(funnelSteps()) + '<p class="note">웹과 플러그인은 GA 속성이 달라 같은 사람으로 이어지지 않습니다 — 단계별 규모 비교용입니다.</p>')]) +
+    grid([card(8, "일별 방문자", "", chart("line", { dates: D.period.dates, series: series, label: "일별 방문자" }), tableAct()),
+      card(4, "유입 채널", "세션", barList(w.channels, { color: "var(--s3)" }))]) +
+    grid([card(4, "출처", "세션", barList(w.sources, { color: "var(--s3)" })), card(4, "나라", "방문자", barList(w.country, { color: "var(--s3)" })),
+      card(4, "페이지", "조회 · 언어판", barList(w.pages, { color: "var(--s3)" }))]) +
+    grid([card(4, "설치 탭 관심", "어느 호스트를 눌렀나", (w.dims["install_tab.host"] ? barList(w.dims["install_tab.host"], { label: function (v) { return LABELS.host[v] || v; }, color: "var(--s3)" }) : gaEmpty("host"))),
+      card(4, "기기", "방문자", shareBar(w.devices)),
+      card(4, "참여", "기간 내 방문자 대비", stats([["설치 탭 클릭", fmtPct(ratio(tabbed[0], w.totals.users[0]), 1)], ["데모 영상 재생", fmtPct(ratio(demo[0], w.totals.users[0]), 1)],
+        ["참여 세션 비율", fmtPct(w.totals.engaged_rate[0])], ["언어 1위", esc((w.language[0] || ["—"])[0])]]))]) +
+    grid([yakVersions(), card(6, "웹 언어", "방문자", barList(w.language, { color: "var(--s3)" }))]);
+}
+function funnelSteps() {
+  var w = web(), A = appsOn(), steps = [];
+  if (w) steps.push({ group: "web", name: "웹 방문자", value: w.totals.users[0] }, { group: "web", name: "설치 탭 클릭", sub: "install_tab", value: evOf(w, "install_tab", "users")[0] },
+    { group: "web", name: "설치 명령 복사", sub: "copy_command", value: evOf(w, "copy_command", "users")[0] });
+  if (A.length) steps.push({ group: "app", name: "패널 실행", sub: "Rhino·SketchUp", value: evPair("panel_open", "users")[0] },
+    { group: "app", name: "3D 생성", sub: "1번 이상", value: evPair("build", "users")[0] });
+  return steps;
+}
+function yakVersions() {
+  var y = D.yak;
+  return card(6, "yak 버전별 다운로드", "Rhino 패키지 서버 공개 숫자", y ? table(["버전", "올린 날", "배포판", "다운로드"], y.versions.map(function (v) { return [esc(v[0]) + (v[0] === D.latest_version ? " <small>(최신)</small>" : ""), esc(v[1]), esc((v[3] || []).join(" · ")), fmtNum(v[2])]; }), [3]) +
+    '<p class="note">yak은 버전별 숫자를 늦게 세거나 0으로 둘 때가 있습니다 — 패키지 전체 누적(' + fmtNum(y.total) + ")을 기준으로 보세요.</p>" : empty("yak에 연결하지 못했습니다"));
+}
+
+// ── 화면: 데이터·서버 ──
+function renderInfra() {
+  var g = D.gate, b = D.bucket, hf = D.hf;
+  var tiles = '<div class="tiles">' +
+    kpi({ label: "팩 받기", icon: "down-box", value: g ? g.downloads[0] : null, pair: g ? g.downloads : null, goodUp: true, sub: g ? "국내 서버" : "서버 기록 없음" }) +
+    kpi({ label: "받은 설치", icon: "user", value: g ? g.installs[0] : null, pair: g ? g.installs : null, goodUp: true, sub: "설치 ID 기준" }) +
+    kpi({ label: "전송량", icon: "trend", value: g ? g.bytes[0] : null, pair: g ? g.bytes : null, fmt: fmtBytes }) +
+    kpi({ label: "이번 달 전송", icon: "globe", value: g ? g.month_bytes : null, fmt: fmtBytes, sub: g ? fmtPct(g.month_bytes / D.egress_limit, 3) + " / 월 10 TB" : "" }) +
+    kpi({ label: "국내 버킷", icon: "db", value: b ? b.size : null, fmt: fmtBytes, sub: b ? fmtPct(b.size / b.limit) + " / 20 GB · " + fmtNum(b.count) + "개" : "" }) +
+    kpi({ label: "HF 다운로드", icon: "down-box", value: hf ? hf.downloads : null, sub: hf ? "최근 30일 · 누적 " + fmtNum(hf.downloads_all) : "" }) + "</div>";
+  var kinds = g ? Object.keys(g.kinds).map(function (k) { return [LABELS.kind[k] || k, g.kinds[k]]; }) : [];
+  return tiles +
+    grid([card(8, "일별 팩 받기", "국내 서버 · 건물·도로·등고선", g ? chart("col", { dates: D.period.dates, series: [{ name: "팩 받기", c: "var(--s1)", values: g.daily.downloads }], label: "일별 팩 받기" }) : empty("서버 기록을 받지 못했습니다"), g ? tableAct() : ""),
+      opsCard(4)]) +
+    grid([card(6, "많이 받은 팩", "국내 서버 · 전송량", g ? barList(g.packs, { sub: function (r) { return fmtBytes(r[2]); } }) : empty("—")),
+      dimCard(6, "지역 데이터 받기", "필지·일본 팩 포함 · GA", "pack_download.packs")]) +
+    grid([card(6, "올린 데이터", "매니페스트", table(["종류", "곳", "팩", "압축 크기"], D.inventory.map(function (r) { return [esc(r[0]), esc(r[1]), fmtNum(r[2]), fmtBytes(r[3])]; }), [2, 3]) +
+      '<p class="note">Hugging Face는 파일별 다운로드 수를 주지 않습니다 — 지역별 횟수는 GA <code>packs</code>와 국내 서버 기록으로 셉니다.</p>'),
+      card(3, "팩 종류", "국내 서버 받기", shareBar(kinds)), card(3, "프로그램 버전", "User-Agent", g ? barList(g.agents, { limit: 6 }) + '<p class="note">curl·HeadlessChrome은 개발 시험입니다.</p>' : empty("—"))]);
+}
+
+// ── 화면: 연결 ──
+function renderSources() {
+  var list = D.sources.map(function (s) {
+    return '<div class="src ' + (s.ok ? "on" : "off") + '">' + ico2(s.ok ? "check" : "xc") + "<b>" + esc(s.name) + "<small>" + (s.ok ? "연결됨" : "연결 안 됨") + "</small></b><span>" + esc(s.text) + "</span></div>";
+  }).join("");
+  var params = function (group, missing) {
+    return '<div class="chips">' + D.ga_dimensions[group].map(function (p) { return '<code class="' + (missing.indexOf(p) >= 0 ? "miss" : "") + '">' + esc(p) + "</code>"; }).join("") + "</div>";
+  };
+  var props = [];
+  appsOn().forEach(function (x) { props.push("<p><b>" + esc(x.s.name) + "</b> — 빨강 = 아직 등록 안 됨" + params("app", x.s.missing) + "</p>"); });
+  if (web()) props.push("<p><b>" + esc(web().name) + "</b>" + params("web", web().missing) + "</p>");
+  if (!props.length) props.push("<p>플러그인 속성(Rhino·SketchUp)" + params("app", D.ga_dimensions.app) + "</p><p>웹 속성" + params("web", D.ga_dimensions.web) + "</p>");
+  var ok = D.sources[0].ok && !D.demo;
+  return grid([card(7, "데이터 출처", "", list),
+    card(5, "GA 연결하기", "처음 한 번", '<ol class="steps">' +
+      "<li>Google Cloud 콘솔에서 <b>Google Analytics Data API</b>와 <b>Admin API</b>를 켭니다.</li>" +
+      "<li>서비스 계정을 만들고 JSON 키를 받아 <code>" + esc(D.ga_key_path) + "</code>에 둡니다. 저장소 밖이라 공개되지 않습니다.</li>" +
+      "<li>GA 관리 → 속성 액세스 관리에서 Rhino·SketchUp·웹 속성마다 서비스 계정 이메일을 <b>편집자</b>로 추가합니다(아래 등록 버튼에 필요, 등록 뒤 뷰어로 내려도 됩니다).</li>" +
+      "<li>아래 [매개변수 한 번에 등록]을 누릅니다. 등록한 날부터 쌓이고 지난 기록은 채워지지 않습니다.</li></ol>" +
+      '<div class="row" style="margin-top:14px;flex-wrap:wrap"><button type="button" class="btn primary" data-act="register"' + (ok ? "" : " disabled") + '>매개변수 한 번에 등록</button>' +
+      '<button type="button" class="btn" data-act="demo">' + (V.demo ? "예시 끄기" : "예시 데이터로 보기") + '</button></div><div id="register_out" class="note"></div>')]) +
+    grid([card(12, "내 시험 설치 ID", "국내 서버 기록 · [내 테스트 제외]가 빼는 것", clientTable())]) +
+    grid([card(12, "GA 맞춤 측정기준", "대시보드가 읽는 이벤트 매개변수", props.join(""))]) +
+    grid([card(12, "숫자 읽을 때 주의", "", '<ol class="steps">' +
+      "<li>개발자 본인의 시험 사용도 GA·서버 숫자에 들어갑니다. 출시 초기에는 비중이 큽니다.</li>" +
+      "<li>플러그인 이벤트는 서버 없이 보내 GA가 나라를 모릅니다(<code>(not set)</code>). 지역은 대상지 위치(<code>lng</code>·<code>lat</code>·PNU)로 봅니다.</li>" +
+      "<li>플러그인은 GA가 '신규 사용자'를 세지 못합니다(Measurement Protocol은 first_visit를 보내지 않음). 새 설치는 yak 다운로드·국내 서버 설치 ID로 봅니다.</li>" +
+      "<li>SketchUp은 동의한 사용자만 보냅니다. Blender는 보내지 않습니다(스토어 규정). 같은 기능의 Rhino와 직접 비교하지 마세요.</li>" +
+      "<li>웹과 플러그인은 GA 속성이 달라 같은 사람으로 이어지지 않습니다. 깔때기는 단계별 규모 비교입니다.</li>" +
+      "<li>국내 서버는 기록을 2주만 남깁니다. 관리자 페이지를 열 때마다 이 Mac(<code>~/.config/gorani/udt.log</code>)에 이어 붙여 보관합니다.</li></ol>")]);
+}
+
+function clientTable() {
+  var rows = D.gate_clients || [], why = { mac: "이 Mac 설치본", ua: "시험 도구(curl·HeadlessChrome)", marked: "직접 표시함", "": "" };
+  if (!rows.length) return empty("국내 서버 기록을 받지 못했습니다");
+  return '<p class="note" style="margin:0 0 10px">팩을 받은 설치마다 무작위 ID가 하나씩 있습니다. 시험할 때 HOME을 바꿔 띄우면 새 ID가 생깁니다 — 날짜·횟수로 내 시험인 것을 골라 표시하세요. ' +
+    "GA 쪽은 이 Mac(<code>~/.config/gorani/</code>가 있는 PC)에서 보낸 이벤트에 자동으로 <code>dev</code> 표시가 붙습니다.</p>" +
+    table(["설치 ID", "받기", "기간", "마지막 프로그램", "내 시험"], rows.map(function (r) {
+      var locked = r[5] === "mac" || r[5] === "ua", on = !!r[5];
+      return ['<code title="' + esc(r[0]) + '">' + esc(r[0].slice(0, 8)) + "</code>", fmtNum(r[1]), esc(fmtDay(r[2]) + (r[2] === r[3] ? "" : " – " + fmtDay(r[3]))), esc(r[4]),
+        '<button type="button" class="btn sm tog" data-client="' + esc(r[0]) + '" aria-pressed="' + on + '"' + (locked ? " disabled" : "") + '><span class="sw" aria-hidden="true"></span>' + (on ? "내 시험" : "사용자") + "</button>" +
+        (r[5] ? ' <span class="why">' + esc(why[r[5]]) + "</span>" : "")];
+    }), [1]) +
+    '<p class="note">웹사이트: 개발용 브라우저에서 <a href="https://969flash.github.io/gorani/?dev=1" target="_blank" rel="noopener">이 주소</a>를 한 번 열면 그 브라우저의 방문에 <code>dev</code> 표시가 붙습니다(localhost는 자동). 웹사이트에 반영(push)한 뒤부터 동작합니다.</p>';
+}
+
+// ── 그리기·불러오기 ──
+var RENDER = { overview: renderOverview, rhino: renderProgram, sketchup: renderProgram, blender: renderBlender, web: renderWeb, infra: renderInfra, sources: renderSources };
+function renderChrome() {
+  var page = PAGES[V.view] || PAGES.overview;
+  $("page_title").textContent = page[0]; $("page_sub").textContent = page[1];
+  document.body.dataset.view = V.view;
+  document.querySelectorAll("[data-nav]").forEach(function (a) { if (a.dataset.nav === V.view) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  $("days").querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", String(+b.dataset.days === V.days)); });
+  $("exclude").setAttribute("aria-pressed", String(V.exclude));
+  if (!D) return;
+  var p = D.period;
+  $("stats_time").textContent = fmtDay(p.cur[0]) + "–" + fmtDay(p.cur[1]) + " · 직전 " + fmtDay(p.prev[0]) + "–" + fmtDay(p.prev[1]) + " 비교 · " + D.updated.slice(11) + " 갱신";
+  var on = D.sources.filter(function (s) { return s.ok; }).length;
+  $("side_foot").innerHTML = "<b>데이터 출처 " + on + "/" + D.sources.length + "</b><span class=\"dots\">" + D.sources.map(function (s) { return '<i class="' + (s.ok ? "" : "off") + '" title="' + esc(s.name) + '"></i>'; }).join("") + "</span>";
+  var band = "";
+  if (V.view !== "notices") {
+    if (D.demo) band = ico2("warn") + "<span><b>예시 데이터</b> — GA 자리는 화면 확인용 가짜 숫자입니다. yak·Hugging Face·국내 서버는 실제입니다.</span>" + '<button type="button" class="btn sm" data-act="demo">예시 끄기</button>';
+    else if (!gaOn()) band = ico2("info") + "<span>GA가 아직 연결되지 않아 사용·유입 숫자가 비어 있습니다.</span>" + '<a class="btn sm" href="#sources">연결 설정</a><button type="button" class="btn sm" data-act="demo">예시로 미리 보기</button>';
+  }
+  $("band").innerHTML = band;
+  var ex = "";
+  if (V.view !== "notices" && D.exclude_dev && !D.demo) {
+    var marked = (D.gate_clients || []).filter(function (r) { return r[5]; }).length;
+    ex = ico2("check") + "<span><b>내 테스트 빼고 보는 중</b> — 국내 서버: 내 시험 설치 " + marked + "곳(이 Mac·표시한 것·curl 등). " +
+      "GA: 개발 PC·브라우저 표시(dev)가 붙은 이벤트 — 10/22부터 붙어서 그 전 GA 기록은 그대로입니다.</span>" + '<a class="btn sm" href="#sources">설치 ID 고르기</a>';
+  }
+  $("band_ex").innerHTML = ex;
+}
+function render() {
+  renderChrome();
+  if (V.view === "notices") return;
+  var el = $("v_" + V.view);
+  if (!D) { el.innerHTML = empty("GA·yak·Hugging Face·국내 서버에서 숫자를 모으는 중입니다(몇 초)…"); return; }
+  CHARTS = {}; MAP_SPECS = [];
+  el.innerHTML = RENDER[V.view]();
+  drawCharts(); drawMaps();
+}
+function load(refresh) {
+  V.loading = true; $("content").classList.add("loading"); $("stats_time").textContent = "모으는 중…";
+  api("/api/stats?days=" + V.days + (V.demo ? "&demo=1" : "") + (V.exclude ? "&exclude=1" : "") + (refresh ? "&refresh=1" : "")).then(function (r) {
+    D = r; V.loading = false; $("content").classList.remove("loading"); render();
+  }, function () { V.loading = false; $("content").classList.remove("loading"); $("stats_time").textContent = "불러오지 못했습니다 — 새로고침"; });
+}
+function route() {
+  var v = location.hash.slice(1);
+  V.view = PAGES[v] ? v : "overview"; V.host = v === "rhino" || v === "sketchup" ? v : null;
+  render(); window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", route);
+window.addEventListener("resize", function () { clearTimeout(route.t); route.t = setTimeout(drawCharts, 150); });
+document.addEventListener("click", function (e) {
+  var b = e.target.closest("button, a[data-act]"); if (!b || b.closest("dialog")) return;
+  var act = b.dataset.act;
+  if (b.dataset.days) { V.days = +b.dataset.days; renderChrome(); load(); }
+  else if (b.dataset.go) location.hash = b.dataset.go;
+  else if (act === "refresh") load(true);
+  else if (act === "exclude") { V.exclude = !V.exclude; localStorage.setItem("gorani_admin_exclude", V.exclude ? "1" : "0"); renderChrome(); load(); }
+  else if (act === "demo") { e.preventDefault(); V.demo = !V.demo; history.replaceState(null, "", location.pathname + "?token=" + TOKEN + (V.demo ? "&demo=1" : "") + location.hash); load(); }
+  else if (act === "more") { var box = $(b.dataset.more); box.querySelectorAll("[hidden]").forEach(function (x) { x.hidden = false; }); b.remove(); }
+  else if (act === "table") { var c = CHARTS[b.dataset.chart]; c.table = !c.table; b.setAttribute("aria-pressed", String(c.table)); drawChart($(b.dataset.chart), c); }
+  else if (b.dataset.client) {
+    b.disabled = true;
+    api("/api/dev_client", { id: b.dataset.client, dev: b.getAttribute("aria-pressed") !== "true" }).then(function () { load(true); });
+  }
+  else if (act === "register") {
+    b.disabled = true; $("register_out").textContent = "등록하는 중…";
+    api("/api/ga_register", {}).then(function (r) { $("register_out").innerHTML = r.lines.map(esc).join("<br>"); b.disabled = false; if (r.ok) load(true); });
+  }
+});
+route();
+load();
 </script>
 </body>
 </html>

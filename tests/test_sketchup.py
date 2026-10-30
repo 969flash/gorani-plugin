@@ -6,6 +6,7 @@ numpy·shapely 2.1+가 있는 파이썬(번들 파이썬)에서만 돈다 — �
 
 import importlib.util
 import json
+import math
 import os
 import sys
 import tempfile
@@ -52,6 +53,32 @@ def _request(result_root, **options):
     base = {"radius": 500, "shape": "buffer", "flatten_site": True, "site_output": "mesh", "make_sheets": False, "make_basemap": False}
     return {"target": {"mode": "lots", "pnus": [constants.TEST_CONTEXT_PNU]}, "site_db": SITE_DB, "context_db": CONTEXT_DB,
             "result_root": result_root, "options": dict(base, **options)}
+
+
+def _assert_block_closed(test, prepared, meshes, counts):
+    """지형을 바닥까지 채우기 — 범위 링 위 윗면 변마다 옆면 변이 하나씩 붙는다(덩어리가 둘레에서 닫힘), 옆면 아래 = 바닥 높이."""
+    ring = [(x - prepared.origin[0], y - prepared.origin[1]) for x, y in loader.load("context_geometry").get_clip_ring(prepared)]
+
+    def on_ring(p):
+        for (ax, ay), (bx, by) in zip(ring, ring[1:] + ring[:1]):
+            dx, dy = bx - ax, by - ay
+            t = max(0.0, min(1.0, ((p[0] - ax) * dx + (p[1] - ay) * dy) / (dx * dx + dy * dy)))
+            if math.hypot(p[0] - ax - dx * t, p[1] - ay - dy * t) < 1e-3:
+                return True
+        return False
+
+    edges = {}
+    for key in ("terrain", "road", "green", "rail", "water", "site_ground", "block"):
+        verts, faces = meshes.get(key, ([], []))
+        for face in faces:
+            for k in range(len(face)):
+                p, q = verts[face[k]], verts[face[(k + 1) % len(face)]]
+                if math.hypot(q[0] - p[0], q[1] - p[1]) > 1e-6 and on_ring(p) and on_ring(q) and on_ring(((p[0] + q[0]) / 2, (p[1] + q[1]) / 2)):
+                    edge = frozenset((tuple(round(c, 4) for c in p), tuple(round(c, 4) for c in q)))
+                    edges[edge] = edges.get(edge, 0) + 1
+    test.assertTrue(edges)
+    test.assertEqual({n for e, n in edges.items() if all(v[2] > counts["block_base"] for v in e)}, {2})
+    test.assertEqual(min(v[2] for v in meshes["block"][0]), counts["block_base"])
 
 
 class FakeSketchUp(object):
@@ -122,6 +149,12 @@ class MeshGeometryTest(unittest.TestCase):
         self.assertGreater(len(zs), 1)
         self.assertTrue(all(z == round(z) for z in zs), sorted(zs)[:5])
 
+    def test_terrain_block(self):
+        for step in (0, 2):
+            prepared = loader.load("context_builder").prepare(_request(None, radius=300, shape="rect", flatten_site=False, terrain_block=True, terrain_step=step))
+            meshes, _tris, counts = loader.load("mesh_geometry").build_terrain(prepared)
+            _assert_block_closed(self, prepared, meshes, counts)
+
 
 @unittest.skipUnless(READY, "numpy·shapely 번들 파이썬 + fixture DB에서만")
 class SidecarRunTest(unittest.TestCase):
@@ -149,7 +182,7 @@ class SidecarRunTest(unittest.TestCase):
     def test_payload(self):
         layers = {item["layer"]: item for item in self.fake.items}
         buildings = layers["CTX::Buildings"]
-        self.assertGreater(len(buildings["prisms"]), 3000)
+        self.assertGreater(len(buildings["prisms"]), 2500)   # 범위 링으로 늘 자른다(53659d6) — 성수 R500 2,735동(자르기 전 bbox 3,454동)
         parts, base, height, attrs, _name = buildings["prisms"][0]
         self.assertGreater(height, 0)
         self.assertIn("BLD_ID", attrs)
@@ -172,7 +205,7 @@ class BridgeTest(unittest.TestCase):
     """host_reply는 서버 스레드에서 바로 컨트롤러 응답 큐로(메인 스레드는 응답을 기다리며 막혀 있다)."""
 
     def test_host_reply_bypasses_inbox(self):
-        bridge = loader.load("panel_server").Bridge(cmd_sketchup._SketchUpController("test"))
+        bridge = loader.load("panel_server").Bridge(cmd_sketchup._SketchUpController("test"), threaded=True)
         try:
             body = json.dumps({"cmd": "host_reply", "id": 9, "ok": True, "result": [1]}).encode("utf-8")
             request = urllib.request.Request(bridge.url.replace("/?", "/cmd?"), data=body, method="POST")

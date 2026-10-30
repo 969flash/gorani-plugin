@@ -265,8 +265,14 @@ CREATE TABLE IF NOT EXISTS source_files (
 | 건물 | Kadaster PDOK **3D Basisvoorziening** `hoogtestatistieken_gebouwen`(2D 건물 + 높이 통계, 항공 lidar AHN 기반). 도엽(bladnr 1:10k) zip 안 GeoPackage, EPSG:28992. 2025년판 1,327도엽 2.23 GB | `dev_nl.py catalog → build → upload` → HF `nl/nl<도엽>_context.db.xz` + `nl/manifest.json`. 칸은 일본 팩과 같다(`dev_plateau.SCHEMA_SQL`). 높이 = `rf_h_roof_50p − rf_h_ground`(B, 없으면 70p·max, 범위 밖은 기본값 D), 건축연도 `oorspronkelijkbouwjaar` → `use_apr_day`(1500년 미만 자리표시는 모름), 지붕형 `rf_roof_type` → `ngii_kind` | 한 pand가 지붕 조각마다 행으로 나뉜다(암스테르담 25GN1 72,942행 중 13,809 pand가 여러 행) — `src_key`에 `#n`을 붙여 전부 남긴다. 철거·허가 단계(`PDOK_SKIP_STATUS`)는 뺀다 |
 
 - 라이선스: **CC BY 4.0**(OGC API collections의 license 링크 `https://creativecommons.org/licenses/by/4.0/deed.nl`). 출처 고지는 팩 `data_sources.note` 그대로 도면 출처 줄에 적는다: "Bron: Kadaster, 3D Basisvoorziening (CC BY 4.0), bewerkt door Gorani". 국외 반출 제한 없음.
-- 런타임: `constants.COUNTRY_PACKS["nl"]` — 대상지 중심이 `NL_BOUNDS` 안이면 생성 직전에 범위에 걸치는 도엽 팩을 받고(`cmd_site._download_for_generate`), `osm_context.load_plateau_buildings`가 팩 건물을 먼저, OSM 건물은 겹치지 않는 것만. 도로면은 OSM 버퍼(팩에 features 표 없음), 지형은 Terrain Tiles.
+- 런타임: 나라 목록 `docs/countries.json`의 `nl`(한국 매니페스트 `countries[]` → `data_pack.get_country_packs`, 내장 기본값 `constants.COUNTRY_PACKS`) — 대상지 중심이 그 상자 안이면 생성 직전에 범위에 걸치는 도엽 팩을 받고(`cmd_site._download_for_generate`), `osm_context.load_plateau_buildings`가 팩 건물을 먼저, OSM 건물은 겹치지 않는 것만. 도로면은 OSM 버퍼(팩에 features 표 없음), 지형은 Terrain Tiles.
 - 조사 근거·다른 나라 후보(프랑스 BD TOPO·스위스 swissBUILDINGS3D·독일): `docs/research/country_buildings.md`.
+- **새 나라 추가 절차(2026-10-23)**: ① `dev_<나라>.py catalog → build → upload`(팩 + `<나라>/manifest.json`, HF 올리기는 사용자 확인 뒤) ② `docs/countries.json`에 한 줄(코드·상자·라벨·source_id·고지) ③ `python3 scripts/dev_deploy.py notices`. 플러그인 판은 올리지 않는다 — 깔린 플러그인이 켤 때 목록을 받는다. 내리기는 `disabled: true`.
+- **GitHub 사본(Blender판, 2026-10-25)**: Blender 확장 심사가 'Hugging Face는 빼라'고 해서 Blender판은 같은 데이터셋의 GitHub 사본 `969flash/gorani-data`를 읽는다.
+  매니페스트·`config.json`은 저장소 파일(HF와 같은 경로 — `raw.githubusercontent.com/…/main/manifest.json`, 상대경로 `jp/manifest.json`이 그대로 풀린다),
+  팩은 폴더마다 릴리스(태그 `kr`·`jp`·`fr`·`ch`·`nl`·`us`, 릴리스당 자산 1,000개 상한이라 `nl-2`·`us-2`…로 잇는다)에 두고 사본 매니페스트가 절대 주소로 가리킨다.
+  릴리스 태그를 `data`·`data/jp`처럼 겹쳐 둘 수는 없다(git 참조 — 만들기가 HTTP 500). HF에 팩·매니페스트를 올린 뒤(①·③, `dev_deploy upload`·`notices`) 꼭
+  `python3 scripts/dev_deploy.py mirror`를 돌린다 — 크기·sha256이 같은 팩은 건너뛰고 바뀐 것만 옮긴다. GitHub 2차 한도(쓰기 요청 시간당 약 500건) 때문에 하나씩 7.5 s 간격으로 올린다 — 첫 사본 5,479개·32.8 GB는 반나절(2026-10-25: 4개 동시로 1시간에 약 1,100개 올리자 막혔다). Rhino·SketchUp판은 HF 그대로.
 
 ### 프랑스 — IGN BD TOPO® 건물 팩 (`fr/`, 경위도, 2026-10-22)
 
@@ -275,4 +281,24 @@ CREATE TABLE IF NOT EXISTS source_files (
 | 건물 | IGN **BD TOPO® v3.5** `batiment` — 데파르트망별 7z(모든 테마 GeoPackage, EPSG:2154, 파리 210 MB → 1.3 GB). Géoplateforme Atom 피드(`data.geopf.fr/telechargement/resource/BDTOPO?page=N`) 96 데파르트망(본토·코르시카), 2026-09-15판 | `dev_fr.py catalog → build → upload` → HF `fr/fr<데파르트망>_context.db.xz` + `fr/manifest.json`. 높이 `hauteur`(B — 지붕 처마선까지의 높이라 PLATEAU·PDOK의 지붕 50 %보다 낮다), 없으면 `nombre_d_etages` × 층고(C), 기본값(D). `usage_1` → 대분류(`BDTOPO_USE`: 주거는 호수 1이면 단독), `date_d_apparition` → `use_apr_day`, 층수 → `grnd_flr` | 벨포르(D090) 161,412동·B 96.8 %·xz 12.1 MB. `etat_de_l_objet` 계획·철거(`BDTOPO_SKIP_STATES`)는 뺀다. 해외 데파르트망(LAMB93 아님)은 없다 |
 
 - 라이선스: **Licence Ouverte / Open Licence 2.0**(Etalab; data.gouv.fr 데이터셋 `bd-topo` license `lov2`). 출처 고지: "Source : IGN, BD TOPO® <판> (Licence Ouverte 2.0), traité par Gorani"(팩 `data_sources.note`, 도면 출처 줄).
-- 런타임: `constants.COUNTRY_PACKS["fr"]`(`FR_BOUNDS` 본토·코르시카). 도로면은 OSM 버퍼, 지형은 Terrain Tiles.
+- 런타임: `countries.json`의 `fr`(상자 본토·코르시카). 도로면은 OSM 버퍼, 지형은 Terrain Tiles.
+
+### 스위스 — swisstopo swissBUILDINGS3D 3.0 Beta 건물 팩 (`ch/`, 경위도, 2026-10-23)
+
+| 항목 | 원천 | 팩 | 비고 |
+|---|---|---|---|
+| 건물 | swisstopo **swissBUILDINGS3D 3.0 Beta** — STAC `ch.swisstopo.swissbuildings3d_3_0` 타일(1:25k 도엽 하위, 연도별 6,724타일 → 하위 타일마다 최신 연도 3,230개) FileGDB(LoD2, MultiPatch) | `dev_ch.py catalog → build → upload` → HF `ch/ch<도엽>_context.db.xz`(252도엽) + `ch/manifest.json`. GDAL(brew) `ogr2ogr`로 `Floor` 층(3D TIN → MULTIPOLYGON25D), `ogrinfo`로 `Building_solid` 속성. 바닥 = Floor 삼각형을 LV95 m에서 합친 외곽, 지반 = Floor 최저 z, 높이 = `GESAMTHOEHE`(B) → `DACH_MAX` − 지반(B) → 기본값(D). 종류 `OBJEKTART` → `ngii_kind`, 용도 `GEBAEUDE_NUTZUNG` → `ngii_use` | 도엽 1192(알트도르프) 10,563동·B 100 %·xz 1.1 MB. 지하·가려진 건물·담장(`Unterirdisches Gebaeude`·`Gebaeude unsichtbar`·`Mauer*`)은 뺀다. pyogrio는 MultiPatch(지오메트리 1016)를 못 읽어 GDAL이 필요하다 |
+
+- 이용약관: swisstopo "Terms of use for free geodata and geoservices"(2022-08-26, Version 1.3.2021) — 자유 이용·가공·상업 이용·재배포, 출처 표기 의무. 고지: "Source: ©swisstopo, swissBUILDINGS3D 3.0 Beta (<연도>), processed by Gorani"(팩 `data_sources.note`). STAC 메타의 license 값 "proprietary"는 약관과 다르다(확인 필요 — 약관 원문을 따른다).
+- 런타임: `countries.json`의 `ch`(상자 스위스·리히텐슈타인). 프랑스 상자와 겹치므로 `osm_context.get_country`는 작은 상자를 우선한다. CityGML 배포는 EGID가 있는 주만이라 쓰지 않는다.
+
+### 미국 — Overture Maps buildings 건물 팩 (`us/`, 경위도, 2026-10-23)
+
+| 항목 | 원천 | 팩 | 비고 |
+|---|---|---|---|
+| 건물 | **Overture Maps Foundation buildings** 테마(판 `constants.OVERTURE_RELEASE`, 달마다) — Microsoft ML Buildings(GERS로 합본)·OpenStreetMap·Esri Community Maps. S3 GeoParquet(`overturemaps-us-west-2`, 익명) | `dev_us.py catalog → fetch <주> → build [FIPS] → upload` → HF `us/us<카운티 FIPS 5자리>_context.db.xz` + `us/manifest.json`. 카운티 경계는 Census `cb_2024_us_county_500k`(GEOID, 3,235개 — 준주 포함), 건물 중심점이 든 카운티에(경계 300 m 넓힘, 겹침은 런타임 `src_key` 중복 제거). 높이 `height`(B — **Microsoft ML 추정이라 실측 아님**) → `num_floors` × 층고(C) → 기본값(D). `subtype`·`class` → `ngii_kind`·`ngii_use`와 대분류(`OVERTURE_USE_*`), `names.primary` → `bld_nm`, 출처 데이터셋 → `attr_flag`(msft·osm·esri) | 전체 빌드(2026-10-23, 판 2026-10-21.0): 56개 주·준주 **3,234팩 1억 6,161만 동, xz 14.82 GB**(원본 72 GB), 실패 0. 빠진 카운티는 로즈섬(AS, 건물 없음) 하나. 로스앤젤레스 311만 동·B 97.3 %·325 MB, 맨해튼 B 98.2 %(평균 21.4 m), 해리스 91.7 %, 앵커리지 66.2 %, 괌·사모아·북마리아나·버진아일랜드는 높이 거의 없음. 지하(`is_underground`)는 뺀다. 용도는 약 10 %만 있다. 주 parquet 받기는 프로세스당 S3 메타데이터 약 15분 + 주마다 1~25분(연결 하나로 캐시), 빌드는 카운티 3,234개에 약 2시간(작업 4~5) |
+
+- 라이선스: **ODbL 1.0**(Overture buildings 테마 전체 — docs.overturemaps.org/attribution. Microsoft ML Buildings도 ODbL로 제공). 우리 OSM 사용과 같은 라이선스이고 share-alike라 팩도 ODbL이다(데이터셋 카드에 적는다). 고지(팩 `data_sources.note`, 도면 출처 줄): "Source: Overture Maps Foundation (buildings, release <판>, ODbL 1.0) — © OpenStreetMap contributors, Microsoft; processed by Gorani. Heights mostly ML estimates".
+- 공식 출처를 안 쓴 이유: FEMA·ORNL USA Structures는 HEIGHT가 약 32M/125M동뿐이고 약관이 CC BY 4.0(ArcGIS Hub)과 미국 정부 저작물(data.gov)로 갈린다. 용도(OCC_CLS)는 더 좋아 나중에 보강 후보. 근거 `docs/research/country_buildings.md`.
+- 런타임: `countries.json`의 `us` — 상자 넷(`constants.US_BOUNDS` 본토·알래스카·하와이·푸에르토리코). 도로면은 OSM 버퍼, 지형은 Terrain Tiles.
+- 갱신: Overture 새 판 → `constants.OVERTURE_RELEASE` 바꾸고 `fetch`(주 parquet 다시) → `build`(판이 다르면 다시 만든다) → `upload`.

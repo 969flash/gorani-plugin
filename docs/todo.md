@@ -5,8 +5,10 @@
 ## 배포
 
 - [ ] 다른 컴퓨터(Windows일 수 있음)에서 Rhino판 실기 시험 — Mac에서 빌드한 .rhp·.pyc가 Windows Rhino 8에서 처음 도는 것일 수 있다.
-- [ ] Blender 공식 스토어 — 0.3.1 제출(2026-10-22 03시) 뒤 0.3.2를 Upload New Version으로 올려 둠(16:50, 심사는 최신 판을 본다, 다음 판은 2시간 뒤부터). Approval Status = Awaiting Review. 심사 댓글은 Blender ID 메일 — 답변 문안 `docs/blender_store/README.md`.
+- [ ] Rhino 7판 첫 배포(PR #39, 2026-10-30 main) — 다음 묶음 판에 `dev_deploy.py yak`·`rhino7` 세 파일(`rh8_0-any`·`rh7_0-mac`·`rh7_0-win`)을 같은 버전으로 `yak push`(허락 뒤). 그 전에 Windows Rhino 7 실기(Edge 창 패널·생성·다시 불러오기) — Mac Rhino 7.37만 실측했다. 올린 뒤: food4Rhino 앱 페이지 Rhino 버전 칸에 7 추가(사용자 계정, 문구는 `docs/food4rhino.md`), 웹사이트 설치 안내(다른 세션), 관리자 대시보드 [Rhino] yak 표의 배포판 칸에 Rhino 7이 보이는지(빠지면 개요에 경고가 뜬다). Rhino 6 이하는 대상이 아니다(RhinoCommon 7.0·net48로 빌드 — 확인 안 함).
+- [ ] Blender 공식 스토어 — 0.3.1 제출(2026-10-22) 뒤 0.3.2·0.3.3을 Upload New Version으로 올려 둠(심사는 최신 판). 0.3.4(스위스)는 올리지 않았다(2026-10-23 — 판 사이 2시간 제한에 걸렸고, 나라 추가만으로는 판을 올리지 않기로 함. Rhino yak 0.3.4는 이미 나감). 다음 묶음 판에 같이. Approval Status = Awaiting Review. 심사 댓글은 Blender ID 메일 — 답변 문안 `docs/blender_store/README.md`.
 - [ ] SketchUp Extension Warehouse — 2026-10-22 09:30 0.3.1(main 68ab551 rbz, sha256 2d40e9cd…) Submit For Review 완료("allow 1 to 3 weeks"). RuboCop ModelEntities 5건은 루트 그룹 설계라 사유를 적고 제출. 심사 메일이 오면 `docs/sketchup_store.md`대로 대응, 승인 뒤 My Extensions에서 Publish를 눌러야 공개된다. 0.3.2(Global 도로면)는 심사 중이라 못 올렸다 — 승인 뒤 68ab551 이후 main으로 새 판을 만들어 올린다.
+- [ ] 다음 묶음 판(0.3.5, 2주 뒤쯤·쌓인 것 묶어서)에 들어갈 것: 나라 목록을 매니페스트에서 읽기(`docs/countries.json`, 2026-10-23 — 이 판부터 새 나라는 판 없이), 원격 설정 `remote_config`(도면 색·범례·구간·코드표·파라미터·번역 — 이 판부터 판 없이, `COMPAT_MIN` 0.3.5), 미국 팩(HF `us/` 올라감, countries에 us), Blender 0.3.4분(스위스). 배포 뒤 첫 `dev_deploy.py notices`로 `config.json`·countries를 올린다. 그 밖에 — 관리자 대시보드 [내 테스트 제외](2026-10-22): ① 플러그인 `usage_stats`의 개발자 PC 표시(`dev`, `~/.config/gorani/`가 있는 PC)는 main에 들어가 있어 yak·SketchUp 빌드에 저절로 실린다(Blender판은 usage_stats가 빈 판이라 상관없다) ② 웹사이트 `site.js` 개발자 브라우저 표시는 웹 저장소 브랜치 `dev-traffic`(PR)로 따로 있다 — 웹사이트 배포 때 머지한다.
 - [ ] `docs/install.md`(yak 패키지에 들어가 패널 [문서 열기]로 열린다)의 SketchUp 절이 아직 없는 설치 경로(Extension Warehouse)를 안내한다. 스토어에 오를 때까지 '준비 중'으로 바꾸거나 스토어 주소로 고친다(Blender 절은 2026-10-21 스토어 기준으로 고침).
 
 ## 웹사이트 (저장소 `~/Documents/GitHub/gorani`)
@@ -21,6 +23,8 @@
 
 ## 코드
 
+- [ ] 나라별 건물 팩 다음: 미국 — `dev_us.py`(Overture Maps buildings, ODbL) 완성·델라웨어 시험·Rhino 드라이버 PASS(2026-10-23). 전체 빌드 끝(3,234팩 1.6억 동 xz 14.82 GB, 2026-10-23 08:30). HF `us/` 올리는 중(동시 2, `build/us_upload.log`). 남은 것: 올리기 검증 → `dev_deploy.py notices`(countries에 us — 허락 뒤) → 0.3.5 묶음(내장 목록·웹 문구). 중국은 보류(OSM 그대로, 근거 research/country_buildings.md)·독일(주별). 스위스는 0.3.4에 들어감(252도엽). 3DBAG는 PDOK로 대신함. 프랑스 BD TOPO `hauteur`는 처마 높이 — 지붕 50 %로 바꿀 원천 없음. 새 나라는 `docs/countries.json` 한 줄 + `dev_deploy.py notices`(플러그인 판 없음).
+
 - [ ] Global 도로면 다음 단계(2026-10-22 도로면 1차 뒤): 교량(`attrs.bridge`)은 지금 지형에 얹힌다 — 양끝 높이로 띄우기. 보도(OSM `sidewalk=*`)·연석은 없다. PLATEAU `brid`(교량)·`veg`(가로수)·`luse`(토지이용)·`wtr`을 팩에 더할지. OSM 버퍼끼리 겹친 자리의 베이스맵 경계선(04)은 아직 안 그린다(Rhino Boolean 합집합이 생기면 그린다).
 
 - [ ] Blender 패널 서버(`panel_server._PollServer`)는 연결을 받은 뒤 요청 줄을 REQUEST_TIMEOUT(5 s)까지 기다리며 읽는다 — 브라우저가 미리 열어 두고 아무것도 안 보내는 소켓이면 Blender 메인 스레드가 최대 5 s 멈출 수 있다(0.3.1 리뷰 지적). 헤드리스 Chrome 실측(패널 두 번 열기, pump 1,224번)은 최대 0.33 s로 체감 없음. 다음 판: accept한 소켓은 select(…, 0)로 읽을 거리가 있을 때만 처리하고, 없으면 목록에 두었다가 다음 poll에서 본다.
@@ -31,6 +35,6 @@
 ## 이름 변경 뒤처리
 
 - [ ] AutoCAD 워크트리(`.claude/worktrees/autocad`, 커밋 안 됨)를 다시 열 때 main을 합치기 전에 같은 치환(UrbanSite→Gorani, urbansite→gorani, URBANSITE→GORANI)을 먼저 한다. 명령 `URBANSITE`→`GORANI`, DXF 레이어 접두사 `US-*`도 바꿀지 정한다.
-- [ ] GA 속성 표시 이름(UrbanSite Rhino·Blender·Web)을 GA 화면에서 Gorani로 바꾼다. 측정 ID는 그대로. ('Gorani SketchUp'은 2026-10-21에 새로 만들어 이름이 맞다)
+- [x] GA 이름을 Gorani로 바꿨다(2026-10-22, Admin API): 계정 Gorani, 속성 Gorani Rhino·Blender·웹, 스트림 이름·기본 URL. 측정 ID는 그대로.
 - [ ] 옛 결과·로그 `~/UrbanSite/`(result·*.log)는 확인 뒤 지우거나 `~/Gorani/`로 옮긴다(옛 설치본 bsh_urbansite·urbansite는 2026-10-22 확인 — 없다).
 - [ ] Hugging Face 데이터셋(`hooooooooon/urbandesigntool-data`) 카드에 옛 이름이 있는지 확인(저장소 이름은 그대로 둔다).

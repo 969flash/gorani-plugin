@@ -210,7 +210,9 @@ def search_lots(query, database_path=None, limit=None):
 
 
 def get_local_env_value(key):
-    """Rhino GUI에서도 쓸 수 있도록 HOME_DIR의 .env(gitignore)를 보조로 읽는다."""
+    """Rhino GUI에서도 쓸 수 있도록 HOME_DIR의 .env(gitignore)를 보조로 읽는다. key가 비면 ""(Blender판은 VWorld 키 이름을 비워 둔다)."""
+    if not key:
+        return ""
     value = os.environ.get(key)
     if value:
         return value.strip()
@@ -218,7 +220,10 @@ def get_local_env_value(key):
     env_path = HOME_DIR / ".env"
     if not env_path.exists():
         return ""
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+    raw = env_path.read_bytes()
+    # 사용자가 손으로 만든 .env — PowerShell 5 '>'는 UTF-16, 메모장 ANSI는 cp949·cp1252. 못 읽어도 패널은 떠야 한다(2026-10-23 감사: init이 죽었다)
+    text = raw.decode("utf-16") if raw[:2] in (b"\xff\xfe", b"\xfe\xff") else raw.decode("utf-8-sig", errors="replace")
+    for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue

@@ -3,7 +3,7 @@
     resolve_target(request)           Rhino 금지. 대상지 방식(lots·area·point) → 경계 링·안의 필지·중심·이름·키.
     prepare(request, progress)        Rhino 금지. 입력 검증 → 필지·컨텍스트 질의 → 원점·범위 → 통계·경고·메타.
     run(request, progress, doc)       Rhino·Blender 안. prepare → (호스트) 지오메트리.build → 베이커.bake/.. → 시트·조서.
-    get_host_modules()                (지오메트리, 베이커) — Rhino는 context_*, Blender·SketchUp은 mesh_geometry + 호스트 베이커. 같은 함수 이름을 쓴다.
+    get_host_modules()                (지오메트리, 베이커) — 호스트마다 같은 함수 이름을 쓰는 모듈 쌍.
     preflight(request)                Rhino 금지, 100 ms급. COUNT 질의만으로 사전 점검(panel_ui.md preflight_result).
     get_sources / get_source_warnings 원천 상태 4건·stale_* 경고 — 패널 init_state도 쓴다.
     get_progress_message(...)         순수 함수. progress 페이로드 조립. skipped 집합은 get_skipped_phases(options).
@@ -269,7 +269,12 @@ def _get_origin(center, doc_origin):
                                                     math.hypot(center[0] - origin[0], center[1] - origin[1]), constants.ORIGIN_MAX_OFFSET))
         return origin, True
     snap = constants.ORIGIN_SNAP
-    return (math.floor(center[0] / snap) * snap, math.floor(center[1] / snap) * snap), False
+    origin = (math.floor(center[0] / snap) * snap, math.floor(center[1] / snap) * snap)
+    if origin == (0.0, 0.0):
+        # 문서 원점 (0, 0)은 'GIS 좌표' 문서 표시다. 해외 지역 투영(원점 = 중심 0.01° 반올림)에서 중심이 격자점 북동 100 m 안이면
+        # 내림이 (0, 0)이 되어 2D·다시 만들기가 placement_mismatch로 막혔다(사하라 N25.0000 E23.4000, 2026-10-23 가상 사용자) — 한 칸 옮긴다
+        origin = (-snap, -snap)
+    return origin, False
 
 
 def _get_origins(center, doc_origin, placement):
@@ -537,8 +542,8 @@ def _get_align_stats(samples):
 def get_abroad_sources(today=None, country=""):
     # type: (datetime.date, str) -> list
     """해외 대상지의 원천 상태 4건(lot·building·terrain·api) — 필지 없음, 건물·지형은 생성 때 OSM·지형 타일에서 받는다.
-    country(constants.COUNTRY_PACKS 키)가 있으면 건물은 그 나라 팩(있는 지역만)·OSM, 일본은 지형도 지리원 5 m 타일."""
-    label = constants.COUNTRY_PACKS[country]["label"] if country else ""
+    country(data_pack.get_country_packs 키)가 있으면 건물은 그 나라 팩(있는 지역만)·OSM, 일본은 지형도 지리원 5 m 타일."""
+    label = data_pack.get_country_packs()[country]["label"] if country else ""
     today = (today or datetime.date.today()).isoformat()
     def row(source_id, name, level, text):
         return {"id": source_id, "label": tr(constants.SOURCE_LABELS[source_id]), "name": name, "date": today if level == "ok" else "",
@@ -693,7 +698,7 @@ def get_query_bounds(request):
 
 def get_pack_download(request):
     # type: (dict) -> tuple
-    """Global 대상지가 나라별 건물 팩(constants.COUNTRY_PACKS)이 있는 나라면 (조회 범위 경위도 (서, 남, 동, 북), 그 나라 매니페스트 주소), 아니면 None —
+    """Global 대상지가 나라별 건물 팩(data_pack.get_country_packs)이 있는 나라면 (조회 범위 경위도 (서, 남, 동, 북), 그 나라 매니페스트 주소), 아니면 None —
     cmd_site가 생성 직전에 팩을 받는 데 쓴다. 투영은 패널이 대상지를 정할 때 맞춰 둔 것(set_projection)."""
     request = get_request_with_defaults(request)
     if not is_global(request):
@@ -706,7 +711,7 @@ def get_pack_download(request):
         return None
     radius = float(options.get("radius") or constants.CONTEXT_RADIUS)
     bounds = osm_context.get_lnglat_bounds(_get_query_extent(target, radius, options.get("shape") or "circle", paper_mm, scales, has_2d(options))[3])
-    return bounds, constants.COUNTRY_PACKS[country]["manifest"]
+    return bounds, data_pack.get_country_packs()[country]["manifest"]
 
 
 def get_jp_query_bounds(request):
@@ -815,7 +820,7 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
     _report(progress, "query", 0.3, tr("OpenStreetMap·지형 타일 받는 중"))
     try:
         context = osm_context.load(bounds, today.isoformat())
-    except RuntimeError as exc:
+    except (RuntimeError, OSError) as exc:   # 지형 타일 URLError·시간 초과는 OSError — '예상 밖 오류'로 새지 않게(2026-10-23 감사)
         raise DomainError("osm_failed", str(exc))
     # OSM에는 국내 '무벽·가건물' 구분이 없다 — include_minor_buildings와 무관하게 전부 넣는다
     skipped = get_skipped_phases(options)
@@ -832,7 +837,7 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
     prepared.stats = {"height_src": height["height_src"], "height_grade": height["height_grade"], "grade_ab": round(grade_ab, 4),
                       "buildings": height["n"], "lots": 0, "sheets": [], "sheets_needed": [], "align": _get_align_stats([]), "mismatch_count": 0}
     source_ids = {s.source_id for s in context.sources}
-    pack_label = "·".join(constants.COUNTRY_PACKS[constants.PACK_SOURCE_IDS[i]]["label"] for i in sorted(source_ids & set(constants.PACK_SOURCE_IDS)))   # PLATEAU 등
+    pack_label = "·".join(data_pack.get_pack_label(i) for i in sorted(source_ids & set(data_pack.get_pack_source_ids())))   # PLATEAU 등
     if "osm" not in source_ids:   # Overpass가 막혔다 — 팩 건물·지형만(osm_context.load)
         warnings.append(_warning("warn", "osm_missing", tr("OpenStreetMap을 받지 못해 도로·수계·녹지 없이 만들었습니다"),
                                  tr("{0} 건물과 지형만 들어 있습니다. 잠시 뒤 다시 만들면 도로·수계·녹지가 들어갑니다.", pack_label)))
@@ -950,8 +955,8 @@ def get_sheets_dir(result_dir):
 
 def _has_result(result_dir):
     # type: (str) -> bool
-    return any(os.path.exists(os.path.join(result_dir, name)) for name in (constants.CONTEXT_META_FILE_NAME, constants.CONTEXT_MODEL_FILE_NAME,
-                                                                            constants.BLENDER_MODEL_FILE_NAME, constants.SKETCHUP_MODEL_FILE_NAME))
+    names = (constants.CONTEXT_META_FILE_NAME, constants.CONTEXT_MODEL_FILE_NAME) + tuple(host["model"] for host in constants.HOST_LABELS.values())
+    return any(os.path.exists(os.path.join(result_dir, name)) for name in names)
 
 
 def get_free_result_dir(result_dir):
@@ -1018,28 +1023,26 @@ def get_sheet_ids(options):
 
 def get_host():
     # type: () -> str
-    """지금 도는 프로그램 — SketchUp·Archicad 사이드카·웹판 워커(cmd_sketchup·cmd_archicad·cmd_web이 환경변수를 둔다)면 'sketchup'·'archicad'·'web', Blender 안이면 'blender',
-    아니면 'rhino'(python3 테스트 포함). constants.HOST_LABELS의 키."""
-    if os.environ.get(constants.HOST_ENV) in ("sketchup", "archicad", "web"):
+    """지금 도는 프로그램 이름 — constants.HOST_LABELS의 키."""
+    # [blender-cut] SketchUp·Rhino 7·Archicad 사이드카·웹판 워커는 환경변수(cmd_sketchup·cmd_rhino7·cmd_archicad·cmd_web), 그 밖에 bpy가 없으면 Rhino(python3 테스트 포함)
+    if os.environ.get(constants.HOST_ENV) in ("sketchup", "rhino7", "archicad", "web"):
         return os.environ[constants.HOST_ENV]
     try:
         import bpy  # noqa: F401
     except ImportError:
         return "rhino"
+    # [/blender-cut]
     return "blender"
 
 
 def get_host_modules():
     # type: () -> tuple
-    """(지오메트리, 베이커) 모듈. Rhino = context_geometry·context_baker, Blender = mesh_geometry·blender_baker,
-    SketchUp = mesh_geometry·sketchup_baker(사이드카 → SketchUp 호출), Archicad = mesh_geometry·archicad_baker(사이드카 → Archicad JSON), 웹 = mesh_geometry·web_baker(context.glb). 베이커 함수(get_doc_origin·clear_previous·bake·write_ref_and_origin·
-    save_copy·zoom_to_site)와 build는 이름이 같다."""
+    """(지오메트리, 베이커) 모듈. 호스트마다 베이커 함수(get_doc_origin·clear_previous·bake·write_ref_and_origin·save_copy·zoom_to_site)와
+    build의 이름이 같다. Blender = mesh_geometry·blender_baker."""
+    # [blender-cut] Rhino = context_geometry·context_baker, SketchUp·Rhino 7 = mesh_geometry·sketchup_baker(사이드카 → 호스트 호출, 이름·인자가 같다),
+    # Archicad = mesh_geometry·archicad_baker(사이드카 → Archicad JSON), 웹 = mesh_geometry·web_baker(context.glb)
     host = get_host()
-    if host == "blender":
-        import blender_baker
-        import mesh_geometry
-        return mesh_geometry, blender_baker
-    if host == "sketchup":
+    if host in ("sketchup", "rhino7"):
         import mesh_geometry
         import sketchup_baker
         return mesh_geometry, sketchup_baker
@@ -1051,9 +1054,14 @@ def get_host_modules():
         import mesh_geometry
         import web_baker
         return mesh_geometry, web_baker
-    import context_baker
-    import context_geometry
-    return context_geometry, context_baker
+    if host == "rhino":
+        import context_baker
+        import context_geometry
+        return context_geometry, context_baker
+    # [/blender-cut]
+    import blender_baker
+    import mesh_geometry
+    return mesh_geometry, blender_baker
 
 
 def run(request, progress=None, doc=None, keep=None):
@@ -1173,6 +1181,7 @@ def _run_phases(request, progress, doc, response, state):
                                demolished=geo.counts.get("demolished", 0), tin_points=geo.counts["tin_points"], origin=list(prepared.origin),
                                origin_reused=prepared.origin_reused, placement=prepared.placement, doc_origin=list(prepared.doc_origin),
                                model_unit=str(getattr(doc, "ModelUnitSystem", "Meters")), imported=True, import_text="")   # Blender 장면은 m 고정
+    # [blender-cut] DWG는 Rhino만
     if options.get("make_dwg") and constants.DWG_EXPORT_ENABLED and hasattr(context_baker, "save_dwg_from_3dm"):   # DWG는 Rhino만   # 2D 도면(BM::)만 .dwg로 — 실패해도 3dm은 남긴다
         _report(progress, "write_3dm", 0.95, tr(".dwg 저장"))
         try:   # 방금 쓴 3dm을 헤드리스로 열어 쓴다 — 활성 문서에서 쓰면 Mac에서 멈춘다(context_baker.save_dwg_from_3dm)
@@ -1181,11 +1190,13 @@ def _run_phases(request, progress, doc, response, state):
             response["context"]["dwg"] = context_baker.save_dwg_from_3dm(path, dwg_path, constants.BM_ROOT_LAYER)
         except Exception as exc:   # noqa: BLE001
             _phase_failed(response, "write_3dm", exc)
+    # [/blender-cut]
     _report(progress, "write_3dm", 1.0, tr("객체 {0} · 레이어 {1}", len(ids), len(layers)))
 
     _run_2d_phases(prepared, options, geo.terrain_tris_world, progress, response, state)
 
 
+# [blender-cut] DWG는 Rhino만
 def _write_dwg(prepared):
     # type: (object) -> str
     """make_2d의 DWG — 가장 상세한 축척의 2D 선 도면(BM::)을 헤드리스 문서에 구워 basemap_<축척>.dwg로(Rhino만, context_baker.save_dwg)."""
@@ -1196,6 +1207,7 @@ def _write_dwg(prepared):
     items = context_geometry.build_basemap_2d(prepared, scale)
     os.makedirs(_get_out_2d_dir(prepared), exist_ok=True)
     return context_baker.save_dwg(items, prepared, os.path.join(_get_out_2d_dir(prepared), get_basemap_file_name(prepared, scale, ".dwg")))
+# [/blender-cut]
 
 
 def _run_2d_phases(prepared, options, terrain_tris, progress, response, state, dwg=False):
@@ -1219,12 +1231,14 @@ def _run_2d_phases(prepared, options, terrain_tris, progress, response, state, d
             except Exception as exc:   # noqa: BLE001
                 _phase_failed(response, "basemap", exc)
         response["basemap"].update(ready=len(exported) == len(prepared.scales), layers=layer_count, scales=list(prepared.scales), exported=exported)
+        # [blender-cut] DWG는 Rhino만
         if dwg:
             _report(progress, "basemap", 0.95, tr(".dwg 저장"))
             try:
                 response["basemap"]["dwg"] = _write_dwg(prepared)
             except Exception as exc:   # noqa: BLE001 — .ai는 남긴다
                 _phase_failed(response, "basemap", exc)
+        # [/blender-cut]
         _report(progress, "basemap", 1.0, tr(".ai {0}장", len(exported)) + (" · .dwg" if response["basemap"].get("dwg") else ""))
 
     # sheets — 한 장마다 콜백, 한 장의 실패는 empty+reason '오류'
