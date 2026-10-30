@@ -182,7 +182,7 @@ class SidecarRunTest(unittest.TestCase):
     def test_payload(self):
         layers = {item["layer"]: item for item in self.fake.items}
         buildings = layers["CTX::Buildings"]
-        self.assertGreater(len(buildings["prisms"]), 3000)
+        self.assertGreater(len(buildings["prisms"]), 2500)   # 범위 링으로 늘 자른다(53659d6) — 성수 R500 2,735동(자르기 전 bbox 3,454동)
         parts, base, height, attrs, _name = buildings["prisms"][0]
         self.assertGreater(height, 0)
         self.assertIn("BLD_ID", attrs)
