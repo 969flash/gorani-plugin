@@ -106,6 +106,16 @@ def add_recent(pnus, label, total_area, date, path=PREFS_PATH):
     return data["recent"]
 
 
+def remove_recent(pnus, path=PREFS_PATH):
+    # type: (list, str) -> list
+    """최근 대상지에서 같은 PNU 묶음을 지운다(패널 x). 돌려주는 값은 남은 목록."""
+    key = tuple(sorted(pnus or []))
+    data = _read_json(path)
+    data["recent"] = [item for item in get_recent(path) if tuple(sorted(item.get("pnus") or [])) != key]
+    _write_json(path, data)
+    return data["recent"]
+
+
 # [blender-cut] 사용 통계 동의 — Blender 확장 패키지에는 통계가 없다
 def get_stats_consent(path=PREFS_PATH):
     # type: (str) -> object

@@ -24,6 +24,7 @@ panel_host.PanelHost(Eto WebView)와 로직 모듈을 잇는다. JS 명령(dict)
     open_path       → 폴더·파일·.env 템플릿을 OS로 연다
     open_eum        → PNU의 토지이음 토지이용계획 열람을 OS 브라우저로 연다(constants.EUM_LAND_USE_URL)
     save_prefs      → site_prefs.save_options
+    remove_recent   → site_prefs.remove_recent (최근 대상지 x — JS가 목록에서 먼저 지운다)
     style_preview   → context_builder.preview_sheet (스타일 바꾼 한 장 SVG 문자열 — 파일 안 씀, seq 에코)
     apply_style     → context_builder.apply_style (시트 전부 + 쓴 .ai 다시 쓰기, busy·style_applied)
     save_style      → site_prefs.save_style (HOME_DIR/styles/<이름>.json → styles)
@@ -40,6 +41,7 @@ import datetime
 import importlib.util
 import json
 import os
+import runpy
 import subprocess
 import sys
 import time
@@ -535,7 +537,7 @@ class _SiteController:
             "set_area": self._set_area, "set_point": self._set_point, "pick_curve": self._pick_curve,
             "preflight": self._preflight, "generate": self._generate, "make_2d": self._make_2d, "cancel": self._cancel,
             "import_context": self._import_context, "export_basemap": self._export_basemap, "zoom_view": self._zoom_view,
-            "open_path": self._open_path, "open_eum": self._open_eum, "open_url": self._open_url, "save_prefs": self._save_prefs, "download_data": self._download_data,
+            "open_path": self._open_path, "open_eum": self._open_eum, "open_url": self._open_url, "save_prefs": self._save_prefs, "remove_recent": self._remove_recent, "download_data": self._download_data,
             "style_preview": self._style_preview, "apply_style": self._apply_style, "save_style": self._save_style, "sheet_ai": self._sheet_ai,
             "sheet_view": self._sheet_view, "area_packs": self._area_packs,
             # [blender-cut]
@@ -939,6 +941,9 @@ class _SiteController:
     def _save_prefs(self, msg):
         loader.load("site_prefs").save_options(msg.get("options") or {})
 
+    def _remove_recent(self, msg):
+        loader.load("site_prefs").remove_recent(msg.get("pnus") or [])
+
     def _get_result_dir(self, msg):
         result_dir = str(msg.get("dir") or "")
         if not os.path.isdir(result_dir):
@@ -999,7 +1004,7 @@ class _SiteController:
 # error.context — JS가 표시 자리를 고른다(panel_ui.md 오류 규약)
 _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "select", "set_point": "select", "pick_curve": "select",
                    "import_context": "import", "export_basemap": "export",
-                   "zoom_view": "open", "open_path": "open", "open_eum": "open", "open_url": "open", "save_prefs": "init", "cancel": "generate", "make_2d": "generate", "download_data": "init",
+                   "zoom_view": "open", "open_path": "open", "open_eum": "open", "open_url": "open", "save_prefs": "init", "remove_recent": "init", "cancel": "generate", "make_2d": "generate", "download_data": "init",
                    "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style", "sheet_view": "view",
                    # [blender-cut]
                    "stats_consent": "init",
@@ -1008,10 +1013,45 @@ _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "s
 
 
 # [blender-cut] Rhino 패널(Eto 웹뷰)
+def _get_version_key(name):
+    # type: (str) -> tuple
+    """판 폴더 이름 '0.3.7' → (0, 3, 7). 숫자 판이 아니면 None."""
+    parts = name.split(".")
+    return tuple(int(part) for part in parts) if all(part.isdigit() for part in parts) else None
+
+
+def get_newer_script(script_path=None):
+    # type: (str) -> str
+    """Yak 설치본에서 이 판보다 새 판 폴더의 cmd_site.py. 없거나 설치본이 아니면(개발 저장소) None.
+
+    Rhino를 끄지 않고 Package Manager로 업데이트하면 Rhino는 켤 때 읽은 옛 판 .rhp를 쥐고 있고, 옛 판 폴더도 남아
+    Gorani 명령이 옛 판 scripts를 돌린다 — 패널 버전이 그대로였다(2026-10-30, 0.3.3·0.3.7 폴더가 함께 남은 설치본)."""
+    version_dir = os.path.dirname(os.path.dirname(os.path.abspath(script_path or __file__)))   # <패키지>/<판>/scripts/cmd_site.py
+    root, mine = os.path.dirname(version_dir), _get_version_key(os.path.basename(version_dir))
+    if mine is None or not os.path.isdir(root):
+        return None
+    newer = [(key, name) for key, name in ((_get_version_key(name), name) for name in os.listdir(root))
+             if key is not None and key > mine and os.path.exists(os.path.join(root, name, "scripts", "cmd_site.py"))]
+    return os.path.join(root, max(newer)[1], "scripts", "cmd_site.py") if newer else None
+
+
 def _show_panel():
-    """패널을 하나만 띄운다. 이미 떠 있으면 앞으로 가져온다."""
+    """패널을 하나만 띄운다. 이미 떠 있으면 앞으로 가져온다. 새 판이 깔려 있으면 그 판으로 넘기고, 옛 판 패널은 닫고 새로 연다."""
+    newer = get_newer_script()
+    if newer:
+        print("[Gorani] " + tr("새로 설치한 판으로 엽니다: {0}", os.path.basename(os.path.dirname(os.path.dirname(newer)))))
+        runpy.run_path(newer, run_name="__main__")
+        return
     _i18n.set_lang(loader.load("site_prefs").get_options().get("lang"))   # 명령창 문구 — 패널이 언어를 보내기 전에는 저장한 언어
+    version = loader.load("constants").PANEL_VERSION
     existing = scriptcontext.sticky.get(PANEL_STICKY_KEY)
+    if existing is not None and scriptcontext.sticky.get(PANEL_STICKY_KEY + "_version") != version:
+        try:   # 업데이트 전 판이 띄운 패널 — 앞으로 가져오면 옛 판 그대로다
+            existing.form.Close()
+        except Exception:
+            pass
+        scriptcontext.sticky.pop(PANEL_STICKY_KEY, None)
+        existing = None
     if existing is not None:
         try:
             existing.bring_to_front()
@@ -1031,6 +1071,7 @@ def _show_panel():
 
     host.on_closed = on_closed
     scriptcontext.sticky[PANEL_STICKY_KEY] = host
+    scriptcontext.sticky[PANEL_STICKY_KEY + "_version"] = version
     host.show()
 
 

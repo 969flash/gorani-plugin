@@ -135,7 +135,9 @@ html:lang(zh-Hans) body { font-family: -apple-system, "PingFang SC", "Microsoft 
 .mrow:hover { background: var(--hover); }
 .mrow .k { color: var(--ink-2); }
 .mrow .v { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.recent { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto 16px; align-items: center; gap: 8px; width: 100%; height: 36px; padding: 0 8px; border: 0; border-radius: 8px; background: none; text-align: left; color: var(--ink); }
+.recent-row { display: grid; grid-template-columns: minmax(0, 1fr) 28px; align-items: center; gap: 4px; }
+.recent-row > .ib { color: var(--ink-3); }
+.recent { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 8px; width: 100%; height: 36px; padding: 0 8px; border: 0; border-radius: 8px; background: none; text-align: left; color: var(--ink); }
 .recent:hover:not(:disabled) { background: var(--hover); }
 .recent:disabled { color: var(--ink-3); }
 .recent > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -824,13 +826,21 @@ function scrollTray(el) {
   try { tray.scrollTo({ top: top, behavior: "smooth" }); } catch (e) { tray.scrollTop = top; }
 }
 document.addEventListener("toggle", function (e) { if (e.target.id === "s3d" && e.target.open) scrollTray(e.target); }, true);   // toggle은 거품이 일지 않는다 — 잡기 단계에서
+function recentHtml(r, i, lock) {   // 최근 대상지 한 줄 — 누르면 고르고, 오른쪽 x는 목록에서 지운다(site_prefs.remove_recent). 트레이·메뉴 공용
+  var dis = lock ? " disabled" : "";
+  return '<div class="recent-row"><button type="button" class="recent" data-act="recent" data-i="' + i + '"' + dis + ">" + ico(r.mode && MODE_SHORT[r.mode] ? r.mode : "lots") + "<span>" + esc(r.label) + '</span><span class="sub num">' + esc(fmtNum(r.total_area)) + " " + sqm() + ", " + esc(mmdd(r.date)) + "</span></button>" +
+    '<button type="button" class="ib sm" data-act="recent_del" data-i="' + i + '"' + dis + ' aria-label="' + tr("{0} 지우기", esc(r.label)) + '" title="' + tr("최근 대상지에서 지우기") + '">' + ico("x") + "</button></div>";
+}
+function removeRecent(i) {
+  var list = (state.init && state.init.recent) || [], r = list[i]; if (!r) return;
+  list.splice(i, 1); send({ cmd: "remove_recent", pnus: r.pnus.slice() });
+  renderMenu(); if (state.screen === "map") renderTray();
+}
 function emptyTrayHtml() {
   if (busyTarget()) return "";
   var recent = (state.init && state.init.recent) || [];
   if (state.mode === "lots" && recent.length && !isGlobal())
-    return '<div class="tray-empty"><div class="tray-h">' + ico("clock") + tr("최근 대상지") + "</div><div class=\"mlist\">" + recent.slice(0, 4).map(function (r, i) {
-      return '<button type="button" class="recent" data-act="recent" data-i="' + i + '">' + ico("lots") + "<span>" + esc(r.label) + '</span><span class="sub num">' + esc(fmtNum(r.total_area)) + " " + sqm() + ", " + esc(mmdd(r.date)) + "</span>" + ico("next") + "</button>";
-    }).join("") + "</div></div>";
+    return '<div class="tray-empty"><div class="tray-h">' + ico("clock") + tr("최근 대상지") + "</div><div class=\"mlist\">" + recent.slice(0, 5).map(function (r, i) { return recentHtml(r, i, false); }).join("") + "</div></div>";
   var t = state.mode === "point" ? tr("지도를 누르거나 위에서 주소를 찾아 위치를 찍으세요") : state.mode === "area" ? "" : tr("지도에서 필지를 누르거나 위에서 주소나 지번을 찾으세요");
   return t ? '<div class="tray-empty"><div class="hint">' + t + "</div></div>" : "";
 }
@@ -1844,9 +1854,7 @@ function renderMenu() {
         ico(n.level === "warn" ? "warn" : "info") + "<span>" + esc(n.text) + '</span><span class="sub num">' + esc(closed ? tr("닫음") : n.date ? mmdd(n.date) : "") + "</span></" + (act ? "button" : "div") + ">";
     }).join("") + "</div>" : "");
   el.innerHTML = "<h3>" + ico("clock") + tr("최근 대상지") + "</h3>" +
-    (recent.length ? '<div class="mlist">' + recent.map(function (r, i) {
-      return '<button type="button" class="recent" data-act="recent" data-i="' + i + '"' + (lock ? " disabled" : "") + '>' + ico(r.mode && MODE_SHORT[r.mode] ? r.mode : "lots") + "<span>" + esc(r.label) + '</span><span class="sub num">' + esc(fmtNum(r.total_area)) + " " + sqm() + ", " + esc(mmdd(r.date)) + "</span>" + ico("next") + "</button>";
-    }).join("") + "</div>" : '<div class="hint">' + tr("아직 없습니다. 필지로 만들면 여기에 남습니다") + "</div>") +
+    (recent.length ? '<div class="mlist">' + recent.map(function (r, i) { return recentHtml(r, i, lock); }).join("") + "</div>" : '<div class="hint">' + tr("아직 없습니다. 필지로 만들면 여기에 남습니다") + "</div>") +
     "<h3>" + tr("설정") + "</h3>" +
     '<div class="mlist">' +
       row(tr("폴더 경로"), '<span class="mono">' + esc(p.root || "") + "</span>", '<button type="button" class="btn sm" data-act="open" data-path="' + esc(p.root || "data") + '">' + ico("folder") + tr("열기") + "</button>", tr("{0} (결과 result, 지역 데이터 data)", p.root || "")) +
@@ -1955,6 +1963,7 @@ var ACTIONS = {
   force_osm: function (b) { var on = b.dataset.v ? b.dataset.v === "1" : !forceOsm(); if (on !== forceOsm()) setForceOsm(on); },
   menu: function () { if (state.menuOpen) closeMenu(true); else openMenu(); },
   recent: function (b) { loadRecent(+b.dataset.i); },
+  recent_del: function (b) { removeRecent(+b.dataset.i); },
   download_stop: function () { state.noAutoDownload = true; send({ cmd: "cancel" }); },
   download_area: function () { var a = state.areaPacks; if (a && a.missing.length) startDownload(a.missing); },
   search: doSearch,

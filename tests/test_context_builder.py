@@ -184,6 +184,9 @@ class PrefsTest(unittest.TestCase):
             self.assertEqual(site_prefs.get_options(path)["radius"], 300)   # recent 추가가 옵션을 지우지 않는다
             with open(path, encoding="utf-8") as f:
                 self.assertIn("options", json.load(f))
+            site_prefs.add_recent(["c"], "라벨3", 1.0, "2026-10-09", path)
+            self.assertEqual([r["label"] for r in site_prefs.remove_recent(["b", "a"], path)], ["라벨3"])   # 패널 x — 순서가 달라도 같은 묶음
+            self.assertEqual(site_prefs.get_options(path)["radius"], 300)
 
     def test_old_prefs_range_resets_once(self):
         # 범위 기본값이 사각형 한 변 500 m로 바뀌었다(2026-10-19) — 그 전 prefs의 radius·shape만 한 번 버린다
