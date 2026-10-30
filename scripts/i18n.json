@@ -2123,12 +2123,6 @@
   "ja": "非表示",
   "zh": "已关闭"
  },
- "아직 없습니다. 필지로 만들면 여기에 남습니다": {
-  "en": "Nothing yet. Sites made from parcels appear here",
-  "es": "Aún no hay nada. Los sitios creados con parcelas aparecen aquí",
-  "ja": "まだありません。区画で作成すると、ここに残ります",
-  "zh": "暂无记录。用地块方式生成后会显示在这里"
- },
  "설정": {
   "en": "Settings",
   "es": "Ajustes",
@@ -5740,5 +5734,35 @@
   "es": "Suave",
   "ja": "滑らか",
   "zh": "平滑"
+ },
+ "{0} 지우기": {
+  "en": "Remove {0}",
+  "es": "Quitar {0}",
+  "ja": "{0}を削除",
+  "zh": "删除{0}"
+ },
+ "최근 대상지에서 지우기": {
+  "en": "Remove from recent sites",
+  "es": "Quitar de sitios recientes",
+  "ja": "最近の対象地から削除",
+  "zh": "从最近的场地中删除"
+ },
+ "새로 설치한 판으로 엽니다: {0}": {
+  "en": "Opening the newly installed version: {0}",
+  "es": "Abriendo la versión recién instalada: {0}",
+  "ja": "新しくインストールした版で開きます: {0}",
+  "zh": "使用新安装的版本打开：{0}"
+ },
+ "문의": {
+  "en": "Contact",
+  "es": "Contacto",
+  "ja": "お問い合わせ",
+  "zh": "联系"
+ },
+ "메일 보내기": {
+  "en": "Send an email",
+  "es": "Enviar un correo",
+  "ja": "メールを送る",
+  "zh": "发送邮件"
  }
 }

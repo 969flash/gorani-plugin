@@ -135,7 +135,9 @@ html:lang(zh-Hans) body { font-family: -apple-system, "PingFang SC", "Microsoft 
 .mrow:hover { background: var(--hover); }
 .mrow .k { color: var(--ink-2); }
 .mrow .v { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.recent { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto 16px; align-items: center; gap: 8px; width: 100%; height: 36px; padding: 0 8px; border: 0; border-radius: 8px; background: none; text-align: left; color: var(--ink); }
+.recent-row { display: grid; grid-template-columns: minmax(0, 1fr) 28px; align-items: center; gap: 4px; }
+.recent-row > .ib { color: var(--ink-3); }
+.recent { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 8px; width: 100%; height: 36px; padding: 0 8px; border: 0; border-radius: 8px; background: none; text-align: left; color: var(--ink); }
 .recent:hover:not(:disabled) { background: var(--hover); }
 .recent:disabled { color: var(--ink-3); }
 .recent > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -824,13 +826,21 @@ function scrollTray(el) {
   try { tray.scrollTo({ top: top, behavior: "smooth" }); } catch (e) { tray.scrollTop = top; }
 }
 document.addEventListener("toggle", function (e) { if (e.target.id === "s3d" && e.target.open) scrollTray(e.target); }, true);   // toggle은 거품이 일지 않는다 — 잡기 단계에서
+function recentHtml(r, i, lock) {   // 최근 대상지 한 줄(트레이) — 누르면 고르고, 오른쪽 x는 목록에서 지운다(site_prefs.remove_recent)
+  var dis = lock ? " disabled" : "";
+  return '<div class="recent-row"><button type="button" class="recent" data-act="recent" data-i="' + i + '"' + dis + ">" + ico(r.mode && MODE_SHORT[r.mode] ? r.mode : "lots") + "<span>" + esc(r.label) + '</span><span class="sub num">' + esc(fmtNum(r.total_area)) + " " + sqm() + ", " + esc(mmdd(r.date)) + "</span></button>" +
+    '<button type="button" class="ib sm" data-act="recent_del" data-i="' + i + '"' + dis + ' aria-label="' + tr("{0} 지우기", esc(r.label)) + '" title="' + tr("최근 대상지에서 지우기") + '">' + ico("x") + "</button></div>";
+}
+function removeRecent(i) {
+  var list = (state.init && state.init.recent) || [], r = list[i]; if (!r) return;
+  list.splice(i, 1); send({ cmd: "remove_recent", pnus: r.pnus.slice() });
+  if (state.screen === "map") renderTray();
+}
 function emptyTrayHtml() {
   if (busyTarget()) return "";
   var recent = (state.init && state.init.recent) || [];
   if (state.mode === "lots" && recent.length && !isGlobal())
-    return '<div class="tray-empty"><div class="tray-h">' + ico("clock") + tr("최근 대상지") + "</div><div class=\"mlist\">" + recent.slice(0, 4).map(function (r, i) {
-      return '<button type="button" class="recent" data-act="recent" data-i="' + i + '">' + ico("lots") + "<span>" + esc(r.label) + '</span><span class="sub num">' + esc(fmtNum(r.total_area)) + " " + sqm() + ", " + esc(mmdd(r.date)) + "</span>" + ico("next") + "</button>";
-    }).join("") + "</div></div>";
+    return '<div class="tray-empty"><div class="tray-h">' + ico("clock") + tr("최근 대상지") + "</div><div class=\"mlist\">" + recent.slice(0, 5).map(function (r, i) { return recentHtml(r, i, false); }).join("") + "</div></div>";
   var t = state.mode === "point" ? tr("지도를 누르거나 위에서 주소를 찾아 위치를 찍으세요") : state.mode === "area" ? "" : tr("지도에서 필지를 누르거나 위에서 주소나 지번을 찾으세요");
   return t ? '<div class="tray-empty"><div class="hint">' + t + "</div></div>" : "";
 }
@@ -1835,7 +1845,7 @@ function closeNotice(id) {
 // 뺀 것 — VWorld 키(.env, 개발자용 — install.md), 다시 확인(팩을 저절로 받는다), 로컬 install.md(웹페이지로)
 function renderMenu() {
   var init = state.init, el = $("menu"); if (!init || !state.menuOpen) return;
-  var recent = init.recent || [], lock = state.run === "running" || state.job2d === "running", p = init.paths || {};
+  var lock = state.run === "running" || state.job2d === "running", p = init.paths || {};
   var row = function (k, v, act, title) { return '<div class="mrow"><span class="k">' + k + '</span><span class="v"' + (title ? ' title="' + esc(title) + '"' : "") + ">" + v + "</span>" + act + "</div>"; };
   var notices = getNotices();
   var noticeList = (notices.length ? '<h3 id="menu_notices">' + ico("info") + tr("공지") + "</h3><div class=\"mlist\">" + notices.map(function (n) {
@@ -1843,11 +1853,7 @@ function renderMenu() {
       return "<" + (act ? 'button type="button"' + act : "div") + ' class="note ' + (n.level === "warn" ? "lv-warn" : "lv-note") + (closed ? " closed" : "") + '">' +
         ico(n.level === "warn" ? "warn" : "info") + "<span>" + esc(n.text) + '</span><span class="sub num">' + esc(closed ? tr("닫음") : n.date ? mmdd(n.date) : "") + "</span></" + (act ? "button" : "div") + ">";
     }).join("") + "</div>" : "");
-  el.innerHTML = "<h3>" + ico("clock") + tr("최근 대상지") + "</h3>" +
-    (recent.length ? '<div class="mlist">' + recent.map(function (r, i) {
-      return '<button type="button" class="recent" data-act="recent" data-i="' + i + '"' + (lock ? " disabled" : "") + '>' + ico(r.mode && MODE_SHORT[r.mode] ? r.mode : "lots") + "<span>" + esc(r.label) + '</span><span class="sub num">' + esc(fmtNum(r.total_area)) + " " + sqm() + ", " + esc(mmdd(r.date)) + "</span>" + ico("next") + "</button>";
-    }).join("") + "</div>" : '<div class="hint">' + tr("아직 없습니다. 필지로 만들면 여기에 남습니다") + "</div>") +
-    "<h3>" + tr("설정") + "</h3>" +
+  el.innerHTML = "<h3>" + tr("설정") + "</h3>" +   // 최근 대상지는 트레이에만(2026-10-30 — 메뉴·트레이·검색 ↓ 세 군데였다)
     '<div class="mlist">' +
       row(tr("폴더 경로"), '<span class="mono">' + esc(p.root || "") + "</span>", '<button type="button" class="btn sm" data-act="open" data-path="' + esc(p.root || "data") + '">' + ico("folder") + tr("열기") + "</button>", tr("{0} (결과 result, 지역 데이터 data)", p.root || "")) +
       row(tr("한국 자료"), '<div class="seg" role="group" aria-label="' + tr("한국 자료") + '">' +
@@ -1861,7 +1867,8 @@ function renderMenu() {
       // [/blender-cut]
     "</div>" +
     "<h3>" + tr("도움") + "</h3>" +
-    '<div class="mlist">' + row(tr("웹페이지"), '<button type="button" class="link" data-act="open_url" data-key="' + siteKey() + '" title="' + tr("설치와 사용법") + '">' + esc(String((init.links || {})[siteKey()] || (init.links || {}).website || tr("고라니 웹페이지")).replace(/^https?:\/\//, "").replace(/\/$/, "")) + "</button>", "") + "</div>" +
+    '<div class="mlist">' + row(tr("웹페이지"), '<button type="button" class="link" data-act="open_url" data-key="' + siteKey() + '" title="' + tr("설치와 사용법") + '">' + esc(String((init.links || {})[siteKey()] || (init.links || {}).website || tr("고라니 웹페이지")).replace(/^https?:\/\//, "").replace(/\/$/, "")) + "</button>", "") +
+      row(tr("문의"), '<button type="button" class="link" data-act="open_url" data-key="contact" title="' + tr("메일 보내기") + '">' + esc(String((init.links || {}).contact || "").replace(/^mailto:/, "")) + "</button>", "") + "</div>" +
     noticeList + '<p class="menu-ver">Gorani ' + esc(init.version || "") + "</p>";
 }
 function openMenu() {
@@ -1955,6 +1962,7 @@ var ACTIONS = {
   force_osm: function (b) { var on = b.dataset.v ? b.dataset.v === "1" : !forceOsm(); if (on !== forceOsm()) setForceOsm(on); },
   menu: function () { if (state.menuOpen) closeMenu(true); else openMenu(); },
   recent: function (b) { loadRecent(+b.dataset.i); },
+  recent_del: function (b) { removeRecent(+b.dataset.i); },
   download_stop: function () { state.noAutoDownload = true; send({ cmd: "cancel" }); },
   download_area: function () { var a = state.areaPacks; if (a && a.missing.length) startDownload(a.missing); },
   search: doSearch,
@@ -2261,7 +2269,7 @@ var handlers = {
     state.result = m; state.result.sheets = []; state.made2d = null; state.job2d = "idle"; state.form2d = true; state.dl = null; state.resultKey = state.runKey; if (state.runTarget) state.madeTargets[state.runTarget] = true;
     state.appliedStyle = fullStyle(state.options.style); state.styleEdit = clone(state.appliedStyle); state.styleOpen = false;
     state.run = "done"; state.screen = "result"; render();
-    if (state.mode === "lots" && state.lotState && state.init) {   // 메뉴의 최근 대상지 — Python이 prefs에 넣는 것(site_prefs.add_recent)과 같은 꼴로 앞에 넣는다
+    if (state.mode === "lots" && state.lotState && state.init) {   // 트레이의 최근 대상지 — Python이 prefs에 넣는 것(site_prefs.add_recent)과 같은 꼴로 앞에 넣는다
       var key = state.lots.slice().sort().join();
       state.init.recent = [{ pnus: state.lots.slice(), label: String(m.lot_name || "").replace(/_/g, " "), total_area: state.lotState.total_area, date: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) }]
         .concat((state.init.recent || []).filter(function (r) { return r.pnus.slice().sort().join() !== key; })).slice(0, 5);

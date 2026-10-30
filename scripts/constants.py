@@ -175,6 +175,7 @@ ADDRESS_SEARCH_MAX_RESULTS = 20
 PANEL_LINKS = {
     "website": "https://969flash.github.io/gorani/",   # 고라니 웹페이지 — 설치·사용법
     "website_en": "https://969flash.github.io/gorani/en/",   # 같은 페이지 영어판 — 패널 언어가 한국어가 아니면 이쪽
+    "contact": "mailto:gorani.3d@gmail.com",   # 문의 메일 — 더보기 메뉴 '문의'(2026-10-30 사용자)
 }
 
 # 토지이음(국토교통부) 토지이용계획 열람 상세 — 패널 필지 정보의 [토지이음 ↗](open_eum)과 parcels.csv eum_url.

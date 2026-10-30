@@ -52,6 +52,20 @@ def _load_cmd_site():
 cmd_site = _load_cmd_site()
 
 
+class NewerVersionTest(unittest.TestCase):
+    def test_newer_installed_version_wins(self):
+        """Rhino를 끄지 않고 업데이트하면 옛 판 폴더의 Gorani가 불린다 — 새 판 폴더의 cmd_site.py로 넘긴다."""
+        with tempfile.TemporaryDirectory() as tmp:
+            for name in ("0.3.3", "0.3.7", "0.3.10", "0.3.12"):
+                os.makedirs(os.path.join(tmp, name, "scripts"))
+                if name != "0.3.12":   # 지워지는 중인 판(scripts 없음)은 건너뛴다
+                    open(os.path.join(tmp, name, "scripts", "cmd_site.py"), "w").close()
+            old = os.path.join(tmp, "0.3.3", "scripts", "cmd_site.py")
+            self.assertEqual(cmd_site.get_newer_script(old), os.path.join(tmp, "0.3.10", "scripts", "cmd_site.py"))   # 숫자로 비교(0.3.10 > 0.3.7)
+            self.assertIsNone(cmd_site.get_newer_script(os.path.join(tmp, "0.3.10", "scripts", "cmd_site.py")))
+        self.assertIsNone(cmd_site.get_newer_script())   # 개발 저장소 — 판 폴더가 아니다
+
+
 class NoticeStateTest(unittest.TestCase):
     def test_notices_filtered_and_url_by_id(self):
         data_pack = cmd_site.loader.load("data_pack")
