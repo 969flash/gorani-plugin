@@ -183,7 +183,7 @@
 
 ## 6. 더보기 메뉴
 
-헤더 로고(Gorani)를 누르면 지도로 간다([← 지도로]와 같다, 만드는 중에는 안 감). 최근 대상지 · 설정(폴더 경로 [열기], 한국 자료 회색 토글 [국가 DB][OSM], 결과 언어 [한국어][English](폴더·파일 이름, 첫 값은 시스템 언어 — panel_ui.md '결과물 언어'), 사용 통계 — Blender·SketchUp만) · 도움(고라니 웹페이지 — `open_url{key:"website"}`) · 버전.
+헤더 로고(Gorani)를 누르면 지도로 간다([← 지도로]와 같다, 만드는 중에는 안 감). 최근 대상지 · 설정(폴더 경로 [열기], 한국 자료 회색 토글 [국가 DB][OSM], 결과 언어 [한국어][English](폴더·파일 이름, 첫 값은 시스템 언어 — panel_ui.md '결과물 언어'), 사용 통계 — Blender·SketchUp만) · 도움(고라니 웹페이지 — `open_url{key:"website"}`, 문의 메일 gorani.3d@gmail.com — `open_url{key:"contact"}`, mailto) · 버전.
 뺀 것(2026-10-19): VWorld 키(.env, 개발자용 — `docs/install.md`), 다시 확인(팩을 저절로 받는다), 로컬 install.md, 자료 기준일 표.
 나중에 넣을 것: 받은 지역 데이터(목록·용량·지우기), 최근 대상지에 구역·위치 방식.
 

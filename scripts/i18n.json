@@ -5758,5 +5758,17 @@
   "es": "Abriendo la versión recién instalada: {0}",
   "ja": "新しくインストールした版で開きます: {0}",
   "zh": "使用新安装的版本打开：{0}"
+ },
+ "문의": {
+  "en": "Contact",
+  "es": "Contacto",
+  "ja": "お問い合わせ",
+  "zh": "联系"
+ },
+ "메일 보내기": {
+  "en": "Send an email",
+  "es": "Enviar un correo",
+  "ja": "メールを送る",
+  "zh": "发送邮件"
  }
 }
