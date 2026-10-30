@@ -1,10 +1,11 @@
 #include "ResourceIds.hpp"
 
-// Graphisoft 개발자 등록으로 받은 애드온 ID(Developer ID, Local ID). 1·1은 개발용 — 데모 모드(-demo)에서만 켜진다.
-// 배포 전에 실제 ID로 바꾼다(dev_deploy.py archicad가 1·1이면 멈춘다)
+// Graphisoft 개발자 등록으로 받은 애드온 ID(Developer ID, Local ID) — 2026-10-30 승인. Developer ID 1127443810('C3mb'),
+// Local ID는 archicadapi.graphisoft.com 프로필 Add-ons의 'Gorani' 항목. 인증 키는 저장소에 넣지 않는다.
+// 개발용 1·1은 데모 모드에서만 켜진다(교육판·상용판은 거부, dev_deploy.py archicad가 1·1이면 멈춘다)
 'MDID' 32500 "Add-On Identifier" {
-	1
-	1
+	1127443810
+	3277390583
 }
 
 'FILE' ID_COMMON_SCHEMA_DEFINITIONS_FILE "" {
