@@ -275,7 +275,7 @@ class SidecarRunTest(unittest.TestCase):
 
     def test_elements(self):
         kinds = [e["type"] for e in self.fake.elements.values()]
-        self.assertGreater(kinds.count("Morph"), 3000)   # 건물 동마다 + 분류 면
+        self.assertGreater(kinds.count("Morph"), 2500)   # 건물 동마다 + 분류 면 — 범위 링으로 늘 자른다(53659d6), 성수 R500 2,743개
         self.assertEqual(kinds.count("Mesh"), 1)
         self.assertGreater(len(self.fake.mesh["polygonCoordinates"]), 4)
         self.assertIn("CTX::Buildings", self.fake.layers)
