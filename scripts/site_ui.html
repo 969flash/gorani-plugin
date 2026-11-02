@@ -1108,6 +1108,7 @@ function moveList(d) {
 function chooseList(i) {
   var kind = $("search_list").dataset.kind, it = listItems[i]; if (!it) return;
   hideList();
+  track("search_pick", kind === "recent" ? "recent" : it.pnu ? "lot" : "place");
   if (kind === "recent") { state.flyOnLot = true; send({ cmd: "select_lots", pnus: it.pnus.slice() }); }
   else useMatch(it);
 }
@@ -1955,6 +1956,22 @@ function requestCancel() {
   if (state.job2d === "running") { send({ cmd: "cancel" }); return; }
   var b = $("cancel_btn"); if (state.run === "running" && b && !b.disabled) send({ cmd: "cancel" });
 }
+var track = function () {}, trackAct = function () {};   // 누른 버튼 기록 — Blender판에는 없다(아래 구간을 빌드가 뺀다)
+// [blender-cut] 사용 통계 — 누른 버튼 이름과 짧은 분류값만(Python이 목록 밖은 버린다). 주소·검색어·경로는 보내지 않는다. 웹판은 site.js가 따로
+var TRACK = { recent: 0, recent_del: 0, mode: function (b) { return b.dataset.mode; }, force_osm: function () { return forceOsm() ? "osm" : "db"; },
+  output_lang: function (b) { return b.dataset.v; }, pick_curve: 0, eum: 0, download_area: 0, rerange: 0, to_result: 0, retry: 0,
+  open: function (b) { var m = /\.(\w+)$/.exec(b.dataset.path || ""); return m ? m[1] : "folder"; }, open_url: function (b) { return b.dataset.key; },
+  import: 0, export: function (b) { return b.dataset.scale; }, copylog: 0, sheet_ai: 0, sheet_ai_all: 0, sheet_view: 0, style_open: 0,
+  st_apply: function () { return (state.styleEdit && state.styleEdit.preset) || ""; }, st_save_ok: 0 };
+track = function (action, detail) {
+  if (HOST.id === "web") return;
+  send({ cmd: "track", action: action, detail: detail == null ? "" : String(detail) });
+};
+trackAct = function (b) {
+  var act = b.dataset.act; if (!(act in TRACK)) return;
+  try { track(act, TRACK[act] ? TRACK[act](b) : ""); } catch (e) {}
+};
+// [/blender-cut]
 var ACTIONS = {
   init: function () { send({ cmd: "init" }); },
   abroad: function () { setForceOsm(true); },
@@ -2085,7 +2102,7 @@ document.addEventListener("click", function (e) {
   if (e.target.id === "toast_act") { var fn = toastAction; hideToast(); if (fn) fn(); return; }
   if (state.menuOpen && !e.target.closest("#menu, #menu_btn")) closeMenu();
   var t = e.target.closest("[data-act]");
-  if (t) { if (t.disabled) return; var f = ACTIONS[t.dataset.act]; if (f) f(t); return; }
+  if (t) { if (t.disabled) return; var f = ACTIONS[t.dataset.act]; if (f) { f(t); trackAct(t); } return; }
   var li = e.target.closest("#search_list li"); if (li) { chooseList(+li.dataset.i); return; }
   var row = e.target.closest(".chip-row"); if (row) { flyToLot(row.dataset.pnu); return; }
   if (!e.target.closest(".search")) hideList();
@@ -2181,7 +2198,7 @@ var handlers = {
   search_result: function (m) {
     var msg = $("search_msg"); if (!msg) return;
     if (!m.matches || !m.matches.length) { msg.textContent = m.message || tr("찾지 못했습니다. 동 이름까지 적어 보세요(예: 성수동2가 277-17)"); return; }
-    if (m.matches.length === 1) { msg.textContent = ""; useMatch(m.matches[0]); return; }
+    if (m.matches.length === 1) { msg.textContent = ""; track("search_pick", m.matches[0].pnu ? "lot" : "place"); useMatch(m.matches[0]); return; }
     msg.textContent = m.message || tr("후보 {0}건", m.matches.length); showList(m.matches.slice(0, 8), "match"); moveList(1);
   },
   map_lots: function (m) {

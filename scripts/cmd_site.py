@@ -541,7 +541,7 @@ class _SiteController:
             "style_preview": self._style_preview, "apply_style": self._apply_style, "save_style": self._save_style, "sheet_ai": self._sheet_ai,
             "sheet_view": self._sheet_view, "area_packs": self._area_packs,
             # [blender-cut]
-            "stats_consent": self._stats_consent,
+            "stats_consent": self._stats_consent, "track": self._track,
             # [/blender-cut]
         }
         handler = handlers.get(cmd)
@@ -749,6 +749,9 @@ class _SiteController:
             self._running = False
         if response["error"] and not response["cancelled"]:
             self.push({"type": "log", "level": "error", "text": get_error_log_text(response["error"])})
+        # [blender-cut]
+        self._send_2d_stats(options, response)
+        # [/blender-cut]
         self.push(dict(response, type="made_2d"))
 
     # [blender-cut] 사용 통계
@@ -764,7 +767,28 @@ class _SiteController:
                       error=(response.get("error") or {}).get("code"), elapsed_s=response.get("elapsed_s"),
                       radius=options.get("radius"), shape=options.get("shape"), placement=options.get("placement"),
                       buildings=response["context"].get("buildings"))
+        try:
+            params["options3d"] = loader.load("usage_stats").get_options3d(options)
+        except Exception:
+            pass
         self._send_stats("build", params)
+
+    def _send_2d_stats(self, options, response):
+        # type: (dict, dict) -> None
+        """2D 만들기 한 번 → make_2d 이벤트(고른 산출물·장수·스타일, 결과·소요 시간)."""
+        try:
+            params = loader.load("usage_stats").get_outputs2d_params(options)
+        except Exception:
+            params = {}
+        params.update(result="ok" if response.get("ok") else ("cancelled" if response.get("cancelled") else "failed"),
+                      error=(response.get("error") or {}).get("code"), elapsed_s=response.get("elapsed_s"))
+        self._send_stats("make_2d", params)
+
+    def _track(self, msg):
+        """패널 버튼 하나 → ui 이벤트. 목록 밖 버튼·값은 usage_stats.get_ui_params가 버린다."""
+        params = loader.load("usage_stats").get_ui_params(str(msg.get("action") or ""), msg.get("detail"))
+        if params:
+            self._send_stats("ui", params)
     # [/blender-cut]
 
     def _area_packs(self, msg):
@@ -1007,7 +1031,7 @@ _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "s
                    "zoom_view": "open", "open_path": "open", "open_eum": "open", "open_url": "open", "save_prefs": "init", "remove_recent": "init", "cancel": "generate", "make_2d": "generate", "download_data": "init",
                    "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style", "sheet_view": "view",
                    # [blender-cut]
-                   "stats_consent": "init",
+                   "stats_consent": "init", "track": "init",
                    # [/blender-cut]
                    }
 
