@@ -56,8 +56,6 @@ import sys
 import sysconfig
 import tokenize
 
-import shapely
-
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SCRIPTS_DIR)
 sys.path.insert(0, SCRIPTS_DIR)
@@ -1033,6 +1031,7 @@ def _rewrite_geometries(connection, table, id_column, where, digits, tolerance=N
 
 def _rewrite_rows(connection, table, id_column, rows, digits, tolerance):
     # type: (sqlite3.Connection, str, str, list, int, float) -> None
+    import shapely   # 팩 만들 때만 — 맨 위에 두면 관리자 페이지(dev_admin → dev_deploy)가 macOS 기본 파이썬에서 안 열렸다(2026-11-04)
     updates = []
     for row_id, text in rows:
         geometry = json.loads(text)
