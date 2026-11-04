@@ -520,7 +520,8 @@
    "doc": "Rhino 문서",
    "model": "context.3dm",
    "dwg": true,
-   "ask_stats": false
+   "ask_stats": false,
+   "brep": true
   },
   "links": {
    "website": "https://969flash.github.io/gorani/",

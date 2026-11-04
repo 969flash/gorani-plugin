@@ -185,14 +185,9 @@ def _get_ring_crv(ring, origin, z):
     return rg.PolylineCurve(pts)
 
 
-def _get_prism_mesh(part, origin, base_z, height):
-    # type: (list, tuple, float, float) -> rg.Mesh
-    """건물 한 파트(외곽 링 + 구멍 링들, 세계좌표) → 닫힌 각기둥 Mesh(로컬). 실패면 None.
-
-    Extrusion을 만들고 Rhino 내장 Mesh.CreateFromExtrusion(Minimal)으로 메시화한다 — 파이썬에서 정점을 하나씩 넣는 직접 조립(0.74 s)보다
-    빠르고(3,454동 0.16 s) 결과가 같다(면 44,423·전부 닫힘, 2026-10-08 실측).
-    왜 Mesh인가: Extrusion 3,454동은 Rhino가 첫 음영 화면에서 동마다 렌더 메시를 만들어 18.7 s 멈춘다. 동별 Mesh는 0.9 s.
-    """
+def _get_prism_extrusion(part, origin, base_z, height):
+    # type: (list, tuple, float, float) -> rg.Extrusion
+    """건물 한 파트(외곽 링 + 구멍 링들, 세계좌표) → 닫힌 각기둥 Extrusion(로컬). 실패면 None."""
     plane = rg.Plane(rg.Point3d(0, 0, base_z), rg.Vector3d.ZAxis)
     ext = rg.Extrusion.Create(_get_ring_crv(part[0], origin, base_z), plane, float(height), True)
     if ext is None:
@@ -204,7 +199,33 @@ def _get_prism_mesh(part, origin, base_z, height):
         hole_crv = _get_ring_crv(hole, origin, base_z)
         hole_crv.Transform(to_profile)
         ext.AddInnerProfile(hole_crv)
-    return rg.Mesh.CreateFromExtrusion(ext, rg.MeshingParameters.Minimal)
+    return ext
+
+
+def _get_prism_mesh(part, origin, base_z, height):
+    # type: (list, tuple, float, float) -> rg.Mesh
+    """건물 한 파트 → 닫힌 각기둥 Mesh(로컬). 실패면 None.
+
+    Extrusion을 만들고 Rhino 내장 Mesh.CreateFromExtrusion(Minimal)으로 메시화한다 — 파이썬에서 정점을 하나씩 넣는 직접 조립(0.74 s)보다
+    빠르고(3,454동 0.16 s) 결과가 같다(면 44,423·전부 닫힘, 2026-10-08 실측).
+    왜 Mesh인가: Extrusion 3,454동은 Rhino가 첫 음영 화면에서 동마다 렌더 메시를 만들어 18.7 s 멈춘다. 동별 Mesh는 0.9 s.
+    """
+    ext = _get_prism_extrusion(part, origin, base_z, height)
+    return None if ext is None else rg.Mesh.CreateFromExtrusion(ext, rg.MeshingParameters.Minimal)
+
+
+def _get_prism_brep(part, origin, base_z, height):
+    # type: (list, tuple, float, float) -> rg.Brep
+    """건물 한 파트 → 닫힌 폴리서피스(options.geometry_type = brep). 실패면 None. 꺾인 면은 나눈다(ToBrep(True))."""
+    ext = _get_prism_extrusion(part, origin, base_z, height)
+    return None if ext is None else ext.ToBrep(True)
+
+
+def get_mesh_brep(mesh):
+    # type: (rg.Mesh) -> rg.Brep
+    """메시 → Brep(options.geometry_type = brep). 메시 면 하나 = Brep 면 하나. 실패면 None — 부른 쪽이 메시로 남긴다.
+    같은 평면 면 합치기(MergeCoplanarFaces)는 하지 않는다 — 성수 333-139 사각형 200 m 지형 3,992면: 변환 0.23 s, 합치기 108.8 s(2026-11-05 Rhino 8 실측)."""
+    return rg.Brep.CreateFromMesh(mesh, True)
 # [/blender-cut]
 
 
@@ -669,7 +690,8 @@ def build_terrain(prepared):
 
 def _get_terrain_items(prepared, meshes, counts):
     # type: (object, dict, dict) -> list
-    """분류별 메시 + 구조물 위 표고점 → BakeItem(code_map §7.1 UserString)."""
+    """분류별 메시 + 구조물 위 표고점 → BakeItem(code_map §7.1 UserString). options.geometry_type = brep면 메시를 Brep으로."""
+    as_brep = (prepared.request.get("options") or {}).get("geometry_type") == "brep"
     items = []
     for cls, mesh in meshes.items():
         if cls == "all":
@@ -698,7 +720,13 @@ def _get_terrain_items(prepared, meshes, counts):
             layer = "Site::ground" if counts.get("site_output") == "mesh" else "Terrain::site_flat"
         else:
             layer = SITE_LAYERS.get(cls) or CLASS_LAYERS[cls]
-        items.append(BakeItem(_layer(layer), mesh, attrs))
+        geometry = mesh
+        if as_brep:
+            geometry = get_mesh_brep(mesh)
+            if geometry is None:   # 변환 실패면 그 분류만 메시로 남긴다
+                geometry = mesh
+                counts.setdefault("brep_failed", []).append(cls)
+        items.append(BakeItem(_layer(layer), geometry, attrs))
     min_x, min_y, max_x, max_y = counts["tin_bounds"]
     for f in prepared.context.get_features("terrain", "spot_struct"):
         x, y = float(f.geometry["coordinates"][0]), float(f.geometry["coordinates"][1])
@@ -744,9 +772,12 @@ def build_buildings(prepared, tin_mesh):
     입력: Prepared, tin_mesh = build_terrain()의 meshes["all"](로컬 좌표 전체 TIN).
     처리: 발자국 정점 전체를 ProjectPointsToMeshesEx 1회 → indices로 동별 최저 Z(base_z)·고저차 → 투영 0인 동은 ① 최근접 TIN 정점 Z
           ② 없으면 건너뜀 → 고저차 > BUILDING_SLOPE_FLAG면 HEIGHT_SRC '~slope' → 파트별 각기둥 Mesh(_get_prism_mesh)를 동 하나로 합친다.
+          options.geometry_type = brep면 Mesh 대신 닫힌 폴리서피스(_get_prism_brep).
     출력: ``(items, counts, skipped, warnings)``. skipped = 건너뛴 동 'BLD_ID(사유)' 목록, counts에 투영·폴백·실패 수.
     """
     origin = prepared.origin
+    as_brep = (prepared.request.get("options") or {}).get("geometry_type") == "brep"
+    make_part = _get_prism_brep if as_brep else _get_prism_mesh
     buildings, parts_by_building, clipped = get_building_parts(prepared, get_clip_ring(prepared))
     top_z = tin_mesh.GetBoundingBox(True).Max.Z + 1.0
     pts, owner = [], []
@@ -791,16 +822,16 @@ def build_buildings(prepared, tin_mesh):
             counts["fallback_nearest"] += 1
         height_src = b.height_src + ("~slope" if top - base_z > constants.BUILDING_SLOPE_FLAG else "")
         attrs = get_building_attrs(b, height_src)
-        building_mesh = rg.Mesh()          # 멀티폴리곤 파트도 한 동 = 한 객체(UserText 한 벌)
+        building_geo = rg.Brep() if as_brep else rg.Mesh()   # 멀티폴리곤 파트도 한 동 = 한 객체(UserText 한 벌)
         made = 0
         for part in parts:
-            part_mesh = _get_prism_mesh(part, origin, base_z, float(b.height_m))
-            if part_mesh is None:
+            part_geo = make_part(part, origin, base_z, float(b.height_m))
+            if part_geo is None:
                 continue
-            building_mesh.Append(part_mesh)
+            building_geo.Append(part_geo)
             made += 1
         if made:
-            items.append(BakeItem(_layer("Buildings"), building_mesh, attrs, b.bld_nm))
+            items.append(BakeItem(_layer("Buildings"), building_geo, attrs, b.bld_nm))
         counts["parts"] += made
         if not made:
             # 자기교차 발자국 → 캡·Extrusion 모두 실패 (벤치 8,517동 중 2) — 건너뛰고 기록
@@ -959,6 +990,8 @@ def build(prepared):
     counts["curves"] = len(curve_items)
     counts["items"] = len(items)
     counts["demolished"] = 0   # v1: status 전부 active (code_map §7.1 P1)
+    if counts.get("brep_failed"):
+        warnings.append(_warning("warn", "brep_failed", tr("지형 일부를 Brep으로 바꾸지 못해 메시로 냈습니다"), ", ".join(counts["brep_failed"])))
     if get_clip_ring(prepared) is None:
         warnings.append(_warning("info", "clip_skipped", tr("범위가 원이나 사각형이 아니라 경계에서 자르지 않았습니다")))
     return ContextGeo(items=items, terrain_tris_world=tris, counts=counts, skipped=skipped, warnings=warnings)

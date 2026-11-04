@@ -74,6 +74,7 @@
 | 좌표 | `placement` | [원점(0,0)] [GIS 좌표] | 원점(0,0) | 대상지가 한국 안 |
 | 지형 | `terrain_step` | 매끈하게 / 계단 1·2·5 m(등고 모형) | 매끈하게 | 늘 |
 | 지형을 바닥까지 채우기 | `terrain_block` | 체크박스(지형 옆면·바닥까지 덩어리로). 끄면 요약에 '지형 표면만' | 켬 | 늘 |
+| 형상 | `geometry_type` | [Mesh] [Brep](건물 닫힌 폴리서피스·지형 Brep 면, 무겁다). Brep이면 요약에 'Brep' | Mesh | Rhino 8만(`host.brep`) |
 | 대상지 | `site_output` | [Line] [Surface](경계선과 함께 경계로 자른 지형) | 방식 기본(필지 바닥면, 구역 경계선) | 필지·구역 |
 | 대상지 평탄화 | `flatten_site`·`flatten_level` | 끔 / 경계 평균·최저·최고 높이로(높이 기준 선택칸은 켰을 때만 보인다) | 끔 | 필지·구역 |
 | 용도지역 경계선 | `include_zoning` | 넣기 / 빼기 | 넣기 | Korea |
