@@ -360,7 +360,7 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
  "terrain_vertex_color":false,
  "terrain_step":0,                                     // 지형 표현(③ 지형): 0 = 매끈, 1|2|5 = 계단형(등고 모형) 단 간격 m. 지반·수면 메시를 단마다 수평면 + 수직 벽으로, 건물 바닥도 계단 지반 기준
  "terrain_block":true,                                 // 지형을 바닥까지 채우기: 지형 옆면·바닥(CTX::Terrain::block, BASE_M). 건물·필지·도로중심선·용도지역은 이 값과 상관없이 늘 범위 링으로 자른다(원·사각형 범위만). 끄면 3D 설정 요약에 '지형 표면만'. 입체 매스도는 style.axo_ground
- "geometry_type":"mesh",                               // 3D 형상(Rhino 8만 — host.brep): mesh = 동별·분류별 Mesh(기본), brep = 건물은 닫힌 폴리서피스(Extrusion.ToBrep), 지형·수면·대상지 바닥·덩어리는 메시 면 하나 = Brep 면 하나(같은 평면 면 합치기는 느려서 안 한다). 변환 실패한 분류는 메시로 남기고 warn brep_failed. Brep이면 3D 설정 요약에 'Brep'
+ "geometry_type":"mesh",                               // 3D 형상(Rhino 8만 — host.brep): mesh = 동별·분류별 Mesh(기본), brep = 건물은 닫힌 폴리서피스(Extrusion.ToBrep), 지형·수면·대상지 바닥·덩어리는 같은 평면인 메시 면을 평면 면 하나로 묶고 나머지는 메시 면 하나 = Brep 면 하나(context_geometry.get_mesh_brep — 모양·면적은 메시와 같다). 변환 실패한 분류는 메시로 남기고 warn brep_failed. Brep이면 3D 설정 요약에 'Brep'
  "make_dwg":false,                                     // 3dm 2D 도면(BM::)만 basemap_<축척>.dwg로도 저장(고급 > 3dm). 결과 경로는 done.context.dwg
  "zoom_after_import":true,
  "style":{"preset":"std"}}                              // 도면 스타일 — 사용자가 고른·바꾼 값. 해석은 sheet_svg.get_style(STYLE_*): 색 10개(paper·block·road·green·water·building·rail·site·extent·ink),

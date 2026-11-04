@@ -223,9 +223,58 @@ def _get_prism_brep(part, origin, base_z, height):
 
 def get_mesh_brep(mesh):
     # type: (rg.Mesh) -> rg.Brep
-    """메시 → Brep(options.geometry_type = brep). 메시 면 하나 = Brep 면 하나. 실패면 None — 부른 쪽이 메시로 남긴다.
-    같은 평면 면 합치기(MergeCoplanarFaces)는 하지 않는다 — 성수 333-139 사각형 200 m 지형 3,992면: 변환 0.23 s, 합치기 108.8 s(2026-11-05 Rhino 8 실측)."""
-    return rg.Brep.CreateFromMesh(mesh, True)
+    """
+    입력: 분류별 지형 메시(로컬 m). options.geometry_type = brep일 때만.
+    처리: 같은 평면인 이웃 면을 n-gon으로 묶고(Mesh.MergeAllCoplanarFaces — 같은 TIN 삼각형 위 3 m 칸들) n-gon마다 평면 면 하나,
+          나머지 면은 Brep.CreateFromMesh → JoinBreps로 이어 붙인다. 모양·면적은 메시와 같다.
+          구멍 있는 n-gon은 묶지 않고, 평면 면이 아래를 보면 메시 면 쪽으로 뒤집는다.
+          성수 333-139 사각형 500 m(2026-11-05 Rhino 8 실측): 지형 면 28,608 → 8,461·도로 12,278 → 4,054, 3dm 111 → 44 MB,
+          화면 있는 문서 전체 실행 4.3 → 3.6 s(Mesh 1.4 s). 층별 면적은 메시와 같다(tests/rhino/driver_brep.py).
+          Brep.MergeCoplanarFaces는 3,992면에 108.8 s, Brep.JoinNakedEdges는 8.2 s, 분류별 스레드는 0.35 s 이득이라 쓰지 않는다.
+    출력: Brep 하나(떨어진 덩어리는 한 Brep 안의 여러 껍질). 실패면 None — 부른 쪽이 메시로 남긴다.
+    """
+    tol = constants.GEOMETRY_TOLERANCE
+    flat = mesh.DuplicateMesh()
+    flat.MergeAllCoplanarFaces(tol, math.radians(constants.BREP_COPLANAR_ANGLE))
+    flat.FaceNormals.ComputeFaceNormals()
+    pieces, merged = [], []
+    for k in range(flat.Ngons.Count):
+        ngon = flat.Ngons[k]
+        faces = list(ngon.FaceIndexList())
+        # 구멍 있는 n-gon(블록을 두른 도로 고리)은 경계가 바깥 테두리뿐이라 구멍이 메워진다 — 그 면들은 아래 CreateFromMesh로
+        # (성수 333-139 사각형 500 m 도로 50,022 → 56,646 ㎡, 2026-11-05)
+        if len(faces) < 2 or flat.Ngons.NgonHasHoles(k):
+            continue
+        loop = [flat.Vertices.Point3dAt(int(i)) for i in ngon.BoundaryVertexIndexList()]
+        loop.append(loop[0])
+        planar = rg.Brep.CreatePlanarBreps(rg.PolylineCurve(loop), tol)
+        if planar and len(planar) == 1:   # 안 되면 그 면들도 아래 CreateFromMesh로
+            face = planar[0].Faces[0]
+            u, v = face.Domain(0).Mid, face.Domain(1).Mid
+            normal = -face.NormalAt(u, v) if face.OrientationIsReversed else face.NormalAt(u, v)
+            if normal * rg.Vector3d(flat.FaceNormals[faces[0]]) < 0:   # 경계 돌림 방향 따라 아래를 볼 수 있다 — 메시 면과 같은 쪽으로
+                planar[0].Flip()
+            pieces.append(planar[0])
+            merged.extend(int(f) for f in faces)
+    rest = flat
+    rest.Ngons.Clear()
+    if merged:
+        rest.Faces.DeleteFaces(merged, True)
+        rest.Compact()
+    if rest.Faces.Count:
+        rest_brep = rg.Brep.CreateFromMesh(rest, True)
+        if rest_brep is None:
+            return None
+        pieces.append(rest_brep)
+    if len(pieces) <= 1:
+        return pieces[0] if pieces else None
+    joined = rg.Brep.JoinBreps(pieces, tol)
+    if not joined:
+        return None
+    out = joined[0]
+    for k in range(1, len(joined)):   # .NET 배열은 슬라이스가 안 된다
+        out.Append(joined[k])
+    return out
 # [/blender-cut]
 
 

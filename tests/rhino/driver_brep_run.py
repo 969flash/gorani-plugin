@@ -1,5 +1,5 @@
 # Brep 출력 전체 실행 — context_builder.run(geometry_type=brep, 333-139 사각형 500 m) → 헤드리스 문서에 불러오기까지. 단언: ok·imported·건물 Brep.
-# python3 scripts/dev_rhino_run.py tests/rhino/driver_brep_run.py → out/log.txt·context.3dm. 사용자 문서는 건드리지 않는다.
+# python3 scripts/dev_rhino_run.py tests/rhino/driver_brep_run.py → out/log.txt·context_brep_run.3dm. 사용자 문서는 건드리지 않는다.
 import os
 import shutil
 import time
@@ -25,7 +25,7 @@ for ro in context_baker._get_objects(doc):
     kinds.setdefault(layer, set()).add(ro.ObjectType.ToString())
 print({k: sorted(v) for k, v in kinds.items() if "Zoning" not in k})
 path = response["context"]["path"]
-shutil.copy2(path, os.path.join(OUT_DIR, "context.3dm"))   # noqa: F821
+shutil.copy2(path, os.path.join(OUT_DIR, "context_brep_run.3dm"))   # noqa: F821 — context.3dm이면 test_3dm_readback이 집는다
 print("3dm MB", round(os.path.getsize(path) / 1e6, 1))
 assert response["ok"] and response["context"]["imported"], response["error"]
 assert kinds["CTX::Buildings"] == {"Brep"}, kinds["CTX::Buildings"]
