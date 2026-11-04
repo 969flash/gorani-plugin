@@ -309,7 +309,9 @@ def get_property_kinds(token):
     # type: (str) -> list
     """서비스 계정이 볼 수 있는 속성 → [(속성 번호, 이름, rhino|sketchup|web)]. 측정 ID로 구분하고 모르는 속성(옛 Blender)은 뺀다."""
     headers = {"Authorization": "Bearer " + token}
-    kinds = dict((ids[0], host) for host, ids in constants.GA_STREAMS.items())
+    kinds = {}
+    for host, ids in constants.GA_STREAMS.items():   # 같은 측정 ID를 함께 쓰는 판(rhino7 = rhino 속성)은 앞 이름 — 뒤가 덮어써 Rhino 화면이 비었다(2026-11-04)
+        kinds.setdefault(ids[0], host)
     kinds[constants.ADMIN_GA_WEB_ID] = "web"
     found = []
     for account in _get_json(GA_ADMIN_URL + "accountSummaries?pageSize=200", headers=headers).get("accountSummaries", []):
