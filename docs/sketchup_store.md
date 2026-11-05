@@ -147,3 +147,4 @@ Support: https://github.com/969flash/gorani/issues
 ## 아직 못 한 것
 
 - Windows 실기 시험(번들 `pythonw.exe` 사이드카·SmartScreen). 이 Mac에서는 mac-arm64만 돌려 봤다.
+  - 2026-11-05 Windows 사용자 로그: 사이드카가 `sys.stdout.write`에서 `AttributeError: 'NoneType'`으로 죽어 패널이 안 열렸다. 창 없는 `pythonw.exe`에는 Ruby `IO.popen` 파이프가 닿지 않는다(stdout·stdin = None, stderr를 파일로 돌린 것만 살았다). 고침: Windows는 `Process.spawn`으로 stdout을 파일 `~/Gorani/sketchup_sidecar.url`에 받고, 창을 닫는 알림은 패널 주소의 `POST /cmd`(`panel_closed`), SketchUp 종료는 사이드카가 SketchUp 프로세스 번호를 지켜본다(`cmd_sketchup._watch_parent`). Mac은 그대로 파이프. 같은 길을 이 Mac에서 `tests/test_sketchup.py WindowsHandshakeTest`로 돌린다. **Windows 실기 확인은 아직** — 고친 .rbz를 그 PC에서 깔아 본다.
