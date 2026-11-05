@@ -5764,5 +5764,11 @@
   "es": "Enviar un correo",
   "ja": "メールを送る",
   "zh": "发送邮件"
+ },
+ "OSM 서버가 붐벼 다시 시도합니다 ({0}/{1}, {2}초 뒤)": {
+  "en": "OSM server is busy. Retrying ({0}/{1}) in {2} s",
+  "es": "El servidor de OSM está ocupado. Reintento ({0}/{1}) en {2} s",
+  "ja": "OSMサーバーが混雑しています。再試行 ({0}/{1})、{2}秒後",
+  "zh": "OSM 服务器繁忙，{2} 秒后重试（{0}/{1}）"
  }
 }

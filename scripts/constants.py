@@ -245,8 +245,9 @@ OSM_OVERPASS_URLS = ("https://overpass-api.de/api/interpreter", "https://overpas
 OSM_MIRROR_TIMEOUT_SECONDS = 30   # 두 번째 미러부터 — 다 죽은 날 생성이 수 분 멈추지 않게(첫 서버는 OSM_TIMEOUT_SECONDS)
 # 첫 서버(overpass-api.de)가 502·503·504(순간 붐빔)면 쉬었다 한 번 더 — 2026-10-25 가상 사용자 트롬쇠 2D: 502 직후 같은 질의가 58 s에 4.9 MB로 받아졌다.
 # 두 번째(openstreetmap.fr)는 응답을 약 1.8 MB에서 끊어(200인데 JSON이 깨짐) 큰 질의의 대체가 못 된다
-OSM_GATEWAY_RETRIES = 1
-OSM_GATEWAY_WAIT_SECONDS = 10
+# 2026-11-04 GA: 해외 생성의 26 %(10/39)가 osm_failed — 다시 재 보니 overpass-api.de 502, openstreetmap.fr은 403('white-listed usages only'),
+# 잠시 뒤 같은 질의는 53.7 s에 받아졌다(Innsbruck 1 km). 기다림을 늘려 세 번까지(합 50 s). 시간 초과는 다시 묻지 않는다(한 번에 60 s)
+OSM_RETRY_WAITS = (5.0, 15.0, 30.0)   # s — 첫 서버가 429·502·503·504·runtime error일 때 n번째 다시 묻기 전 기다림
 OSM_OVERPASS_QUERY = """[out:json][timeout:55][bbox:{bbox}];
 (
   way["building"]; relation["building"]["type"="multipolygon"];
