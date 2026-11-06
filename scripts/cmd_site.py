@@ -119,6 +119,10 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
     notice = loader.load("data_pack").get_notice_state(manifest)
     if not host.get("update_notice", True):   # Blender — 업데이트는 확장 저장소(Blender)가 알린다
         notice["update"] = None
+    # [blender-cut]
+    if host.get("self_update"):   # Rhino 8·7 — yak이 있어야 [지금 업데이트], 없으면 수동 안내
+        host["self_update"] = bool(loader.load("data_pack").get_yak_path())
+    # [/blender-cut]
     return dict({
         "type": "init_state",
         "version": constants.PANEL_VERSION,
@@ -538,6 +542,9 @@ class _SiteController:
             "preflight": self._preflight, "generate": self._generate, "make_2d": self._make_2d, "cancel": self._cancel,
             "import_context": self._import_context, "export_basemap": self._export_basemap, "zoom_view": self._zoom_view,
             "open_path": self._open_path, "open_eum": self._open_eum, "open_url": self._open_url, "save_prefs": self._save_prefs, "remove_recent": self._remove_recent, "download_data": self._download_data,
+            # [blender-cut]
+            "install_update": self._install_update,
+            # [/blender-cut]
             "style_preview": self._style_preview, "apply_style": self._apply_style, "save_style": self._save_style, "sheet_ai": self._sheet_ai,
             "sheet_view": self._sheet_view, "area_packs": self._area_packs,
             # [blender-cut]
@@ -957,7 +964,20 @@ class _SiteController:
             raise ValueError(tr("알 수 없는 링크입니다: {0}", msg.get("key")))
         self._open(url)
 
-    # [blender-cut]
+    # [blender-cut] 업데이트는 Blender 확장 저장소가 한다
+    def _install_update(self, msg):
+        """[지금 업데이트] — yak으로 최신 판을 깐다(Rhino 8·7). update_state{running} → update_state{done|failed, text}. 새 판은 Rhino를 다시 시작하면."""
+        if self._running:   # 패널은 이미 '설치 중' — 오류 푸시가 아니라 실패로 돌려야 버튼이 돌아온다
+            self.push({"type": "update_state", "state": "failed", "text": tr("다른 작업이 진행 중입니다")})
+            return
+        self.push({"type": "update_state", "state": "running", "text": ""})
+        self._running = True
+        try:
+            ok, output = loader.load("data_pack").install_update(tick=self._pump)
+        finally:
+            self._running = False
+        self.push({"type": "update_state", "state": "done" if ok else "failed", "text": "" if ok else output})
+
     def _stats_consent(self, msg):
         loader.load("site_prefs").save_stats_consent(bool(msg.get("on")))
     # [/blender-cut]
@@ -1031,7 +1051,7 @@ _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "s
                    "zoom_view": "open", "open_path": "open", "open_eum": "open", "open_url": "open", "save_prefs": "init", "remove_recent": "init", "cancel": "generate", "make_2d": "generate", "download_data": "init",
                    "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style", "sheet_view": "view",
                    # [blender-cut]
-                   "stats_consent": "init", "track": "init",
+                   "stats_consent": "init", "track": "init", "install_update": "init",
                    # [/blender-cut]
                    }
 

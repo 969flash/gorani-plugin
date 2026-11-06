@@ -5800,5 +5800,47 @@
   "es": "El servidor de OSM está ocupado. Reintento ({0}/{1}) en {2} s",
   "ja": "OSMサーバーが混雑しています。再試行 ({0}/{1})、{2}秒後",
   "zh": "OSM 服务器繁忙，{2} 秒后重试（{0}/{1}）"
+ },
+ "지금 업데이트": {
+  "en": "Update now",
+  "es": "Actualizar ahora",
+  "ja": "今すぐアップデート",
+  "zh": "立即更新"
+ },
+ "설치 중…": {
+  "en": "Installing…",
+  "es": "Instalando…",
+  "ja": "インストール中…",
+  "zh": "正在安装…"
+ },
+ "설치했습니다": {
+  "en": "Installed",
+  "es": "Instalado",
+  "ja": "インストールしました",
+  "zh": "已安装"
+ },
+ "{0}을 다시 시작하면 Gorani {1}이 열립니다": {
+  "en": "Restart {0} to open Gorani {1}",
+  "es": "Reinicie {0} para abrir Gorani {1}",
+  "ja": "{0}を再起動するとGorani {1}が開きます",
+  "zh": "重新启动 {0} 后将打开 Gorani {1}"
+ },
+ "업데이트하지 못했습니다. 아래 순서로 직접 업데이트하세요.": {
+  "en": "Could not update. Please update manually with the steps below.",
+  "es": "No se pudo actualizar. Actualice manualmente con los pasos siguientes.",
+  "ja": "アップデートできませんでした。以下の手順で手動でアップデートしてください。",
+  "zh": "无法更新。请按以下步骤手动更新。"
+ },
+ "Rhino 패키지 도구(yak)를 찾지 못했습니다": {
+  "en": "Could not find the Rhino package tool (yak)",
+  "es": "No se encontró la herramienta de paquetes de Rhino (yak)",
+  "ja": "Rhinoのパッケージツール(yak)が見つかりません",
+  "zh": "找不到 Rhino 包管理工具（yak）"
+ },
+ "업데이트가 너무 오래 걸려 멈췄습니다": {
+  "en": "The update took too long and was stopped",
+  "es": "La actualización tardó demasiado y se detuvo",
+  "ja": "アップデートに時間がかかりすぎたため停止しました",
+  "zh": "更新耗时过长，已停止"
  }
 }
