@@ -445,6 +445,11 @@ def build_terrain(prepared):
         if block[1]:
             meshes["block"] = block
         counts["block_base"] = base
+    if "water" in meshes:   # 수면 판 둘레 높이 차를 세로 벽으로 막아 지형에 붙인다(non_rhino_utils.get_water_walls)
+        walls = non_rhino_utils.get_water_walls(meshes["water"], [meshes[k] for k in ("terrain", "road", "green", "rail", "site_ground") if k in meshes])
+        if walls[1]:
+            meshes["terrain"] = _join([meshes.get("terrain", ([], [])), walls])
+        counts["water_walls"] = len(walls[1])
     surfaces = ("terrain", "road", "green", "rail", "site_ground")
     counts["faces"] = sum(len(m[1]) for k, m in meshes.items() if k in surfaces)
     counts["quads"] = 0

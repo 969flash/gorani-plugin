@@ -81,7 +81,7 @@ class RunTest(unittest.TestCase):
         self.assertTrue(r["ok"], r["error"])
         self.assertTrue(r["context"]["path"].endswith("context.blend"))
         self.assertTrue(os.path.exists(r["context"]["path"]))
-        self.assertGreater(r["context"]["buildings"], 3000)
+        self.assertGreater(r["context"]["buildings"], 2500)   # 범위 링으로 늘 자른다(53659d6) — 성수 R500 2,735동, test_sketchup과 같은 값
         self.assertIn("write_3dm", self.phases)
 
     def test_collections_and_attributes(self):

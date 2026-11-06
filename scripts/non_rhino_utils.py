@@ -1268,6 +1268,86 @@ def get_block_skirt(meshes, ring, base_z, tol=1e-3):
     return verts, faces
 
 
+def _get_boundary_edges(verts, faces):
+    # type: (list, list) -> list
+    """메시의 경계 변 ``[(p, q)]`` — 한 면에만 속한 변, 면이 위를 볼 때의 진행 방향(왼쪽 = 면 안쪽).
+    정점은 좌표로 묶는다(이어 붙이기만 하고 용접하지 않은 Rhino 영역 메시의 이음매를 경계로 세지 않는다). 수직 면(평면 넓이 0)은 건너뛴다."""
+    edges = {}
+    for face in faces:
+        pts = [verts[i] for i in face]
+        area = sum(pts[k][0] * pts[(k + 1) % len(pts)][1] - pts[(k + 1) % len(pts)][0] * pts[k][1] for k in range(len(pts)))
+        if abs(area) < 1e-9:
+            continue
+        if area < 0:
+            pts.reverse()
+        for k in range(len(pts)):
+            p, q = pts[k], pts[(k + 1) % len(pts)]
+            kp, kq = (round(p[0], 4), round(p[1], 4), round(p[2], 4)), (round(q[0], 4), round(q[1], 4), round(q[2], 4))
+            if kp == kq:
+                continue
+            key = (kp, kq) if kp < kq else (kq, kp)
+            edges[key] = None if key in edges else (p, q)
+    return [edge for edge in edges.values() if edge]
+
+
+def get_water_walls(water, neighbors, tol=1e-3, cell=5.0):
+    # type: (tuple, list, float, float) -> tuple
+    """수면 둘레의 틈을 막는 세로 벽. 수면은 수면 폴리곤마다 평평한 판(폴리곤 안 최저 지반 + WATER_LIFT)이라
+    둘레 지형·도로나 더 높은 다른 수면 판과 같은 XY에서 높이가 달라 틈이 생긴다(성수 R=1000 사각형: 둘레 높이 차 중앙값 1.0 m·최대 15 m).
+
+    입력: water = 수면 메시 (verts, faces) — 판 여러 개를 이어 붙인 것(로컬 m). neighbors = 둘레 메시들 ``[(verts, faces)]``(지형·도로·녹지·철도·대상지 바닥).
+    처리: 수면 경계 변을 격자에 넣고, 이웃 메시와 수면 자신의 경계 변 p→q마다 p·q·가운데가 모두 같은 높이의 수면 경계 위(tol 안)이고
+          그 수면이 변보다 낮으면 → 변에서 그 수면 높이까지 벽(수면 쪽을 본다). 후보 수면이 여럿이면 가장 높은 것(바로 아래 판).
+          수면보다 낮은 끝은 수면 높이로 맞춘다(3각형). 수면 판이 둘레보다 높은 곳은 막지 않는다(수위 = 최저 지반이라 드물다).
+    출력: ``(verts, faces)`` — 면은 3·4각형. 벽이 없으면 ([], []).
+    """
+    grid = {}
+    for p, q in _get_boundary_edges(*water):
+        z = (p[2] + q[2]) * 0.5
+        for i in range(int(math.floor((min(p[0], q[0]) - tol) / cell)), int(math.floor((max(p[0], q[0]) + tol) / cell)) + 1):
+            for j in range(int(math.floor((min(p[1], q[1]) - tol) / cell)), int(math.floor((max(p[1], q[1]) + tol) / cell)) + 1):
+                grid.setdefault((i, j), []).append((p[0], p[1], q[0] - p[0], q[1] - p[1], z))
+
+    def get_levels(x, y):
+        """(x, y)를 지나는 수면 경계 변들의 높이(mm 반올림) 집합."""
+        levels = set()
+        for ax, ay, dx, dy, z in grid.get((int(math.floor(x / cell)), int(math.floor(y / cell))), ()):
+            t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / ((dx * dx + dy * dy) or 1.0)))
+            if math.hypot(x - ax - dx * t, y - ay - dy * t) <= tol:
+                levels.add(round(z, 3))
+        return levels
+
+    verts, faces, index = [], [], {}
+
+    def vertex(x, y, z):
+        key = (round(x, 6), round(y, 6), round(z, 6))
+        if key not in index:
+            index[key] = len(verts)
+            verts.append((x, y, z))
+        return index[key]
+
+    for mesh in [water] + list(neighbors):
+        for p, q in _get_boundary_edges(*mesh):
+            if math.hypot(q[0] - p[0], q[1] - p[1]) < tol:
+                continue
+            top = max(p[2], q[2])
+            levels = get_levels(p[0], p[1]) & get_levels(q[0], q[1]) & get_levels((p[0] + q[0]) * 0.5, (p[1] + q[1]) * 0.5)
+            levels = [z for z in levels if z < top - tol]
+            if not levels:
+                continue
+            z = max(levels)
+            pz, qz = max(p[2], z), max(q[2], z)
+            ring = [vertex(p[0], p[1], pz)]   # p → (p 아래) → (q 아래) → q: 이웃 면 진행 방향 오른쪽 = 수면 쪽을 본다
+            if pz > z + tol:
+                ring.append(vertex(p[0], p[1], z))
+            ring.append(vertex(q[0], q[1], z))
+            if qz > z + tol:
+                ring.append(vertex(q[0], q[1], qz))
+            if len(ring) >= 3:
+                faces.append(tuple(ring))
+    return verts, faces
+
+
 class TriangleZ(object):
     """세계좌표 삼각형 ``[((x,y,z)×3, …)]``의 높이 조회 — 격자 칸에 걸친 삼각형의 무게중심 보간(겹치면 높은 면). 입체 매스도 지형이 쓴다."""
 

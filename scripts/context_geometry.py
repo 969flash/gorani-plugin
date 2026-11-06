@@ -317,7 +317,7 @@ class NearestXYZ(object):
 
 def get_class_polygons(prepared):
     # type: (object) -> list
-    """면 분류 폴리곤 ``[(class, name, parts)]``. water = features 하천·실폭하천·호수 ∪ 지목 하천·구거·유지,
+    """면 분류 폴리곤 ``[(class, name, parts)]``. water = features 하천·실폭하천·호수(없으면 지목 하천·구거·유지),
     rail = 철도부지선(면), road = 도로경계(면), green = 경지계 ∪ 지목 공원·임야·체육용지·유원지."""
     polys = []
     for f in prepared.features:
@@ -332,9 +332,13 @@ def get_class_polygons(prepared):
             cls = "green"
         if cls:
             polys.append((cls, f.name or f.kind, get_parts(f.geometry)))
+    # 지목 하천·구거·유지 필지는 수치지형도 수면이 없을 때만 수면으로 — 하천 필지는 둔치·제방 비탈까지 품어
+    # 수면 판이 둔치 높이에 떠 강이 금 간 듯 깨졌다(성수 R=1000: 수면 판 78개, 하천 필지 판 15 m vs 본류 4.2 m)
+    has_water = any(cls == "water" for cls, _name, _parts in polys)
     for lot in list(prepared.target_lots) + list(prepared.near_lots):
         if lot.land_category in constants.LAND_CATEGORIES_WATER:
-            polys.append(("water", lot.land_category, get_parts(lot.geometry)))
+            if not has_water:
+                polys.append(("water", lot.land_category, get_parts(lot.geometry)))
         elif constants.SHEET_LAND_CATEGORY_KEYS.get(lot.land_category) in ("park", "forest"):
             polys.append(("green", lot.land_category, get_parts(lot.geometry)))
     return polys
@@ -731,6 +735,17 @@ def build_terrain(prepared):
         if block[1]:
             meshes["block"] = _get_rhino_mesh(*block)
         counts.update(block_base=base, block_s=round(time.time() - t, 3))
+    if "water" in meshes:   # 수면 판 둘레 높이 차를 세로 벽으로 막아 지형에 붙인다 — 용접하지 않는다(모서리 음영이 뭉개진다)
+        walls = non_rhino_utils.get_water_walls(_get_mesh_faces(meshes["water"]),
+                                                [_get_mesh_faces(meshes[k]) for k in ("terrain", "road", "green", "rail", "site_ground") if k in meshes])
+        if walls[1]:
+            wall_mesh = _get_rhino_mesh(*walls)
+            if "terrain" in meshes:
+                meshes["terrain"].Append(wall_mesh)
+                meshes["terrain"].Normals.ComputeNormals()
+            else:
+                meshes["terrain"] = wall_mesh
+        counts["water_walls"] = len(walls[1])
     counts["faces"] = sum(m.Faces.Count for k, m in meshes.items() if k in ("terrain", "road", "green", "rail", "site_ground"))
     counts["quads"] = sum(m.Faces.QuadCount for k, m in meshes.items() if k in ("terrain", "road", "green", "rail", "site_ground"))
     counts["faces_by_class"] = {k: m.Faces.Count for k, m in meshes.items() if k != "all"}

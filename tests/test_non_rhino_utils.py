@@ -186,6 +186,29 @@ class CleanEdgeTest(unittest.TestCase):
             nx, ny = b[1] - a[1], a[0] - b[0]
             self.assertGreater(nx * ((a[0] + b[0]) / 2 - 5) + ny * ((a[1] + b[1]) / 2 - 5), 0)
 
+    def test_water_walls_close_gaps(self):
+        # y 띠 넷: 지형 z3 | 수면 A z1 | 수면 B z2 | 지형 z2. 틈은 지형→A(y=2)·B→A(y=6) 두 곳, B와 위 지형(같은 높이)은 막을 것 없음
+        def quad(y0, y1, z):
+            return [(0, y0, z), (10, y0, z), (10, y1, z), (0, y1, z)], [(0, 1, 2, 3)]
+        bank, top = quad(0, 2, 3.0), quad(8, 10, 2.0)
+        (a_verts, a_faces), (b_verts, b_faces) = quad(2, 6, 1.0), quad(6, 8, 2.0)
+        water = (a_verts + b_verts, a_faces + [tuple(i + 4 for i in f) for f in b_faces])
+        walls = u.get_water_walls(water, [bank, top])
+        self.assertEqual(len(walls[1]), 2)
+        edges = {}
+        for vs, fs in (bank, top, water, walls):
+            for f in fs:
+                for k in range(len(f)):
+                    p, q = vs[f[k]], vs[f[(k + 1) % len(f)]]
+                    if p[0] != q[0] and p[1] == q[1] and 0 < p[1] < 10:   # 안쪽 가로 변
+                        key = frozenset((tuple(p), tuple(q)))
+                        edges[key] = edges.get(key, 0) + 1
+        self.assertEqual(set(edges.values()), {2})   # 안쪽 가로 변이 모두 두 면에 걸린다 = 틈 없음
+        for f in walls[1]:   # 벽 법선이 낮은 수면 A(2 < y < 6) 쪽
+            pts = [walls[0][i] for i in f]
+            ny = sum((pts[k][2] - pts[(k + 1) % len(pts)][2]) * (pts[k][0] + pts[(k + 1) % len(pts)][0]) for k in range(len(pts)))
+            self.assertGreater(ny * (4 - pts[0][1]), 0)
+
     def test_contours(self):
         tri = ((0, 0, 0.0), (10, 0, 10.0), (0, 10, 0.0))
         segments = u.get_contour_segments([tri], 5.0)
