@@ -306,7 +306,8 @@ def build_terrain(prepared):
           options.terrain_step(m, 0 = 매끈) — 지반 메시를 계단형으로(평탄면·원지형 사본은 그대로, 경계 벽 윗선은 계단에 맞춘다).
     처리: get_tin_points → CDT(볼록 껍질) = TIN → 범위 링(면 0) + 범위 bbox와 겹치는 분류 폴리곤 링(외곽·구멍) + 대상지 링을 제약 면으로,
           TIN 점을 내부 정점으로 다시 CDT → 범위 안 삼각형만, 품은 링으로 분류(외곽 안 + 같은 파트 구멍 밖, TERRAIN_CLASS_PRIORITY 앞이 이김)
-          → 정점 Z = TIN 투영 → 수면은 폴리곤별 최저 Z + WATER_LIFT 평면 → 대상지 평탄면·경계 벽·원지형.
+          → 정점 Z = TIN 투영 → 수면은 폴리곤별 최저 Z(맞닿은 판은 WATER_MERGE_DZ 안이면 한 수위) + WATER_LIFT 평면, 물가 정점 = 수위
+          → 대상지 평탄면·경계 벽·원지형 → 남은 수면 단차 벽.
     출력: ``(meshes, tris_world, counts)``. meshes = {"all": 건물 투영용 지반, "terrain"|"water"|"road"|"green"|"rail"|"site_ground"|"site_wall"|
           "site_original": (정점, 면)}. tris_world = 세계좌표 TIN 삼각형 [((x,y,z)×3, "terrain"|"outside")] — 시트 12·13.
     """
@@ -396,15 +397,23 @@ def build_terrain(prepared):
     for cls in ("terrain", "road", "green", "rail"):
         if buckets.get(cls):
             meshes[cls] = _get_mesh(buckets[cls], xy, zs)
-    # 수면 — 수면 폴리곤별 최저 Z = 수위, 평면 + WATER_LIFT
+    # 수면 — 수면 폴리곤별 최저 Z = 수위 → 맞닿고 수위 차가 WATER_MERGE_DZ 이하인 판은 한 수위(최저)로 → 평면 + WATER_LIFT
+    order = sorted(water_regions)
+    levels = {i: min(zs[v] for tri in water_regions[i] for v in tri) for i in order}
+    groups = non_rhino_utils.get_water_groups([_get_mesh(water_regions[i], xy, zs, levels[i]) for i in order], constants.WATER_MERGE_DZ)
     water_bodies, water_parts = [], []
-    for index in sorted(water_regions):
-        level = min(zs[i] for tri in water_regions[index] for i in tri)
-        body = _get_mesh(water_regions[index], xy, zs, level + constants.WATER_LIFT)
+    for group in groups:
+        members = [order[k] for k in group]
+        level = min(levels[i] for i in members)
+        body = _get_mesh([tri for i in members for tri in water_regions[i]], xy, zs, level + constants.WATER_LIFT)
         water_parts.append(body)
-        water_bodies.append({"name": polys[index][1], "level": round(level, 2), "faces": len(body[1])})
+        water_bodies.append({"name": ", ".join(sorted({polys[i][1] for i in members})), "level": round(level, 2), "faces": len(body[1])})
     if water_parts:
         meshes["water"] = _join(water_parts)
+        shore = non_rhino_utils.WaterShore(meshes["water"])   # 물가선 = 수위 — 지형·도로가 물가에서 비탈로 오른다
+        for cls in ("terrain", "road", "green", "rail"):
+            if cls in meshes:
+                meshes[cls] = (non_rhino_utils.get_shore_fitted(meshes[cls][0], shore), meshes[cls][1])
     counts["water_bodies"] = water_bodies
     step = float(options.get("terrain_step") or 0)
     if step > 0:
@@ -445,7 +454,7 @@ def build_terrain(prepared):
         if block[1]:
             meshes["block"] = block
         counts["block_base"] = base
-    if "water" in meshes:   # 수면 판 둘레 높이 차를 세로 벽으로 막아 지형에 붙인다(non_rhino_utils.get_water_walls)
+    if "water" in meshes:   # 남은 수면 단차(보·댐·평탄화 대상지)를 세로 벽으로 막아 지형에 붙인다(non_rhino_utils.get_water_walls)
         walls = non_rhino_utils.get_water_walls(meshes["water"], [meshes[k] for k in ("terrain", "road", "green", "rail", "site_ground") if k in meshes])
         if walls[1]:
             meshes["terrain"] = _join([meshes.get("terrain", ([], [])), walls])

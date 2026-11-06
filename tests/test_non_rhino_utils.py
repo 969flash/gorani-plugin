@@ -209,6 +209,18 @@ class CleanEdgeTest(unittest.TestCase):
             ny = sum((pts[k][2] - pts[(k + 1) % len(pts)][2]) * (pts[k][0] + pts[(k + 1) % len(pts)][0]) for k in range(len(pts)))
             self.assertGreater(ny * (4 - pts[0][1]), 0)
 
+    def test_water_groups_and_shore(self):
+        # 맞닿은 판 A(z1)·B(z1.8)는 한 수위로, 2 m 넘게 높은 C(z5)와 떨어진 D(z1)는 따로, 사슬은 폭 2 m까지만
+        def quad(x0, x1, z):
+            return [(x0, 0, z), (x1, 0, z), (x1, 4, z), (x0, 4, z)], [(0, 1, 2, 3)]
+        bodies = [quad(0, 10, 1.0), quad(10, 20, 1.8), quad(20, 30, 5.0), quad(40, 50, 1.0)]
+        self.assertEqual(u.get_water_groups(bodies, 2.0), [[0, 1], [2], [3]])
+        chain = [quad(0, 10, 1.0), quad(10, 20, 2.5), quad(20, 30, 4.0)]   # 쌍마다는 1.5 m지만 셋을 묶으면 폭 3 m — 상류가 가라앉지 않게 둘만
+        self.assertEqual(u.get_water_groups(chain, 2.0), [[0, 1], [2]])
+        shore = u.WaterShore(bodies[0])
+        bank = [(5, 0, 7.0), (5, -3, 9.0), (10, 2, 4.0)]   # 물가선 위 두 점은 수위로, 물에서 떨어진 점은 그대로
+        self.assertEqual(u.get_shore_fitted(bank, shore), [(5, 0, 1.0), (5, -3, 9.0), (10, 2, 1.0)])
+
     def test_contours(self):
         tri = ((0, 0, 0.0), (10, 0, 10.0), (0, 10, 0.0))
         segments = u.get_contour_segments([tri], 5.0)

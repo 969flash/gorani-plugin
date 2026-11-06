@@ -594,7 +594,7 @@ def build_terrain(prepared):
     처리: get_tin_points → Mesh.CreateFromTessellation(보간에만 — 들로네 삼각형은 내보내지 않는다)
           → _get_region_meshes(범위 링, 범위와 겹치는 분류 폴리곤 링 + 대상지 링) — 경계는 원래 선 그대로, 안쪽은 TERRAIN_GRID m 쿼드
           → 영역마다 안쪽 한 점으로 분류(TERRAIN_CLASS_PRIORITY 순 PIP)·대상지 여부 → _drape(TIN 수직 투영) → 분류별로 용접
-          → 수면 = 수면 폴리곤별 최저 Z + WATER_LIFT 평면 → 대상지: 바닥 메시 출력(site_output=mesh)이나 평탄화면 따로 떼어
+          → 수면 = 수면 폴리곤별 최저 Z(맞닿은 판은 WATER_MERGE_DZ 안이면 한 수위) + WATER_LIFT 평면, 물가 정점 = 수위 → 대상지: 바닥 메시 출력(site_output=mesh)이나 평탄화면 따로 떼어
             평탄면(site_ground, Z = 경계 자연 지반 mean|min|max)·경계 벽(site_wall)·원지형 사본(site_original, 숨김 레이어).
     출력: ``(meshes, tris_world, counts)``. meshes = {"all": 건물 투영용 최종 지반, "terrain"|"water"|"road"|"green"|"rail"|"site_ground"|"site_wall"|"site_original"}.
           tris_world = 세계좌표 TIN 삼각형 [((x,y,z)×3, "terrain"|"outside")] — 평탄화 전 자연 지형(시트 12·13, sheet_svg가 outside를 거른다).
@@ -686,19 +686,36 @@ def build_terrain(prepared):
     for cls in ("terrain", "road", "green", "rail"):
         if buckets.get(cls):
             meshes[cls] = _join(buckets[cls])
-    # 수면 — 수면 폴리곤별 최저 Z = 수위, 평면 + WATER_LIFT
+    # 수면 — 수면 폴리곤별 최저 Z = 수위 → 맞닿고 수위 차가 WATER_MERGE_DZ 이하인 판은 한 수위(최저)로 → 평면 + WATER_LIFT
+    order = sorted(water_regions)
+    raw = {i: _join(water_regions[i]) for i in order}
+    levels = {i: min(v.Z for v in raw[i].Vertices.ToPoint3dArray()) for i in order}
+    flat = []
+    for i in order:
+        verts_, faces_ = _get_mesh_faces(raw[i])
+        flat.append(([(x, y, levels[i]) for x, y, _z in verts_], faces_))
     water_bodies, water_parts = [], []
-    for index in sorted(water_regions):
-        body = _join(water_regions[index])
-        level = min(v.Z for v in body.Vertices.ToPoint3dArray())
-        for k in range(body.Vertices.Count):
-            v = body.Vertices.Point3dAt(k)
-            body.Vertices.SetVertex(k, v.X, v.Y, level + constants.WATER_LIFT)
-        body.Normals.ComputeNormals()
+    for group in non_rhino_utils.get_water_groups(flat, constants.WATER_MERGE_DZ):
+        members = [order[k] for k in group]
+        level = min(levels[i] for i in members)
+        for i in members:   # 수위를 먼저 맞춘 뒤 잇는다 — 이음매 정점이 같은 높이라야 용접된다
+            for k in range(raw[i].Vertices.Count):
+                v = raw[i].Vertices.Point3dAt(k)
+                raw[i].Vertices.SetVertex(k, v.X, v.Y, level + constants.WATER_LIFT)
+        body = _join([raw[i] for i in members])
         water_parts.append(body)
-        water_bodies.append({"name": polys[index][1], "level": round(level, 2), "faces": body.Faces.Count})
+        water_bodies.append({"name": ", ".join(sorted({polys[i][1] for i in members})), "level": round(level, 2), "faces": body.Faces.Count})
     if water_parts:
         meshes["water"] = _join(water_parts)
+        shore = non_rhino_utils.WaterShore(_get_mesh_faces(meshes["water"]))   # 물가선 = 수위 — 지형·도로가 물가에서 비탈로 오른다
+        for cls in ("terrain", "road", "green", "rail"):
+            if cls in meshes:
+                mesh = meshes[cls]
+                for k, v in enumerate(mesh.Vertices.ToPoint3dArray()):
+                    z = shore.get_z(v.X, v.Y)
+                    if z is not None and z != v.Z:
+                        mesh.Vertices.SetVertex(k, v.X, v.Y, z)
+                mesh.Normals.ComputeNormals()
     counts["water_bodies"] = water_bodies
     step = float(options.get("terrain_step") or 0)
     if step > 0:
@@ -735,7 +752,7 @@ def build_terrain(prepared):
         if block[1]:
             meshes["block"] = _get_rhino_mesh(*block)
         counts.update(block_base=base, block_s=round(time.time() - t, 3))
-    if "water" in meshes:   # 수면 판 둘레 높이 차를 세로 벽으로 막아 지형에 붙인다 — 용접하지 않는다(모서리 음영이 뭉개진다)
+    if "water" in meshes:   # 남은 수면 단차(보·댐·평탄화 대상지)를 세로 벽으로 막아 지형에 붙인다 — 용접하지 않는다(모서리 음영이 뭉개진다)
         walls = non_rhino_utils.get_water_walls(_get_mesh_faces(meshes["water"]),
                                                 [_get_mesh_faces(meshes[k]) for k in ("terrain", "road", "green", "rail", "site_ground") if k in meshes])
         if walls[1]:

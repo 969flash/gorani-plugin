@@ -806,6 +806,7 @@ BLOCK_BASE_SNAP = 5.0           # m — 바닥 높이를 이 단위로 내림(BA
 CLASSIFY_GRID = 50.0            # m — 면 분류용 격자 버킷
 WATER_LIFT = 0.02               # m — 수면 메시를 지형 위로 띄우는 높이
 WATER_EDGE_STEP = 2.0           # m — 수면 경계 조밀화 간격 (TIN 입력, code_map §5.1)
+WATER_MERGE_DZ = 2.0            # m — 맞닿은 수면 판을 한 수위(최저)로 묶을 때 묶음 안 최대 높이 폭. 도엽 경계로 잘린 같은 강(성수 한강 4.22 | 4.97 m)은 묶고, 상류는 2 m 넘게 가라앉지 않는다(넘는 곳은 보처럼 턱)
 WATER_SURFACE_KINDS = ("river", "stream", "lake")   # features theme water 중 수면(면)으로 다루는 kind — 3dm CTX::Water 분류·시트 바탕 수계가 같이 쓴다. shore(습지)는 TOPO_LAYERS 주석 참고
 TERRAIN_CLASS_PRIORITY = ("water", "rail", "road", "green")
 TERRAIN_UNION_CLASSES = ("road", "green")   # Rhino 면 분할 전에 Boolean 합집합으로 겹침을 없애는 분류 — OSM 도로면 버퍼(교차부마다 겹침)·녹지. 수면은 폴리곤별 수위를 따로 쓰므로 합치지 않는다   # 면 분류 우선순위(앞이 이김), 나머지 terrain, 범위 밖 outside (code_map §5.3)

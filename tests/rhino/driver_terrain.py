@@ -56,6 +56,9 @@ from System.Collections.Generic import List
 tin = rg.Mesh.CreateFromTessellation(context_geometry.get_local_pts(points, prepared.origin), List[List[rg.Point3d]](), rg.Plane.WorldXY, False)
 verts = terrain.Vertices.ToPoint3dArray()
 sample = [verts[k] for k in range(0, len(verts), 97)]
+if "water" in meshes:   # 물가 정점은 수위로 맞춘다(non_rhino_utils.get_shore_fitted) — TIN과 비교하지 않는다
+    shore = non_rhino_utils.WaterShore(context_geometry._get_mesh_faces(meshes["water"]))
+    sample = [v for v in sample if shore.get_z(v.X, v.Y) is None]
 out, idx = context_geometry._project_to_mesh(tin, [rg.Point3d(v.X, v.Y, 1e4) for v in sample])
 worst = max(abs(pt.Z - sample[k].Z) for pt, k in zip(out, idx))
 result["precision"] = {"worst_mm": round(worst * 1000, 3), "sampled": len(sample)}

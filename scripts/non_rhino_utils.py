@@ -1290,33 +1290,93 @@ def _get_boundary_edges(verts, faces):
     return [edge for edge in edges.values() if edge]
 
 
-def get_water_walls(water, neighbors, tol=1e-3, cell=5.0):
-    # type: (tuple, list, float, float) -> tuple
-    """수면 둘레의 틈을 막는 세로 벽. 수면은 수면 폴리곤마다 평평한 판(폴리곤 안 최저 지반 + WATER_LIFT)이라
-    둘레 지형·도로나 더 높은 다른 수면 판과 같은 XY에서 높이가 달라 틈이 생긴다(성수 R=1000 사각형: 둘레 높이 차 중앙값 1.0 m·최대 15 m).
+class WaterShore(object):
+    """수면 판 경계 색인 — (x, y)가 어떤 높이 수면 판의 경계(물가선) 위인지. 수면 = 평평한 판 여럿을 이어 붙인 메시(로컬 m)."""
 
-    입력: water = 수면 메시 (verts, faces) — 판 여러 개를 이어 붙인 것(로컬 m). neighbors = 둘레 메시들 ``[(verts, faces)]``(지형·도로·녹지·철도·대상지 바닥).
-    처리: 수면 경계 변을 격자에 넣고, 이웃 메시와 수면 자신의 경계 변 p→q마다 p·q·가운데가 모두 같은 높이의 수면 경계 위(tol 안)이고
-          그 수면이 변보다 낮으면 → 변에서 그 수면 높이까지 벽(수면 쪽을 본다). 후보 수면이 여럿이면 가장 높은 것(바로 아래 판).
-          수면보다 낮은 끝은 수면 높이로 맞춘다(3각형). 수면 판이 둘레보다 높은 곳은 막지 않는다(수위 = 최저 지반이라 드물다).
-    출력: ``(verts, faces)`` — 면은 3·4각형. 벽이 없으면 ([], []).
-    """
-    grid = {}
-    for p, q in _get_boundary_edges(*water):
-        z = (p[2] + q[2]) * 0.5
-        for i in range(int(math.floor((min(p[0], q[0]) - tol) / cell)), int(math.floor((max(p[0], q[0]) + tol) / cell)) + 1):
-            for j in range(int(math.floor((min(p[1], q[1]) - tol) / cell)), int(math.floor((max(p[1], q[1]) + tol) / cell)) + 1):
-                grid.setdefault((i, j), []).append((p[0], p[1], q[0] - p[0], q[1] - p[1], z))
+    def __init__(self, water, tol=1e-3, cell=5.0):
+        # type: (tuple, float, float) -> None
+        self.tol, self.cell, self.grid = tol, float(cell), {}
+        for p, q in _get_boundary_edges(*water):
+            z = (p[2] + q[2]) * 0.5
+            for i in range(int(math.floor((min(p[0], q[0]) - tol) / cell)), int(math.floor((max(p[0], q[0]) + tol) / cell)) + 1):
+                for j in range(int(math.floor((min(p[1], q[1]) - tol) / cell)), int(math.floor((max(p[1], q[1]) + tol) / cell)) + 1):
+                    self.grid.setdefault((i, j), []).append((p[0], p[1], q[0] - p[0], q[1] - p[1], z))
 
-    def get_levels(x, y):
-        """(x, y)를 지나는 수면 경계 변들의 높이(mm 반올림) 집합."""
+    def get_levels(self, x, y):
+        # type: (float, float) -> set
+        """(x, y)를 지나는 수면 경계 변들의 높이(mm 반올림) 집합. 물가가 아니면 빈 집합."""
         levels = set()
-        for ax, ay, dx, dy, z in grid.get((int(math.floor(x / cell)), int(math.floor(y / cell))), ()):
+        for ax, ay, dx, dy, z in self.grid.get((int(math.floor(x / self.cell)), int(math.floor(y / self.cell))), ()):
             t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / ((dx * dx + dy * dy) or 1.0)))
-            if math.hypot(x - ax - dx * t, y - ay - dy * t) <= tol:
+            if math.hypot(x - ax - dx * t, y - ay - dy * t) <= self.tol:
                 levels.add(round(z, 3))
         return levels
 
+    def get_z(self, x, y):
+        # type: (float, float) -> object
+        """물가선 위면 그 수면 높이(여럿이면 낮은 것), 아니면 None."""
+        levels = self.get_levels(x, y)
+        return min(levels) if levels else None
+
+
+def get_shore_fitted(verts, shore):
+    # type: (list, WaterShore) -> list
+    """물가선 위 정점의 Z를 수면 높이로 맞춘 새 정점 목록(하이드로 플래트닝 — 물가선 = 수위).
+    물가 정점이 TIN의 '가장 가까운 입력점' 높이(둑 꼭대기 등고선 등)를 받아 수면과 수 m 떨어지던 것을 지형이 물가에서 비탈로 오르게 바꾼다."""
+    out = []
+    for x, y, z in verts:
+        shore_z = shore.get_z(x, y)
+        out.append((x, y, z if shore_z is None else shore_z))
+    return out
+
+
+def get_water_groups(bodies, max_dz, tol=1e-3):
+    # type: (list, float, float) -> list
+    """맞닿은 수면 판을 묶음 안 높이 폭이 max_dz 이하가 되게 묶는다 — 도엽 경계로 잘린 같은 강이 판마다 수위가 달라 강 한가운데 턱이 생기던 것
+    (성수 R=1000 사각형: 한강이 x≈-280 도엽 경계에서 4.22 | 4.97 m, 턱 길이 410 m). 폭을 묶음 전체로 재는 것은 사슬로 이어 묶여
+    상류가 하류 수위로 내려앉지 않게 하려는 것이다(홍제천 R=500: 17.2·18.7·20.0 m — 쌍마다 재면 20.0 m 구간이 2.8 m 가라앉는다).
+
+    입력: bodies = 판마다 평평한 메시 ``[(verts, faces)]``. max_dz = 묶음 안 최대 높이 폭(m).
+    처리: 판 j의 경계 정점이 판 i의 물가선 위면 맞닿음. 높이 차가 작은 쌍부터, 합친 묶음의 폭이 max_dz 이하일 때만 합친다.
+    출력: 판 번호 묶음 ``[[i, …]]`` — 묶음 수위는 부르는 쪽이 정한다(묶음 안 최저). 묶이지 못한 맞닿은 판 사이는 턱(보처럼)으로 남는다.
+    """
+    levels = [verts[0][2] if verts else 0.0 for verts, _faces in bodies]
+    shores = [WaterShore(body, tol) for body in bodies]
+    edges = [_get_boundary_edges(*body) for body in bodies]
+    touching = sorted((abs(levels[i] - levels[j]), i, j) for i in range(len(bodies)) for j in range(i + 1, len(bodies))
+                      if abs(levels[i] - levels[j]) <= max_dz and any(shores[i].get_levels(p[0], p[1]) for p, _q in edges[j]))
+    parent = list(range(len(bodies)))
+    span = [(z, z) for z in levels]   # 묶음 뿌리마다 (최저, 최고)
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for _dz, i, j in touching:
+        a, b = find(i), find(j)
+        low, high = min(span[a][0], span[b][0]), max(span[a][1], span[b][1])
+        if a != b and high - low <= max_dz:
+            parent[b] = a
+            span[a] = (low, high)
+    groups = {}
+    for i in range(len(bodies)):
+        groups.setdefault(find(i), []).append(i)
+    return sorted(groups.values())
+
+
+def get_water_walls(water, neighbors, tol=1e-3):
+    # type: (tuple, list, float) -> tuple
+    """수면 판 둘레에 남은 단차를 막는 세로 벽 — 물가는 get_shore_fitted로 수위에 맞추므로, 남는 것은 높이 차가 큰 수면 판끼리(보·댐)와
+    평탄화한 대상지 바닥 정도다. 막지 않으면 판 사이 틈으로 뒤가 비친다.
+
+    입력: water = 수면 메시 (verts, faces) — 판 여러 개(로컬 m). neighbors = 둘레 메시들 ``[(verts, faces)]``(지형·도로·녹지·철도·대상지 바닥).
+    처리: 이웃 메시와 수면 자신의 경계 변 p→q마다 p·q·가운데가 모두 같은 높이의 물가선 위(tol 안)이고 그 수면이 변보다 낮으면
+          → 변에서 그 수면 높이까지 벽(수면 쪽을 본다). 후보가 여럿이면 가장 높은 수면(바로 아래 판). 수면보다 낮은 끝은 수면 높이로(3각형).
+    출력: ``(verts, faces)`` — 면은 3·4각형. 벽이 없으면 ([], []).
+    """
+    shore = WaterShore(water, tol)
     verts, faces, index = [], [], {}
 
     def vertex(x, y, z):
@@ -1331,7 +1391,7 @@ def get_water_walls(water, neighbors, tol=1e-3, cell=5.0):
             if math.hypot(q[0] - p[0], q[1] - p[1]) < tol:
                 continue
             top = max(p[2], q[2])
-            levels = get_levels(p[0], p[1]) & get_levels(q[0], q[1]) & get_levels((p[0] + q[0]) * 0.5, (p[1] + q[1]) * 0.5)
+            levels = shore.get_levels(p[0], p[1]) & shore.get_levels(q[0], q[1]) & shore.get_levels((p[0] + q[0]) * 0.5, (p[1] + q[1]) * 0.5)
             levels = [z for z in levels if z < top - tol]
             if not levels:
                 continue
