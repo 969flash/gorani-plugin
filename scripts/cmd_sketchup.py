@@ -1,12 +1,12 @@
 """Gorani SketchUp판 사이드카 — 번들 파이썬이 실행하는 진입 스크립트(컨트롤러 = cmd_site._SiteController 상속).
 
 SketchUp에는 파이썬이 없어 확장(sketchup_ext.rb)이 번들 파이썬으로 이 파일을 띄운다:
-    <확장>/python/<플랫폼>/python -I -B -X utf8 <확장>/scripts/cmd_sketchup.py <SketchUp 버전> [<SketchUp 프로세스 번호> — Windows만]
+    <확장>/python/<플랫폼>/python -I -B -X utf8 <확장>/scripts/cmd_sketchup.py <SketchUp 버전> [<SketchUp 프로세스 번호> <주소 파일> — Windows만]
 첫 줄로 패널 주소(panel_server — 127.0.0.1·토큰)를 stdout에 쓰고, SketchUp의 UI::HtmlDialog가 그 주소를 연다.
 그 뒤 출력은 stderr(SketchUp이 ~/Gorani/sketchup_sidecar.log로 돌린다).
 Mac: stdin 한 줄은 SketchUp의 알림(panel_closed), stdin이 닫히면(SketchUp 종료) 끝난다.
-Windows: 창 없는 pythonw.exe에는 Ruby 파이프가 닿지 않는다(sys.stdout·stdin이 None — 2026-11-05 사용자 로그). 그래서 stdout은
-파일(sketchup_sidecar.url)로 받고, 알림은 POST /cmd(panel_closed — panel_server.DIRECT_CMDS), 종료는 SketchUp 프로세스 번호를 지켜본다.
+Windows: 창 없는 pythonw.exe에는 Ruby 파이프가 닿지 않는다(sys.stdout·stdin이 None — 2026-11-05 사용자 로그). stdout을 파일로 돌려도
+닿지 않아(2026-11-06) 주소는 사이드카가 인자로 받은 파일(sketchup_sidecar.url)에 직접 쓰고, 알림은 POST /cmd(panel_closed — panel_server.DIRECT_CMDS), 종료는 SketchUp 프로세스 번호를 지켜본다.
 
 엔진은 전부 여기서 돈다. SketchUp 모델을 만지는 일만 호스트 호출이다 — 컨트롤러가 {"type": "host_call", id, method, args}를
 패널로 푸시하면 패널 JS가 sketchup.host_call로 Ruby에 넘기고, Ruby가 끝나면 패널이 {"cmd": "host_reply", id, ok, result, error}를 보낸다.
@@ -195,10 +195,18 @@ def main():
     # type: () -> None
     version = sys.argv[1] if len(sys.argv) > 1 else ""
     parent = int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2].isdigit() else None
+    url_path = sys.argv[3] if len(sys.argv) > 3 else ""
     bridge = loader.load("panel_server").Bridge(_SketchUpController(version), threaded=True)
-    out = sys.stdout or sys.stderr   # pythonw에 stdout이 없으면 주소라도 로그에 남긴다(SketchUp은 시작 실패를 알리고 로그를 가리킨다)
-    out.write(bridge.url + "\n")
-    out.flush()
+    if url_path:   # Windows — 주소를 이 파일에 직접 쓴다. stdout을 파일로 돌려도 pythonw에는 닿지 않았다(2026-11-06: 주소가 로그에만 찍혔다)
+        temp_path = url_path + ".tmp"
+        with open(temp_path, "w", encoding="utf-8") as f:
+            f.write(bridge.url + "\n")
+        os.replace(temp_path, url_path)   # SketchUp이 반쯤 쓴 파일을 읽지 않게
+        print("panel url written: %s" % url_path, file=sys.stderr, flush=True)
+    else:
+        out = sys.stdout or sys.stderr   # stdout이 없으면 주소라도 로그에 남긴다
+        out.write(bridge.url + "\n")
+        out.flush()
     sys.stdout = sys.stderr   # 남은 print는 로그로 — SketchUp은 첫 줄만 읽는다(안 읽는 파이프가 차면 막힌다)
     if parent:   # Windows — SketchUp이 프로세스 번호를 넘긴다(stdin이 없다)
         threading.Thread(target=_watch_parent, args=(parent,), name="gorani-parent", daemon=True).start()
