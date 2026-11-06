@@ -52,12 +52,13 @@ module BSH
       script = File.join(ROOT, "scripts", "cmd_sketchup.py")
       args = [python, "-I", "-B", "-X", "utf8", script, Sketchup.version]
       if Sketchup.platform == :platform_win
-        # 창 없는 pythonw.exe에는 IO.popen 파이프가 닿지 않는다(사이드카 sys.stdout·stdin = None, 2026-11-05 사용자 로그) —
-        # 주소는 파일로 받고, 알림은 HTTP(tell_sidecar), SketchUp 종료는 사이드카가 이 프로세스 번호로 안다
+        # 창 없는 pythonw.exe에는 IO.popen 파이프가 닿지 않는다(사이드카 sys.stdout·stdin = None, 2026-11-05 사용자 로그).
+        # stdout을 파일로 돌려도 닿지 않았다(2026-11-06: 주소가 로그에만) — 주소 파일 경로를 인자로 넘겨 사이드카가 직접 쓴다.
+        # 알림은 HTTP(tell_sidecar), SketchUp 종료는 사이드카가 이 프로세스 번호로 안다
         url_file = File.join(LOG_DIR, "sketchup_sidecar.url")
         File.delete(url_file) if File.exist?(url_file)
         @io = nil
-        @pid = Process.spawn(*args, Process.pid.to_s, out: [url_file, "w"], err: [log, "w"])
+        @pid = Process.spawn(*args, Process.pid.to_s, url_file, err: [log, "w"])
         @url = ""
         deadline = Time.now + SIDECAR_START_SECONDS
         until @url.start_with?("http://127.0.0.1:") || Time.now > deadline || !sidecar_alive?

@@ -92,15 +92,16 @@ class WindowsHandshakeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             url_path, log_path = os.path.join(tmp, "sketchup_sidecar.url"), os.path.join(tmp, "sketchup_sidecar.log")
             parent = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
-            with open(url_path, "w") as out, open(log_path, "w") as err:
-                side = subprocess.Popen([sys.executable, "-I", "-B", "-X", "utf8", str(SCRIPTS_DIR / "cmd_sketchup.py"), "2026", str(parent.pid)],
-                                        stdout=out, stderr=err, stdin=subprocess.DEVNULL)
+            with open(log_path, "w") as err:   # stdout은 주지 않는다(pythonw에는 없다) — 주소 파일 경로를 인자로
+                side = subprocess.Popen([sys.executable, "-I", "-B", "-X", "utf8", str(SCRIPTS_DIR / "cmd_sketchup.py"), "2026", str(parent.pid), url_path],
+                                        stdout=subprocess.DEVNULL, stderr=err, stdin=subprocess.DEVNULL)
             try:
                 url, deadline = "", time.time() + 30
                 while not url.startswith("http://127.0.0.1:") and time.time() < deadline:
                     time.sleep(0.2)
-                    with open(url_path) as f:
-                        url = f.read().strip()
+                    if os.path.exists(url_path):
+                        with open(url_path) as f:
+                            url = f.read().strip()
                 self.assertTrue(url.startswith("http://127.0.0.1:"), open(log_path).read()[-500:])
                 request = urllib.request.Request(url.replace("/?token=", "/cmd?token="), data=json.dumps({"cmd": "panel_closed"}).encode(),
                                                  headers={"Content-Type": "application/json"})
