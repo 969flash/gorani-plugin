@@ -4,34 +4,44 @@
   "date": "2026-11-06",
   "items": {
    "ko": [
+    "3D 지형을 바닥까지 채운 덩어리로 냅니다(기본값, 3D 설정에서 끌 수 있음). 입체 매스도도 지형 덩어리로 그립니다",
     "Rhino 8: 3D 형상을 Brep(닫힌 폴리서피스)으로도 냅니다",
     "해외 대상지: OSM 서버가 붐비면 잠시 기다렸다 다시 시도합니다",
     "SketchUp Windows: 패널이 열리지 않던 문제를 고쳤습니다",
-    "최근 대상지를 목록에서 지울 수 있습니다"
+    "최근 대상지를 목록에서 지울 수 있습니다",
+    "SketchUp·Rhino 7: 처음 열 때 화면이 멈추지 않고 '시작하는 중'을 보여 줍니다"
    ],
    "en": [
+    "3D terrain is now a solid block down to a base (default; you can turn it off in 3D settings). The massing diagram draws it too",
     "Rhino 8: 3D geometry can now be output as Brep (closed polysurfaces)",
     "Overseas sites: retries after a short wait when the OSM server is busy",
     "SketchUp Windows: fixed the panel not opening",
-    "You can remove recent sites from the list"
+    "You can remove recent sites from the list",
+    "SketchUp and Rhino 7: the app no longer freezes on first launch; a 'Starting' screen appears instead"
    ],
    "es": [
+    "El terreno 3D ahora es un bloque sólido hasta una base (por defecto; se puede desactivar en los ajustes 3D). La axonometría también lo dibuja",
     "Rhino 8: la geometría 3D ahora puede salir como Brep (polisuperficies cerradas)",
     "Sitios fuera de Corea: si el servidor de OSM está ocupado, espera y reintenta",
     "SketchUp Windows: se corrigió que el panel no se abriera",
-    "Ahora puede quitar sitios recientes de la lista"
+    "Ahora puede quitar sitios recientes de la lista",
+    "SketchUp y Rhino 7: la aplicación ya no se congela al abrir por primera vez; aparece una pantalla de inicio"
    ],
    "ja": [
+    "3D地形を底まで埋めた塊で出力します(既定、3D設定でオフにできます)。立体マス図も地形の塊で描きます",
     "Rhino 8: 3D形状をBrep（閉じたポリサーフェス）でも出せます",
     "海外の対象地: OSMサーバーが混雑しているときは少し待って再試行します",
     "SketchUp Windows: パネルが開かない問題を直しました",
-    "最近の対象地を一覧から消せます"
+    "最近の対象地を一覧から消せます",
+    "SketchUp・Rhino 7: 初回起動時に画面が止まらず「起動中」を表示します"
    ],
    "zh": [
+    "3D 地形现在以填充到底的实体块输出(默认，可在 3D 设置中关闭)。体块轴测图也按地形实体绘制",
     "Rhino 8：3D几何现在可输出为Brep（封闭多重曲面）",
     "海外场地：OSM 服务器繁忙时稍等后重试",
     "SketchUp Windows：修复了面板无法打开的问题",
-    "可从列表中删除最近的场地"
+    "可从列表中删除最近的场地",
+    "SketchUp 和 Rhino 7：首次打开时不再卡住，会显示“正在启动”"
    ]
   }
  },
