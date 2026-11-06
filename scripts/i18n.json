@@ -5765,6 +5765,36 @@
   "ja": "メールを送る",
   "zh": "发送邮件"
  },
+ "형상": {
+  "en": "Geometry",
+  "es": "Geometría",
+  "ja": "形状",
+  "zh": "几何"
+ },
+ "3D 형상": {
+  "en": "3D geometry",
+  "es": "Geometría 3D",
+  "ja": "3D形状",
+  "zh": "3D几何"
+ },
+ "가볍고 빠릅니다": {
+  "en": "Light and fast",
+  "es": "Ligero y rápido",
+  "ja": "軽くて速い",
+  "zh": "轻量且快速"
+ },
+ "건물은 닫힌 폴리서피스로 냅니다. 파일이 무겁고 오래 걸립니다": {
+  "en": "Buildings come out as closed polysurfaces. Files are heavier and take longer",
+  "es": "Los edificios salen como polisuperficies cerradas. Los archivos pesan más y tardan más",
+  "ja": "建物を閉じたポリサーフェスで出します。ファイルが重く、時間がかかります",
+  "zh": "建筑输出为封闭多重曲面。文件更大，耗时更长"
+ },
+ "지형 일부를 Brep으로 바꾸지 못해 메시로 냈습니다": {
+  "en": "Some terrain could not be converted to Brep and was output as mesh",
+  "es": "Parte del terreno no se pudo convertir a Brep y se exportó como malla",
+  "ja": "地形の一部をBrepに変換できず、メッシュで出しました",
+  "zh": "部分地形无法转换为Brep，已按网格输出"
+ },
  "OSM 서버가 붐벼 다시 시도합니다 ({0}/{1}, {2}초 뒤)": {
   "en": "OSM server is busy. Retrying ({0}/{1}) in {2} s",
   "es": "El servidor de OSM está ocupado. Reintento ({0}/{1}) en {2} s",

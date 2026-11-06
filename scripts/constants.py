@@ -745,6 +745,7 @@ PANEL_DEFAULT_OPTIONS = {
     "include_zoning": True,   # CTX::Zoning — 용도지역·용도지구·용도구역·도시계획시설·지구단위계획 경계(현황도 11~13의 2D 커브)
     "terrain_vertex_color": False,
     "terrain_block": True,   # 지형을 바닥까지 채우기 — 지형 옆면·바닥(Terrain::block). 범위 링으로 건물·커브를 자르는 것은 늘 한다. 입체 매스도는 style.axo_ground가 따로 정한다
+    "geometry_type": "mesh",   # Rhino 8 3D 형상: mesh = 동별·분류별 Mesh(기본 — 화면이 가볍다), brep = 건물은 닫힌 폴리서피스, 지형은 같은 평면 면을 묶은 Brep(무겁다 — 성수 500 m 3.8 → 44 MB). 패널은 HOST_LABELS의 brep일 때만 보인다
     "terrain_step": 0,   # 지형 표현: 0 = 매끈(TIN), > 0 = 계단형(등고 모형) 단 간격 m — 패널은 1·2·5 m. 국내 원천 등고선은 5 m 간격이라 1·2 m 단은 보간값
     "make_dwg": False,   # 2D 도면(BM::)을 .dwg로도 — CAD 사용자용. 기본 off
     "zoom_after_import": True,
@@ -809,6 +810,7 @@ WATER_SURFACE_KINDS = ("river", "stream", "lake")   # features theme water 중 �
 TERRAIN_CLASS_PRIORITY = ("water", "rail", "road", "green")
 TERRAIN_UNION_CLASSES = ("road", "green")   # Rhino 면 분할 전에 Boolean 합집합으로 겹침을 없애는 분류 — OSM 도로면 버퍼(교차부마다 겹침)·녹지. 수면은 폴리곤별 수위를 따로 쓰므로 합치지 않는다   # 면 분류 우선순위(앞이 이김), 나머지 terrain, 범위 밖 outside (code_map §5.3)
 BUILDING_SLOPE_FLAG = 3.0       # m — 발자국 정점 지형 고저차가 이보다 크면 HEIGHT_SRC에 '~slope' (deliverables A.1)
+BREP_COPLANAR_ANGLE = 0.1      # ° — Brep 출력(options.geometry_type = brep)에서 지형 메시 면을 한 평면 면으로 묶는 각 허용(같은 TIN 삼각형 위 칸은 정확히 같은 평면 — 0.1°·1° 결과 같음, 2026-11-05)
 SLOPE_BREAKS_DEG = (5, 10, 15, 21, 27)       # 경사 6단계 (서울시 2013 범례)
 ELEV_PRESETS = {"20m": 20.0, "50m": 50.0}    # 표고 단계 간격
 ELEV_MIN_BANDS = 4                           # 이보다 단계가 적으면(평탄지) 아래 간격으로 줄인다 — 표고도에 읽을 거리가 생기게
@@ -835,7 +837,8 @@ HOST_LABELS = {
                 # [/blender-cut]
                 "aerial": False, "update_notice": False, "ip_center": False},   # 확장 스토어 약관: 분석 전송·상용 영상(Esri)·제3자 IP 조회 불가, 업데이트는 Blender가 한다
     # [blender-cut] SketchUp도 Extension Warehouse 심사(개인정보 정책 위반 = 반려 사유)라 동의제 — GA_STREAMS에 sketchup 속성을 넣기 전에는 묻지도 않는다
-    "rhino": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": True, "ask_stats": False},
+    "rhino": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": True, "ask_stats": False,
+              "brep": True},   # brep = 3D 설정 '형상' Mesh|Brep(options.geometry_type) — RhinoCommon 베이크만(Rhino 7판은 사이드카라 없다)
     "sketchup": {"id": "sketchup", "name": "SketchUp", "doc": "SketchUp 모델", "model": SKETCHUP_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},
     # Rhino 7판(cmd_rhino7 사이드카 + rhino7_host.cs) — 패널에는 Rhino로 보인다. DWG는 Rhino 8 헤드리스 문서(context_baker.save_dwg)라 없다
     "rhino7": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": False, "ask_stats": False},

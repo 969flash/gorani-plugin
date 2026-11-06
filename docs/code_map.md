@@ -204,7 +204,8 @@ def get_progress_message(phase, fraction, text, skipped, details):
     "refresh_buildings": false,              // P1. v1은 항상 phase refresh=skipped
     "include_zoning": true, "terrain_vertex_color": false,
     "terrain_step": 0,                       // m. 0 = 매끈, > 0 = 계단 지형(§5 5.2d)
-    "terrain_block": true                    // 지형을 바닥까지 채우기(§5 5.2e). 범위 링으로 자르기는 늘 한다
+    "terrain_block": true,                   // 지형을 바닥까지 채우기(§5 5.2e). 범위 링으로 자르기는 늘 한다
+    "geometry_type": "mesh"                  // mesh(기본) | brep — Rhino 8만. 건물 = Extrusion.ToBrep 닫힌 폴리서피스, 지형 분류 = 같은 평면 면 n-gon(MergeAllCoplanarFaces, 구멍 있는 것 빼고) → 평면 면 + 나머지 Brep.CreateFromMesh → JoinBreps(context_geometry.get_mesh_brep)
   },
   "result_root": null,                       // null = <루트>/result
   "site_db": null, "context_db": null,       // null = constants 경로. 테스트가 tests/fixtures/seongsu_site.db·seongsu_context.db를 꽂는 자리
