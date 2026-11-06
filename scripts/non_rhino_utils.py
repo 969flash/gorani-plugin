@@ -463,6 +463,104 @@ def is_point_in_polygon(x, y, rings):
     return not any(is_point_in_ring(x, y, hole) for hole in rings[1:])
 
 
+def get_noded_segments(rings, tol=1e-3, cell=10.0):
+    # type: (list, float, float) -> list
+    """닫힌 링들 → 교차점·겹친 구간에서 나눈, 서로 겹치지 않는 선분 ``[((x, y), (x, y))]``(좌표는 tol 격자로 맞춤, 중복 없음).
+    분류 경계(도로·하천·녹지·대상지)는 같은 선을 겹쳐 지나고 서로 걸친다 — 그대로 Rhino BrepFace.Split·제약 삼각분할에 넣으면 실패한다
+    (서울 팩 청계천·창릉천 R=500, 2026-11-07). 이렇게 노딩한 선분은 Mesh.CreateFromTessellation 제약선으로 그대로 쓴다."""
+    def snap(v):
+        return round(v / tol) * tol
+
+    segs = []
+    for ring in rings:
+        n = len(ring)
+        for k in range(n):
+            a = (snap(ring[k][0]), snap(ring[k][1]))
+            b = (snap(ring[(k + 1) % n][0]), snap(ring[(k + 1) % n][1]))
+            if a != b:
+                segs.append((a, b))
+    grid = {}
+    for i, (a, b) in enumerate(segs):
+        for gx in range(int(math.floor(min(a[0], b[0]) / cell)), int(math.floor(max(a[0], b[0]) / cell)) + 1):
+            for gy in range(int(math.floor(min(a[1], b[1]) / cell)), int(math.floor(max(a[1], b[1]) / cell)) + 1):
+                grid.setdefault((gx, gy), []).append(i)
+    cuts = [set() for _ in segs]
+
+    def param_on(p, a, b):
+        """p가 선분 a-b 안쪽(끝 제외) tol 안이면 매개변수 t, 아니면 None."""
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy)
+        if 0.0 < t < 1.0 and math.hypot(a[0] + dx * t - p[0], a[1] + dy * t - p[1]) <= tol:
+            return t
+        return None
+
+    done = set()
+    for ids in grid.values():
+        for x in range(len(ids)):
+            for y in range(x + 1, len(ids)):
+                i, j = ids[x], ids[y]
+                if (i, j) in done:
+                    continue
+                done.add((i, j))
+                (a, b), (c, d) = segs[i], segs[j]
+                for p, (s0, s1), k in ((c, segs[i], i), (d, segs[i], i), (a, segs[j], j), (b, segs[j], j)):   # 끝점이 다른 선분 위(T자·겹침)
+                    t = param_on(p, s0, s1)
+                    if t is not None:
+                        cuts[k].add(t)
+                r, q = (b[0] - a[0], b[1] - a[1]), (d[0] - c[0], d[1] - c[1])
+                den = r[0] * q[1] - r[1] * q[0]
+                if abs(den) < 1e-12:
+                    continue
+                t = ((c[0] - a[0]) * q[1] - (c[1] - a[1]) * q[0]) / den
+                u = ((c[0] - a[0]) * r[1] - (c[1] - a[1]) * r[0]) / den
+                if 0.0 < t < 1.0 and 0.0 < u < 1.0:   # 십자 교차
+                    cuts[i].add(t)
+                    cuts[j].add(u)
+    out = set()
+    for (a, b), ts in zip(segs, cuts):
+        pts = [a] + [(snap(a[0] + (b[0] - a[0]) * t), snap(a[1] + (b[1] - a[1]) * t)) for t in sorted(ts)] + [b]
+        for p1, p2 in zip(pts, pts[1:]):
+            if p1 != p2:
+                out.add((p1, p2) if p1 < p2 else (p2, p1))
+    return sorted(out)
+
+
+def get_split_triangles(verts, faces, segments, tol=1e-3):
+    # type: (list, list, list, float) -> list
+    """삼각형 메시를 제약 선분으로 나뉜 영역마다 묶는다 — 선분을 건너지 않고 이웃한 삼각형끼리(BrepFace.Split의 면에 해당).
+    입력: verts ``[(x, y, …)]``, faces ``[(a, b, c)]``, segments = get_noded_segments 결과. 출력: 영역마다 면 번호 목록."""
+    def key(v):
+        return (round(v[0] / tol), round(v[1] / tol))
+
+    barrier = {frozenset((key(a), key(b))) for a, b in segments}
+    by_edge = {}
+    for f, face in enumerate(faces):
+        for k in range(len(face)):
+            e = frozenset((key(verts[face[k]]), key(verts[face[(k + 1) % len(face)]])))
+            by_edge.setdefault(e, []).append(f)
+    region = [-1] * len(faces)
+    groups = []
+    for start in range(len(faces)):
+        if region[start] >= 0:
+            continue
+        region[start] = len(groups)
+        stack, members = [start], []
+        while stack:
+            f = stack.pop()
+            members.append(f)
+            face = faces[f]
+            for k in range(len(face)):
+                e = frozenset((key(verts[face[k]]), key(verts[face[(k + 1) % len(face)]])))
+                if e in barrier:
+                    continue
+                for g in by_edge.get(e, ()):
+                    if region[g] < 0:
+                        region[g] = len(groups)
+                        stack.append(g)
+        groups.append(members)
+    return groups
+
+
 class PolygonIndex(object):
     """폴리곤 여럿(각각 [외곽, 구멍…])의 점 포함 판정 — y 띠마다 걸친 변만 보는 홀짝 반직선. 점 수만 개 × 정점 수천 개(OSM 호수)에서도 빠르다."""
 

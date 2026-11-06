@@ -230,6 +230,20 @@ class CleanEdgeTest(unittest.TestCase):
         self.assertLessEqual(river[0][2], 3.0 + 1e-6)   # 연못과 만나는 물가는 연못 수위 이하
         self.assertEqual(levels[1], (3.0, 3.0))
 
+    def test_noded_segments(self):
+        # 겹친 변(두 네모가 x=10에서 맞닿음)과 십자 교차(가운데 네모가 걸침) — 노딩 뒤 겹치는 선분 없이 교차점에서 나뉜다
+        a = [(0, 0), (10, 0), (10, 10), (0, 10)]
+        b = [(10, 0), (20, 0), (20, 10), (10, 10)]
+        c = [(5, 5), (15, 5), (15, 15), (5, 15)]
+        segs = u.get_noded_segments([a, b, c])
+        self.assertEqual(len(segs), len(set(segs)))
+        self.assertEqual(sum(1 for p, q in segs if p[0] == q[0] == 10.0 and 0 <= p[1] <= 10 and 0 <= q[1] <= 10), 2)   # x=10 공유 변 한 번만, (10,5)에서 나뉨
+        self.assertIn(((5.0, 10.0), (10.0, 10.0)), segs)   # c의 왼쪽 변 × a의 위 변 교차점 (5, 10)에서 나뉨
+        # 제약선으로 나뉜 영역: 네모 하나를 대각선으로 두 삼각형 → 대각선이 제약이면 두 영역, 아니면 한 영역
+        verts, faces = [(0, 0), (1, 0), (1, 1), (0, 1)], [(0, 1, 2), (0, 2, 3)]
+        self.assertEqual(len(u.get_split_triangles(verts, faces, [((0, 0), (1, 1))])), 2)
+        self.assertEqual(len(u.get_split_triangles(verts, faces, [((0, 0), (1, 0))])), 1)
+
     def test_polygon_index(self):
         idx = u.PolygonIndex([[[(0, 0), (10, 0), (10, 10), (0, 10)], [(4, 4), (6, 4), (6, 6), (4, 6)]]])   # 구멍 있는 네모
         self.assertEqual([idx.contains(2, 2), idx.contains(5, 5), idx.contains(11, 5)], [True, False, False])

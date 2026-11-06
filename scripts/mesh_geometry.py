@@ -140,6 +140,22 @@ def _get_valid_polygon(polygon, epsilon):
         return polygon
 
 
+def _get_snapped(geoms, epsilon):
+    # type: (object, float) -> object
+    """기하 배열을 epsilon 격자로. 배열 하나가 실패하면 하나씩 — 그래도 안 되는 것은 격자 없이 둔다(꼭짓점은 뒤에서 epsilon 키로 묶인다).
+    취리히 호수(8.5410, 47.3667) R=500에서 조각 하나가 'unable to assign free hole to a shell'로 배열 전체를 멈췄다(2026-11-07)."""
+    try:
+        return shapely.set_precision(geoms, epsilon)
+    except shapely.errors.GEOSException:
+        out = []
+        for geom in geoms:
+            try:
+                out.append(shapely.set_precision(geom, epsilon))
+            except shapely.errors.GEOSException:
+                out.append(geom)
+        return numpy.array(out, dtype=object)
+
+
 def _get_overlay_cdt(rings, loose_pts, epsilon):
     # type: (list, list, float) -> tuple
     """_get_cdt의 shapely(GEOS)판 — 같은 모양의 출력을 겹치기(overlay)로 만든다.
@@ -162,7 +178,7 @@ def _get_overlay_cdt(rings, loose_pts, epsilon):
         try:
             cut = shapely.intersection(cells[cell_ids], tin[tin_ids], grid_size=epsilon)
         except shapely.errors.GEOSException:   # 스냅 반올림이 드물게 'Ring edge missing'(신주쿠 OSM 도로면 버퍼 2026-10-22) — 격자 없이 자르고 뒤에 맞춘다
-            cut = shapely.set_precision(shapely.intersection(shapely.make_valid(cells[cell_ids]), tin[tin_ids]), epsilon)
+            cut = _get_snapped(shapely.intersection(shapely.make_valid(cells[cell_ids]), tin[tin_ids]), epsilon)
         pieces = numpy.concatenate([cut, outside[keep]])
         owners = numpy.concatenate([cell_ids, numpy.nonzero(keep)[0]])
     parts, piece_ids = shapely.get_parts(shapely.constrained_delaunay_triangles(pieces), return_index=True)

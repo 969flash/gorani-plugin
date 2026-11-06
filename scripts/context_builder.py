@@ -1168,7 +1168,10 @@ def _run_phases(request, progress, doc, response, state):
     ids += context_baker.write_ref_and_origin(doc, prepared, lot_key)
     if len(ids) < len(items) + 2:
         response["warnings"].append(_warning("warn", "skipped", tr("베이크 실패 {0}건", len(items) + 2 - len(ids)), ""))
-    layers = {item.layer for item in items} | {constants.CTX_ROOT_LAYER + "::Ref"}
+    layers = set()   # 문서에 생기는 레이어 = 객체 레이어 + 그 부모(CTX::Zoning::용도지역 같은 중간 레이어, 뿌리 CTX·BM 제외) — context.3dm 레이어 수와 같게
+    for path in {item.layer for item in items} | {constants.CTX_ROOT_LAYER + "::Ref"}:
+        names = path.split("::")
+        layers.update("::".join(names[:k]) for k in range(2, len(names) + 1))
     _report(progress, "write_3dm", 0.85, tr("{0} 저장", constants.HOST_LABELS[get_host()]["model"]))
     state["save_timing"] = {}
     path = context_baker.save_copy(doc, os.path.join(prepared.result_dir, constants.CONTEXT_MODEL_FILE_NAME), ids, state["save_timing"])

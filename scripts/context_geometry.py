@@ -465,8 +465,11 @@ def _get_region_meshes(ext_ring, cut_rings, edge, counts):
         raise RuntimeError(tr("범위 평면을 만들지 못했습니다"))
     brep = breps[0]
     split = brep.Faces[0].Split(List[rg.Curve]([_get_closed_crv(r) for r in cut_rings]), tol) if cut_rings else None
-    if split is None and cut_rings:
+    if split is None and cut_rings:   # 겹친·걸친 분류 경계에서 실패한다 — 노딩한 선분으로 제약 삼각분할(서울 팩 청계천·창릉천 R=500: 범위 전체가 한 분류였다)
         counts["region_split_failed"] = True
+        regions = _get_cdt_region_meshes(ext_ring, cut_rings, edge, counts)
+        counts["split_s"] = round(time.time() - t, 3)
+        return regions
     brep = split or brep
     counts["regions"] = brep.Faces.Count
     counts["split_s"] = round(time.time() - t, 3)
@@ -480,6 +483,44 @@ def _get_region_meshes(ext_ring, cut_rings, edge, counts):
     mp.JaggedSeams = False
     mp.Tolerance = 0.0
     return list(rg.Mesh.CreateFromBrep(brep, mp) or [])
+
+
+def _get_cdt_region_meshes(ext_ring, cut_rings, edge, counts):
+    # type: (list, list, float, dict) -> list
+    """면 분할이 실패할 때의 영역 메시 — 범위 링 + 분류 링을 노딩(non_rhino_utils.get_noded_segments)해 제약선으로, 범위 안 edge 간격 격자점을
+    안쪽 점으로 넣어 Mesh.CreateFromTessellation(제약 들로네) → 범위 밖 삼각형을 버리고 제약선으로 나뉜 영역마다 Mesh 하나(Z=0).
+    영역끼리 경계 정점을 공유한다(용접하면 이음매 없음). 경계 근처는 삼각형, 안쪽은 격자 간격 — Split판(안쪽 쿼드)과 밀도가 비슷하다."""
+    x0, y0, x1, y1 = non_rhino_utils.get_bbox(ext_ring)
+    rings = [ext_ring] + [r for r in cut_rings if non_rhino_utils.get_bbox(r)[2] >= x0 and non_rhino_utils.get_bbox(r)[0] <= x1
+                          and non_rhino_utils.get_bbox(r)[3] >= y0 and non_rhino_utils.get_bbox(r)[1] <= y1]
+    segments = non_rhino_utils.get_noded_segments(rings, constants.GEOMETRY_TOLERANCE)
+    keep = {}
+    for a, b in segments:
+        keep[a] = keep[b] = True
+    near = non_rhino_utils.PolygonIndex([[[a, b]] for a, b in segments])   # 선분 근처 격자점은 빼서 가는 삼각형을 줄인다
+    loose = []
+    for i in range(int(math.ceil((x1 - x0) / edge)) + 1):
+        for j in range(int(math.ceil((y1 - y0) / edge)) + 1):
+            x, y = x0 + (i + 0.5) * edge, y0 + (j + 0.5) * edge
+            if non_rhino_utils.is_point_in_ring(x, y, ext_ring) and not near.is_near(x, y, 0.3 * edge):
+                loose.append((x, y))
+    pts = List[rg.Point3d]([rg.Point3d(x, y, 0.0) for x, y in list(keep) + loose])
+    lines = List[List[rg.Point3d]]([List[rg.Point3d]([rg.Point3d(a[0], a[1], 0.0), rg.Point3d(b[0], b[1], 0.0)]) for a, b in segments])
+    mesh = rg.Mesh.CreateFromTessellation(pts, lines, rg.Plane.WorldXY, False)
+    if mesh is None or mesh.Faces.Count == 0:
+        raise RuntimeError(tr("범위 평면을 만들지 못했습니다"))
+    verts, faces = _get_mesh_faces(mesh)
+    out = []
+    for group in non_rhino_utils.get_split_triangles(verts, faces, segments, constants.GEOMETRY_TOLERANCE):
+        a, b, c = (verts[i] for i in faces[group[0]][:3])
+        if not non_rhino_utils.is_point_in_ring((a[0] + b[0] + c[0]) / 3.0, (a[1] + b[1] + c[1]) / 3.0, ext_ring):
+            continue   # 제약 들로네는 점들의 볼록 껍질을 다 덮는다 — 범위 밖 영역
+        used = sorted({i for f in group for i in faces[f]})
+        remap = {v: k for k, v in enumerate(used)}
+        out.append(_get_rhino_mesh([(verts[v][0], verts[v][1], 0.0) for v in used], [tuple(remap[i] for i in faces[f]) for f in group]))
+    counts["regions"] = len(out)
+    counts["region_fallback"] = "cdt"
+    return out
 
 
 def _drape(meshes, tin):
