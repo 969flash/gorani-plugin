@@ -1,4 +1,39 @@
 {
- "update": null,
+ "update": {
+  "latest": "0.3.8",
+  "date": "2026-11-06",
+  "items": {
+   "ko": [
+    "Rhino 8: 3D 형상을 Brep(닫힌 폴리서피스)으로도 냅니다",
+    "해외 대상지: OSM 서버가 붐비면 잠시 기다렸다 다시 시도합니다",
+    "SketchUp Windows: 패널이 열리지 않던 문제를 고쳤습니다",
+    "최근 대상지를 목록에서 지울 수 있습니다"
+   ],
+   "en": [
+    "Rhino 8: 3D geometry can now be output as Brep (closed polysurfaces)",
+    "Overseas sites: retries after a short wait when the OSM server is busy",
+    "SketchUp Windows: fixed the panel not opening",
+    "You can remove recent sites from the list"
+   ],
+   "es": [
+    "Rhino 8: la geometría 3D ahora puede salir como Brep (polisuperficies cerradas)",
+    "Sitios fuera de Corea: si el servidor de OSM está ocupado, espera y reintenta",
+    "SketchUp Windows: se corrigió que el panel no se abriera",
+    "Ahora puede quitar sitios recientes de la lista"
+   ],
+   "ja": [
+    "Rhino 8: 3D形状をBrep（閉じたポリサーフェス）でも出せます",
+    "海外の対象地: OSMサーバーが混雑しているときは少し待って再試行します",
+    "SketchUp Windows: パネルが開かない問題を直しました",
+    "最近の対象地を一覧から消せます"
+   ],
+   "zh": [
+    "Rhino 8：3D几何现在可输出为Brep（封闭多重曲面）",
+    "海外场地：OSM 服务器繁忙时稍等后重试",
+    "SketchUp Windows：修复了面板无法打开的问题",
+    "可从列表中删除最近的场地"
+   ]
+  }
+ },
  "notices": []
 }
