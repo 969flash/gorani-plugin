@@ -209,17 +209,36 @@ class CleanEdgeTest(unittest.TestCase):
             ny = sum((pts[k][2] - pts[(k + 1) % len(pts)][2]) * (pts[k][0] + pts[(k + 1) % len(pts)][0]) for k in range(len(pts)))
             self.assertGreater(ny * (4 - pts[0][1]), 0)
 
-    def test_water_groups_and_shore(self):
-        # 맞닿은 판 A(z1)·B(z1.8)는 한 수위로, 2 m 넘게 높은 C(z5)와 떨어진 D(z1)는 따로, 사슬은 폭 2 m까지만
-        def quad(x0, x1, z):
-            return [(x0, 0, z), (x1, 0, z), (x1, 4, z), (x0, 4, z)], [(0, 1, 2, 3)]
-        bodies = [quad(0, 10, 1.0), quad(10, 20, 1.8), quad(20, 30, 5.0), quad(40, 50, 1.0)]
-        self.assertEqual(u.get_water_groups(bodies, 2.0), [[0, 1], [2], [3]])
-        chain = [quad(0, 10, 1.0), quad(10, 20, 2.5), quad(20, 30, 4.0)]   # 쌍마다는 1.5 m지만 셋을 묶으면 폭 3 m — 상류가 가라앉지 않게 둘만
-        self.assertEqual(u.get_water_groups(chain, 2.0), [[0, 1], [2]])
-        shore = u.WaterShore(bodies[0])
-        bank = [(5, 0, 7.0), (5, -3, 9.0), (10, 2, 4.0)]   # 물가선 위 두 점은 수위로, 물에서 떨어진 점은 그대로
-        self.assertEqual(u.get_shore_fitted(bank, shore), [(5, 0, 1.0), (5, -3, 9.0), (10, 2, 1.0)])
+    def test_water_surface(self):
+        # 흐르는 물: 물가가 0 m(하류 x=0)에서 10 m(상류 x=400)로 오르는 4 m 폭 띠 + 둑 꼭대기 튀는 값 하나, 끝에 고인 물(연못 z 3)
+        verts, faces = [], []
+        for k in range(41):
+            x = k * 10.0
+            z = x / 40.0 + (20.0 if k == 20 else 0.0)   # 1/40 = 2.5 % 기울기, x=200 물가에 둑 꼭대기 +20 m
+            verts += [(x, 0.0, z), (x, 4.0, z)]
+            if k:
+                faces.append((2 * k - 2, 2 * k, 2 * k + 1, 2 * k - 1))
+        pond = ([(-10.0, 0.0, 3.0), (0.0, 0.0, 3.5), (0.0, 4.0, 3.5), (-10.0, 4.0, 3.0)], [(0, 1, 2, 3)])
+        ring = [(-1000, -1000), (1000, -1000), (1000, 1000), (-1000, 1000)]
+        (river, still), levels = u.get_water_surface([(verts, faces), pond], [False, True], ring, 50.0, 0.05, 10.0)
+        self.assertEqual({v[2] for v in still}, {3.0})   # 고인 물 = 물가 하위 10 % 평면
+        zs = [v[2] for v in river[0::2]]
+        self.assertTrue(all(b >= a - 0.05 for a, b in zip(zs, zs[1:])), zs)   # 하류 → 상류로 내려가지 않는다(튀는 값에 솟지 않는다)
+        self.assertLess(max(zs), 10.0)   # 물가 높이를 넘지 않는다
+        self.assertGreater(zs[-1], 7.0)   # 상류가 하류 수위로 가라앉지 않는다(2.5 % 기울기를 따른다)
+        self.assertLess(abs(river[0][2] - river[1][2]), 0.05)   # 단면은 양안이 같은 높이
+        self.assertLessEqual(river[0][2], 3.0 + 1e-6)   # 연못과 만나는 물가는 연못 수위 이하
+        self.assertEqual(levels[1], (3.0, 3.0))
+
+    def test_polygon_index(self):
+        idx = u.PolygonIndex([[[(0, 0), (10, 0), (10, 10), (0, 10)], [(4, 4), (6, 4), (6, 6), (4, 6)]]])   # 구멍 있는 네모
+        self.assertEqual([idx.contains(2, 2), idx.contains(5, 5), idx.contains(11, 5)], [True, False, False])
+        self.assertEqual([idx.is_near(12, 5, 3.0), idx.is_near(15, 5, 3.0), idx.is_near(5, 5, 1.0)], [True, False, True])
+
+    def test_shore_fitted(self):
+        water = ([(0, 0, 1.0), (10, 0, 2.0), (10, 4, 2.0), (0, 4, 1.0)], [(0, 1, 2, 3)])
+        bank = [(5, 0, 7.0), (5, -3, 9.0), (10, 2, 4.0)]   # 물가선 위 점은 그 자리 수면(보간)으로, 물에서 떨어진 점은 그대로
+        self.assertEqual(u.get_shore_fitted(bank, u.WaterShore(water)), [(5, 0, 1.5), (5, -3, 9.0), (10, 2, 2.0)])
 
     def test_contours(self):
         tri = ((0, 0, 0.0), (10, 0, 10.0), (0, 10, 0.0))

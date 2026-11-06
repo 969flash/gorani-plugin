@@ -306,8 +306,8 @@ def build_terrain(prepared):
           options.terrain_step(m, 0 = 매끈) — 지반 메시를 계단형으로(평탄면·원지형 사본은 그대로, 경계 벽 윗선은 계단에 맞춘다).
     처리: get_tin_points → CDT(볼록 껍질) = TIN → 범위 링(면 0) + 범위 bbox와 겹치는 분류 폴리곤 링(외곽·구멍) + 대상지 링을 제약 면으로,
           TIN 점을 내부 정점으로 다시 CDT → 범위 안 삼각형만, 품은 링으로 분류(외곽 안 + 같은 파트 구멍 밖, TERRAIN_CLASS_PRIORITY 앞이 이김)
-          → 정점 Z = TIN 투영 → 수면은 폴리곤별 최저 Z(맞닿은 판은 WATER_MERGE_DZ 안이면 한 수위) + WATER_LIFT 평면, 물가 정점 = 수위
-          → 대상지 평탄면·경계 벽·원지형 → 남은 수면 단차 벽.
+          → 정점 Z = TIN 투영 → 수면(고인 물 평면, 흐르는 물은 물가를 따라 기운다 — get_water_surface) + WATER_LIFT, 물가 정점 = 수위
+          → 대상지 평탄면·경계 벽·원지형 → 남은 수면 단차 벽(댐·평탄화 대상지).
     출력: ``(meshes, tris_world, counts)``. meshes = {"all": 건물 투영용 지반, "terrain"|"water"|"road"|"green"|"rail"|"site_ground"|"site_wall"|
           "site_original": (정점, 면)}. tris_world = 세계좌표 TIN 삼각형 [((x,y,z)×3, "terrain"|"outside")] — 시트 12·13.
     """
@@ -338,7 +338,7 @@ def build_terrain(prepared):
     # 제약 링 — 0 = 범위, 다음 = 분류 폴리곤(범위 bbox와 겹치는 파트만), 끝 = 대상지
     rings, owners = [_get_local_ring(ext_ring, origin)], [None]
     polys = get_class_polygons(prepared)
-    for index, (cls, _name, parts) in enumerate(polys):
+    for index, (cls, _name, parts, _still) in enumerate(polys):
         prio = constants.TERRAIN_CLASS_PRIORITY.index(cls)
         for part_no, part in enumerate(parts):
             if not part:
@@ -397,19 +397,18 @@ def build_terrain(prepared):
     for cls in ("terrain", "road", "green", "rail"):
         if buckets.get(cls):
             meshes[cls] = _get_mesh(buckets[cls], xy, zs)
-    # 수면 — 수면 폴리곤별 최저 Z = 수위 → 맞닿고 수위 차가 WATER_MERGE_DZ 이하인 판은 한 수위(최저)로 → 평면 + WATER_LIFT
+    # 수면 — 고인 물은 평평하게, 흐르는 물은 물가를 따라 기울게(non_rhino_utils.get_water_surface) + WATER_LIFT, 물가 정점 = 수위
     order = sorted(water_regions)
-    levels = {i: min(zs[v] for tri in water_regions[i] for v in tri) for i in order}
-    groups = non_rhino_utils.get_water_groups([_get_mesh(water_regions[i], xy, zs, levels[i]) for i in order], constants.WATER_MERGE_DZ)
-    water_bodies, water_parts = [], []
-    for group in groups:
-        members = [order[k] for k in group]
-        level = min(levels[i] for i in members)
-        body = _get_mesh([tri for i in members for tri in water_regions[i]], xy, zs, level + constants.WATER_LIFT)
-        water_parts.append(body)
-        water_bodies.append({"name": ", ".join(sorted({polys[i][1] for i in members})), "level": round(level, 2), "faces": len(body[1])})
-    if water_parts:
-        meshes["water"] = _join(water_parts)
+    water_bodies = []
+    if order:
+        draped = [_get_mesh(water_regions[i], xy, zs) for i in order]
+        surfaces, levels = non_rhino_utils.get_water_surface(
+            draped, [polys[i][3] for i in order], _get_local_ring(ext_ring, origin),
+            constants.WATER_SHORE_WINDOW, constants.WATER_MAX_GRADE, constants.WATER_SURFACE_CELL)
+        lift = constants.WATER_LIFT
+        meshes["water"] = _join([([(x, y, z + lift) for x, y, z in verts], body[1]) for verts, body in zip(surfaces, draped)])
+        water_bodies = [{"name": polys[i][1], "still": polys[i][3], "level": round(low, 2), "level_max": round(high, 2), "faces": len(body[1])}
+                        for i, body, (low, high) in zip(order, draped, levels)]
         shore = non_rhino_utils.WaterShore(meshes["water"])   # 물가선 = 수위 — 지형·도로가 물가에서 비탈로 오른다
         for cls in ("terrain", "road", "green", "rail"):
             if cls in meshes:
@@ -479,8 +478,9 @@ def _get_terrain_items(meshes, counts):
             attrs = {"KIND": "block", "BASE_M": "%g" % counts["block_base"]}
         elif cls == "water":
             bodies = counts["water_bodies"]
-            attrs = {"NAME": "; ".join(b["name"] for b in bodies), "LEVEL_M": "; ".join("%.2f" % b["level"] for b in bodies),
-                     "LEVEL_SRC": "terrain_min"}
+            attrs = {"NAME": "; ".join(b["name"] for b in bodies),
+                     "LEVEL_M": "; ".join("%.2f" % b["level"] if b["level_max"] - b["level"] < 0.01 else "%.2f~%.2f" % (b["level"], b["level_max"]) for b in bodies),
+                     "LEVEL_SRC": "; ".join("terrain_min" if b["still"] else "shore_smoothed" for b in bodies)}
         elif cls.startswith("site_"):
             flat = "site_level" in counts
             attrs = {"KIND": {"site_ground": "flattened" if flat else "natural", "site_wall": "edge_wall", "site_original": "natural"}[cls]}

@@ -420,8 +420,10 @@ def get_feature_kind(tags, is_area):
     # type: (dict, bool) -> tuple
     """OSM 태그 → (theme, kind). 해당 없으면 None. 면은 수면·학교 부지·광장·녹지, 선은 도로·철도·하천."""
     if is_area:
-        if tags.get("natural") == "water" or tags.get("waterway") == "riverbank" or tags.get("landuse") in ("reservoir", "basin"):
+        if tags.get("waterway") == "riverbank" or (tags.get("natural") == "water" and tags.get("water") in constants.OSM_FLOWING_WATER):
             return "water", "river"
+        if tags.get("natural") == "water" or tags.get("landuse") in ("reservoir", "basin"):
+            return "water", "lake"   # 고인 물(water=* 없는 natural=water는 대개 호수·연못) — 평평한 수면
         if tags.get("amenity") in constants.OSM_SCHOOL_AMENITIES:
             return "public", "school_lot"   # 공공시설 도면 '학교 부지'(국내 지목 학교용지)
         if tags.get("place") == "square":

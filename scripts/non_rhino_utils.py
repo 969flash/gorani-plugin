@@ -463,6 +463,47 @@ def is_point_in_polygon(x, y, rings):
     return not any(is_point_in_ring(x, y, hole) for hole in rings[1:])
 
 
+class PolygonIndex(object):
+    """폴리곤 여럿(각각 [외곽, 구멍…])의 점 포함 판정 — y 띠마다 걸친 변만 보는 홀짝 반직선. 점 수만 개 × 정점 수천 개(OSM 호수)에서도 빠르다."""
+
+    def __init__(self, polygons, band=5.0):
+        # type: (list, float) -> None
+        self.band, self.bands, self.edges, self._near = float(band), {}, [], None
+        for pid, rings in enumerate(polygons):
+            for ring in rings:
+                for k in range(len(ring)):
+                    (x1, y1), (x2, y2) = ring[k][:2], ring[(k + 1) % len(ring)][:2]
+                    self.edges.append((x1, y1, x2, y2))
+                    if y1 == y2:
+                        continue
+                    for b in range(int(math.floor(min(y1, y2) / self.band)), int(math.floor(max(y1, y2) / self.band)) + 1):
+                        self.bands.setdefault(b, []).append((x1, y1, x2, y2, pid))
+
+    def is_near(self, x, y, dist):
+        # type: (float, float, float) -> bool
+        """(x, y)에서 dist 안에 폴리곤 변이 있는지(안팎 무관)."""
+        if self._near is None or self._near[0] != dist:
+            grid = {}
+            for x1, y1, x2, y2 in self.edges:
+                for i in range(int(math.floor((min(x1, x2) - dist) / dist)), int(math.floor((max(x1, x2) + dist) / dist)) + 1):
+                    for j in range(int(math.floor((min(y1, y2) - dist) / dist)), int(math.floor((max(y1, y2) + dist) / dist)) + 1):
+                        grid.setdefault((i, j), []).append((x1, y1, x2 - x1, y2 - y1))
+            self._near = (dist, grid)
+        for ax, ay, dx, dy in self._near[1].get((int(math.floor(x / dist)), int(math.floor(y / dist))), ()):
+            t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / ((dx * dx + dy * dy) or 1.0)))
+            if math.hypot(x - ax - dx * t, y - ay - dy * t) <= dist:
+                return True
+        return False
+
+    def contains(self, x, y):
+        # type: (float, float) -> bool
+        odd = set()
+        for x1, y1, x2, y2, pid in self.bands.get(int(math.floor(y / self.band)), ()):
+            if (y1 > y) != (y2 > y) and x1 + (y - y1) * (x2 - x1) / (y2 - y1) > x:
+                odd ^= {pid}
+        return bool(odd)
+
+
 class GridIndex(object):
     """bbox 격자 색인. 셀 크기 cell(m) — 면 분류는 constants.CLASSIFY_GRID.
 
@@ -1291,32 +1332,31 @@ def _get_boundary_edges(verts, faces):
 
 
 class WaterShore(object):
-    """수면 판 경계 색인 — (x, y)가 어떤 높이 수면 판의 경계(물가선) 위인지. 수면 = 평평한 판 여럿을 이어 붙인 메시(로컬 m)."""
+    """수면 경계 색인 — (x, y)가 수면 경계(물가선) 위면 그 자리 수면 높이. 수면 = 판 여러 개를 이어 붙인 메시(로컬 m, 기울어도 된다)."""
 
     def __init__(self, water, tol=1e-3, cell=5.0):
         # type: (tuple, float, float) -> None
         self.tol, self.cell, self.grid = tol, float(cell), {}
         for p, q in _get_boundary_edges(*water):
-            z = (p[2] + q[2]) * 0.5
             for i in range(int(math.floor((min(p[0], q[0]) - tol) / cell)), int(math.floor((max(p[0], q[0]) + tol) / cell)) + 1):
                 for j in range(int(math.floor((min(p[1], q[1]) - tol) / cell)), int(math.floor((max(p[1], q[1]) + tol) / cell)) + 1):
-                    self.grid.setdefault((i, j), []).append((p[0], p[1], q[0] - p[0], q[1] - p[1], z))
+                    self.grid.setdefault((i, j), []).append((p[0], p[1], q[0] - p[0], q[1] - p[1], p[2], q[2]))
 
-    def get_levels(self, x, y):
-        # type: (float, float) -> set
-        """(x, y)를 지나는 수면 경계 변들의 높이(mm 반올림) 집합. 물가가 아니면 빈 집합."""
-        levels = set()
-        for ax, ay, dx, dy, z in self.grid.get((int(math.floor(x / self.cell)), int(math.floor(y / self.cell))), ()):
+    def get_hits(self, x, y):
+        # type: (float, float) -> list
+        """(x, y)를 지나는 수면 경계 변들의 그 자리 수면 높이(mm 반올림, 중복 없이 오름차순). 물가가 아니면 []."""
+        hits = set()
+        for ax, ay, dx, dy, za, zb in self.grid.get((int(math.floor(x / self.cell)), int(math.floor(y / self.cell))), ()):
             t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / ((dx * dx + dy * dy) or 1.0)))
             if math.hypot(x - ax - dx * t, y - ay - dy * t) <= self.tol:
-                levels.add(round(z, 3))
-        return levels
+                hits.add(round(za + (zb - za) * t, 3))
+        return sorted(hits)
 
     def get_z(self, x, y):
         # type: (float, float) -> object
-        """물가선 위면 그 수면 높이(여럿이면 낮은 것), 아니면 None."""
-        levels = self.get_levels(x, y)
-        return min(levels) if levels else None
+        """물가선 위면 그 자리 수면 높이(여럿이면 낮은 것), 아니면 None."""
+        hits = self.get_hits(x, y)
+        return hits[0] if hits else None
 
 
 def get_shore_fitted(verts, shore):
@@ -1330,50 +1370,229 @@ def get_shore_fitted(verts, shore):
     return out
 
 
-def get_water_groups(bodies, max_dz, tol=1e-3):
-    # type: (list, float, float) -> list
-    """맞닿은 수면 판을 묶음 안 높이 폭이 max_dz 이하가 되게 묶는다 — 도엽 경계로 잘린 같은 강이 판마다 수위가 달라 강 한가운데 턱이 생기던 것
-    (성수 R=1000 사각형: 한강이 x≈-280 도엽 경계에서 4.22 | 4.97 m, 턱 길이 410 m). 폭을 묶음 전체로 재는 것은 사슬로 이어 묶여
-    상류가 하류 수위로 내려앉지 않게 하려는 것이다(홍제천 R=500: 17.2·18.7·20.0 m — 쌍마다 재면 20.0 m 구간이 2.8 m 가라앉는다).
+def _is_on_ring(x, y, ring, tol):
+    # type: (float, float, list, float) -> bool
+    for k in range(len(ring)):
+        (ax, ay), (bx, by) = ring[k][:2], ring[(k + 1) % len(ring)][:2]
+        dx, dy = bx - ax, by - ay
+        t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / ((dx * dx + dy * dy) or 1.0)))
+        if math.hypot(x - ax - dx * t, y - ay - dy * t) <= tol:
+            return True
+    return False
 
-    입력: bodies = 판마다 평평한 메시 ``[(verts, faces)]``. max_dz = 묶음 안 최대 높이 폭(m).
-    처리: 판 j의 경계 정점이 판 i의 물가선 위면 맞닿음. 높이 차가 작은 쌍부터, 합친 묶음의 폭이 max_dz 이하일 때만 합친다.
-    출력: 판 번호 묶음 ``[[i, …]]`` — 묶음 수위는 부르는 쪽이 정한다(묶음 안 최저). 묶이지 못한 맞닿은 판 사이는 턱(보처럼)으로 남는다.
+
+def get_water_surface(bodies, still, ring, window, grade, cell, tol=1e-3):
+    # type: (list, list, list, float, float, float, float) -> tuple
+    """수면 판마다 정점 높이(하이드로 플래트닝). 고인 물은 평평하게, 흐르는 물은 물가를 따라 하류로 매끄럽게 기운다.
+
+    입력: bodies = 수면 폴리곤마다 지형(TIN)에 얹은 메시 ``[(verts, faces)]``(로컬 m). still = 판마다 고인 물인지.
+          ring = 범위 링(로컬) — 범위에 잘린 수면 가장자리는 물가가 아니다. window = 물가 최저 창(m), grade = 수면 최대 기울기, cell = 안쪽 채움 격자(m).
+    처리: ① 고인 물 = 물가 높이 하위 10 % 평면.
+          ② 흐르는 물 — 물가 = 흐르는 판 전체의 바깥 경계(도엽 이음매는 두 판이 같이 가져 빠진다, 범위 링 위도 뺀다), 고인 물과 맞닿은 물가는
+             그 수위 이하(강이 호수 높이로 들어간다). 물가 높이를 5 m 칸으로 솎아 창 안 최저(둑 꼭대기 등고선 같은 튀는 값을 버린다 —
+             창 = max(window, 강폭 × 2), 강폭 ≈ 2 × 넓이 / 둘레라 넓은 강일수록 평평하다)
+             → 기울기 grade 이하로 낮추는 하한 포락(등고선 5 m 간격 계단을 경사로로) → 격자 칸에 가장 가까운 물가 값을 채우고 몇 번 다듬어
+             쌍선형 보간 — 단면은 양안 사이로 이어지고, 도엽으로 잘린 판도 자리의 함수라 저절로 이어진다.
+    출력: ``(new_verts_list, levels)`` — 판마다 새 정점 목록(WATER_LIFT 전), levels = 판마다 (최저, 최고) Z.
     """
-    levels = [verts[0][2] if verts else 0.0 for verts, _faces in bodies]
-    shores = [WaterShore(body, tol) for body in bodies]
-    edges = [_get_boundary_edges(*body) for body in bodies]
-    touching = sorted((abs(levels[i] - levels[j]), i, j) for i in range(len(bodies)) for j in range(i + 1, len(bodies))
-                      if abs(levels[i] - levels[j]) <= max_dz and any(shores[i].get_levels(p[0], p[1]) for p, _q in edges[j]))
-    parent = list(range(len(bodies)))
-    span = [(z, z) for z in levels]   # 묶음 뿌리마다 (최저, 최고)
+    out = [list(verts) for verts, _faces in bodies]
+    for i, (verts, faces) in enumerate(bodies):
+        if still[i] and verts:
+            shore = sorted(q[2] for edge in _get_boundary_edges(verts, faces) for q in edge if not _is_on_ring(q[0], q[1], ring, 0.01))
+            level = shore[len(shore) // 10] if shore else min(v[2] for v in verts)   # 물가 하위 10 % — 최저 한 점에 끌리지 않게(취리히 호수 최저 403.8·하위 10 % 405.8, 실제 약 406 m)
+            out[i] = [(x, y, level) for x, y, _z in verts]
+    flowing = [i for i in range(len(bodies)) if not still[i] and bodies[i][0]]
+    if flowing:
+        count, ends, owner = {}, {}, {}
+        for i in flowing:
+            verts, faces = bodies[i]
+            for face in faces:
+                for k in range(len(face)):
+                    a, b = verts[face[k]], verts[face[(k + 1) % len(face)]]
+                    ka, kb = (round(a[0], 3), round(a[1], 3)), (round(b[0], 3), round(b[1], 3))
+                    if ka == kb:
+                        continue
+                    key = (ka, kb) if ka < kb else (kb, ka)
+                    count[key] = count.get(key, 0) + 1
+                    owner.setdefault(key, set()).add(i)
+                    ends[ka], ends[kb] = a, b
+        # 이어진 흐르는 물(도엽 이음매·본류에 붙은 곁가지)은 한 강 — 강폭과 창을 묶음 전체로 잰다(곁가지 폭 7 m가 창을 잡아
+        # 성수 한강 옆 조각이 7.9 m에 남고 그 값이 한강 안쪽으로 번졌다). 강폭 ≈ 2 × 넓이 / 물가 둘레, 창 = max(window, 강폭 × 2)
+        parent = {i: i for i in flowing}
 
-    def find(i):
-        while parent[i] != i:
-            parent[i] = parent[parent[i]]
-            i = parent[i]
-        return i
+        def find(i):
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
 
-    for _dz, i, j in touching:
-        a, b = find(i), find(j)
-        low, high = min(span[a][0], span[b][0]), max(span[a][1], span[b][1])
-        if a != b and high - low <= max_dz:
-            parent[b] = a
-            span[a] = (low, high)
-    groups = {}
-    for i in range(len(bodies)):
-        groups.setdefault(find(i), []).append(i)
-    return sorted(groups.values())
+        for ids in owner.values():
+            first = next(iter(ids))
+            for j in ids:
+                parent[find(j)] = find(first)
+        area, perimeter = {}, {}
+        for i in flowing:
+            verts, faces = bodies[i]
+            area[find(i)] = area.get(find(i), 0.0) + sum(abs(get_ring_area([verts[v][:2] for v in face])) for face in faces)
+        for key, n in count.items():
+            d = math.hypot(key[1][0] - key[0][0], key[1][1] - key[0][1])
+            if n == 1 and d <= 30.0:   # 물가는 수 m 간격 — 범위에 잘린 변·범위 모서리 가는 삼각형 변(성수 R=1000 650~1,200 m)은 30 m보다 길다
+                root = find(next(iter(owner[key])))
+                perimeter[root] = perimeter.get(root, 0.0) + d
+        win_of = {i: max(window, 4.0 * area[find(i)] / perimeter[find(i)] if perimeter.get(find(i)) else window) for i in flowing}
+        span = {}
+        for key, ids in owner.items():
+            for k_ in key:
+                span[k_] = max([span.get(k_, 0.0)] + [win_of[i] for i in ids])
+        still_bodies = [(out[i], bodies[i][1]) for i in range(len(bodies)) if still[i] and bodies[i][0]]
+        still_shore = WaterShore(_join_meshes(still_bodies), tol) if still_bodies else None
+        thin = {}   # 5 m 칸마다 가장 낮은 물가 점
+        for key in {k for edge, n in count.items() if n == 1 for k in edge}:
+            x, y, z = ends[key]
+            if _is_on_ring(x, y, ring, 0.01):
+                continue
+            if still_shore is not None:
+                lake_z = still_shore.get_z(x, y)
+                if lake_z is not None:
+                    z = min(z, lake_z)
+            ck = (int(math.floor(x / 5.0)), int(math.floor(y / 5.0)))
+            if ck not in thin or z < thin[ck][2]:
+                thin[ck] = (x, y, z, max(span[key], thin[ck][3] if ck in thin else 0.0))
+        samples = list(thin.values())
+        if samples:
+            out_levels = _get_shore_levels(samples, grade)
+            raster = _ShoreRaster([(s_[0], s_[1], z) for s_, z in zip(samples, out_levels)], cell)
+            for i in flowing:
+                out[i] = [(x, y, raster.get_z(x, y)) for x, y, _z in bodies[i][0]]
+    levels = [(min(v[2] for v in verts), max(v[2] for v in verts)) if verts else (0.0, 0.0) for verts in out]
+    return out, levels
+
+
+def _join_meshes(meshes):
+    # type: (list) -> tuple
+    verts, faces = [], []
+    for mesh_verts, mesh_faces in meshes:
+        start = len(verts)
+        verts.extend(mesh_verts)
+        faces.extend(tuple(start + i for i in face) for face in mesh_faces)
+    return verts, faces
+
+
+def _get_shore_levels(samples, grade):
+    # type: (list, float) -> list
+    """물가 점 ``[(x, y, z, window)]`` → 수위. 점마다 window 안 최저 → 기울기 grade 하한 포락(다익스트라, 이웃 = 15 m 안)."""
+    import heapq
+    cell = 50.0
+    grid = {}
+    for k, s_ in enumerate(samples):
+        grid.setdefault((int(math.floor(s_[0] / cell)), int(math.floor(s_[1] / cell))), []).append(k)
+    low = []
+    for x, y, z, win in samples:
+        i, j, reach = int(math.floor(x / cell)), int(math.floor(y / cell)), int(math.ceil(win / cell))
+        best = z
+        for di in range(-reach, reach + 1):
+            for dj in range(-reach, reach + 1):
+                for k in grid.get((i + di, j + dj), ()):
+                    sx, sy, sz = samples[k][:3]
+                    if sz < best and math.hypot(sx - x, sy - y) <= win:
+                        best = sz
+        low.append(best)
+    link = 15.0
+    near = {}
+    for k, (x, y, _z, _w) in enumerate(samples):
+        near.setdefault((int(math.floor(x / link)), int(math.floor(y / link))), []).append(k)
+    level = list(low)
+    heap = [(z, k) for k, z in enumerate(level)]
+    heapq.heapify(heap)
+    while heap:
+        z, k = heapq.heappop(heap)
+        if z > level[k]:
+            continue
+        x, y = samples[k][:2]
+        i, j = int(math.floor(x / link)), int(math.floor(y / link))
+        for di in (-1, 0, 1):
+            for dj in (-1, 0, 1):
+                for m in near.get((i + di, j + dj), ()):
+                    cand = z + grade * math.hypot(samples[m][0] - x, samples[m][1] - y)
+                    if cand < level[m] - 1e-9:
+                        level[m] = cand
+                        heapq.heappush(heap, (cand, m))
+    return level
+
+
+class _ShoreRaster(object):
+    """물가 수위를 격자에 채운 높이장 — 칸마다 가장 가까운 물가 값(다익스트라) → 물가가 없는 칸만 몇 번 이웃 평균(접힘 다듬기) → 쌍선형 보간."""
+
+    def __init__(self, samples, cell, max_cells=40000, smooth=10):
+        # type: (list, float, int, int) -> None
+        import heapq
+        xs, ys = [s[0] for s in samples], [s[1] for s in samples]
+        pad = 2 * cell
+        self.x0, self.y0 = min(xs) - pad, min(ys) - pad
+        span = max(max(xs) - self.x0 + pad, max(ys) - self.y0 + pad)
+        self.cell = max(float(cell), span / math.sqrt(max_cells))
+        self.nx = int(math.ceil((max(xs) + pad - self.x0) / self.cell)) + 1
+        self.ny = int(math.ceil((max(ys) + pad - self.y0) / self.cell)) + 1
+        n = self.nx * self.ny
+        dist, value, seed = [float("inf")] * n, [0.0] * n, [False] * n
+        heap = []
+        for x, y, z in samples:
+            i, j = int(round((x - self.x0) / self.cell)), int(round((y - self.y0) / self.cell))
+            k = j * self.nx + i
+            d = math.hypot(x - (self.x0 + i * self.cell), y - (self.y0 + j * self.cell))
+            if d < dist[k] or (d == dist[k] and z < value[k]):
+                dist[k], value[k], seed[k] = d, z, True
+        for k in range(n):
+            if seed[k]:
+                heap.append((dist[k], k))
+        heapq.heapify(heap)
+        steps = [(di, dj, math.hypot(di, dj) * self.cell) for di in (-1, 0, 1) for dj in (-1, 0, 1) if di or dj]
+        while heap:
+            d, k = heapq.heappop(heap)
+            if d > dist[k]:
+                continue
+            i, j = k % self.nx, k // self.nx
+            for di, dj, w in steps:
+                a, b = i + di, j + dj
+                if 0 <= a < self.nx and 0 <= b < self.ny:
+                    m = b * self.nx + a
+                    if d + w < dist[m]:
+                        dist[m], value[m] = d + w, value[k]
+                        heapq.heappush(heap, (d + w, m))
+        for _ in range(smooth):
+            nxt = list(value)
+            for k in range(n):
+                if seed[k]:
+                    continue
+                i, j = k % self.nx, k // self.nx
+                total, cnt = 0.0, 0
+                for a, b in ((i - 1, j), (i + 1, j), (i, j - 1), (i, j + 1)):
+                    if 0 <= a < self.nx and 0 <= b < self.ny:
+                        total += value[b * self.nx + a]
+                        cnt += 1
+                nxt[k] = total / cnt
+            value = nxt
+        self.value = value
+
+    def get_z(self, x, y):
+        # type: (float, float) -> float
+        fx, fy = (x - self.x0) / self.cell, (y - self.y0) / self.cell
+        i, j = max(0, min(self.nx - 2, int(math.floor(fx)))), max(0, min(self.ny - 2, int(math.floor(fy))))
+        tx, ty = min(1.0, max(0.0, fx - i)), min(1.0, max(0.0, fy - j))
+        v = self.value
+        a, b = v[j * self.nx + i], v[j * self.nx + i + 1]
+        c, d = v[(j + 1) * self.nx + i], v[(j + 1) * self.nx + i + 1]
+        return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty
 
 
 def get_water_walls(water, neighbors, tol=1e-3):
     # type: (tuple, list, float) -> tuple
-    """수면 판 둘레에 남은 단차를 막는 세로 벽 — 물가는 get_shore_fitted로 수위에 맞추므로, 남는 것은 높이 차가 큰 수면 판끼리(보·댐)와
-    평탄화한 대상지 바닥 정도다. 막지 않으면 판 사이 틈으로 뒤가 비친다.
+    """수면 둘레에 남은 단차를 막는 세로 벽 — 물가는 get_shore_fitted로 수위에 맞추므로, 남는 것은 고인 물과 흐르는 물이
+    다른 높이로 만나는 곳(댐·보)과 평탄화한 대상지 정도다. 막지 않으면 틈으로 뒤가 비친다.
 
-    입력: water = 수면 메시 (verts, faces) — 판 여러 개(로컬 m). neighbors = 둘레 메시들 ``[(verts, faces)]``(지형·도로·녹지·철도·대상지 바닥).
-    처리: 이웃 메시와 수면 자신의 경계 변 p→q마다 p·q·가운데가 모두 같은 높이의 물가선 위(tol 안)이고 그 수면이 변보다 낮으면
-          → 변에서 그 수면 높이까지 벽(수면 쪽을 본다). 후보가 여럿이면 가장 높은 수면(바로 아래 판). 수면보다 낮은 끝은 수면 높이로(3각형).
+    입력: water = 수면 메시 (verts, faces) — 판 여러 개(로컬 m, 기울어도 된다). neighbors = 둘레 메시들 ``[(verts, faces)]``.
+    처리: 이웃 메시와 수면 자신의 경계 변 p→q마다 p·q·가운데가 모두 물가선 위이고 그 자리 수면이 변 끝보다 낮으면
+          → 끝마다 바로 아래 수면 높이까지 벽(수면 쪽을 본다). 한 끝만 낮으면 3각형.
     출력: ``(verts, faces)`` — 면은 3·4각형. 벽이 없으면 ([], []).
     """
     shore = WaterShore(water, tol)
@@ -1390,19 +1609,23 @@ def get_water_walls(water, neighbors, tol=1e-3):
         for p, q in _get_boundary_edges(*mesh):
             if math.hypot(q[0] - p[0], q[1] - p[1]) < tol:
                 continue
-            top = max(p[2], q[2])
-            levels = shore.get_levels(p[0], p[1]) & shore.get_levels(q[0], q[1]) & shore.get_levels((p[0] + q[0]) * 0.5, (p[1] + q[1]) * 0.5)
-            levels = [z for z in levels if z < top - tol]
-            if not levels:
+            mid = shore.get_hits((p[0] + q[0]) * 0.5, (p[1] + q[1]) * 0.5)
+            if not [h for h in mid if h < (p[2] + q[2]) * 0.5 - tol]:   # 변 가운데 아래에 수면이 없으면 막을 틈이 아니다
                 continue
-            z = max(levels)
-            pz, qz = max(p[2], z), max(q[2], z)
-            ring = [vertex(p[0], p[1], pz)]   # p → (p 아래) → (q 아래) → q: 이웃 면 진행 방향 오른쪽 = 수면 쪽을 본다
-            if pz > z + tol:
-                ring.append(vertex(p[0], p[1], z))
-            ring.append(vertex(q[0], q[1], z))
-            if qz > z + tol:
-                ring.append(vertex(q[0], q[1], qz))
+            ends = []
+            for end in (p, q):   # 끝마다 바로 아래 수면, 없으면 그 끝이 수면 높이일 때만(벽이 거기서 0으로 줄어든다)
+                hits = shore.get_hits(end[0], end[1])
+                below = [h for h in hits if h < end[2] - tol]
+                ends.append(max(below) if below else end[2] if any(abs(h - end[2]) <= tol for h in hits) else None)
+            if None in ends:
+                continue
+            zp, zq = ends
+            ring = [vertex(p[0], p[1], p[2])]   # p → (p 아래) → (q 아래) → q: 이웃 면 진행 방향 오른쪽 = 수면 쪽을 본다
+            if p[2] > zp + tol:
+                ring.append(vertex(p[0], p[1], zp))
+            ring.append(vertex(q[0], q[1], zq))
+            if q[2] > zq + tol:
+                ring.append(vertex(q[0], q[1], q[2]))
             if len(ring) >= 3:
                 faces.append(tuple(ring))
     return verts, faces
