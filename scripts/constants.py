@@ -850,6 +850,7 @@ BLENDER_CURVE_WAIT = 60.0       # s — [Blender 커브 가져오기]를 눌렀�
 # [blender-cut]
 # SketchUp판(cmd_sketchup 사이드카 — 번들 파이썬 + sketchup_ext.rb)
 HOST_ENV = "GORANI_HOST"     # SketchUp 사이드카는 'sketchup', Rhino 7 사이드카는 'rhino7', 웹판 워커는 'web'으로 둔다 — context_builder.get_host
+SKETCHUP_PARENT_POLL_SECONDS = 2.0   # s — Windows 사이드카가 SketchUp 프로세스가 끝났는지 보는 간격(cmd_sketchup._watch_parent)
 SKETCHUP_HOST_TIMEOUT = 1800.0  # s — 호스트 호출(베이크 등) 응답 대기 상한. 패널을 닫으면(Ruby가 panel_closed를 stdin으로) 기다리지 않고 바로 실패한다
 SKETCHUP_HOST_POLL = 0.5        # s — 응답을 기다리며 패널 닫힘을 확인하는 간격
 SKETCHUP_ZOOM_MIN_SPAN = 400.0  # m — 생성 뒤 화면 맞춤에서 대상지 + 여백의 최소 한 변. 작은 필지도 주변 맥락이 보이게(Rhino는 대상지 + 대각선 반 여백만)

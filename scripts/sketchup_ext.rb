@@ -10,6 +10,7 @@
 
 require "json"
 require "fileutils"
+require "net/http"
 
 module BSH
   module Gorani
@@ -23,8 +24,9 @@ module BSH
     RPC = %w[get_model_attrs set_model_attrs clear bake ref save zoom import pick_curve].freeze
     TERRAIN_SMOOTH = Geom::PolygonMesh::AUTO_SOFTEN | Geom::PolygonMesh::SMOOTH_SOFT_EDGES
     LOG_DIR = File.join(Dir.home, "Gorani")   # 사이드카 constants.HOME_DIR과 같은 자리
+    SIDECAR_START_SECONDS = 60   # Windows 사이드카가 주소 파일을 쓸 때까지 기다리는 상한 — 첫 실행은 백신 검사·.pyc 읽기로 느리다
 
-    @wrappers ||= {}   # lot_key → 대상지 그룹. 사이드카(@io·@url)·패널(@dialog)·마지막 그룹(@last_wrapper)도 모듈 변수 — 다시 읽어도 이어 쓴다
+    @wrappers ||= {}   # lot_key → 대상지 그룹. 사이드카(@pid·@io·@url)·패널(@dialog)·마지막 그룹(@last_wrapper)도 모듈 변수 — 다시 읽어도 이어 쓴다
 
     # ── 사이드카·패널 ─────────────────────────────────────
 
@@ -35,7 +37,7 @@ module BSH
     end
 
     def self.sidecar_alive?
-      @io && Process.waitpid(@io.pid, Process::WNOHANG).nil?
+      @pid && Process.waitpid(@pid, Process::WNOHANG).nil?
     rescue Errno::ECHILD
       false
     end
@@ -48,9 +50,26 @@ module BSH
       FileUtils.mkdir_p(LOG_DIR)
       log = File.join(LOG_DIR, "sketchup_sidecar.log")
       script = File.join(ROOT, "scripts", "cmd_sketchup.py")
-      @io = IO.popen([python, "-I", "-B", "-X", "utf8", script, Sketchup.version], "r+", err: [log, "w"])
-      @io.sync = true
-      @url = @io.gets.to_s.strip
+      args = [python, "-I", "-B", "-X", "utf8", script, Sketchup.version]
+      if Sketchup.platform == :platform_win
+        # 창 없는 pythonw.exe에는 IO.popen 파이프가 닿지 않는다(사이드카 sys.stdout·stdin = None, 2026-11-05 사용자 로그) —
+        # 주소는 파일로 받고, 알림은 HTTP(tell_sidecar), SketchUp 종료는 사이드카가 이 프로세스 번호로 안다
+        url_file = File.join(LOG_DIR, "sketchup_sidecar.url")
+        File.delete(url_file) if File.exist?(url_file)
+        @io = nil
+        @pid = Process.spawn(*args, Process.pid.to_s, out: [url_file, "w"], err: [log, "w"])
+        @url = ""
+        deadline = Time.now + SIDECAR_START_SECONDS
+        until @url.start_with?("http://127.0.0.1:") || Time.now > deadline || !sidecar_alive?
+          sleep 0.2
+          @url = File.exist?(url_file) ? File.read(url_file).lines.first.to_s.strip : ""
+        end
+      else
+        @io = IO.popen(args, "r+", err: [log, "w"])
+        @io.sync = true
+        @pid = @io.pid
+        @url = @io.gets.to_s.strip
+      end
       raise "The Gorani engine did not start. See #{log}" unless @url.start_with?("http://127.0.0.1:")
       @url
     end
@@ -75,8 +94,16 @@ module BSH
 
     # 패널을 거치지 않는 알림 — 사이드카 stdin 한 줄(cmd_sketchup._read_parent). 패널을 닫으면 생성을 멈추고 기다리던 호스트 호출을 끝낸다
     def self.tell_sidecar(cmd)
-      @io.puts(JSON.generate(cmd: cmd)) if sidecar_alive?
-    rescue IOError, SystemCallError
+      return unless sidecar_alive?
+      if @io
+        @io.puts(JSON.generate(cmd: cmd))
+      else   # Windows — stdin이 없다. 패널 주소의 POST /cmd(panel_server.DIRECT_CMDS)
+        uri = URI(@url.sub("/?token=", "/cmd?token="))
+        Net::HTTP.start(uri.host, uri.port, open_timeout: 2, read_timeout: 5) do |http|
+          http.post(uri.request_uri, JSON.generate(cmd: cmd), "Content-Type" => "application/json")
+        end
+      end
+    rescue StandardError
       nil
     end
 
