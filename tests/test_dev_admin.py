@@ -51,6 +51,13 @@ class ChangesTest(unittest.TestCase):
 
 
 class StatsTest(unittest.TestCase):
+    def test_shared_stream_keeps_rhino(self):   # rhino7은 rhino 속성을 같이 쓴다 — 속성 이름이 rhino7로 덮이면 Rhino 화면이 비었다
+        from unittest import mock
+        stream = {"dataStreams": [{"webStreamData": {"measurementId": dev_stats.constants.GA_STREAMS["rhino"][0]}}]}
+        answers = {"accountSummaries": {"accountSummaries": [{"propertySummaries": [{"property": "properties/1", "displayName": "Gorani Rhino"}]}]}}
+        with mock.patch.object(dev_stats, "_get_json", side_effect=lambda url, **kw: answers["accountSummaries"] if "accountSummaries" in url else stream):
+            self.assertEqual(dev_stats.get_property_kinds("t"), [("1", "Gorani Rhino", "rhino")])
+
 
     def test_split_counts(self):
         rows = [["11110,11140", 2.0], ["11110", 1.0], ["(not set)", 9.0]]

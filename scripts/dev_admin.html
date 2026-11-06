@@ -176,6 +176,11 @@ input:focus, textarea:focus, .btn:focus-visible, .ib:focus-visible, .seg button:
 .share i { display: block; height: 100%; }
 .share i:first-child { border-radius: 6px 0 0 6px; } .share i:last-child { border-radius: 0 6px 6px 0; } .share i:only-child { border-radius: 6px; }
 .shares { display: grid; gap: 6px; }
+h2.sec { margin: 28px 0 12px; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+h2.sec .sub { color: var(--ink-3); font-size: 12px; font-weight: 400; margin-left: 6px; }
+.optg + .optg { margin-top: 14px; }
+.optg > b { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin-bottom: 2px; }
+.optg .shares { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 .shares div { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
 .shares div i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
 .shares div b { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -648,8 +653,27 @@ var LABELS = {
   korea: { "1": "한국", "true": "한국", "True": "한국", "0": "해외", "false": "해외", "False": "해외" },
   kind: { context: "건물·도로·수계", terrain: "등고선", site: "필지" },
   host: { rhino: "Rhino", sketchup: "SketchUp", blender: "Blender" },
-  context: { generate: "3D 생성", make_2d: "2D 자료", download: "데이터 받기" }
+  context: { generate: "3D 생성", make_2d: "2D 자료", download: "데이터 받기" },
+  // 2026-11-02 — 패널 버튼(ui.action)·2D 산출물(make_2d.outputs2d)·검색·연 파일
+  action: { recent: "최근 대상지 고르기", recent_del: "최근 대상지 지우기", search_pick: "검색 결과 고르기", mode: "대상지 방식 바꾸기", force_osm: "한국 자료 출처 바꾸기",
+    output_lang: "결과 언어 바꾸기", pick_curve: "Rhino 커브 가져오기", eum: "토지이음 열기", download_area: "지역 데이터 받기", rerange: "범위 바꾸러 지도로",
+    to_result: "결과로 돌아가기", retry: "다시 만들기", open: "파일·폴더 열기", open_url: "웹페이지·문의", import: "3D 다시 넣기", export: "베이스맵 다시 쓰기",
+    copylog: "로그 복사", sheet_ai: "도면 .ai 열기", sheet_ai_all: ".ai 전부 쓰기", sheet_view: "도면 크게 보기", style_open: "스타일 편집 열기",
+    st_apply: "스타일 적용", st_save_ok: "스타일 저장" },
+  outputs2d: { sheets: "다이어그램", tables: "조서 CSV", dwg: "DWG", "basemap-a3": "베이스맵 A3", "basemap-a1": "베이스맵 A1", "basemap-custom": "베이스맵 직접", none: "없음" },
+  style: { std: "표준", vivid: "선명", mono: "흑백", dark: "다크", saved: "저장한 스타일" },
+  search: { lot: "필지(주소·지번)", place: "지명", recent: "최근 대상지" },
+  opened: { folder: "폴더", ai: ".ai", "3dm": ".3dm", svg: ".svg", csv: ".csv", dwg: ".dwg", md: "문서" },
+  lang: { ko: "한국어", en: "English", ja: "日本語", zh: "中文", es: "Español" }
 };
+// 3D 설정(build.options3d를 쉼표로 나눈 값) — 항목마다 비율 막대 하나. 순서·값은 usage_stats.get_options3d
+var OPTIONS3D = [
+  ["지형", { smooth: "매끈하게", step1: "계단 1 m", step2: "계단 2 m", step5: "계단 5 m" }],
+  ["지형을 바닥까지 채우기", { block: "채움", "surface-only": "표면만" }],
+  ["대상지", { "site-line": "Line", "site-surface": "Surface" }],
+  ["대상지 평탄화", { "flat-no": "안 함", "flat-mean": "경계 평균", "flat-min": "경계 최저", "flat-max": "경계 최고" }],
+  ["용도지역 경계선", { zoning: "넣기", "zoning-no": "빼기" }],
+  ["한국 자료", { db: "국가 DB", osm: "OSM" }]];
 var LEVEL = { good: ["check", "좋음"], warning: ["warn", "주의"], serious: ["alert", "위험"], info: ["info", "참고"] };
 
 // ── 숫자 ──
@@ -1055,7 +1079,39 @@ function renderProgram() {
     (waiting.length ? '<div class="band wait">' + ico2("clock") + "<span><b>쌓이는 중</b> — " + esc(waiting.join(" · ")) +
       ". GA에 등록한 뒤 들어온 이벤트부터 채워집니다(" + (isMissing("mode") ? '<a href="#sources">등록 필요</a>' : "등록됨") + ").</span></div>" : "") +
     (points.length ? grid([card(12, "3D를 만든 곳", "대상지 중심 · 원 크기 = 횟수", mapBox(points))]) : "") +
-    grid(filled.concat(key === "rhino" ? [yakVersions()] : []));
+    grid(filled.concat(key === "rhino" ? [yakVersions()] : [])) + flowSection(c);
+}
+
+// 사용 흐름 — 3D 설정·2D 산출물·패널 버튼(2026-11-02 — 그 판부터 쌓인다)
+function styleLabel(v) { var p = String(v).split("+"); return (LABELS.style[p[0]] || p[0]) + (p[1] ? " (고침)" : ""); }
+function flowSection(c) {
+  var opts = dimRows("build.options3d"), made2d = evPair("make_2d", "count")[0], users2d = evPair("make_2d", "users"), builders = evPair("build", "users");
+  var edited = dimRows("make_2d.style"), editedN = sum(edited.filter(function (r) { return /\+|saved/.test(r[0]); }).map(function (r) { return r[1]; }));
+  var groups = OPTIONS3D.map(function (g) {
+    var rows = opts.filter(function (r) { return r[0] in g[1]; });
+    return rows.length ? '<div class="optg"><b>' + esc(g[0]) + "</b>" + shareBar(rows, { label: function (v) { return g[1][v] || v; } }) + "</div>" : "";
+  }).join("");
+  var of2d = function (r) { return made2d ? fmtPct(r[1] / made2d) : ""; };
+  var cards = [
+    [8, "3D 설정", "생성 횟수 · 항목마다 비율", groups || ""],
+    [4, "2D로 고른 것", "2D 만들기 중 비율", dimRows("make_2d.outputs2d").length ? barList(dimRows("make_2d.outputs2d"), { label: function (v) { return LABELS.outputs2d[v] || v; }, sub: of2d, color: c }) : ""],
+    [4, "도면 스타일", "다이어그램을 만든 2D", dimRows("make_2d.style").length ? barList(dimRows("make_2d.style"), { label: styleLabel, color: c }) : ""],
+    [4, "많이 누른 버튼", "패널 버튼 · 누른 횟수", dimRows("ui.action").length ? barList(dimRows("ui.action"), { label: function (v) { return LABELS.action[v] || v; }, color: c }) : ""],
+    [4, "검색에서 고른 것", "검색 결과 고르기", dimRows("ui.search_pick.detail").length ? shareBar(dimRows("ui.search_pick.detail"), { label: function (v) { return LABELS.search[v] || v; } }) : ""],
+    [4, "연 파일", "파일·폴더 열기", dimRows("ui.open.detail").length ? shareBar(dimRows("ui.open.detail"), { label: function (v) { return LABELS.opened[v] || v; } }) : ""],
+    [4, "결과 언어", "2D 만들기", dimRows("make_2d.output_lang").length ? shareBar(dimRows("make_2d.output_lang"), { label: function (v) { return LABELS.lang[v] || v; } }) : ""]];
+  var filled = cards.filter(function (x) { return x[3]; }), waiting = cards.filter(function (x) { return !x[3]; }).map(function (x) { return x[1]; });
+  var tiles = '<div class="tiles">' +
+    kpi({ label: "2D까지", icon: "table", value: users2d[0] ? ratio(users2d[0], builders[0]) : null, fmt: function (v) { return fmtPct(v); },
+      sub: users2d[0] ? fmtNum(users2d[0]) + " / " + fmtNum(builders[0]) + "명이 3D 뒤 2D 생성" : "쌓이는 중" }) +
+    kpi({ label: "2D 생성", icon: "table", pair: evPair("make_2d", "count"), goodUp: true }) +
+    kpi({ label: "스타일 고침", icon: "pen", value: edited.length ? ratio(editedN, sum(edited.map(function (r) { return r[1]; }))) : null, fmt: function (v) { return fmtPct(v); },
+      sub: edited.length ? "고치거나 저장한 스타일로 만든 비율" : "쌓이는 중" }) +
+    kpi({ label: "버튼 누름", icon: "trend", pair: evPair("ui", "count"), goodUp: true }) + "</div>";
+  return '<h2 class="sec">사용 흐름 <span class="sub">3D 설정 · 2D 자료 · 패널 버튼</span></h2>' + tiles +
+    (waiting.length ? '<div class="band wait">' + ico2("clock") + "<span><b>쌓이는 중</b> — " + esc(waiting.join(" · ")) +
+      ". 이 기록을 보내는 판부터, GA에 등록한 뒤 들어온 이벤트로 채워집니다(" + (isMissing("options3d") || isMissing("action") ? '<a href="#sources">등록 필요</a>' : "등록됨") + ").</span></div>" : "") +
+    (filled.length ? grid(filled.map(function (x) { return card(x[0], x[1], x[2], x[3]); })) : "");
 }
 
 // ── 화면: Blender ──

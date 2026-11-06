@@ -81,6 +81,40 @@ def _assert_block_closed(test, prepared, meshes, counts):
     test.assertEqual(min(v[2] for v in meshes["block"][0]), counts["block_base"])
 
 
+@unittest.skipUnless(HAS_BACKEND, "numpy·shapely 2.1+ 파이썬에서만")
+class WindowsHandshakeTest(unittest.TestCase):
+    """Windows 길 — pythonw.exe에는 파이프가 없어(sys.stdout·stdin = None, 2026-11-05 사용자 로그) 주소는 파일, 알림은 POST /cmd,
+    종료는 SketchUp 프로세스 번호(sketchup_ext.rb가 넘긴다). 이 Mac에서도 같은 길(번호를 넘기면)을 탄다."""
+
+    def test_url_file_http_notice_and_parent_exit(self):
+        import subprocess
+        import time
+        with tempfile.TemporaryDirectory() as tmp:
+            url_path, log_path = os.path.join(tmp, "sketchup_sidecar.url"), os.path.join(tmp, "sketchup_sidecar.log")
+            parent = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
+            with open(url_path, "w") as out, open(log_path, "w") as err:
+                side = subprocess.Popen([sys.executable, "-I", "-B", "-X", "utf8", str(SCRIPTS_DIR / "cmd_sketchup.py"), "2026", str(parent.pid)],
+                                        stdout=out, stderr=err, stdin=subprocess.DEVNULL)
+            try:
+                url, deadline = "", time.time() + 30
+                while not url.startswith("http://127.0.0.1:") and time.time() < deadline:
+                    time.sleep(0.2)
+                    with open(url_path) as f:
+                        url = f.read().strip()
+                self.assertTrue(url.startswith("http://127.0.0.1:"), open(log_path).read()[-500:])
+                request = urllib.request.Request(url.replace("/?token=", "/cmd?token="), data=json.dumps({"cmd": "panel_closed"}).encode(),
+                                                 headers={"Content-Type": "application/json"})
+                self.assertEqual(urllib.request.urlopen(request, timeout=5).status, 204)
+                self.assertIsNone(side.poll())   # stdin이 비어도(EOF) 끝나지 않는다 — 번호를 넘긴 길
+                parent.kill()
+                parent.wait()
+                self.assertEqual(side.wait(timeout=20), 0)   # SketchUp이 끝나면 사이드카도
+            finally:
+                for proc in (side, parent):
+                    if proc.poll() is None:
+                        proc.kill()
+
+
 class FakeSketchUp(object):
     """sketchup_ext.rb rpc_* 흉내 — 컨트롤러 push를 가로채 host_call에 바로 답한다(같은 스레드)."""
 

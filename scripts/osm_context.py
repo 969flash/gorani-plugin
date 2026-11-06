@@ -85,10 +85,26 @@ def _keep(key, value):
     return value
 
 
-def get_overpass_elements(bounds, query=None, endpoints=None):
-    # type: (tuple, str, tuple) -> list
+def _is_busy(error):
+    # type: (Exception) -> bool
+    """서버에 닿았는데 붐빔·한도(429·502~504)이거나 200인데 중간에 멈춘 결과(runtime error) — 인터넷 탓이 아니고, 잠시 뒤 다시 물으면 받아진다."""
+    return (isinstance(error, urllib.error.HTTPError) and error.code in (429, 502, 503, 504)) or "runtime error" in str(error)
+
+
+def _wait_retry(seconds, attempt, total, on_wait):
+    # type: (float, int, int, object) -> None
+    """다시 묻기 전 기다림 — 1초마다 on_wait(문구)로 진행 줄을 바꾼다(생성 화면이 멈춘 것처럼 보이지 않게, 취소도 그 사이에 받는다)."""
+    for left in range(int(math.ceil(seconds)), 0, -1):
+        if on_wait is not None:
+            on_wait(tr("OSM 서버가 붐벼 다시 시도합니다 ({0}/{1}, {2}초 뒤)", attempt, total, left))
+        time.sleep(1.0)
+
+
+def get_overpass_elements(bounds, query=None, endpoints=None, on_wait=None):
+    # type: (tuple, str, tuple, object) -> list
     """bounds 안 OSM 요소(out geom). query = Overpass 질의 틀({bbox} 자리, 기본 constants.OSM_OVERPASS_QUERY), endpoints = 미러(기본 전부).
-    미러를 차례로 시도한다. 실패하면 RuntimeError."""
+    미러를 차례로 시도한다. 첫 서버가 붐비면 OSM_RETRY_WAITS만큼 쉬며 다시 묻는다(on_wait = 기다리는 동안 진행 문구 콜백 — 취소 예외는 그대로 올라간다).
+    실패하면 RuntimeError."""
     bbox = "%.6f,%.6f,%.6f,%.6f" % _get_lnglat_bbox(bounds)
     query = (query or constants.OSM_OVERPASS_QUERY).replace("{bbox}", bbox)
     key = ("overpass", query)
@@ -96,7 +112,8 @@ def get_overpass_elements(bounds, query=None, endpoints=None):
         return _CACHE[key]
     errors, busy = [], False
     for index, endpoint in enumerate(endpoints or data_pack.get_service("overpass", constants.OSM_OVERPASS_URLS)):   # 매니페스트 services.overpass가 미러 목록을 덮을 수 있다
-        for attempt in range(1 + (constants.OSM_GATEWAY_RETRIES if index == 0 else 0)):
+        waits = constants.OSM_RETRY_WAITS if index == 0 else ()
+        for attempt in range(1 + len(waits)):
             try:
                 body = _fetch(endpoint, urllib.parse.urlencode({"data": query}).encode("utf-8"),
                               timeout=None if index == 0 else constants.OSM_MIRROR_TIMEOUT_SECONDS)
@@ -105,12 +122,12 @@ def get_overpass_elements(bounds, query=None, endpoints=None):
                     raise RuntimeError(result["remark"][:200])
                 return _keep(key, result["elements"])
             except Exception as error:   # 미러 하나가 막혀도 다음 것을 쓴다
-                if isinstance(error, urllib.error.HTTPError) and error.code in (502, 503, 504) and attempt < constants.OSM_GATEWAY_RETRIES and index == 0:
-                    time.sleep(constants.OSM_GATEWAY_WAIT_SECONDS)   # 첫 서버의 순간 붐빔 — 잠깐 쉬고 한 번 더
+                if attempt < len(waits) and _is_busy(error):   # 첫 서버의 순간 붐빔 — 쉬었다 다시(constants.OSM_RETRY_WAITS 주석)
+                    _wait_retry(waits[attempt], attempt + 1, len(waits), on_wait)
                     continue
                 errors.append("%s: %s" % (endpoint, error))
-                # 서버에 닿았는데 붐빔·한도(429·502~504)·응답 지연 — 인터넷 탓이 아니다(2026-10-23: 429인데 '인터넷 연결을 확인하세요'가 떴다)
-                busy = busy or (isinstance(error, urllib.error.HTTPError) and error.code in (429, 502, 503, 504)) or "timed out" in str(error) or "runtime error" in str(error)
+                # 붐빔·한도·응답 지연은 인터넷 탓이 아니다(2026-10-23: 429인데 '인터넷 연결을 확인하세요'가 떴다)
+                busy = busy or _is_busy(error) or "timed out" in str(error)
                 break
     title = (tr("OSM(Overpass) 서버가 붐빕니다. 1~2분 뒤 다시 시도하세요") if busy
              else tr("OSM(Overpass) 데이터를 받지 못했습니다. 인터넷 연결을 확인하세요"))
@@ -617,22 +634,22 @@ def search_places(query, limit):
 
 # ── 묶기 ────────────────────────────────────────────────
 
-def load(bounds, today):
-    # type: (tuple, str) -> ContextData
+def load(bounds, today, on_wait=None):
+    # type: (tuple, str, object) -> ContextData
     """bounds(TM m) 안 OSM 건물·피처 + 지형 표고점 → ContextData. 받는 날짜를 OSM·지형 기준일로 적는다.
     일본: 받아 둔 PLATEAU 팩 건물을 먼저 쓰고 OSM 건물은 그와 겹치지 않는 것만, 지형은 지리원 5 m 타일. 출처는 실제로 쓴 것만(역할은 뒤의 것이 차지)."""
     plateau, plateau_sources = load_plateau_buildings(get_lnglat_bounds(bounds))   # 나라별 팩 건물(일본 PLATEAU·네덜란드 PDOK)
     if plateau:   # 팩이 있는 곳 — 도로·수계·녹지 먼저(건물 줄 뺀 질의), OSM 건물은 따로 첫 미러에만(constants.OSM_OVERPASS_BUILDING_QUERY 주석)
         try:
-            elements, osm_ok = get_overpass_elements(bounds, constants.OSM_OVERPASS_QUERY.replace(constants.OSM_OVERPASS_BUILDINGS, "")), True
+            elements, osm_ok = get_overpass_elements(bounds, constants.OSM_OVERPASS_QUERY.replace(constants.OSM_OVERPASS_BUILDINGS, ""), on_wait=on_wait), True
         except RuntimeError:   # 공개 Overpass 서버가 모두 막힘(2026-10-21 Rhino 실측: 502·504·시간 초과) — 팩 건물·지형만으로 만든다
             elements, osm_ok = [], False   # 출처에 osm이 빠진 것을 context_builder가 보고 알린다
         try:
-            osm_buildings = _get_buildings(get_overpass_elements(bounds, constants.OSM_OVERPASS_BUILDING_QUERY, constants.OSM_OVERPASS_URLS[:1]), today) if osm_ok else []
+            osm_buildings = _get_buildings(get_overpass_elements(bounds, constants.OSM_OVERPASS_BUILDING_QUERY, constants.OSM_OVERPASS_URLS[:1], on_wait), today) if osm_ok else []
         except RuntimeError:   # 메우기용이라 못 받아도 넘어간다
             osm_buildings = []
     else:
-        elements, osm_ok = get_overpass_elements(bounds), True
+        elements, osm_ok = get_overpass_elements(bounds, on_wait=on_wait), True
         osm_buildings = _get_buildings(elements, today)
     buildings = plateau + get_buildings_apart(osm_buildings, plateau)
     _apply_public_use(buildings, elements)

@@ -1,9 +1,12 @@
 """Gorani SketchUp판 사이드카 — 번들 파이썬이 실행하는 진입 스크립트(컨트롤러 = cmd_site._SiteController 상속).
 
 SketchUp에는 파이썬이 없어 확장(sketchup_ext.rb)이 번들 파이썬으로 이 파일을 띄운다:
-    <확장>/python/<플랫폼>/python -I -B -X utf8 <확장>/scripts/cmd_sketchup.py <SketchUp 버전>
+    <확장>/python/<플랫폼>/python -I -B -X utf8 <확장>/scripts/cmd_sketchup.py <SketchUp 버전> [<SketchUp 프로세스 번호> — Windows만]
 첫 줄로 패널 주소(panel_server — 127.0.0.1·토큰)를 stdout에 쓰고, SketchUp의 UI::HtmlDialog가 그 주소를 연다.
-그 뒤 출력은 stderr(SketchUp이 ~/Gorani/sketchup_sidecar.log로 돌린다). stdin 한 줄은 SketchUp의 알림(panel_closed), stdin이 닫히면(SketchUp 종료) 끝난다.
+그 뒤 출력은 stderr(SketchUp이 ~/Gorani/sketchup_sidecar.log로 돌린다).
+Mac: stdin 한 줄은 SketchUp의 알림(panel_closed), stdin이 닫히면(SketchUp 종료) 끝난다.
+Windows: 창 없는 pythonw.exe에는 Ruby 파이프가 닿지 않는다(sys.stdout·stdin이 None — 2026-11-05 사용자 로그). 그래서 stdout은
+파일(sketchup_sidecar.url)로 받고, 알림은 POST /cmd(panel_closed — panel_server.DIRECT_CMDS), 종료는 SketchUp 프로세스 번호를 지켜본다.
 
 엔진은 전부 여기서 돈다. SketchUp 모델을 만지는 일만 호스트 호출이다 — 컨트롤러가 {"type": "host_call", id, method, args}를
 패널로 푸시하면 패널 JS가 sketchup.host_call로 Ruby에 넘기고, Ruby가 끝나면 패널이 {"cmd": "host_reply", id, ok, result, error}를 보낸다.
@@ -155,14 +158,52 @@ def _read_parent(controller):
         os._exit(0)
 
 
+def is_process_alive(pid):
+    # type: (int) -> bool
+    """pid 프로세스가 아직 도는지. Windows는 OpenProcess + WaitForSingleObject(0) — 권한이 없어 못 열면(ERROR_ACCESS_DENIED) 산 것으로 본다
+    (같은 사용자의 SketchUp이라 보통은 열린다. 잘못 판단해 사이드카가 스스로 끝나는 쪽이 더 나쁘다)."""
+    if os.name != "nt":
+        try:
+            os.kill(pid, 0)
+            return True
+        except PermissionError:
+            return True
+        except OSError:
+            return False
+    import ctypes
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    handle = kernel32.OpenProcess(0x00100000 | 0x1000, False, pid)   # SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION
+    if not handle:
+        return ctypes.get_last_error() == 5   # ERROR_ACCESS_DENIED
+    try:
+        return kernel32.WaitForSingleObject(handle, 0) == 0x102   # WAIT_TIMEOUT = 아직 끝나지 않았다
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def _watch_parent(pid):
+    # type: (int) -> None
+    """Windows — SketchUp 프로세스가 끝나면 사이드카도 끝낸다(stdin EOF 대신)."""
+    try:
+        while is_process_alive(pid):
+            time.sleep(loader.load("constants").SKETCHUP_PARENT_POLL_SECONDS)
+    finally:
+        os._exit(0)
+
+
 def main():
     # type: () -> None
     version = sys.argv[1] if len(sys.argv) > 1 else ""
+    parent = int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2].isdigit() else None
     bridge = loader.load("panel_server").Bridge(_SketchUpController(version), threaded=True)
-    sys.stdout.write(bridge.url + "\n")
-    sys.stdout.flush()
+    out = sys.stdout or sys.stderr   # pythonw에 stdout이 없으면 주소라도 로그에 남긴다(SketchUp은 시작 실패를 알리고 로그를 가리킨다)
+    out.write(bridge.url + "\n")
+    out.flush()
     sys.stdout = sys.stderr   # 남은 print는 로그로 — SketchUp은 첫 줄만 읽는다(안 읽는 파이프가 차면 막힌다)
-    threading.Thread(target=_read_parent, args=(bridge.controller,), name="gorani-parent", daemon=True).start()
+    if parent:   # Windows — SketchUp이 프로세스 번호를 넘긴다(stdin이 없다)
+        threading.Thread(target=_watch_parent, args=(parent,), name="gorani-parent", daemon=True).start()
+    else:
+        threading.Thread(target=_read_parent, args=(bridge.controller,), name="gorani-parent", daemon=True).start()
     while True:
         bridge.dispatch(bridge.inbox.get())
 

@@ -245,8 +245,9 @@ OSM_OVERPASS_URLS = ("https://overpass-api.de/api/interpreter", "https://overpas
 OSM_MIRROR_TIMEOUT_SECONDS = 30   # 두 번째 미러부터 — 다 죽은 날 생성이 수 분 멈추지 않게(첫 서버는 OSM_TIMEOUT_SECONDS)
 # 첫 서버(overpass-api.de)가 502·503·504(순간 붐빔)면 쉬었다 한 번 더 — 2026-10-25 가상 사용자 트롬쇠 2D: 502 직후 같은 질의가 58 s에 4.9 MB로 받아졌다.
 # 두 번째(openstreetmap.fr)는 응답을 약 1.8 MB에서 끊어(200인데 JSON이 깨짐) 큰 질의의 대체가 못 된다
-OSM_GATEWAY_RETRIES = 1
-OSM_GATEWAY_WAIT_SECONDS = 10
+# 2026-11-04 GA: 해외 생성의 26 %(10/39)가 osm_failed — 다시 재 보니 overpass-api.de 502, openstreetmap.fr은 403('white-listed usages only'),
+# 잠시 뒤 같은 질의는 53.7 s에 받아졌다(Innsbruck 1 km). 기다림을 늘려 세 번까지(합 50 s). 시간 초과는 다시 묻지 않는다(한 번에 60 s)
+OSM_RETRY_WAITS = (5.0, 15.0, 30.0)   # s — 첫 서버가 429·502·503·504·runtime error일 때 n번째 다시 묻기 전 기다림
 OSM_OVERPASS_QUERY = """[out:json][timeout:55][bbox:{bbox}];
 (
   way["building"]; relation["building"]["type"="multipolygon"];
@@ -428,6 +429,11 @@ GA_ENDPOINT = "https://www.google-analytics.com/mp/collect"
 GA_TIMEOUT_SECONDS = 5  # 백그라운드 스레드라 패널을 막지 않는다
 GA_PARAM_VALUE_MAX = 100  # GA4 표준 속성 이벤트 매개변수 값 길이 상한(360은 500)
 GA_PNU_PARAMS = 4  # 필지 PNU를 나눠 담는 매개변수 수(값 하나에 5개 → 20필지). 이벤트당 매개변수 상한 25 안에서
+# 패널 버튼 → ui 이벤트(action·detail, 2026-11-02). 목록 밖 action은 버린다 — 패널이 임의 값을 GA로 보내지 못하게. 검색어·주소·경로는 보내지 않는다
+GA_UI_ACTIONS = ("recent", "recent_del", "search_pick", "mode", "force_osm", "output_lang", "pick_curve", "eum", "download_area",
+                 "rerange", "to_result", "retry", "open", "open_url", "import", "export", "copylog",
+                 "sheet_ai", "sheet_ai_all", "sheet_view", "style_open", "st_apply", "st_save_ok")
+GA_UI_DETAIL_MAX = 24   # detail = 짧은 분류값(lot·place, ko·en, 폴더·.ai 등)만
 # 관리자 페이지 통계(dev_stats — 이 Mac에서만). 열쇠·쌓은 기록은 저장소 밖 ADMIN_DIR에 둔다(공개 저장소)
 ADMIN_DIR = os.path.join(os.path.expanduser("~"), ".config", "gorani")
 ADMIN_GA_KEY_PATH = os.path.join(ADMIN_DIR, "ga_service_account.json")   # GA4 Data API 서비스 계정 키(GCP gorani-stats) — GA 계정 단위 '편집자'(맞춤 측정기준 등록에 필요)
@@ -446,13 +452,15 @@ ADMIN_STORE_URLS = {   # 프로그램별 배포 자리 — 빈 값 = 아직 공�
 ADMIN_TEST_AGENTS = ("curl/", "HeadlessChrome", "python-requests")   # 국내 서버 기록에서 늘 시험으로 보는 User-Agent
 ADMIN_GA_WEB_ID = "G-ZVM7EZPRPQ"   # 웹사이트 속성 "Gorani 웹"(969flash/gorani assets/site.js). 플러그인 속성은 GA_STREAMS — 이 밖의 속성(옛 Blender)은 대시보드에서 뺀다
 # 대시보드가 쓰는 이벤트 매개변수 — GA 맞춤 측정기준·측정항목으로 등록해야 Data API로 읽힌다(등록한 날부터 쌓임). 관리자 페이지 [연결]에서 한 번에 등록
-# 플러그인 = cmd_site._send_stats(panel_open·build·pack_download·error) + usage_stats.get_target_params, 웹 = site.js track(copy_command·install_tab·demo_chapter)
+# 플러그인 = cmd_site._send_stats(panel_open·build·make_2d·ui·pack_download·error) + usage_stats.get_target_params·get_options3d·get_outputs2d_params·get_ui_params,
+# 웹 = site.js track(copy_command·install_tab·demo_chapter)
 ADMIN_GA_DIMENSIONS = {
     "app": ("version", "host", "rhino", "mode", "result", "korea", "error", "context", "packs", "placement", "shape", "radius",
-            "lng", "lat", "pnus", "pnus_2", "pnus_3", "pnus_4", "dev"),
+            "lng", "lat", "pnus", "pnus_2", "pnus_3", "pnus_4", "dev",
+            "options3d", "outputs2d", "style", "output_lang", "action", "detail"),   # 2026-11-02 — 3D 설정·2D 산출물·패널 버튼
     "web": ("host", "command", "chapter", "dev"),   # dev = 개발자 PC·브라우저 표시(usage_stats·site.js) — [내 테스트 제외]
 }
-ADMIN_GA_METRICS = {"app": (("elapsed_s", "SECONDS"), ("buildings", "STANDARD"), ("area", "STANDARD")), "web": ()}
+ADMIN_GA_METRICS = {"app": (("elapsed_s", "SECONDS"), ("buildings", "STANDARD"), ("area", "STANDARD"), ("sheets", "STANDARD")), "web": ()}
 # [/blender-cut]
 # 테이블별 객체 최대 폭 m — bbox 질의의 min_x 하한에 쓴다. dev_context_builder가 빌드 끝에 넘지 않는지 검사한다.
 # 실측(2026-10-08): 건물 최대 887 m(가로·세로 중 큰 값), features 최대 2,779 m(도엽 1장 높이 — 도엽 단위로 잘려 있다).
@@ -846,6 +854,7 @@ BLENDER_CURVE_WAIT = 60.0       # s — [Blender 커브 가져오기]를 눌렀�
 # [blender-cut]
 # SketchUp판(cmd_sketchup 사이드카 — 번들 파이썬 + sketchup_ext.rb)
 HOST_ENV = "GORANI_HOST"     # SketchUp 사이드카는 'sketchup', Rhino 7 사이드카는 'rhino7', 웹판 워커는 'web'으로 둔다 — context_builder.get_host
+SKETCHUP_PARENT_POLL_SECONDS = 2.0   # s — Windows 사이드카가 SketchUp 프로세스가 끝났는지 보는 간격(cmd_sketchup._watch_parent)
 SKETCHUP_HOST_TIMEOUT = 1800.0  # s — 호스트 호출(베이크 등) 응답 대기 상한. 패널을 닫으면(Ruby가 panel_closed를 stdin으로) 기다리지 않고 바로 실패한다
 SKETCHUP_HOST_POLL = 0.5        # s — 응답을 기다리며 패널 닫힘을 확인하는 간격
 SKETCHUP_ZOOM_MIN_SPAN = 400.0  # m — 생성 뒤 화면 맞춤에서 대상지 + 여백의 최소 한 변. 작은 필지도 주변 맥락이 보이게(Rhino는 대상지 + 대각선 반 여백만)
