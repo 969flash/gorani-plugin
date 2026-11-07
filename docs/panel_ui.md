@@ -339,7 +339,7 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
  "target_geojson":FC,                                 // role="target" 안의 필지 + role="area" 구역 1개
  "warnings":[warning]}
 {"type":"point_state","ok":true,"center":[lng,lat],"center_tm":[x,y],"lot_name":"성수동2가_333-139_일대","address":""}
-// address — 해외 대상지(지역 TM)만 Nominatim reverse 짧은 주소 '도로, 동네, 도시'(output_lang 언어, osm_context.get_place_address, 3 s, 못 받으면 ''). 패널 '대상지' 줄은 address가 있으면 그것, 없으면 lot_name. area_state도 같은 칸. 해외 lot_name(결과 폴더 이름)도 같은 주소 'Greenwich Street_Russian Hill_San Francisco_vicinity'(context_builder.get_folder_safe_name — 못 쓰는 글자 빼고 60자), 주소를 못 받으면 'N37.8010_W122.4187_vicinity'(2026-11-08)
+// address — 해외 대상지(지역 TM)만 Nominatim reverse 짧은 주소 '도로, 동네, 도시'(output_lang 언어, osm_context.get_place_address, 3 s, 못 받으면 ''). 패널 '대상지' 줄은 address가 있으면 그것, 없으면 lot_name. area_state도 같은 칸. 해외 lot_name(결과 폴더 이름)도 같은 주소 'Greenwich St_Russian Hill_San Francisco_vicinity'(도로 종류는 약어 constants.ADDRESS_ABBREVIATIONS, context_builder.get_folder_safe_name — 못 쓰는 글자 빼고 40자, 넘치면 뒤 칸부터 뺀다), 주소를 못 받으면 'N37.8010_W122.4187_vicinity'(2026-11-08)
 {"type":"curve_shape","ok":true,"text":"","located":false,"ring_tm":[],"offsets":[[dx,dy]],"area":22800.0,"vertices":4}
 ```
 

@@ -380,9 +380,15 @@ def get_place_name(center, site_db=None):
 
 def get_folder_safe_name(address):
     # type: (str) -> str
-    """주소 '도로, 동네, 도시' → 폴더 이름 칸 '도로_동네_도시'. Windows·macOS에서 못 쓰는 글자(<>:"/\\|?* 제어 문자)는 빼고, 길면 자른다."""
+    """주소 '도로, 동네, 도시' → 폴더 이름 칸 '도로_동네_도시'. Windows·macOS에서 못 쓰는 글자(<>:"/\\|?* 제어 문자)는 빼고, 길면 뒤 칸부터 뺀다."""
     parts = [re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", part).strip(" .") for part in (address or "").split(",")]
-    return "_".join(part for part in parts if part)[:constants.RESULT_ADDRESS_MAX_CHARS].strip(" ._")
+    name = ""
+    for part in (part for part in parts if part):   # 넘치면 뒤 칸을 통째로 뺀다 — 글자로 자르면 'Paris'가 'Pa'가 됐다
+        joined = name + "_" + part if name else part
+        if len(joined) > constants.RESULT_ADDRESS_MAX_CHARS:
+            break
+        name = joined
+    return name or (parts[0] if parts else "")[:constants.RESULT_ADDRESS_MAX_CHARS].strip(" ._")   # 첫 칸만으로 넘치면 그것만 자른다
 
 
 def _get_place_label(center, suffix, site_db, lang="ko"):

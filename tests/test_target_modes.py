@@ -50,18 +50,19 @@ class AbroadFolderNameTest(unittest.TestCase):
     """해외 결과 폴더 이름 = 주소(2026-11-08 사용자) — 못 쓰는 글자는 빼고, 주소를 못 받으면 위경도."""
 
     def test_folder_safe_name(self):
-        self.assertEqual(context_builder.get_folder_safe_name("Greenwich Street, Russian Hill, San Francisco"), "Greenwich Street_Russian Hill_San Francisco")
+        self.assertEqual(context_builder.get_folder_safe_name("Greenwich St, Russian Hill, San Francisco"), "Greenwich St_Russian Hill_San Francisco")
         self.assertEqual(context_builder.get_folder_safe_name('A/B: "C", D?*'), "AB C_D")
         self.assertEqual(context_builder.get_folder_safe_name(""), "")
         self.assertLessEqual(len(context_builder.get_folder_safe_name("x" * 200)), constants.RESULT_ADDRESS_MAX_CHARS)
+        self.assertEqual(context_builder.get_folder_safe_name("Ave Gustave Eiffel, 7th Arrondissement, Paris"), "Ave Gustave Eiffel_7th Arrondissement")   # 넘치는 칸은 통째로
 
     def test_place_label_abroad(self):
         original = context_builder.osm_context.get_place_address
         try:
             non_rhino_utils.set_projection(-122.4187, 37.8010)
             center = non_rhino_utils.get_tm_from_wgs84(-122.4187, 37.8010)
-            context_builder.osm_context.get_place_address = lambda lng, lat, lang: "Greenwich Street, Russian Hill, San Francisco"
-            self.assertEqual(context_builder._get_place_label(center, "vicinity", None, "en"), "Greenwich Street_Russian Hill_San Francisco_vicinity")
+            context_builder.osm_context.get_place_address = lambda lng, lat, lang: "Greenwich St, Russian Hill, San Francisco"
+            self.assertEqual(context_builder._get_place_label(center, "vicinity", None, "en"), "Greenwich St_Russian Hill_San Francisco_vicinity")
             context_builder.osm_context.get_place_address = lambda lng, lat, lang: ""   # 망이 막혔다
             self.assertEqual(context_builder._get_place_label(center, "vicinity", None, "en"), "N37.8010_W122.4187_vicinity")
         finally:

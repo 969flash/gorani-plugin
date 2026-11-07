@@ -298,7 +298,12 @@ OSM_PUBLIC_USE = {"school": "10000", "kindergarten": "10000", "college": "10000"
                   "community_centre": "05000", "arts_centre": "05000", "theatre": "05000", "sports_centre": "13000"}
 OSM_NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"   # 지명 검색 — 사용자가 [검색]을 누를 때 한 번
 OSM_NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"   # 해외 대상지 주소 — 패널 '대상지' 줄에 위경도 대신(2026-11-08 사용자). 지도에서 찍거나 구역을 그릴 때 한 번
-RESULT_ADDRESS_MAX_CHARS = 60   # 해외 결과 폴더 이름의 주소 칸 — Windows 경로 260자 안에 2D 폴더·파일 이름까지 들어가게
+RESULT_ADDRESS_MAX_CHARS = 40   # 해외 결과 폴더 이름의 주소 칸 — 길면 안 된다(2026-11-08 사용자). Windows 경로 260자 안에 2D 폴더·파일 이름까지
+# 해외 주소의 도로 이름 안 도로 종류 낱말 → 약어(미국 우정청 표준 약어 USPS Pub. 28 C1). 도로 칸에만 — 동네·도시 이름('North Beach')은 그대로. 패널 표시·폴더 이름 공통
+ADDRESS_ABBREVIATIONS = {
+    "Street": "St", "Avenue": "Ave", "Boulevard": "Blvd", "Road": "Rd", "Drive": "Dr", "Lane": "Ln", "Place": "Pl", "Court": "Ct",
+    "Square": "Sq", "Terrace": "Ter", "Highway": "Hwy", "Parkway": "Pkwy", "Expressway": "Expy", "Circle": "Cir", "Crescent": "Cres",
+}
 OSM_REVERSE_TIMEOUT_SECONDS = 3   # 대상지를 찍을 때마다 UI 스레드에서 기다린다 — 못 받으면 위경도 이름 그대로
 OSM_SEARCH_TIMEOUT_SECONDS = 10   # 지명 검색은 UI 스레드에서 기다린다 — Overpass 60 s를 쓰면 막힌 망에서 검색 한 번에 1분 멈췄다(2026-10-23 감사)
 OSM_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"

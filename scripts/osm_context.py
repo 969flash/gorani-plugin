@@ -648,6 +648,7 @@ def get_place_address(lng, lat, lang):
         return ""
     street = address.get("road") or ""
     street = "" if ";" in street else street   # 여러 값 태그(도쿄역 zoom 17: 'JR東京駅;9番線')는 도로 이름이 아니다
+    street = " ".join(constants.ADDRESS_ABBREVIATIONS.get(word, word) for word in street.split())   # Greenwich Street → Greenwich St
     area = address.get("suburb") or address.get("neighbourhood") or address.get("quarter") or ""
     city = address.get("city") or address.get("town") or address.get("village") or address.get("county") or address.get("state") or ""
     text = ", ".join(v for v in (street, area, city) if v) or address.get("country", "")
