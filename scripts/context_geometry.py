@@ -899,17 +899,17 @@ def build_buildings(prepared, tin_mesh):
 def _drape_curve_items(items, ground):
     # type: (list, rg.Mesh) -> tuple
     """
-    대상지 경계(Site)·용도지역·지구(Zoning) 선을 화면에 보이는 지형 면 위로 — 점 사이를 TERRAIN_GRID 이하로 나눠 한 번에 수직 투영(_drape와 같은 투영)하고 CTX_DRAPE_LIFT 띄운다.
+    대상지 경계(Site) 선을 화면에 보이는 지형 면 위로 — 점 사이를 TERRAIN_GRID 이하로 나눠 한 번에 수직 투영(_drape와 같은 투영)하고 CTX_DRAPE_LIFT 띄운다.
     Z=0 평면 선은 해발 지형(서울 14~70 m) 아래에 묻혀 음영 화면에서 안 보였다(2026-11-07 사용자). 계단·평탄화 대상지도 meshes['all'] 기준이라 보이는 면을 따른다.
-    CTX_DRAPED_LAYERS(Zoning)는 그 자리에서 얹고, CTX_DRAPED_COPY_LAYERS(Site)는 평면 Z=0 선을 그대로 두고 얹은 복사본을 하위 레이어(Site::draped)에 더한다 — 매싱에 평면 경계가 필요해서.
+    평면 Z=0 선은 그대로 두고 얹은 복사본을 하위 레이어(CTX_DRAPED_COPY_LAYERS의 Site::draped)에 더한다 — 매싱에 평면 경계가 필요해서.
+    대상지만 올린다 — 용도지역·필지·도로 중심선은 Z=0 그대로(사용자 2026-11-07).
     지형 밖(투영이 빗나간) 점은 같은 선의 가까운 점 높이, 없으면 지형 최저 Z. 출력: (더할 BakeItem 목록, counts에 더할 dict).
     """
     started = time.time()
     root = constants.CTX_ROOT_LAYER + "::"
-    in_place = [it for it in items if it.layer.partition(root)[2].split("::")[0] in constants.CTX_DRAPED_LAYERS and isinstance(it.geometry, rg.PolylineCurve)]
     copies = [BakeItem(constants.CTX_ROOT_LAYER + "::" + constants.CTX_DRAPED_COPY_LAYERS[it.layer.partition(root)[2]], rg.PolylineCurve(it.geometry), dict(it.attrs), it.name)
               for it in items if it.layer.partition(root)[2] in constants.CTX_DRAPED_COPY_LAYERS and isinstance(it.geometry, rg.PolylineCurve)]
-    targets = in_place + copies
+    targets = copies
     if not targets or ground is None or not ground.Vertices.Count:
         return [], {"draped_curves": 0, "drape_s": 0.0}
     top = ground.GetBoundingBox(True).Max.Z + 100.0

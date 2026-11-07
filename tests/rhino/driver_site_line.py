@@ -1,11 +1,11 @@
 """driver_site_line — 대상지 경계선(Site)·용도지역·지구(Zoning) 선이 Z=0이 아니라 지형 면 위에 있다 (python3 scripts/dev_rhino_run.py tests/rhino/driver_site_line.py).
 
 2026-11-07 사용자: 3D 설정 대상지 [Line]이면 Z=0 커브만 있고 지형 위에는 선이 안 보였다(해발 지형이 14~70 m라 Z=0 선은 지형 안에 묻힌다).
-→ 평면 Z=0 대상지 경계 CTX::Site는 그대로 두고(매싱·돌출용), 지형 위에 얹은 복사본 CTX::Site::draped를 더한다. 용도지역·지구(Zoning)는 그 자리에서 얹는다.
+→ 평면 Z=0 대상지 경계 CTX::Site는 그대로 두고(매싱·돌출용), 지형 위에 얹은 복사본 CTX::Site::draped를 더한다. 대상지만 올린다 — 용도지역·지구(Zoning)·필지·도로 중심선은 Z=0 그대로.
 ~/Gorani/data의 성동구 팩으로 금호동3가 450 외 1을 세 설정으로 만든다 — 매끈·경계선만 / 경계선 + 면 / 계단 2 m + 평평하게.
 선 점마다 보이는 지형 면(지형·도로·녹지·수면·대상지 면)에 수직 투영한 가장 높은 Z와 비교해 0 ≤ 선 − 면 ≤ 0.35 m여야 한다.
 범위 경계(특히 모서리) 위 점 몇 개(0.3 % 이하)는 투영이 빗나갈 수 있다 — 엔진이 안쪽으로 1 cm 밀어 다시 쏘고, 그래도 안 되면 같은 선의 가까운 점 높이로 채운다.
-Site::lots(합필 전 필지)·Parcels·Roads::centerline은 그대로 Z=0 평면 선이다(바꾸지 않았다). 헤드리스 문서, 결과: OUT_DIR/result.json.
+Zoning·Site::lots(합필 전 필지)·Parcels·Roads::centerline은 그대로 Z=0 평면 선이다(바꾸지 않았다). 헤드리스 문서, 결과: OUT_DIR/result.json.
 """
 import json
 import os
@@ -82,10 +82,10 @@ for name, extra in cases:
 
     def z_range(curves):
         return (round(min(g.GetBoundingBox(True).Min.Z for g in curves), 2), round(max(g.GetBoundingBox(True).Max.Z for g in curves), 2)) if curves else None
-    # ① 평면 대상지 경계 CTX::Site는 그대로 Z=0, 얹은 복사본 CTX::Site::draped는 지형 면 위(0.1 m), 용도지역 선은 지형 면 위
+    # ① 평면 대상지 경계 CTX::Site는 그대로 Z=0, 얹은 복사본 CTX::Site::draped만 지형 면 위(0.1 m). 용도지역 선은 Z=0 그대로(대상지만 올린다 — 사용자)
     flat_site = curves_on(lambda p: p == "CTX::Site")
     checks = [("Site 평면", flat_site, None), ("Site::draped", curves_on(lambda p: p == "CTX::Site::draped"), True),
-              ("Zoning", curves_on(lambda p: p.startswith("CTX::Zoning")), True)]
+              ("Zoning 평면", curves_on(lambda p: p.startswith("CTX::Zoning")), None)]
     for label, curves, on_surface in checks:
         if on_surface:
             lo, hi, miss = height_above_surface(curves, surfaces)
