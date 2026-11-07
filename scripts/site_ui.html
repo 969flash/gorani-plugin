@@ -879,7 +879,7 @@ function curveBtnHtml() {   // 호스트(Rhino·SketchUp·Blender)의 닫힌 커
   return HOST.id === "web" ? "" : '<button type="button" class="btn sm" data-act="pick_curve" title="' + tr("{0}에서 닫힌 평면 커브 하나를 먼저 선택해 두면 바로 가져옵니다", esc(hostName())) + '">' + ico("curve") + tr("커브 가져오기") + "</button>";
 }
 function emptyTrayHtml() {
-  if (busyTarget()) return "";
+  if (stamp.on || (draw.on && draw.pts.length)) return "";   // 그리기 첫 점 전(다시 그리기)에는 최근 결과를 그대로 둔다
   var results = (state.init && state.init.results) || [];   // 방식·나라와 상관없이 — 결과 폴더(context.json)에서 읽는다
   var curve = state.mode === "area" && curveBtnHtml() ? '<div class="tray-curve">' + curveBtnHtml() + "</div>" : "";   // 구역 — 최근 결과 아래(2026-11-08 사용자)
   if (results.length)
@@ -898,10 +898,10 @@ function targetHtml(moreOpen) {
       '<details class="lot-more" id="lot_more"' + (moreOpen ? " open" : "") + '><summary hidden></summary><div class="body">' + lotInfoHtml(ls) + "</div></details>";
   }
   if (m === "area") {
-    var a = state.area, curveBtn = curveBtnHtml();
+    var a = state.area;
+    if (draw.on && !draw.pts.length) return "";   // 첫 점 전에는 그리기 줄을 띄우지 않는다 — 최근 결과·커브 가져오기 그대로(2026-11-08 사용자)
     if (draw.on) return '<div class="trow"><span class="lbl">' + tr("구역") + '</span><span class="hint num">' + tr("꼭짓점 {0}개", draw.pts.length) + "</span>" +
-      '<span class="end"><button type="button" class="btn sm primary" data-act="draw_done"' + (draw.pts.length >= 3 ? "" : " disabled") + '>' + ico("check") + tr("닫기") + '</button><button type="button" class="btn sm" data-act="draw_cancel">' + tr("취소") + "</button></span></div>" +
-      (draw.pts.length ? "" : '<div class="tools">' + curveBtn + "</div>");
+      '<span class="end"><button type="button" class="btn sm primary" data-act="draw_done"' + (draw.pts.length >= 3 ? "" : " disabled") + '>' + ico("check") + tr("닫기") + '</button><button type="button" class="btn sm" data-act="draw_cancel">' + tr("취소") + "</button></span></div>";
     if (stamp.on) return '<div class="trow"><span class="lbl">' + tr("구역") + '</span><span class="hint">' + tr("지도를 끌어 자리를 맞추세요") + "</span>" +
       '<span class="end"><button type="button" class="btn sm primary" data-act="stamp_place">' + ico("move") + tr("여기에 놓기") + '</button><button type="button" class="btn sm" data-act="stamp_cancel">' + tr("취소") + "</button></span></div>";
     if (!a) return "";   // 구역이 없으면 지도를 누르는 것이 곧 그리기 — [지도에 그리기] 단추는 없앴다(2026-11-08 사용자). 커브 가져오기는 빈 트레이(최근 결과 아래)
@@ -2005,8 +2005,7 @@ function resetLots(mode, pnus) {
   state.run = "idle"; state.styleOpen = false; clearInterval(timers.elapsed);
   if (map) { setTargetLayer(null); clearExtent(); }
   send({ cmd: "select_lots", pnus: pnus || [] });
-  go("map");
-  if (state.mode === "area" && map) startDraw();
+  go("map");   // 구역도 곧바로 그리기로 들어가지 않는다 — 첫 화면은 최근 결과, 지도를 누르면 그리기(2026-11-08 사용자)
 }
 // 방식을 바꾸면 고른 대상지가 지워진다 — 토스트 [되돌리기]
 function switchMode(next) {
@@ -2069,7 +2068,7 @@ var ACTIONS = {
   draw_cancel: cancelDraw,
   pick_curve: function () { cancelDraw(); var e = $("tray_err"); if (e) e.innerHTML = ""; toast(tr("{0}에서 닫힌 커브를 고르세요", hostName())); send({ cmd: "pick_curve" }); },
   area_move: function () { if (state.area && map) { map.setView(ll(state.area.center), map.getZoom(), { animate: false }); startStamp(state.area.offsets, false); } },
-  area_clear: function () { send({ cmd: "set_area" }); startDraw(); },
+  area_clear: function () { send({ cmd: "set_area" }); },
   stamp_place: placeStamp,
   stamp_cancel: function () { stopStamp(); renderTray(); drawLocalExtent(false); },
   point_clear: function () { send({ cmd: "set_point" }); },
@@ -2282,7 +2281,6 @@ var handlers = {
     state.blocked = computeBlocked();
     if (first) {
       render();
-      if (state.mode === "area" && !state.area) startDraw();
     } else {
       updateTileSource();   // 키를 넣거나 뺐으면 배경 주소가 바뀐다
       if (state.downloading) { state.downloading = false; state.areaPacks = null; requestLots(); requestAreaPacks(); }
