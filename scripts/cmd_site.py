@@ -976,7 +976,11 @@ class _SiteController:
             ok, output = loader.load("data_pack").install_update(tick=self._pump)
         finally:
             self._running = False
-        self.push({"type": "update_state", "state": "done" if ok else "failed", "text": "" if ok else output})
+        # Rhino 8 — 패널만 새 판으로 다시 연다(Rhino를 다시 켜지 않는다). Rhino 7은 C# 플러그인이 바뀌어 다시 시작해야 한다
+        reopen = ok and loader.load("context_builder").get_host() == "rhino"
+        self.push({"type": "update_state", "state": "done" if ok else "failed", "text": "" if ok else output, "next": "reopen" if reopen else "restart"})
+        if reopen:
+            reopen_panel_later()
 
     def _stats_consent(self, msg):
         loader.load("site_prefs").save_stats_consent(bool(msg.get("on")))
@@ -1077,6 +1081,27 @@ def get_newer_script(script_path=None):
     newer = [(key, name) for key, name in ((_get_version_key(name), name) for name in os.listdir(root))
              if key is not None and key > mine and os.path.exists(os.path.join(root, name, "scripts", "cmd_site.py"))]
     return os.path.join(root, max(newer)[1], "scripts", "cmd_site.py") if newer else None
+
+
+def reopen_panel_later():
+    # type: () -> None
+    """업데이트를 깐 뒤 — 지금 패널 콜백이 끝나면(Idle 한 번) Gorani 명령을 다시 부른다. 새 판이 옛 판 패널을 닫고 새로 연다
+    (_show_panel의 판 비교·get_newer_script). Rhino를 다시 켜지 않아도 되고, 옛 패널을 그대로 쓰다 깨지지도 않는다 —
+    yak은 다른 판 폴더를 지운다(2026-11-06 이 Mac: Rhino를 켠 채 yak install gorani 0.3.8 → 옆의 0.3.7 폴더가 사라졌다).
+    옛 판 폴더가 지워지면 아직 안 읽은 모듈(2D 만들기 등)을 못 읽는다."""
+    done = []
+
+    def on_idle(sender, args):
+        if done:
+            return
+        done.append(True)
+        try:
+            Rhino.RhinoApp.Idle -= on_idle
+        except Exception:   # 지우지 못해도 done이 막는다
+            pass
+        Rhino.RhinoApp.RunScript("_Gorani", False)
+
+    Rhino.RhinoApp.Idle += on_idle
 
 
 def _show_panel():

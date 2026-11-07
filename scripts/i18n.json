@@ -5842,5 +5842,11 @@
   "es": "La actualización tardó demasiado y se detuvo",
   "ja": "アップデートに時間がかかりすぎたため停止しました",
   "zh": "更新耗时过长，已停止"
+ },
+ "Gorani {0}을 깔았습니다. 새 판으로 패널을 다시 엽니다": {
+  "en": "Gorani {0} is installed. Reopening the panel with the new version",
+  "es": "Gorani {0} está instalado. Se vuelve a abrir el panel con la nueva versión",
+  "ja": "Gorani {0}をインストールしました。新しい版でパネルを開き直します",
+  "zh": "已安装 Gorani {0}。正在用新版本重新打开面板"
  }
 }

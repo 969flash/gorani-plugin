@@ -1803,7 +1803,10 @@ function updateBtn(cls) {
   return canSelfUpdate() ? '<button type="button" class="btn ' + cls + '" data-act="install_update">' + ico("download") + tr("지금 업데이트") + "</button>"
     : '<button type="button" class="btn ' + cls + '" data-act="open_url" data-key="' + siteKey() + '">' + tr("업데이트 방법") + ico("ext") + "</button>";
 }
-function updateDoneText() { return tr("{0}을 다시 시작하면 Gorani {1}이 열립니다", hostName(), state.init.update.latest || ""); }
+function updateDoneText() {   // Rhino 8은 패널이 새 판으로 다시 열린다(cmd_site.reopen_panel_later), Rhino 7은 C# 플러그인이 바뀌어 다시 시작
+  return state.upd.next === "reopen" ? tr("Gorani {0}을 깔았습니다. 새 판으로 패널을 다시 엽니다", state.init.update.latest || "")
+    : tr("{0}을 다시 시작하면 Gorani {1}이 열립니다", hostName(), state.init.update.latest || "");
+}
 function renderUpdate() {
   var el = $("update_modal"), lvl = updateLevel(); if (!lvl) { el.hidden = true; return; }
   var init = state.init, u = init.update, v = esc(init.version || "");
@@ -2195,7 +2198,7 @@ window.addEventListener("resize", function () { if (map) map.invalidateSize(); }
 // ── 수신 핸들러 (슬롯만 교체) ──
 var handlers = {
   update_state: function (m) {   // install_update — running → done | failed
-    state.upd = { state: m.state, text: m.text || "" };
+    state.upd = { state: m.state, text: m.text || "", next: m.next || "" };
     renderNoticeBands(); renderUpdate(); renderMenu();
     if (m.state !== "running") announce(m.state === "done" ? updateDoneText() : tr("업데이트하지 못했습니다. 아래 순서로 직접 업데이트하세요."));
   },
@@ -2387,7 +2390,7 @@ var MOCK = /[?&]mock=1/.test(location.search);
 if (MOCK) {
   send = function (msg) {
     console.log("[send]", JSON.stringify(msg));
-    if (msg.cmd === "install_update") setTimeout(function () { window.app.receive({ type: "update_state", state: /[?&]updfail=1/.test(location.search) ? "failed" : "done", text: "" }); }, 1500);   // &updfail=1 — 실패 화면
+    if (msg.cmd === "install_update") setTimeout(function () { window.app.receive({ type: "update_state", state: /[?&]updfail=1/.test(location.search) ? "failed" : "done", text: "", next: /[?&]updrestart=1/.test(location.search) ? "restart" : "reopen" }); }, 1500);   // &updfail=1 — 실패 화면
   };
   var upto = (location.search.match(/[?&]step=(\w+)/) || [])[1] || "3d";
   var w = (location.search.match(/[?&]w=(\d+)/) || [])[1]; if (w) document.documentElement.style.width = w + "px";
