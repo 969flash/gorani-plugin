@@ -260,11 +260,12 @@ label.chk:has(input:disabled):hover input[type="checkbox"] { border-color: var(-
 .tray-empty .tray-h { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 11px; line-height: 16px; font-weight: 600; color: var(--ink-3); }
 .tray-empty .mlist { margin: 0 -8px; }
 .tray-empty .hint { padding: 8px 0; }
+.tray-curve { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 .trow { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-height: 40px; }
 .trow .lbl { width: var(--lbl); flex: none; color: var(--ink-2); }
 .trow .lbl.strong { color: var(--ink); font-weight: 600; font-size: 14px; }   /* 대상지 줄 — 3D 설정 제목과 같은 글꼴(2026-11-08 사용자) */
 .trow .tval { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.trow .total { font-size: 15px; line-height: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.trow .total { font-size: 14px; line-height: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .trow .end { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 .tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 4px calc(var(--lbl) + var(--lbl-gap)); }
 .tname { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; height: 28px; margin-left: -8px; padding: 0 8px; border: 0; border-radius: 8px; background: none; color: var(--ink); }
@@ -874,13 +875,17 @@ function openResult(i) {   // 최근 결과 → 결과 화면(result_opened). �
   var r = ((state.init && state.init.results) || [])[i]; if (!r || state.run === "running" || state.job2d === "running") return;
   hideList(); send({ cmd: "open_result", dir: r.dir });
 }
+function curveBtnHtml() {   // 호스트(Rhino·SketchUp·Blender)의 닫힌 커브로 구역 — 웹판은 없다
+  return HOST.id === "web" ? "" : '<button type="button" class="btn sm" data-act="pick_curve" title="' + tr("{0}에서 닫힌 평면 커브 하나를 먼저 선택해 두면 바로 가져옵니다", esc(hostName())) + '">' + ico("curve") + tr("커브 가져오기") + "</button>";
+}
 function emptyTrayHtml() {
   if (busyTarget()) return "";
   var results = (state.init && state.init.results) || [];   // 방식·나라와 상관없이 — 결과 폴더(context.json)에서 읽는다
+  var curve = state.mode === "area" && curveBtnHtml() ? '<div class="tray-curve">' + curveBtnHtml() + "</div>" : "";   // 구역 — 최근 결과 아래(2026-11-08 사용자)
   if (results.length)
-    return '<div class="tray-empty"><div class="tray-h">' + ico("clock") + tr("최근 결과") + "</div><div class=\"mlist\">" + results.map(function (r, i) { return recentHtml(r, i, false); }).join("") + "</div></div>";
-  var t = state.mode === "point" ? tr("지도를 누르거나 위에서 주소를 찾아 위치를 찍으세요") : state.mode === "area" ? "" : tr("지도에서 필지를 누르거나 위에서 주소나 지번을 찾으세요");
-  return t ? '<div class="tray-empty"><div class="hint">' + t + "</div></div>" : "";
+    return '<div class="tray-empty"><div class="tray-h">' + ico("clock") + tr("최근 결과") + "</div><div class=\"mlist\">" + results.map(function (r, i) { return recentHtml(r, i, false); }).join("") + "</div>" + curve + "</div>";
+  var t = state.mode === "point" ? tr("지도를 누르거나 위에서 주소를 찾아 위치를 찍으세요") : state.mode === "area" ? tr("지도를 눌러 구역 꼭짓점을 찍으세요") : tr("지도에서 필지를 누르거나 위에서 주소나 지번을 찾으세요");
+  return '<div class="tray-empty"><div class="hint">' + t + "</div>" + curve + "</div>";
 }
 function targetHtml(moreOpen) {
   var m = state.mode;
@@ -893,13 +898,13 @@ function targetHtml(moreOpen) {
       '<details class="lot-more" id="lot_more"' + (moreOpen ? " open" : "") + '><summary hidden></summary><div class="body">' + lotInfoHtml(ls) + "</div></details>";
   }
   if (m === "area") {
-    var a = state.area, curveBtn = HOST.id === "web" ? "" : '<button type="button" class="btn sm" data-act="pick_curve" title="' + tr("{0}에서 닫힌 평면 커브 하나를 먼저 선택해 두면 바로 가져옵니다", esc(hostName())) + '">' + ico("curve") + tr("{0} 커브 가져오기", esc(hostName())) + "</button>";
+    var a = state.area, curveBtn = curveBtnHtml();
     if (draw.on) return '<div class="trow"><span class="lbl">' + tr("구역") + '</span><span class="hint num">' + tr("꼭짓점 {0}개", draw.pts.length) + "</span>" +
       '<span class="end"><button type="button" class="btn sm primary" data-act="draw_done"' + (draw.pts.length >= 3 ? "" : " disabled") + '>' + ico("check") + tr("닫기") + '</button><button type="button" class="btn sm" data-act="draw_cancel">' + tr("취소") + "</button></span></div>" +
       (draw.pts.length ? "" : '<div class="tools">' + curveBtn + "</div>");
     if (stamp.on) return '<div class="trow"><span class="lbl">' + tr("구역") + '</span><span class="hint">' + tr("지도를 끌어 자리를 맞추세요") + "</span>" +
       '<span class="end"><button type="button" class="btn sm primary" data-act="stamp_place">' + ico("move") + tr("여기에 놓기") + '</button><button type="button" class="btn sm" data-act="stamp_cancel">' + tr("취소") + "</button></span></div>";
-    if (!a) return '<div class="tools" style="margin-left:0"><button type="button" class="btn sm" data-act="draw_start">' + ico("pen") + tr("지도에 그리기") + "</button>" + curveBtn + "</div>";
+    if (!a) return "";   // 구역이 없으면 지도를 누르는 것이 곧 그리기 — [지도에 그리기] 단추는 없앴다(2026-11-08 사용자). 커브 가져오기는 빈 트레이(최근 결과 아래)
     return '<div class="trow"><span class="lbl strong">' + tr("대상지") + '</span><span class="tval">' + esc(placeName(a) || tr("구역")) +
       (isGlobal() ? "" : ' <span class="sub">' + tr("(안의 필지 {0})", a.lots) + "</span>") + "</span>" +
       '<span class="total num">' + esc(fmtArea(a.area)) + "</span>" +   // 면적은 필지 줄과 같은 꼴(.total, fmtArea) — 이름 (안의 필지 n) 면적 순(2026-11-08 사용자)
@@ -1000,7 +1005,7 @@ function updateGuide() {
     if (state.mode === "area") {
       if (draw.on) t = draw.pts.length >= 3 ? tr("첫 점을 누르거나 더블클릭하면 닫힙니다. Esc는 취소") : draw.pts.length ? tr("지도를 눌러 구역 꼭짓점을 찍으세요 ({0}개)", draw.pts.length) : tr("지도를 눌러 구역 꼭짓점을 찍으세요");
       else if (stamp.on) t = tr("지도를 끌어 구역 자리를 맞추세요");
-      else if (!state.area) t = tr("[지도에 그리기]로 대상지 경계를 그리세요");
+      else if (!state.area) t = tr("지도를 눌러 구역 꼭짓점을 찍으세요");
     } else if (!hasTarget()) {
       t = state.mode === "point" ? tr("지도를 눌러 위치를 찍으세요") : (map && map.getZoom() < 17 ? tr("지도를 확대하면 필지가 보입니다") : tr("지도에서 필지를 눌러 고르세요. 여러 개 고를 수 있습니다"));
     }
@@ -1230,6 +1235,7 @@ function initMap(init) {
       draw.pts.push(e.latlng); redrawDraw(e.latlng); renderTray(); return;
     }
     if (state.mode === "point") send({ cmd: "set_point", center: [e.latlng.lng, e.latlng.lat] });
+    else if (state.mode === "area" && !state.area && !stamp.on) { startDraw(); draw.pts.push(e.latlng); redrawDraw(e.latlng); renderTray(); }   // 첫 클릭이 첫 꼭짓점
   });
   map.on("dblclick", function () { if (draw.on) finishDraw(); });
   map.on("mousemove", function (e) { if (draw.on) redrawDraw(e.latlng); });
