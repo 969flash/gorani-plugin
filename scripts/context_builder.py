@@ -920,6 +920,80 @@ def get_last_2d_dir(result_dir):
     return last if last and os.path.isdir(last) else get_2d_dir(result_dir)
 
 
+def _get_2d_dirs(result_dir):
+    # type: (str) -> list
+    """결과 폴더 안 2D 폴더(2D_<스타일>_<HHMM>, 예전 2D/) — 만든 순서(이름의 시각)."""
+    prefix = constants.RESULT_2D_DIR_FORMAT.split("%")[0]
+    return sorted(name for name in os.listdir(result_dir)
+                  if os.path.isdir(os.path.join(result_dir, name)) and (name.startswith(prefix) or name == constants.RESULT_2D_DIRNAME))
+
+
+def get_recent_results(result_root=None, hidden=(), model_name=None, limit=None):
+    # type: (str, tuple, str, int) -> list
+    """
+    입력: 결과 루트(기본 HOME_DIR/result), 목록에서 뺀 폴더(site_prefs.get_hidden_results), 이 프로그램의 3D 파일 이름(HOST_LABELS model).
+    처리: context.json이 있는 결과 폴더를 context.json 시각 순(새것 먼저)으로 — 예전 판 폴더(context.json 없음)·다른 프로그램 결과(그 3D 파일 없음)는 뺀다.
+          패널 '최근 결과'(2026-11-07 — 대상지를 바꾸거나 패널을 닫으면 결과 화면으로 돌아갈 길이 없었다. 파일은 다 남아 있었다).
+    출력: [{dir, label, mode, built_at, buildings, has_2d}] RECENT_RESULTS_MAX개까지.
+    """
+    root = result_root or os.path.join(constants.HOME_DIR, constants.RESULT_DIRNAME)
+    model_name = model_name or constants.HOST_LABELS[get_host()]["model"]
+    hidden = set(hidden or ())
+    found = []
+    for name in os.listdir(root) if os.path.isdir(root) else []:
+        folder = os.path.join(root, name)
+        meta_path = os.path.join(folder, constants.CONTEXT_META_FILE_NAME)
+        if folder in hidden or not os.path.exists(meta_path) or not os.path.exists(os.path.join(folder, model_name)):
+            continue
+        found.append((os.path.getmtime(meta_path), folder))
+    results = []
+    for _mtime, folder in sorted(found, reverse=True)[:limit or constants.RECENT_RESULTS_MAX]:
+        try:
+            meta = _read_meta(folder)
+        except (OSError, ValueError):   # 쓰다 만 context.json — 목록에서만 뺀다
+            continue
+        results.append({"dir": folder, "label": str(meta.get("lot_name") or os.path.basename(folder)).replace("_", " "),
+                        "mode": meta.get("mode") or "lots", "built_at": meta.get("built_at") or "",
+                        "buildings": (meta.get("counts") or {}).get("buildings"), "has_2d": bool(_get_2d_dirs(folder))})
+    return results
+
+
+def get_result_state(result_dir, model_name=None):
+    # type: (str, str) -> dict
+    """
+    입력: 결과 폴더(get_recent_results의 dir).
+    처리: context.json으로 결과 화면에 필요한 것 — 3D 파일·건물 수·옵션·만든 2D 폴더, 그리고 지도에 대상지를 되살릴 경위도
+          (구역 링·위치·필지 중심 — crs로 바꾼다, non_rhino_utils.get_lnglat_in_crs).
+          만든 2D는 폴더마다 made_2d.json(2D를 만들 때 패널이 받은 결과)이 있으면 그것도 — 패널이 2D 카드를 그대로 다시 그린다.
+    출력: {type: result_opened, dir, lot_name, label, built_at, context{path, buildings, imported}, options, target, target_lnglat{center, ring},
+          made2d_list: [{dir, made2d|null}](만든 순서 — 마지막이 최신)}.
+    """
+    meta = _read_meta(result_dir)
+    model_name = model_name or constants.HOST_LABELS[get_host()]["model"]
+    target = meta.get("target") or {"mode": meta.get("mode") or "lots", "pnus": meta.get("pnus") or []}
+    crs = meta.get("crs") or "EPSG:5186"
+    center = non_rhino_utils.get_lnglat_in_crs([meta["center"]], crs) if len(meta.get("center") or []) == 2 else []
+    ring = non_rhino_utils.get_lnglat_in_crs(target.get("ring") or [], crs) if target.get("mode") == "area" else []
+    point = non_rhino_utils.get_lnglat_in_crs([target["center"]], crs) if target.get("mode") == "point" and target.get("center") else []
+    return {"type": "result_opened", "dir": result_dir, "lot_name": meta.get("lot_name") or "", "lot_key": meta.get("lot_key") or "",
+            "label": str(meta.get("lot_name") or os.path.basename(result_dir)).replace("_", " "), "built_at": meta.get("built_at") or "",
+            "context": {"path": os.path.join(result_dir, model_name), "buildings": (meta.get("counts") or {}).get("buildings"), "imported": False},
+            "options": meta.get("options") or {}, "target": target, "korea": crs == "EPSG:5186",
+            "target_lnglat": {"center": (point or center or [None])[0], "ring": ring},
+            "made2d_list": [{"dir": os.path.join(result_dir, name), "made2d": _read_made_2d(os.path.join(result_dir, name))} for name in _get_2d_dirs(result_dir)]}
+
+
+def _read_made_2d(folder):
+    # type: (str) -> dict
+    """2D 폴더의 made_2d.json — 없거나(이 기능 전에 만든 2D) 깨졌으면 None(패널은 폴더 링크만)."""
+    path = os.path.join(folder, constants.MADE_2D_FILE_NAME)
+    try:
+        with open(path, encoding="utf-8") as handle:
+            return json.load(handle)
+    except (OSError, ValueError):
+        return None
+
+
 def get_basemap_file_name(prepared, scale, ext=".ai"):
     # type: (object, int, str) -> str
     """베이스맵 파일 이름 — 결과물 언어(OUTPUT_NAMES basemap: basemap_1000·베이스맵_1000) + 확장자."""
@@ -1571,6 +1645,10 @@ def make_2d(result_dir, options, progress=None, keep=None, site_db=None, context
         lines.append(tr("오류 {0}: {1}", response["error"]["code"], response["error"]["title"]) + "\n" + str(response["error"]["detail"]))
     context_report.append_log(result_dir, lines)
     response["files"] = _list_files(result_dir)
+    if response["ok"]:   # 지난 결과를 다시 열 때 2D 카드를 그대로 — 패널이 받은 것과 같은 꼴(get_result_state)
+        with open(os.path.join(out_dir, constants.MADE_2D_FILE_NAME), "w", encoding="utf-8") as handle:
+            json.dump({key: response[key] for key in ("dir", "folder", "elapsed_s", "options", "basemap", "sheets", "tables")},
+                      handle, ensure_ascii=False, default=str)
     return response
 
 

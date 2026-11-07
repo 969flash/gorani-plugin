@@ -24,7 +24,8 @@ panel_host.PanelHost(Eto WebView)와 로직 모듈을 잇는다. JS 명령(dict)
     open_path       → 폴더·파일·.env 템플릿을 OS로 연다
     open_eum        → PNU의 토지이음 토지이용계획 열람을 OS 브라우저로 연다(constants.EUM_LAND_USE_URL)
     save_prefs      → site_prefs.save_options
-    remove_recent   → site_prefs.remove_recent (최근 대상지 x — JS가 목록에서 먼저 지운다)
+    open_result     → context_builder.get_result_state (최근 결과 하나 → result_opened, 결과 화면을 context.json으로)
+    hide_result     → site_prefs.hide_result (최근 결과 x — 목록에서만 뺀다. JS가 먼저 지운다)
     style_preview   → context_builder.preview_sheet (스타일 바꾼 한 장 SVG 문자열 — 파일 안 씀, seq 에코)
     apply_style     → context_builder.apply_style (시트 전부 + 쓴 .ai 다시 쓰기, busy·style_applied)
     save_style      → site_prefs.save_style (HOME_DIR/styles/<이름>.json → styles)
@@ -139,7 +140,7 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
         "map": review_map.get_map_init(map_center),
         "options": site_prefs.get_options(),
         "modes": {"defaults": constants.MODE_DEFAULTS, "shapes": {k: list(v) for k, v in constants.SHAPES_BY_MODE.items()}},
-        "recent": site_prefs.get_recent(),
+        "results": context_builder.get_recent_results(hidden=site_prefs.get_hidden_results(), model_name=host["model"]),   # 최근 결과(지도 트레이)
         "sheet_catalog": [{"id": sheet_id, "key": key, "name": name, "needs": needs, "korea_only": key in constants.SHEET_KOREA_ONLY,
                            "group": constants.SHEET_GROUP.get(key, "base")}
                           for sheet_id, key, name, needs in constants.SHEET_CATALOG if key != "aerial" or host.get("aerial", True)],
@@ -537,7 +538,7 @@ class _SiteController:
             "set_area": self._set_area, "set_point": self._set_point, "pick_curve": self._pick_curve,
             "preflight": self._preflight, "generate": self._generate, "make_2d": self._make_2d, "cancel": self._cancel,
             "import_context": self._import_context, "export_basemap": self._export_basemap, "zoom_view": self._zoom_view,
-            "open_path": self._open_path, "open_eum": self._open_eum, "open_url": self._open_url, "save_prefs": self._save_prefs, "remove_recent": self._remove_recent, "download_data": self._download_data,
+            "open_path": self._open_path, "open_eum": self._open_eum, "open_url": self._open_url, "save_prefs": self._save_prefs, "open_result": self._open_result, "hide_result": self._hide_result, "download_data": self._download_data,
             "style_preview": self._style_preview, "apply_style": self._apply_style, "save_style": self._save_style, "sheet_ai": self._sheet_ai,
             "sheet_view": self._sheet_view, "area_packs": self._area_packs,
             # [blender-cut]
@@ -723,11 +724,9 @@ class _SiteController:
         # [blender-cut]
         self._send_build_stats(target, lots, response)
         # [/blender-cut]
-        if lots:   # 최근 대상지는 필지 방식만(구역·위치는 다시 그리는 편이 빠르다)
-            site_prefs.add_recent(target["pnus"], response["lot_name"].replace("_", " "), sum(lot.area for lot in lots), datetime.date.today().isoformat())
         if response["options"].get("zoom_after_import"):
             context_baker.zoom_to_site(doc, response["dir"])
-        self.push(get_init_state())   # 생성 중 받은 지역 데이터로 헤더 배지 갱신
+        self.push(get_init_state())   # 생성 중 받은 지역 데이터로 헤더 배지 갱신 — 최근 결과에도 이번 것이 앞에 든다
 
     def _make_2d(self, msg):
         """3D 결과 폴더에 2D 자료(베이스맵 .ai·도면·조서 CSV)를 더한다 — context_builder.make_2d를 UI 스레드에서 동기 호출.
@@ -965,8 +964,28 @@ class _SiteController:
     def _save_prefs(self, msg):
         loader.load("site_prefs").save_options(msg.get("options") or {})
 
-    def _remove_recent(self, msg):
-        loader.load("site_prefs").remove_recent(msg.get("pnus") or [])
+    def _open_result(self, msg):
+        """최근 결과 하나 → result_opened(결과 화면을 context.json으로 다시 채운다). 3D가 지금 문서에 있으면 imported — 없을 때만 [불러오기]."""
+        context_builder = loader.load("context_builder")
+        result_dir = self._get_result_dir(msg)
+        state = context_builder.get_result_state(result_dir)
+        state["context"]["imported"] = self._has_lot(state.get("lot_key"))
+        self.push(state)
+
+    def _has_lot(self, lot_key):
+        # type: (str) -> bool
+        """이 대상지 3D가 지금 문서에 있나 — Rhino 8만 안다(context_baker.has_lot). SketchUp·Blender·Rhino 7은 False([불러오기])."""
+        # [blender-cut]
+        if Rhino is not None:   # Rhino 8 안(SketchUp·Rhino 7 사이드카는 Rhino를 못 읽는다)
+            try:
+                return loader.load("context_baker").has_lot(Rhino.RhinoDoc.ActiveDoc, lot_key)
+            except Exception:   # 문서 없음 등 — 모르면 [불러오기]를 보인다
+                return False
+        # [/blender-cut]
+        return False
+
+    def _hide_result(self, msg):
+        loader.load("site_prefs").hide_result(str(msg.get("dir") or ""))
 
     def _get_result_dir(self, msg):
         result_dir = str(msg.get("dir") or "")
@@ -1028,7 +1047,7 @@ class _SiteController:
 # error.context — JS가 표시 자리를 고른다(panel_ui.md 오류 규약)
 _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "select", "set_point": "select", "pick_curve": "select",
                    "import_context": "import", "export_basemap": "export",
-                   "zoom_view": "open", "open_path": "open", "open_eum": "open", "open_url": "open", "save_prefs": "init", "remove_recent": "init", "cancel": "generate", "make_2d": "generate", "download_data": "init",
+                   "zoom_view": "open", "open_path": "open", "open_eum": "open", "open_url": "open", "save_prefs": "init", "open_result": "init", "hide_result": "init", "cancel": "generate", "make_2d": "generate", "download_data": "init",
                    "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style", "sheet_view": "view",
                    # [blender-cut]
                    "stats_consent": "init", "track": "init",

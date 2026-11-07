@@ -880,6 +880,8 @@ OUTPUT_NAMES = {
            "tables": {"parcels": "parcels", "buildings": "buildings", "sheet_stats": "sheet_stats", "height_src_stats": "height_src_stats", "alignment": "alignment"},
            "styles": {"std": "Standard", "vivid": "Vivid", "mono": "Mono", "dark": "Dark"}},
 }   # 도면 이름은 여기 말고 i18n.json(SHEET_CATALOG 이름이 키) — non_rhino_utils.get_sheet_label
+RECENT_RESULTS_MAX = 5   # 패널 '최근 결과'(지도 트레이) — context_builder.get_recent_results
+MADE_2D_FILE_NAME = "made_2d.json"   # 2D 폴더마다 — make_2d가 패널에 보낸 결과(도면 목록·썸네일·.ai·조서). 지난 결과를 열면 2D 카드를 그대로 다시 그린다
 RESULT_2D_DIR_FORMAT = "2D_%s_%s"   # (스타일 이름, HHMM) — [2D 자료 만들기]마다 결과 폴더 안 새 폴더. 같은 결과에 스타일을 바꿔 다시 만들면 앞 것을 덮어썼다(2026-10-21 사용자)
 RESULT_2D_DIRNAME = "2D"   # 2D 산출물(베이스맵 .ai·.dwg·sheets/·tables/)을 결과 폴더 안 한곳에 — 패널 2D 카드 [폴더 열기]가 여기를 연다(2026-10-19)
 RESULT_TABLES_DIRNAME = "tables"

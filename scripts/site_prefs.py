@@ -17,7 +17,7 @@ PREFS_DIR = os.path.join(os.path.expanduser("~"), ".gorani")
 PREFS_PATH = os.path.join(PREFS_DIR, "prefs.json")
 CLIENT_ID_PATH = os.path.join(PREFS_DIR, "client_id")   # 설치 ID — 사용 통계(Rhino)와 국내 데이터 팩 서버 하루 한도(모든 판)
 SOURCE_NEWS_PATH = os.path.join(PREFS_DIR, "source_news.json")
-RECENT_MAX = 5
+HIDDEN_RESULTS_MAX = 200   # 최근 결과에서 뺀 폴더 기록 상한 — 결과 폴더가 지워져도 남는 경로라 끝없이 쌓이지 않게
 PREFS_VERSION = 2   # 2 = 범위 기본값을 사각형 한 변 500 m로 바꿨다(2026-10-19) — 그 전에 저장된 radius·shape는 한 번 버린다
 _RESET_BEFORE_V2 = ("radius", "shape")
 
@@ -88,32 +88,20 @@ def save_options(options, path=PREFS_PATH):
     return merged
 
 
-def get_recent(path=PREFS_PATH):
+def get_hidden_results(path=PREFS_PATH):
     # type: (str) -> list
-    recent = _read_json(path).get("recent") or []
-    return [item for item in recent if isinstance(item, dict) and item.get("pnus")][:RECENT_MAX]
+    """최근 결과 목록에서 x로 뺀 결과 폴더 경로들(폴더는 그대로 둔다)."""
+    return [p for p in (_read_json(path).get("hidden_results") or []) if isinstance(p, str)]
 
 
-def add_recent(pnus, label, total_area, date, path=PREFS_PATH):
-    # type: (list, str, float, str, str) -> list
-    """최근 대상지 맨 앞에 넣는다. 같은 PNU 묶음은 하나만, 최대 RECENT_MAX."""
-    key = tuple(sorted(pnus))
+def hide_result(result_dir, path=PREFS_PATH):
+    # type: (str, str) -> list
+    """최근 결과 목록에서 뺀다(패널 x). 오래된 것부터 HIDDEN_RESULTS_MAX만 남긴다. 돌려주는 값은 뺀 목록."""
     data = _read_json(path)
-    recent = [item for item in get_recent(path) if tuple(sorted(item.get("pnus") or [])) != key]
-    recent.insert(0, {"pnus": list(pnus), "label": label, "total_area": round(float(total_area), 1), "date": date})
-    data["recent"] = recent[:RECENT_MAX]
+    hidden = [p for p in get_hidden_results(path) if p != result_dir] + [result_dir]
+    data["hidden_results"] = hidden[-HIDDEN_RESULTS_MAX:]
     _write_json(path, data)
-    return data["recent"]
-
-
-def remove_recent(pnus, path=PREFS_PATH):
-    # type: (list, str) -> list
-    """최근 대상지에서 같은 PNU 묶음을 지운다(패널 x). 돌려주는 값은 남은 목록."""
-    key = tuple(sorted(pnus or []))
-    data = _read_json(path)
-    data["recent"] = [item for item in get_recent(path) if tuple(sorted(item.get("pnus") or [])) != key]
-    _write_json(path, data)
-    return data["recent"]
+    return data["hidden_results"]
 
 
 # [blender-cut] 사용 통계 동의 — Blender 확장 패키지에는 통계가 없다
