@@ -583,7 +583,9 @@ HEIGHT_GRADES = ("A", "B", "C", "D")
 PANEL_VERSION = "0.3.8"   # 배포 버전 하나(모든 호스트 패키지 버전 = dev_deploy.PACKAGE_VERSION). 매니페스트 update.latest·min과 비교한다
 NOTICE_TIMEOUT_SECONDS = 3   # 패널을 열 때 매니페스트(공지·업데이트)를 기다리는 한도 — 못 받으면 공지 없이 연다
 UPDATE_INSTALL_SECONDS = 600   # 패널 [지금 업데이트](yak install)를 기다리는 상한 — Rhino 7판은 번들 파이썬까지 수백 MB
+# [blender-cut] [지금 업데이트]는 Rhino 8·7만 — 이 상수를 쓰는 data_pack.get_yak_path도 같은 구간이라 Blender 패키지에는 둘 다 없다(빌드 점검이 'RHINO' 코드를 막는다)
 RHINO_DIR_ENV = "GORANI_RHINO_DIR"   # Rhino 7 사이드카에 C# 호스트가 넘기는 Rhino 실행 폴더 — data_pack.get_yak_path
+# [/blender-cut]
 MANIFEST_RETRY_SECONDS = 60   # 지도 이동(area_packs)이 매니페스트를 못 받았으면 이만큼은 다시 묻지 않는다 — 막힌 망에서 이동마다 멈추지 않게
 # 언어 — 패널 헤더에서 고른다(options.lang). 사전은 scripts/i18n.json 하나(패널 JS·Python 공용, i18n.py)
 LANGS = ("en", "ko", "es", "ja", "zh")   # 고르기 순서. zh = 중국어 간체
