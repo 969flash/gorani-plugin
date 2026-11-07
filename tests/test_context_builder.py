@@ -214,7 +214,12 @@ class PrefsTest(unittest.TestCase):
             self.assertEqual(state["context"]["path"], os.path.join(point, "context.3dm"))
             lot_state = context_builder.get_result_state(lots, "context.3dm")
             self.assertEqual(lot_state["target"]["pnus"], ["1120011500102770017"])
-            self.assertTrue(lot_state["korea"] and len(lot_state["made2d_dirs"]) == 1)
+            self.assertTrue(lot_state["korea"])
+            self.assertEqual([x["made2d"] for x in lot_state["made2d_list"]], [None])   # 이 기능 전에 만든 2D — 폴더만
+            two_d = lot_state["made2d_list"][0]["dir"]
+            with open(os.path.join(two_d, constants.MADE_2D_FILE_NAME), "w", encoding="utf-8") as f:   # make_2d가 남기는 것과 같은 꼴
+                json.dump({"folder": two_d, "sheets": [{"id": 9, "name": "토지이용현황", "path": "x.svg", "thumb": "data:image/png;base64,AA"}]}, f)
+            self.assertEqual(context_builder.get_result_state(lots, "context.3dm")["made2d_list"][0]["made2d"]["sheets"][0]["id"], 9)
             self.assertEqual(non_rhino_utils.get_crs_label(), "EPSG:5186")   # 바꿨던 원점은 되돌린다
 
     def test_old_prefs_range_resets_once(self):

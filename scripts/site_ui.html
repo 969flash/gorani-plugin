@@ -752,7 +752,7 @@ function renderFooter() {
   var r = state.run, html = "";
   if (state.screen === "map") {
     var can = hasTarget() && !busyTarget(), again = can && madeBefore();
-    html = (canReturn() && !draw.on && !stamp.on ? '<button type="button" class="btn ghost" data-act="to_result">' + tr("결과로 돌아가기") + ico("next") + "</button>"
+    html = (canReturn() && !draw.on && !stamp.on ? '<button type="button" class="btn ghost" data-act="to_result" title="' + esc(lastLabel()) + '">' + tr("결과로 돌아가기") + ico("next") + "</button>"
         : '<span class="hint">' + (can ? (again ? tr("이 대상지의 이전 3D를 새것으로 바꿉니다") : "") : state.mode === "area" && draw.on ? tr("구역을 닫으면 만들 수 있습니다") : "") + "</span>") +
       '<button type="button" class="btn primary" data-act="generate"' + (can ? "" : " disabled") +
         (again ? ' title="' + tr("{0} 파일의 이 대상지 3D를 지우고 새로 넣습니다. 이전 결과 폴더는 그대로 남습니다", esc(hostName())) + '"' : "") + ">" + ico("cube") + (again ? tr("3D 모델 다시 만들기") : tr("3D 모델 만들기")) + "</button>";
@@ -855,11 +855,14 @@ function restoreResultTarget(rs) {   // 지난 결과의 대상지를 지도에 
   send({ cmd: "save_prefs", options: state.options }); renderTray();
   return true;
 }
-function sameResultTarget(rs) {   // [결과로 돌아가기] — 지난 결과는 대상지만 본다(구역 링은 되살리며 소수점이 달라진다)
-  if (!rs || !hasTarget() || state.mode !== (rs.target || {}).mode) return false;
-  if (state.mode === "lots") return state.lots.slice().sort().join() === (rs.target.pnus || []).slice().sort().join();
-  var a = targetCenter(), b = (rs.target_lnglat || {}).center;
-  return !!(a && b) && Math.abs(a[0] - b[0]) < 1e-4 && Math.abs(a[1] - b[1]) < 1e-4;
+function apply2d(m) {   // 2D 결과 카드 — 방금 만든 것(made_2d)과 지난 결과(made_2d.json)가 같은 꼴
+  // 2D는 만들 때마다 새 폴더(2D_<스타일>_<HHMM>) — 카드는 한 번에 하나. 앞 폴더는 결과 폴더에 그대로 남는다
+  var bm = m.basemap || {};
+  state.made2d = { elapsed_s: m.elapsed_s, folder: m.folder, options: m.options, basemap: Object.assign({}, bm, { exported: (bm.exported || []).slice(), ready: !!bm.ready, dwg: bm.dwg || "" }),
+    sheets: m.sheets || [], tables: m.tables || [] };
+  state.result.sheets = state.made2d.sheets;
+  if ((m.sheets || []).length) { state.appliedStyle = fullStyle((m.options || {}).style); state.styleEdit = clone(state.appliedStyle); }
+  state.job2d = "done"; state.form2d = false;
 }
 function openResult(i) {   // 최근 결과 → 결과 화면(result_opened). 만드는 중에는 열지 않는다
   var r = ((state.init && state.init.results) || [])[i]; if (!r || state.run === "running" || state.job2d === "running") return;
@@ -1503,10 +1506,12 @@ function renderCard2d() {
   if (m) html += made2dHtml(m);
   if (j === "cancelled") html += '<div class="top"><div class="hint" role="status">' + esc(state.err2d) + "</div></div>";
   if (j === "failed") html += '<div class="top"><div class="err-card" role="alert">' + errorHelpHtml(state.err2dObj || { title: state.err2d }) + "</div></div>";
-  var rs = state.result && state.result.restored;
-  if (rs && !m && (rs.made2d_dirs || []).length)   // 지난 결과 — 앞서 만든 2D 폴더(그대로 남아 있다)
-    html += '<div class="top"><div class="tray-h">' + tr("앞서 만든 2D") + '</div><div class="mlist">' + rs.made2d_dirs.slice(-3).reverse().map(function (d) {
-      return '<div class="prev2d">' + ico("folder") + "<span>" + esc(d.split(/[\\/]/).pop()) + '</span><button type="button" class="btn sm" data-act="open" data-path="' + esc(d) + '">' + tr("열기") + "</button></div>";
+  var rs = state.result && state.result.restored, others = rs ? (rs.made2d_list || []).filter(function (x) { return !m || x.dir !== m.folder; }) : [];
+  if (others.length)   // 지난 결과 — 이 카드 말고 앞서 만든 2D(그대로 남아 있다). made_2d.json이 있으면 카드로 바꿔 본다
+    html += '<div class="top"><div class="tray-h">' + tr("이전 2D") + '</div><div class="mlist">' + others.slice(-3).reverse().map(function (x) {
+      var i = rs.made2d_list.indexOf(x);
+      return '<div class="prev2d">' + ico("folder") + "<span>" + esc(x.dir.split(/[\\/]/).pop()) + "</span>" + (x.made2d ? '<button type="button" class="btn sm" data-act="prev2d" data-i="' + i + '">' + tr("보기") + "</button>" : "") +
+        '<button type="button" class="btn sm" data-act="open" data-path="' + esc(x.dir) + '">' + tr("폴더") + "</button></div>";
     }).join("") + "</div></div>";
   if (!m || state.form2d) html += form2dHtml();
   else html += '<div class="acts"><button type="button" class="btn sm" data-act="form2d">' + ico("plus") + tr("다른 2D도 만들기") + "</button></div>";
@@ -1631,8 +1636,10 @@ function generateKey() {
 }
 // 이 패널에서 이미 3D를 만든 대상지인가 — 다시 만들면 문서의 이전 3D를 바꾼다(context_baker.clear_previous). 결과 폴더는 새로(get_free_result_dir)
 function madeBefore() { return hasTarget() && !!state.madeTargets[JSON.stringify(targetMsg())]; }
-// [← 지도로]로 떠난 결과로 돌아갈 수 있나 — 대상지·범위·3D 설정이 그 결과를 만들 때와 같을 때만
-function canReturn() { return !!(state.last && hasTarget() && !busyTarget() && (state.last.restored ? sameResultTarget(state.last.restored) : state.last.key === generateKey())); }
+// [← 지도로]로 떠난 결과로 돌아갈 수 있나 — 3D를 새로 만들기 전까지 늘(2026-11-07: 대상지·범위를 바꾸면 숨어서 2D까지 만든 화면을 잃었다).
+// 결과 화면은 지도와 상관없이 그 결과만 보여 준다. 돌아가는 곳은 바로 떠난 결과 하나 — 그 전 것은 '최근 결과'
+function canReturn() { return !!(state.last && !busyTarget()); }
+function lastLabel() { var l = state.last, r = l && l.result; return r ? (r.restored ? r.restored.label : String(r.lot_name || "").replace(/_/g, " ")) : ""; }
 function startGenerate() {
   if (!hasTarget() || busyTarget() || state.run === "running") return;
   send({ cmd: "generate", target: targetMsg(), options: generateOptions() });
@@ -2055,6 +2062,10 @@ var ACTIONS = {
   cancel: requestCancel,
   make2d: startMake2d,
   form2d: function () { state.form2d = true; renderCard2d(); },
+  prev2d: function (b) {   // 지난 결과의 이전 2D를 카드로
+    var rs = state.result && state.result.restored, x = rs && (rs.made2d_list || [])[+b.dataset.i];
+    if (x && x.made2d) { apply2d(x.made2d); renderCard2d(); }
+  },
   tile2d: function (b) { var k = b.dataset.key; state.options[k] = !state.options[k]; afterOptionChange(k); renderCard2d(); },
   bm_preset: function (b) {
     var v = b.dataset.v, o = state.options; o.basemap_preset = v;
@@ -2330,6 +2341,8 @@ var handlers = {
     state.result = { dir: m.dir, lot_name: m.lot_name, elapsed_s: null, context: m.context, options: m.options, sheets: [], restored: m };
     state.made2d = null; state.job2d = "idle"; state.form2d = true; state.dl = null; state.err2d = ""; state.err2dObj = null; state.last = null; state.resultKey = null;
     state.appliedStyle = fullStyle(state.options.style); state.styleEdit = clone(state.appliedStyle); state.styleOpen = false;
+    var list = m.made2d_list || [];
+    for (var k = list.length - 1; k >= 0; k--) if (list[k].made2d) { apply2d(list[k].made2d); break; }   // 마지막(최신) 2D를 만든 직후와 같은 카드로
     state.progress = null; state.run = "done"; state.screen = "result"; render();
     announce(tr("지난 결과를 열었습니다"));
   },
@@ -2337,13 +2350,7 @@ var handlers = {
     clearInterval(timers.elapsed);
     if (!state.result || m.dir !== state.result.dir) return;
     if (m.ok) {
-      // 2D는 만들 때마다 새 폴더(2D_<스타일>_<HHMM>) — 카드도 이번 것만 보인다. 앞 폴더는 결과 폴더에 그대로 남는다
-      var bm = m.basemap || {};
-      state.made2d = { elapsed_s: m.elapsed_s, folder: m.folder, options: m.options, basemap: Object.assign({}, bm, { exported: (bm.exported || []).slice(), ready: !!bm.ready, dwg: bm.dwg || "" }),
-        sheets: m.sheets || [], tables: m.tables || [] };
-      state.result.sheets = state.made2d.sheets;
-      if ((m.sheets || []).length) { state.appliedStyle = fullStyle((m.options || {}).style); state.styleEdit = clone(state.appliedStyle); }
-      state.job2d = "done"; state.form2d = false;
+      apply2d(m);
       toast(tr("2D 자료를 만들었습니다"));
     } else {
       state.job2d = m.cancelled ? "cancelled" : "failed";

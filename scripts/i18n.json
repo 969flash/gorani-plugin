@@ -5813,16 +5813,28 @@
   "ja": "保存された結果",
   "zh": "已保存的结果"
  },
- "앞서 만든 2D": {
-  "en": "2D made earlier",
-  "es": "2D creados antes",
-  "ja": "以前に作った2D",
-  "zh": "之前生成的 2D"
- },
  "지난 결과를 열었습니다": {
   "en": "Opened a saved result",
   "es": "Se abrió un resultado guardado",
   "ja": "保存された結果を開きました",
   "zh": "已打开保存的结果"
+ },
+ "이전 2D": {
+  "en": "Earlier 2D",
+  "es": "2D anteriores",
+  "ja": "以前の2D",
+  "zh": "之前的 2D"
+ },
+ "보기": {
+  "en": "View",
+  "es": "Ver",
+  "ja": "見る",
+  "zh": "查看"
+ },
+ "폴더": {
+  "en": "Folder",
+  "es": "Carpeta",
+  "ja": "フォルダ",
+  "zh": "文件夹"
  }
 }

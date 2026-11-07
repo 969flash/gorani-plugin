@@ -965,8 +965,24 @@ class _SiteController:
         loader.load("site_prefs").save_options(msg.get("options") or {})
 
     def _open_result(self, msg):
-        """최근 결과 하나 → result_opened(결과 화면을 context.json으로 다시 채운다 — 3D는 문서에 없을 수 있어 [불러오기])."""
-        self.push(loader.load("context_builder").get_result_state(self._get_result_dir(msg)))
+        """최근 결과 하나 → result_opened(결과 화면을 context.json으로 다시 채운다). 3D가 지금 문서에 있으면 imported — 없을 때만 [불러오기]."""
+        context_builder = loader.load("context_builder")
+        result_dir = self._get_result_dir(msg)
+        state = context_builder.get_result_state(result_dir)
+        state["context"]["imported"] = self._has_lot(state.get("lot_key"))
+        self.push(state)
+
+    def _has_lot(self, lot_key):
+        # type: (str) -> bool
+        """이 대상지 3D가 지금 문서에 있나 — Rhino 8만 안다(context_baker.has_lot). SketchUp·Blender·Rhino 7은 False([불러오기])."""
+        # [blender-cut]
+        if Rhino is not None:   # Rhino 8 안(SketchUp·Rhino 7 사이드카는 Rhino를 못 읽는다)
+            try:
+                return loader.load("context_baker").has_lot(Rhino.RhinoDoc.ActiveDoc, lot_key)
+            except Exception:   # 문서 없음 등 — 모르면 [불러오기]를 보인다
+                return False
+        # [/blender-cut]
+        return False
 
     def _hide_result(self, msg):
         loader.load("site_prefs").hide_result(str(msg.get("dir") or ""))
