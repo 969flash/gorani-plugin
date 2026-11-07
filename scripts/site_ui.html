@@ -900,8 +900,9 @@ function targetHtml(moreOpen) {
     if (stamp.on) return '<div class="trow"><span class="lbl">' + tr("구역") + '</span><span class="hint">' + tr("지도를 끌어 자리를 맞추세요") + "</span>" +
       '<span class="end"><button type="button" class="btn sm primary" data-act="stamp_place">' + ico("move") + tr("여기에 놓기") + '</button><button type="button" class="btn sm" data-act="stamp_cancel">' + tr("취소") + "</button></span></div>";
     if (!a) return '<div class="tools" style="margin-left:0"><button type="button" class="btn sm" data-act="draw_start">' + ico("pen") + tr("지도에 그리기") + "</button>" + curveBtn + "</div>";
-    return '<div class="trow"><span class="lbl strong">' + tr("대상지") + '</span><span class="tval" style="flex:1 1 0">' + (placeName(a) ? esc(placeName(a)) + " " : "") + '<span class="sub"><b class="num">' + esc(fmtNum(a.area, 0)) + " " + sqm() + "</b>" +
-      (isGlobal() ? "" : " " + tr("(안의 필지 {0})", a.lots)) + "</span></span>" +
+    return '<div class="trow"><span class="lbl strong">' + tr("대상지") + '</span><span class="tval">' + esc(placeName(a) || tr("구역")) +
+      (isGlobal() ? "" : ' <span class="sub">' + tr("(안의 필지 {0})", a.lots) + "</span>") + "</span>" +
+      '<span class="total num">' + esc(fmtArea(a.area)) + "</span>" +   // 면적은 필지 줄과 같은 꼴(.total, fmtArea) — 이름 (안의 필지 n) 면적 순(2026-11-08 사용자)
       '<span class="end" style="gap:0">' + iconBtn("draw_start", "pen", tr("다시 그리기")) + iconBtn("area_move", "move", tr("옮기기")) + clearBtn("area_clear") + "</span></div>";   // 구역을 고치는 단추는 주소 줄 끝에(2026-11-08 사용자 — 따로 한 줄이면 어색했다)
   }
   var p = state.point; if (!p) return "";
