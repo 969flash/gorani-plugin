@@ -5741,12 +5741,6 @@
   "ja": "{0}を削除",
   "zh": "删除{0}"
  },
- "최근 대상지에서 지우기": {
-  "en": "Remove from recent sites",
-  "es": "Quitar de sitios recientes",
-  "ja": "最近の対象地から削除",
-  "zh": "从最近的场地中删除"
- },
  "새로 설치한 판으로 엽니다: {0}": {
   "en": "Opening the newly installed version: {0}",
   "es": "Abriendo la versión recién instalada: {0}",
@@ -5848,5 +5842,47 @@
   "es": "Gorani {0} está instalado. Se vuelve a abrir el panel con la nueva versión",
   "ja": "Gorani {0}をインストールしました。新しい版でパネルを開き直します",
   "zh": "已安装 Gorani {0}。正在用新版本重新打开面板"
+ },
+ "최근 결과": {
+  "en": "Recent results",
+  "es": "Resultados recientes",
+  "ja": "最近の結果",
+  "zh": "最近的结果"
+ },
+ "목록에서 빼기(결과 폴더는 남습니다)": {
+  "en": "Remove from list (the result folder stays)",
+  "es": "Quitar de la lista (la carpeta del resultado se conserva)",
+  "ja": "一覧から外す(結果フォルダは残ります)",
+  "zh": "从列表中移除(结果文件夹会保留)"
+ },
+ "지난 결과": {
+  "en": "Saved result",
+  "es": "Resultado guardado",
+  "ja": "保存された結果",
+  "zh": "已保存的结果"
+ },
+ "지난 결과를 열었습니다": {
+  "en": "Opened a saved result",
+  "es": "Se abrió un resultado guardado",
+  "ja": "保存された結果を開きました",
+  "zh": "已打开保存的结果"
+ },
+ "이전 2D": {
+  "en": "Earlier 2D",
+  "es": "2D anteriores",
+  "ja": "以前の2D",
+  "zh": "之前的 2D"
+ },
+ "보기": {
+  "en": "View",
+  "es": "Ver",
+  "ja": "見る",
+  "zh": "查看"
+ },
+ "폴더": {
+  "en": "Folder",
+  "es": "Carpeta",
+  "ja": "フォルダ",
+  "zh": "文件夹"
  }
 }

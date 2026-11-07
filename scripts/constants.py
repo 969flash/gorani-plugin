@@ -74,6 +74,7 @@ LAND_USE_APPLIED = (LAND_USE_INCLUDED, LAND_USE_OVERLAP)
 LAND_CATEGORY_ROAD = "도로"
 # 수계로 볼 지목 — 하천·구거(도랑)·유지(연못·저수지). 제방은 수면이 아니라 뺀다.
 LAND_CATEGORIES_WATER = ("하천", "구거", "유지")
+LAND_CATEGORIES_STILL_WATER = ("유지",)   # 고인 물(연못·저수지) — 평평한 수면
 
 # 토지특성정보 A13(용도지역코드1) → UPIS 코드. 대장 값이라 공간교차보다 정확하다.
 # 표에 없는 코드(00 지정되지않음, 44 개발제한구역, 51 용도미지정, 61~ 비도시지역)는
@@ -808,6 +809,13 @@ BLOCK_BASE_SNAP = 5.0           # m — 바닥 높이를 이 단위로 내림(BA
 CLASSIFY_GRID = 50.0            # m — 면 분류용 격자 버킷
 WATER_LIFT = 0.02               # m — 수면 메시를 지형 위로 띄우는 높이
 WATER_EDGE_STEP = 2.0           # m — 수면 경계 조밀화 간격 (TIN 입력, code_map §5.1)
+OSM_FLOWING_WATER = ("river", "canal", "stream", "ditch", "drain", "rapids", "fish_pass")   # natural=water + water=* 중 흐르는 물(OSM wiki Key:water) — 나머지 수면은 고인 물
+WATER_STILL_KINDS = ("lake",)   # 고인 물 = 평평한 수면 하나(물가 최저). 나머지(river·stream)는 흐르는 물 — 물가를 따라 기운다
+WATER_SHORE_WINDOW = 50.0       # m — 흐르는 물 수위 = 이 거리 안 물가 높이의 최저. 물가 정점이 둑 꼭대기 등고선(성수 한강 15 m)을 받은 튀는 값을 걸러 낸다
+WATER_MAX_GRADE = 0.02          # 흐르는 물 수면의 최대 기울기(2 %) — 등고선 5 m 간격 때문에 계단진 물가 높이를 250 m 경사로로 편다. 수면(면)이 있는 하천은 폭이 넓어 대개 1 % 미만(5 %는 청계천·홍제천 수면이 급류처럼 보였다)
+WATER_BLEND_SOURCE = "aws_terrain"   # 수면 둘레 칸이 호수·강 바닥 수심과 섞인 격자 지형 원천(osm_context.get_terrain_spots) — 일본 지리원 5 m는 수면이 값 없음이라 해당 없음
+WATER_BLEND_BUFFER = 30.0       # m — 그 원천 표고점을 수면 경계에서 이 거리 안이면 뺀다(원천 DEM 약 30 m 한 칸)
+WATER_SURFACE_CELL = 10.0       # m — 흐르는 물 안쪽 수위를 채우는 격자 칸(물가 수위를 가장 가까운 칸에서 가져와 쌍선형 보간)
 WATER_SURFACE_KINDS = ("river", "stream", "lake")   # features theme water 중 수면(면)으로 다루는 kind — 3dm CTX::Water 분류·시트 바탕 수계가 같이 쓴다. shore(습지)는 TOPO_LAYERS 주석 참고
 TERRAIN_CLASS_PRIORITY = ("water", "rail", "road", "green")
 TERRAIN_UNION_CLASSES = ("road", "green")   # Rhino 면 분할 전에 Boolean 합집합으로 겹침을 없애는 분류 — OSM 도로면 버퍼(교차부마다 겹침)·녹지. 수면은 폴리곤별 수위를 따로 쓰므로 합치지 않는다   # 면 분류 우선순위(앞이 이김), 나머지 terrain, 범위 밖 outside (code_map §5.3)
@@ -882,6 +890,8 @@ OUTPUT_NAMES = {
            "tables": {"parcels": "parcels", "buildings": "buildings", "sheet_stats": "sheet_stats", "height_src_stats": "height_src_stats", "alignment": "alignment"},
            "styles": {"std": "Standard", "vivid": "Vivid", "mono": "Mono", "dark": "Dark"}},
 }   # 도면 이름은 여기 말고 i18n.json(SHEET_CATALOG 이름이 키) — non_rhino_utils.get_sheet_label
+RECENT_RESULTS_MAX = 5   # 패널 '최근 결과'(지도 트레이) — context_builder.get_recent_results
+MADE_2D_FILE_NAME = "made_2d.json"   # 2D 폴더마다 — make_2d가 패널에 보낸 결과(도면 목록·썸네일·.ai·조서). 지난 결과를 열면 2D 카드를 그대로 다시 그린다
 RESULT_2D_DIR_FORMAT = "2D_%s_%s"   # (스타일 이름, HHMM) — [2D 자료 만들기]마다 결과 폴더 안 새 폴더. 같은 결과에 스타일을 바꿔 다시 만들면 앞 것을 덮어썼다(2026-10-21 사용자)
 RESULT_2D_DIRNAME = "2D"   # 2D 산출물(베이스맵 .ai·.dwg·sheets/·tables/)을 결과 폴더 안 한곳에 — 패널 2D 카드 [폴더 열기]가 여기를 연다(2026-10-19)
 RESULT_TABLES_DIRNAME = "tables"

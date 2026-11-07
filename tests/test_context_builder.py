@@ -168,7 +168,7 @@ class SourceHelperTest(unittest.TestCase):
 class PrefsTest(unittest.TestCase):
     """site_prefs — test_site_preflight.py에서 옮김."""
 
-    def test_options_and_recent_roundtrip(self):
+    def test_options_and_hidden_results_roundtrip(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "prefs.json")
             options = site_prefs.get_options(path)
@@ -176,17 +176,51 @@ class PrefsTest(unittest.TestCase):
             saved = site_prefs.save_options({"radius": 300, "unknown_key": 1}, path)
             self.assertEqual(saved["radius"], 300)
             self.assertNotIn("unknown_key", saved)
-            site_prefs.add_recent(["b", "a"], "라벨", 12.34, "2026-10-07", path)
-            site_prefs.add_recent(["a", "b"], "라벨2", 12.34, "2026-10-08", path)   # 같은 묶음 → 하나
-            recent = site_prefs.get_recent(path)
-            self.assertEqual(len(recent), 1)
-            self.assertEqual(recent[0]["label"], "라벨2")
-            self.assertEqual(site_prefs.get_options(path)["radius"], 300)   # recent 추가가 옵션을 지우지 않는다
-            with open(path, encoding="utf-8") as f:
-                self.assertIn("options", json.load(f))
-            site_prefs.add_recent(["c"], "라벨3", 1.0, "2026-10-09", path)
-            self.assertEqual([r["label"] for r in site_prefs.remove_recent(["b", "a"], path)], ["라벨3"])   # 패널 x — 순서가 달라도 같은 묶음
-            self.assertEqual(site_prefs.get_options(path)["radius"], 300)
+            site_prefs.hide_result("/r/a", path)
+            self.assertEqual(site_prefs.hide_result("/r/b", path), ["/r/a", "/r/b"])
+            self.assertEqual(site_prefs.hide_result("/r/a", path), ["/r/b", "/r/a"])   # 같은 폴더는 하나만, 뒤로
+            self.assertEqual(site_prefs.get_options(path)["radius"], 300)   # 뺀 목록이 옵션을 지우지 않는다
+
+    def test_recent_results_from_folders(self):
+        """최근 결과 = context.json이 있고 이 프로그램의 3D 파일이 있는 결과 폴더(새것 먼저). 예전 판 폴더·뺀 폴더·다른 프로그램 결과는 뺀다."""
+        import time
+        with tempfile.TemporaryDirectory() as root:
+            def make(name, meta, model="context.3dm", two_d=False):
+                folder = os.path.join(root, name)
+                os.makedirs(os.path.join(folder, "2D_표준_1432") if two_d else folder)
+                if meta is not None:
+                    with open(os.path.join(folder, "context.json"), "w", encoding="utf-8") as f:
+                        json.dump(meta, f, ensure_ascii=False)
+                if model:
+                    open(os.path.join(folder, model), "w").close()
+                time.sleep(0.02)
+                return folder
+            make("옛판", None)
+            lots = make("성수동2가_277-17외1_20261106", {"lot_name": "성수동2가_277-17외1", "mode": "lots", "built_at": "2026-11-06T14:32:10",
+                                                      "counts": {"buildings": 12}, "crs": "EPSG:5186", "center": [204500.0, 549000.0],
+                                                      "target": {"mode": "lots", "pnus": ["1120011500102770017"]}, "options": {"radius": 250}}, two_d=True)
+            make("스케치업", {"lot_name": "x", "mode": "lots"}, model="context.skp")
+            point = make("N37.8010_W122.4187_vicinity_20261030", {"lot_name": "N37.8010_W122.4187_vicinity", "mode": "point", "built_at": "2026-10-30T14:45:14",
+                                                                  "crs": "+proj=tmerc +lat_0=37.80 +lon_0=-122.42 +k=1 +x_0=0 +y_0=0 +ellps=GRS80 +units=m",
+                                                                  "center": [114.49, 110.99], "target": {"mode": "point", "center": [114.49, 110.99]}})
+            hidden = make("뺀것", {"lot_name": "뺀것", "mode": "lots"})
+            results = context_builder.get_recent_results(root, hidden=[hidden], model_name="context.3dm")
+            self.assertEqual([r["dir"] for r in results], [point, lots])
+            self.assertEqual((results[1]["label"], results[1]["has_2d"], results[1]["buildings"]), ("성수동2가 277-17외1", True, 12))
+            state = context_builder.get_result_state(point, "context.3dm")
+            lng, lat = state["target_lnglat"]["center"]
+            self.assertAlmostEqual(lng, -122.4187, places=4)   # 지역 횡메르카토르 원점(crs 라벨 0.01°)으로 되돌린다
+            self.assertAlmostEqual(lat, 37.8010, places=4)
+            self.assertEqual(state["context"]["path"], os.path.join(point, "context.3dm"))
+            lot_state = context_builder.get_result_state(lots, "context.3dm")
+            self.assertEqual(lot_state["target"]["pnus"], ["1120011500102770017"])
+            self.assertTrue(lot_state["korea"])
+            self.assertEqual([x["made2d"] for x in lot_state["made2d_list"]], [None])   # 이 기능 전에 만든 2D — 폴더만
+            two_d = lot_state["made2d_list"][0]["dir"]
+            with open(os.path.join(two_d, constants.MADE_2D_FILE_NAME), "w", encoding="utf-8") as f:   # make_2d가 남기는 것과 같은 꼴
+                json.dump({"folder": two_d, "sheets": [{"id": 9, "name": "토지이용현황", "path": "x.svg", "thumb": "data:image/png;base64,AA"}]}, f)
+            self.assertEqual(context_builder.get_result_state(lots, "context.3dm")["made2d_list"][0]["made2d"]["sheets"][0]["id"], 9)
+            self.assertEqual(non_rhino_utils.get_crs_label(), "EPSG:5186")   # 바꿨던 원점은 되돌린다
 
     def test_old_prefs_range_resets_once(self):
         # 범위 기본값이 사각형 한 변 500 m로 바뀌었다(2026-10-19) — 그 전 prefs의 radius·shape만 한 번 버린다

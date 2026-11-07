@@ -221,6 +221,17 @@ def _get_objects(doc):
 
 # ── 지우기·베이크 ────────────────────────────────────────────
 
+def has_lot(doc, lot_key):
+    # type: (object, str) -> bool
+    """이 대상지(UDT_LOT_KEY)로 구운 객체가 지금 문서에 있나 — 지난 결과를 열 때 [불러오기]를 보일지(cmd_site._open_result)."""
+    if not lot_key:
+        return False
+    settings = Rhino.DocObjects.ObjectEnumeratorSettings()
+    settings.HiddenObjects = True
+    settings.LockedObjects = True
+    return bool(doc.Objects.FindByUserString(constants.UDT_LOT_KEY, lot_key, True, False, True, settings))
+
+
 def clear_previous(doc, lot_key=None):
     # type: (object, str) -> tuple
     """UDT_MANAGED 객체(lot_key를 주면 같은 UDT_LOT_KEY만) 삭제 + 빈 CTX·BM 레이어 정리. 출력 (지운 객체 수, 지운 레이어 수). 사용자 객체는 남긴다."""
