@@ -599,18 +599,6 @@
   "ja": "対象地の地面",
   "zh": "场地地面"
  },
- "Line": {
-  "en": "Line",
-  "es": "Línea",
-  "ja": "ライン",
-  "zh": "线"
- },
- "Surface": {
-  "en": "Surface",
-  "es": "Superficie",
-  "ja": "サーフェス",
-  "zh": "面"
- },
  "대상지 경계선만 냅니다": {
   "en": "Outputs only the site boundary",
   "es": "Solo genera el límite del sitio",
@@ -622,12 +610,6 @@
   "es": "Genera el límite y, aparte, el terreno recortado por el límite del sitio",
   "ja": "境界線に加え、対象地の境界で切り取った地形を別に出力します",
   "zh": "除边界线外，另外输出按场地边界裁剪的地形"
- },
- "대상지 평탄화": {
-  "en": "Flatten site",
-  "es": "Aplanar sitio",
-  "ja": "対象地の平坦化",
-  "zh": "场地平整"
  },
  "평평하게 할 높이": {
   "en": "Flatten to height",
@@ -658,24 +640,6 @@
   "es": "Límites de zonificación, distritos, zonas, equipamientos urbanísticos y planes de unidad de distrito",
   "ja": "用途地域・地区・区域、都市計画施設、地区単位計画の境界",
   "zh": "用途分区、地区、区域、城市规划设施、地区单元规划边界"
- },
- "용도지역 경계선": {
-  "en": "Zoning boundaries",
-  "es": "Límites de zonificación",
-  "ja": "用途地域の境界線",
-  "zh": "用途分区边界线"
- },
- "평탄화": {
-  "en": "Flattened",
-  "es": "Aplanado",
-  "ja": "平坦化",
-  "zh": "平整"
- },
- "경계선 뺌": {
-  "en": "No zoning lines",
-  "es": "Sin líneas de zonificación",
-  "ja": "用途地域線なし",
-  "zh": "无用途分区线"
  },
  "{0}장": {
   "en": "Sheets: {0}",
@@ -1252,18 +1216,6 @@
   "es": "Descargar {0}",
   "ja": "{0}をダウンロード",
   "zh": "下载 {0}"
- },
- "결과 폴더의 {0}을 지금 열린 파일로 불러옵니다": {
-  "en": "Loads {0} from the result folder into the open file",
-  "es": "Carga {0} de la carpeta de resultados en el archivo abierto",
-  "ja": "結果フォルダの{0}を、今開いているファイルに読み込みます",
-  "zh": "将结果文件夹中的 {0} 载入当前打开的文件"
- },
- "{0}에 불러오기": {
-  "en": "Load into {0}",
-  "es": "Cargar en {0}",
-  "ja": "{0}に読み込み",
-  "zh": "载入 {0}"
  },
  "3D를 지웠나요?": {
   "en": "Deleted the 3D?",
@@ -5824,5 +5776,35 @@
   "es": "{0} 2D creados",
   "ja": "作った2D {0}件",
   "zh": "已生成 {0} 套 2D"
+ },
+ "경계선만": {
+  "en": "Outline only",
+  "es": "Solo contorno",
+  "ja": "境界線のみ",
+  "zh": "仅边界线"
+ },
+ "경계선 + 면": {
+  "en": "Outline + surface",
+  "es": "Contorno + superficie",
+  "ja": "境界線 + 面",
+  "zh": "边界线 + 面"
+ },
+ "대상지 땅 평평하게": {
+  "en": "Flatten site ground",
+  "es": "Aplanar el terreno del sitio",
+  "ja": "対象地の地面を平らに",
+  "zh": "将场地地面整平"
+ },
+ "용도지역·지구 경계선 넣기": {
+  "en": "Add zoning and district lines",
+  "es": "Añadir líneas de zonificación y distritos",
+  "ja": "用途地域・地区の境界線を入れる",
+  "zh": "加入用途区域与地区边界线"
+ },
+ "용도지역 선 뺌": {
+  "en": "No zoning lines",
+  "es": "Sin líneas de zonificación",
+  "ja": "用途地域の線なし",
+  "zh": "无用途区域线"
  }
 }
