@@ -317,8 +317,9 @@ class NearestXYZ(object):
 
 def get_class_polygons(prepared):
     # type: (object) -> list
-    """면 분류 폴리곤 ``[(class, name, parts)]``. water = features 하천·실폭하천·호수 ∪ 지목 하천·구거·유지,
-    rail = 철도부지선(면), road = 도로경계(면), green = 경지계 ∪ 지목 공원·임야·체육용지·유원지."""
+    """면 분류 폴리곤 ``[(class, name, parts, still)]``. water = features 하천·실폭하천·호수(없으면 지목 하천·구거·유지),
+    rail = 철도부지선(면), road = 도로경계(면), green = 경지계 ∪ 지목 공원·임야·체육용지·유원지.
+    still = 고인 물(호수·저수지·연못, 지목 유지 — 평평한 수면). 나머지 수면은 흐르는 물(물가를 따라 기운다)."""
     polys = []
     for f in prepared.features:
         cls = None
@@ -331,12 +332,16 @@ def get_class_polygons(prepared):
         elif f.theme == "green":
             cls = "green"
         if cls:
-            polys.append((cls, f.name or f.kind, get_parts(f.geometry)))
+            polys.append((cls, f.name or f.kind, get_parts(f.geometry), cls == "water" and f.kind in constants.WATER_STILL_KINDS))
+    # 지목 하천·구거·유지 필지는 수치지형도 수면이 없을 때만 수면으로 — 하천 필지는 둔치·제방 비탈까지 품어
+    # 수면 판이 둔치 높이에 떠 강이 금 간 듯 깨졌다(성수 R=1000: 수면 판 78개, 하천 필지 판 15 m vs 본류 4.2 m)
+    has_water = any(poly[0] == "water" for poly in polys)
     for lot in list(prepared.target_lots) + list(prepared.near_lots):
         if lot.land_category in constants.LAND_CATEGORIES_WATER:
-            polys.append(("water", lot.land_category, get_parts(lot.geometry)))
+            if not has_water:
+                polys.append(("water", lot.land_category, get_parts(lot.geometry), lot.land_category in constants.LAND_CATEGORIES_STILL_WATER))
         elif constants.SHEET_LAND_CATEGORY_KEYS.get(lot.land_category) in ("park", "forest"):
-            polys.append(("green", lot.land_category, get_parts(lot.geometry)))
+            polys.append(("green", lot.land_category, get_parts(lot.geometry), False))
     return polys
 
 
@@ -345,7 +350,7 @@ def get_tin_points(prepared):
     """TIN 입력점(세계좌표). 드라이버의 정밀도 검사도 이것과 비교한다.
 
     입력: Prepared. 처리: TIN 범위 = 범위 bbox ∪ 범위 안 건물 bbox + TERRAIN_MARGIN → 등고선 4 m 리샘플 + 표고점(spot_struct 제외)
-          → (x, y) mm 단위 중복 제거 → 범위 링 정점(Z = 최근접 입력점) → 분류 폴리곤 경계 조밀화(수면 WATER_EDGE_STEP, 도로·철도·녹지 TERRAIN_RESAMPLE
+          → (x, y) mm 단위 중복 제거 → 수면 폴리곤 안쪽 점 빼기 → 범위 링 정점(Z = 최근접 입력점) → 분류 폴리곤 경계 조밀화(수면 WATER_EDGE_STEP, 도로·철도·녹지 TERRAIN_RESAMPLE
           × radius/CONTEXT_RADIUS — 반경에 비례해 간격을 넓힌다, Z = 최근접, 범위 bbox 안만).
     출력: ``([(x, y, z)], water_polys, counts)``. 등고선·표고점이 0이면 DomainError(no_terrain_points).
     """
@@ -370,9 +375,26 @@ def get_tin_points(prepared):
             continue
         for p in non_rhino_utils.get_resampled_ring(f.geometry["coordinates"], constants.TERRAIN_RESAMPLE, closed=False):
             add(p[0], p[1], f.value)
+    grid_keys = set()   # 격자 지형(해외 AWS terrarium) 표고점 — 물가 칸이 호수 바닥 수심과 섞여 있다
     for f in prepared.context.get_features("terrain", "spot"):
         if f.value is not None and f.geometry.get("type") == "Point":
-            add(float(f.geometry["coordinates"][0]), float(f.geometry["coordinates"][1]), f.value)
+            x, y = float(f.geometry["coordinates"][0]), float(f.geometry["coordinates"][1])
+            add(x, y, f.value)
+            if f.source_id == constants.WATER_BLEND_SOURCE:
+                grid_keys.add((round(x, 3), round(y, 3)))
+    # 수면 안쪽 지형 점은 뺀다(하이드로 플래트닝) — 물가 높이가 땅 쪽 점에서만 나오게. 강 안 하상 표고점(성수 중랑천 4.2 m)·
+    # 해외 지형 타일의 호수 바닥 수심(취리히 호수 물가 중앙값 400 m, 실제 수위 약 406 m)이 물가를 끌어내려 둑이 협곡처럼 깎였다.
+    # 격자 지형(AWS terrarium, 원천 약 30 m)은 물가 바깥 한 칸도 수심과 섞여 있어 경계에서 WATER_BLEND_BUFFER 안 점도 뺀다(국내 등고선은 물가 등고선이 진짜라 그대로)
+    polys = get_class_polygons(prepared)
+    water_polys = [p for p in polys if p[0] == "water"]
+    if water_polys:
+        inside = non_rhino_utils.PolygonIndex([part for _cls, _name, parts, _still in water_polys for part in parts])
+        before = len(pts)
+        buffer = constants.WATER_BLEND_BUFFER
+        pts = {k: v for k, v in pts.items() if not inside.contains(v[0], v[1]) and not (k in grid_keys and inside.is_near(v[0], v[1], buffer))}
+        n_water = before - len(pts)
+    else:
+        n_water = 0
     n_input = len(pts)
     if not n_input:
         raise DomainError("no_terrain_points", tr("범위 안에 등고선과 표고점이 없습니다. 컨텍스트 DB 도엽을 확인하세요"))
@@ -383,10 +405,8 @@ def get_tin_points(prepared):
     # (평지) 이 점이 없으면 범위 안 면 1,488개·도로면 124개로 분류가 무의미했다(job 1007-221623-027d).
     # 간격은 반경에 비례(R=500 4 m, R=1 km 8 m) — 폴리곤 수가 R²로 늘어 R=1 km에서 74,014점·148k면·분류 6.3 s였다(job 1007-225058)
     # ponytail: 그래도 점 수 ∝ R. 1 km 분류가 거슬리면 step ∝ R² 또는 범위 링 안(is_point_in_ring)만 넣기
-    polys = get_class_polygons(prepared)
-    water_polys = [p for p in polys if p[0] == "water"]
     step_factor = max(1.0, float(prepared.radius) / constants.CONTEXT_RADIUS)
-    for cls, _name, parts in polys:
+    for cls, _name, parts, _still in polys:
         step = (constants.WATER_EDGE_STEP if cls == "water" else constants.TERRAIN_RESAMPLE) * step_factor
         for part in parts:
             for ring in part:
@@ -394,7 +414,7 @@ def get_tin_points(prepared):
                     # 범위 bbox 안만(건물 bbox로 넓힌 TIN 여유 구역은 등고선·표고점만) — 범위 밖 점에 최근접 탐색을 돌리지 않는다(하천 필지는 수 km)
                     if ex0 <= p[0] <= ex1 and ey0 <= p[1] <= ey1:
                         add(p[0], p[1], nearest.nearest_z(p[0], p[1]))
-    counts = {"tin_input": n_input, "tin_points": len(pts), "tin_bounds": (min_x, min_y, max_x, max_y),
+    counts = {"tin_input": n_input, "tin_points": len(pts), "tin_bounds": (min_x, min_y, max_x, max_y), "water_points_excluded": n_water,
               "struct_excluded": len(prepared.context.get_features("terrain", "spot_struct"))}
     return list(pts.values()), water_polys, counts
 
@@ -445,8 +465,11 @@ def _get_region_meshes(ext_ring, cut_rings, edge, counts):
         raise RuntimeError(tr("범위 평면을 만들지 못했습니다"))
     brep = breps[0]
     split = brep.Faces[0].Split(List[rg.Curve]([_get_closed_crv(r) for r in cut_rings]), tol) if cut_rings else None
-    if split is None and cut_rings:
+    if split is None and cut_rings:   # 겹친·걸친 분류 경계에서 실패한다 — 노딩한 선분으로 제약 삼각분할(서울 팩 청계천·창릉천 R=500: 범위 전체가 한 분류였다)
         counts["region_split_failed"] = True
+        regions = _get_cdt_region_meshes(ext_ring, cut_rings, edge, counts)
+        counts["split_s"] = round(time.time() - t, 3)
+        return regions
     brep = split or brep
     counts["regions"] = brep.Faces.Count
     counts["split_s"] = round(time.time() - t, 3)
@@ -460,6 +483,44 @@ def _get_region_meshes(ext_ring, cut_rings, edge, counts):
     mp.JaggedSeams = False
     mp.Tolerance = 0.0
     return list(rg.Mesh.CreateFromBrep(brep, mp) or [])
+
+
+def _get_cdt_region_meshes(ext_ring, cut_rings, edge, counts):
+    # type: (list, list, float, dict) -> list
+    """면 분할이 실패할 때의 영역 메시 — 범위 링 + 분류 링을 노딩(non_rhino_utils.get_noded_segments)해 제약선으로, 범위 안 edge 간격 격자점을
+    안쪽 점으로 넣어 Mesh.CreateFromTessellation(제약 들로네) → 범위 밖 삼각형을 버리고 제약선으로 나뉜 영역마다 Mesh 하나(Z=0).
+    영역끼리 경계 정점을 공유한다(용접하면 이음매 없음). 경계 근처는 삼각형, 안쪽은 격자 간격 — Split판(안쪽 쿼드)과 밀도가 비슷하다."""
+    x0, y0, x1, y1 = non_rhino_utils.get_bbox(ext_ring)
+    rings = [ext_ring] + [r for r in cut_rings if non_rhino_utils.get_bbox(r)[2] >= x0 and non_rhino_utils.get_bbox(r)[0] <= x1
+                          and non_rhino_utils.get_bbox(r)[3] >= y0 and non_rhino_utils.get_bbox(r)[1] <= y1]
+    segments = non_rhino_utils.get_noded_segments(rings, constants.GEOMETRY_TOLERANCE)
+    keep = {}
+    for a, b in segments:
+        keep[a] = keep[b] = True
+    near = non_rhino_utils.PolygonIndex([[[a, b]] for a, b in segments])   # 선분 근처 격자점은 빼서 가는 삼각형을 줄인다
+    loose = []
+    for i in range(int(math.ceil((x1 - x0) / edge)) + 1):
+        for j in range(int(math.ceil((y1 - y0) / edge)) + 1):
+            x, y = x0 + (i + 0.5) * edge, y0 + (j + 0.5) * edge
+            if non_rhino_utils.is_point_in_ring(x, y, ext_ring) and not near.is_near(x, y, 0.3 * edge):
+                loose.append((x, y))
+    pts = List[rg.Point3d]([rg.Point3d(x, y, 0.0) for x, y in list(keep) + loose])
+    lines = List[List[rg.Point3d]]([List[rg.Point3d]([rg.Point3d(a[0], a[1], 0.0), rg.Point3d(b[0], b[1], 0.0)]) for a, b in segments])
+    mesh = rg.Mesh.CreateFromTessellation(pts, lines, rg.Plane.WorldXY, False)
+    if mesh is None or mesh.Faces.Count == 0:
+        raise RuntimeError(tr("범위 평면을 만들지 못했습니다"))
+    verts, faces = _get_mesh_faces(mesh)
+    out = []
+    for group in non_rhino_utils.get_split_triangles(verts, faces, segments, constants.GEOMETRY_TOLERANCE):
+        a, b, c = (verts[i] for i in faces[group[0]][:3])
+        if not non_rhino_utils.is_point_in_ring((a[0] + b[0] + c[0]) / 3.0, (a[1] + b[1] + c[1]) / 3.0, ext_ring):
+            continue   # 제약 들로네는 점들의 볼록 껍질을 다 덮는다 — 범위 밖 영역
+        used = sorted({i for f in group for i in faces[f]})
+        remap = {v: k for k, v in enumerate(used)}
+        out.append(_get_rhino_mesh([(verts[v][0], verts[v][1], 0.0) for v in used], [tuple(remap[i] for i in faces[f]) for f in group]))
+    counts["regions"] = len(out)
+    counts["region_fallback"] = "cdt"
+    return out
 
 
 def _drape(meshes, tin):
@@ -590,7 +651,7 @@ def build_terrain(prepared):
     처리: get_tin_points → Mesh.CreateFromTessellation(보간에만 — 들로네 삼각형은 내보내지 않는다)
           → _get_region_meshes(범위 링, 범위와 겹치는 분류 폴리곤 링 + 대상지 링) — 경계는 원래 선 그대로, 안쪽은 TERRAIN_GRID m 쿼드
           → 영역마다 안쪽 한 점으로 분류(TERRAIN_CLASS_PRIORITY 순 PIP)·대상지 여부 → _drape(TIN 수직 투영) → 분류별로 용접
-          → 수면 = 수면 폴리곤별 최저 Z + WATER_LIFT 평면 → 대상지: 바닥 메시 출력(site_output=mesh)이나 평탄화면 따로 떼어
+          → 수면(고인 물 평면, 흐르는 물은 물가를 따라 기운다 — get_water_surface) + WATER_LIFT, 물가 정점 = 수위 → 대상지: 바닥 메시 출력(site_output=mesh)이나 평탄화면 따로 떼어
             평탄면(site_ground, Z = 경계 자연 지반 mean|min|max)·경계 벽(site_wall)·원지형 사본(site_original, 숨김 레이어).
     출력: ``(meshes, tris_world, counts)``. meshes = {"all": 건물 투영용 최종 지반, "terrain"|"water"|"road"|"green"|"rail"|"site_ground"|"site_wall"|"site_original"}.
           tris_world = 세계좌표 TIN 삼각형 [((x,y,z)×3, "terrain"|"outside")] — 평탄화 전 자연 지형(시트 12·13, sheet_svg가 outside를 거른다).
@@ -625,7 +686,7 @@ def build_terrain(prepared):
     polys = get_class_polygons(prepared)
     index_grid = non_rhino_utils.GridIndex(constants.CLASSIFY_GRID)
     cut_rings, class_rings = [], {}
-    for index, (cls, _name, parts) in enumerate(polys):
+    for index, (cls, _name, parts, _still) in enumerate(polys):
         prio = constants.TERRAIN_CLASS_PRIORITY.index(cls)
         for part in parts:
             if not part:
@@ -682,19 +743,30 @@ def build_terrain(prepared):
     for cls in ("terrain", "road", "green", "rail"):
         if buckets.get(cls):
             meshes[cls] = _join(buckets[cls])
-    # 수면 — 수면 폴리곤별 최저 Z = 수위, 평면 + WATER_LIFT
-    water_bodies, water_parts = [], []
-    for index in sorted(water_regions):
-        body = _join(water_regions[index])
-        level = min(v.Z for v in body.Vertices.ToPoint3dArray())
-        for k in range(body.Vertices.Count):
-            v = body.Vertices.Point3dAt(k)
-            body.Vertices.SetVertex(k, v.X, v.Y, level + constants.WATER_LIFT)
-        body.Normals.ComputeNormals()
-        water_parts.append(body)
-        water_bodies.append({"name": polys[index][1], "level": round(level, 2), "faces": body.Faces.Count})
-    if water_parts:
-        meshes["water"] = _join(water_parts)
+    # 수면 — 고인 물은 평평하게, 흐르는 물은 물가를 따라 기울게(non_rhino_utils.get_water_surface) + WATER_LIFT, 물가 정점 = 수위
+    order = sorted(water_regions)
+    water_bodies = []
+    if order:
+        raw = [_join(water_regions[i]) for i in order]
+        draped = [_get_mesh_faces(m) for m in raw]
+        surfaces, levels = non_rhino_utils.get_water_surface(
+            draped, [polys[i][3] for i in order], [(x - ox, y - oy) for x, y in ext_ring],
+            constants.WATER_SHORE_WINDOW, constants.WATER_MAX_GRADE, constants.WATER_SURFACE_CELL)
+        for mesh, verts in zip(raw, surfaces):   # 높이를 먼저 맞춘 뒤 잇는다 — 도엽 이음매 정점이 같은 높이라야 용접된다
+            for k, (x, y, z) in enumerate(verts):
+                mesh.Vertices.SetVertex(k, x, y, z + constants.WATER_LIFT)
+        meshes["water"] = _join(raw)
+        water_bodies = [{"name": polys[i][1], "still": polys[i][3], "level": round(low, 2), "level_max": round(high, 2), "faces": m.Faces.Count}
+                        for i, m, (low, high) in zip(order, raw, levels)]
+        shore = non_rhino_utils.WaterShore(_get_mesh_faces(meshes["water"]))   # 물가선 = 수위 — 지형·도로가 물가에서 비탈로 오른다
+        for cls in ("terrain", "road", "green", "rail"):
+            if cls in meshes:
+                mesh = meshes[cls]
+                for k, v in enumerate(mesh.Vertices.ToPoint3dArray()):
+                    z = shore.get_z(v.X, v.Y)
+                    if z is not None and z != v.Z:
+                        mesh.Vertices.SetVertex(k, v.X, v.Y, z)
+                mesh.Normals.ComputeNormals()
     counts["water_bodies"] = water_bodies
     step = float(options.get("terrain_step") or 0)
     if step > 0:
@@ -731,6 +803,17 @@ def build_terrain(prepared):
         if block[1]:
             meshes["block"] = _get_rhino_mesh(*block)
         counts.update(block_base=base, block_s=round(time.time() - t, 3))
+    if "water" in meshes:   # 남은 수면 단차(보·댐·평탄화 대상지)를 세로 벽으로 막아 지형에 붙인다 — 용접하지 않는다(모서리 음영이 뭉개진다)
+        walls = non_rhino_utils.get_water_walls(_get_mesh_faces(meshes["water"]),
+                                                [_get_mesh_faces(meshes[k]) for k in ("terrain", "road", "green", "rail", "site_ground") if k in meshes])
+        if walls[1]:
+            wall_mesh = _get_rhino_mesh(*walls)
+            if "terrain" in meshes:
+                meshes["terrain"].Append(wall_mesh)
+                meshes["terrain"].Normals.ComputeNormals()
+            else:
+                meshes["terrain"] = wall_mesh
+        counts["water_walls"] = len(walls[1])
     counts["faces"] = sum(m.Faces.Count for k, m in meshes.items() if k in ("terrain", "road", "green", "rail", "site_ground"))
     counts["quads"] = sum(m.Faces.QuadCount for k, m in meshes.items() if k in ("terrain", "road", "green", "rail", "site_ground"))
     counts["faces_by_class"] = {k: m.Faces.Count for k, m in meshes.items() if k != "all"}
@@ -750,8 +833,9 @@ def _get_terrain_items(prepared, meshes, counts):
                      "N_POINTS": str(counts["tin_points"]), "N_STRUCT_EXCLUDED": str(counts["struct_excluded"])}
         elif cls == "water":
             bodies = counts["water_bodies"]
-            attrs = {"NAME": "; ".join(b["name"] for b in bodies), "LEVEL_M": "; ".join("%.2f" % b["level"] for b in bodies),
-                     "LEVEL_SRC": "terrain_min"}
+            attrs = {"NAME": "; ".join(b["name"] for b in bodies),
+                     "LEVEL_M": "; ".join("%.2f" % b["level"] if b["level_max"] - b["level"] < 0.01 else "%.2f~%.2f" % (b["level"], b["level_max"]) for b in bodies),
+                     "LEVEL_SRC": "; ".join("terrain_min" if b["still"] else "shore_smoothed" for b in bodies)}
         elif cls == "green":
             attrs = {"KIND": "field|park|forest"}
         elif cls == "rail":

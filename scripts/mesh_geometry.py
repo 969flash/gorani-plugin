@@ -140,6 +140,22 @@ def _get_valid_polygon(polygon, epsilon):
         return polygon
 
 
+def _get_snapped(geoms, epsilon):
+    # type: (object, float) -> object
+    """기하 배열을 epsilon 격자로. 배열 하나가 실패하면 하나씩 — 그래도 안 되는 것은 격자 없이 둔다(꼭짓점은 뒤에서 epsilon 키로 묶인다).
+    취리히 호수(8.5410, 47.3667) R=500에서 조각 하나가 'unable to assign free hole to a shell'로 배열 전체를 멈췄다(2026-11-07)."""
+    try:
+        return shapely.set_precision(geoms, epsilon)
+    except shapely.errors.GEOSException:
+        out = []
+        for geom in geoms:
+            try:
+                out.append(shapely.set_precision(geom, epsilon))
+            except shapely.errors.GEOSException:
+                out.append(geom)
+        return numpy.array(out, dtype=object)
+
+
 def _get_overlay_cdt(rings, loose_pts, epsilon):
     # type: (list, list, float) -> tuple
     """_get_cdt의 shapely(GEOS)판 — 같은 모양의 출력을 겹치기(overlay)로 만든다.
@@ -162,7 +178,7 @@ def _get_overlay_cdt(rings, loose_pts, epsilon):
         try:
             cut = shapely.intersection(cells[cell_ids], tin[tin_ids], grid_size=epsilon)
         except shapely.errors.GEOSException:   # 스냅 반올림이 드물게 'Ring edge missing'(신주쿠 OSM 도로면 버퍼 2026-10-22) — 격자 없이 자르고 뒤에 맞춘다
-            cut = shapely.set_precision(shapely.intersection(shapely.make_valid(cells[cell_ids]), tin[tin_ids]), epsilon)
+            cut = _get_snapped(shapely.intersection(shapely.make_valid(cells[cell_ids]), tin[tin_ids]), epsilon)
         pieces = numpy.concatenate([cut, outside[keep]])
         owners = numpy.concatenate([cell_ids, numpy.nonzero(keep)[0]])
     parts, piece_ids = shapely.get_parts(shapely.constrained_delaunay_triangles(pieces), return_index=True)
@@ -306,7 +322,8 @@ def build_terrain(prepared):
           options.terrain_step(m, 0 = 매끈) — 지반 메시를 계단형으로(평탄면·원지형 사본은 그대로, 경계 벽 윗선은 계단에 맞춘다).
     처리: get_tin_points → CDT(볼록 껍질) = TIN → 범위 링(면 0) + 범위 bbox와 겹치는 분류 폴리곤 링(외곽·구멍) + 대상지 링을 제약 면으로,
           TIN 점을 내부 정점으로 다시 CDT → 범위 안 삼각형만, 품은 링으로 분류(외곽 안 + 같은 파트 구멍 밖, TERRAIN_CLASS_PRIORITY 앞이 이김)
-          → 정점 Z = TIN 투영 → 수면은 폴리곤별 최저 Z + WATER_LIFT 평면 → 대상지 평탄면·경계 벽·원지형.
+          → 정점 Z = TIN 투영 → 수면(고인 물 평면, 흐르는 물은 물가를 따라 기운다 — get_water_surface) + WATER_LIFT, 물가 정점 = 수위
+          → 대상지 평탄면·경계 벽·원지형 → 남은 수면 단차 벽(댐·평탄화 대상지).
     출력: ``(meshes, tris_world, counts)``. meshes = {"all": 건물 투영용 지반, "terrain"|"water"|"road"|"green"|"rail"|"site_ground"|"site_wall"|
           "site_original": (정점, 면)}. tris_world = 세계좌표 TIN 삼각형 [((x,y,z)×3, "terrain"|"outside")] — 시트 12·13.
     """
@@ -337,7 +354,7 @@ def build_terrain(prepared):
     # 제약 링 — 0 = 범위, 다음 = 분류 폴리곤(범위 bbox와 겹치는 파트만), 끝 = 대상지
     rings, owners = [_get_local_ring(ext_ring, origin)], [None]
     polys = get_class_polygons(prepared)
-    for index, (cls, _name, parts) in enumerate(polys):
+    for index, (cls, _name, parts, _still) in enumerate(polys):
         prio = constants.TERRAIN_CLASS_PRIORITY.index(cls)
         for part_no, part in enumerate(parts):
             if not part:
@@ -396,15 +413,22 @@ def build_terrain(prepared):
     for cls in ("terrain", "road", "green", "rail"):
         if buckets.get(cls):
             meshes[cls] = _get_mesh(buckets[cls], xy, zs)
-    # 수면 — 수면 폴리곤별 최저 Z = 수위, 평면 + WATER_LIFT
-    water_bodies, water_parts = [], []
-    for index in sorted(water_regions):
-        level = min(zs[i] for tri in water_regions[index] for i in tri)
-        body = _get_mesh(water_regions[index], xy, zs, level + constants.WATER_LIFT)
-        water_parts.append(body)
-        water_bodies.append({"name": polys[index][1], "level": round(level, 2), "faces": len(body[1])})
-    if water_parts:
-        meshes["water"] = _join(water_parts)
+    # 수면 — 고인 물은 평평하게, 흐르는 물은 물가를 따라 기울게(non_rhino_utils.get_water_surface) + WATER_LIFT, 물가 정점 = 수위
+    order = sorted(water_regions)
+    water_bodies = []
+    if order:
+        draped = [_get_mesh(water_regions[i], xy, zs) for i in order]
+        surfaces, levels = non_rhino_utils.get_water_surface(
+            draped, [polys[i][3] for i in order], _get_local_ring(ext_ring, origin),
+            constants.WATER_SHORE_WINDOW, constants.WATER_MAX_GRADE, constants.WATER_SURFACE_CELL)
+        lift = constants.WATER_LIFT
+        meshes["water"] = _join([([(x, y, z + lift) for x, y, z in verts], body[1]) for verts, body in zip(surfaces, draped)])
+        water_bodies = [{"name": polys[i][1], "still": polys[i][3], "level": round(low, 2), "level_max": round(high, 2), "faces": len(body[1])}
+                        for i, body, (low, high) in zip(order, draped, levels)]
+        shore = non_rhino_utils.WaterShore(meshes["water"])   # 물가선 = 수위 — 지형·도로가 물가에서 비탈로 오른다
+        for cls in ("terrain", "road", "green", "rail"):
+            if cls in meshes:
+                meshes[cls] = (non_rhino_utils.get_shore_fitted(meshes[cls][0], shore), meshes[cls][1])
     counts["water_bodies"] = water_bodies
     step = float(options.get("terrain_step") or 0)
     if step > 0:
@@ -445,6 +469,11 @@ def build_terrain(prepared):
         if block[1]:
             meshes["block"] = block
         counts["block_base"] = base
+    if "water" in meshes:   # 남은 수면 단차(보·댐·평탄화 대상지)를 세로 벽으로 막아 지형에 붙인다(non_rhino_utils.get_water_walls)
+        walls = non_rhino_utils.get_water_walls(meshes["water"], [meshes[k] for k in ("terrain", "road", "green", "rail", "site_ground") if k in meshes])
+        if walls[1]:
+            meshes["terrain"] = _join([meshes.get("terrain", ([], [])), walls])
+        counts["water_walls"] = len(walls[1])
     surfaces = ("terrain", "road", "green", "rail", "site_ground")
     counts["faces"] = sum(len(m[1]) for k, m in meshes.items() if k in surfaces)
     counts["quads"] = 0
@@ -465,8 +494,9 @@ def _get_terrain_items(meshes, counts):
             attrs = {"KIND": "block", "BASE_M": "%g" % counts["block_base"]}
         elif cls == "water":
             bodies = counts["water_bodies"]
-            attrs = {"NAME": "; ".join(b["name"] for b in bodies), "LEVEL_M": "; ".join("%.2f" % b["level"] for b in bodies),
-                     "LEVEL_SRC": "terrain_min"}
+            attrs = {"NAME": "; ".join(b["name"] for b in bodies),
+                     "LEVEL_M": "; ".join("%.2f" % b["level"] if b["level_max"] - b["level"] < 0.01 else "%.2f~%.2f" % (b["level"], b["level_max"]) for b in bodies),
+                     "LEVEL_SRC": "; ".join("terrain_min" if b["still"] else "shore_smoothed" for b in bodies)}
         elif cls.startswith("site_"):
             flat = "site_level" in counts
             attrs = {"KIND": {"site_ground": "flattened" if flat else "natural", "site_wall": "edge_wall", "site_original": "natural"}[cls]}
