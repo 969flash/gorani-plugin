@@ -614,7 +614,7 @@ var DEFAULTS = { lang: "en", output_lang: null, region: null, mode: "lots", plac
   make_tables: false, include_minor_buildings: false,
   include_zoning: true, terrain_vertex_color: false, terrain_step: 0, terrain_block: true, geometry_type: "mesh", make_dwg: false, zoom_after_import: true, style: { preset: "std" }, update_later_date: "", closed_notices: [] };
 // 3D 생성(generate)에 늘 덮어 보내는 값 — 화면에 없는 옵션이 옛 prefs로 몰래 켜지지 않게(docs/ui_spec.md §3.4). 2D는 결과 화면 make_2d가 만든다
-var FIXED_3D = { make_basemap: false, make_sheets: false, make_tables: false, make_dwg: false, import_after: true, zoom_after_import: true, include_minor_buildings: false };
+var FIXED_3D = { make_basemap: false, make_sheets: false, make_tables: false, make_dwg: false, import_after: true, zoom_after_import: true, include_minor_buildings: false, include_zoning: true };
 var KEYS_2D = ["output_lang", "make_basemap", "paper", "paper_mm", "scales", "basemap_layers_on", "make_dwg", "make_sheets", "sheet_ids", "floor_breaks", "elev_preset", "make_tables", "style"];
 var MAP_STYLE = {   // 패널 지도 — 대상지·선택은 패널 블루 하나(DESIGN.md). 도면 안 대상지 색은 도면 스타일이 정한다
   lot: { color: "#465061", weight: 1, opacity: .4, fillOpacity: .01 },
@@ -935,7 +935,6 @@ function settingsHtml(open) {
       row("", '<label class="chk"><input type="checkbox" name="flatten_site"' + (o.flatten_site ? " checked" : "") + ">" + tr("대상지 땅 평평하게") + "</label>" +
         '<select class="sm" name="flatten_level" id="flatten_level" aria-label="' + tr("평평하게 할 높이") + '"' + (o.flatten_site ? "" : " hidden") + ">" +
         [["mean", "경계 평균 높이"], ["min", "경계 최저 높이"], ["max", "경계 최고 높이"]].map(function (x) { return '<option value="' + x[0] + '"' + (o.flatten_level === x[0] ? " selected" : "") + ">" + tr(x[1]) + "</option>"; }).join("") + "</select>") : "") +
-    (glob ? "" : row("", '<label class="chk" title="' + tr("용도지역, 지구, 구역, 도시계획시설, 지구단위계획 경계") + '"><input type="checkbox" name="include_zoning"' + (o.include_zoning ? " checked" : "") + ">" + tr("용도지역·지구 경계선 넣기") + "</label>")) +
     "</div></details>";
 }
 function updateSummaries() {
@@ -947,7 +946,6 @@ function updateSummaries() {
     if (o.terrain_block === false) p.push(tr("지형 표면만"));   // 기본(채움)은 요약에 쓰지 않는다
     if (HOST.brep && o.geometry_type === "brep") p.push("Brep");   // 기본(Mesh)은 요약에 쓰지 않는다
     if (state.mode === "lots" || state.mode === "area") { if (o.site_output === "mesh") p.push(tr("대상지") + " " + tr("경계선 + 면")); if (o.flatten_site) p.push(tr("평평하게")); }
-    if (!glob && !o.include_zoning) p.push(tr("용도지역 선 뺌"));
     s.textContent = p.join(", ");
   }
   var rh = $("radius_hint"); if (rh) rh.hidden = !(sizeOf(o) > 1000);

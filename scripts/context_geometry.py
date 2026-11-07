@@ -896,6 +896,67 @@ def build_buildings(prepared, tin_mesh):
 
 # ── 커브 ───────────────────────────────────────────────────
 
+def _drape_curve_items(items, ground):
+    # type: (list, rg.Mesh) -> tuple
+    """
+    대상지 경계(Site) 선을 화면에 보이는 지형 면 위로 — 점 사이를 TERRAIN_GRID 이하로 나눠 한 번에 수직 투영(_drape와 같은 투영)하고 CTX_DRAPE_LIFT 띄운다.
+    Z=0 평면 선은 해발 지형(서울 14~70 m) 아래에 묻혀 음영 화면에서 안 보였다(2026-11-07 사용자). 계단·평탄화 대상지도 meshes['all'] 기준이라 보이는 면을 따른다.
+    평면 Z=0 선은 그대로 두고 얹은 복사본을 하위 레이어(CTX_DRAPED_COPY_LAYERS의 Site::draped)에 더한다 — 매싱에 평면 경계가 필요해서.
+    대상지만 올린다 — 용도지역·필지·도로 중심선은 Z=0 그대로(사용자 2026-11-07).
+    지형 밖(투영이 빗나간) 점은 같은 선의 가까운 점 높이, 없으면 지형 최저 Z. 출력: (더할 BakeItem 목록, counts에 더할 dict).
+    """
+    started = time.time()
+    root = constants.CTX_ROOT_LAYER + "::"
+    copies = [BakeItem(constants.CTX_ROOT_LAYER + "::" + constants.CTX_DRAPED_COPY_LAYERS[it.layer.partition(root)[2]], rg.PolylineCurve(it.geometry), dict(it.attrs), it.name)
+              for it in items if it.layer.partition(root)[2] in constants.CTX_DRAPED_COPY_LAYERS and isinstance(it.geometry, rg.PolylineCurve)]
+    targets = copies
+    if not targets or ground is None or not ground.Vertices.Count:
+        return [], {"draped_curves": 0, "drape_s": 0.0}
+    top = ground.GetBoundingBox(True).Max.Z + 100.0
+    low = ground.GetBoundingBox(True).Min.Z
+    lines, flat = [], []
+    for it in targets:
+        ok, polyline = it.geometry.TryGetPolyline()
+        pts = non_rhino_utils.get_densified_pts([(p.X, p.Y) for p in polyline], constants.TERRAIN_GRID) if ok else []
+        lines.append(pts)
+        flat.extend(rg.Point3d(x, y, top) for x, y in pts)
+    out, indices = _project_to_mesh(ground, flat)
+    zs = [None] * len(flat)
+    for pt, i in zip(out, indices):
+        if zs[i] is None or pt.Z > zs[i]:
+            zs[i] = pt.Z   # 계단 지형의 수직 벽은 투영에 안 걸리고, 겹치는 면은 가장 높은 면
+    retry = [i for i, z in enumerate(zs) if z is None]
+    if retry:   # 범위 경계 위 점 — 메시 가장자리라 빗나간다. 안쪽(범위 중심 쪽)으로 NUDGE만 밀어 다시 쏜다(XY는 그대로 둔다)
+        box = ground.GetBoundingBox(True)
+        cx, cy = (box.Min.X + box.Max.X) / 2.0, (box.Min.Y + box.Max.Y) / 2.0
+        nudged = []
+        for i in retry:
+            dx, dy = cx - flat[i].X, cy - flat[i].Y
+            n = math.hypot(dx, dy) or 1.0
+            nudged.append(rg.Point3d(flat[i].X + dx / n * constants.CTX_DRAPE_NUDGE, flat[i].Y + dy / n * constants.CTX_DRAPE_NUDGE, top))
+        out2, indices2 = _project_to_mesh(ground, nudged)
+        for pt, j in zip(out2, indices2):
+            if zs[retry[j]] is None or pt.Z > zs[retry[j]]:
+                zs[retry[j]] = pt.Z
+    missed, k = 0, 0
+    for it, pts in zip(targets, lines):
+        if len(pts) < 2:
+            k += len(pts)
+            continue
+        line_z = zs[k:k + len(pts)]
+        k += len(pts)
+        missed += sum(1 for z in line_z if z is None)
+        for order in (range(len(line_z)), range(len(line_z) - 1, -1, -1)):   # 빗나간 점은 같은 선의 가까운 점 높이로 — 앞에서 채우고, 선두는 뒤에서(첫 점이 빗나가도 지형 최저로 튀지 않게)
+            last = None
+            for j in order:
+                if line_z[j] is None:
+                    line_z[j] = last
+                else:
+                    last = line_z[j]
+        it.geometry = rg.PolylineCurve([rg.Point3d(x, y, (z if z is not None else low) + constants.CTX_DRAPE_LIFT) for (x, y), z in zip(pts, line_z)])
+    return copies, {"draped_curves": len(targets), "draped_pts": len(flat), "drape_missed": missed, "drape_s": round(time.time() - started, 3)}
+
+
 def build_curves(prepared):
     # type: (object) -> list
     """Site·Parcels(구멍 보존)·Roads::centerline·Ref 범위·도엽 경계·(옵션) Zoning PolylineCurve Z=0 (code_map §5.6·§7.1).
@@ -1029,6 +1090,9 @@ def build(prepared):
     b_items, b_counts, skipped, warnings = build_buildings(prepared, meshes["all"])
     items += b_items
     curve_items = build_curves(prepared)
+    extra_curves, drape_counts = _drape_curve_items(curve_items, meshes["all"])
+    counts.update(drape_counts)
+    curve_items += extra_curves
     items += curve_items
     options = prepared.request.get("options") or {}
     # 2D는 가장 상세한 축척 한 장만 — 축척마다 넣으면 3dm이 축척 수만큼 커진다. 3D만(베이스맵·DWG 끔)이면 굽지 않는다 — 프레임만큼 조회하지 않았다

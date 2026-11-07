@@ -334,6 +334,22 @@ class SteppedMeshTest(unittest.TestCase):
         self.assertEqual(u.get_stepped_edges((0, 0, 1.3), (1, 0, 2.7), 0), [((0, 0, 1.3), (1, 0, 2.7))])
 
 
+
+class DensifyTest(unittest.TestCase):
+    def test_densified_pts(self):
+        """지형에 얹는 선 — 이웃 점 사이를 step 이하로 나눈다(처음·끝·기존 점 그대로, Z는 버린다)."""
+        pts = [(0.0, 0.0, 9.0), (10.0, 0.0, 9.0), (10.0, 4.0)]
+        out = u.get_densified_pts(pts, 3.0)
+        self.assertEqual(out[0], (0.0, 0.0))
+        self.assertEqual(out[-1], (10.0, 4.0))
+        self.assertIn((10.0, 0.0), out)   # 기존 꼭짓점은 남는다
+        self.assertEqual(len(out), 3 + 3 + 1)   # 꼭짓점 3개 + 10 m는 4칸(3개 더) + 4 m는 2칸(1개 더)
+        steps = [((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5 for a, b in zip(out, out[1:])]
+        self.assertTrue(max(steps) <= 3.0 + 1e-9, steps)
+        self.assertEqual(u.get_densified_pts([(1.0, 1.0)], 3.0), [(1.0, 1.0)])   # 점 하나
+        self.assertEqual(pts[0], (0.0, 0.0, 9.0))   # 입력은 안 바꾼다
+
+
 if __name__ == "__main__":
     unittest.main()
 

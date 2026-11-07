@@ -77,7 +77,6 @@
 | 형상 | `geometry_type` | [Mesh] [Brep](건물 닫힌 폴리서피스·지형 Brep 면, 무겁다). Brep이면 요약에 'Brep' | Mesh | Rhino 8만(`host.brep`) |
 | 대상지 | `site_output` | [경계선만] [경계선 + 면](경계선과 함께 경계로 자른 지형을 대상지 색 면으로 따로) — 예전 이름 Line·Surface(2026-11-07 뜻이 안 읽혀 바꿨다) | 방식 기본(필지 바닥면, 구역 경계선) | 필지·구역 |
 | 대상지 땅 평평하게 | `flatten_site`·`flatten_level` | 끔 / 경계 평균·최저·최고 높이로(높이 기준 선택칸은 켰을 때만 보인다) | 끔 | 필지·구역 |
-| 용도지역·지구 경계선 넣기 | `include_zoning` | 넣기 / 빼기(용도지역·지구·구역·도시계획시설·지구단위계획 경계 — 툴팁) | 넣기 | Korea |
 
 설명 문장은 달지 않는다. 항목 이름이 곧 설명이 되게 짓는다(DESIGN.md "라벨은 한 번만").
 
@@ -86,7 +85,7 @@
 
 ### 3.4 화면에 없는 옵션(고정)
 
-`import_after`(늘 문서에 넣는다) · `zoom_after_import`(늘 줌) · `include_minor_buildings`(뺀다) · `terrain_vertex_color`(끔). 생성 요청에서 JS가 이 값을 고정해 보낸다(옛 prefs에 남은 값이 몰래 켜지지 않게).
+`import_after`(늘 문서에 넣는다) · `zoom_after_import`(늘 줌) · `include_minor_buildings`(뺀다) · `terrain_vertex_color`(끔), `include_zoning`(늘 켬 — 용도지역·지구·구역·도시계획시설·지구단위계획 경계선, 2026-11-07 옵션을 없앴다). 생성 요청에서 JS가 이 값을 고정해 보낸다(옛 prefs에 남은 값이 몰래 켜지지 않게).
 
 ## 4. 결과 화면
 
