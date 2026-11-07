@@ -292,8 +292,6 @@ details.s3d > summary .sum { flex: 1; min-width: 0; color: var(--ink-3); font-si
 details.s3d > summary .ico { color: var(--ink-2); transition: transform .15s; }
 details.s3d[open] > summary .ico { transform: rotate(180deg); }
 details.s3d .body { padding: 0 0 4px; }
-details.more3d > summary { min-height: 28px; display: flex; align-items: center; cursor: pointer; list-style: none; color: var(--ink-3); font-size: 12px; }
-details.more3d > summary::-webkit-details-marker { display: none; }
 details.s3d .trow { min-height: 40px; }
 
 /* ── 결과 ── */
@@ -929,13 +927,12 @@ function settingsHtml(open) {
       return SEG("terrain_step", step, step ? tr("계단 {0} m", step) : tr("매끈하게"), (+(o.terrain_step || 0) === step ? " checked" : "") + (step ? ' title="' + tr("등고 모형처럼 단마다 평평한 지형") + '"' : ""));
     }).join("") + "</div>") +
     row("", '<label class="chk"><input type="checkbox" name="terrain_block"' + (o.terrain_block !== false ? " checked" : "") + ">" + tr("지형을 바닥까지 채우기") + "</label>") +
+    (canSite ? row("", '<label class="chk"><input type="checkbox" name="flatten_site"' + (o.flatten_site ? " checked" : "") + ">" + tr("대상지 땅 평평하게") + "</label>" +   // 지형 옵션 — 대상지 경계 안의 땅을 한 높이로(필지·구역만)
+        '<select class="sm" name="flatten_level" id="flatten_level" aria-label="' + tr("평평하게 할 높이") + '"' + (o.flatten_site ? "" : " hidden") + ">" +
+        [["mean", "경계 평균 높이"], ["min", "경계 최저 높이"], ["max", "경계 최고 높이"]].map(function (x) { return '<option value="' + x[0] + '"' + (o.flatten_level === x[0] ? " selected" : "") + ">" + tr(x[1]) + "</option>"; }).join("") + "</select>") : "") +
     (HOST.brep ? row(tr("형상"), '<div class="seg" role="radiogroup" aria-label="' + tr("3D 형상") + '">' +
       SEG("geometry_type", "mesh", "Mesh", (o.geometry_type !== "brep" ? " checked" : "") + ' title="' + tr("가볍고 빠릅니다") + '"') +
       SEG("geometry_type", "brep", "Brep", (o.geometry_type === "brep" ? " checked" : "") + ' title="' + tr("건물은 닫힌 폴리서피스로 냅니다. 파일이 무겁고 오래 걸립니다") + '"') + "</div>") : "") +
-    (canSite ? '<details class="more3d"' + (o.flatten_site ? " open" : "") + "><summary>" + tr("더 보기") + "</summary>" +   // 기본 화면에는 안 보인다 — 대상지 경계 안의 땅을 한 높이로(필지·구역만)
-      row("", '<label class="chk"><input type="checkbox" name="flatten_site"' + (o.flatten_site ? " checked" : "") + ">" + tr("대상지 땅 평평하게") + "</label>" +
-        '<select class="sm" name="flatten_level" id="flatten_level" aria-label="' + tr("평평하게 할 높이") + '"' + (o.flatten_site ? "" : " hidden") + ">" +
-        [["mean", "경계 평균 높이"], ["min", "경계 최저 높이"], ["max", "경계 최고 높이"]].map(function (x) { return '<option value="' + x[0] + '"' + (o.flatten_level === x[0] ? " selected" : "") + ">" + tr(x[1]) + "</option>"; }).join("") + "</select>") + "</details>" : "") +
     "</div></details>";
 }
 function updateSummaries() {
@@ -945,8 +942,8 @@ function updateSummaries() {
     // 요약 = 줄 이름 + 고른 칸("지형 매끈하게") — 펼친 화면과 같은 말. 기본값(면 생성·바닥 채움)은 쓰지 않는다
     var p = [o.placement === "world" && !isAbroad(targetCenter()) ? tr("GIS 좌표") : tr("원점(0,0)"), tr("지형") + " " + (+o.terrain_step ? tr("계단 {0} m", o.terrain_step) : tr("매끈하게"))];
     if (o.terrain_block === false) p.push(tr("지형 표면만"));   // 기본(채움)은 요약에 쓰지 않는다
-    if ((state.mode === "lots" || state.mode === "area") && o.flatten_site) p.push(tr("대상지 땅 평평하게"));
     if (HOST.brep && o.geometry_type === "brep") p.push("Brep");   // 기본(Mesh)은 요약에 쓰지 않는다
+    if ((state.mode === "lots" || state.mode === "area") && o.flatten_site) p.push(tr("대상지 땅 평평하게"));
     s.textContent = p.join(", ");
   }
   var rh = $("radius_hint"); if (rh) rh.hidden = !(sizeOf(o) > 1000);
