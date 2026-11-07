@@ -335,10 +335,11 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
 ```jsonc
 {"type":"area_state","ok":true,"text":"",            // ok=false면 text 한 줄(자기교차·너무 작음…) — 패널은 이전 구역을 유지한다
  "ring_tm":[[x,y]],"ring_lnglat":[[lng,lat]],"center":[lng,lat],"center_tm":[x,y],"offsets":[[dx,dy]],
- "area":60000.0,"lots":69,"lots_area":44242.0,"lot_name":"성수동2가_333-139_구역",   // 트레이 '주소' 줄은 lot_name(_ → 공백) + 면적·안의 필지 수
+ "area":60000.0,"lots":69,"lots_area":44242.0,"lot_name":"성수동2가_333-139_구역",   // 트레이 '대상지' 줄은 address(해외) 또는 lot_name(_ → 공백) + 면적·안의 필지 수
  "target_geojson":FC,                                 // role="target" 안의 필지 + role="area" 구역 1개
  "warnings":[warning]}
-{"type":"point_state","ok":true,"center":[lng,lat],"center_tm":[x,y],"lot_name":"성수동2가_333-139_일대"}
+{"type":"point_state","ok":true,"center":[lng,lat],"center_tm":[x,y],"lot_name":"성수동2가_333-139_일대","address":""}
+// address — 해외 대상지(지역 TM)만 Nominatim reverse 짧은 주소 '도로, 동네, 도시'(output_lang 언어, osm_context.get_place_address, 3 s, 못 받으면 ''). 패널 '대상지' 줄은 address가 있으면 그것, 없으면 lot_name. area_state도 같은 칸. 결과 폴더 이름은 lot_name 그대로(2026-11-08)
 {"type":"curve_shape","ok":true,"text":"","located":false,"ring_tm":[],"offsets":[[dx,dy]],"area":22800.0,"vertices":4}
 ```
 

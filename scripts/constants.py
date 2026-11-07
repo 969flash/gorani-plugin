@@ -297,6 +297,8 @@ OSM_PUBLIC_USE = {"school": "10000", "kindergarten": "10000", "college": "10000"
                   "hospital": "09000", "clinic": "09000", "nursing_home": "11000", "social_facility": "11000", "childcare": "11000",
                   "community_centre": "05000", "arts_centre": "05000", "theatre": "05000", "sports_centre": "13000"}
 OSM_NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"   # 지명 검색 — 사용자가 [검색]을 누를 때 한 번
+OSM_NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"   # 해외 대상지 주소 — 패널 '대상지' 줄에 위경도 대신(2026-11-08 사용자). 지도에서 찍거나 구역을 그릴 때 한 번
+OSM_REVERSE_TIMEOUT_SECONDS = 3   # 대상지를 찍을 때마다 UI 스레드에서 기다린다 — 못 받으면 위경도 이름 그대로
 OSM_SEARCH_TIMEOUT_SECONDS = 10   # 지명 검색은 UI 스레드에서 기다린다 — Overpass 60 s를 쓰면 막힌 망에서 검색 한 번에 1분 멈췄다(2026-10-23 감사)
 OSM_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 OSM_TERRAIN_ZOOM = 13           # 픽셀 약 19 m(적도)·15 m(위도 37°). 원천 DEM이 약 30 m라 더 키워도 정밀해지지 않는다

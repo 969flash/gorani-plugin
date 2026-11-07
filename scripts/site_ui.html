@@ -689,9 +689,10 @@ function targetCenter() {   // [lng, lat]
   if (state.mode === "point") return state.point && state.point.center;
   return state.lotState && state.lotState.lots.length ? state.lotState.center : null;
 }
+function placeName(st) { return st.address || String(st.lot_name || "").replace(/_/g, " "); }   // 해외는 주소(Nominatim), 국내는 동·지번 이름(구역·일대)
 function targetLabel() {
-  if (state.mode === "area") return state.area ? (state.area.lot_name ? state.area.lot_name.replace(/_/g, " ") : tr("구역 {0}", fmtNum(state.area.area, 0) + " " + sqm())) : "";
-  if (state.mode === "point") return state.point ? (state.point.lot_name || "").replace(/_/g, " ") : "";
+  if (state.mode === "area") return state.area ? (placeName(state.area) || tr("구역 {0}", fmtNum(state.area.area, 0) + " " + sqm())) : "";
+  if (state.mode === "point") return state.point ? placeName(state.point) : "";
   return lotLabel() + (state.lotState && state.lotState.lots.length ? ", " + fmtArea(state.lotState.total_area) : "");
 }
 function sizeOf(o) { return o.shape === "rect" ? 2 * o.radius : o.radius; }   // 화면에 보이는 크기 — 원 = 반경, 사각형 = 한 변
@@ -885,7 +886,7 @@ function targetHtml(moreOpen) {
   if (m === "lots") {
     var ls = state.lotState; if (!ls || !ls.lots.length) return "";
     // 이름이 곧 필지 정보 열기(따로 있던 "필지 n개 정보" 줄을 합쳤다, 2026-10-19)
-    return '<div class="trow"><span class="lbl">' + tr("주소") + '</span><button type="button" class="tname" data-act="lot_more" aria-expanded="' + !!moreOpen + '" aria-controls="lot_more" title="' + (ls.lots.length > 1 ? tr("필지 {0}개 정보", ls.lots.length) : tr("필지 정보")) + '">' +
+    return '<div class="trow"><span class="lbl">' + tr("대상지") + '</span><button type="button" class="tname" data-act="lot_more" aria-expanded="' + !!moreOpen + '" aria-controls="lot_more" title="' + (ls.lots.length > 1 ? tr("필지 {0}개 정보", ls.lots.length) : tr("필지 정보")) + '">' +
         '<span class="tval">' + esc(lotLabel()) + "</span>" + ico("down") + '</button><span class="total num">' + esc(fmtArea(ls.total_area)) + "</span>" +
       '<span class="end">' + clearBtn("clear") + "</span></div>" +
       '<details class="lot-more" id="lot_more"' + (moreOpen ? " open" : "") + '><summary hidden></summary><div class="body">' + lotInfoHtml(ls) + "</div></details>";
@@ -898,12 +899,12 @@ function targetHtml(moreOpen) {
     if (stamp.on) return '<div class="trow"><span class="lbl">' + tr("구역") + '</span><span class="hint">' + tr("지도를 끌어 자리를 맞추세요") + "</span>" +
       '<span class="end"><button type="button" class="btn sm primary" data-act="stamp_place">' + ico("move") + tr("여기에 놓기") + '</button><button type="button" class="btn sm" data-act="stamp_cancel">' + tr("취소") + "</button></span></div>";
     if (!a) return '<div class="tools" style="margin-left:0"><button type="button" class="btn sm" data-act="draw_start">' + ico("pen") + tr("지도에 그리기") + "</button>" + curveBtn + "</div>";
-    return '<div class="trow"><span class="lbl">' + tr("주소") + '</span><span class="tval" style="flex:1 1 0">' + (a.lot_name ? esc(a.lot_name.replace(/_/g, " ")) + " " : "") + '<span class="sub"><b class="num">' + esc(fmtNum(a.area, 0)) + " " + sqm() + "</b>" +
+    return '<div class="trow"><span class="lbl">' + tr("대상지") + '</span><span class="tval" style="flex:1 1 0">' + (placeName(a) ? esc(placeName(a)) + " " : "") + '<span class="sub"><b class="num">' + esc(fmtNum(a.area, 0)) + " " + sqm() + "</b>" +
       (isGlobal() ? "" : " " + tr("(안의 필지 {0})", a.lots)) + "</span></span>" +
       '<span class="end" style="gap:0">' + iconBtn("draw_start", "pen", tr("다시 그리기")) + iconBtn("area_move", "move", tr("옮기기")) + clearBtn("area_clear") + "</span></div>";   // 구역을 고치는 단추는 주소 줄 끝에(2026-11-08 사용자 — 따로 한 줄이면 어색했다)
   }
   var p = state.point; if (!p) return "";
-  return '<div class="trow"><span class="lbl">' + tr("위치") + '</span><span class="tval">' + esc((p.lot_name || "").replace(/_/g, " ")) + "</span>" +
+  return '<div class="trow"><span class="lbl">' + tr("대상지") + '</span><span class="tval">' + esc(placeName(p)) + "</span>" +
     '<span class="end">' + clearBtn("point_clear") + "</span></div>";
 }
 function rangeHtml() {
