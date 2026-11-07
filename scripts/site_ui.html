@@ -2060,8 +2060,8 @@ var ACTIONS = {
     var rs = state.result && state.result.restored;   // 지난 결과(최근 결과에서 열었다) — 그 대상지를 지도에 되살린다
     var last = { key: state.resultKey, restored: rs || null, result: state.result, made2d: state.made2d, job2d: state.job2d, form2d: state.form2d, err2d: state.err2d, err2dObj: state.err2dObj };
     state.run = "idle"; state.result = null; state.made2d = null; state.job2d = "idle"; state.progress = null; state.styleOpen = false;
+    state.last = last;   // 지도를 그리기 전에 — 나중에 두면 첫 그림에 [결과로 돌아가기]가 없다(대상지 정보가 늦게 오면 한참 안 보였다, 2026-11-07 Rhino 시험)
     if (!(rs && restoreResultTarget(rs))) go("map");
-    state.last = last;
   },
   to_result: function () {
     if (!canReturn()) return;
