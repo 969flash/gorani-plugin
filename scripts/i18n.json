@@ -5741,12 +5741,6 @@
   "ja": "{0}を削除",
   "zh": "删除{0}"
  },
- "최근 대상지에서 지우기": {
-  "en": "Remove from recent sites",
-  "es": "Quitar de sitios recientes",
-  "ja": "最近の対象地から削除",
-  "zh": "从最近的场地中删除"
- },
  "새로 설치한 판으로 엽니다: {0}": {
   "en": "Opening the newly installed version: {0}",
   "es": "Abriendo la versión recién instalada: {0}",
@@ -5800,5 +5794,35 @@
   "es": "El servidor de OSM está ocupado. Reintento ({0}/{1}) en {2} s",
   "ja": "OSMサーバーが混雑しています。再試行 ({0}/{1})、{2}秒後",
   "zh": "OSM 服务器繁忙，{2} 秒后重试（{0}/{1}）"
+ },
+ "최근 결과": {
+  "en": "Recent results",
+  "es": "Resultados recientes",
+  "ja": "最近の結果",
+  "zh": "最近的结果"
+ },
+ "목록에서 빼기(결과 폴더는 남습니다)": {
+  "en": "Remove from list (the result folder stays)",
+  "es": "Quitar de la lista (la carpeta del resultado se conserva)",
+  "ja": "一覧から外す(結果フォルダは残ります)",
+  "zh": "从列表中移除(结果文件夹会保留)"
+ },
+ "지난 결과": {
+  "en": "Saved result",
+  "es": "Resultado guardado",
+  "ja": "保存された結果",
+  "zh": "已保存的结果"
+ },
+ "앞서 만든 2D": {
+  "en": "2D made earlier",
+  "es": "2D creados antes",
+  "ja": "以前に作った2D",
+  "zh": "之前生成的 2D"
+ },
+ "지난 결과를 열었습니다": {
+  "en": "Opened a saved result",
+  "es": "Se abrió un resultado guardado",
+  "ja": "保存された結果を開きました",
+  "zh": "已打开保存的结果"
  }
 }

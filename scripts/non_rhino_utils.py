@@ -335,6 +335,30 @@ def korea_projection():
         _apply_projection()
 
 
+def get_lnglat_in_crs(points, crs):
+    # type: (list, str) -> list
+    """저장된 결과(context.json crs)의 평면좌표 → 경위도. crs는 'EPSG:5186' 또는 get_crs_label의 지역 횡메르카토르
+    (원점이 0.01° 반올림이라 라벨 두 자리가 곧 원점이다 — set_projection). 지금 원점(프로세스 전역)은 끝나면 되돌린다.
+    출력: [[lng, lat]] — crs를 못 읽으면 빈 목록."""
+    match = re.match(r"^\+proj=tmerc \+lat_0=(-?[\d.]+) \+lon_0=(-?[\d.]+) ", crs or "")
+    if crs != "EPSG:5186" and not match:
+        return []
+    saved = os.environ.get(PROJECTION_ENV)
+    if match:
+        os.environ[PROJECTION_ENV] = "%s,%s" % (match.group(2), match.group(1))
+    else:
+        os.environ.pop(PROJECTION_ENV, None)
+    _apply_projection()
+    try:
+        return [list(get_wgs84_from_tm(float(x), float(y))) for x, y in points]
+    finally:
+        if saved:
+            os.environ[PROJECTION_ENV] = saved
+        else:
+            os.environ.pop(PROJECTION_ENV, None)
+        _apply_projection()
+
+
 def _apply_projection():
     # type: () -> None
     """환경변수의 원점(없으면 EPSG:5186)을 모듈 전역에 적용한다. import 때도 부른다."""
