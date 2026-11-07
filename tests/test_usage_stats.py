@@ -86,10 +86,10 @@ class UsageStatsTest(unittest.TestCase):
 
 
     def test_options3d_one_param(self):   # 3D 설정은 한 칸 — 이벤트 매개변수 25개 상한
-        self.assertEqual(usage_stats.get_options3d(dict(constants.PANEL_DEFAULT_OPTIONS)), "smooth,block,site-line,flat-no,db")
-        options = dict(constants.PANEL_DEFAULT_OPTIONS, terrain_step=2, terrain_block=False, site_output="mesh", flatten_site=True,
+        self.assertEqual(usage_stats.get_options3d(dict(constants.PANEL_DEFAULT_OPTIONS)), "smooth,block,flat-no,db")
+        options = dict(constants.PANEL_DEFAULT_OPTIONS, terrain_step=2, terrain_block=False, flatten_site=True,
                        flatten_level="min", region="global")
-        self.assertEqual(usage_stats.get_options3d(options), "step2,surface-only,site-surface,flat-min,osm")
+        self.assertEqual(usage_stats.get_options3d(options), "step2,surface-only,flat-min,osm")
 
     def test_outputs2d(self):
         params = usage_stats.get_outputs2d_params({"make_basemap": True, "basemap_preset": "a1", "make_sheets": True, "sheet_ids": [1, 2, 3],

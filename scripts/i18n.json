@@ -593,24 +593,6 @@
   "ja": "等高線模型のように段ごとに平らな地形",
   "zh": "像等高线模型一样逐级平整的地形"
  },
- "대상지 바닥면": {
-  "en": "Site ground",
-  "es": "Suelo del sitio",
-  "ja": "対象地の地面",
-  "zh": "场地地面"
- },
- "대상지 경계선만 냅니다": {
-  "en": "Outputs only the site boundary",
-  "es": "Solo genera el límite del sitio",
-  "ja": "対象地の境界線のみを出力します",
-  "zh": "仅输出场地边界线"
- },
- "경계선과 함께, 대상지 경계로 자른 지형을 따로 냅니다": {
-  "en": "Outputs the boundary plus a separate terrain piece cut to the site",
-  "es": "Genera el límite y, aparte, el terreno recortado por el límite del sitio",
-  "ja": "境界線に加え、対象地の境界で切り取った地形を別に出力します",
-  "zh": "除边界线外，另外输出按场地边界裁剪的地形"
- },
  "평평하게 할 높이": {
   "en": "Flatten to height",
   "es": "Altura de aplanado",
@@ -5663,12 +5645,6 @@
   "ja": "地形の塊",
   "zh": "地形实体"
  },
- "평평하게": {
-  "en": "Flat",
-  "es": "Plano",
-  "ja": "平坦",
-  "zh": "平面"
- },
  "범위가 원이나 사각형이 아니라 경계에서 자르지 않았습니다": {
   "en": "The extent is not a circle or rectangle, so nothing was trimmed at its edge",
   "es": "El ámbito no es un círculo ni un rectángulo, así que no se recortó en su borde",
@@ -5819,22 +5795,16 @@
   "ja": "作った2D {0}件",
   "zh": "已生成 {0} 套 2D"
  },
- "경계선만": {
-  "en": "Outline only",
-  "es": "Solo contorno",
-  "ja": "境界線のみ",
-  "zh": "仅边界线"
- },
- "경계선 + 면": {
-  "en": "Outline + surface",
-  "es": "Contorno + superficie",
-  "ja": "境界線 + 面",
-  "zh": "边界线 + 面"
- },
  "대상지 땅 평평하게": {
   "en": "Flatten site ground",
   "es": "Aplanar el terreno del sitio",
   "ja": "対象地の地面を平らに",
   "zh": "将场地地面整平"
+ },
+ "주소": {
+  "en": "Address",
+  "es": "Dirección",
+  "ja": "住所",
+  "zh": "地址"
  }
 }

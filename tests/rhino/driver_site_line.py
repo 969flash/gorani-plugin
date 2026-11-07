@@ -2,7 +2,7 @@
 
 2026-11-07 사용자: 3D 설정 대상지 [Line]이면 Z=0 커브만 있고 지형 위에는 선이 안 보였다(해발 지형이 14~70 m라 Z=0 선은 지형 안에 묻힌다).
 → 평면 Z=0 대상지 경계 CTX::Site는 그대로 두고(매싱·돌출용), 지형 위에 얹은 복사본 CTX::Site::draped를 더한다. 대상지만 올린다 — 용도지역·지구(Zoning)·필지·도로 중심선은 Z=0 그대로.
-~/Gorani/data의 성동구 팩으로 금호동3가 450 외 1을 세 설정으로 만든다 — 매끈·경계선만 / 경계선 + 면 / 계단 2 m + 평평하게.
+~/Gorani/data의 성동구 팩으로 금호동3가 450 외 1을 두 설정으로 만든다 — 매끈 / 계단 2 m + 평평하게. 면 생성(CTX::Site::ground)은 기본이라 옵션을 주지 않는다.
 선 점마다 보이는 지형 면(지형·도로·녹지·수면·대상지 면)에 수직 투영한 가장 높은 Z와 비교해 0 ≤ 선 − 면 ≤ 0.35 m여야 한다.
 범위 경계(특히 모서리) 위 점 몇 개(0.3 % 이하)는 투영이 빗나갈 수 있다 — 엔진이 안쪽으로 1 cm 밀어 다시 쏘고, 그래도 안 되면 같은 선의 가까운 점 높이로 채운다.
 Zoning·Site::lots(합필 전 필지)·Parcels·Roads::centerline은 그대로 Z=0 평면 선이다(바꾸지 않았다). 헤드리스 문서, 결과: OUT_DIR/result.json.
@@ -31,6 +31,23 @@ lot_key = context_baker.get_lot_key(PNUS)
 
 def layer_of(o):
     return doc.Layers[o.Attributes.LayerIndex].FullPath
+
+
+def interior_coverage(site_curve, meshes, n=18):
+    """대상지 안쪽 격자점(n×n 중 경계 안)을 보이는 면에 수직 투영 → (점 수, 맞은 점 수). 맞은 수 < 점 수면 안쪽이 비어 보인다."""
+    box = site_curve.GetBoundingBox(True)
+    pts = []
+    for i in range(n):
+        for j in range(n):
+            x = box.Min.X + (i + 0.5) / n * (box.Max.X - box.Min.X)
+            y = box.Min.Y + (j + 0.5) / n * (box.Max.Y - box.Min.Y)
+            if site_curve.Contains(rg.Point3d(x, y, 0), rg.Plane.WorldXY, 0.001) == rg.PointContainment.Inside:
+                pts.append(rg.Point3d(x, y, 1e4))
+    joined = rg.Mesh()
+    for m in meshes:
+        joined.Append(m)
+    out, idx = Intersect.Intersection.ProjectPointsToMeshesEx([joined], pts, rg.Vector3d(0, 0, -1), 0.001)
+    return len(pts), len(set(idx))
 
 
 def height_above_surface(curves, meshes):
@@ -64,9 +81,9 @@ def height_above_surface(curves, meshes):
     return (min(diffs), max(diffs), len(pts) - len(top)) if diffs else (None, None, len(pts))
 
 
-cases = [("매끈·경계선만", {"terrain_step": 0, "site_output": "curve"}),
-         ("경계선+면", {"terrain_step": 0, "site_output": "mesh"}),
-         ("계단 2 m·평평하게", {"terrain_step": 2, "site_output": "mesh", "flatten_site": True})]
+# site_output은 주지 않는다 — 패널에서 [Line]·[Surface] 선택을 없애고 면 생성을 기본값으로 했다(2026-11-08). 엔진 기본값이 mesh여야 한다
+cases = [("매끈", {"terrain_step": 0}),
+         ("계단 2 m·평평하게", {"terrain_step": 2, "flatten_site": True})]
 failed = []
 for name, extra in cases:
     options = {"radius": 250, "shape": "rect", "make_basemap": False, "make_sheets": False, "make_tables": False}
@@ -84,6 +101,14 @@ for name, extra in cases:
         return (round(min(g.GetBoundingBox(True).Min.Z for g in curves), 2), round(max(g.GetBoundingBox(True).Max.Z for g in curves), 2)) if curves else None
     # ① 평면 대상지 경계 CTX::Site는 그대로 Z=0, 얹은 복사본 CTX::Site::draped만 지형 면 위(0.1 m). 용도지역 선은 Z=0 그대로(대상지만 올린다 — 사용자)
     flat_site = curves_on(lambda p: p == "CTX::Site")
+    # 면 생성이 기본 — 대상지 바닥 면(Site::ground)이 있고, 대상지 안쪽이 보이는 면으로 다 덮인다(안쪽이 비어 보이지 않는다)
+    ground_faces = [g for p, g in objs if p == "CTX::Site::ground" and isinstance(g, rg.Mesh)]
+    total, hit = interior_coverage(flat_site[0], surfaces) if flat_site else (0, 0)
+    ok = bool(ground_faces) and total > 50 and hit == total
+    row["Site::ground"] = {"meshes": len(ground_faces), "interior_pts": total, "interior_hit": hit}
+    print("%-14s %-13s 면 %d개 · 안쪽 %d점 중 %d점 덮임  %s" % (name, "Site::ground", len(ground_faces), total, hit, "PASS" if ok else "FAIL"))
+    if not ok:
+        failed.append("%s/Site::ground" % name)
     checks = [("Site 평면", flat_site, None), ("Site::draped", curves_on(lambda p: p == "CTX::Site::draped"), True),
               ("Zoning 평면", curves_on(lambda p: p.startswith("CTX::Zoning")), None)]
     for label, curves, on_surface in checks:

@@ -745,7 +745,7 @@ PANEL_DEFAULT_OPTIONS = {
     "output_lang": None,   # 결과물(폴더·파일 이름) 언어 OUTPUT_LANGS — None = 첫 실행, 패널이 시스템 언어로 정한다(한국어면 ko, 아니면 en)
     "radius": 250, "shape": "rect",   # 범위 기본 = 사각형 한 변 500 m(2026-10-19 사용자 결정). 방식을 바꿔도 마지막 범위를 유지한다
     "flatten_site": False, "flatten_level": "mean",
-    "site_output": "curve",   # 대상지 표시(lots·area): curve = 경계 커브만, mesh = 대상지 바닥 메시도(CTX::Site::ground, 대상지 색). 필지 방식 기본 mesh   # 대상지 평탄화(lots·area) — 높이 = 경계 자연 지반의 mean|min|max
+    "site_output": "mesh",   # 대상지 표시(lots·area): mesh = 경계 커브 + 대상지 바닥 메시(CTX::Site::ground, 대상지 색), curve = 경계 커브만. 패널은 늘 mesh(옵션을 없앴다, 2026-11-08 — FIXED_3D)   # 대상지 평탄화(lots·area) — 높이 = 경계 자연 지반의 mean|min|max
     "import_after": True,
     # 2D 자료는 기본 끔 — 주목적은 3D, 2D는 패널 결과 화면에서 3D 뒤에 고른다(make_2d, 2026-10-19). 3D만이면 실측 약 8 s, 2D까지면 시간 2.5배(ESTIMATE_* 주석)
     "make_basemap": False, "paper": "A3", "paper_mm": [420, 297], "scales": [5000], "basemap_layers_on": [],
@@ -787,9 +787,9 @@ REGIONS = ("kr", "global")   # 헤더 토글. kr = 국가 DB(필지·대장·UPI
 # 필지 = 건축 대지검토 규모, 구역 = 지구단위계획·정비구역 현황분석 규모, 위치 = 광역 베이스맵(범위 = 용지 프레임)
 # 범위(radius·shape)는 방식과 무관하게 마지막 값을 쓴다 — 방식마다 덮으면 기본값이 제각각이라 혼란이었다(2026-10-19 QA)
 MODE_DEFAULTS = {
-    "lots": {"scales": [1000, 3000], "site_output": "mesh"},   # A3 1:1000 = 420×297 m(지번) + 1:3000 주변
-    "area": {"scales": [3000], "site_output": "curve"},
-    "point": {"scales": [5000], "site_output": "curve"},
+    "lots": {"scales": [1000, 3000]},   # A3 1:1000 = 420×297 m(지번) + 1:3000 주변
+    "area": {"scales": [3000]},
+    "point": {"scales": [5000]},
 }
 # 패널에 보이는 범위 형태 — 어느 방식이든 원(반경)·사각형(한 변 = 2 × radius) 둘(2026-10-19, 방식마다 달라 혼란이었다).
 # 엔진은 buffer·site(그린 구역 그대로)·frame(용지 프레임)도 받는다(예전 요청 호환)
