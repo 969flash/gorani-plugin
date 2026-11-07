@@ -898,11 +898,9 @@ function targetHtml(moreOpen) {
     if (stamp.on) return '<div class="trow"><span class="lbl">' + tr("구역") + '</span><span class="hint">' + tr("지도를 끌어 자리를 맞추세요") + "</span>" +
       '<span class="end"><button type="button" class="btn sm primary" data-act="stamp_place">' + ico("move") + tr("여기에 놓기") + '</button><button type="button" class="btn sm" data-act="stamp_cancel">' + tr("취소") + "</button></span></div>";
     if (!a) return '<div class="tools" style="margin-left:0"><button type="button" class="btn sm" data-act="draw_start">' + ico("pen") + tr("지도에 그리기") + "</button>" + curveBtn + "</div>";
-    return '<div class="trow"><span class="lbl">' + tr("주소") + '</span><span class="tval">' + (a.lot_name ? esc(a.lot_name.replace(/_/g, " ")) + " " : "") + '<span class="sub"><b class="num">' + esc(fmtNum(a.area, 0)) + " " + sqm() + "</b>" +
+    return '<div class="trow"><span class="lbl">' + tr("주소") + '</span><span class="tval" style="flex:1 1 0">' + (a.lot_name ? esc(a.lot_name.replace(/_/g, " ")) + " " : "") + '<span class="sub"><b class="num">' + esc(fmtNum(a.area, 0)) + " " + sqm() + "</b>" +
       (isGlobal() ? "" : " " + tr("(안의 필지 {0})", a.lots)) + "</span></span>" +
-      '<span class="end">' + clearBtn("area_clear") + "</span></div>" +
-      '<div class="tools"><button type="button" class="btn sm" data-act="draw_start">' + ico("pen") + tr("다시 그리기") + "</button>" +
-      '<button type="button" class="btn sm" data-act="area_move">' + ico("move") + tr("옮기기") + "</button></div>";
+      '<span class="end" style="gap:0">' + iconBtn("draw_start", "pen", tr("다시 그리기")) + iconBtn("area_move", "move", tr("옮기기")) + clearBtn("area_clear") + "</span></div>";   // 구역을 고치는 단추는 주소 줄 끝에(2026-11-08 사용자 — 따로 한 줄이면 어색했다)
   }
   var p = state.point; if (!p) return "";
   return '<div class="trow"><span class="lbl">' + tr("위치") + '</span><span class="tval">' + esc((p.lot_name || "").replace(/_/g, " ")) + "</span>" +
@@ -1094,6 +1092,7 @@ function setPointLayer() {
   pointLayer = L.circleMarker(ll(p.center), Object.assign({ interactive: false }, MAP_STYLE.point)).addTo(map);
 }
 // 필지 정보 — 용도지역(법정 건폐·용적)·지역지구등·대장/도형 면적. 조례값은 토지이음에서 본다
+function iconBtn(act, icon, label) { return '<button type="button" class="ib sm" data-act="' + act + '" aria-label="' + label + '" title="' + label + '">' + ico(icon) + "</button>"; }
 function clearBtn(act) { return '<button type="button" class="ib sm" data-act="' + act + '" aria-label="' + tr("대상지 지우기") + '" title="' + tr("대상지 지우기") + '">' + ico("x") + "</button>"; }
 // 필지 정보 — 트레이에 이미 보이는 이름·면적은 되풀이하지 않는다. 여러 필지일 때만 필지 이름(누르면 지도 이동)과 빼기
 function lotInfoHtml(ls) {
