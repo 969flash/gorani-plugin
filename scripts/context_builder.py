@@ -922,10 +922,18 @@ def get_last_2d_dir(result_dir):
 
 def _get_2d_dirs(result_dir):
     # type: (str) -> list
-    """결과 폴더 안 2D 폴더(2D_<스타일>_<HHMM>, 예전 2D/) — 만든 순서(이름의 시각)."""
+    """
+    결과 폴더 안 2D 폴더 이름 — 만든 순서(마지막이 최신).
+    2D_<스타일>_<HHMM>, 예전 2D/, 그리고 사용자가 이름을 바꿨어도 made_2d.json이 든 폴더.
+    순서는 폴더 수정 시각: 이름순이면 스타일 이름이 시각보다 앞이라 '2D_선명_2245'가 '2D_표준_1343'보다 앞서 최신이 뒤바뀐다(2026-11-07 시험).
+    """
     prefix = constants.RESULT_2D_DIR_FORMAT.split("%")[0]
-    return sorted(name for name in os.listdir(result_dir)
-                  if os.path.isdir(os.path.join(result_dir, name)) and (name.startswith(prefix) or name == constants.RESULT_2D_DIRNAME))
+    found = []
+    for name in os.listdir(result_dir):
+        path = os.path.join(result_dir, name)
+        if os.path.isdir(path) and (name.startswith(prefix) or name == constants.RESULT_2D_DIRNAME or os.path.exists(os.path.join(path, constants.MADE_2D_FILE_NAME))):
+            found.append((os.path.getmtime(path), name))
+    return [name for _mtime, name in sorted(found)]
 
 
 def get_recent_results(result_root=None, hidden=(), model_name=None, limit=None):
@@ -980,18 +988,38 @@ def get_result_state(result_dir, model_name=None):
             "context": {"path": os.path.join(result_dir, model_name), "buildings": (meta.get("counts") or {}).get("buildings"), "imported": False},
             "options": meta.get("options") or {}, "target": target, "korea": crs == "EPSG:5186",
             "target_lnglat": {"center": (point or center or [None])[0], "ring": ring},
-            "made2d_list": [{"dir": os.path.join(result_dir, name), "made2d": _read_made_2d(os.path.join(result_dir, name))} for name in _get_2d_dirs(result_dir)]}
+            "made2d_list": [{"dir": os.path.join(result_dir, name), "made2d": _read_made_2d(os.path.join(result_dir, name), result_dir)} for name in _get_2d_dirs(result_dir)]}
 
 
-def _read_made_2d(folder):
-    # type: (str) -> dict
-    """2D 폴더의 made_2d.json — 없거나(이 기능 전에 만든 2D) 깨졌으면 None(패널은 폴더 링크만)."""
-    path = os.path.join(folder, constants.MADE_2D_FILE_NAME)
+def _rebase_paths(value, mapping):
+    # type: (object, list) -> object
+    """저장된 절대 경로(만들 때의 위치)를 지금 위치로 — mapping [(옛 경로, 지금 경로)]. 문자열·목록·dict 안을 모두 훑는다(썸네일 data: 주소는 그대로)."""
+    if isinstance(value, str):
+        for old, new in mapping:
+            if old and (value == old or value.startswith(old + os.sep) or value.startswith(old + "/")):
+                return new + value[len(old):]
+        return value
+    if isinstance(value, list):
+        return [_rebase_paths(item, mapping) for item in value]
+    if isinstance(value, dict):
+        return {key: _rebase_paths(item, mapping) for key, item in value.items()}
+    return value
+
+
+def _read_made_2d(folder, result_dir):
+    # type: (str, str) -> dict
+    """
+    2D 폴더의 made_2d.json — 없거나(이 기능 전에 만든 2D) 깨졌으면 None(패널은 폴더 링크만).
+    안의 절대 경로(도면·.ai·조서)는 폴더 이름을 바꾸거나 옮겨도 열리게 지금 위치로 바꾼다(2D 폴더가 먼저 — 더 긴 경로).
+    """
     try:
-        with open(path, encoding="utf-8") as handle:
-            return json.load(handle)
+        with open(os.path.join(folder, constants.MADE_2D_FILE_NAME), encoding="utf-8") as handle:
+            made = json.load(handle)
     except (OSError, ValueError):
         return None
+    made = _rebase_paths(made, [(made.get("folder"), folder), (made.get("dir"), result_dir)])
+    made["folder"], made["dir"] = folder, result_dir
+    return made
 
 
 def get_basemap_file_name(prepared, scale, ext=".ai"):
