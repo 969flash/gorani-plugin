@@ -83,6 +83,10 @@ for name, extra in cases:
         print("%-14s %-13s 선 %3d개 · Z %s  %s" % (name, label, len(curves), zr, "PASS" if ok else "FAIL"))
         if not ok:
             failed.append("%s/%s" % (name, label))
+    draped = [p for p, g in objs if p == "CTX::Site::draped"]   # 지형에 얹은 복사본은 없앴다(2026-11-08)
+    print("%-14s Site::draped 없음 %s" % (name, "PASS" if not draped else "FAIL %d개" % len(draped)))
+    if draped:
+        failed.append("%s/draped" % name)
     # ② 그대로 Z=0인 것 — 합필 전 필지(Site::lots)·필지·도로 중심선
     flat = curves_on(lambda p: p in ("CTX::Site::lots", "CTX::Parcels", "CTX::Roads::centerline"))
     zs = {round(g.GetBoundingBox(True).Min.Z, 3) for g in flat} | {round(g.GetBoundingBox(True).Max.Z, 3) for g in flat}
