@@ -5807,34 +5807,22 @@
   "ja": "一覧から外す(結果フォルダは残ります)",
   "zh": "从列表中移除(结果文件夹会保留)"
  },
- "지난 결과": {
-  "en": "Saved result",
-  "es": "Resultado guardado",
-  "ja": "保存された結果",
-  "zh": "已保存的结果"
- },
  "지난 결과를 열었습니다": {
   "en": "Opened a saved result",
   "es": "Se abrió un resultado guardado",
   "ja": "保存された結果を開きました",
   "zh": "已打开保存的结果"
  },
- "이전 2D": {
-  "en": "Earlier 2D",
-  "es": "2D anteriores",
-  "ja": "以前の2D",
-  "zh": "之前的 2D"
+ "만든 2D 고르기": {
+  "en": "Choose a 2D set",
+  "es": "Elegir un 2D",
+  "ja": "作った2Dを選ぶ",
+  "zh": "选择已生成的 2D"
  },
- "보기": {
-  "en": "View",
-  "es": "Ver",
-  "ja": "見る",
-  "zh": "查看"
- },
- "폴더": {
-  "en": "Folder",
-  "es": "Carpeta",
-  "ja": "フォルダ",
-  "zh": "文件夹"
+ "만든 2D {0}개": {
+  "en": "{0} 2D sets made",
+  "es": "{0} 2D creados",
+  "ja": "作った2D {0}件",
+  "zh": "已生成 {0} 套 2D"
  }
 }

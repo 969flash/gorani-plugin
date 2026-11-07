@@ -1451,7 +1451,7 @@ function startTimer() {
 // 드물게 쓰는 '다시 불러오기'는 버튼이 아니라 아래 안내 줄(⋯ 메뉴는 항목 하나라 숨긴 이유가 보이지 않았다)
 function docTitle() {
   var c = (state.result && state.result.context) || {};
-  if (state.result && state.result.restored && !c.imported) return tr("지난 결과");
+  if (state.result && state.result.restored) return tr("3D 모델 생성 완료");   // 다시 연 화면도 처음과 같다 — 문서에 없으면 [불러오기]가 따로 보인다
   return c.imported || HOST.id === "web" ? tr("3D 모델 생성 완료") : tr("3D 파일 생성 완료 ({0}에 불러오지 못함)", hostName());
 }
 function docStatsHtml() {
@@ -1477,9 +1477,9 @@ function docStatusHtml(ok, text, path) {
 }
 function doneHtml() {   // 3D 완료 카드 — 제목, 주소, [열기]만(2026-10-19 사용자 요청). 불러오지 못했을 때만 경로와 [Rhino에 불러오기]
   var r = state.result, c = r.context || {};
-  return '<div class="card" id="doc_card"><div class="top"><div class="done-head"><h2 class="done-line" tabindex="-1"><span id="doc_title">' + esc(docTitle()) + '</span><span class="num sub">' + (r.restored ? "" : fmtTime(r.elapsed_s)) + "</span></h2>" +
+  return '<div class="card" id="doc_card"><div class="top"><div class="done-head"><h2 class="done-line" tabindex="-1"><span id="doc_title">' + esc(docTitle()) + '</span><span class="num sub">' + (r.restored ? esc(builtLabel(r.restored.built_at)) : fmtTime(r.elapsed_s)) + "</span></h2>" +
     '<span class="doc-acts" id="doc_acts">' + docActsHtml() + "</span></div>" +
-    '<div class="sub ellip">' + esc(r.restored ? r.restored.label + ", " + builtLabel(r.restored.built_at) : targetLabel()) + "</div>" +
+    '<div class="sub ellip">' + esc(r.restored ? r.restored.label : targetLabel()) + "</div>" +
     '<div id="doc_status">' + docStatusHtml(!!c.imported, c.import_text, c.path) + "</div></div></div>" +
     '<div class="card card2d" id="card2d"></div><div id="log2d"></div>';
 }
@@ -1506,13 +1506,9 @@ function renderCard2d() {
   if (m) html += made2dHtml(m);
   if (j === "cancelled") html += '<div class="top"><div class="hint" role="status">' + esc(state.err2d) + "</div></div>";
   if (j === "failed") html += '<div class="top"><div class="err-card" role="alert">' + errorHelpHtml(state.err2dObj || { title: state.err2d }) + "</div></div>";
-  var rs = state.result && state.result.restored, others = rs ? (rs.made2d_list || []).filter(function (x) { return !m || x.dir !== m.folder; }) : [];
-  if (others.length)   // 지난 결과 — 이 카드 말고 앞서 만든 2D(그대로 남아 있다). made_2d.json이 있으면 카드로 바꿔 본다
-    html += '<div class="top"><div class="tray-h">' + tr("이전 2D") + '</div><div class="mlist">' + others.slice(-3).reverse().map(function (x) {
-      var i = rs.made2d_list.indexOf(x);
-      return '<div class="prev2d">' + ico("folder") + "<span>" + esc(x.dir.split(/[\\/]/).pop()) + "</span>" + (x.made2d ? '<button type="button" class="btn sm" data-act="prev2d" data-i="' + i + '">' + tr("보기") + "</button>" : "") +
-        '<button type="button" class="btn sm" data-act="open" data-path="' + esc(x.dir) + '">' + tr("폴더") + "</button></div>";
-    }).join("") + "</div></div>";
+  var rs = state.result && state.result.restored, old2d = rs && !m ? (rs.made2d_list || []) : [];
+  if (old2d.length)   // 지난 결과에 2D 폴더는 있는데 카드(made_2d.json)가 없다 — 이 기능 전에 만든 2D. 폴더만 연다
+    html += '<div class="top"><div class="prev2d">' + ico("folder") + "<span>" + tr("만든 2D {0}개", old2d.length) + '</span><button type="button" class="btn sm" data-act="open" data-path="' + esc(old2d[old2d.length - 1].dir) + '">' + tr("폴더 열기") + "</button></div></div>";
   if (!m || state.form2d) html += form2dHtml();
   else html += '<div class="acts"><button type="button" class="btn sm" data-act="form2d">' + ico("plus") + tr("다른 2D도 만들기") + "</button></div>";
   el.innerHTML = html; updateSummaries(); renderExportedList();
@@ -1586,11 +1582,25 @@ function form2dHtml() {
     tile2d("make_sheets", "grid", tr("다이어그램"), tr("현황도와 분석도 (.svg, .ai)"), shBody) +
     tile2d("make_tables", "table", tr("조서"), tr("필지와 건축물 표 (엑셀 CSV)"), "") + "</div>";
 }
+function made2dLabel(x) {   // 지난 결과의 2D 한 개 → '11-06 15:02 선명' (스타일 이름은 프리셋 이름 또는 저장한 이름)
+  var st = (x.made2d && x.made2d.options && x.made2d.options.style) || {}, presets = (state.init && state.init.style_presets) || {};
+  var name = st.name || (presets[st.preset] && tr(presets[st.preset].name)) || x.dir.split(/[\\/]/).pop();
+  return builtLabel(x.made_at) + " " + name;
+}
+function made2dPickHtml(m) {   // 2D 카드 제목 옆 — 만든 시간. 지난 결과에서 2D를 여러 번 만들었으면 여기서 고른다(카드가 남은 것만)
+  var rs = state.result && state.result.restored;
+  if (!rs) return '<span class="num sub">' + fmtTime(m.elapsed_s) + "</span>";
+  var picks = (rs.made2d_list || []).filter(function (x) { return x.made2d; });
+  if (picks.length < 2) return '<span class="num sub">' + esc(builtLabel((picks[0] || {}).made_at)) + "</span>";
+  return '<select class="sm" id="pick2d" aria-label="' + tr("만든 2D 고르기") + '">' + picks.slice().reverse().map(function (x) {
+    return '<option value="' + (rs.made2d_list.indexOf(x)) + '"' + (x.made2d.folder === m.folder ? " selected" : "") + ">" + esc(made2dLabel(x)) + "</option>";
+  }).join("") + "</select>";
+}
 function made2dHtml(m) {
   var bm = m.basemap || {}, sheets = m.sheets || [], tables = m.tables || [], dir = state.result.dir, html = "";
   var emptyN = sheets.filter(function (x) { return x.empty; }).length;
   var folder = m.folder || dir + "/2D";
-  html += '<div class="top"><div class="done-head"><h2 class="done-line"><span>' + tr("2D 자료 생성 완료") + '</span><span class="num sub">' + fmtTime(m.elapsed_s) + "</span></h2>" +
+  html += '<div class="top"><div class="done-head"><h2 class="done-line"><span>' + tr("2D 자료 생성 완료") + '</span>' + made2dPickHtml(m) + "</h2>" +
     '<span class="doc-acts"><button type="button" class="btn sm" data-act="open" data-path="' + esc(folder) + '" title="' + esc(folder) + '">' + ico("folder") + dirLabel() + "</button></span></div></div>";
   if (bm.ready || (bm.exported || []).length) {
     // 다른 축척은 아직 안 만든 것만 칩으로 — 누르면 바로 그 축척 .ai를 쓴다(예전: 이미 만든 축척이 골라진 select + 버튼이라 같은 파일을 다시 썼다)
@@ -2062,10 +2072,6 @@ var ACTIONS = {
   cancel: requestCancel,
   make2d: startMake2d,
   form2d: function () { state.form2d = true; renderCard2d(); },
-  prev2d: function (b) {   // 지난 결과의 이전 2D를 카드로
-    var rs = state.result && state.result.restored, x = rs && (rs.made2d_list || [])[+b.dataset.i];
-    if (x && x.made2d) { apply2d(x.made2d); renderCard2d(); }
-  },
   tile2d: function (b) { var k = b.dataset.key; state.options[k] = !state.options[k]; afterOptionChange(k); renderCard2d(); },
   bm_preset: function (b) {
     var v = b.dataset.v, o = state.options; o.basemap_preset = v;
@@ -2158,6 +2164,11 @@ document.addEventListener("mouseover", function (e) { var r = e.target.closest("
 document.addEventListener("mouseout", function (e) { var r = e.target.closest(".chip-row"); if (r) highlightLot(r.dataset.pnu, false); });
 document.addEventListener("change", function (e) {
   if (e.target.id === "lang_pick") { setLang(e.target.value); return; }
+  if (e.target.id === "pick2d") {   // 지난 결과에서 만든 2D를 바꿔 본다 — 카드만 바뀐다
+    var rs = state.result && state.result.restored, x = rs && (rs.made2d_list || [])[+e.target.value];
+    if (x && x.made2d) { apply2d(x.made2d); renderCard2d(); }
+    return;
+  }
   if (state.styleOpen && e.target.id === "st_sheet") { state.styleSheet = +e.target.value; requestPreview(); return; }
   if (state.styleOpen && (e.target.id === "st_labels" || e.target.id === "st_subtitle")) { state.styleEdit[e.target.id === "st_labels" ? "labels" : "subtitle_en"] = e.target.checked; afterStyleChange(false); return; }
   if (!e.target.closest(OPTION_AREAS)) return;

@@ -974,7 +974,7 @@ def get_result_state(result_dir, model_name=None):
           (구역 링·위치·필지 중심 — crs로 바꾼다, non_rhino_utils.get_lnglat_in_crs).
           만든 2D는 폴더마다 made_2d.json(2D를 만들 때 패널이 받은 결과)이 있으면 그것도 — 패널이 2D 카드를 그대로 다시 그린다.
     출력: {type: result_opened, dir, lot_name, label, built_at, context{path, buildings, imported}, options, target, target_lnglat{center, ring},
-          made2d_list: [{dir, made2d|null}](만든 순서 — 마지막이 최신)}.
+          made2d_list: [{dir, made2d|null, made_at}](만든 순서 — 마지막이 최신, made_at = 폴더 수정 시각)}.
     """
     meta = _read_meta(result_dir)
     model_name = model_name or constants.HOST_LABELS[get_host()]["model"]
@@ -988,7 +988,8 @@ def get_result_state(result_dir, model_name=None):
             "context": {"path": os.path.join(result_dir, model_name), "buildings": (meta.get("counts") or {}).get("buildings"), "imported": False},
             "options": meta.get("options") or {}, "target": target, "korea": crs == "EPSG:5186",
             "target_lnglat": {"center": (point or center or [None])[0], "ring": ring},
-            "made2d_list": [{"dir": os.path.join(result_dir, name), "made2d": _read_made_2d(os.path.join(result_dir, name), result_dir)} for name in _get_2d_dirs(result_dir)]}
+            "made2d_list": [{"dir": os.path.join(result_dir, name), "made2d": _read_made_2d(os.path.join(result_dir, name), result_dir),
+                             "made_at": time.strftime("%Y-%m-%dT%H:%M", time.localtime(os.path.getmtime(os.path.join(result_dir, name))))} for name in _get_2d_dirs(result_dir)]}
 
 
 def _rebase_paths(value, mapping):

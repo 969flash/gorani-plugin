@@ -246,7 +246,8 @@ class PrefsTest(unittest.TestCase):
             os.rename(os.path.join(new_result, "2D_표준_1343"), os.path.join(new_result, "우리팀 납품본"))   # 2D 폴더 이름도 바꿈
             state = context_builder.get_result_state(new_result, "context.3dm")
             listed = [os.path.basename(x["dir"]) for x in state["made2d_list"]]
-            self.assertEqual(listed, ["우리팀 납품본", "2D_선명_1502"])   # 이름을 바꾼 폴더도 찾고, 마지막 = 나중에 만든 선명
+            self.assertEqual(listed, ["우리팀 납품본", "2D_선명_1502"])
+            self.assertTrue(all(len(x["made_at"]) == 16 for x in state["made2d_list"]))   # 2026-11-06T14:32 — 선택 글('11-06 15:02 선명')   # 이름을 바꾼 폴더도 찾고, 마지막 = 나중에 만든 선명
             latest = state["made2d_list"][-1]["made2d"]
             self.assertEqual(latest["folder"], os.path.join(new_result, "2D_선명_1502"))
             self.assertTrue(os.path.exists(latest["sheets"][0]["path"]))   # 옛 위치가 아니라 지금 위치의 파일
