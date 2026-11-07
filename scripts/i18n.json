@@ -5782,5 +5782,35 @@
   "es": "Dirección",
   "ja": "住所",
   "zh": "地址"
+ },
+ "평평하게 할 높이": {
+  "en": "Flatten to height",
+  "es": "Altura de aplanado",
+  "ja": "平坦化する高さ",
+  "zh": "平整高度"
+ },
+ "경계 평균 높이": {
+  "en": "Mean boundary height",
+  "es": "Altura media del límite",
+  "ja": "境界の平均高さ",
+  "zh": "边界平均高度"
+ },
+ "경계 최저 높이": {
+  "en": "Lowest boundary height",
+  "es": "Altura mínima del límite",
+  "ja": "境界の最低高さ",
+  "zh": "边界最低高度"
+ },
+ "경계 최고 높이": {
+  "en": "Highest boundary height",
+  "es": "Altura máxima del límite",
+  "ja": "境界の最高高さ",
+  "zh": "边界最高高度"
+ },
+ "더 보기": {
+  "en": "More",
+  "es": "Más",
+  "ja": "もっと見る",
+  "zh": "更多"
  }
 }

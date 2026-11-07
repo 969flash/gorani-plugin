@@ -292,6 +292,8 @@ details.s3d > summary .sum { flex: 1; min-width: 0; color: var(--ink-3); font-si
 details.s3d > summary .ico { color: var(--ink-2); transition: transform .15s; }
 details.s3d[open] > summary .ico { transform: rotate(180deg); }
 details.s3d .body { padding: 0 0 4px; }
+details.more3d > summary { min-height: 28px; display: flex; align-items: center; cursor: pointer; list-style: none; color: var(--ink-3); font-size: 12px; }
+details.more3d > summary::-webkit-details-marker { display: none; }
 details.s3d .trow { min-height: 40px; }
 
 /* ── 결과 ── */
@@ -614,7 +616,7 @@ var DEFAULTS = { lang: "en", output_lang: null, region: null, mode: "lots", plac
   make_tables: false, include_minor_buildings: false,
   include_zoning: true, terrain_vertex_color: false, terrain_step: 0, terrain_block: true, geometry_type: "mesh", make_dwg: false, zoom_after_import: true, style: { preset: "std" }, update_later_date: "", closed_notices: [] };
 // 3D 생성(generate)에 늘 덮어 보내는 값 — 화면에 없는 옵션이 옛 prefs로 몰래 켜지지 않게(docs/ui_spec.md §3.4). 2D는 결과 화면 make_2d가 만든다
-var FIXED_3D = { make_basemap: false, make_sheets: false, make_tables: false, make_dwg: false, import_after: true, zoom_after_import: true, include_minor_buildings: false, include_zoning: true, site_output: "mesh", flatten_site: false };   // 대상지 땅 평평하게는 패널에서 뺐다(2026-11-08) — 옛 prefs 값이 남아도 끈다
+var FIXED_3D = { make_basemap: false, make_sheets: false, make_tables: false, make_dwg: false, import_after: true, zoom_after_import: true, include_minor_buildings: false, include_zoning: true, site_output: "mesh" };
 var KEYS_2D = ["output_lang", "make_basemap", "paper", "paper_mm", "scales", "basemap_layers_on", "make_dwg", "make_sheets", "sheet_ids", "floor_breaks", "elev_preset", "make_tables", "style"];
 var MAP_STYLE = {   // 패널 지도 — 대상지·선택은 패널 블루 하나(DESIGN.md). 도면 안 대상지 색은 도면 스타일이 정한다
   lot: { color: "#465061", weight: 1, opacity: .4, fillOpacity: .01 },
@@ -917,7 +919,7 @@ function rangeHtml() {
     '<div id="radius_hint" class="hint" hidden>' + tr("범위가 크면 만드는 데 1분 넘게 걸릴 수 있습니다") + "</div>";
 }
 function settingsHtml(open) {
-  var o = state.options, glob = isGlobal();
+  var o = state.options, glob = isGlobal(), canSite = state.mode === "lots" || state.mode === "area";
   var row = function (label, inner) { return '<div class="trow"><span class="lbl">' + label + "</span>" + inner + "</div>"; };
   return '<details class="s3d" id="s3d"' + (open ? " open" : "") + '><summary><span class="lbl">' + tr("3D 설정") + '</span><span class="sum" id="s3d_sum"></span>' + ico("down") + '</summary><div class="body">' +
     (isAbroad(targetCenter()) ? "" : row(tr("좌표"), '<div class="seg" role="radiogroup" aria-label="' + tr("결과 좌표") + '">' +
@@ -930,6 +932,10 @@ function settingsHtml(open) {
     (HOST.brep ? row(tr("형상"), '<div class="seg" role="radiogroup" aria-label="' + tr("3D 형상") + '">' +
       SEG("geometry_type", "mesh", "Mesh", (o.geometry_type !== "brep" ? " checked" : "") + ' title="' + tr("가볍고 빠릅니다") + '"') +
       SEG("geometry_type", "brep", "Brep", (o.geometry_type === "brep" ? " checked" : "") + ' title="' + tr("건물은 닫힌 폴리서피스로 냅니다. 파일이 무겁고 오래 걸립니다") + '"') + "</div>") : "") +
+    (canSite ? '<details class="more3d"' + (o.flatten_site ? " open" : "") + "><summary>" + tr("더 보기") + "</summary>" +   // 기본 화면에는 안 보인다 — 대상지 경계 안의 땅을 한 높이로(필지·구역만)
+      row("", '<label class="chk"><input type="checkbox" name="flatten_site"' + (o.flatten_site ? " checked" : "") + ">" + tr("대상지 땅 평평하게") + "</label>" +
+        '<select class="sm" name="flatten_level" id="flatten_level" aria-label="' + tr("평평하게 할 높이") + '"' + (o.flatten_site ? "" : " hidden") + ">" +
+        [["mean", "경계 평균 높이"], ["min", "경계 최저 높이"], ["max", "경계 최고 높이"]].map(function (x) { return '<option value="' + x[0] + '"' + (o.flatten_level === x[0] ? " selected" : "") + ">" + tr(x[1]) + "</option>"; }).join("") + "</select>") + "</details>" : "") +
     "</div></details>";
 }
 function updateSummaries() {
@@ -939,10 +945,12 @@ function updateSummaries() {
     // 요약 = 줄 이름 + 고른 칸("지형 매끈하게") — 펼친 화면과 같은 말. 기본값(면 생성·바닥 채움)은 쓰지 않는다
     var p = [o.placement === "world" && !isAbroad(targetCenter()) ? tr("GIS 좌표") : tr("원점(0,0)"), tr("지형") + " " + (+o.terrain_step ? tr("계단 {0} m", o.terrain_step) : tr("매끈하게"))];
     if (o.terrain_block === false) p.push(tr("지형 표면만"));   // 기본(채움)은 요약에 쓰지 않는다
+    if ((state.mode === "lots" || state.mode === "area") && o.flatten_site) p.push(tr("대상지 땅 평평하게"));
     if (HOST.brep && o.geometry_type === "brep") p.push("Brep");   // 기본(Mesh)은 요약에 쓰지 않는다
     s.textContent = p.join(", ");
   }
   var rh = $("radius_hint"); if (rh) rh.hidden = !(sizeOf(o) > 1000);
+  var fl = $("flatten_level"); if (fl) fl.hidden = !o.flatten_site;   // 평평하게를 켰을 때만 높이 기준이 보인다
   var ba = $("bm_auto"); if (ba) ba.innerHTML = autoScaleHtml();
   var ss = $("sheets_count"); if (ss) ss.textContent = tr("{0}장", sheetPick().length);
   var mb = $("make2d_btn");
