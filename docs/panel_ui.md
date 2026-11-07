@@ -353,7 +353,7 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
 ```jsonc
 {"mode":"lots","placement":"origin",                 // mode = 마지막 방식(첫 화면 방식 칸 초깃값). placement origin|world
  "radius":500,"shape":"circle",                       // circle|rect|frame|site(+예전 buffer). radius 100~2000
- "flatten_site":false,"flatten_level":"mean",          // 대상지 땅 평평하게(lots·area) — 높이 = 대상지 경계 자연 지반 mean|min|max
+ "flatten_site":false,"flatten_level":"mean",          // 대상지 땅 평평하게(lots·area, 엔진 옵션 — 패널은 UI를 두지 않고 false로 고정) — 높이 = 대상지 경계 자연 지반 mean|min|max
  "site_output":"mesh",                                 // 화면에 없다 — 늘 mesh(FIXED_3D, 2026-11-08 [Line]·[Surface] 선택을 없앴다). lots·area: 대상지 경계 커브 + 바닥 메시(CTX::Site::ground). curve = 경계 커브만(엔진은 아직 받는다)
  "import_after":true,                                  // context.3dm은 항상 쓴다(산출물의 뼈대, 수 초). 끌 수 있는 건 Import뿐
  "make_basemap":true,"paper":"A3","paper_mm":[420,297],"scales":[5000],"basemap_layers_on":[],"basemap_preset":"a3",   // basemap_preset: 패널 2D 카드 칩 a3|a1(축척을 범위에 맞춰 자동 — 범위 2 × radius가 용지에 들어가는 가장 상세한 축척)|custom. 엔진은 보지 않는다   // A3 가로 = 분석도 템플릿 기준(2026-10-13)   // "02b_landuse"|"05_road_center"|"11_zoning" — Global은 05만 보인다
