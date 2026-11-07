@@ -335,22 +335,6 @@ def korea_projection():
         _apply_projection()
 
 
-def get_densified_pts(pts, step):
-    # type: (list, float) -> list
-    """점열 → 이웃 점 사이를 step 이하로 나눈 점열(처음·끝·기존 점은 그대로). 지형에 얹는 선이 지형을 따라 굽게 한다(context_geometry._drape_curve_items).
-    입력: [(x, y, ...)]. 출력: [(x, y)] — Z는 버린다(얹을 때 새로 정한다). 입력은 바꾸지 않는다."""
-    out = []
-    for k, p in enumerate(pts):
-        out.append((p[0], p[1]))
-        if k + 1 < len(pts):
-            q = pts[k + 1]
-            n = int(math.ceil(math.hypot(q[0] - p[0], q[1] - p[1]) / step))
-            for i in range(1, n):
-                t = i / float(n)
-                out.append((p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t))
-    return out
-
-
 def get_lnglat_in_crs(points, crs):
     # type: (list, str) -> list
     """저장된 결과(context.json crs)의 평면좌표 → 경위도. crs는 'EPSG:5186' 또는 get_crs_label의 지역 횡메르카토르
