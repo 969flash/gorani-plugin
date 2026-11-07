@@ -620,7 +620,8 @@ CTX_LAYERS = {   # 이름: (RGB)
 ZONING_LAYERS = {"zone": "용도지역", "district": "용도지구", "area": "용도구역", "facility": "도시계획시설", "plan": "지구단위계획"}
 # 지형 위에 얹는 CTX 선 레이어(접두) — 대상지 경계(Site, Site::lots)·용도지역·지구(Zoning). 나머지 선(Parcels·Roads::centerline·Ref)은 Z=0 평면 참조선 그대로.
 # 지형은 해발이라(서울 14~70 m) Z=0 선은 음영 화면에서 지형 안에 묻혀 안 보였다(2026-11-07 사용자: 대상지 Line 옵션). 화면에 보이는 지형 면(meshes['all'])에 수직 투영한다
-CTX_DRAPED_LAYERS = ("Site", "Zoning")
+CTX_DRAPED_LAYERS = ("Zoning",)   # 그 자리에서 얹는다(평면 Z=0 선은 3D에서 쓸모가 없다 — 평면 도면은 현황도 11~13이 따로 낸다)
+CTX_DRAPED_COPY_LAYERS = {"Site": "Site::draped"}   # 평면 Z=0 선은 그대로 두고 얹은 복사본을 이 레이어에 추가한다(2026-11-07 사용자 — 매싱·돌출에 평면 대지 경계가 필요하다). 하위 레이어라 부모 색
 CTX_DRAPE_NUDGE = 0.01   # m — 범위 경계 위 점은 지형 메시의 가장자리라 수직 투영이 빗나간다(금호동 250 m: 12,508점 중 510점, 자른 용도지역이 bbox 변 위에 선으로 남는다). 이만큼 안쪽으로 밀어 다시 쏜다
 CTX_DRAPE_LIFT = 0.1   # m — 지형 면에서 띄운다(같은 면에 겹치면 음영 화면이 선을 먹는 경우가 있다)
 CTX_HIDDEN_LAYERS = ("Terrain::site_original", "Site::lots")   # 처음 만들 때 끈다(평탄화 전 원지형·합필 전 필지 — 필요할 때 켜 본다). 사용자가 켠 뒤로는 건드리지 않는다
