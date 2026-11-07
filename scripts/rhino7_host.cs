@@ -110,6 +110,7 @@ namespace Gorani
                         RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true,
                         StandardOutputEncoding = new UTF8Encoding(false), StandardErrorEncoding = new UTF8Encoding(false),
                     };
+                    info.EnvironmentVariables["GORANI_RHINO_DIR"] = RhinoApp.GetExecutableDirectory().FullName;   // constants.RHINO_DIR_ENV — 패널 [지금 업데이트]가 이 Rhino의 yak을 찾는다
                     var process = Process.Start(info);
                     process.ErrorDataReceived += (s, e) => { if (e.Data != null) log.WriteLine(e.Data); };
                     process.BeginErrorReadLine();

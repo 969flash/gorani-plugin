@@ -67,6 +67,43 @@ class DataPackTest(unittest.TestCase):
             self.assertEqual(f.read(), self.raw)
 
 
+@unittest.skipIf(os.name == "nt", "가짜 yak은 셸 스크립트")
+class InstallUpdateTest(unittest.TestCase):
+    """패널 [지금 업데이트] — Rhino 실행 폴더(RHINO_DIR_ENV)의 yak을 찾아 `yak install gorani`를 부른다."""
+
+    def _run(self, script):
+        with tempfile.TemporaryDirectory() as tmp:
+            yak = os.path.join(tmp, "Yak.exe")
+            with open(yak, "w") as f:
+                f.write("#!/bin/sh\n" + script + "\n")
+            os.chmod(yak, 0o755)
+            os.environ[data_pack.constants.RHINO_DIR_ENV] = tmp
+            try:
+                ticks = []
+                return data_pack.install_update(tick=lambda: ticks.append(1)) + (ticks,)
+            finally:
+                del os.environ[data_pack.constants.RHINO_DIR_ENV]
+
+    def test_installs_latest(self):
+        ok, output, ticks = self._run('sleep 0.3; echo "args: $@"')
+        self.assertTrue(ok)
+        self.assertEqual(output, "args: install gorani")   # 판을 주지 않는다 — yak이 그 Rhino에 맞는 최신을 고른다
+        self.assertTrue(ticks)   # 기다리는 동안 UI를 돌린다
+
+    def test_failure_returns_output(self):
+        ok, output, _ = self._run('echo "not found"; exit 1')
+        self.assertFalse(ok)
+        self.assertEqual(output, "not found")
+
+    def test_no_yak(self):
+        os.environ[data_pack.constants.RHINO_DIR_ENV] = tempfile.gettempdir() + "/no-rhino-here"
+        try:
+            self.assertEqual(data_pack.get_yak_path(), "")
+            self.assertFalse(data_pack.install_update()[0])
+        finally:
+            del os.environ[data_pack.constants.RHINO_DIR_ENV]
+
+
 class LocalPackTest(unittest.TestCase):
     def test_paths_filter_and_union(self):
         with tempfile.TemporaryDirectory() as data_dir:
