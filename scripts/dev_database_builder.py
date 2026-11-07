@@ -47,7 +47,7 @@ SEOUL_DOWNLOAD_URL = (
     "https://datafile.seoul.go.kr/bigfile/iot/inf/nio_download.do?&useCache=false"
 )
 
-# 2026년 2월 공개본을 고정해 DB의 재현성을 확보한다.
+# 2026년 9월 공개본을 고정해 DB의 재현성을 확보한다(2026-11-08 갱신 — 열린데이터광장 파일 목록 맨 위 판).
 # 새 공개본 검증 후 seq/reference_date/file_name을 함께 갱신한다.
 # inf_id/inf_seq/seq는 열린데이터광장 파일 내려받기 폼(frmFile)의 값이며
 # 데이터셋마다 다르다. 페이지가 바뀌면 여기부터 확인한다.
@@ -64,12 +64,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21136/S/1/datasetView.do",
         "inf_id": "OA-21136",
         "inf_seq": "3",
-        "seq": "6",
-        "file_name": "UQ111_zoning_202602.zip",
+        "seq": "7",
+        "file_name": "UQ111_zoning_202609.zip",
         "theme": "zone",
         "kind": "용도지역",
         "layer": "UQ111",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "건폐율·용적률·층수·정북일조 적용 여부의 기준",
@@ -79,12 +79,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21127/S/1/datasetView.do",
         "inf_id": "OA-21127",
         "inf_seq": "1",
-        "seq": "5",
-        "file_name": "UQ121_용도지구(경관지구)_202602.zip",
+        "seq": "6",
+        "file_name": "UQ121_용도지구(경관지구)_202609.zip",
         "theme": "district",
         "kind": "경관지구",
         "layer": "UQ121",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "경관지구 층수·높이 상한 (서울시 도시계획 조례 제36~38조)",
@@ -94,12 +94,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21128/S/1/datasetView.do",
         "inf_id": "OA-21128",
         "inf_seq": "1",
-        "seq": "5",
-        "file_name": "UQ123_용도지구(고도지구)_202602.zip",
+        "seq": "6",
+        "file_name": "UQ123_용도지구(고도지구)_202609.zip",
         "theme": "district",
         "kind": "고도지구",
         "layer": "UQ123",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "최고고도지구 절대높이 상한. 실제 수치는 지구별 고시 확인 필요",
@@ -109,12 +109,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21140/S/1/datasetView.do",
         "inf_id": "OA-21140",
         "inf_seq": "1",
-        "seq": "5",
-        "file_name": "UQ124_용도지구(방화지구)_202602.zip",
+        "seq": "6",
+        "file_name": "UQ124_용도지구(방화지구)_202609.zip",
         "theme": "district",
         "kind": "방화지구",
         "layer": "UQ124",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "구조·재료 제한. 규모검토에는 직접 쓰지 않는 참고값",
@@ -124,12 +124,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21143/S/1/datasetView.do",
         "inf_id": "OA-21143",
         "inf_seq": "2",
-        "seq": "5",
-        "file_name": "UQ126_용도지구(보호지구)_202602.zip",
+        "seq": "6",
+        "file_name": "UQ126_용도지구(보호지구)_202609.zip",
         "theme": "district",
         "kind": "보호지구",
         "layer": "UQ126",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "역사문화환경보호지구 등. 국가유산 앙각 검토의 1차 단서",
@@ -139,12 +139,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21162/S/1/datasetView.do",
         "inf_id": "OA-21162",
         "inf_seq": "1",
-        "seq": "5",
-        "file_name": "UQ128_용도지구(취락지구)_202602.zip",
+        "seq": "6",
+        "file_name": "UQ128_용도지구(취락지구)_202609.zip",
         "theme": "district",
         "kind": "취락지구",
         "layer": "UQ128",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "취락지구 건폐율 완화 대상 여부",
@@ -154,12 +154,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21124/S/1/datasetView.do",
         "inf_id": "OA-21124",
         "inf_seq": "1",
-        "seq": "5",
-        "file_name": "UQ129_용도지구(개발진흥지구)_202602.zip",
+        "seq": "6",
+        "file_name": "UQ129_용도지구(개발진흥지구)_202609.zip",
         "theme": "district",
         "kind": "개발진흥지구",
         "layer": "UQ129",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "법적 효력 없는 참고자료. 토지이음·관할 지자체 자료와 대조 필요.",
@@ -169,12 +169,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21165/S/1/datasetView.do",
         "inf_id": "OA-21165",
         "inf_seq": "3",
-        "seq": "5",
-        "file_name": "UQ130_용도지구(특정용도제한지구)_202602.zip",
+        "seq": "6",
+        "file_name": "UQ130_용도지구(특정용도제한지구)_202609.zip",
         "theme": "district",
         "kind": "특정용도제한지구",
         "layer": "UQ130",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "기숙사 건축 가능 여부 확인 대상",
@@ -184,12 +184,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21133/S/1/datasetView.do",
         "inf_id": "OA-21133",
         "inf_seq": "1",
-        "seq": "5",
-        "file_name": "UQ131_기타용도지구_202602.zip",
+        "seq": "6",
+        "file_name": "UQ131_기타용도지구_202609.zip",
         "theme": "district",
         "kind": "기타용도지구",
         "layer": "UQ131",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "중점경관관리구역·특화경관지구 등이 여기 들어온다",
@@ -199,12 +199,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21123/S/1/datasetView.do",
         "inf_id": "OA-21123",
         "inf_seq": "1",
-        "seq": "5",
-        "file_name": "UQ141_용도구역(개발제한구역)_202602.zip",
+        "seq": "6",
+        "file_name": "UQ141_용도구역(개발제한구역)_202609.zip",
         "theme": "area",
         "kind": "개발제한구역",
         "layer": "UQ141",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "해당하면 신축 사실상 불가 — 후보 필지 제외 판정",
@@ -214,12 +214,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21135/S/1/datasetView.do",
         "inf_id": "OA-21135",
         "inf_seq": "1",
-        "seq": "5",
-        "file_name": "UQ142_용도구역(도시자연공원구역)_202602.zip",
+        "seq": "6",
+        "file_name": "UQ142_용도구역(도시자연공원구역)_202609.zip",
         "theme": "area",
         "kind": "도시자연공원구역",
         "layer": "UQ142",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "해당하면 신축 사실상 불가 — 후보 필지 제외 판정",
@@ -229,12 +229,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21132/S/1/datasetView.do",
         "inf_id": "OA-21132",
         "inf_seq": "1",
-        "seq": "5",
-        "file_name": "UQ145_기타용도구역_202602.zip",
+        "seq": "6",
+        "file_name": "UQ145_기타용도구역_202609.zip",
         "theme": "area",
         "kind": "기타용도구역",
         "layer": "UQ145",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "법적 효력 없는 참고자료. 토지이음·관할 지자체 자료와 대조 필요.",
@@ -244,12 +244,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21134/S/1/datasetView.do",
         "inf_id": "OA-21134",
         "inf_seq": "3",
-        "seq": "5",
-        "file_name": "UQ151_도시계획시설(도로)_202602.zip",
+        "seq": "6",
+        "file_name": "UQ151_도시계획시설(도로)_202609.zip",
         "theme": "facility",
         "kind": "도로",
         "layer": "UQ151",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "대지면적 제외(영 제119조1항1호), 건축선, 일조 기준선(영 제86조6항)",
@@ -259,12 +259,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21130/S/1/datasetView.do",
         "inf_id": "OA-21130",
         "inf_seq": "1",
-        "seq": "5",
-        "file_name": "UQ152_도시계획시설(교통시설_도로외)_202602.zip",
+        "seq": "6",
+        "file_name": "UQ152_도시계획시설(교통시설_도로외)_202609.zip",
         "theme": "facility",
         "kind": "기타교통시설",
         "layer": "UQ152",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "철도·자동차정류장·주차장 등. 철도는 일조 기준선 의제 대상",
@@ -274,12 +274,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21129/S/1/datasetView.do",
         "inf_id": "OA-21129",
         "inf_seq": "1",
-        "seq": "5",
-        "file_name": "UQ153_도시계획시설(공간시설)_202602.zip",
+        "seq": "6",
+        "file_name": "UQ153_도시계획시설(공간시설)_202609.zip",
         "theme": "facility",
         "kind": "공간시설",
         "layer": "UQ153",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "광장·공원·녹지·유원지·공공공지 — 영 제86조6항 의제 대상 전부",
@@ -289,12 +289,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21141/S/1/datasetView.do",
         "inf_id": "OA-21141",
         "inf_seq": "2",
-        "seq": "5",
-        "file_name": "UQ157_도시계획시설(보건위생시설)_202602.zip",
+        "seq": "6",
+        "file_name": "UQ157_도시계획시설(보건위생시설)_202609.zip",
         "theme": "facility",
         "kind": "보건위생시설",
         "layer": "UQ157",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "대지면적 제외 대상",
@@ -304,12 +304,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21161/S/1/datasetView.do",
         "inf_id": "OA-21161",
         "inf_seq": "2",
-        "seq": "5",
-        "file_name": "UQ161_district_plan_202602.zip",
+        "seq": "6",
+        "file_name": "UQ161_district_plan_202609.zip",
         "theme": "plan",
         "kind": "지구단위계획구역",
         "layer": "UQ161",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "지침 원문은 자동화 불가 — 해당 여부만 표시",
@@ -319,12 +319,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21164/S/1/datasetView.do",
         "inf_id": "OA-21164",
         "inf_seq": "2",
-        "seq": "5",
-        "file_name": "UQ165_지구단위계획구역(특별계획구역)_202602.zip",
+        "seq": "6",
+        "file_name": "UQ165_지구단위계획구역(특별계획구역)_202609.zip",
         "theme": "plan",
         "kind": "특별계획구역",
         "layer": "UQ165",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "법적 효력 없는 참고자료. 토지이음·관할 지자체 자료와 대조 필요.",
@@ -334,12 +334,12 @@ SEOUL_SOURCES = {
         "page_url": "https://data.seoul.go.kr/dataList/OA-21125/S/1/datasetView.do",
         "inf_id": "OA-21125",
         "inf_seq": "1",
-        "seq": "5",
-        "file_name": "967_UQ171_개발행위허가제한지역_202602.zip",
+        "seq": "6",
+        "file_name": "967_UQ171_개발행위허가제한지역_202609.zip",
         "theme": "area",
         "kind": "개발행위허가제한지역",
         "layer": "UQ171",
-        "reference_date": "2026-02",
+        "reference_date": "2026-09",
         "license": "공공누리 제1유형(출처표시)",
         "crs": "EPSG:5174",
         "note": "해당하면 사업 추진 자체를 재검토",
@@ -369,7 +369,7 @@ LAND_USE_SOURCE = {
     "note": (
         "필지별 지역지구등 지정 현황. 시도별 CSV(AL_D155_<시도>_*)에서 그 시도 것만 쓴다. "
         "고유번호가 PNU라 공간교차 없이 붙는다. 토지이음 화면과 같은 원천이다. "
-        "용량이 커 수동으로 내려받아 data/raw/전국_토지이용계획정보에 풀어 둔다."
+        "브이월드(dsId=14, 로그인)에서 시도 zip을 받아 data/raw/전국_토지이용계획정보에 그대로 둔다(가장 늦은 판만 읽는다)."
     ),
 }
 
@@ -796,14 +796,23 @@ LAND_USE_DATE_COLUMN = "데이터기준일자"   # 없는 판이면 기준일을
 
 def _get_land_use_paths(land_use_dir, prefix):
     # type: (Path, str) -> list
-    """토지이용계획 CSV 경로 — 원본 .csv 또는 보관용으로 압축한 .csv.gz(전국 42 GB → 수 GB)."""
-    return sorted(list(land_use_dir.glob(prefix + "*.csv")) + list(land_use_dir.glob(prefix + "*.csv.gz")))
+    """토지이용계획 파일 경로 — 브이월드에서 받은 .zip 그대로(풀지 않는다 — 전국 CSV 42 GB), 원본 .csv, 보관용 .csv.gz.
+    파일 이름의 기준일(<prefix><YYYYMMDD>)이 가장 늦은 판만 돌려준다 — 옛 판이 남아 있어도 두 판을 겹쳐 넣지 않게."""
+    paths = [path for ext in (".zip", ".csv", ".csv.gz") for path in land_use_dir.glob(prefix + "*" + ext)]
+    latest = max((path.name[len(prefix):len(prefix) + 8] for path in paths), default=None)
+    return sorted(path for path in paths if path.name[len(prefix):len(prefix) + 8] == latest)
 
 
 def _open_land_use(path):
     # type: (Path) -> object
-    """CSV 텍스트 핸들(cp949). .gz면 풀면서 읽는다."""
-    if str(path).endswith(".gz"):
+    """CSV 텍스트 핸들(cp949). .gz는 풀면서, .zip은 안의 CSV 하나를 풀면서 읽는다."""
+    if path.suffix == ".zip":
+        archive = zipfile.ZipFile(path)
+        names = [name for name in archive.namelist() if name.lower().endswith(".csv")]
+        if len(names) != 1:
+            raise ValueError("%s 안의 CSV가 하나가 아닙니다: %s" % (path.name, names))
+        return io.TextIOWrapper(archive.open(names[0]), encoding=constants.LAND_USE_ENCODING, errors="replace", newline="")
+    if path.suffix == ".gz":
         return gzip.open(path, "rt", encoding=constants.LAND_USE_ENCODING, errors="replace", newline="")
     return io.open(path, encoding=constants.LAND_USE_ENCODING, errors="replace", newline="")
 
@@ -827,8 +836,8 @@ def load_land_use(connection, land_use_dir=None, chunk_size=200000, sido_code=SE
     paths = _get_land_use_paths(land_use_dir, prefix)
     if not paths:
         raise FileNotFoundError(
-            "토지이용계획정보 CSV가 없습니다: %s/%s*.csv\n"
-            "공공데이터포털 국토교통부_토지이용계획정보(15045900)에서 받아 풀어 두세요."
+            "토지이용계획정보 파일이 없습니다: %s/%s*.zip\n"
+            "브이월드 국가중점데이터 토지이용계획정보(dsId=14)에서 시도 전체데이터 zip을 받아 그대로 두세요."
             % (land_use_dir, prefix)
         )
     source_id = LAND_USE_SOURCE["source_id"]
