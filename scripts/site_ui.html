@@ -444,15 +444,15 @@ footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-
   .modes .t { display: none; }
   .sheet-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-/* 넓은 창(브라우저 탭, 키운 패널 창) — 지도는 왼쪽을 다 쓰고 도구줄·트레이는 오른쪽 한 열(448 = Rhino 창 480 − 여백 32).
-   그대로 두면 지도가 가로로 납작해지고 트레이 줄이 화면 끝까지 퍼졌다(2026-10-21 Blender 1440×900) */
+/* 넓은 창(브라우저 탭, 키운 패널 창) — 도구줄(방식·검색)은 좁은 창처럼 지도 위에 붙이고, 트레이(옵션)는 오른쪽 한 열 맨 위부터(448 = Rhino 창 480 − 여백 32).
+   그대로 두면 지도가 가로로 납작해지고 트레이 줄이 화면 끝까지 퍼졌다(2026-10-21 Blender 1440×900). 도구줄을 지도 위로(2026-11-08 사용자) */
 @media (min-width: 960px) {
   body[data-screen="map"] section[data-screen="map"] { padding-bottom: 16px; }
   section[data-screen="map"] fieldset { display: grid; grid-template-columns: minmax(0, 1fr) 448px; grid-template-rows: auto auto minmax(0, 1fr); column-gap: 16px; }
-  .map-slot { grid-column: 1; grid-row: 1 / -1; min-height: 0; }
-  .toolrow { grid-column: 2; grid-row: 1; }
-  #search_msg { grid-column: 2; grid-row: 2; }
-  .tray { grid-column: 2; grid-row: 3; height: auto; margin-top: 0; }
+  .toolrow { grid-column: 1; grid-row: 1; }
+  #search_msg { grid-column: 1; grid-row: 2; }
+  .map-slot { grid-column: 1; grid-row: 3; min-height: 0; }
+  .tray { grid-column: 2; grid-row: 1 / -1; height: auto; margin-top: 0; }
   #menu { left: auto; width: 480px; }
   body[data-screen="result"] footer { padding-left: max(16px, calc((100% - 880px) / 2)); padding-right: max(16px, calc((100% - 880px) / 2)); }
 }
