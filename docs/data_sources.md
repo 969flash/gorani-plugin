@@ -213,6 +213,7 @@ CREATE TABLE IF NOT EXISTS source_files (
   2. 시도마다 `python3 scripts/dev_database_builder.py --sido <코드>` → `python3 scripts/dev_deploy.py packs --sido <코드> --drop --site-only`(시도 DB는 압축 뒤 지운다, 서울만 남긴다).
   3. `python3 scripts/dev_deploy.py upload --site-only`(필지 팩 + 매니페스트만. 매니페스트의 업데이트 안내·공지·나라 목록과 `config.json`은 올라가 있는 것 그대로 — 그것들은 `notices`가 올린다) → `python3 scripts/dev_deploy.py mirror --dirs ""`(Blender판 GitHub 사본).
   4. 옛 판 원천(`AL_D155_<시도>_<옛 기준일>.*`, `seoul_*/<옛 판>/`)을 지운다.
+- 디스크: `data/raw/수치지형도_5000/`의 도엽 zip은 시군구 묶음(`수치지형도_5000_시군구/`, 26 GB)에서 풀린 사본이라 컨텍스트를 다 만든 뒤 지워도 된다 — 다음 컨텍스트 빌드가 `get_sheet_sido`로 다시 푼다(2026-11-08 17,517장·21.7 GB 지움). 서울 원본 139장(`sheets.csv`에 sha256)과 `sheets.csv`는 남긴다.
 
 ---
 
