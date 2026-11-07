@@ -34,24 +34,41 @@ class LandUsePathTest(unittest.TestCase):
                 self.assertEqual(list(csv.reader(handle)), [["고유번호", "용도지역지구코드"], ["1111010100100010000", "UQA100"]])
 
     def test_moved_dong_code_follows_parcels(self):
-        # 대구 달성군 구지면 → 구지읍: 필지(토지특성)는 옛 코드 2771038021, 토지이용계획은 새 코드 2771026821
+        # 필지(토지특성 05-20판)는 옛 코드, 토지이용계획(10-09판)은 새 코드인 동을 필지 쪽 코드로 맞춘다
+        parcels = [
+            ("2771038021", "대구광역시 달성군 구지면 창리"),      # 읍 승격 → 2771026821
+            ("2771025021", "대구광역시 달성군 화원읍 천내리"),    # 그대로
+            ("2814010100", "인천광역시 동구 만석동"),             # 개편 → 제물포구 2812510100(시도 안에 이름 하나)
+            ("2814010600", "인천광역시 동구 금곡동"),             # 개편 → 제물포구 2812510600(이름 둘 — 만석동이 가리킨 옛 동구에서)
+            ("2826010400", "인천광역시 서구 금곡동"),             # 같은 이름, 다른 동(지번이 달라 붙이지 않는다)
+        ]
+        land_use = [
+            ("2771026821", "대구광역시 달성군 구지읍 창리", "2771038021"),
+            ("2771025021", "대구광역시 달성군 화원읍 천내리", "2771025021"),
+            ("2812510100", "인천광역시 제물포구 만석동", "2814010100"),
+            ("2812510600", "인천광역시 제물포구 금곡동", "2814010600"),
+            ("2829010700", "인천광역시 검단구 금곡동", "2829010700"),   # 서구 금곡동과 지번이 안 겹친다 → 못 맞춤(그대로)
+            ("2771099999", "대구광역시 달성군 없는면 새리", "2771099999"),
+        ]
+        lot_suffixes = ["1%04d0000" % n for n in range(1, 11)]
         with tempfile.TemporaryDirectory() as tmp:
             folder = Path(tmp)
             connection = dev_database_builder._connect_database(folder / "t.db")
             connection.execute("INSERT INTO data_sources (source_id, name, page_url, acquired_at) VALUES ('s', 's', 's', 's')")
-            for pnu, address in (("2771038021100010001", "대구광역시 달성군 구지면 창리 1-1"), ("2771025021200010001", "대구광역시 달성군 화원읍 천내리 산1-1")):
-                connection.execute("INSERT INTO parcels (pnu, address, geometry_area_sqm, geometry_json, geometry_crs, source_id, min_x, max_x, min_y, max_y)"
-                                   " VALUES (?, ?, 1, '{}', 5186, 's', 0, 1, 0, 1)", (pnu, address))
-            lines = ["고유번호,법정동명,용도지역지구코드,용도지역지구명,저촉여부",
-                     "2771026821100010001,대구광역시 달성군 구지읍 창리,UQA430,자연녹지지역,포함",
-                     "2771025021200010001,대구광역시 달성군 화원읍 천내리,UQA430,자연녹지지역,포함",
-                     "2771099999100010001,대구광역시 달성군 없는면 새리,UQA430,자연녹지지역,포함"]
-            with zipfile.ZipFile(folder / "AL_D155_27_20261009.zip", "w") as archive:
-                archive.writestr("AL_D155_27_20261009.csv", ("\n".join(lines) + "\n").encode("cp949"))
+            for dong, name in parcels:
+                suffixes = ["2%04d0000" % n for n in range(1, 11)] if dong == "2826010400" else lot_suffixes
+                for suffix in suffixes:
+                    connection.execute("INSERT INTO parcels (pnu, address, geometry_area_sqm, geometry_json, geometry_crs, source_id, min_x, max_x, min_y, max_y)"
+                                       " VALUES (?, ?, 1, '{}', 5186, 's', 0, 1, 0, 1)", (dong + suffix, name + " 1"))
+            lines = ["고유번호,법정동명,용도지역지구코드,용도지역지구명,저촉여부"]
+            lines += ["%s%s,%s,UQA430,자연녹지지역,포함" % (dong, suffix, name) for dong, name, _ in land_use for suffix in lot_suffixes]
+            for code in ("27", "28"):
+                with zipfile.ZipFile(folder / ("AL_D155_%s_20261009.zip" % code), "w") as archive:
+                    archive.writestr("AL_D155_%s_20261009.csv" % code, ("\n".join(lines) + "\n").encode("cp949"))
             dev_database_builder.load_land_use(connection, land_use_dir=folder, sido_code="27")
-            pnus = sorted(row[0] for row in connection.execute("SELECT pnu FROM parcel_land_use"))
+            dongs = {row[0] for row in connection.execute("SELECT substr(pnu, 1, 10) FROM parcel_land_use")}
             connection.close()
-            self.assertEqual(pnus, ["2771025021200010001", "2771038021100010001", "2771099999100010001"])
+            self.assertEqual(dongs, {expected for _, _, expected in land_use})
 
 
 class ManifestKindsTest(unittest.TestCase):
