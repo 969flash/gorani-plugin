@@ -687,7 +687,7 @@ function targetCenter() {   // [lng, lat]
   return state.lotState && state.lotState.lots.length ? state.lotState.center : null;
 }
 function targetLabel() {
-  if (state.mode === "area") return state.area ? tr("구역 {0}", fmtNum(state.area.area, 0) + " " + sqm()) : "";
+  if (state.mode === "area") return state.area ? (state.area.lot_name ? state.area.lot_name.replace(/_/g, " ") : tr("구역 {0}", fmtNum(state.area.area, 0) + " " + sqm())) : "";
   if (state.mode === "point") return state.point ? (state.point.lot_name || "").replace(/_/g, " ") : "";
   return lotLabel() + (state.lotState && state.lotState.lots.length ? ", " + fmtArea(state.lotState.total_area) : "");
 }
@@ -895,8 +895,8 @@ function targetHtml(moreOpen) {
     if (stamp.on) return '<div class="trow"><span class="lbl">' + tr("구역") + '</span><span class="hint">' + tr("지도를 끌어 자리를 맞추세요") + "</span>" +
       '<span class="end"><button type="button" class="btn sm primary" data-act="stamp_place">' + ico("move") + tr("여기에 놓기") + '</button><button type="button" class="btn sm" data-act="stamp_cancel">' + tr("취소") + "</button></span></div>";
     if (!a) return '<div class="tools" style="margin-left:0"><button type="button" class="btn sm" data-act="draw_start">' + ico("pen") + tr("지도에 그리기") + "</button>" + curveBtn + "</div>";
-    return '<div class="trow"><span class="lbl">' + tr("주소") + '</span><span class="tval">' + tr("구역 {0}", '<b class="num">' + esc(fmtNum(a.area, 0)) + " " + sqm() + "</b>") +
-      (isGlobal() ? "" : ' <span class="sub">' + tr("(안의 필지 {0})", a.lots) + "</span>") + "</span>" +
+    return '<div class="trow"><span class="lbl">' + tr("주소") + '</span><span class="tval">' + (a.lot_name ? esc(a.lot_name.replace(/_/g, " ")) + " " : "") + '<span class="sub"><b class="num">' + esc(fmtNum(a.area, 0)) + " " + sqm() + "</b>" +
+      (isGlobal() ? "" : " " + tr("(안의 필지 {0})", a.lots)) + "</span></span>" +
       '<span class="end">' + clearBtn("area_clear") + "</span></div>" +
       '<div class="tools"><button type="button" class="btn sm" data-act="draw_start">' + ico("pen") + tr("다시 그리기") + "</button>" +
       '<button type="button" class="btn sm" data-act="area_move">' + ico("move") + tr("옮기기") + "</button></div>";
