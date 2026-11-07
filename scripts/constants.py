@@ -297,6 +297,14 @@ OSM_PUBLIC_USE = {"school": "10000", "kindergarten": "10000", "college": "10000"
                   "hospital": "09000", "clinic": "09000", "nursing_home": "11000", "social_facility": "11000", "childcare": "11000",
                   "community_centre": "05000", "arts_centre": "05000", "theatre": "05000", "sports_centre": "13000"}
 OSM_NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"   # 지명 검색 — 사용자가 [검색]을 누를 때 한 번
+OSM_NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"   # 해외 대상지 주소 — 패널 '대상지' 줄에 위경도 대신(2026-11-08 사용자). 지도에서 찍거나 구역을 그릴 때 한 번
+RESULT_ADDRESS_MAX_CHARS = 40   # 해외 결과 폴더 이름의 주소 칸 — 길면 안 된다(2026-11-08 사용자). Windows 경로 260자 안에 2D 폴더·파일 이름까지
+# 해외 주소의 도로 이름 안 도로 종류 낱말 → 약어(미국 우정청 표준 약어 USPS Pub. 28 C1). 도로 칸에만 — 동네·도시 이름('North Beach')은 그대로. 패널 표시·폴더 이름 공통
+ADDRESS_ABBREVIATIONS = {
+    "Street": "St", "Avenue": "Ave", "Boulevard": "Blvd", "Road": "Rd", "Drive": "Dr", "Lane": "Ln", "Place": "Pl", "Court": "Ct",
+    "Square": "Sq", "Terrace": "Ter", "Highway": "Hwy", "Parkway": "Pkwy", "Expressway": "Expy", "Circle": "Cir", "Crescent": "Cres",
+}
+OSM_REVERSE_TIMEOUT_SECONDS = 3   # 대상지를 찍을 때마다 UI 스레드에서 기다린다 — 못 받으면 위경도 이름 그대로
 OSM_SEARCH_TIMEOUT_SECONDS = 10   # 지명 검색은 UI 스레드에서 기다린다 — Overpass 60 s를 쓰면 막힌 망에서 검색 한 번에 1분 멈췄다(2026-10-23 감사)
 OSM_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 OSM_TERRAIN_ZOOM = 13           # 픽셀 약 19 m(적도)·15 m(위도 37°). 원천 DEM이 약 30 m라 더 키워도 정밀해지지 않는다
@@ -583,7 +591,9 @@ HEIGHT_GRADES = ("A", "B", "C", "D")
 PANEL_VERSION = "0.3.8"   # 배포 버전 하나(모든 호스트 패키지 버전 = dev_deploy.PACKAGE_VERSION). 매니페스트 update.latest·min과 비교한다
 NOTICE_TIMEOUT_SECONDS = 3   # 패널을 열 때 매니페스트(공지·업데이트)를 기다리는 한도 — 못 받으면 공지 없이 연다
 UPDATE_INSTALL_SECONDS = 600   # 패널 [지금 업데이트](yak install)를 기다리는 상한 — Rhino 7판은 번들 파이썬까지 수백 MB
+# [blender-cut] [지금 업데이트]는 Rhino 8·7만 — 이 상수를 쓰는 data_pack.get_yak_path도 같은 구간이라 Blender 패키지에는 둘 다 없다(빌드 점검이 'RHINO' 코드를 막는다)
 RHINO_DIR_ENV = "GORANI_RHINO_DIR"   # Rhino 7 사이드카에 C# 호스트가 넘기는 Rhino 실행 폴더 — data_pack.get_yak_path
+# [/blender-cut]
 MANIFEST_RETRY_SECONDS = 60   # 지도 이동(area_packs)이 매니페스트를 못 받았으면 이만큼은 다시 묻지 않는다 — 막힌 망에서 이동마다 멈추지 않게
 # 언어 — 패널 헤더에서 고른다(options.lang). 사전은 scripts/i18n.json 하나(패널 JS·Python 공용, i18n.py)
 LANGS = ("en", "ko", "es", "ja", "zh")   # 고르기 순서. zh = 중국어 간체
@@ -737,7 +747,7 @@ PANEL_DEFAULT_OPTIONS = {
     "output_lang": None,   # 결과물(폴더·파일 이름) 언어 OUTPUT_LANGS — None = 첫 실행, 패널이 시스템 언어로 정한다(한국어면 ko, 아니면 en)
     "radius": 250, "shape": "rect",   # 범위 기본 = 사각형 한 변 500 m(2026-10-19 사용자 결정). 방식을 바꿔도 마지막 범위를 유지한다
     "flatten_site": False, "flatten_level": "mean",
-    "site_output": "curve",   # 대상지 표시(lots·area): curve = 경계 커브만, mesh = 대상지 바닥 메시도(CTX::Site::ground, 대상지 색). 필지 방식 기본 mesh   # 대상지 평탄화(lots·area) — 높이 = 경계 자연 지반의 mean|min|max
+    "site_output": "mesh",   # 대상지 표시(lots·area): mesh = 경계 커브 + 대상지 바닥 메시(CTX::Site::ground, 대상지 색), curve = 경계 커브만. 패널은 늘 mesh(옵션을 없앴다, 2026-11-08 — FIXED_3D)   # 대상지 평탄화(lots·area) — 높이 = 경계 자연 지반의 mean|min|max
     "import_after": True,
     # 2D 자료는 기본 끔 — 주목적은 3D, 2D는 패널 결과 화면에서 3D 뒤에 고른다(make_2d, 2026-10-19). 3D만이면 실측 약 8 s, 2D까지면 시간 2.5배(ESTIMATE_* 주석)
     "make_basemap": False, "paper": "A3", "paper_mm": [420, 297], "scales": [5000], "basemap_layers_on": [],
@@ -779,9 +789,9 @@ REGIONS = ("kr", "global")   # 헤더 토글. kr = 국가 DB(필지·대장·UPI
 # 필지 = 건축 대지검토 규모, 구역 = 지구단위계획·정비구역 현황분석 규모, 위치 = 광역 베이스맵(범위 = 용지 프레임)
 # 범위(radius·shape)는 방식과 무관하게 마지막 값을 쓴다 — 방식마다 덮으면 기본값이 제각각이라 혼란이었다(2026-10-19 QA)
 MODE_DEFAULTS = {
-    "lots": {"scales": [1000, 3000], "site_output": "mesh"},   # A3 1:1000 = 420×297 m(지번) + 1:3000 주변
-    "area": {"scales": [3000], "site_output": "curve"},
-    "point": {"scales": [5000], "site_output": "curve"},
+    "lots": {"scales": [1000, 3000]},   # A3 1:1000 = 420×297 m(지번) + 1:3000 주변
+    "area": {"scales": [3000]},
+    "point": {"scales": [5000]},
 }
 # 패널에 보이는 범위 형태 — 어느 방식이든 원(반경)·사각형(한 변 = 2 × radius) 둘(2026-10-19, 방식마다 달라 혼란이었다).
 # 엔진은 buffer·site(그린 구역 그대로)·frame(용지 프레임)도 받는다(예전 요청 호환)

@@ -77,7 +77,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `open_url` | `key`(`constants.PANEL_LINKS`의 키 — 지금은 `website`) 또는 `notice`(공지 id) | — (`error{context:"open"}`) | 더보기 메뉴 '고라니 웹페이지'·업데이트 [업데이트 방법]은 `key`, 공지 [자세히]는 `notice` — 매니페스트에서 그 공지의 http(s) 주소를 찾아 연다. 임의 URL은 받지 않는다 |
 | `open_eum` | `pnu`(19자리) | — (`error{context:"open"}`) | ① 필지 정보 [토지이음 ↗]. Python이 `constants.EUM_LAND_USE_URL % pnu`를 만들어 OS 브라우저로 연다(임의 URL은 받지 않는다) |
 | `save_prefs` | `options` | — | `prefs.json`에 `options`만 덮어쓴다(`recent`는 `generate` 성공 시 Python이 갱신) |
-| `open_result` | `dir` | `result_opened` | 최근 결과 줄을 누르면 — `context_builder.get_result_state`가 결과 폴더의 `context.json`으로 결과 화면을 다시 채운다(3D는 문서에 없을 수 있어 [불러오기]가 보인다). `result_opened{dir, lot_name, lot_key, label, built_at, context{path, buildings, imported}, options, target, korea, target_lnglat{center, ring}, made2d_list[{dir, made2d|null}]}` — `imported`는 Rhino 8이면 그 대상지(UDT_LOT_KEY) 객체가 지금 문서에 있는지(`context_baker.has_lot`), 아니면 false. `made2d_list`는 2D 폴더마다 `made_2d.json`(make_2d가 패널에 보낸 결과 — 도면 목록·썸네일·.ai·조서)이 있으면 그것을 실어 패널이 마지막 2D를 만든 직후와 같은 카드로 그린다(이전 2D는 카드 아래 [보기]·[폴더]) — `target_lnglat`은 결과의 `crs`(EPSG:5186 또는 지역 TM, 원점 0.01°)로 되돌린 경위도라 [← 지도로]가 필지·구역·위치를 지도에 되살린다(2026-11-07) |
+| `open_result` | `dir` | `result_opened` | 최근 결과 줄을 누르면 — `context_builder.get_result_state`가 결과 폴더의 `context.json`으로 결과 화면을 다시 채운다(3D 카드에는 [폴더 열기]만 — [Rhino에 불러오기] 버튼은 없다, 2026-11-07). `result_opened{dir, lot_name, lot_key, label, built_at, context{path, buildings, imported}, options, target, korea, target_lnglat{center, ring}, made2d_list[{dir, made2d|null, made_at}]}` — `imported`는 Rhino 8이면 그 대상지(UDT_LOT_KEY) 객체가 지금 문서에 있는지(`context_baker.has_lot`), 아니면 false. `made2d_list`는 2D 폴더마다 `made_2d.json`(make_2d가 패널에 보낸 결과 — 도면 목록·썸네일·.ai·조서)이 있으면 그것을 실어 패널이 마지막 2D를 만든 직후와 같은 카드로 그린다(2D를 여러 번 만들었으면 카드 제목 옆 선택 `#pick2d`로 바꿔 본다 — `made_at`·스타일 이름이 선택 글. 카드가 없는 옛 2D만 있으면 폴더 한 줄). `made_2d.json`의 절대 경로(2D 폴더·도면·.ai·조서)는 읽을 때 지금 위치로 바꾼다(`context_builder._rebase_paths`) — 결과 폴더·2D 폴더 이름을 바꾸거나 옮겨도 카드의 링크가 산다. 2D 폴더는 `2D_*`뿐 아니라 `made_2d.json`이 든 폴더도 찾고, 순서는 이름이 아니라 폴더 수정 시각이다 — `target_lnglat`은 결과의 `crs`(EPSG:5186 또는 지역 TM, 원점 0.01°)로 되돌린 경위도라 [← 지도로]가 필지·구역·위치를 지도에 되살린다(2026-11-07) |
 | `hide_result` | `dir` | 없음 (`error{context:"init"}`) | 최근 결과 줄의 x — `prefs.json` `hidden_results`에 넣어 목록에서만 뺀다(결과 폴더는 그대로). JS가 `init.results`에서 먼저 빼고 트레이를 다시 그린다 |
 | `style_preview` | `dir`, `sheet_id`(0~15), `style`(스타일 dict), `seq` | `style_preview`(같은 `seq`) / `error{context:"style"}` | ③ 2D 카드 다이어그램 타일 [편집]의 스타일 화면(만들기 전). `context_builder.preview_sheet` — 한 장을 스타일로 다시 그린 SVG 문자열(파일 안 씀). 시트 데이터는 컨트롤러 `_keep`(이번 세션 생성 결과, 지형 삼각형 포함). 2D를 아직 안 만들었으면 3D를 만든 Prepared를 그대로 써서 다시 조회하지 않는다(`get_sheet_data(quick=True)` — 자료는 3D 범위까지. 다시 prepare하면 Global은 OSM·지형 타일을 또 받아 55 s 걸렸다, 2026-10-19). `_keep`이 다른 결과면 `context.json`으로 한 번 prepare(지형 시트는 비어 나온다). SVG id·`url(#…)`은 `pv_` 접두어(패널 `#map`과 겹치지 않게). JS 250 ms 디바운스, 늦은 `seq`는 버린다 |
 | `apply_style` | `dir`, `style` | `busy{on}` → `style_applied` → `busy{off}` | `context_builder.apply_style` — 결과 폴더의 시트 전부 + 이미 쓴 `basemap_<축척>.ai`를 다시 쓰고 `context.json.options.style`을 바꾼다. 지형 삼각형이 없으면 지형 시트 파일은 그대로(`kept`). JS는 성공하면 `options.style`을 `save_prefs`. **2026-10-19부터 패널은 보내지 않는다** — 스타일은 만들기 전에 정하고 [적용]은 `options.style`만 바꾼다 |
@@ -319,7 +319,7 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
 
 ## 대상지 방식 (2026-10-10)
 
-① 첫 화면은 지도다(2026-10-14 — 소개·방식 고르기 화면 없음). 지도 위 도구줄의 방식 칸 [필지·구역·위치]로 바꾸고, 처음엔 마지막 방식(`options.mode`, 저장된 옵션 그대로). 방식을 바꾸면 대상지를 지우고 `init_state.modes.defaults[mode]`(constants `MODE_DEFAULTS` — 축척·대상지 바닥면만: 필지 1:1000·1:3000 / 구역 1:3000 / 위치 1:5000)를 옵션에 덮고 `save_prefs`. 범위(radius·shape)는 방식을 바꿔도 마지막 값 그대로다(기본 사각형 한 변 500 m = radius 250, 2026-10-19). `prefs.json`의 `version` < 2면 예전에 저장한 radius·shape는 한 번 버린다(`site_prefs.PREFS_VERSION`). [새 대상지]는 대상지만 지우고 같은 방식의 지도로.
+① 첫 화면은 지도다(2026-10-14 — 소개·방식 고르기 화면 없음). 지도 위 도구줄의 방식 칸 [필지·구역·위치]로 바꾸고, 처음엔 마지막 방식(`options.mode`, 저장된 옵션 그대로). 방식을 바꾸면 대상지를 지우고 `init_state.modes.defaults[mode]`(constants `MODE_DEFAULTS` — 축척만: 필지 1:1000·1:3000 / 구역 1:3000 / 위치 1:5000. 대상지 바닥 면 생성은 방식 기본이 아니라 늘 켠다, 2026-11-08)를 옵션에 덮고 `save_prefs`. 범위(radius·shape)는 방식을 바꿔도 마지막 값 그대로다(기본 사각형 한 변 500 m = radius 250, 2026-10-19). `prefs.json`의 `version` < 2면 예전에 저장한 radius·shape는 한 번 버린다(`site_prefs.PREFS_VERSION`). [새 대상지]는 대상지만 지우고 같은 방식의 지도로.
 
 | 방식 | 요청 `target` | 대상지 경계(`site_rings`) | 대상 필지 | 결과 폴더명 |
 |---|---|---|---|---|
@@ -335,10 +335,11 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
 ```jsonc
 {"type":"area_state","ok":true,"text":"",            // ok=false면 text 한 줄(자기교차·너무 작음…) — 패널은 이전 구역을 유지한다
  "ring_tm":[[x,y]],"ring_lnglat":[[lng,lat]],"center":[lng,lat],"center_tm":[x,y],"offsets":[[dx,dy]],
- "area":60000.0,"lots":69,"lots_area":44242.0,"lot_name":"성수동2가_333-139_구역",
+ "area":60000.0,"lots":69,"lots_area":44242.0,"lot_name":"성수동2가_333-139_구역",   // 트레이 '대상지' 줄은 address(해외) 또는 lot_name(_ → 공백) + 면적·안의 필지 수
  "target_geojson":FC,                                 // role="target" 안의 필지 + role="area" 구역 1개
  "warnings":[warning]}
-{"type":"point_state","ok":true,"center":[lng,lat],"center_tm":[x,y],"lot_name":"성수동2가_333-139_일대"}
+{"type":"point_state","ok":true,"center":[lng,lat],"center_tm":[x,y],"lot_name":"성수동2가_333-139_일대","address":""}
+// address — 해외 대상지(지역 TM)만 Nominatim reverse 짧은 주소 '도로, 동네, 도시'(output_lang 언어, osm_context.get_place_address, 3 s, 못 받으면 ''). 패널 '대상지' 줄은 address가 있으면 그것, 없으면 lot_name. area_state도 같은 칸. 해외 lot_name(결과 폴더 이름)도 같은 주소 'Greenwich St_Russian Hill_San Francisco_vicinity'(도로 종류는 약어 constants.ADDRESS_ABBREVIATIONS, context_builder.get_folder_safe_name — 못 쓰는 글자 빼고 40자, 넘치면 뒤 칸부터 뺀다), 주소를 못 받으면 'N37.8010_W122.4187_vicinity'(2026-11-08)
 {"type":"curve_shape","ok":true,"text":"","located":false,"ring_tm":[],"offsets":[[dx,dy]],"area":22800.0,"vertices":4}
 ```
 
@@ -353,15 +354,15 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
 ```jsonc
 {"mode":"lots","placement":"origin",                 // mode = 마지막 방식(첫 화면 방식 칸 초깃값). placement origin|world
  "radius":500,"shape":"circle",                       // circle|rect|frame|site(+예전 buffer). radius 100~2000
- "flatten_site":false,"flatten_level":"mean",          // 대상지 평탄화(lots·area) — 높이 = 대상지 경계 자연 지반 mean|min|max
- "site_output":"curve",                                // 대상지 표시(lots·area): curve = 경계 커브만, mesh = 바닥 메시도(CTX::Site::ground). 방식 기본: 필지 mesh, 구역 curve
+ "flatten_site":false,"flatten_level":"mean",          // 대상지 땅 평평하게(lots·area) — 높이 = 대상지 경계 자연 지반 mean|min|max
+ "site_output":"mesh",                                 // 화면에 없다 — 늘 mesh(FIXED_3D, 2026-11-08 [Line]·[Surface] 선택을 없앴다). lots·area: 대상지 경계 커브 + 바닥 메시(CTX::Site::ground). curve = 경계 커브만(엔진은 아직 받는다)
  "import_after":true,                                  // context.3dm은 항상 쓴다(산출물의 뼈대, 수 초). 끌 수 있는 건 Import뿐
  "make_basemap":true,"paper":"A3","paper_mm":[420,297],"scales":[5000],"basemap_layers_on":[],"basemap_preset":"a3",   // basemap_preset: 패널 2D 카드 칩 a3|a1(축척을 범위에 맞춰 자동 — 범위 2 × radius가 용지에 들어가는 가장 상세한 축척)|custom. 엔진은 보지 않는다   // A3 가로 = 분석도 템플릿 기준(2026-10-13)   // "02b_landuse"|"05_road_center"|"11_zoning" — Global은 05만 보인다
                                                        // scales: ② 프레임 미리보기·③ .ai select 기본값 전용(prefs·preflight에만). generate 페이로드에서 JS가 뺀다. dirty 판정 제외
  "make_sheets":true,"sheet_ids":[0,1,…,22],"floor_breaks":[12,20],"elev_preset":"20m",   // "20m"|"50m". 카탈로그에 없는 id는 엔진이 버린다(get_sheet_ids)
  "make_tables":true,
  "include_minor_buildings":false,                       // Korea만 보인다(국가 DB 무벽·가건물). 2026-10-16 v1에서 아무 일도 안 하던 demolished·refresh_buildings·include_api_objects는 뺐다
- "include_zoning":true,                                // Korea만 보인다   // CTX::Zoning::<구분>::<종류> — 용도지역·용도지구·용도구역·도시계획시설·지구단위계획(현황도 11~13 범례 색, 범위 bbox로 자름)
+ "include_zoning":true,                                // 화면에 없다 — 늘 true(FIXED_3D, 2026-11-07 옵션을 없앴다). 한국 대상지만 자료가 있다   // CTX::Zoning::<구분>::<종류> — 용도지역·용도지구·용도구역·도시계획시설·지구단위계획(현황도 11~13 범례 색, 범위 bbox로 자름)
  "terrain_vertex_color":false,
  "terrain_step":0,                                     // 지형 표현(③ 지형): 0 = 매끈, 1|2|5 = 계단형(등고 모형) 단 간격 m. 지반·수면 메시를 단마다 수평면 + 수직 벽으로, 건물 바닥도 계단 지반 기준
  "terrain_block":true,                                 // 지형을 바닥까지 채우기: 지형 옆면·바닥(CTX::Terrain::block, BASE_M). 건물·필지·도로중심선·용도지역은 이 값과 상관없이 늘 범위 링으로 자른다(원·사각형 범위만). 끄면 3D 설정 요약에 '지형 표면만'. 입체 매스도는 style.axo_ground

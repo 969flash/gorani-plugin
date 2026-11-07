@@ -634,6 +634,31 @@ def search_places(query, limit):
     return [{"name": p.get("display_name", ""), "center": [round(float(p["lon"]), 7), round(float(p["lat"]), 7)]} for p in places]
 
 
+def get_place_address(lng, lat, lang):
+    # type: (float, float, str) -> str
+    """경위도 → 짧은 주소 '도로, 동네, 도시'(Nominatim reverse, lang 언어). 해외 대상지 패널 표시용. 못 받으면 ''."""
+    key = (round(lng, 5), round(lat, 5), lang)
+    if key in _ADDRESS_CACHE:
+        return _ADDRESS_CACHE[key]
+    url = data_pack.get_service("nominatim_reverse", constants.OSM_NOMINATIM_REVERSE_URL) + "?" + urllib.parse.urlencode(
+        {"lat": lat, "lon": lng, "format": "jsonv2", "zoom": 16, "accept-language": lang or "en"})   # 16 = 도로 단위. 18은 건물 안 표기가 도로로 왔다(도쿄역: 'エレベーター;1階')
+    try:
+        address = json.loads(_fetch(url, timeout=constants.OSM_REVERSE_TIMEOUT_SECONDS).decode("utf-8")).get("address") or {}
+    except Exception:
+        return ""
+    street = address.get("road") or ""
+    street = "" if ";" in street else street   # 여러 값 태그(도쿄역 zoom 17: 'JR東京駅;9番線')는 도로 이름이 아니다
+    street = " ".join(constants.ADDRESS_ABBREVIATIONS.get(word, word) for word in street.split())   # Greenwich Street → Greenwich St
+    area = address.get("suburb") or address.get("neighbourhood") or address.get("quarter") or ""
+    city = address.get("city") or address.get("town") or address.get("village") or address.get("county") or address.get("state") or ""
+    text = ", ".join(v for v in (street, area, city) if v) or address.get("country", "")
+    _ADDRESS_CACHE[key] = text
+    return text
+
+
+_ADDRESS_CACHE = {}   # 같은 자리를 다시 찍어도 묻지 않는다(Nominatim 이용 정책: 초당 1건)
+
+
 # ── 묶기 ────────────────────────────────────────────────
 
 def load(bounds, today, on_wait=None):

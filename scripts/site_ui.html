@@ -240,8 +240,10 @@ label.chk:has(input:disabled):hover input[type="checkbox"] { border-color: var(-
 .chip.lv-danger { color: var(--danger); }
 .leaflet-container { font: inherit; }
 .leaflet-bar { border: 1px solid var(--line) !important; border-radius: 8px !important; overflow: hidden; box-shadow: 0 1px 2px rgba(0, 0, 0, .08) !important; }
-.leaflet-bar a { border-radius: 0 !important; width: 32px !important; height: 32px !important; line-height: 32px !important; color: var(--ink) !important; }
-.aerial-ctl a { font-size: 11px; line-height: 16px; color: var(--ink-2); }
+.leaflet-bar a { border-radius: 0 !important; width: 32px !important; height: 32px !important; line-height: 32px !important; color: var(--ink) !important; background-color: var(--surface) !important; border-bottom-color: var(--line) !important; }
+.leaflet-bar a:hover { background-color: var(--hover) !important; }
+.leaflet-bar a.leaflet-disabled { background-color: var(--surface) !important; color: var(--ink-3) !important; }   /* Leaflet 기본은 흰 바탕 — 다크 모드에서 밝은 --ink 글자가 흰 바탕에 묻혔다(2026-11-08) */
+.aerial-ctl a { font-size: 12px; line-height: 16px; }   /* 글자색은 확대·축소 단추와 같은 --ink(.leaflet-bar a) */
 .leaflet-bar.aerial-ctl a { width: auto !important; min-width: 32px; padding: 0 6px; }   /* 'Satellite'·'Satélite'가 32 px 칸에서 잘렸다(2026-10-22 언어별 캡처) */
 .aerial-ctl a[aria-pressed="true"] { color: var(--accent-ink); font-weight: 600; background: var(--accent-wash); }
 .leaflet-container.aerial .map-label { color: #fff; text-shadow: 0 0 3px rgba(0,0,0,.85); }
@@ -260,6 +262,7 @@ label.chk:has(input:disabled):hover input[type="checkbox"] { border-color: var(-
 .tray-empty .hint { padding: 8px 0; }
 .trow { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-height: 40px; }
 .trow .lbl { width: var(--lbl); flex: none; color: var(--ink-2); }
+.trow .lbl.strong { color: var(--ink); font-weight: 600; }   /* 대상지 줄 — 3D 설정 제목과 같은 글꼴(2026-11-08 사용자) */
 .trow .tval { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trow .total { font-size: 15px; line-height: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .trow .end { margin-left: auto; display: flex; gap: 8px; align-items: center; }
@@ -293,6 +296,7 @@ details.s3d > summary .ico { color: var(--ink-2); transition: transform .15s; }
 details.s3d[open] > summary .ico { transform: rotate(180deg); }
 details.s3d .body { padding: 0 0 4px; }
 details.s3d .trow { min-height: 40px; }
+details.s3d .trow:has(> label.chk) { min-height: 32px; }   /* 체크박스 줄은 낮게 — 두 줄이 이어지면 사이가 넓어 보였다(2026-11-08) */
 
 /* ── 결과 ── */
 /* 진행 — 4 px 막대 위로 달리는 고라니(위치 = 진행률, 다리 장 = 진행 푸시마다 한 장씩) */
@@ -366,7 +370,8 @@ details.s3d .trow { min-height: 40px; }
 .sheet-pick .grp { font-size: 12px; line-height: 18px; color: var(--ink-3); margin-top: 4px; }
 .grid13 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px; }
 .grid13 label { min-height: 28px; font-size: 12px; line-height: 18px; }
-.sub-h { display: flex; justify-content: space-between; gap: 8px; padding: 12px 16px 8px; font-size: 12px; line-height: 18px; color: var(--ink-2); border-top: 1px solid var(--line); }
+.sub-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 16px 8px; font-size: 12px; line-height: 18px; color: var(--ink-2); border-top: 1px solid var(--line); }
+.sub-t { display: flex; flex-direction: column; min-width: 0; }
 .sub-h #applied_style { color: var(--ink-3); }
 /* 결과 파일 덩어리 — 라벨 열 64 px 하나에 줄을 맞춘다 */
 .fblock { display: grid; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
@@ -440,15 +445,15 @@ footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-
   .modes .t { display: none; }
   .sheet-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-/* 넓은 창(브라우저 탭, 키운 패널 창) — 지도는 왼쪽을 다 쓰고 도구줄·트레이는 오른쪽 한 열(448 = Rhino 창 480 − 여백 32).
-   그대로 두면 지도가 가로로 납작해지고 트레이 줄이 화면 끝까지 퍼졌다(2026-10-21 Blender 1440×900) */
+/* 넓은 창(브라우저 탭, 키운 패널 창) — 도구줄(방식·검색)은 좁은 창처럼 지도 위에 붙이고, 트레이(옵션)는 오른쪽 한 열 맨 위부터(448 = Rhino 창 480 − 여백 32).
+   그대로 두면 지도가 가로로 납작해지고 트레이 줄이 화면 끝까지 퍼졌다(2026-10-21 Blender 1440×900). 도구줄을 지도 위로(2026-11-08 사용자) */
 @media (min-width: 960px) {
   body[data-screen="map"] section[data-screen="map"] { padding-bottom: 16px; }
   section[data-screen="map"] fieldset { display: grid; grid-template-columns: minmax(0, 1fr) 448px; grid-template-rows: auto auto minmax(0, 1fr); column-gap: 16px; }
-  .map-slot { grid-column: 1; grid-row: 1 / -1; min-height: 0; }
-  .toolrow { grid-column: 2; grid-row: 1; }
-  #search_msg { grid-column: 2; grid-row: 2; }
-  .tray { grid-column: 2; grid-row: 3; height: auto; margin-top: 0; }
+  .toolrow { grid-column: 1; grid-row: 1; }
+  #search_msg { grid-column: 1; grid-row: 2; }
+  .map-slot { grid-column: 1; grid-row: 3; min-height: 0; }
+  .tray { grid-column: 2; grid-row: 1 / -1; height: auto; margin-top: 0; }
   #menu { left: auto; width: 480px; }
   body[data-screen="result"] footer { padding-left: max(16px, calc((100% - 880px) / 2)); padding-right: max(16px, calc((100% - 880px) / 2)); }
 }
@@ -607,13 +612,13 @@ var PLACEMENT_TITLE = { origin: "대상지 중심(100 m 단위)을 (0,0)으로 �
 var PAPERS = { A3: [420, 297], A1: [841, 594], A0: [1189, 841] };
 var SCALES = [1000, 3000, 5000];
 var LAYER_OPTS = [["02b_landuse", "토지이용"], ["05_road_center", "도로 중심선", true], ["11_zoning", "용도지역"]];   // 셋째 = Global(OSM)에서도 그려진다
-var DEFAULTS = { lang: "en", output_lang: null, region: null, mode: "lots", placement: "origin", flatten_site: false, flatten_level: "mean", site_output: "curve", radius: 250, shape: "rect", import_after: true,
+var DEFAULTS = { lang: "en", output_lang: null, region: null, mode: "lots", placement: "origin", flatten_site: false, flatten_level: "mean", site_output: "mesh", radius: 250, shape: "rect", import_after: true,
   make_basemap: false, paper: "A3", paper_mm: [420, 297], scales: [5000], basemap_layers_on: [], basemap_preset: "a3",
   make_sheets: false, sheet_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24], floor_breaks: [12, 20], elev_preset: "20m",
   make_tables: false, include_minor_buildings: false,
   include_zoning: true, terrain_vertex_color: false, terrain_step: 0, terrain_block: true, geometry_type: "mesh", make_dwg: false, zoom_after_import: true, style: { preset: "std" }, update_later_date: "", closed_notices: [] };
 // 3D 생성(generate)에 늘 덮어 보내는 값 — 화면에 없는 옵션이 옛 prefs로 몰래 켜지지 않게(docs/ui_spec.md §3.4). 2D는 결과 화면 make_2d가 만든다
-var FIXED_3D = { make_basemap: false, make_sheets: false, make_tables: false, make_dwg: false, import_after: true, zoom_after_import: true, include_minor_buildings: false };
+var FIXED_3D = { make_basemap: false, make_sheets: false, make_tables: false, make_dwg: false, import_after: true, zoom_after_import: true, include_minor_buildings: false, include_zoning: true, site_output: "mesh" };
 var KEYS_2D = ["output_lang", "make_basemap", "paper", "paper_mm", "scales", "basemap_layers_on", "make_dwg", "make_sheets", "sheet_ids", "floor_breaks", "elev_preset", "make_tables", "style"];
 var MAP_STYLE = {   // 패널 지도 — 대상지·선택은 패널 블루 하나(DESIGN.md). 도면 안 대상지 색은 도면 스타일이 정한다
   lot: { color: "#465061", weight: 1, opacity: .4, fillOpacity: .01 },
@@ -685,9 +690,10 @@ function targetCenter() {   // [lng, lat]
   if (state.mode === "point") return state.point && state.point.center;
   return state.lotState && state.lotState.lots.length ? state.lotState.center : null;
 }
+function placeName(st) { return st.address || String(st.lot_name || "").replace(/_/g, " "); }   // 해외는 주소(Nominatim), 국내는 동·지번 이름(구역·일대)
 function targetLabel() {
-  if (state.mode === "area") return state.area ? tr("구역 {0}", fmtNum(state.area.area, 0) + " " + sqm()) : "";
-  if (state.mode === "point") return state.point ? (state.point.lot_name || "").replace(/_/g, " ") : "";
+  if (state.mode === "area") return state.area ? (placeName(state.area) || tr("구역 {0}", fmtNum(state.area.area, 0) + " " + sqm())) : "";
+  if (state.mode === "point") return state.point ? placeName(state.point) : "";
   return lotLabel() + (state.lotState && state.lotState.lots.length ? ", " + fmtArea(state.lotState.total_area) : "");
 }
 function sizeOf(o) { return o.shape === "rect" ? 2 * o.radius : o.radius; }   // 화면에 보이는 크기 — 원 = 반경, 사각형 = 한 변
@@ -804,7 +810,7 @@ function renderMap() {
   renderTray();
   setTimeout(function () { var i = state.blocked ? $("blocker").querySelector("h2") : $("search_input"); if (i && state.screen === "map" && !state.menuOpen && !busyTarget()) i.focus(); }, 0);
 }
-// 방식 기본값(축척·대상지 바닥면)을 옵션에 덮는다 — 방식을 바꿀 때만. 범위는 방식과 무관하게 마지막 값 그대로(constants.MODE_DEFAULTS)
+// 방식 기본값(축척)을 옵션에 덮는다 — 방식을 바꿀 때만. 범위는 방식과 무관하게 마지막 값 그대로(constants.MODE_DEFAULTS)
 function applyMode(m) {
   state.mode = m; state.options.mode = m;
   var d = state.init && state.init.modes && state.init.modes.defaults && state.init.modes.defaults[m];
@@ -881,7 +887,7 @@ function targetHtml(moreOpen) {
   if (m === "lots") {
     var ls = state.lotState; if (!ls || !ls.lots.length) return "";
     // 이름이 곧 필지 정보 열기(따로 있던 "필지 n개 정보" 줄을 합쳤다, 2026-10-19)
-    return '<div class="trow"><span class="lbl">' + tr("대상지") + '</span><button type="button" class="tname" data-act="lot_more" aria-expanded="' + !!moreOpen + '" aria-controls="lot_more" title="' + (ls.lots.length > 1 ? tr("필지 {0}개 정보", ls.lots.length) : tr("필지 정보")) + '">' +
+    return '<div class="trow"><span class="lbl strong">' + tr("대상지") + '</span><button type="button" class="tname" data-act="lot_more" aria-expanded="' + !!moreOpen + '" aria-controls="lot_more" title="' + (ls.lots.length > 1 ? tr("필지 {0}개 정보", ls.lots.length) : tr("필지 정보")) + '">' +
         '<span class="tval">' + esc(lotLabel()) + "</span>" + ico("down") + '</button><span class="total num">' + esc(fmtArea(ls.total_area)) + "</span>" +
       '<span class="end">' + clearBtn("clear") + "</span></div>" +
       '<details class="lot-more" id="lot_more"' + (moreOpen ? " open" : "") + '><summary hidden></summary><div class="body">' + lotInfoHtml(ls) + "</div></details>";
@@ -894,14 +900,12 @@ function targetHtml(moreOpen) {
     if (stamp.on) return '<div class="trow"><span class="lbl">' + tr("구역") + '</span><span class="hint">' + tr("지도를 끌어 자리를 맞추세요") + "</span>" +
       '<span class="end"><button type="button" class="btn sm primary" data-act="stamp_place">' + ico("move") + tr("여기에 놓기") + '</button><button type="button" class="btn sm" data-act="stamp_cancel">' + tr("취소") + "</button></span></div>";
     if (!a) return '<div class="tools" style="margin-left:0"><button type="button" class="btn sm" data-act="draw_start">' + ico("pen") + tr("지도에 그리기") + "</button>" + curveBtn + "</div>";
-    return '<div class="trow"><span class="lbl">' + tr("대상지") + '</span><span class="tval">' + tr("구역 {0}", '<b class="num">' + esc(fmtNum(a.area, 0)) + " " + sqm() + "</b>") +
-      (isGlobal() ? "" : ' <span class="sub">' + tr("(안의 필지 {0})", a.lots) + "</span>") + "</span>" +
-      '<span class="end">' + clearBtn("area_clear") + "</span></div>" +
-      '<div class="tools"><button type="button" class="btn sm" data-act="draw_start">' + ico("pen") + tr("다시 그리기") + "</button>" +
-      '<button type="button" class="btn sm" data-act="area_move">' + ico("move") + tr("옮기기") + "</button></div>";
+    return '<div class="trow"><span class="lbl strong">' + tr("대상지") + '</span><span class="tval" style="flex:1 1 0">' + (placeName(a) ? esc(placeName(a)) + " " : "") + '<span class="sub"><b class="num">' + esc(fmtNum(a.area, 0)) + " " + sqm() + "</b>" +
+      (isGlobal() ? "" : " " + tr("(안의 필지 {0})", a.lots)) + "</span></span>" +
+      '<span class="end" style="gap:0">' + iconBtn("draw_start", "pen", tr("다시 그리기")) + iconBtn("area_move", "move", tr("옮기기")) + clearBtn("area_clear") + "</span></div>";   // 구역을 고치는 단추는 주소 줄 끝에(2026-11-08 사용자 — 따로 한 줄이면 어색했다)
   }
   var p = state.point; if (!p) return "";
-  return '<div class="trow"><span class="lbl">' + tr("위치") + '</span><span class="tval">' + esc((p.lot_name || "").replace(/_/g, " ")) + "</span>" +
+  return '<div class="trow"><span class="lbl strong">' + tr("대상지") + '</span><span class="tval">' + esc(placeName(p)) + "</span>" +
     '<span class="end">' + clearBtn("point_clear") + "</span></div>";
 }
 function rangeHtml() {
@@ -909,7 +913,7 @@ function rangeHtml() {
   return '<div class="trow"><span class="lbl">' + tr("범위") + '</span><div class="seg" role="radiogroup" aria-label="' + tr("범위 형태") + '">' +
       SHAPES.map(function (s) { return SEG("shape", s, tr(SHAPE_LABEL[s]), o.shape === s ? " checked" : ""); }).join("") + "</div></div>" +
     '<div class="trow"><span class="lbl">' + (rect ? tr("한 변") : tr("반경")) + '</span><div class="seg" role="radiogroup" aria-label="' + (rect ? tr("사각형 한 변") : tr("원 반경")) + '">' +
-      SIZE_PRESETS.map(function (r) { return SEG("radius", r, fmtNum(rect ? 2 * r : r), o.radius === r ? " checked" : ""); }).join("") +
+      SIZE_PRESETS.map(function (r) { return SEG("radius", r, fmtNum(rect ? 2 * r : r) + " m", o.radius === r ? " checked" : ""); }).join("") +
       '<label><input type="radio" name="radius" value="custom" id="radius_c"' + (custom ? " checked" : "") + ">" + tr("직접") + "</label></div>" +
       '<span class="direct"><input type="number" name="radius_custom" id="radius_custom" min="' + (rect ? 200 : 100) + '" max="' + (rect ? 4000 : 2000) +
       '" step="' + (rect ? 100 : 50) + '" value="' + sizeOf(o) + '" aria-label="' + tr("{0} 직접 입력 (m)", rect ? tr("한 변") : tr("반경")) + '">m</span></div>' +
@@ -926,31 +930,27 @@ function settingsHtml(open) {
       return SEG("terrain_step", step, step ? tr("계단 {0} m", step) : tr("매끈하게"), (+(o.terrain_step || 0) === step ? " checked" : "") + (step ? ' title="' + tr("등고 모형처럼 단마다 평평한 지형") + '"' : ""));
     }).join("") + "</div>") +
     row("", '<label class="chk"><input type="checkbox" name="terrain_block"' + (o.terrain_block !== false ? " checked" : "") + ">" + tr("지형을 바닥까지 채우기") + "</label>") +
+    (canSite ? row("", '<label class="chk"><input type="checkbox" name="flatten_site"' + (o.flatten_site ? " checked" : "") + ">" + tr("대상지 땅 평평하게") + "</label>" +   // 지형 옵션 — 대상지 경계 안의 땅을 한 높이로(필지·구역만)
+        '<select class="sm" name="flatten_level" id="flatten_level" aria-label="' + tr("평평하게 할 높이") + '"' + (o.flatten_site ? "" : " hidden") + ">" +
+        [["mean", "경계 평균 높이"], ["min", "경계 최저 높이"], ["max", "경계 최고 높이"]].map(function (x) { return '<option value="' + x[0] + '"' + (o.flatten_level === x[0] ? " selected" : "") + ">" + tr(x[1]) + "</option>"; }).join("") + "</select>") : "") +
     (HOST.brep ? row(tr("형상"), '<div class="seg" role="radiogroup" aria-label="' + tr("3D 형상") + '">' +
       SEG("geometry_type", "mesh", "Mesh", (o.geometry_type !== "brep" ? " checked" : "") + ' title="' + tr("가볍고 빠릅니다") + '"') +
       SEG("geometry_type", "brep", "Brep", (o.geometry_type === "brep" ? " checked" : "") + ' title="' + tr("건물은 닫힌 폴리서피스로 냅니다. 파일이 무겁고 오래 걸립니다") + '"') + "</div>") : "") +
-    (canSite ? row(tr("대상지"), '<div class="seg" role="radiogroup" aria-label="' + tr("대상지 바닥면") + '">' + SEG("site_output", "curve", tr("Line"), (o.site_output !== "mesh" ? " checked" : "") + ' title="' + tr("대상지 경계선만 냅니다") + '"') +
-        SEG("site_output", "mesh", tr("Surface"), (o.site_output === "mesh" ? " checked" : "") + ' title="' + tr("경계선과 함께, 대상지 경계로 자른 지형을 따로 냅니다") + '"') + "</div>") +
-      row("", '<label class="chk"><input type="checkbox" name="flatten_site"' + (o.flatten_site ? " checked" : "") + ">" + tr("대상지 평탄화") + "</label>" +
-        '<select class="sm" name="flatten_level" id="flatten_level" aria-label="' + tr("평평하게 할 높이") + '"' + (o.flatten_site ? "" : " hidden") + ">" +
-        [["mean", "경계 평균 높이"], ["min", "경계 최저 높이"], ["max", "경계 최고 높이"]].map(function (x) { return '<option value="' + x[0] + '"' + (o.flatten_level === x[0] ? " selected" : "") + ">" + tr(x[1]) + "</option>"; }).join("") + "</select>") : "") +
-    (glob ? "" : row("", '<label class="chk" title="' + tr("용도지역, 지구, 구역, 도시계획시설, 지구단위계획 경계") + '"><input type="checkbox" name="include_zoning"' + (o.include_zoning ? " checked" : "") + ">" + tr("용도지역 경계선") + "</label>")) +
     "</div></details>";
 }
 function updateSummaries() {
   var o = state.options, glob = isGlobal();
   var s = $("s3d_sum");
   if (s) {
-    // 요약 = 줄 이름 + 고른 칸("지형 매끈하게", "대상지 Surface") — 펼친 화면과 같은 말
+    // 요약 = 줄 이름 + 고른 칸("지형 매끈하게") — 펼친 화면과 같은 말. 기본값(면 생성·바닥 채움)은 쓰지 않는다
     var p = [o.placement === "world" && !isAbroad(targetCenter()) ? tr("GIS 좌표") : tr("원점(0,0)"), tr("지형") + " " + (+o.terrain_step ? tr("계단 {0} m", o.terrain_step) : tr("매끈하게"))];
     if (o.terrain_block === false) p.push(tr("지형 표면만"));   // 기본(채움)은 요약에 쓰지 않는다
     if (HOST.brep && o.geometry_type === "brep") p.push("Brep");   // 기본(Mesh)은 요약에 쓰지 않는다
-    if (state.mode === "lots" || state.mode === "area") { if (o.site_output === "mesh") p.push(tr("대상지") + " " + tr("Surface")); if (o.flatten_site) p.push(tr("평탄화")); }
-    if (!glob && !o.include_zoning) p.push(tr("경계선 뺌"));
+    if ((state.mode === "lots" || state.mode === "area") && o.flatten_site) p.push(tr("대상지 땅 평평하게"));
     s.textContent = p.join(", ");
   }
   var rh = $("radius_hint"); if (rh) rh.hidden = !(sizeOf(o) > 1000);
-  var fl = $("flatten_level"); if (fl) fl.hidden = !o.flatten_site;   // 평탄화를 켰을 때만 높이 기준이 보인다
+  var fl = $("flatten_level"); if (fl) fl.hidden = !o.flatten_site;   // 평평하게를 켰을 때만 높이 기준이 보인다
   var ba = $("bm_auto"); if (ba) ba.innerHTML = autoScaleHtml();
   var ss = $("sheets_count"); if (ss) ss.textContent = tr("{0}장", sheetPick().length);
   var mb = $("make2d_btn");
@@ -1094,6 +1094,7 @@ function setPointLayer() {
   pointLayer = L.circleMarker(ll(p.center), Object.assign({ interactive: false }, MAP_STYLE.point)).addTo(map);
 }
 // 필지 정보 — 용도지역(법정 건폐·용적)·지역지구등·대장/도형 면적. 조례값은 토지이음에서 본다
+function iconBtn(act, icon, label) { return '<button type="button" class="ib sm" data-act="' + act + '" aria-label="' + label + '" title="' + label + '">' + ico(icon) + "</button>"; }
 function clearBtn(act) { return '<button type="button" class="ib sm" data-act="' + act + '" aria-label="' + tr("대상지 지우기") + '" title="' + tr("대상지 지우기") + '">' + ico("x") + "</button>"; }
 // 필지 정보 — 트레이에 이미 보이는 이름·면적은 되풀이하지 않는다. 여러 필지일 때만 필지 이름(누르면 지도 이동)과 빼기
 function lotInfoHtml(ls) {
@@ -1451,7 +1452,7 @@ function startTimer() {
 // 드물게 쓰는 '다시 불러오기'는 버튼이 아니라 아래 안내 줄(⋯ 메뉴는 항목 하나라 숨긴 이유가 보이지 않았다)
 function docTitle() {
   var c = (state.result && state.result.context) || {};
-  if (state.result && state.result.restored && !c.imported) return tr("지난 결과");
+  if (state.result && state.result.restored) return tr("3D 모델 생성 완료");   // 다시 연 화면도 처음과 같다 — 문서에 없으면 [불러오기]가 따로 보인다
   return c.imported || HOST.id === "web" ? tr("3D 모델 생성 완료") : tr("3D 파일 생성 완료 ({0}에 불러오지 못함)", hostName());
 }
 function docStatsHtml() {
@@ -1465,8 +1466,7 @@ function docActsHtml() {
   var r = state.result, c = r.context || {}, imported = !!c.imported;
   var folder = '<button type="button" class="btn sm" data-act="open" data-path="' + esc(r.dir) + '" title="' + esc(r.dir) + '">' + ico("folder") + dirLabel() + "</button>";
   if (HOST.id === "web") return '<button type="button" class="btn" data-act="import">' + ico("eye") + tr("3D 보기") + '</button><button type="button" class="btn" data-act="open" data-path="' + esc(c.path) + '">' + ico("download") + tr("{0} 받기", esc(HOST.model)) + "</button>";
-  if (!imported) return '<button type="button" class="btn sm primary" data-act="import" title="' + tr("결과 폴더의 {0}을 지금 열린 파일로 불러옵니다", esc(HOST.model)) + '">' + ico("import") + tr("{0}에 불러오기", esc(hostName())) + "</button>" + folder;
-  return folder;
+  return folder;   // [Rhino에 불러오기]는 없다(2026-11-07 사용자) — 못 넣었으면 아래 붉은 안내가 경로와 직접 가져오는 법을 말한다
 }
 function docAgainHtml() {
   var c = (state.result && state.result.context) || {};
@@ -1477,9 +1477,9 @@ function docStatusHtml(ok, text, path) {
 }
 function doneHtml() {   // 3D 완료 카드 — 제목, 주소, [열기]만(2026-10-19 사용자 요청). 불러오지 못했을 때만 경로와 [Rhino에 불러오기]
   var r = state.result, c = r.context || {};
-  return '<div class="card" id="doc_card"><div class="top"><div class="done-head"><h2 class="done-line" tabindex="-1"><span id="doc_title">' + esc(docTitle()) + '</span><span class="num sub">' + (r.restored ? "" : fmtTime(r.elapsed_s)) + "</span></h2>" +
+  return '<div class="card" id="doc_card"><div class="top"><div class="done-head"><h2 class="done-line" tabindex="-1"><span id="doc_title">' + esc(docTitle()) + '</span><span class="num sub">' + (r.restored ? esc(builtLabel(r.restored.built_at)) : fmtTime(r.elapsed_s)) + "</span></h2>" +
     '<span class="doc-acts" id="doc_acts">' + docActsHtml() + "</span></div>" +
-    '<div class="sub ellip">' + esc(r.restored ? r.restored.label + ", " + builtLabel(r.restored.built_at) : targetLabel()) + "</div>" +
+    '<div class="sub ellip">' + esc(r.restored ? r.restored.label : targetLabel()) + "</div>" +
     '<div id="doc_status">' + docStatusHtml(!!c.imported, c.import_text, c.path) + "</div></div></div>" +
     '<div class="card card2d" id="card2d"></div><div id="log2d"></div>';
 }
@@ -1506,15 +1506,11 @@ function renderCard2d() {
   if (m) html += made2dHtml(m);
   if (j === "cancelled") html += '<div class="top"><div class="hint" role="status">' + esc(state.err2d) + "</div></div>";
   if (j === "failed") html += '<div class="top"><div class="err-card" role="alert">' + errorHelpHtml(state.err2dObj || { title: state.err2d }) + "</div></div>";
-  var rs = state.result && state.result.restored, others = rs ? (rs.made2d_list || []).filter(function (x) { return !m || x.dir !== m.folder; }) : [];
-  if (others.length)   // 지난 결과 — 이 카드 말고 앞서 만든 2D(그대로 남아 있다). made_2d.json이 있으면 카드로 바꿔 본다
-    html += '<div class="top"><div class="tray-h">' + tr("이전 2D") + '</div><div class="mlist">' + others.slice(-3).reverse().map(function (x) {
-      var i = rs.made2d_list.indexOf(x);
-      return '<div class="prev2d">' + ico("folder") + "<span>" + esc(x.dir.split(/[\\/]/).pop()) + "</span>" + (x.made2d ? '<button type="button" class="btn sm" data-act="prev2d" data-i="' + i + '">' + tr("보기") + "</button>" : "") +
-        '<button type="button" class="btn sm" data-act="open" data-path="' + esc(x.dir) + '">' + tr("폴더") + "</button></div>";
-    }).join("") + "</div></div>";
+  var rs = state.result && state.result.restored, old2d = rs && !m ? (rs.made2d_list || []) : [];
+  if (old2d.length)   // 지난 결과에 2D 폴더는 있는데 카드(made_2d.json)가 없다 — 이 기능 전에 만든 2D. 폴더만 연다
+    html += '<div class="top"><div class="prev2d">' + ico("folder") + "<span>" + tr("만든 2D {0}개", old2d.length) + '</span><button type="button" class="btn sm" data-act="open" data-path="' + esc(old2d[old2d.length - 1].dir) + '">' + tr("폴더 열기") + "</button></div></div>";
   if (!m || state.form2d) html += form2dHtml();
-  else html += '<div class="acts"><button type="button" class="btn sm" data-act="form2d">' + ico("plus") + tr("다른 2D도 만들기") + "</button></div>";
+  else html += '<div class="acts"><span style="flex:1"></span><button type="button" class="btn sm" data-act="form2d">' + ico("plus") + tr("다른 2D도 만들기") + "</button></div>";
   el.innerHTML = html; updateSummaries(); renderExportedList();
 }
 // 2D 카드 — 고르는 타일 셋(베이스맵·다이어그램·조서). 켠 타일 안에만 칩 한 줄. 인쇄 용어(용지·축척)는 '직접'에서만(2026-10-19 QA)
@@ -1586,11 +1582,25 @@ function form2dHtml() {
     tile2d("make_sheets", "grid", tr("다이어그램"), tr("현황도와 분석도 (.svg, .ai)"), shBody) +
     tile2d("make_tables", "table", tr("조서"), tr("필지와 건축물 표 (엑셀 CSV)"), "") + "</div>";
 }
+function made2dLabel(x) {   // 지난 결과의 2D 한 개 → '11-06 15:02 선명' (스타일 이름은 프리셋 이름 또는 저장한 이름)
+  var st = (x.made2d && x.made2d.options && x.made2d.options.style) || {}, presets = (state.init && state.init.style_presets) || {};
+  var name = st.name || (presets[st.preset] && tr(presets[st.preset].name)) || x.dir.split(/[\\/]/).pop();
+  return builtLabel(x.made_at) + " " + name;
+}
+function made2dPickHtml(m) {   // 2D 카드 제목 옆 — 만든 시간. 지난 결과에서 2D를 여러 번 만들었으면 여기서 고른다(카드가 남은 것만)
+  var rs = state.result && state.result.restored;
+  if (!rs) return '<span class="num sub">' + fmtTime(m.elapsed_s) + "</span>";
+  var picks = (rs.made2d_list || []).filter(function (x) { return x.made2d; });
+  if (picks.length < 2) return '<span class="num sub">' + esc(builtLabel((picks[0] || {}).made_at)) + "</span>";
+  return '<select class="sm" id="pick2d" aria-label="' + tr("만든 2D 고르기") + '">' + picks.slice().reverse().map(function (x) {
+    return '<option value="' + (rs.made2d_list.indexOf(x)) + '"' + (x.made2d.folder === m.folder ? " selected" : "") + ">" + esc(made2dLabel(x)) + "</option>";
+  }).join("") + "</select>";
+}
 function made2dHtml(m) {
   var bm = m.basemap || {}, sheets = m.sheets || [], tables = m.tables || [], dir = state.result.dir, html = "";
   var emptyN = sheets.filter(function (x) { return x.empty; }).length;
   var folder = m.folder || dir + "/2D";
-  html += '<div class="top"><div class="done-head"><h2 class="done-line"><span>' + tr("2D 자료 생성 완료") + '</span><span class="num sub">' + fmtTime(m.elapsed_s) + "</span></h2>" +
+  html += '<div class="top"><div class="done-head"><h2 class="done-line"><span>' + tr("2D 자료 생성 완료") + '</span>' + made2dPickHtml(m) + "</h2>" +
     '<span class="doc-acts"><button type="button" class="btn sm" data-act="open" data-path="' + esc(folder) + '" title="' + esc(folder) + '">' + ico("folder") + dirLabel() + "</button></span></div></div>";
   if (bm.ready || (bm.exported || []).length) {
     // 다른 축척은 아직 안 만든 것만 칩으로 — 누르면 바로 그 축척 .ai를 쓴다(예전: 이미 만든 축척이 골라진 select + 버튼이라 같은 파일을 다시 썼다)
@@ -1601,9 +1611,9 @@ function made2dHtml(m) {
       '<div id="bm_err"></div></div>';
   }
   if (sheets.length) {
-    html += '<div class="sub-h"><span>' + tr("다이어그램 {0}장", sheets.length) + (emptyN ? tr(", 빈 {0}장", emptyN) : "") + '</span><span id="applied_style">' + esc(styleLabel(state.appliedStyle)) + "</span></div>" +
-      '<div class="sheet-grid">' + orderSheets(sheets).map(sheetCellHtml).join("") + "</div>" +
-      '<div class="acts"><span style="flex:1"></span><button type="button" class="btn sm" data-act="sheet_ai_all" title="' + tr("다이어그램을 모두 Illustrator용 레이어 .ai로 2D/sheets 폴더에 저장합니다") + '">' + ico("export") + tr("모두 .ai로 저장") + "</button></div>";
+    html += '<div class="sub-h"><span class="sub-t"><span>' + tr("다이어그램 {0}장", sheets.length) + (emptyN ? tr(", 빈 {0}장", emptyN) : "") + '</span><span id="applied_style">' + esc(styleLabel(state.appliedStyle)) + "</span></span>" +
+      '<button type="button" class="btn sm" data-act="sheet_ai_all" title="' + tr("다이어그램을 모두 Illustrator용 레이어 .ai로 2D/sheets 폴더에 저장합니다") + '">' + ico("export") + tr("모두 .ai로 저장") + "</button></div>" +
+      '<div class="sheet-grid">' + orderSheets(sheets).map(sheetCellHtml).join("") + "</div>";
   }
   if (tables.length) {
     html += '<div class="fblock"><div class="frow"><span class="k">' + tr("조서 CSV") + '</span><span class="files">' + tables.map(function (t) { return '<button type="button" class="link" data-act="open" data-path="' + esc(t.path) + '">' + esc(t.name) + "</button>"; }).join("") + "</span></div></div>";
@@ -2069,8 +2079,8 @@ var ACTIONS = {
     var rs = state.result && state.result.restored;   // 지난 결과(최근 결과에서 열었다) — 그 대상지를 지도에 되살린다
     var last = { key: state.resultKey, restored: rs || null, result: state.result, made2d: state.made2d, job2d: state.job2d, form2d: state.form2d, err2d: state.err2d, err2dObj: state.err2dObj };
     state.run = "idle"; state.result = null; state.made2d = null; state.job2d = "idle"; state.progress = null; state.styleOpen = false;
+    state.last = last;   // 지도를 그리기 전에 — 나중에 두면 첫 그림에 [결과로 돌아가기]가 없다(대상지 정보가 늦게 오면 한참 안 보였다, 2026-11-07 Rhino 시험)
     if (!(rs && restoreResultTarget(rs))) go("map");
-    state.last = last;
   },
   to_result: function () {
     if (!canReturn()) return;
@@ -2081,10 +2091,6 @@ var ACTIONS = {
   cancel: requestCancel,
   make2d: startMake2d,
   form2d: function () { state.form2d = true; renderCard2d(); },
-  prev2d: function (b) {   // 지난 결과의 이전 2D를 카드로
-    var rs = state.result && state.result.restored, x = rs && (rs.made2d_list || [])[+b.dataset.i];
-    if (x && x.made2d) { apply2d(x.made2d); renderCard2d(); }
-  },
   tile2d: function (b) { var k = b.dataset.key; state.options[k] = !state.options[k]; afterOptionChange(k); renderCard2d(); },
   bm_preset: function (b) {
     var v = b.dataset.v, o = state.options; o.basemap_preset = v;
@@ -2182,6 +2188,11 @@ document.addEventListener("mouseover", function (e) { var r = e.target.closest("
 document.addEventListener("mouseout", function (e) { var r = e.target.closest(".chip-row"); if (r) highlightLot(r.dataset.pnu, false); });
 document.addEventListener("change", function (e) {
   if (e.target.id === "lang_pick") { setLang(e.target.value); return; }
+  if (e.target.id === "pick2d") {   // 지난 결과에서 만든 2D를 바꿔 본다 — 카드만 바뀐다
+    var rs = state.result && state.result.restored, x = rs && (rs.made2d_list || [])[+e.target.value];
+    if (x && x.made2d) { apply2d(x.made2d); renderCard2d(); }
+    return;
+  }
   if (state.styleOpen && e.target.id === "st_sheet") { state.styleSheet = +e.target.value; requestPreview(); return; }
   if (state.styleOpen && (e.target.id === "st_labels" || e.target.id === "st_subtitle")) { state.styleEdit[e.target.id === "st_labels" ? "labels" : "subtitle_en"] = e.target.checked; afterStyleChange(false); return; }
   if (!e.target.closest(OPTION_AREAS)) return;
@@ -2442,7 +2453,7 @@ if (MOCK) {
     state.mode = state.mode || "lots";   // 목 데이터는 필지 방식
     var ml = (location.search.match(/[?&]lang=(\w+)/) || [])[1]; if (ml) msgs[0].options = Object.assign({}, msgs[0].options, { lang: ml });
     var up = (location.search.match(/[?&]update=(\w+)/) || [])[1];   // &update=soft|hard — 업데이트 모달 보기
-    msgs[0].host = Object.assign({}, msgs[0].host, { self_update: !/[?&]selfupd=0/.test(location.search) });   // [지금 업데이트]. &selfupd=0 — 수동 안내(SketchUp·yak 없음)
+    msgs[0].host = Object.assign({}, msgs[0].host, { self_update: !/[?&]selfupd=0/.test(location.search) });   // [지금 업데이트]. &selfupd=0 — 수동 안내(스토어가 업데이트하는 프로그램·yak 없음)
     if (up) msgs[0].update = up === "hard" ? { latest: "0.3.0", min: "0.3.0" }
       : { latest: "0.3.0", body: "새 버전부터 계정으로 로그인합니다. 무료로 계속 쓸 수 있습니다.", deadline: "12월 1일",
           items: ["로그인과 최근 대상지 동기화", "결과 화면 하단 후원 안내", "현황도 3종 추가"] };

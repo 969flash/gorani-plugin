@@ -256,6 +256,14 @@ def _get_name_options(msg):
     return {"region": msg.get("region"), "output_lang": loader.load("site_prefs").get_options().get("output_lang")}
 
 
+def _get_abroad_address(lnglat, msg):
+    # type: (list, dict) -> str
+    """해외 대상지(지역 TM)면 패널 '대상지' 줄에 위경도 대신 보일 주소(Nominatim reverse), 국내·못 받으면 ''. 결과 폴더 이름(lot_name)은 그대로."""
+    if not loader.load("non_rhino_utils").is_local_projection():
+        return ""
+    return loader.load("osm_context").get_place_address(float(lnglat[0]), float(lnglat[1]), _get_name_options(msg).get("output_lang") or "en")
+
+
 def get_area_state(msg, site_db=None):
     # type: (dict, str) -> dict
     """area_state 페이로드 — 구역 링 하나를 정리·검사하고 안의 필지를 센다.
@@ -297,7 +305,7 @@ def get_area_state(msg, site_db=None):
         "center": review_map.get_wgs84_ring([target.center])[0], "center_tm": [cx, cy],
         "offsets": [[round(x - cx, 3), round(y - cy, 3)] for x, y in ring], "area": round(non_rhino_utils.get_ring_area(ring), 1),
         "lots": len(target.lots), "lots_area": round(sum(lot.area for lot in target.lots), 1), "lot_name": target.name,
-        "target_geojson": geojson, "warnings": target.warnings,
+        "address": _get_abroad_address(review_map.get_wgs84_ring([target.center])[0], msg), "target_geojson": geojson, "warnings": target.warnings,
     }
 
 
@@ -315,7 +323,7 @@ def get_point_state(msg, site_db=None):
                                                          "options": _get_name_options(msg)})
     target = context_builder.resolve_target(request)
     return {"type": "point_state", "ok": True, "center": [round(lng, 7), round(lat, 7)], "center_tm": [round(x, 2), round(y, 2)],
-            "lot_name": target.name}
+            "lot_name": target.name, "address": _get_abroad_address((lng, lat), msg)}
 
 
 def get_area_packs(bbox, seq=None, manifest=None):

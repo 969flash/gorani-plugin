@@ -55,15 +55,13 @@ def get_options3d(options):
     """
     입력: 생성 options(PANEL_DEFAULT_OPTIONS로 채운 것).
     처리: 3D 설정을 한 칸에 — 이벤트 매개변수 25개 상한 안에 들게. 기본값도 적는다(기본 그대로 쓰는 비율을 세려고).
-    출력: 'smooth,block,site-line,flat-no,zoning,db' 꼴. 순서 = 지형·바닥 채우기·대상지·평탄화·용도지역 경계선·한국 자료 출처.
+    출력: 'smooth,block,flat-no,db' 꼴. 순서 = 지형·바닥 채우기·대상지 땅 평평하게·한국 자료 출처(용도지역·지구 선·대상지 면 생성은 늘 해서 옵션이 아니다, 2026-11-08).
     """
     step = int(float(options.get("terrain_step") or 0))
     return ",".join([
         "step%d" % step if step else "smooth",
         "block" if options.get("terrain_block", True) else "surface-only",
-        "site-surface" if options.get("site_output") == "mesh" else "site-line",
         "flat-" + str(options.get("flatten_level") or "mean") if options.get("flatten_site") else "flat-no",
-        "zoning" if options.get("include_zoning", True) else "zoning-no",
         "osm" if options.get("region") == "global" else "db"])
 
 

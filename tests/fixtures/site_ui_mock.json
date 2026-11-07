@@ -464,20 +464,17 @@
      "scales": [
       1000,
       3000
-     ],
-     "site_output": "mesh"
+     ]
     },
     "area": {
      "scales": [
       3000
-     ],
-     "site_output": "curve"
+     ]
     },
     "point": {
      "scales": [
       5000
-     ],
-     "site_output": "curve"
+     ]
     }
    },
    "shapes": {

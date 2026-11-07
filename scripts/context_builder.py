@@ -378,11 +378,29 @@ def get_place_name(center, site_db=None):
     return (parts[-2] if len(parts) >= 2 else ""), (lot.lot_number or "")
 
 
-def _get_place_label(center, suffix, site_db):
-    # type: (tuple, str, str) -> str
-    """'성수동2가_333-139_구역' — 결과 폴더명. 필지가 없으면 'E198100_N552000_<suffix>', 해외면 'N37.7929_W122.4194_<suffix>'."""
+def get_folder_safe_name(address):
+    # type: (str) -> str
+    """주소 '도로, 동네, 도시' → 폴더 이름 칸 '도로_동네_도시'. Windows·macOS에서 못 쓰는 글자(<>:"/\\|?* 제어 문자)는 빼고, 길면 뒤 칸부터 뺀다."""
+    parts = [re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", part).strip(" .") for part in (address or "").split(",")]
+    name = ""
+    for part in (part for part in parts if part):   # 넘치면 뒤 칸을 통째로 뺀다 — 글자로 자르면 'Paris'가 'Pa'가 됐다
+        joined = name + "_" + part if name else part
+        if len(joined) > constants.RESULT_ADDRESS_MAX_CHARS:
+            break
+        name = joined
+    return name or (parts[0] if parts else "")[:constants.RESULT_ADDRESS_MAX_CHARS].strip(" ._")   # 첫 칸만으로 넘치면 그것만 자른다
+
+
+def _get_place_label(center, suffix, site_db, lang="ko"):
+    # type: (tuple, str, str, str) -> str
+    """'성수동2가_333-139_구역' — 결과 폴더명. 필지가 없으면 'E198100_N552000_<suffix>'.
+    해외면 주소 'Greenwich Street_Russian Hill_San Francisco_<suffix>'(osm_context.get_place_address, lang 언어 — 2026-11-08 사용자),
+    주소를 못 받으면 'N37.7929_W122.4194_<suffix>'."""
     if non_rhino_utils.is_local_projection():
         lng, lat = non_rhino_utils.get_wgs84_from_tm(*center)
+        address = get_folder_safe_name(osm_context.get_place_address(lng, lat, lang))
+        if address:
+            return "%s_%s" % (address, suffix)
         return "%s%.4f_%s%.4f_%s" % ("N" if lat >= 0 else "S", abs(lat), "E" if lng >= 0 else "W", abs(lng), suffix)
     dong, jibun = get_place_name(center, site_db)
     if not dong and not jibun:
@@ -420,12 +438,12 @@ def resolve_target(request, with_lots=True):
         center = ((min_x + max_x) * 0.5, (min_y + max_y) * 0.5)
         target = Target(mode, spec, get_target_key(spec), "", center, [ring], [])
         if with_lots and abroad:
-            target.name = _get_place_label(center, non_rhino_utils.get_output_name("area", lang), site_db)
+            target.name = _get_place_label(center, non_rhino_utils.get_output_name("area", lang), site_db, lang)
         elif with_lots:
             lots = get_area_lots(ring, site_db)
             target.lot_data = _load_lots([lot.pnu for lot in lots], site_db) if lots else None
             target.lots = list(target.lot_data.lots) if target.lot_data else []
-            target.name = _get_place_label(center, non_rhino_utils.get_output_name("area", lang), site_db)
+            target.name = _get_place_label(center, non_rhino_utils.get_output_name("area", lang), site_db, lang)
             if not lots:
                 target.warnings.append(_warning("warn", "area_no_lots", tr("구역 안 필지 0 — 대상지 조서가 비어 나옵니다"),
                                                 tr("필지 면적의 {0} % 이상이 구역 안에 있어야 대상 필지로 셉니다.", round(constants.AREA_LOT_MIN_FRACTION * 100))))
@@ -437,7 +455,7 @@ def resolve_target(request, with_lots=True):
     spec["center"] = [round(center[0], 2), round(center[1], 2)]
     target = Target(mode, spec, get_target_key(spec), "", center, [], [])
     if with_lots:
-        target.name = _get_place_label(center, non_rhino_utils.get_output_name("vicinity", lang), site_db)
+        target.name = _get_place_label(center, non_rhino_utils.get_output_name("vicinity", lang), site_db, lang)
     return target
 
 
@@ -922,10 +940,18 @@ def get_last_2d_dir(result_dir):
 
 def _get_2d_dirs(result_dir):
     # type: (str) -> list
-    """결과 폴더 안 2D 폴더(2D_<스타일>_<HHMM>, 예전 2D/) — 만든 순서(이름의 시각)."""
+    """
+    결과 폴더 안 2D 폴더 이름 — 만든 순서(마지막이 최신).
+    2D_<스타일>_<HHMM>, 예전 2D/, 그리고 사용자가 이름을 바꿨어도 made_2d.json이 든 폴더.
+    순서는 폴더 수정 시각: 이름순이면 스타일 이름이 시각보다 앞이라 '2D_선명_2245'가 '2D_표준_1343'보다 앞서 최신이 뒤바뀐다(2026-11-07 시험).
+    """
     prefix = constants.RESULT_2D_DIR_FORMAT.split("%")[0]
-    return sorted(name for name in os.listdir(result_dir)
-                  if os.path.isdir(os.path.join(result_dir, name)) and (name.startswith(prefix) or name == constants.RESULT_2D_DIRNAME))
+    found = []
+    for name in os.listdir(result_dir):
+        path = os.path.join(result_dir, name)
+        if os.path.isdir(path) and (name.startswith(prefix) or name == constants.RESULT_2D_DIRNAME or os.path.exists(os.path.join(path, constants.MADE_2D_FILE_NAME))):
+            found.append((os.path.getmtime(path), name))
+    return [name for _mtime, name in sorted(found)]
 
 
 def get_recent_results(result_root=None, hidden=(), model_name=None, limit=None):
@@ -966,7 +992,7 @@ def get_result_state(result_dir, model_name=None):
           (구역 링·위치·필지 중심 — crs로 바꾼다, non_rhino_utils.get_lnglat_in_crs).
           만든 2D는 폴더마다 made_2d.json(2D를 만들 때 패널이 받은 결과)이 있으면 그것도 — 패널이 2D 카드를 그대로 다시 그린다.
     출력: {type: result_opened, dir, lot_name, label, built_at, context{path, buildings, imported}, options, target, target_lnglat{center, ring},
-          made2d_list: [{dir, made2d|null}](만든 순서 — 마지막이 최신)}.
+          made2d_list: [{dir, made2d|null, made_at}](만든 순서 — 마지막이 최신, made_at = 폴더 수정 시각)}.
     """
     meta = _read_meta(result_dir)
     model_name = model_name or constants.HOST_LABELS[get_host()]["model"]
@@ -980,18 +1006,39 @@ def get_result_state(result_dir, model_name=None):
             "context": {"path": os.path.join(result_dir, model_name), "buildings": (meta.get("counts") or {}).get("buildings"), "imported": False},
             "options": meta.get("options") or {}, "target": target, "korea": crs == "EPSG:5186",
             "target_lnglat": {"center": (point or center or [None])[0], "ring": ring},
-            "made2d_list": [{"dir": os.path.join(result_dir, name), "made2d": _read_made_2d(os.path.join(result_dir, name))} for name in _get_2d_dirs(result_dir)]}
+            "made2d_list": [{"dir": os.path.join(result_dir, name), "made2d": _read_made_2d(os.path.join(result_dir, name), result_dir),
+                             "made_at": time.strftime("%Y-%m-%dT%H:%M", time.localtime(os.path.getmtime(os.path.join(result_dir, name))))} for name in _get_2d_dirs(result_dir)]}
 
 
-def _read_made_2d(folder):
-    # type: (str) -> dict
-    """2D 폴더의 made_2d.json — 없거나(이 기능 전에 만든 2D) 깨졌으면 None(패널은 폴더 링크만)."""
-    path = os.path.join(folder, constants.MADE_2D_FILE_NAME)
+def _rebase_paths(value, mapping):
+    # type: (object, list) -> object
+    """저장된 절대 경로(만들 때의 위치)를 지금 위치로 — mapping [(옛 경로, 지금 경로)]. 문자열·목록·dict 안을 모두 훑는다(썸네일 data: 주소는 그대로)."""
+    if isinstance(value, str):
+        for old, new in mapping:
+            if old and (value == old or value.startswith(old + os.sep) or value.startswith(old + "/")):
+                return new + value[len(old):]
+        return value
+    if isinstance(value, list):
+        return [_rebase_paths(item, mapping) for item in value]
+    if isinstance(value, dict):
+        return {key: _rebase_paths(item, mapping) for key, item in value.items()}
+    return value
+
+
+def _read_made_2d(folder, result_dir):
+    # type: (str, str) -> dict
+    """
+    2D 폴더의 made_2d.json — 없거나(이 기능 전에 만든 2D) 깨졌으면 None(패널은 폴더 링크만).
+    안의 절대 경로(도면·.ai·조서)는 폴더 이름을 바꾸거나 옮겨도 열리게 지금 위치로 바꾼다(2D 폴더가 먼저 — 더 긴 경로).
+    """
     try:
-        with open(path, encoding="utf-8") as handle:
-            return json.load(handle)
+        with open(os.path.join(folder, constants.MADE_2D_FILE_NAME), encoding="utf-8") as handle:
+            made = json.load(handle)
     except (OSError, ValueError):
         return None
+    made = _rebase_paths(made, [(made.get("folder"), folder), (made.get("dir"), result_dir)])
+    made["folder"], made["dir"] = folder, result_dir
+    return made
 
 
 def get_basemap_file_name(prepared, scale, ext=".ai"):
