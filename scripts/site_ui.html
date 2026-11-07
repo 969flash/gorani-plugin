@@ -240,7 +240,9 @@ label.chk:has(input:disabled):hover input[type="checkbox"] { border-color: var(-
 .chip.lv-danger { color: var(--danger); }
 .leaflet-container { font: inherit; }
 .leaflet-bar { border: 1px solid var(--line) !important; border-radius: 8px !important; overflow: hidden; box-shadow: 0 1px 2px rgba(0, 0, 0, .08) !important; }
-.leaflet-bar a { border-radius: 0 !important; width: 32px !important; height: 32px !important; line-height: 32px !important; color: var(--ink) !important; }
+.leaflet-bar a { border-radius: 0 !important; width: 32px !important; height: 32px !important; line-height: 32px !important; color: var(--ink) !important; background-color: var(--surface) !important; border-bottom-color: var(--line) !important; }
+.leaflet-bar a:hover { background-color: var(--hover) !important; }
+.leaflet-bar a.leaflet-disabled { background-color: var(--surface) !important; color: var(--ink-3) !important; }   /* Leaflet 기본은 흰 바탕 — 다크 모드에서 밝은 --ink 글자가 흰 바탕에 묻혔다(2026-11-08) */
 .aerial-ctl a { font-size: 12px; line-height: 16px; }   /* 글자색은 확대·축소 단추와 같은 --ink(.leaflet-bar a) */
 .leaflet-bar.aerial-ctl a { width: auto !important; min-width: 32px; padding: 0 6px; }   /* 'Satellite'·'Satélite'가 32 px 칸에서 잘렸다(2026-10-22 언어별 캡처) */
 .aerial-ctl a[aria-pressed="true"] { color: var(--accent-ink); font-weight: 600; background: var(--accent-wash); }
@@ -293,6 +295,7 @@ details.s3d > summary .ico { color: var(--ink-2); transition: transform .15s; }
 details.s3d[open] > summary .ico { transform: rotate(180deg); }
 details.s3d .body { padding: 0 0 4px; }
 details.s3d .trow { min-height: 40px; }
+details.s3d .trow:has(> label.chk) { min-height: 32px; }   /* 체크박스 줄은 낮게 — 두 줄이 이어지면 사이가 넓어 보였다(2026-11-08) */
 
 /* ── 결과 ── */
 /* 진행 — 4 px 막대 위로 달리는 고라니(위치 = 진행률, 다리 장 = 진행 푸시마다 한 장씩) */
