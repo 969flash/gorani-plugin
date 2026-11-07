@@ -33,6 +33,26 @@ class LandUsePathTest(unittest.TestCase):
             with dev_database_builder._open_land_use(paths[0]) as handle:
                 self.assertEqual(list(csv.reader(handle)), [["고유번호", "용도지역지구코드"], ["1111010100100010000", "UQA100"]])
 
+    def test_moved_dong_code_follows_parcels(self):
+        # 대구 달성군 구지면 → 구지읍: 필지(토지특성)는 옛 코드 2771038021, 토지이용계획은 새 코드 2771026821
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            connection = dev_database_builder._connect_database(folder / "t.db")
+            connection.execute("INSERT INTO data_sources (source_id, name, page_url, acquired_at) VALUES ('s', 's', 's', 's')")
+            for pnu, address in (("2771038021100010001", "대구광역시 달성군 구지면 창리 1-1"), ("2771025021200010001", "대구광역시 달성군 화원읍 천내리 산1-1")):
+                connection.execute("INSERT INTO parcels (pnu, address, geometry_area_sqm, geometry_json, geometry_crs, source_id, min_x, max_x, min_y, max_y)"
+                                   " VALUES (?, ?, 1, '{}', 5186, 's', 0, 1, 0, 1)", (pnu, address))
+            lines = ["고유번호,법정동명,용도지역지구코드,용도지역지구명,저촉여부",
+                     "2771026821100010001,대구광역시 달성군 구지읍 창리,UQA430,자연녹지지역,포함",
+                     "2771025021200010001,대구광역시 달성군 화원읍 천내리,UQA430,자연녹지지역,포함",
+                     "2771099999100010001,대구광역시 달성군 없는면 새리,UQA430,자연녹지지역,포함"]
+            with zipfile.ZipFile(folder / "AL_D155_27_20261009.zip", "w") as archive:
+                archive.writestr("AL_D155_27_20261009.csv", ("\n".join(lines) + "\n").encode("cp949"))
+            dev_database_builder.load_land_use(connection, land_use_dir=folder, sido_code="27")
+            pnus = sorted(row[0] for row in connection.execute("SELECT pnu FROM parcel_land_use"))
+            connection.close()
+            self.assertEqual(pnus, ["2771025021200010001", "2771038021100010001", "2771099999100010001"])
+
 
 class ManifestKindsTest(unittest.TestCase):
     def test_site_entries_keep_context_and_terrain(self):

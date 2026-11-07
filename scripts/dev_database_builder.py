@@ -843,6 +843,8 @@ def load_land_use(connection, land_use_dir=None, chunk_size=200000, sido_code=SE
     source_id = LAND_USE_SOURCE["source_id"]
     _upsert_source(connection, source_id, LAND_USE_SOURCE)
     connection.execute("DELETE FROM parcel_land_use")
+    dong_codes, dong_by_key = _get_parcel_dongs(connection)
+    moved = {}   # 필지에 없는 법정동 코드 → 이름으로 찾은 필지 쪽 코드(없으면 None)
     total = 0
     reference_date = ""
     for path in paths:
@@ -860,6 +862,7 @@ def load_land_use(connection, land_use_dir=None, chunk_size=200000, sido_code=SE
             )
             width = max(pnu_at, code_at, name_at, conflict_at) + 1
             date_at = header.index(LAND_USE_DATE_COLUMN) if LAND_USE_DATE_COLUMN in header else None
+            dong_name_at = header.index("법정동명") if "법정동명" in header else None
             rows = []
             for record in reader:
                 if len(record) < width:
@@ -872,15 +875,49 @@ def load_land_use(connection, land_use_dir=None, chunk_size=200000, sido_code=SE
                 conflict = record[conflict_at].strip()
                 if len(pnu) != constants.PNU_LENGTH or not code or not name:
                     continue
+                dong = pnu[:10]
+                if dong not in dong_codes and dong_name_at is not None and dong_name_at < len(record):
+                    if dong not in moved:
+                        moved[dong] = dong_by_key.get(_get_dong_key(dong[:5], record[dong_name_at]))
+                    if moved[dong]:
+                        pnu = moved[dong] + pnu[10:]
                 rows.append((pnu, code, name, conflict, source_id))
                 if len(rows) >= chunk_size:
                     total += _insert_land_use(connection, rows)
                     rows = []
             if rows:
                 total += _insert_land_use(connection, rows)
+    matched = sorted((new, old) for new, old in moved.items() if old)
+    if moved:
+        print("법정동 코드가 필지와 다른 동 %d개 — 이름으로 맞춤 %d개 %s, 못 맞춤 %s"
+              % (len(moved), len(matched), " ".join("%s→%s" % pair for pair in matched[:5]) + (" …" if len(matched) > 5 else ""),
+                 sorted(new for new, old in moved.items() if not old)[:10]), flush=True)
     connection.execute("UPDATE data_sources SET reference_date = ? WHERE source_id = ?", (reference_date or None, source_id))
     connection.commit()
     return total
+
+
+def _get_dong_key(sgg_code, dong_name):
+    # type: (str, str) -> tuple
+    """법정동 이름 → 짝 맞추기 키: 시군구 코드 + 끝의 읍면동 이름(리가 있으면 읍면 + 리), 읍·면 끝 글자는 뺀다 — 읍 승격 전후가 같은 키."""
+    words = dong_name.split()
+    words = words[-2:] if words and words[-1].endswith("리") else words[-1:]
+    return (sgg_code,) + tuple(word[:-1] if word[-1:] in ("읍", "면") else word for word in words)
+
+
+def _get_parcel_dongs(connection):
+    # type: (object) -> tuple
+    """필지(토지특성)의 법정동 코드 집합과 {_get_dong_key: 코드}.
+
+    토지특성(반기)과 토지이용계획(월간)의 판이 달라 그 사이 법정동 코드가 바뀐 동은 PNU가 안 맞는다 —
+    예: 대구 달성군 구지면 → 구지읍(토지특성 2026-05-20판 2771038021~35, 토지이용계획 2026-10-09판 2771026821~35).
+    토지이용계획 쪽 PNU를 필지 쪽 코드로 바꿔 넣는다(필지·건물 팩이 쓰는 옛 코드를 그대로 둔다).
+    """
+    codes, by_key = set(), {}
+    for dong, address in connection.execute("SELECT substr(pnu, 1, 10), MIN(address) FROM parcels GROUP BY 1"):
+        codes.add(dong)
+        by_key[_get_dong_key(dong[:5], (address or "").rsplit(" ", 1)[0])] = dong
+    return codes, by_key
 
 
 def _insert_land_use(connection, rows):
