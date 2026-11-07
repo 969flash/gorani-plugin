@@ -80,6 +80,59 @@ def get_notice_state(manifest=None):
     return {"update": update if isinstance(update, dict) else None, "notices": notices}
 
 
+# [blender-cut] 패널 [지금 업데이트] — Rhino 8·7만(Blender·SketchUp은 스토어가 업데이트한다)
+def get_yak_path():
+    # type: () -> str
+    """Rhino에 들어 있는 패키지 도구 yak의 경로 — 패널 [지금 업데이트](Rhino 8·7만). 못 찾으면 ''(패널은 수동 안내로).
+
+    입력: 없음. Rhino 7 사이드카는 C# 호스트가 환경변수(constants.RHINO_DIR_ENV)로 Rhino 실행 폴더를 넘긴다, Rhino 8은 RhinoCommon에 묻는다.
+    처리: Windows = <실행 폴더>/Yak.exe(C:\\Program Files\\Rhino 8\\System), Mac = <앱>/Contents/MacOS/../Resources/bin/yak.
+    출력: 있는 파일 경로 또는 ''.
+    """
+    rhino_dir = os.environ.get(constants.RHINO_DIR_ENV, "")
+    if not rhino_dir:
+        try:
+            import Rhino
+            rhino_dir = str(Rhino.RhinoApp.GetExecutableDirectory().FullName)
+        except Exception:   # Rhino 밖(SketchUp·Blender·python3 시험)
+            return ""
+    for path in (os.path.join(rhino_dir, "Yak.exe"), os.path.join(rhino_dir, "..", "Resources", "bin", "yak")):
+        if os.path.isfile(path):
+            return os.path.normpath(path)
+    return ""
+
+
+def install_update(tick=None):
+    # type: (object) -> tuple
+    """Gorani 최신 판을 yak으로 깐다. 새 판은 다음 Rhino 시작부터 — 지금 판 폴더는 그대로 두고 새 판 폴더를 더한다(2026-11-06 Mac Rhino 8을 켠 채로 확인).
+
+    입력: tick(기다리는 동안 0.1 s마다 부르는 함수 — Rhino 8은 UI 이벤트를 돌린다).
+    처리: `yak install gorani`(판을 주지 않는다 — yak이 그 Rhino에 맞는 최신 배포판을 고른다. Rhino 7 yak은 rh7판을 받는다, 2026-11-06 확인).
+    출력: (ok, yak 출력 끝부분).
+    """
+    import subprocess
+    yak = get_yak_path()
+    if not yak:
+        return False, tr("Rhino 패키지 도구(yak)를 찾지 못했습니다")
+    flags = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}   # Windows — 콘솔 창을 띄우지 않는다
+    try:
+        process = subprocess.Popen([yak, "install", constants.TOOL_NAME.lower()], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                   stdin=subprocess.DEVNULL, **flags)
+    except OSError as error:
+        return False, str(error)
+    deadline = time.time() + constants.UPDATE_INSTALL_SECONDS
+    while process.poll() is None:   # 출력은 몇 줄뿐이라 파이프가 차지 않는다
+        if time.time() > deadline:
+            process.kill()
+            return False, tr("업데이트가 너무 오래 걸려 멈췄습니다")
+        if tick:
+            tick()
+        time.sleep(0.1)
+    output = process.stdout.read().decode("utf-8", "replace").strip()
+    return process.returncode == 0, output[-500:]
+# [/blender-cut]
+
+
 def get_notice_url(notice_id, manifest=None):
     # type: (str, dict) -> str
     """공지 id → 그 공지의 http(s) 주소(패널 open_url{notice}). 없으면 ValueError — 패널은 임의 URL을 보내지 못한다."""

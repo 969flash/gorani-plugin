@@ -638,7 +638,7 @@ var state = { screen: "map", run: "idle", job2d: "idle", blocked: false,
   mode: null, lots: [], lotState: null, area: null, point: null, flyOnLot: false, options: {}, progress: null, result: null,
   made2d: null, form2d: true, err2d: "", dl: null, init: null, busy: false, logLines: [], startedAt: 0,
   seq: { map: 0, packs: 0, style: 0 }, areaPacks: null, lastRegion: null,
-  styleOpen: false, styleSheet: 0, styleEdit: null, styleBase: null, madeTargets: {}, appliedStyle: null, openEl: null, styleSaving: false, menuOpen: false };
+  styleOpen: false, styleSheet: 0, styleEdit: null, styleBase: null, madeTargets: {}, appliedStyle: null, openEl: null, styleSaving: false, menuOpen: false, upd: { state: "", text: "" } };
 var map = null, tiles = null, lotsLayer = null, targetLayer = null, extentLayer = null, extentLabel = null;
 var tileErrors = 0, tileFallback = false, tileDead = false, aerial = false;
 var pointLayer = null, draw = { on: false, pts: [], layer: null, rubber: null, first: null }, stamp = { on: false, offsets: null, layer: null };
@@ -1846,22 +1846,39 @@ function updateLevel() {
   if (u.latest && cmpVer(init.version, u.latest) < 0 && state.options.update_later_date !== todayStr()) return "soft";
   return "";
 }
+// [지금 업데이트] — Rhino 8·7은 yak으로 바로 깐다(init.host.self_update). 실패하면 수동 안내(순서·웹페이지)로 돌아간다
+function canSelfUpdate() { return !!HOST.self_update && state.upd.state !== "failed"; }
+function updateBtn(cls) {
+  if (state.upd.state === "running") return '<button type="button" class="btn ' + cls + '" disabled>' + tr("설치 중…") + "</button>";
+  return canSelfUpdate() ? '<button type="button" class="btn ' + cls + '" data-act="install_update">' + ico("download") + tr("지금 업데이트") + "</button>"
+    : '<button type="button" class="btn ' + cls + '" data-act="open_url" data-key="' + siteKey() + '">' + tr("업데이트 방법") + ico("ext") + "</button>";
+}
+function updateDoneText() {   // Rhino 8은 패널이 새 판으로 다시 열린다(cmd_site.reopen_panel_later), Rhino 7은 C# 플러그인이 바뀌어 다시 시작
+  return state.upd.next === "reopen" ? tr("Gorani {0}을 깔았습니다. 새 판으로 패널을 다시 엽니다", state.init.update.latest || "")
+    : tr("{0}을 다시 시작하면 Gorani {1}이 열립니다", hostName(), state.init.update.latest || "");
+}
 function renderUpdate() {
   var el = $("update_modal"), lvl = updateLevel(); if (!lvl) { el.hidden = true; return; }
   var init = state.init, u = init.update, v = esc(init.version || "");
-  var steps = "<ol>" + (UPDATE_STEPS[HOST.id] || UPDATE_STEPS.rhino).map(function (s) { return "<li>" + esc(tr(s)) + "</li>"; }).join("") + "</ol>";
+  if (state.upd.state === "done") {   // 깔았다 — 다시 시작만 남는다(사용 불가 판이면 닫기도 없다)
+    el.innerHTML = '<div class="dlg"><p class="ver">' + tr("지금 버전 {0}", v) + '</p><h2 id="update_title" tabindex="-1">' + tr("설치했습니다") + "</h2><p>" + esc(updateDoneText()) + "</p>" +
+      (lvl === "hard" ? "" : '<div class="acts"><button type="button" class="btn" data-act="update_later">' + tr("닫기") + "</button></div>") + "</div>";
+    el.hidden = false; el.querySelector("h2").focus(); return;
+  }
+  var failed = state.upd.state === "failed" ? '<p class="due">' + tr("업데이트하지 못했습니다. 아래 순서로 직접 업데이트하세요.") + (state.upd.text ? '<br><span class="mono">' + esc(state.upd.text) + "</span>" : "") + "</p>" : "";
+  var steps = canSelfUpdate() ? "" : failed + "<ol>" + (UPDATE_STEPS[HOST.id] || UPDATE_STEPS.rhino).map(function (s) { return "<li>" + esc(tr(s)) + "</li>"; }).join("") + "</ol>";
   var web = '<button type="button" class="btn" data-act="open_url" data-key="' + siteKey() + '">' + tr("웹페이지") + ico("ext") + "</button>";
   var items = pickLang(u.items) || [];   // 공지 글은 매니페스트 — 문자열이거나 언어별 {en, ko, …}
   el.innerHTML = '<div class="dlg">' + (lvl === "hard"
     ? '<p class="ver">' + tr("지금 버전 {0}", v) + '</p><h2 id="update_title" tabindex="-1">' + tr("업데이트해야 쓸 수 있습니다") + "</h2>" +
       "<p>" + tr("Gorani {0}은 지원이 끝났습니다. {1} 이상으로 업데이트하세요.", v, esc(u.min)) + "</p>" + steps +
-      '<div class="acts"><button type="button" class="btn primary" data-act="init">' + ico("refresh") + tr("다시 확인") + "</button>" +
+      '<div class="acts">' + (canSelfUpdate() ? updateBtn("primary") : '<button type="button" class="btn primary" data-act="init">' + ico("refresh") + tr("다시 확인") + "</button>") +
       '<button type="button" class="btn" data-act="open" data-path="result">' + ico("folder") + tr("결과 폴더") + "</button>" + web + "</div>"
     : '<p class="ver">' + tr("지금 버전 {0}", v) + '</p><h2 id="update_title" tabindex="-1">' + esc(pickLang(u.title) || tr("Gorani {0}이 나왔습니다", u.latest)) + "</h2>" +
       (u.body ? "<p>" + esc(pickLang(u.body)) + "</p>" : "") +
       (items.length ? "<ul>" + items.map(function (s) { return "<li>" + esc(pickLang(s)) + "</li>"; }).join("") + "</ul>" : "") +
       (u.deadline ? '<p class="due">' + tr("{0}부터 이 버전({1})은 쓸 수 없습니다.", esc(pickLang(u.deadline)), v) + "</p>" : "") + steps +
-      '<div class="acts"><button type="button" class="btn primary" data-act="open_url" data-key="' + siteKey() + '">' + tr("업데이트 방법") + ico("ext") + "</button>" +
+      '<div class="acts">' + updateBtn("primary") +
       '<button type="button" class="btn" data-act="update_later">' + tr("나중에") + "</button></div>") + "</div>";
   el.hidden = false;
   el.querySelector("h2").focus();
@@ -1870,12 +1887,14 @@ function renderUpdate() {
 function getNotices() {
   var init = state.init, u = init && init.update, list = [];
   if (u && u.latest && cmpVer(init.version, u.latest) < 0 && updateLevel() !== "hard")
-    list.push({ id: "update", level: "warn", update: true, date: u.date || "", text: tr("Gorani {0}이 나왔습니다", u.latest) + (u.deadline ? ". " + tr("{0}부터 이 버전은 쓸 수 없습니다", pickLang(u.deadline)) : "") });
+    list.push({ id: "update", level: "warn", update: true, date: u.date || "", text: state.upd.state === "done" ? updateDoneText()
+      : tr("Gorani {0}이 나왔습니다", u.latest) + (u.deadline ? ". " + tr("{0}부터 이 버전은 쓸 수 없습니다", pickLang(u.deadline)) : "") });
   return list.concat(((init && init.notices) || []).map(function (n) { return Object.assign({}, n, { text: pickLang(n.text) }); }));
 }
 function isClosedNotice(n) { return !n.update && (state.options.closed_notices || []).indexOf(n.id) >= 0; }
 function noticeAct(n) {
-  return n.update ? ' data-act="open_url" data-key="' + siteKey() + '"' : n.url ? ' data-act="open_notice" data-id="' + esc(n.id) + '"' : "";
+  if (n.update && state.upd.state) return state.upd.state === "failed" ? ' data-act="open_url" data-key="' + siteKey() + '"' : "";   // 설치 중·설치함 = 누를 것 없음
+  return n.update ? (canSelfUpdate() ? ' data-act="install_update"' : ' data-act="open_url" data-key="' + siteKey() + '"') : n.url ? ' data-act="open_notice" data-id="' + esc(n.id) + '"' : "";
 }
 function renderNoticeBands() {
   var box = $("init_warnings");
@@ -1884,7 +1903,7 @@ function renderNoticeBands() {
   open.slice(0, 1).forEach(function (n) {
     var d = document.createElement("div"); d.className = "band notice " + (n.level === "warn" ? "lv-warn" : "lv-note");
     d.innerHTML = ico(n.level === "warn" ? "warn" : "info") + "<span>" + esc(n.text) + "</span>" +
-      (n.update || n.url ? '<button type="button" class="btn sm"' + noticeAct(n) + ">" + (n.update ? tr("업데이트 방법") : tr("자세히")) + "</button>" : "") +
+      (n.update ? (state.upd.state === "done" ? "" : updateBtn("sm")) : n.url ? '<button type="button" class="btn sm"' + noticeAct(n) + ">" + tr("자세히") + "</button>" : "") +
       (open.length > 1 ? '<button type="button" class="btn sm ghost" data-act="notices" title="' + tr("공지 모두 보기") + '">+' + (open.length - 1) + "</button>" : "") +
       (n.update ? "" : '<button type="button" class="ib sm" data-act="close_notice" data-id="' + esc(n.id) + '" aria-label="' + tr("닫기") + '" title="' + tr("닫기(메뉴에서 다시 봅니다)") + '">' + ico("x") + "</button>");
     box.insertBefore(d, box.firstChild);
@@ -2106,6 +2125,11 @@ var ACTIONS = {
   stats: function (b) { setStats(b.dataset.on === "1"); },
   // [/blender-cut]
   dismiss: function (b) { b.parentNode.parentNode.removeChild(b.parentNode); },
+  install_update: function () {
+    if (state.upd.state === "running") return;
+    state.upd = { state: "running", text: "" }; send({ cmd: "install_update" });
+    renderNoticeBands(); renderUpdate(); renderMenu();
+  },
   update_later: function () { state.options.update_later_date = todayStr(); send({ cmd: "save_prefs", options: state.options }); renderUpdate(); },   // 권장 모달은 하루 한 번
   close_notice: function (b) { closeNotice(b.dataset.id); },
   notices: function () { openMenu(); var h = $("menu_notices"); if (h) h.scrollIntoView({ block: "start" }); },
@@ -2225,6 +2249,11 @@ window.addEventListener("resize", function () { if (map) map.invalidateSize(); }
 
 // ── 수신 핸들러 (슬롯만 교체) ──
 var handlers = {
+  update_state: function (m) {   // install_update — running → done | failed
+    state.upd = { state: m.state, text: m.text || "", next: m.next || "" };
+    renderNoticeBands(); renderUpdate(); renderMenu();
+    if (m.state !== "running") announce(m.state === "done" ? updateDoneText() : tr("업데이트하지 못했습니다. 아래 순서로 직접 업데이트하세요."));
+  },
   init_state: function (m) {
     var first = !state.init;
     if (m.host) HOST = m.host;
@@ -2411,7 +2440,10 @@ applyStaticText();
 // ── 목 모드 (?mock=1) — Rhino 없이 브라우저에서. &step=1 지도까지 · (기본) 3D 완료 · &step=2d 2D까지 · &menu=1 메뉴 · &lang=ko 언어 ──
 var MOCK = /[?&]mock=1/.test(location.search);
 if (MOCK) {
-  send = function (msg) { console.log("[send]", JSON.stringify(msg)); };
+  send = function (msg) {
+    console.log("[send]", JSON.stringify(msg));
+    if (msg.cmd === "install_update") setTimeout(function () { window.app.receive({ type: "update_state", state: /[?&]updfail=1/.test(location.search) ? "failed" : "done", text: "", next: /[?&]updrestart=1/.test(location.search) ? "restart" : "reopen" }); }, 1500);   // &updfail=1 — 실패 화면
+  };
   var upto = (location.search.match(/[?&]step=(\w+)/) || [])[1] || "3d";
   var w = (location.search.match(/[?&]w=(\d+)/) || [])[1]; if (w) document.documentElement.style.width = w + "px";
   var playMock = function (msgs) {
@@ -2419,6 +2451,7 @@ if (MOCK) {
     state.mode = state.mode || "lots";   // 목 데이터는 필지 방식
     var ml = (location.search.match(/[?&]lang=(\w+)/) || [])[1]; if (ml) msgs[0].options = Object.assign({}, msgs[0].options, { lang: ml });
     var up = (location.search.match(/[?&]update=(\w+)/) || [])[1];   // &update=soft|hard — 업데이트 모달 보기
+    msgs[0].host = Object.assign({}, msgs[0].host, { self_update: !/[?&]selfupd=0/.test(location.search) });   // [지금 업데이트]. &selfupd=0 — 수동 안내(SketchUp·yak 없음)
     if (up) msgs[0].update = up === "hard" ? { latest: "0.3.0", min: "0.3.0" }
       : { latest: "0.3.0", body: "새 버전부터 계정으로 로그인합니다. 무료로 계속 쓸 수 있습니다.", deadline: "12월 1일",
           items: ["로그인과 최근 대상지 동기화", "결과 화면 하단 후원 안내", "현황도 3종 추가"] };

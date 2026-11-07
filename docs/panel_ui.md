@@ -88,6 +88,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `stats_consent` | `on`(bool) | 없음 (`error{context:"init"}`) | Blender·SketchUp만 — 사용 통계 동의를 `~/.gorani/prefs.json`에 남긴다. `usage_stats.is_enabled`가 `host.ask_stats` 호스트면 이 값이 true일 때만 보낸다(Blender 확장 약관 4.5, Extension Warehouse 개인정보 심사) |
 | `track` | `action`, `detail` | 없음 (`error{context:"init"}`) | 패널 버튼 하나 → GA `ui` 이벤트(2026-11-02). `action`은 `constants.GA_UI_ACTIONS` 밖이면 버리고, `detail`은 짧은 영문 분류값만(`usage_stats.get_ui_params` — 검색어·주소·경로는 보내지 않는다). JS `TRACK` 표가 보낼 버튼을 정한다. Blender판·웹판은 보내지 않는다. 3D 설정은 `build`의 `options3d`, 2D는 `make_2d` 이벤트 |
 | `download_data` | `names`(선택 — 없으면 전부) | `data_progress`×N → `data_progress{done}` → `init_state` (`error{context:"init"}`) | 지도 자동 받기·진행 줄 [다시 받기]. 멈추면 그때까지 받은 팩은 남는다(받던 팩은 버리고 쓰던 DB는 그대로). `data_pack`이 매니페스트(`constants.DATA_MANIFEST_URL`)의 절대 주소에서 `HOME_DIR/data/`로 받는다. `generate`도 시작 전에 같은 방식으로 범위(`context_builder.get_query_bounds`)에 걸치는 없거나 새 판인 시군구 팩을 받는다 |
+| `install_update` | — | `update_state{running}` → `update_state{done\|failed, text}` | 업데이트 모달·띠의 [지금 업데이트](2026-11-06, `init_state.host.self_update` = Rhino 8·7이고 yak을 찾았을 때만). `data_pack.install_update`가 Rhino에 든 yak으로 `yak install gorani`(판 없이 — yak이 그 Rhino에 맞는 배포판을 고른다)를 부르고 기다린다(Rhino 8은 `_pump`). Rhino 8은 깔고 나면 패널을 닫고 새 판으로 다시 연다(`update_state.next = reopen`, 재시작 없음 — 2026-11-07), Rhino 7은 다시 시작하면 열린다(`restart`). 실패하면 패널이 수동 안내(순서·[업데이트 방법])로 돌아간다. SketchUp·Blender는 스토어가 업데이트하므로 없다 |
 
 명령 16개(+ 도면 스타일 3개·도면 .ai 1개, 2026-10-13). `auth_pin`(옛 PIN 인증)은 없다 — 사내 배포라 인증 게이트 없음.
 
@@ -216,6 +217,7 @@ Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드�
 {"type":"log","text":"여러 줄\n가능","level":"info|warn|error"}
 {"type":"busy","on":true,"label":"문서에 넣는 중"}   // Import·Export처럼 UI 스레드가 멈추는 짧은 작업 전후
 {"type":"data_progress","text":"종로구 지역 데이터 받는 중 42%","fraction":0.42,"in_generate":false}   // 받기 진행(1 % 단위). 지도 밖 푸터 위 한 줄(#dl) — 생성 중(in_generate)이면 [멈추기] 없이(푸터 [취소]가 멈춘다)
+{"type":"update_state","state":"running|done|failed","text":"","next":"reopen|restart"}   // install_update. failed면 text = yak 출력 끝부분. done이면 next — Rhino 8은 reopen(cmd_site.reopen_panel_later가 Idle에서 Gorani를 다시 불러 새 판 패널로, 재시작 없음 — yak이 옛 판 폴더를 지워 옛 패널은 계속 못 쓴다), Rhino 7은 restart(C# 플러그인이 바뀐다)
 {"type":"data_progress","done":true,"ok":false,"text":"받기를 멈췄습니다 — 받은 지역은 남습니다","in_generate":false}   // 끝. ok면 줄을 숨기고, 아니면 text + [다시 받기]
 {"type":"error","context":"init|search|select|preflight|generate|import|export|open","text":"한 줄","detail":"traceback 또는 빈 문자열"}
 
@@ -273,6 +275,7 @@ Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드�
 - 패널을 열 때(`init`) 매니페스트를 `NOTICE_TIMEOUT_SECONDS`(3 s)까지 기다린다. 못 받으면 아무것도 띄우지 않는다 — 사용자를 막지 않는다.
 - `version < update.min` → 강제 모달(닫기 없음, [다시 확인]·[결과 폴더]·[웹페이지]). 지원을 끊을 때만 올린다.
 - `version < update.latest` → 권장 모달(하루 한 번 — [나중에] = `options.update_later_date`) + 주황 띠(닫기 없음, 업데이트할 때까지).
+- 모달·띠의 주 버튼: Rhino 8·7(`host.self_update`)은 [지금 업데이트](`install_update` — 깔면 '다시 시작하면 열립니다'), 그 밖(SketchUp·Blender·yak 없음·설치 실패)은 순서 안내 + [업데이트 방법]. 목 패널 `&selfupd=0`은 수동 안내, `&updfail=1`은 실패 화면.
 - 공지 → 위쪽 띠는 한 번에 하나(업데이트 > 공지 순서), 나머지는 띠의 `+N` → 더보기 메뉴 '공지' 목록. 띠 [×]는 `options.closed_notices`에 id를 넣고, 메뉴에서는 계속 보인다(흐리게 '닫음'). `level`: `warn` = 주황(꼭 알아야 할 것), `info` = 파랑. 빨강은 오류에만.
 - 공지 `id`는 바꾸지 않는다 — 바꾸면 닫은 사람에게 다시 뜬다. 목 패널: `site_ui.html?mock=1&step=1&update=soft|hard`(공지 견본 셋 포함), `&notice=1`은 공지만.
 - 버전은 `constants.PANEL_VERSION` 하나 — 배포할 때 올린다. 0.1.0 이전 설치본에는 이 확인이 없다(그 사용자는 막을 수 없다).

@@ -120,6 +120,10 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
     notice = loader.load("data_pack").get_notice_state(manifest)
     if not host.get("update_notice", True):   # Blender — 업데이트는 확장 저장소(Blender)가 알린다
         notice["update"] = None
+    # [blender-cut]
+    if host.get("self_update"):   # Rhino 8·7 — yak이 있어야 [지금 업데이트], 없으면 수동 안내
+        host["self_update"] = bool(loader.load("data_pack").get_yak_path())
+    # [/blender-cut]
     return dict({
         "type": "init_state",
         "version": constants.PANEL_VERSION,
@@ -539,6 +543,9 @@ class _SiteController:
             "preflight": self._preflight, "generate": self._generate, "make_2d": self._make_2d, "cancel": self._cancel,
             "import_context": self._import_context, "export_basemap": self._export_basemap, "zoom_view": self._zoom_view,
             "open_path": self._open_path, "open_eum": self._open_eum, "open_url": self._open_url, "save_prefs": self._save_prefs, "open_result": self._open_result, "hide_result": self._hide_result, "download_data": self._download_data,
+            # [blender-cut]
+            "install_update": self._install_update,
+            # [/blender-cut]
             "style_preview": self._style_preview, "apply_style": self._apply_style, "save_style": self._save_style, "sheet_ai": self._sheet_ai,
             "sheet_view": self._sheet_view, "area_packs": self._area_packs,
             # [blender-cut]
@@ -956,7 +963,24 @@ class _SiteController:
             raise ValueError(tr("알 수 없는 링크입니다: {0}", msg.get("key")))
         self._open(url)
 
-    # [blender-cut]
+    # [blender-cut] 업데이트는 Blender 확장 저장소가 한다
+    def _install_update(self, msg):
+        """[지금 업데이트] — yak으로 최신 판을 깐다(Rhino 8·7). update_state{running} → update_state{done|failed, text}. 새 판은 Rhino를 다시 시작하면."""
+        if self._running:   # 패널은 이미 '설치 중' — 오류 푸시가 아니라 실패로 돌려야 버튼이 돌아온다
+            self.push({"type": "update_state", "state": "failed", "text": tr("다른 작업이 진행 중입니다")})
+            return
+        self.push({"type": "update_state", "state": "running", "text": ""})
+        self._running = True
+        try:
+            ok, output = loader.load("data_pack").install_update(tick=self._pump)
+        finally:
+            self._running = False
+        # Rhino 8 — 패널만 새 판으로 다시 연다(Rhino를 다시 켜지 않는다). Rhino 7은 C# 플러그인이 바뀌어 다시 시작해야 한다
+        reopen = ok and loader.load("context_builder").get_host() == "rhino"
+        self.push({"type": "update_state", "state": "done" if ok else "failed", "text": "" if ok else output, "next": "reopen" if reopen else "restart"})
+        if reopen:
+            reopen_panel_later()
+
     def _stats_consent(self, msg):
         loader.load("site_prefs").save_stats_consent(bool(msg.get("on")))
     # [/blender-cut]
@@ -1050,7 +1074,7 @@ _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "s
                    "zoom_view": "open", "open_path": "open", "open_eum": "open", "open_url": "open", "save_prefs": "init", "open_result": "init", "hide_result": "init", "cancel": "generate", "make_2d": "generate", "download_data": "init",
                    "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style", "sheet_view": "view",
                    # [blender-cut]
-                   "stats_consent": "init", "track": "init",
+                   "stats_consent": "init", "track": "init", "install_update": "init",
                    # [/blender-cut]
                    }
 
@@ -1076,6 +1100,27 @@ def get_newer_script(script_path=None):
     newer = [(key, name) for key, name in ((_get_version_key(name), name) for name in os.listdir(root))
              if key is not None and key > mine and os.path.exists(os.path.join(root, name, "scripts", "cmd_site.py"))]
     return os.path.join(root, max(newer)[1], "scripts", "cmd_site.py") if newer else None
+
+
+def reopen_panel_later():
+    # type: () -> None
+    """업데이트를 깐 뒤 — 지금 패널 콜백이 끝나면(Idle 한 번) Gorani 명령을 다시 부른다. 새 판이 옛 판 패널을 닫고 새로 연다
+    (_show_panel의 판 비교·get_newer_script). Rhino를 다시 켜지 않아도 되고, 옛 패널을 그대로 쓰다 깨지지도 않는다 —
+    yak은 다른 판 폴더를 지운다(2026-11-06 이 Mac: Rhino를 켠 채 yak install gorani 0.3.8 → 옆의 0.3.7 폴더가 사라졌다).
+    옛 판 폴더가 지워지면 아직 안 읽은 모듈(2D 만들기 등)을 못 읽는다."""
+    done = []
+
+    def on_idle(sender, args):
+        if done:
+            return
+        done.append(True)
+        try:
+            Rhino.RhinoApp.Idle -= on_idle
+        except Exception:   # 지우지 못해도 done이 막는다
+            pass
+        Rhino.RhinoApp.RunScript("_Gorani", False)
+
+    Rhino.RhinoApp.Idle += on_idle
 
 
 def _show_panel():

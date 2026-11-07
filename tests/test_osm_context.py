@@ -68,7 +68,9 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(osm_context.get_building_height({"building:levels": "5"})[1:], (5, "osm_levels", "C"))
         self.assertEqual(osm_context.get_building_height({})[2:], ("default", "D"))
         self.assertEqual(osm_context.get_road_width({"highway": "residential", "lanes": "2"}), 6.6)
-        self.assertEqual(osm_context.get_feature_kind({"natural": "water"}, True), ("water", "river"))
+        self.assertEqual(osm_context.get_feature_kind({"natural": "water"}, True), ("water", "lake"))   # water=* 없으면 고인 물
+        self.assertEqual(osm_context.get_feature_kind({"natural": "water", "water": "river"}, True), ("water", "river"))
+        self.assertEqual(osm_context.get_feature_kind({"waterway": "riverbank"}, True), ("water", "river"))
         self.assertEqual(osm_context.get_feature_kind({"highway": "primary"}, False), ("road", "centerline"))
         self.assertIsNone(osm_context.get_feature_kind({"amenity": "bench"}, False))
         self.assertEqual(osm_context.get_feature_kind({"amenity": "school"}, True), ("public", "school_lot"))

@@ -186,6 +186,74 @@ class CleanEdgeTest(unittest.TestCase):
             nx, ny = b[1] - a[1], a[0] - b[0]
             self.assertGreater(nx * ((a[0] + b[0]) / 2 - 5) + ny * ((a[1] + b[1]) / 2 - 5), 0)
 
+    def test_water_walls_close_gaps(self):
+        # y 띠 넷: 지형 z3 | 수면 A z1 | 수면 B z2 | 지형 z2. 틈은 지형→A(y=2)·B→A(y=6) 두 곳, B와 위 지형(같은 높이)은 막을 것 없음
+        def quad(y0, y1, z):
+            return [(0, y0, z), (10, y0, z), (10, y1, z), (0, y1, z)], [(0, 1, 2, 3)]
+        bank, top = quad(0, 2, 3.0), quad(8, 10, 2.0)
+        (a_verts, a_faces), (b_verts, b_faces) = quad(2, 6, 1.0), quad(6, 8, 2.0)
+        water = (a_verts + b_verts, a_faces + [tuple(i + 4 for i in f) for f in b_faces])
+        walls = u.get_water_walls(water, [bank, top])
+        self.assertEqual(len(walls[1]), 2)
+        edges = {}
+        for vs, fs in (bank, top, water, walls):
+            for f in fs:
+                for k in range(len(f)):
+                    p, q = vs[f[k]], vs[f[(k + 1) % len(f)]]
+                    if p[0] != q[0] and p[1] == q[1] and 0 < p[1] < 10:   # 안쪽 가로 변
+                        key = frozenset((tuple(p), tuple(q)))
+                        edges[key] = edges.get(key, 0) + 1
+        self.assertEqual(set(edges.values()), {2})   # 안쪽 가로 변이 모두 두 면에 걸린다 = 틈 없음
+        for f in walls[1]:   # 벽 법선이 낮은 수면 A(2 < y < 6) 쪽
+            pts = [walls[0][i] for i in f]
+            ny = sum((pts[k][2] - pts[(k + 1) % len(pts)][2]) * (pts[k][0] + pts[(k + 1) % len(pts)][0]) for k in range(len(pts)))
+            self.assertGreater(ny * (4 - pts[0][1]), 0)
+
+    def test_water_surface(self):
+        # 흐르는 물: 물가가 0 m(하류 x=0)에서 10 m(상류 x=400)로 오르는 4 m 폭 띠 + 둑 꼭대기 튀는 값 하나, 끝에 고인 물(연못 z 3)
+        verts, faces = [], []
+        for k in range(41):
+            x = k * 10.0
+            z = x / 40.0 + (20.0 if k == 20 else 0.0)   # 1/40 = 2.5 % 기울기, x=200 물가에 둑 꼭대기 +20 m
+            verts += [(x, 0.0, z), (x, 4.0, z)]
+            if k:
+                faces.append((2 * k - 2, 2 * k, 2 * k + 1, 2 * k - 1))
+        pond = ([(-10.0, 0.0, 3.0), (0.0, 0.0, 3.5), (0.0, 4.0, 3.5), (-10.0, 4.0, 3.0)], [(0, 1, 2, 3)])
+        ring = [(-1000, -1000), (1000, -1000), (1000, 1000), (-1000, 1000)]
+        (river, still), levels = u.get_water_surface([(verts, faces), pond], [False, True], ring, 50.0, 0.05, 10.0)
+        self.assertEqual({v[2] for v in still}, {3.0})   # 고인 물 = 물가 하위 10 % 평면
+        zs = [v[2] for v in river[0::2]]
+        self.assertTrue(all(b >= a - 0.05 for a, b in zip(zs, zs[1:])), zs)   # 하류 → 상류로 내려가지 않는다(튀는 값에 솟지 않는다)
+        self.assertLess(max(zs), 10.0)   # 물가 높이를 넘지 않는다
+        self.assertGreater(zs[-1], 7.0)   # 상류가 하류 수위로 가라앉지 않는다(2.5 % 기울기를 따른다)
+        self.assertLess(abs(river[0][2] - river[1][2]), 0.05)   # 단면은 양안이 같은 높이
+        self.assertLessEqual(river[0][2], 3.0 + 1e-6)   # 연못과 만나는 물가는 연못 수위 이하
+        self.assertEqual(levels[1], (3.0, 3.0))
+
+    def test_noded_segments(self):
+        # 겹친 변(두 네모가 x=10에서 맞닿음)과 십자 교차(가운데 네모가 걸침) — 노딩 뒤 겹치는 선분 없이 교차점에서 나뉜다
+        a = [(0, 0), (10, 0), (10, 10), (0, 10)]
+        b = [(10, 0), (20, 0), (20, 10), (10, 10)]
+        c = [(5, 5), (15, 5), (15, 15), (5, 15)]
+        segs = u.get_noded_segments([a, b, c])
+        self.assertEqual(len(segs), len(set(segs)))
+        self.assertEqual(sum(1 for p, q in segs if p[0] == q[0] == 10.0 and 0 <= p[1] <= 10 and 0 <= q[1] <= 10), 2)   # x=10 공유 변 한 번만, (10,5)에서 나뉨
+        self.assertIn(((5.0, 10.0), (10.0, 10.0)), segs)   # c의 왼쪽 변 × a의 위 변 교차점 (5, 10)에서 나뉨
+        # 제약선으로 나뉜 영역: 네모 하나를 대각선으로 두 삼각형 → 대각선이 제약이면 두 영역, 아니면 한 영역
+        verts, faces = [(0, 0), (1, 0), (1, 1), (0, 1)], [(0, 1, 2), (0, 2, 3)]
+        self.assertEqual(len(u.get_split_triangles(verts, faces, [((0, 0), (1, 1))])), 2)
+        self.assertEqual(len(u.get_split_triangles(verts, faces, [((0, 0), (1, 0))])), 1)
+
+    def test_polygon_index(self):
+        idx = u.PolygonIndex([[[(0, 0), (10, 0), (10, 10), (0, 10)], [(4, 4), (6, 4), (6, 6), (4, 6)]]])   # 구멍 있는 네모
+        self.assertEqual([idx.contains(2, 2), idx.contains(5, 5), idx.contains(11, 5)], [True, False, False])
+        self.assertEqual([idx.is_near(12, 5, 3.0), idx.is_near(15, 5, 3.0), idx.is_near(5, 5, 1.0)], [True, False, True])
+
+    def test_shore_fitted(self):
+        water = ([(0, 0, 1.0), (10, 0, 2.0), (10, 4, 2.0), (0, 4, 1.0)], [(0, 1, 2, 3)])
+        bank = [(5, 0, 7.0), (5, -3, 9.0), (10, 2, 4.0)]   # 물가선 위 점은 그 자리 수면(보간)으로, 물에서 떨어진 점은 그대로
+        self.assertEqual(u.get_shore_fitted(bank, u.WaterShore(water)), [(5, 0, 1.5), (5, -3, 9.0), (10, 2, 2.0)])
+
     def test_contours(self):
         tri = ((0, 0, 0.0), (10, 0, 10.0), (0, 10, 0.0))
         segments = u.get_contour_segments([tri], 5.0)

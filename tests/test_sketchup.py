@@ -223,7 +223,9 @@ class SidecarRunTest(unittest.TestCase):
         self.assertIn("BLD_ID", attrs)
         self.assertEqual(len(parts[0][0][0]), 2)   # 링 점은 (x, y)
         self.assertTrue(layers["CTX::Terrain::site_original"]["hidden"])
-        self.assertEqual(layers["CTX::Water"]["rgb"], [46, 125, 224])
+        self.assertEqual(layers["CTX::Roads"]["rgb"], [168, 168, 162])
+        # 성수동2가 289-36 구거(13,012 ㎡, 75 %가 도로면)는 도로 밑 복개 — 수치지형도 수면이 있으면 지목 수계 필지는 수면이 아니다
+        self.assertNotIn("CTX::Water", layers)
 
     def test_origin_written(self):
         self.assertEqual(self.fake.attrs["GORANI_ORIGIN_E"], "%.3f" % self.response["context"]["origin"][0])

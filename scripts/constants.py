@@ -74,6 +74,7 @@ LAND_USE_APPLIED = (LAND_USE_INCLUDED, LAND_USE_OVERLAP)
 LAND_CATEGORY_ROAD = "도로"
 # 수계로 볼 지목 — 하천·구거(도랑)·유지(연못·저수지). 제방은 수면이 아니라 뺀다.
 LAND_CATEGORIES_WATER = ("하천", "구거", "유지")
+LAND_CATEGORIES_STILL_WATER = ("유지",)   # 고인 물(연못·저수지) — 평평한 수면
 
 # 토지특성정보 A13(용도지역코드1) → UPIS 코드. 대장 값이라 공간교차보다 정확하다.
 # 표에 없는 코드(00 지정되지않음, 44 개발제한구역, 51 용도미지정, 61~ 비도시지역)는
@@ -581,6 +582,8 @@ HEIGHT_GRADES = ("A", "B", "C", "D")
 # ═════════════════════════════════════════════════════════
 PANEL_VERSION = "0.3.8"   # 배포 버전 하나(모든 호스트 패키지 버전 = dev_deploy.PACKAGE_VERSION). 매니페스트 update.latest·min과 비교한다
 NOTICE_TIMEOUT_SECONDS = 3   # 패널을 열 때 매니페스트(공지·업데이트)를 기다리는 한도 — 못 받으면 공지 없이 연다
+UPDATE_INSTALL_SECONDS = 600   # 패널 [지금 업데이트](yak install)를 기다리는 상한 — Rhino 7판은 번들 파이썬까지 수백 MB
+RHINO_DIR_ENV = "GORANI_RHINO_DIR"   # Rhino 7 사이드카에 C# 호스트가 넘기는 Rhino 실행 폴더 — data_pack.get_yak_path
 MANIFEST_RETRY_SECONDS = 60   # 지도 이동(area_packs)이 매니페스트를 못 받았으면 이만큼은 다시 묻지 않는다 — 막힌 망에서 이동마다 멈추지 않게
 # 언어 — 패널 헤더에서 고른다(options.lang). 사전은 scripts/i18n.json 하나(패널 JS·Python 공용, i18n.py)
 LANGS = ("en", "ko", "es", "ja", "zh")   # 고르기 순서. zh = 중국어 간체
@@ -812,6 +815,13 @@ BLOCK_BASE_SNAP = 5.0           # m — 바닥 높이를 이 단위로 내림(BA
 CLASSIFY_GRID = 50.0            # m — 면 분류용 격자 버킷
 WATER_LIFT = 0.02               # m — 수면 메시를 지형 위로 띄우는 높이
 WATER_EDGE_STEP = 2.0           # m — 수면 경계 조밀화 간격 (TIN 입력, code_map §5.1)
+OSM_FLOWING_WATER = ("river", "canal", "stream", "ditch", "drain", "rapids", "fish_pass")   # natural=water + water=* 중 흐르는 물(OSM wiki Key:water) — 나머지 수면은 고인 물
+WATER_STILL_KINDS = ("lake",)   # 고인 물 = 평평한 수면 하나(물가 최저). 나머지(river·stream)는 흐르는 물 — 물가를 따라 기운다
+WATER_SHORE_WINDOW = 50.0       # m — 흐르는 물 수위 = 이 거리 안 물가 높이의 최저. 물가 정점이 둑 꼭대기 등고선(성수 한강 15 m)을 받은 튀는 값을 걸러 낸다
+WATER_MAX_GRADE = 0.02          # 흐르는 물 수면의 최대 기울기(2 %) — 등고선 5 m 간격 때문에 계단진 물가 높이를 250 m 경사로로 편다. 수면(면)이 있는 하천은 폭이 넓어 대개 1 % 미만(5 %는 청계천·홍제천 수면이 급류처럼 보였다)
+WATER_BLEND_SOURCE = "aws_terrain"   # 수면 둘레 칸이 호수·강 바닥 수심과 섞인 격자 지형 원천(osm_context.get_terrain_spots) — 일본 지리원 5 m는 수면이 값 없음이라 해당 없음
+WATER_BLEND_BUFFER = 30.0       # m — 그 원천 표고점을 수면 경계에서 이 거리 안이면 뺀다(원천 DEM 약 30 m 한 칸)
+WATER_SURFACE_CELL = 10.0       # m — 흐르는 물 안쪽 수위를 채우는 격자 칸(물가 수위를 가장 가까운 칸에서 가져와 쌍선형 보간)
 WATER_SURFACE_KINDS = ("river", "stream", "lake")   # features theme water 중 수면(면)으로 다루는 kind — 3dm CTX::Water 분류·시트 바탕 수계가 같이 쓴다. shore(습지)는 TOPO_LAYERS 주석 참고
 TERRAIN_CLASS_PRIORITY = ("water", "rail", "road", "green")
 TERRAIN_UNION_CLASSES = ("road", "green")   # Rhino 면 분할 전에 Boolean 합집합으로 겹침을 없애는 분류 — OSM 도로면 버퍼(교차부마다 겹침)·녹지. 수면은 폴리곤별 수위를 따로 쓰므로 합치지 않는다   # 면 분류 우선순위(앞이 이김), 나머지 terrain, 범위 밖 outside (code_map §5.3)
@@ -844,10 +854,10 @@ HOST_LABELS = {
                 "aerial": False, "update_notice": False, "ip_center": False},   # 확장 스토어 약관: 분석 전송·상용 영상(Esri)·제3자 IP 조회 불가, 업데이트는 Blender가 한다
     # [blender-cut] SketchUp도 Extension Warehouse 심사(개인정보 정책 위반 = 반려 사유)라 동의제 — GA_STREAMS에 sketchup 속성을 넣기 전에는 묻지도 않는다
     "rhino": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": True, "ask_stats": False,
-              "brep": True},   # brep = 3D 설정 '형상' Mesh|Brep(options.geometry_type) — RhinoCommon 베이크만(Rhino 7판은 사이드카라 없다)
+              "brep": True, "self_update": True},   # self_update = 패널 [지금 업데이트](yak — data_pack.install_update). yak을 못 찾으면 init이 끈다   # brep = 3D 설정 '형상' Mesh|Brep(options.geometry_type) — RhinoCommon 베이크만(Rhino 7판은 사이드카라 없다)
     "sketchup": {"id": "sketchup", "name": "SketchUp", "doc": "SketchUp 모델", "model": SKETCHUP_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},
     # Rhino 7판(cmd_rhino7 사이드카 + rhino7_host.cs) — 패널에는 Rhino로 보인다. DWG는 Rhino 8 헤드리스 문서(context_baker.save_dwg)라 없다
-    "rhino7": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": False, "ask_stats": False},
+    "rhino7": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": False, "ask_stats": False, "self_update": True},
     "web": {"id": "web", "name": "브라우저", "doc": "3D 모델", "model": WEB_MODEL_FILE_NAME, "dwg": False, "ask_stats": False},   # 통계는 웹사이트 GA(페이지)만
     # [/blender-cut]
 }
