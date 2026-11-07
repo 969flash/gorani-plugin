@@ -378,11 +378,23 @@ def get_place_name(center, site_db=None):
     return (parts[-2] if len(parts) >= 2 else ""), (lot.lot_number or "")
 
 
-def _get_place_label(center, suffix, site_db):
-    # type: (tuple, str, str) -> str
-    """'성수동2가_333-139_구역' — 결과 폴더명. 필지가 없으면 'E198100_N552000_<suffix>', 해외면 'N37.7929_W122.4194_<suffix>'."""
+def get_folder_safe_name(address):
+    # type: (str) -> str
+    """주소 '도로, 동네, 도시' → 폴더 이름 칸 '도로_동네_도시'. Windows·macOS에서 못 쓰는 글자(<>:"/\\|?* 제어 문자)는 빼고, 길면 자른다."""
+    parts = [re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", part).strip(" .") for part in (address or "").split(",")]
+    return "_".join(part for part in parts if part)[:constants.RESULT_ADDRESS_MAX_CHARS].strip(" ._")
+
+
+def _get_place_label(center, suffix, site_db, lang="ko"):
+    # type: (tuple, str, str, str) -> str
+    """'성수동2가_333-139_구역' — 결과 폴더명. 필지가 없으면 'E198100_N552000_<suffix>'.
+    해외면 주소 'Greenwich Street_Russian Hill_San Francisco_<suffix>'(osm_context.get_place_address, lang 언어 — 2026-11-08 사용자),
+    주소를 못 받으면 'N37.7929_W122.4194_<suffix>'."""
     if non_rhino_utils.is_local_projection():
         lng, lat = non_rhino_utils.get_wgs84_from_tm(*center)
+        address = get_folder_safe_name(osm_context.get_place_address(lng, lat, lang))
+        if address:
+            return "%s_%s" % (address, suffix)
         return "%s%.4f_%s%.4f_%s" % ("N" if lat >= 0 else "S", abs(lat), "E" if lng >= 0 else "W", abs(lng), suffix)
     dong, jibun = get_place_name(center, site_db)
     if not dong and not jibun:
@@ -420,12 +432,12 @@ def resolve_target(request, with_lots=True):
         center = ((min_x + max_x) * 0.5, (min_y + max_y) * 0.5)
         target = Target(mode, spec, get_target_key(spec), "", center, [ring], [])
         if with_lots and abroad:
-            target.name = _get_place_label(center, non_rhino_utils.get_output_name("area", lang), site_db)
+            target.name = _get_place_label(center, non_rhino_utils.get_output_name("area", lang), site_db, lang)
         elif with_lots:
             lots = get_area_lots(ring, site_db)
             target.lot_data = _load_lots([lot.pnu for lot in lots], site_db) if lots else None
             target.lots = list(target.lot_data.lots) if target.lot_data else []
-            target.name = _get_place_label(center, non_rhino_utils.get_output_name("area", lang), site_db)
+            target.name = _get_place_label(center, non_rhino_utils.get_output_name("area", lang), site_db, lang)
             if not lots:
                 target.warnings.append(_warning("warn", "area_no_lots", tr("구역 안 필지 0 — 대상지 조서가 비어 나옵니다"),
                                                 tr("필지 면적의 {0} % 이상이 구역 안에 있어야 대상 필지로 셉니다.", round(constants.AREA_LOT_MIN_FRACTION * 100))))
@@ -437,7 +449,7 @@ def resolve_target(request, with_lots=True):
     spec["center"] = [round(center[0], 2), round(center[1], 2)]
     target = Target(mode, spec, get_target_key(spec), "", center, [], [])
     if with_lots:
-        target.name = _get_place_label(center, non_rhino_utils.get_output_name("vicinity", lang), site_db)
+        target.name = _get_place_label(center, non_rhino_utils.get_output_name("vicinity", lang), site_db, lang)
     return target
 
 
