@@ -14,6 +14,7 @@ import runpy
 import shutil
 import time
 
+import Eto.Forms as forms
 import Rhino
 import scriptcontext
 
@@ -32,6 +33,10 @@ constants.HOME_DIR = HOME_TMP
 data_pack.get_data_dir = lambda *a, **k: os.path.join(REAL, "data")
 usage_stats.send_event = lambda *a, **k: False   # 시험이 실제 GA로 나가지 않게
 res = {"checks": {}, "errors": []}
+
+# 사용자가 열어 둔 Gorani 패널이 있으면 건드리지 않고 멈춘다 — 시험이 그 패널에 붙어 닫고 prefs까지 지울 뻔했다(2026-11-07)
+open_panels = [w for w in forms.Application.Instance.Windows if w.Title == "Gorani"]
+assert not open_panels and scriptcontext.sticky.get("gorani_site_panel") is None, "열린 Gorani 패널이 있다 — 닫은 뒤 다시 실행(이 시험은 열려 있는 패널에 손대지 않는다)"
 
 
 def check(name, ok, detail=""):
@@ -144,7 +149,7 @@ finally:
         host.form.Close()
         scriptcontext.sticky.pop("gorani_site_panel", None)
     if not had_prefs and os.path.exists(PREFS):
-        os.remove(PREFS)   # 시험이 만든 prefs — 사용자 설정이 아니다
+        os.remove(PREFS)   # 시작 때 없던 파일만 — 시험이 만든 것(위 가드로 다른 패널이 없다는 것을 확인했다)
     failed = [k for k, v in res["checks"].items() if not v["ok"]]
     res["failed"] = failed
     with open(os.path.join(OUT_DIR, "result.json"), "w", encoding="utf-8") as f:   # noqa: F821

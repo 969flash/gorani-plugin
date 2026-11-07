@@ -635,12 +635,6 @@
   "ja": "境界の最高高さ",
   "zh": "边界最高高度"
  },
- "용도지역, 지구, 구역, 도시계획시설, 지구단위계획 경계": {
-  "en": "Zoning, districts, zones, planning facilities and district unit plan boundaries",
-  "es": "Límites de zonificación, distritos, zonas, equipamientos urbanísticos y planes de unidad de distrito",
-  "ja": "用途地域・地区・区域、都市計画施設、地区単位計画の境界",
-  "zh": "用途分区、地区、区域、城市规划设施、地区单元规划边界"
- },
  "{0}장": {
   "en": "Sheets: {0}",
   "es": "Láminas: {0}",
@@ -5794,17 +5788,5 @@
   "es": "Aplanar el terreno del sitio",
   "ja": "対象地の地面を平らに",
   "zh": "将场地地面整平"
- },
- "용도지역·지구 경계선 넣기": {
-  "en": "Add zoning and district lines",
-  "es": "Añadir líneas de zonificación y distritos",
-  "ja": "用途地域・地区の境界線を入れる",
-  "zh": "加入用途区域与地区边界线"
- },
- "용도지역 선 뺌": {
-  "en": "No zoning lines",
-  "es": "Sin líneas de zonificación",
-  "ja": "用途地域の線なし",
-  "zh": "无用途区域线"
  }
 }
