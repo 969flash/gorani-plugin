@@ -431,12 +431,6 @@
   "ja": "先に{0}で閉じた平面カーブを1本選択しておくと、すぐに取り込みます",
   "zh": "先在 {0} 中选中一条闭合平面曲线，即可直接导入"
  },
- "{0} 커브 가져오기": {
-  "en": "Use {0} curve",
-  "es": "Usar curva de {0}",
-  "ja": "{0}のカーブを使用",
-  "zh": "使用 {0} 曲线"
- },
  "꼭짓점 {0}개": {
   "en": "Vertices: {0}",
   "es": "Vértices: {0}",
@@ -646,12 +640,6 @@
   "es": "Arrastra el mapa para colocar el área",
   "ja": "地図をドラッグしてエリアの位置を合わせてください",
   "zh": "拖动地图调整区域位置"
- },
- "[지도에 그리기]로 대상지 경계를 그리세요": {
-  "en": "Use [Draw on map] to draw the site boundary",
-  "es": "Usa [Dibujar en el mapa] para dibujar el límite del sitio",
-  "ja": "[地図に描画]で対象地の境界を描いてください",
-  "zh": "使用 [在地图上绘制] 绘制场地边界"
  },
  "지도를 눌러 위치를 찍으세요": {
   "en": "Click the map to drop a point",
@@ -5806,5 +5794,11 @@
   "es": "Dirección",
   "ja": "住所",
   "zh": "地址"
+ },
+ "커브 가져오기": {
+  "en": "Use curve",
+  "es": "Usar curva",
+  "ja": "カーブを使用",
+  "zh": "使用曲线"
  }
 }
