@@ -230,56 +230,51 @@ def get_mesh_brep(mesh):
     # type: (rg.Mesh) -> rg.Brep
     """
     입력: 분류별 지형 메시(로컬 m). options.geometry_type = brep일 때만.
-    처리: 같은 평면인 이웃 면을 n-gon으로 묶고(Mesh.MergeAllCoplanarFaces — 같은 TIN 삼각형 위 3 m 칸들) n-gon마다 평면 면 하나,
-          나머지 면은 Brep.CreateFromMesh → JoinBreps로 이어 붙인다. 모양·면적은 메시와 같다.
-          구멍 있는 n-gon은 묶지 않고, 평면 면이 아래를 보면 메시 면 쪽으로 뒤집는다.
-          성수 333-139 사각형 500 m(2026-11-05 Rhino 8 실측): 지형 면 28,608 → 8,461·도로 12,278 → 4,054, 3dm 111 → 44 MB,
-          화면 있는 문서 전체 실행 4.3 → 3.6 s(Mesh 1.4 s). 층별 면적은 메시와 같다(tests/rhino/driver_brep.py).
-          Brep.MergeCoplanarFaces는 3,992면에 108.8 s, Brep.JoinNakedEdges는 8.2 s, 분류별 스레드는 0.35 s 이득이라 쓰지 않는다.
-    출력: Brep 하나(떨어진 덩어리는 한 Brep 안의 여러 껍질). 실패면 None — 부른 쪽이 메시로 남긴다.
+    처리: 같은 평면인 이웃 면을 n-gon으로 묶고(Mesh.MergeAllCoplanarFaces — 같은 TIN 삼각형 위 3 m 칸, 계단 지형의 단 하나)
+          non_rhino_utils.get_planar_faces로 n-gon마다 평면 면 하나(윗단 섬·블록을 두른 도로 고리는 구멍), 나머지 면은 면 하나씩 —
+          정점·변을 좌표로 공유하는 Brep을 직접 조립한다(PlaneSurface + 선분 모서리·트림). 모양·면적은 메시와 같다.
+          2026-11-08: 예전에는 n-gon마다 CreatePlanarBreps + 나머지 CreateFromMesh → JoinBreps였다. 구멍 있는 n-gon을 건너뛰어 계단 지형의
+          단이 칸마다 Brep 면(메시 와이어프레임처럼 보임)이었고, 고양 덕양 산지 사각형 250 m 계단 1 m 녹지는 JoinBreps만 186 s였다
+          (긴 폴리라인 모서리를 이웃 면 변마다 쪼개 맞춘다). 같은 조각을 Append + JoinNakedEdges는 3,974 s, Brep.MergeCoplanarFaces는 3,992면에 108.8 s,
+          CreateFromMesh는 n-gon을 무시한다. 직접 조립: 성북동 사각형 250 m 계단 1 m 지형 메시 102,253면 → Brep 16,403면 10.8 s, 성수 driver_brep 계단 2 m 6.9 → 3.5 s.
+    출력: Brep 하나(떨어진 덩어리는 한 Brep 안의 여러 껍질). 실패(IsValid 아님)면 None — 부른 쪽이 메시로 남긴다.
     """
     tol = constants.GEOMETRY_TOLERANCE
     flat = mesh.DuplicateMesh()
     flat.MergeAllCoplanarFaces(tol, math.radians(constants.BREP_COPLANAR_ANGLE))
-    flat.FaceNormals.ComputeFaceNormals()
-    pieces, merged = [], []
-    for k in range(flat.Ngons.Count):
-        ngon = flat.Ngons[k]
-        faces = list(ngon.FaceIndexList())
-        # 구멍 있는 n-gon(블록을 두른 도로 고리)은 경계가 바깥 테두리뿐이라 구멍이 메워진다 — 그 면들은 아래 CreateFromMesh로
-        # (성수 333-139 사각형 500 m 도로 50,022 → 56,646 ㎡, 2026-11-05)
-        if len(faces) < 2 or flat.Ngons.NgonHasHoles(k):
-            continue
-        loop = [flat.Vertices.Point3dAt(int(i)) for i in ngon.BoundaryVertexIndexList()]
-        loop.append(loop[0])
-        planar = rg.Brep.CreatePlanarBreps(rg.PolylineCurve(loop), tol)
-        if planar and len(planar) == 1:   # 안 되면 그 면들도 아래 CreateFromMesh로
-            face = planar[0].Faces[0]
-            u, v = face.Domain(0).Mid, face.Domain(1).Mid
-            normal = -face.NormalAt(u, v) if face.OrientationIsReversed else face.NormalAt(u, v)
-            if normal * rg.Vector3d(flat.FaceNormals[faces[0]]) < 0:   # 경계 돌림 방향 따라 아래를 볼 수 있다 — 메시 면과 같은 쪽으로
-                planar[0].Flip()
-            pieces.append(planar[0])
-            merged.extend(int(f) for f in faces)
-    rest = flat
-    rest.Ngons.Clear()
-    if merged:
-        rest.Faces.DeleteFaces(merged, True)
-        rest.Compact()
-    if rest.Faces.Count:
-        rest_brep = rg.Brep.CreateFromMesh(rest, True)
-        if rest_brep is None:
-            return None
-        pieces.append(rest_brep)
-    if len(pieces) <= 1:
-        return pieces[0] if pieces else None
-    joined = rg.Brep.JoinBreps(pieces, tol)
-    if not joined:
+    verts, faces = _get_mesh_faces(flat)
+    groups = [[int(f) for f in flat.Ngons[k].FaceIndexList()] for k in range(flat.Ngons.Count)]
+    points, planes = non_rhino_utils.get_planar_faces(verts, faces, groups, tol)
+    if not planes:
         return None
-    out = joined[0]
-    for k in range(1, len(joined)):   # .NET 배열은 슬라이스가 안 된다
-        out.Append(joined[k])
-    return out
+    brep = rg.Brep()
+    vertices, edges = {}, {}
+
+    def vertex(k):   # 모서리가 쓰는 정점만 — 쓰지 않는 Brep 정점은 무효
+        if k not in vertices:
+            vertices[k] = brep.Vertices.Add(rg.Point3d(*points[k]), tol).VertexIndex
+        return vertices[k]
+
+    for origin, x_axis, y_axis, loops in planes:
+        us = [q[1] for loop in loops for q in loop]
+        vs = [q[2] for loop in loops for q in loop]
+        pad = 0.01 * max(max(us) - min(us), max(vs) - min(vs)) + tol
+        plane = rg.Plane(rg.Point3d(*origin), rg.Vector3d(*x_axis), rg.Vector3d(*y_axis))
+        surface = rg.PlaneSurface(plane, rg.Interval(min(us) - pad, max(us) + pad), rg.Interval(min(vs) - pad, max(vs) + pad))
+        face = brep.Faces.Add(brep.AddSurface(surface))
+        for n, loop in enumerate(loops):
+            brep_loop = brep.Loops.Add(rg.BrepLoopType.Outer if n == 0 else rg.BrepLoopType.Inner, face)
+            for k in range(len(loop)):
+                (a, ua, va), (b, ub, vb) = loop[k], loop[(k + 1) % len(loop)]
+                key = (a, b) if a < b else (b, a)
+                edge = edges.get(key)
+                if edge is None:
+                    curve = brep.AddEdgeCurve(rg.LineCurve(rg.Point3d(*points[key[0]]), rg.Point3d(*points[key[1]])))
+                    edge = edges[key] = brep.Edges.Add(vertex(key[0]), vertex(key[1]), curve, tol)
+                trim_curve = brep.AddTrimCurve(rg.LineCurve(rg.Point2d(ua, va), rg.Point2d(ub, vb)))
+                brep.Trims.Add(edge, a > b, brep_loop, trim_curve)
+    brep.SetTolerancesBoxesAndFlags(False, True, True, True, True, True, False, True)   # 정점·모서리·트림 허용오차, 트림 iso·종류(mated|boundary)
+    return brep if brep.IsValid else None
 # [/blender-cut]
 
 
@@ -594,11 +589,11 @@ def _get_site_level(mesh, rings, how):
     return min(zs) if how == "min" else max(zs) if how == "max" else sum(zs) / len(zs)
 
 
-def _get_site_wall(site_mesh, level, step=0.0):
-    # type: (rg.Mesh, float, float) -> rg.Mesh
+def _get_site_wall(site_mesh, level, step=0.0, tin=None):
+    # type: (rg.Mesh, float, float, object) -> rg.Mesh
     """평탄면과 주변 지반 사이 수직 벽(옹벽 자리). 대상지 원지형 메시의 바깥 경계(GetNakedEdges) 정점을 그대로 쓴다 —
     윗선 = 주변 지형 경계와 같은 정점(분할 Brep이 모서리를 공유), 아랫선 = 같은 XY의 평탄 높이 → 틈이 생길 수 없다.
-    step > 0(계단 지형)이면 윗선을 주변 계단 단 높이로(get_stepped_edges).
+    step > 0(계단 지형)이면 윗선을 주변 계단 단 높이로(get_stepped_edges — 주변 지형과 같은 tin).
     2026-10-10: 경계를 3 m마다 다시 뽑은 점으로 만들었더니 정점이 어긋나고 모서리를 건너뛰어 틈이 보였다(사용자 지적)."""
     wall = rg.Mesh()
     for polyline in site_mesh.GetNakedEdges() or []:
@@ -608,7 +603,7 @@ def _get_site_wall(site_mesh, level, step=0.0):
         n = len(pts)
         for k in range(n):
             p, q = pts[k], pts[(k + 1) % n]
-            for a, b in non_rhino_utils.get_stepped_edges((p.X, p.Y, p.Z), (q.X, q.Y, q.Z), step):
+            for a, b in non_rhino_utils.get_stepped_edges((p.X, p.Y, p.Z), (q.X, q.Y, q.Z), step, tin):
                 da, db = abs(a[2] - level) > 1e-4, abs(b[2] - level) > 1e-4
                 if not da and not db:
                     continue
@@ -632,10 +627,11 @@ def _get_site_wall(site_mesh, level, step=0.0):
     return wall
 
 
-def _get_stepped(mesh, step):
-    # type: (rg.Mesh, float) -> rg.Mesh
-    """메시 → 계단 지형 메시(non_rhino_utils.get_stepped_mesh). 다시 용접하지 않는다 — 벽과 단 면 정점을 따로 둬야 모서리가 선다."""
-    return _get_rhino_mesh(*non_rhino_utils.get_stepped_mesh(*_get_mesh_faces(mesh), step=step))
+def _get_stepped(mesh, step, tin=None):
+    # type: (rg.Mesh, float, object) -> rg.Mesh
+    """메시 → 계단 지형 메시(non_rhino_utils.get_stepped_mesh). 다시 용접하지 않는다 — 벽과 단 면 정점을 따로 둬야 모서리가 선다.
+    tin(TinProfile)이 있으면 단 경계를 3 m 격자 변 보간 대신 TIN 단면에서 찾는다(평평한 TIN 삼각형 위 격자 톱니 방지)."""
+    return _get_rhino_mesh(*non_rhino_utils.get_stepped_mesh(*_get_mesh_faces(mesh), step=step, tin=tin))
 
 
 def _get_rhino_mesh(verts, faces):
@@ -780,11 +776,13 @@ def build_terrain(prepared):
                 mesh.Normals.ComputeNormals()
     counts["water_bodies"] = water_bodies
     step = float(options.get("terrain_step") or 0)
+    profile = None
     if step > 0:
         t = time.time()
+        profile = non_rhino_utils.TinProfile(*_get_mesh_faces(tin), cell=constants.TERRAIN_PROFILE_CELL)
         for cls in GROUND_CLASSES + ("water",):
-            if cls in meshes:
-                meshes[cls] = _get_stepped(meshes[cls], step)
+            if cls in meshes:   # 수면은 TIN과 따로 정한 높이 — 정점 보간
+                meshes[cls] = _get_stepped(meshes[cls], step, None if cls == "water" else profile)
         counts.update(terrain_step=step, step_s=round(time.time() - t, 3))
 
     # 대상지 — 면 출력: 대상지 안 지형·녹지 = 대상지 면(Site::ground), 같은 모양의 원래 지형·녹지는 꺼 둔 레이어(Site::original 몫)에 — 겹치지 않는다 /
@@ -807,10 +805,10 @@ def build_terrain(prepared):
                 v = flat.Vertices.Point3dAt(k)
                 flat.Vertices.SetVertex(k, v.X, v.Y, level)
             flat.Normals.ComputeNormals()
-            meshes.update(site_ground=flat, site_wall=_get_site_wall(site_in, level, step), site_original=site_in)
+            meshes.update(site_ground=flat, site_wall=_get_site_wall(site_in, level, step, profile), site_original=site_in)
             counts.update(site_level=round(level, 2), site_level_how=options.get("flatten_level") or "mean")
         else:
-            meshes["site_ground"] = _get_stepped(site_in, step) if step > 0 else site_in
+            meshes["site_ground"] = _get_stepped(site_in, step, profile) if step > 0 else site_in
         counts["site_output"] = "mesh" if site_mesh_out else "flatten_only"
         ground_parts.append(meshes["site_ground"])
     meshes["all"] = _join([m.DuplicateMesh() for m in ground_parts])

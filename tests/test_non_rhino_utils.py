@@ -408,6 +408,104 @@ class SteppedMeshTest(unittest.TestCase):
         self.assertEqual(u.get_stepped_edges((0, 0, 1.3), (1, 0, 2.7), 0), [((0, 0, 1.3), (1, 0, 2.7))])
 
 
+class SteppedMeshTinTest(SteppedMeshTest):
+    """같은 검사를 TIN 단면 교차점(tin=)으로 — TIN은 쿼드를 반대 대각선으로 나눠 메시 변과 단면이 다르다(대각선 교차점이 메시 보간과 어긋나도 틈이 없어야)."""
+
+    def setUp(self):
+        super(SteppedMeshTinTest, self).setUp()
+        n = self.N
+        tin_faces = []
+        for j in range(n):
+            for i in range(n):
+                a = j * (n + 1) + i
+                tin_faces += [(a, a + 1, a + n + 1), (a + 1, a + n + 2, a + n + 1)]
+        self.tin = u.TinProfile(self.verts, tin_faces, 4.0)
+        self.out_verts, self.out_faces = u.get_stepped_mesh(self.verts, self.faces, self.STEP, self.tin)
+
+    def test_stepped_edges_match_mesh(self):
+        out = set(self.out_verts)
+        for i in range(self.N):
+            for p, q in u.get_stepped_edges(self.verts[i], self.verts[i + 1], self.STEP, self.tin):
+                self.assertIn(p, out)
+                self.assertIn(q, out)
+
+
+class SteppedTinPlateauTest(unittest.TestCase):
+    """등고선 TIN의 평평한 삼각형 — 3 m 격자 정점이 단 높이에 정확히 놓여도 단 테두리는 격자가 아니라 TIN의 평지 끝(실제 등고선)을 따른다
+    (죽림리 301-3 구역 톱니, 2026-11-08). 평지 z = 2(x + 0.5·y ≥ 13), 그 아래는 비탈."""
+
+    def test_wall_follows_tin_plateau_edge(self):
+        tin_verts = [(0.0, 0.0, 0.0), (0.0, 30.0, 0.0), (13.0, 0.0, 2.0), (-2.0, 30.0, 2.0), (40.0, 0.0, 2.0), (40.0, 30.0, 2.0)]
+        tin = u.TinProfile(tin_verts, [(0, 2, 3), (0, 3, 1), (2, 4, 5), (2, 5, 3)], 10.0)
+        verts, faces, n = [], [], 10
+        for j in range(n + 1):
+            for i in range(n + 1):
+                x, y = 3.0 * i + 0.4, 3.0 * j
+                verts.append((x, y, min(2.0, 2.0 * (x + 0.5 * y) / 13.0)))   # TIN에 입힌 높이
+        for j in range(n):
+            for i in range(n):
+                a = j * (n + 1) + i
+                faces.append((a, a + 1, a + n + 2, a + n + 1))
+        for tin_arg, on_edge in ((None, False), (tin, True)):
+            out_verts, out_faces = u.get_stepped_mesh(verts, faces, 1.0, tin_arg)
+            tops = [out_verts[i] for f in out_faces if len({out_verts[k][:2] for k in f}) == 2 for i in f if abs(out_verts[i][2] - 2.0) < 1e-9]
+            self.assertTrue(tops)
+            off = max(abs(p[0] + 0.5 * p[1] - 13) for p in tops)
+            if on_edge:
+                self.assertLess(off, 0.01)   # TIN 평지 끝 선 위
+            else:
+                self.assertGreater(off, 0.5)   # 선형 보간은 격자 정점을 따라간다(톱니)
+
+
+class BoundaryLoopsTest(unittest.TestCase):
+    def test_hole_and_pinch(self):
+        n = 3
+        quads = [(j * (n + 1) + i, j * (n + 1) + i + 1, (j + 1) * (n + 1) + i + 1, (j + 1) * (n + 1) + i) for j in range(n) for i in range(n)]
+        loops = u.get_boundary_loops([q for k, q in enumerate(quads) if k != 4])   # 가운데 칸을 뺀 고리
+        self.assertEqual(sorted(len(loop) for loop in loops), [4, 12])
+        self.assertIsNone(u.get_boundary_loops([quads[0], quads[4]]))   # 꼭짓점 하나로 맞닿음
+
+
+class PlanarFacesTest(unittest.TestCase):
+    """Brep 조립용 평면 면 — 구멍 있는 묶음은 면 하나(바깥 반시계 + 구멍 시계), 좌표가 같은 정점은 하나, 평면 아닌 4각형은 삼각형 둘."""
+
+    def _area(self, uv):
+        ring = [q[1:] for q in uv]
+        return u.get_ring_area(ring) * u.get_ring_orientation(ring)
+
+    def test_group_with_hole_shares_vertices(self):
+        n = 3
+        verts = [(float(i), float(j), 5.0) for j in range(n + 1) for i in range(n + 1)]
+        quads = [(j * (n + 1) + i, j * (n + 1) + i + 1, (j + 1) * (n + 1) + i + 1, (j + 1) * (n + 1) + i) for j in range(n) for i in range(n)]
+        verts += [verts[i] for i in quads[4]]   # 가운데 칸은 따로 둔 정점(용접 안 한 계단 지형처럼)
+        faces = [q for k, q in enumerate(quads) if k != 4] + [tuple(range(16, 20))]
+        points, planes = u.get_planar_faces(verts, faces, [list(range(8))], 1e-3)
+        self.assertEqual(len(points), 16)
+        self.assertEqual(len(planes), 2)
+        ring = max(planes, key=lambda pl: len(pl[3]))
+        self.assertEqual([len(loop) for loop in ring[3]], [12, 4])
+        self.assertAlmostEqual(self._area(ring[3][0]), 9.0)
+        self.assertAlmostEqual(self._area(ring[3][1]), -1.0)
+        center = min(planes, key=lambda pl: len(pl[3]))
+        self.assertEqual({q[0] for q in center[3][0]}, {q[0] for q in ring[3][1]})   # 구멍과 가운데 면이 같은 정점
+
+    def test_flipped_group_falls_back(self):
+        # 평탄면 높이를 가로지르는 경계 벽 띠 — 위로 선 면, 꼬인 4각형, 아래로 선 면이 한 평면 묶음(성수 333-139 site_wall)
+        verts = [(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1), (2, 0, 0), (2, 0, -1), (3, 0, 0), (3, 0, -1)]
+        faces = [(0, 1, 2, 3), (1, 4, 5, 2), (4, 6, 7, 5)]
+        _points, planes = u.get_planar_faces(verts, faces, [[0, 1, 2]], 1e-3)
+        self.assertEqual(len(planes), 4)   # 면 둘 + 꼬인 4각형 → 삼각형 둘
+        self.assertAlmostEqual(sum(self._area(pl[3][0]) for pl in planes), 3.0)
+
+    def test_wall_and_bent_quad(self):
+        verts = [(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1), (0, 0, 0), (1, 0, 0), (1, 1, 0.5), (0, 1, 0)]
+        points, planes = u.get_planar_faces(verts, [(0, 1, 2, 3), (4, 7, 6, 5)], [], 1e-3)
+        self.assertEqual(len(points), 6)
+        self.assertEqual(len(planes), 3)   # 벽 하나 + 꺾인 4각형 → 삼각형 둘
+        for _o, _x, _y, loops in planes:
+            self.assertGreater(self._area(loops[0]), 0)
+
+
 
 if __name__ == "__main__":
     unittest.main()
