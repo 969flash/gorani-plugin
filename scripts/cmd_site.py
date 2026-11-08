@@ -24,7 +24,8 @@ panel_host.PanelHost(Eto WebView)와 로직 모듈을 잇는다. JS 명령(dict)
     open_path       → 폴더·파일·.env 템플릿을 OS로 연다
     open_eum        → PNU의 토지이음 토지이용계획 열람을 OS 브라우저로 연다(constants.EUM_LAND_USE_URL)
     save_prefs      → site_prefs.save_options
-    remove_recent   → site_prefs.remove_recent (최근 대상지 x — JS가 목록에서 먼저 지운다)
+    open_result     → context_builder.get_result_state (최근 결과 하나 → result_opened, 결과 화면을 context.json으로)
+    hide_result     → site_prefs.hide_result (최근 결과 x — 목록에서만 뺀다. JS가 먼저 지운다)
     style_preview   → context_builder.preview_sheet (스타일 바꾼 한 장 SVG 문자열 — 파일 안 씀, seq 에코)
     apply_style     → context_builder.apply_style (시트 전부 + 쓴 .ai 다시 쓰기, busy·style_applied)
     save_style      → site_prefs.save_style (HOME_DIR/styles/<이름>.json → styles)
@@ -119,6 +120,10 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
     notice = loader.load("data_pack").get_notice_state(manifest)
     if not host.get("update_notice", True):   # Blender — 업데이트는 확장 저장소(Blender)가 알린다
         notice["update"] = None
+    # [blender-cut]
+    if host.get("self_update"):   # Rhino 8·7 — yak이 있어야 [지금 업데이트], 없으면 수동 안내
+        host["self_update"] = bool(loader.load("data_pack").get_yak_path())
+    # [/blender-cut]
     return dict({
         "type": "init_state",
         "version": constants.PANEL_VERSION,
@@ -139,7 +144,7 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
         "map": review_map.get_map_init(map_center),
         "options": site_prefs.get_options(),
         "modes": {"defaults": constants.MODE_DEFAULTS, "shapes": {k: list(v) for k, v in constants.SHAPES_BY_MODE.items()}},
-        "recent": site_prefs.get_recent(),
+        "results": context_builder.get_recent_results(hidden=site_prefs.get_hidden_results(), model_name=host["model"]),   # 최근 결과(지도 트레이)
         "sheet_catalog": [{"id": sheet_id, "key": key, "name": name, "needs": needs, "korea_only": key in constants.SHEET_KOREA_ONLY,
                            "group": constants.SHEET_GROUP.get(key, "base")}
                           for sheet_id, key, name, needs in constants.SHEET_CATALOG if key != "aerial" or host.get("aerial", True)],
@@ -240,8 +245,8 @@ def get_lot_state(pnus, site_db=None):
 
 def _empty_area_state(text=""):
     # type: (str) -> dict
-    return {"type": "area_state", "ok": not text, "text": text, "ring_tm": [], "ring_lnglat": [], "center": None, "center_tm": None,
-            "offsets": [], "area": 0.0, "lots": 0, "lots_area": 0.0, "lot_name": "", "target_geojson": _EMPTY_FC, "warnings": []}
+    return {"type": "area_state", "ok": not text, "text": text, "rings_tm": [], "rings_lnglat": [], "ring_offsets": [], "center": None, "center_tm": None,
+            "area": 0.0, "lots": 0, "lots_area": 0.0, "lot_name": "", "address": "", "target_geojson": _EMPTY_FC, "warnings": []}
 
 
 def _get_name_options(msg):
@@ -251,48 +256,73 @@ def _get_name_options(msg):
     return {"region": msg.get("region"), "output_lang": loader.load("site_prefs").get_options().get("output_lang")}
 
 
+def _get_abroad_address(lnglat, msg):
+    # type: (list, dict) -> str
+    """해외 대상지(지역 TM)면 패널 '대상지' 줄에 위경도 대신 보일 주소(Nominatim reverse), 국내·못 받으면 ''. 결과 폴더 이름(lot_name)도 같은 주소다(context_builder._get_place_label)."""
+    if not loader.load("non_rhino_utils").is_local_projection():
+        return ""
+    return loader.load("osm_context").get_place_address(float(lnglat[0]), float(lnglat[1]), _get_name_options(msg).get("output_lang") or "en")
+
+
+def _get_area_input_rings(msg):
+    # type: (dict) -> list
+    """area 입력 → TM 링 목록(투영도 여기서 맞춘다). 묶음 옮기기면 그것만, 아니면 지금 구역(rings_lnglat) + 새 구역 하나."""
+    non_rhino_utils = loader.load("non_rhino_utils")
+    if msg.get("center") and msg.get("ring_offsets"):   # [옮기기] — 구역 묶음째 새 자리로
+        non_rhino_utils.set_projection(float(msg["center"][0]), float(msg["center"][1]))
+        cx, cy = non_rhino_utils.get_tm_from_wgs84(float(msg["center"][0]), float(msg["center"][1]))
+        return [[(cx + float(dx), cy + float(dy)) for dx, dy in ring] for ring in msg["ring_offsets"]]
+    lnglat_rings = [[(float(lng), float(lat)) for lng, lat in ring] for ring in msg.get("rings_lnglat") or [] if ring]
+    if msg.get("ring_lnglat"):
+        lnglat_rings.append([(float(lng), float(lat)) for lng, lat in msg["ring_lnglat"]])
+    stamped = msg.get("center") and msg.get("offsets")
+    if not msg.get("ring_tm"):   # Rhino 커브 실제 좌표(ring_tm)는 지금 투영 그대로 — 아니면 모든 점의 가운데로(해외면 지역 원점)
+        pts = [p for ring in lnglat_rings for p in ring] + ([tuple(float(v) for v in msg["center"])] if stamped else [])
+        if pts:
+            non_rhino_utils.set_projection(sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts))
+    rings = [[non_rhino_utils.get_tm_from_wgs84(lng, lat) for lng, lat in ring] for ring in lnglat_rings]
+    if msg.get("ring_tm"):
+        rings.append([(float(x), float(y)) for x, y in msg["ring_tm"]])
+    elif stamped:   # Rhino 커브를 지도에서 옮겨 놓은 것 — 모양은 m 그대로, 위치만 지도에서
+        cx, cy = non_rhino_utils.get_tm_from_wgs84(float(msg["center"][0]), float(msg["center"][1]))
+        rings.append([(cx + float(dx), cy + float(dy)) for dx, dy in msg["offsets"]])
+    return rings
+
+
 def get_area_state(msg, site_db=None):
     # type: (dict, str) -> dict
-    """area_state 페이로드 — 구역 링 하나를 정리·검사하고 안의 필지를 센다.
+    """area_state 페이로드 — 구역 여러 개를 정리·검사하고(겹치면 하나로 합친다) 안의 필지를 센다. 필지 추가처럼 지도에 그릴 때마다 구역이 더해진다(2026-11-08).
 
-    입력: msg 중 하나 — ring_tm [[x, y]] EPSG:5186 / ring_lnglat [[lng, lat]](지도에 그린 것) / center [lng, lat] + offsets [[dx, dy]] m
-          (Rhino 커브를 지도에서 옮겨 놓은 것 — 모양은 m로 그대로, 위치만 지도에서). 아무것도 없으면 빈 상태(지움).
-    처리: context_builder.resolve_target(area) — 안전장치(get_ring_problem)·안의 필지(50 % 규칙)·이름.
-    출력: {"type": "area_state", ok, text, ring_tm, ring_lnglat(닫힘), center, center_tm, offsets, area, lots, lots_area, lot_name,
-          target_geojson(role area 1 + role target 필지), warnings}. 링 문제는 ok=false + text(사용자용 한 줄).
+    입력: msg — rings_lnglat [[[lng, lat]]](지금 구역들, 없으면 처음) + 새 구역 하나: ring_lnglat(지도에 그린 것) / ring_tm(Rhino 커브 실제 좌표) /
+          center + offsets(Rhino 커브를 지도에서 옮겨 놓은 것). 또는 center + ring_offsets(묶음째 옮기기 — 그것만 쓴다). 아무것도 없으면 빈 상태(지움).
+    처리: context_builder.resolve_target(area) — 구역마다 안전장치(get_ring_problem) → 겹친 구역 합치기(get_area_rings) → 안의 필지(50 % 규칙)·이름.
+    출력: {"type": "area_state", ok, text, rings_tm, rings_lnglat(닫힘), ring_offsets(묶음 가운데 기준 m), center, center_tm, area(합), lots, lots_area,
+          lot_name, address, target_geojson(role area 구역마다 + role target 필지), warnings}. 링 문제는 ok=false + text(사용자용 한 줄) — 패널은 이전 구역을 둔다.
     """
     context_builder = loader.load("context_builder")
     non_rhino_utils = loader.load("non_rhino_utils")
     review_map = loader.load("review_map")
-    if msg.get("ring_tm"):
-        points = [(float(x), float(y)) for x, y in msg["ring_tm"]]
-    elif msg.get("ring_lnglat"):
-        lnglats = [(float(lng), float(lat)) for lng, lat in msg["ring_lnglat"]]
-        non_rhino_utils.set_projection(sum(p[0] for p in lnglats) / len(lnglats), sum(p[1] for p in lnglats) / len(lnglats))   # 해외면 지역 원점
-        points = [non_rhino_utils.get_tm_from_wgs84(lng, lat) for lng, lat in lnglats]
-    elif msg.get("center") and msg.get("offsets"):
-        non_rhino_utils.set_projection(float(msg["center"][0]), float(msg["center"][1]))
-        cx, cy = non_rhino_utils.get_tm_from_wgs84(float(msg["center"][0]), float(msg["center"][1]))
-        points = [(cx + float(dx), cy + float(dy)) for dx, dy in msg["offsets"]]
-    else:
+    rings = _get_area_input_rings(msg)
+    if not rings:
         return _empty_area_state()
     try:
-        request = context_builder.get_request_with_defaults({"target": {"mode": "area", "ring": points}, "site_db": site_db,
+        request = context_builder.get_request_with_defaults({"target": {"mode": "area", "rings": rings}, "site_db": site_db,
                                                              "options": _get_name_options(msg)})   # Global이면 안의 필지를 세지 않는다
         target = context_builder.resolve_target(request)
     except (ValueError, KeyError, FileNotFoundError, RuntimeError) as error:
         return _empty_area_state(str(error.args[0]) if error.args else str(error))
-    ring = target.site_rings[0]
     cx, cy = target.center
+    center = review_map.get_wgs84_ring([target.center])[0]
     geojson = review_map.get_parcels_geojson([lot.pnu for lot in target.lots], "target", site_db) if target.lots else {"type": "FeatureCollection", "features": []}
-    ring_lnglat = review_map.get_wgs84_ring(list(ring) + [ring[0]])
-    geojson["features"].append({"type": "Feature", "properties": {"role": "area"}, "geometry": {"type": "Polygon", "coordinates": [ring_lnglat]}})
+    rings_lnglat = [review_map.get_wgs84_ring(list(ring) + [ring[0]]) for ring in target.site_rings]
+    for ring_lnglat in rings_lnglat:
+        geojson["features"].append({"type": "Feature", "properties": {"role": "area"}, "geometry": {"type": "Polygon", "coordinates": [ring_lnglat]}})
     return {
-        "type": "area_state", "ok": True, "text": "", "ring_tm": [list(p) for p in ring], "ring_lnglat": ring_lnglat,
-        "center": review_map.get_wgs84_ring([target.center])[0], "center_tm": [cx, cy],
-        "offsets": [[round(x - cx, 3), round(y - cy, 3)] for x, y in ring], "area": round(non_rhino_utils.get_ring_area(ring), 1),
+        "type": "area_state", "ok": True, "text": "", "rings_tm": [[list(p) for p in ring] for ring in target.site_rings], "rings_lnglat": rings_lnglat,
+        "ring_offsets": [[[round(x - cx, 3), round(y - cy, 3)] for x, y in ring] for ring in target.site_rings],
+        "center": center, "center_tm": [cx, cy], "area": round(sum(non_rhino_utils.get_ring_area(ring) for ring in target.site_rings), 1),
         "lots": len(target.lots), "lots_area": round(sum(lot.area for lot in target.lots), 1), "lot_name": target.name,
-        "target_geojson": geojson, "warnings": target.warnings,
+        "address": _get_abroad_address(center, msg), "target_geojson": geojson, "warnings": target.warnings,
     }
 
 
@@ -310,7 +340,7 @@ def get_point_state(msg, site_db=None):
                                                          "options": _get_name_options(msg)})
     target = context_builder.resolve_target(request)
     return {"type": "point_state", "ok": True, "center": [round(lng, 7), round(lat, 7)], "center_tm": [round(x, 2), round(y, 2)],
-            "lot_name": target.name}
+            "lot_name": target.name, "address": _get_abroad_address((lng, lat), msg)}
 
 
 def get_area_packs(bbox, seq=None, manifest=None):
@@ -537,11 +567,14 @@ class _SiteController:
             "set_area": self._set_area, "set_point": self._set_point, "pick_curve": self._pick_curve,
             "preflight": self._preflight, "generate": self._generate, "make_2d": self._make_2d, "cancel": self._cancel,
             "import_context": self._import_context, "export_basemap": self._export_basemap, "zoom_view": self._zoom_view,
-            "open_path": self._open_path, "open_eum": self._open_eum, "open_url": self._open_url, "save_prefs": self._save_prefs, "remove_recent": self._remove_recent, "download_data": self._download_data,
+            "open_path": self._open_path, "open_eum": self._open_eum, "open_url": self._open_url, "save_prefs": self._save_prefs, "open_result": self._open_result, "hide_result": self._hide_result, "download_data": self._download_data,
+            # [blender-cut]
+            "install_update": self._install_update,
+            # [/blender-cut]
             "style_preview": self._style_preview, "apply_style": self._apply_style, "save_style": self._save_style, "sheet_ai": self._sheet_ai,
             "sheet_view": self._sheet_view, "area_packs": self._area_packs,
             # [blender-cut]
-            "stats_consent": self._stats_consent,
+            "stats_consent": self._stats_consent, "track": self._track,
             # [/blender-cut]
         }
         handler = handlers.get(cmd)
@@ -723,11 +756,9 @@ class _SiteController:
         # [blender-cut]
         self._send_build_stats(target, lots, response)
         # [/blender-cut]
-        if lots:   # 최근 대상지는 필지 방식만(구역·위치는 다시 그리는 편이 빠르다)
-            site_prefs.add_recent(target["pnus"], response["lot_name"].replace("_", " "), sum(lot.area for lot in lots), datetime.date.today().isoformat())
         if response["options"].get("zoom_after_import"):
             context_baker.zoom_to_site(doc, response["dir"])
-        self.push(get_init_state())   # 생성 중 받은 지역 데이터로 헤더 배지 갱신
+        self.push(get_init_state())   # 생성 중 받은 지역 데이터로 헤더 배지 갱신 — 최근 결과에도 이번 것이 앞에 든다
 
     def _make_2d(self, msg):
         """3D 결과 폴더에 2D 자료(베이스맵 .ai·도면·조서 CSV)를 더한다 — context_builder.make_2d를 UI 스레드에서 동기 호출.
@@ -749,6 +780,9 @@ class _SiteController:
             self._running = False
         if response["error"] and not response["cancelled"]:
             self.push({"type": "log", "level": "error", "text": get_error_log_text(response["error"])})
+        # [blender-cut]
+        self._send_2d_stats(options, response)
+        # [/blender-cut]
         self.push(dict(response, type="made_2d"))
 
     # [blender-cut] 사용 통계
@@ -764,7 +798,28 @@ class _SiteController:
                       error=(response.get("error") or {}).get("code"), elapsed_s=response.get("elapsed_s"),
                       radius=options.get("radius"), shape=options.get("shape"), placement=options.get("placement"),
                       buildings=response["context"].get("buildings"))
+        try:
+            params["options3d"] = loader.load("usage_stats").get_options3d(options)
+        except Exception:
+            pass
         self._send_stats("build", params)
+
+    def _send_2d_stats(self, options, response):
+        # type: (dict, dict) -> None
+        """2D 만들기 한 번 → make_2d 이벤트(고른 산출물·장수·스타일, 결과·소요 시간)."""
+        try:
+            params = loader.load("usage_stats").get_outputs2d_params(options)
+        except Exception:
+            params = {}
+        params.update(result="ok" if response.get("ok") else ("cancelled" if response.get("cancelled") else "failed"),
+                      error=(response.get("error") or {}).get("code"), elapsed_s=response.get("elapsed_s"))
+        self._send_stats("make_2d", params)
+
+    def _track(self, msg):
+        """패널 버튼 하나 → ui 이벤트. 목록 밖 버튼·값은 usage_stats.get_ui_params가 버린다."""
+        params = loader.load("usage_stats").get_ui_params(str(msg.get("action") or ""), msg.get("detail"))
+        if params:
+            self._send_stats("ui", params)
     # [/blender-cut]
 
     def _area_packs(self, msg):
@@ -933,7 +988,24 @@ class _SiteController:
             raise ValueError(tr("알 수 없는 링크입니다: {0}", msg.get("key")))
         self._open(url)
 
-    # [blender-cut]
+    # [blender-cut] 업데이트는 Blender 확장 저장소가 한다
+    def _install_update(self, msg):
+        """[지금 업데이트] — yak으로 최신 판을 깐다(Rhino 8·7). update_state{running} → update_state{done|failed, text}. 새 판은 Rhino를 다시 시작하면."""
+        if self._running:   # 패널은 이미 '설치 중' — 오류 푸시가 아니라 실패로 돌려야 버튼이 돌아온다
+            self.push({"type": "update_state", "state": "failed", "text": tr("다른 작업이 진행 중입니다")})
+            return
+        self.push({"type": "update_state", "state": "running", "text": ""})
+        self._running = True
+        try:
+            ok, output = loader.load("data_pack").install_update(tick=self._pump)
+        finally:
+            self._running = False
+        # Rhino 8 — 패널만 새 판으로 다시 연다(Rhino를 다시 켜지 않는다). Rhino 7은 C# 플러그인이 바뀌어 다시 시작해야 한다
+        reopen = ok and loader.load("context_builder").get_host() == "rhino"
+        self.push({"type": "update_state", "state": "done" if ok else "failed", "text": "" if ok else output, "next": "reopen" if reopen else "restart"})
+        if reopen:
+            reopen_panel_later()
+
     def _stats_consent(self, msg):
         loader.load("site_prefs").save_stats_consent(bool(msg.get("on")))
     # [/blender-cut]
@@ -941,8 +1013,28 @@ class _SiteController:
     def _save_prefs(self, msg):
         loader.load("site_prefs").save_options(msg.get("options") or {})
 
-    def _remove_recent(self, msg):
-        loader.load("site_prefs").remove_recent(msg.get("pnus") or [])
+    def _open_result(self, msg):
+        """최근 결과 하나 → result_opened(결과 화면을 context.json으로 다시 채운다). 3D가 지금 문서에 있으면 imported — 없을 때만 [불러오기]."""
+        context_builder = loader.load("context_builder")
+        result_dir = self._get_result_dir(msg)
+        state = context_builder.get_result_state(result_dir)
+        state["context"]["imported"] = self._has_lot(state.get("lot_key"))
+        self.push(state)
+
+    def _has_lot(self, lot_key):
+        # type: (str) -> bool
+        """이 대상지 3D가 지금 문서에 있나 — Rhino 8만 안다(context_baker.has_lot). SketchUp·Blender·Rhino 7은 False([불러오기])."""
+        # [blender-cut]
+        if Rhino is not None:   # Rhino 8 안(SketchUp·Rhino 7 사이드카는 Rhino를 못 읽는다)
+            try:
+                return loader.load("context_baker").has_lot(Rhino.RhinoDoc.ActiveDoc, lot_key)
+            except Exception:   # 문서 없음 등 — 모르면 [불러오기]를 보인다
+                return False
+        # [/blender-cut]
+        return False
+
+    def _hide_result(self, msg):
+        loader.load("site_prefs").hide_result(str(msg.get("dir") or ""))
 
     def _get_result_dir(self, msg):
         result_dir = str(msg.get("dir") or "")
@@ -1004,10 +1096,10 @@ class _SiteController:
 # error.context — JS가 표시 자리를 고른다(panel_ui.md 오류 규약)
 _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "select", "set_point": "select", "pick_curve": "select",
                    "import_context": "import", "export_basemap": "export",
-                   "zoom_view": "open", "open_path": "open", "open_eum": "open", "open_url": "open", "save_prefs": "init", "remove_recent": "init", "cancel": "generate", "make_2d": "generate", "download_data": "init",
+                   "zoom_view": "open", "open_path": "open", "open_eum": "open", "open_url": "open", "save_prefs": "init", "open_result": "init", "hide_result": "init", "cancel": "generate", "make_2d": "generate", "download_data": "init",
                    "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style", "sheet_view": "view",
                    # [blender-cut]
-                   "stats_consent": "init",
+                   "stats_consent": "init", "track": "init", "install_update": "init",
                    # [/blender-cut]
                    }
 
@@ -1033,6 +1125,27 @@ def get_newer_script(script_path=None):
     newer = [(key, name) for key, name in ((_get_version_key(name), name) for name in os.listdir(root))
              if key is not None and key > mine and os.path.exists(os.path.join(root, name, "scripts", "cmd_site.py"))]
     return os.path.join(root, max(newer)[1], "scripts", "cmd_site.py") if newer else None
+
+
+def reopen_panel_later():
+    # type: () -> None
+    """업데이트를 깐 뒤 — 지금 패널 콜백이 끝나면(Idle 한 번) Gorani 명령을 다시 부른다. 새 판이 옛 판 패널을 닫고 새로 연다
+    (_show_panel의 판 비교·get_newer_script). Rhino를 다시 켜지 않아도 되고, 옛 패널을 그대로 쓰다 깨지지도 않는다 —
+    yak은 다른 판 폴더를 지운다(2026-11-06 이 Mac: Rhino를 켠 채 yak install gorani 0.3.8 → 옆의 0.3.7 폴더가 사라졌다).
+    옛 판 폴더가 지워지면 아직 안 읽은 모듈(2D 만들기 등)을 못 읽는다."""
+    done = []
+
+    def on_idle(sender, args):
+        if done:
+            return
+        done.append(True)
+        try:
+            Rhino.RhinoApp.Idle -= on_idle
+        except Exception:   # 지우지 못해도 done이 막는다
+            pass
+        Rhino.RhinoApp.RunScript("_Gorani", False)
+
+    Rhino.RhinoApp.Idle += on_idle
 
 
 def _show_panel():

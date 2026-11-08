@@ -186,6 +186,80 @@ class CleanEdgeTest(unittest.TestCase):
             nx, ny = b[1] - a[1], a[0] - b[0]
             self.assertGreater(nx * ((a[0] + b[0]) / 2 - 5) + ny * ((a[1] + b[1]) / 2 - 5), 0)
 
+    def test_water_walls_close_gaps(self):
+        # y 띠 넷: 지형 z3 | 수면 A z1 | 수면 B z2 | 지형 z2. 틈은 지형→A(y=2)·B→A(y=6) 두 곳, B와 위 지형(같은 높이)은 막을 것 없음
+        def quad(y0, y1, z):
+            return [(0, y0, z), (10, y0, z), (10, y1, z), (0, y1, z)], [(0, 1, 2, 3)]
+        bank, top = quad(0, 2, 3.0), quad(8, 10, 2.0)
+        (a_verts, a_faces), (b_verts, b_faces) = quad(2, 6, 1.0), quad(6, 8, 2.0)
+        water = (a_verts + b_verts, a_faces + [tuple(i + 4 for i in f) for f in b_faces])
+        walls = u.get_water_walls(water, [bank, top])
+        self.assertEqual(len(walls[1]), 2)
+        edges = {}
+        for vs, fs in (bank, top, water, walls):
+            for f in fs:
+                for k in range(len(f)):
+                    p, q = vs[f[k]], vs[f[(k + 1) % len(f)]]
+                    if p[0] != q[0] and p[1] == q[1] and 0 < p[1] < 10:   # 안쪽 가로 변
+                        key = frozenset((tuple(p), tuple(q)))
+                        edges[key] = edges.get(key, 0) + 1
+        self.assertEqual(set(edges.values()), {2})   # 안쪽 가로 변이 모두 두 면에 걸린다 = 틈 없음
+        for f in walls[1]:   # 벽 법선이 낮은 수면 A(2 < y < 6) 쪽
+            pts = [walls[0][i] for i in f]
+            ny = sum((pts[k][2] - pts[(k + 1) % len(pts)][2]) * (pts[k][0] + pts[(k + 1) % len(pts)][0]) for k in range(len(pts)))
+            self.assertGreater(ny * (4 - pts[0][1]), 0)
+
+    def test_water_surface(self):
+        # 흐르는 물: 물가가 0 m(하류 x=0)에서 10 m(상류 x=400)로 오르는 4 m 폭 띠 + 둑 꼭대기 튀는 값 하나, 끝에 고인 물(연못 z 3)
+        verts, faces = [], []
+        for k in range(41):
+            x = k * 10.0
+            z = x / 40.0 + (20.0 if k == 20 else 0.0)   # 1/40 = 2.5 % 기울기, x=200 물가에 둑 꼭대기 +20 m
+            verts += [(x, 0.0, z), (x, 4.0, z)]
+            if k:
+                faces.append((2 * k - 2, 2 * k, 2 * k + 1, 2 * k - 1))
+        pond = ([(-10.0, 0.0, 3.0), (0.0, 0.0, 3.5), (0.0, 4.0, 3.5), (-10.0, 4.0, 3.0)], [(0, 1, 2, 3)])
+        ring = [(-1000, -1000), (1000, -1000), (1000, 1000), (-1000, 1000)]
+        (river, still), levels = u.get_water_surface([(verts, faces), pond], [False, True], ring, 50.0, 0.05, 10.0)
+        self.assertEqual({v[2] for v in still}, {3.0})   # 고인 물 = 물가 하위 10 % 평면
+        zs = [v[2] for v in river[0::2]]
+        self.assertTrue(all(b >= a - 0.05 for a, b in zip(zs, zs[1:])), zs)   # 하류 → 상류로 내려가지 않는다(튀는 값에 솟지 않는다)
+        self.assertLess(max(zs), 10.0)   # 물가 높이를 넘지 않는다
+        self.assertGreater(zs[-1], 7.0)   # 상류가 하류 수위로 가라앉지 않는다(2.5 % 기울기를 따른다)
+        self.assertLess(abs(river[0][2] - river[1][2]), 0.05)   # 단면은 양안이 같은 높이
+        self.assertLessEqual(river[0][2], 3.0 + 1e-6)   # 연못과 만나는 물가는 연못 수위 이하
+        self.assertEqual(levels[1], (3.0, 3.0))
+
+    def test_noded_segments(self):
+        # 겹친 변(두 네모가 x=10에서 맞닿음)과 십자 교차(가운데 네모가 걸침) — 노딩 뒤 겹치는 선분 없이 교차점에서 나뉜다
+        a = [(0, 0), (10, 0), (10, 10), (0, 10)]
+        b = [(10, 0), (20, 0), (20, 10), (10, 10)]
+        c = [(5, 5), (15, 5), (15, 15), (5, 15)]
+        segs = u.get_noded_segments([a, b, c])
+        self.assertEqual(len(segs), len(set(segs)))
+        self.assertEqual(sum(1 for p, q in segs if p[0] == q[0] == 10.0 and 0 <= p[1] <= 10 and 0 <= q[1] <= 10), 2)   # x=10 공유 변 한 번만, (10,5)에서 나뉨
+        self.assertIn(((5.0, 10.0), (10.0, 10.0)), segs)   # c의 왼쪽 변 × a의 위 변 교차점 (5, 10)에서 나뉨
+        # 제약선으로 나뉜 영역: 네모 하나를 대각선으로 두 삼각형 → 대각선이 제약이면 두 영역, 아니면 한 영역
+        verts, faces = [(0, 0), (1, 0), (1, 1), (0, 1)], [(0, 1, 2), (0, 2, 3)]
+        self.assertEqual(len(u.get_split_triangles(verts, faces, [((0, 0), (1, 1))])), 2)
+        self.assertEqual(len(u.get_split_triangles(verts, faces, [((0, 0), (1, 0))])), 1)
+
+    def test_polygon_index(self):
+        idx = u.PolygonIndex([[[(0, 0), (10, 0), (10, 10), (0, 10)], [(4, 4), (6, 4), (6, 6), (4, 6)]]])   # 구멍 있는 네모
+        self.assertEqual([idx.contains(2, 2), idx.contains(5, 5), idx.contains(11, 5)], [True, False, False])
+        self.assertEqual([idx.is_near(12, 5, 3.0), idx.is_near(15, 5, 3.0), idx.is_near(5, 5, 1.0)], [True, False, True])
+
+    def test_shore_fitted(self):
+        water = ([(0, 0, 1.0), (10, 0, 2.0), (10, 4, 2.0), (0, 4, 1.0)], [(0, 1, 2, 3)])
+        bank = [(5, 0, 7.0), (5, -3, 9.0), (10, 2, 4.0)]   # 물가선 위 점은 그 자리 수면(보간)으로, 물에서 떨어진 점은 그대로
+        self.assertEqual(u.get_shore_fitted(bank, u.WaterShore(water), reach=0), [(5, 0, 1.5), (5, -3, 9.0), (10, 2, 2.0)])
+        # 물가 비탈(2026-11-08) — reach 안은 smoothstep으로 수면 쪽으로, reach 밖·수면보다 낮은 점은 그대로
+        out = u.get_shore_fitted([(5, -3, 9.0), (5, -20, 9.0), (5, -1, 0.5)], u.WaterShore(water), reach=10.0)
+        t = 0.3
+        self.assertAlmostEqual(out[0][2], 1.5 + (9.0 - 1.5) * t * t * (3 - 2 * t), places=6)
+        self.assertEqual(out[1][2], 9.0)
+        self.assertEqual(out[2][2], 0.5)
+
     def test_contours(self):
         tri = ((0, 0, 0.0), (10, 0, 10.0), (0, 10, 0.0))
         segments = u.get_contour_segments([tri], 5.0)
@@ -334,6 +408,150 @@ class SteppedMeshTest(unittest.TestCase):
         self.assertEqual(u.get_stepped_edges((0, 0, 1.3), (1, 0, 2.7), 0), [((0, 0, 1.3), (1, 0, 2.7))])
 
 
+class SteppedMeshTinTest(SteppedMeshTest):
+    """같은 검사를 TIN 단면 교차점(tin=)으로 — TIN은 쿼드를 반대 대각선으로 나눠 메시 변과 단면이 다르다(대각선 교차점이 메시 보간과 어긋나도 틈이 없어야)."""
+
+    def setUp(self):
+        super(SteppedMeshTinTest, self).setUp()
+        n = self.N
+        tin_faces = []
+        for j in range(n):
+            for i in range(n):
+                a = j * (n + 1) + i
+                tin_faces += [(a, a + 1, a + n + 1), (a + 1, a + n + 2, a + n + 1)]
+        self.tin = u.TinProfile(self.verts, tin_faces, 4.0)
+        self.out_verts, self.out_faces = u.get_stepped_mesh(self.verts, self.faces, self.STEP, self.tin)
+
+    def test_stepped_edges_match_mesh(self):
+        out = set(self.out_verts)
+        for i in range(self.N):
+            for p, q in u.get_stepped_edges(self.verts[i], self.verts[i + 1], self.STEP, self.tin):
+                self.assertIn(p, out)
+                self.assertIn(q, out)
+
+
+class SteppedTinPlateauTest(unittest.TestCase):
+    """등고선 TIN의 평평한 삼각형 — 3 m 격자 정점이 단 높이에 정확히 놓여도 단 테두리는 격자가 아니라 TIN의 평지 끝(실제 등고선)을 따른다
+    (죽림리 301-3 구역 톱니, 2026-11-08). 평지 z = 2(x + 0.5·y ≥ 13), 그 아래는 비탈."""
+
+    def test_wall_follows_tin_plateau_edge(self):
+        tin_verts = [(0.0, 0.0, 0.0), (0.0, 30.0, 0.0), (13.0, 0.0, 2.0), (-2.0, 30.0, 2.0), (40.0, 0.0, 2.0), (40.0, 30.0, 2.0)]
+        tin = u.TinProfile(tin_verts, [(0, 2, 3), (0, 3, 1), (2, 4, 5), (2, 5, 3)], 10.0)
+        verts, faces, n = [], [], 10
+        for j in range(n + 1):
+            for i in range(n + 1):
+                x, y = 3.0 * i + 0.4, 3.0 * j
+                verts.append((x, y, min(2.0, 2.0 * (x + 0.5 * y) / 13.0)))   # TIN에 입힌 높이
+        for j in range(n):
+            for i in range(n):
+                a = j * (n + 1) + i
+                faces.append((a, a + 1, a + n + 2, a + n + 1))
+        for tin_arg, on_edge in ((None, False), (tin, True)):
+            out_verts, out_faces = u.get_stepped_mesh(verts, faces, 1.0, tin_arg)
+            tops = [out_verts[i] for f in out_faces if len({out_verts[k][:2] for k in f}) == 2 for i in f if abs(out_verts[i][2] - 2.0) < 1e-9]
+            self.assertTrue(tops)
+            off = max(abs(p[0] + 0.5 * p[1] - 13) for p in tops)
+            if on_edge:
+                self.assertLess(off, 0.01)   # TIN 평지 끝 선 위
+            else:
+                self.assertGreater(off, 0.5)   # 선형 보간은 격자 정점을 따라간다(톱니)
+
+
+class FlatFillTest(unittest.TestCase):
+    """등고선 TIN의 평평한 삼각형 — 골짜기(이웃이 높다)는 안쪽을 낮추고 꼭대기(이웃이 낮다)는 올린다, 등고선 높이가 아닌 평지는 그대로."""
+
+    def _valley(self, side_z):
+        # 가운데 띠(x 10~30)는 양쪽 50 m 등고선 점끼리 이은 평지, 바깥(x 0·40)은 side_z
+        verts, faces = [], []
+        for j in range(7):
+            for x, z in ((0, side_z), (10, 50.0), (30, 50.0), (40, side_z)):
+                verts.append((float(x), j * 10.0, z))
+        for j in range(6):
+            a = j * 4
+            for i in range(3):
+                faces += [(a + i, a + i + 1, a + i + 5), (a + i, a + i + 5, a + i + 4)]
+        return verts, faces
+
+    def test_valley_goes_down_ridge_goes_up(self):
+        for side_z, sign in ((55.0, -1), (45.0, 1)):
+            verts, faces = self._valley(side_z)
+            pts = u.get_flat_fill_points(verts, faces, [45.0, 50.0, 55.0])
+            self.assertTrue(pts)
+            self.assertTrue(all(10 <= x <= 30 for x, _y, _z in pts))
+            zs = [z for _x, _y, z in pts]
+            extreme = min(zs) if sign < 0 else max(zs)
+            self.assertTrue(0.5 < abs(extreme - 50.0) <= 2.5 + 1e-9)   # 이웃 등고선 간격 5 m의 절반 안
+            self.assertTrue(all((z - 50.0) * sign >= 0 for z in zs))
+
+    def test_not_contour_level_untouched(self):
+        verts, faces = self._valley(55.0)
+        self.assertEqual(u.get_flat_fill_points(verts, faces, [45.0, 55.0]), [])
+
+
+class SmoothedZTest(unittest.TestCase):
+    def test_fixed_and_band(self):
+        # 줄 9점: 0·8번 고정, 4번은 등고선 높이(50) 위라 그대로, 나머지는 이웃 평균으로 가되 [45, 50]·[50, 55] 밖으로 못 나간다
+        zs = [45.0, 49.9, 46.0, 49.0, 50.0, 54.0, 51.0, 54.5, 55.0]
+        nb = [[1]] + [[i - 1, i + 1] for i in range(1, 8)] + [[7]]
+        fixed = [True] + [False] * 7 + [True]
+        out = u.get_smoothed_z(zs, nb, fixed, [45.0, 50.0, 55.0], 200)
+        self.assertEqual((out[0], out[4], out[8]), (45.0, 50.0, 55.0))
+        for z0, z1 in zip(zs, out):
+            lo = 45.0 if z0 < 50 else 50.0
+            self.assertTrue(lo <= z1 <= lo + 5.0)
+        self.assertAlmostEqual(out[2], 47.5, 3)   # 45 → 50 사이 곧은 비탈
+        self.assertAlmostEqual(out[6], 52.5, 3)
+
+class BoundaryLoopsTest(unittest.TestCase):
+    def test_hole_and_pinch(self):
+        n = 3
+        quads = [(j * (n + 1) + i, j * (n + 1) + i + 1, (j + 1) * (n + 1) + i + 1, (j + 1) * (n + 1) + i) for j in range(n) for i in range(n)]
+        loops = u.get_boundary_loops([q for k, q in enumerate(quads) if k != 4])   # 가운데 칸을 뺀 고리
+        self.assertEqual(sorted(len(loop) for loop in loops), [4, 12])
+        self.assertIsNone(u.get_boundary_loops([quads[0], quads[4]]))   # 꼭짓점 하나로 맞닿음
+
+
+class PlanarFacesTest(unittest.TestCase):
+    """Brep 조립용 평면 면 — 구멍 있는 묶음은 면 하나(바깥 반시계 + 구멍 시계), 좌표가 같은 정점은 하나, 평면 아닌 4각형은 삼각형 둘."""
+
+    def _area(self, uv):
+        ring = [q[1:] for q in uv]
+        return u.get_ring_area(ring) * u.get_ring_orientation(ring)
+
+    def test_group_with_hole_shares_vertices(self):
+        n = 3
+        verts = [(float(i), float(j), 5.0) for j in range(n + 1) for i in range(n + 1)]
+        quads = [(j * (n + 1) + i, j * (n + 1) + i + 1, (j + 1) * (n + 1) + i + 1, (j + 1) * (n + 1) + i) for j in range(n) for i in range(n)]
+        verts += [verts[i] for i in quads[4]]   # 가운데 칸은 따로 둔 정점(용접 안 한 계단 지형처럼)
+        faces = [q for k, q in enumerate(quads) if k != 4] + [tuple(range(16, 20))]
+        points, planes = u.get_planar_faces(verts, faces, [list(range(8))], 1e-3)
+        self.assertEqual(len(points), 16)
+        self.assertEqual(len(planes), 2)
+        ring = max(planes, key=lambda pl: len(pl[3]))
+        self.assertEqual([len(loop) for loop in ring[3]], [12, 4])
+        self.assertAlmostEqual(self._area(ring[3][0]), 9.0)
+        self.assertAlmostEqual(self._area(ring[3][1]), -1.0)
+        center = min(planes, key=lambda pl: len(pl[3]))
+        self.assertEqual({q[0] for q in center[3][0]}, {q[0] for q in ring[3][1]})   # 구멍과 가운데 면이 같은 정점
+
+    def test_flipped_group_falls_back(self):
+        # 평탄면 높이를 가로지르는 경계 벽 띠 — 위로 선 면, 꼬인 4각형, 아래로 선 면이 한 평면 묶음(성수 333-139 site_wall)
+        verts = [(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1), (2, 0, 0), (2, 0, -1), (3, 0, 0), (3, 0, -1)]
+        faces = [(0, 1, 2, 3), (1, 4, 5, 2), (4, 6, 7, 5)]
+        _points, planes = u.get_planar_faces(verts, faces, [[0, 1, 2]], 1e-3)
+        self.assertEqual(len(planes), 4)   # 면 둘 + 꼬인 4각형 → 삼각형 둘
+        self.assertAlmostEqual(sum(self._area(pl[3][0]) for pl in planes), 3.0)
+
+    def test_wall_and_bent_quad(self):
+        verts = [(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1), (0, 0, 0), (1, 0, 0), (1, 1, 0.5), (0, 1, 0)]
+        points, planes = u.get_planar_faces(verts, [(0, 1, 2, 3), (4, 7, 6, 5)], [], 1e-3)
+        self.assertEqual(len(points), 6)
+        self.assertEqual(len(planes), 3)   # 벽 하나 + 꺾인 4각형 → 삼각형 둘
+        for _o, _x, _y, loops in planes:
+            self.assertGreater(self._area(loops[0]), 0)
+
+
+
 if __name__ == "__main__":
     unittest.main()
 
@@ -368,4 +586,3 @@ class BufferedLineTest(unittest.TestCase):
         self.assertFalse(u.is_point_in_ring(15, 7, hairpin))
         self.assertIsNone(u.get_buffered_line_ring([(0, 0), (0, 0)], 10))
         self.assertIsNone(u.get_buffered_line_ring([(0, 0), (1, 1)], 0))
-

@@ -69,6 +69,7 @@ namespace Gorani
         static TextWriter log;   // 한 번만 연다 — 사이드카를 다시 띄울 때 다시 열면 Windows는 앞 핸들 때문에 실패한다
         static Process sidecar;
         static string url;
+        static bool starting;   // 사이드카를 띄우는 중(백그라운드 스레드) — 그동안 명령을 다시 누르면 기다리라고만 한다
         static Eto.Forms.Form panel;
         static string panelUrl;
         static List<Guid> lastIds = new List<Guid>();   // 마지막 대상지로 구운 객체 — save가 context.3dm으로 쓴다
@@ -109,6 +110,7 @@ namespace Gorani
                         RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true,
                         StandardOutputEncoding = new UTF8Encoding(false), StandardErrorEncoding = new UTF8Encoding(false),
                     };
+                    info.EnvironmentVariables["GORANI_RHINO_DIR"] = RhinoApp.GetExecutableDirectory().FullName;   // constants.RHINO_DIR_ENV — 패널 [지금 업데이트]가 이 Rhino의 yak을 찾는다
                     var process = Process.Start(info);
                     process.ErrorDataReceived += (s, e) => { if (e.Data != null) log.WriteLine(e.Data); };
                     process.BeginErrorReadLine();
@@ -157,9 +159,43 @@ namespace Gorani
             }
         }
 
+        // 명령 → 사이드카가 떠 있으면 바로 패널, 아니면 백그라운드 스레드로 띄우고 주소가 나오면 UI 스레드에서 패널을 연다.
+        // 첫 실행(Windows 백신 검사·.pyc 읽기)이 수십 초라 UI 스레드에서 기다리면 Rhino가 '응답 없음'이 됐다(2026-11-06 SketchUp판과 같은 구조)
         public static void ShowPanel()
         {
-            string address = GetSidecarUrl();
+            if (sidecar != null && !sidecar.HasExited && url != null)
+            {
+                OpenPanel(url);
+                return;
+            }
+            if (starting)
+            {
+                RhinoApp.WriteLine("[Gorani] Still starting. The panel opens by itself when ready.");
+                return;
+            }
+            starting = true;
+            RhinoApp.WriteLine("[Gorani] Starting. The first start can take up to a minute.");
+            new Thread(() =>
+            {
+                try
+                {
+                    string address = GetSidecarUrl();
+                    RhinoApp.InvokeOnUiThread(new Action(() => { starting = false; OpenPanel(address); }));
+                }
+                catch (Exception e)
+                {
+                    RhinoApp.InvokeOnUiThread(new Action(() =>
+                    {
+                        starting = false;
+                        RhinoApp.WriteLine("[Gorani] " + e);
+                        Rhino.UI.Dialogs.ShowMessage("Gorani could not open.\n" + e.Message, "Gorani");
+                    }));
+                }
+            }) { IsBackground = true, Name = "gorani-start" }.Start();
+        }
+
+        static void OpenPanel(string address)
+        {
             if (Rhino.Runtime.HostUtils.RunningOnWindows)
             {
                 try   // Windows 10·11에는 Edge가 늘 있다 — 앱 창(주소창 없음)

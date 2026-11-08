@@ -21,7 +21,7 @@
 | `scripts/review_map.py` | 지도 데이터 제공자(타일 설정·bbox 필지·GeoJSON). 기존 그대로 | 아니오 |
 | `scripts/lot_db.py`, `scripts/pnu_loader.py` | 필지 조회·주소 해석. 기존 그대로 | 아니오 |
 | `scripts/context_builder.py` | 엔진: `preflight(request)`(사전 점검 — 범위 링은 `non_rhino_utils.get_extent_ring` 순수 파이썬, 미리보기 = 실제 생성 범위)·`run(request, progress, doc)`·`get_progress_message(...)`. docs/code_map.md §4 | run만 Rhino |
-| `scripts/site_prefs.py` | `~/.gorani/prefs.json`·`source_news.json` 읽기쓰기, 최근 대상지 5건 | 아니오 |
+| `scripts/site_prefs.py` | `~/.gorani/prefs.json`·`source_news.json` 읽기쓰기, 최근 결과에서 뺀 폴더(`hidden_results`) | 아니오 |
 | `scripts/context_baker.py` | Rhino 문서 조작 전부: 베이크(= 생성), `clear_previous`, `import_3dm`(재삽입), 뷰 줌. 베이스맵 .ai는 `basemap_ai.py`가 문서 없이 쓴다. 문서를 만지는 유일한 모듈 | 예 |
 | `scripts/dev_check_sources.py` | 브이월드 목록 '새 판' 조회(dsId=18 등) → `~/.gorani/source_news.json`. **stdlib(urllib)만** 써서 `init`이 Rhino CPython(`sys.executable`)으로 비차단 실행 — `GENERATOR_PYTHON` 없이도 돈다. tmp 파일에 쓰고 `os.replace`(preflight가 쓰는 중 읽어도 깨진 JSON 없음). 네트워크 실패면 파일을 안 쓴다 | 아니오 |
 | `scripts/vendor/leaflet.js`·`leaflet.css`·`pretendard.css` | 원본 그대로(@preserve 헤더 유지) | — |
@@ -63,7 +63,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `search` | `query`(str) | `search_result` | 주소·지번·PNU. 키 있으면 VWorld 보조(`pnu_loader.search_lots`) |
 | `map_lots` | `bbox`[minLng,minLat,maxLng,maxLat], `seq`(int) | `map_lots`(같은 `seq`) | 줌 ≥ 17. JS는 `seq` < 최신이면 버린다 |
 | `select_lots` | `pnus`(list, 현재 대상 전체) | `lot_state` / `error{context:"select"}` | 토글마다 전체 목록. 상태 원본은 JS. 빈 배열 = 모두 지움(응답 `lots:[]`) |
-| `set_area` | `ring_tm` \| `ring_lnglat` \| `center`+`offsets` (없으면 지움) | `area_state` | 구역 방식. 지도에 그린 링(경위도), Rhino 커브 실제 좌표(`ring_tm`), 지도에서 옮겨 놓은 커브(`center` 경위도 + `offsets` m). 안전장치·안의 필지는 Python(§대상지 방식) |
+| `set_area` | `rings_lnglat`(지금 구역들) + 새 구역 하나 `ring_lnglat` \| `ring_tm` \| `center`+`offsets` / 또는 `center`+`ring_offsets`(묶음째 옮기기) / 없으면 지움 | `area_state` | 구역 방식. 필지 추가처럼 지도에 그릴 때마다 구역이 더해진다 — 패널은 지금 구역(경위도)과 새 구역을 같이 보내고, Python이 구역마다 안전장치 → 겹치거나 맞닿은 구역을 하나로 합친다(`context_builder.get_area_rings` — 합필과 같은 `get_merged_rings`, 둘러싼 빈 곳은 채우고 경고). 새 구역이 안전장치에 걸리면 ok=false — 패널은 이전 구역을 둔다. 지도에 그린 링(경위도), Rhino 커브 실제 좌표(`ring_tm`), 지도에서 옮겨 놓은 커브(`center` 경위도 + `offsets` m), [옮기기]는 구역 묶음째(`ring_offsets`, 2026-11-08) |
 | `set_point` | `center`([lng,lat], 없으면 지움) | `point_state` | 위치 방식. 지도 클릭·검색 결과 |
 | `pick_curve` | — | `curve_shape` | Rhino 전용. 선택된 커브가 하나면 그것, 없으면 고르기 프롬프트 |
 | `preflight` | `target`(없으면 `pnus` = 필지 방식), `radius`, `shape`, `paper`, `paper_mm`, `scales`, `seq` | `preflight_result`(같은 `seq`) | 2026-10-19부터 Rhino 패널은 보내지 않는다(범위를 JS가 그린다). 예전: ① lots 변경 직후, ② 진입·옵션 변경(300 ms 디바운스). 메모이즈 키 `(tuple(pnus), radius, shape, paper, tuple(paper_mm), tuple(scales))` — `paper_mm`이 빠지면 용지 '직접'에서 가로·세로를 바꿔도 프레임이 안 바뀐다. `init`마다 비운다 |
@@ -77,7 +77,8 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `open_url` | `key`(`constants.PANEL_LINKS`의 키 — 지금은 `website`) 또는 `notice`(공지 id) | — (`error{context:"open"}`) | 더보기 메뉴 '고라니 웹페이지'·업데이트 [업데이트 방법]은 `key`, 공지 [자세히]는 `notice` — 매니페스트에서 그 공지의 http(s) 주소를 찾아 연다. 임의 URL은 받지 않는다 |
 | `open_eum` | `pnu`(19자리) | — (`error{context:"open"}`) | ① 필지 정보 [토지이음 ↗]. Python이 `constants.EUM_LAND_USE_URL % pnu`를 만들어 OS 브라우저로 연다(임의 URL은 받지 않는다) |
 | `save_prefs` | `options` | — | `prefs.json`에 `options`만 덮어쓴다(`recent`는 `generate` 성공 시 Python이 갱신) |
-| `remove_recent` | `pnus` | 없음 (`error{context:"init"}`) | 최근 대상지 줄의 x — 같은 PNU 묶음을 `prefs.json` `recent`에서 지운다. JS가 `init.recent`에서 먼저 빼고 트레이를 다시 그린다 |
+| `open_result` | `dir` | `result_opened` | 최근 결과 줄을 누르면 — `context_builder.get_result_state`가 결과 폴더의 `context.json`으로 결과 화면을 다시 채운다(3D 카드에는 [폴더 열기]만 — [Rhino에 불러오기] 버튼은 없다, 2026-11-07). `result_opened{dir, lot_name, lot_key, label, built_at, context{path, buildings, imported}, options, target, korea, target_lnglat{center, ring}, made2d_list[{dir, made2d|null, made_at}]}` — `imported`는 Rhino 8이면 그 대상지(UDT_LOT_KEY) 객체가 지금 문서에 있는지(`context_baker.has_lot`), 아니면 false. `made2d_list`는 2D 폴더마다 `made_2d.json`(make_2d가 패널에 보낸 결과 — 도면 목록·썸네일·.ai·조서)이 있으면 그것을 실어 패널이 마지막 2D를 만든 직후와 같은 카드로 그린다(2D를 여러 번 만들었으면 카드 제목 옆 선택 `#pick2d`로 바꿔 본다 — `made_at`·스타일 이름이 선택 글. 카드가 없는 옛 2D만 있으면 폴더 한 줄). `made_2d.json`의 절대 경로(2D 폴더·도면·.ai·조서)는 읽을 때 지금 위치로 바꾼다(`context_builder._rebase_paths`) — 결과 폴더·2D 폴더 이름을 바꾸거나 옮겨도 카드의 링크가 산다. 2D 폴더는 `2D_*`뿐 아니라 `made_2d.json`이 든 폴더도 찾고, 순서는 이름이 아니라 폴더 수정 시각이다 — `target_lnglat`은 결과의 `crs`(EPSG:5186 또는 지역 TM, 원점 0.01°)로 되돌린 경위도라 [← 지도로]가 필지·구역·위치를 지도에 되살린다(2026-11-07) |
+| `hide_result` | `dir` | 없음 (`error{context:"init"}`) | 최근 결과 줄의 x — `prefs.json` `hidden_results`에 넣어 목록에서만 뺀다(결과 폴더는 그대로). JS가 `init.results`에서 먼저 빼고 트레이를 다시 그린다 |
 | `style_preview` | `dir`, `sheet_id`(0~15), `style`(스타일 dict), `seq` | `style_preview`(같은 `seq`) / `error{context:"style"}` | ③ 2D 카드 다이어그램 타일 [편집]의 스타일 화면(만들기 전). `context_builder.preview_sheet` — 한 장을 스타일로 다시 그린 SVG 문자열(파일 안 씀). 시트 데이터는 컨트롤러 `_keep`(이번 세션 생성 결과, 지형 삼각형 포함). 2D를 아직 안 만들었으면 3D를 만든 Prepared를 그대로 써서 다시 조회하지 않는다(`get_sheet_data(quick=True)` — 자료는 3D 범위까지. 다시 prepare하면 Global은 OSM·지형 타일을 또 받아 55 s 걸렸다, 2026-10-19). `_keep`이 다른 결과면 `context.json`으로 한 번 prepare(지형 시트는 비어 나온다). SVG id·`url(#…)`은 `pv_` 접두어(패널 `#map`과 겹치지 않게). JS 250 ms 디바운스, 늦은 `seq`는 버린다 |
 | `apply_style` | `dir`, `style` | `busy{on}` → `style_applied` → `busy{off}` | `context_builder.apply_style` — 결과 폴더의 시트 전부 + 이미 쓴 `basemap_<축척>.ai`를 다시 쓰고 `context.json.options.style`을 바꾼다. 지형 삼각형이 없으면 지형 시트 파일은 그대로(`kept`). JS는 성공하면 `options.style`을 `save_prefs`. **2026-10-19부터 패널은 보내지 않는다** — 스타일은 만들기 전에 정하고 [적용]은 `options.style`만 바꾼다 |
 | `save_style` | `name`, `style` | `styles` / `error{context:"style"}` | `site_prefs.save_style` → `HOME_DIR/styles/<이름>.json`(경로 문자 제거, 같은 이름 덮어씀). 사무소 표준을 파일로 나눠 쓴다 |
@@ -85,7 +86,9 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `sheet_ai` | `dir`, `path`(도면 SVG) 또는 `all:true` | `busy{on}` → `sheet_ai` → `busy{off}` | `sheet_svg.get_sheet_ai` — 도면 SVG를 레이어 .ai로(없거나 SVG보다 오래됐을 때만 다시 쓴다). 한 장이면 쓰고 OS로 연다. 생성 때 .ai를 다 쓰지 않는다(23장이면 Rhino에서 10 s+). 패널은 [모두 .ai로 저장](`all`)만 보낸다 — 칸을 누르면 `sheet_view`로 패널 안에서 본다(2026-10-19). `write_sheets`는 다시 쓴 SVG 옆에 .ai가 있으면 .ai도 새로 쓴다 |
 | `area_packs` | `bbox`([서, 남, 동, 북] 경위도), `seq` | `area_packs` | 지도 이동(600 ms 디바운스)마다. 화면에 걸리는데 파일이 없는 시군구 **필지** 팩 `{seq, missing[{name, label, mb}], mb, labels}`(건물·도로·지형 팩과 새 판은 생성할 때 범위만) — 해외·매니페스트 없음·오프라인은 빈 목록. 배율 16 이상이면 JS가 곧바로 `download_data{names}` |
 | `stats_consent` | `on`(bool) | 없음 (`error{context:"init"}`) | Blender·SketchUp만 — 사용 통계 동의를 `~/.gorani/prefs.json`에 남긴다. `usage_stats.is_enabled`가 `host.ask_stats` 호스트면 이 값이 true일 때만 보낸다(Blender 확장 약관 4.5, Extension Warehouse 개인정보 심사) |
+| `track` | `action`, `detail` | 없음 (`error{context:"init"}`) | 패널 버튼 하나 → GA `ui` 이벤트(2026-11-02). `action`은 `constants.GA_UI_ACTIONS` 밖이면 버리고, `detail`은 짧은 영문 분류값만(`usage_stats.get_ui_params` — 검색어·주소·경로는 보내지 않는다). JS `TRACK` 표가 보낼 버튼을 정한다. Blender판·웹판은 보내지 않는다. 3D 설정은 `build`의 `options3d`, 2D는 `make_2d` 이벤트 |
 | `download_data` | `names`(선택 — 없으면 전부) | `data_progress`×N → `data_progress{done}` → `init_state` (`error{context:"init"}`) | 지도 자동 받기·진행 줄 [다시 받기]. 멈추면 그때까지 받은 팩은 남는다(받던 팩은 버리고 쓰던 DB는 그대로). `data_pack`이 매니페스트(`constants.DATA_MANIFEST_URL`)의 절대 주소에서 `HOME_DIR/data/`로 받는다. `generate`도 시작 전에 같은 방식으로 범위(`context_builder.get_query_bounds`)에 걸치는 없거나 새 판인 시군구 팩을 받는다 |
+| `install_update` | — | `update_state{running}` → `update_state{done\|failed, text}` | 업데이트 모달·띠의 [지금 업데이트](2026-11-06, `init_state.host.self_update` = Rhino 8·7이고 yak을 찾았을 때만). `data_pack.install_update`가 Rhino에 든 yak으로 `yak install gorani`(판 없이 — yak이 그 Rhino에 맞는 배포판을 고른다)를 부르고 기다린다(Rhino 8은 `_pump`). Rhino 8은 깔고 나면 패널을 닫고 새 판으로 다시 연다(`update_state.next = reopen`, 재시작 없음 — 2026-11-07), Rhino 7은 다시 시작하면 열린다(`restart`). 실패하면 패널이 수동 안내(순서·[업데이트 방법])로 돌아간다. SketchUp·Blender는 스토어가 업데이트하므로 없다 |
 
 명령 16개(+ 도면 스타일 3개·도면 .ai 1개, 2026-10-13). `auth_pin`(옛 PIN 인증)은 없다 — 사내 배포라 인증 게이트 없음.
 
@@ -148,7 +151,7 @@ Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드�
  "blocked":false,                                 // true = 필지 DB 없음 → 블로커(차단은 이것뿐. 컨텍스트 DB 없음은 경고)
  "paths":{"root":"<HOME_DIR>","lot_db":"data/seoul_site.db","context_db":"data/seoul_context.db","env":".env","install_doc":"docs/install.md"},
  "generator":{"ok":true,"python":"Rhino Python","text":"Rhino 내장"},   // 항상 ok. UI 호환용(블로커 3행째는 ✓ 고정). Blender면 "Blender …"
- "host":{"id":"rhino","name":"Rhino","doc":"Rhino 문서","model":"context.3dm","dwg":true,"ask_stats":false},   // constants.HOST_LABELS — 패널 문구(문서 이름·모델 파일)와 DWG 옵션 표시. Blender = {"id":"blender","name":"Blender","doc":"Blender 장면","model":"context.blend","dwg":false,"ask_stats":true}, SketchUp = {"id":"sketchup",…,"model":"context.skp","dwg":false,"ask_stats":true}, Rhino 7 = Rhino와 같고 `"dwg":false`
+ "host":{"id":"rhino","name":"Rhino","doc":"Rhino 문서","model":"context.3dm","dwg":true,"ask_stats":false,"brep":true},   // constants.HOST_LABELS — 패널 문구(문서 이름·모델 파일)와 DWG 옵션 표시. brep = 3D 설정 '형상' Mesh|Brep 줄(Rhino 8만). Blender = {"id":"blender","name":"Blender","doc":"Blender 장면","model":"context.blend","dwg":false,"ask_stats":true}, SketchUp = {"id":"sketchup",…,"model":"context.skp","dwg":false,"ask_stats":true}, Rhino 7 = Rhino와 같고 `"dwg":false`
  "output_langs":[["ko","한국어"],["en","English"]],   // constants.OUTPUT_LANGS — 메뉴 '결과 언어' 칸
  "links":{"website":"https://969flash.github.io/gorani/","contact":"mailto:gorani.3d@gmail.com"},   // constants.PANEL_LINKS — 메뉴 '웹페이지'·'문의' 줄이 주소를 링크로 보여 주고(문의는 메일 주소), 누르면 open_url{key}
  "stats_consent":null,                            // 사용 통계 동의 true|false|null(안 물음) — host.ask_stats(Blender + 측정 ID 있음)면 null일 때 정보 띠로 한 번 묻고([보내기]·[보내지 않음] → stats_consent{on}), 더보기 메뉴 설정에서 바꾼다
@@ -159,7 +162,7 @@ Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드�
          "aerial_url":"…","aerial_attribution":"…","abroad_aerial_url":"…","abroad_aerial_attribution":"…"},   // review_map.get_tile_config(). 지도 중심이 map.korea_bounds 밖(또는 그 안 일본 모서리 map.korea_cut — 후쿠오카·쓰시마)이면 abroad_url(OSM). 지도 오른쪽 아래 [위성]을 누르면 aerial_url(VWorld 영상, 키 없으면 Esri) — 해외·폴백 뒤는 abroad_aerial_url(Esri)
  "map":{"center":[126.9784,37.5665],"zoom":16},              // review_map.get_map_init(map_center) — 첫 init에 IP로 짐작한 도시(zoom 12, get_ip_center), 못 받으면 서울시청(zoom 16)
  "options":{…옵션 키 전부, prefs.json 복원 또는 기본값…},
- "recent":[{"pnus":["…"],"label":"성수동2가 277-17 외 1","total_area":1234.5,"date":"2026-10-06"}],   // 최대 5, 필지 방식만. 트레이(대상지 없을 때)에 5개까지(더보기 메뉴에서는 뺐다, 2026-10-30), 줄을 누르면 필지 방식으로 select_lots, 오른쪽 x는 remove_recent. done 때 JS가 같은 꼴로 앞에 넣는다(다음 init까지)
+ "results":[{"dir":"…/result/성수동2가_277-17외1_20261106_1432","label":"성수동2가 277-17외1","mode":"lots","built_at":"2026-11-06T14:32:10","buildings":2695,"has_2d":true}],   // 최근 결과 — context_builder.get_recent_results: context.json과 이 프로그램의 3D 파일이 있는 결과 폴더, 새것 먼저 RECENT_RESULTS_MAX(5). 방식(필지·구역·위치)·나라와 상관없이. 트레이(대상지 없을 때)와 빈 검색칸 ↓, 누르면 open_result, x는 hide_result. 3D를 만들면 끝에 오는 init_state로 이번 것이 앞에 든다(2026-11-07 — 예전 recent는 필지만, prefs에 따로 적었다)
  "sheet_catalog":[{"id":0,"key":"base","name":"베이스맵","needs":"lot","korea_only":false,"group":"base"},…,{"id":19,"key":"slope","name":"경사","needs":"terrain","korea_only":false,"group":"status"}],   // group = constants.SHEET_GROUP: base(베이스맵·항공사진)·status(현황도)·analysis(분석도)·frame(틀) — 2D 카드 묶음 칩   // constants.SHEET_CATALOG 25장(분석도 8 · 현황도 12 · 틀 3 · 항공사진 1 · 입체 매스도 1, needs image = 영상 타일). done.sheets[].thumb = 160 px PNG data URI(패널 도면 칸, 항공사진만 SVG data URI)
  "style_presets":{"std":{"name":"표준","paper":"#FFFFFF",…,"ramp":"warm"},"vivid":…,"mono":…,"dark":…},   // constants.STYLE_PRESETS
  "style_defaults":{"layout":"side","line_scale":1.0,"text_scale":1.0,"font":"sans","fade_outside":0.55,"labels":true,"subtitle_en":true,"project":"","axo_view":"se","axo_ground":"block"},
@@ -214,6 +217,7 @@ Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드�
 {"type":"log","text":"여러 줄\n가능","level":"info|warn|error"}
 {"type":"busy","on":true,"label":"문서에 넣는 중"}   // Import·Export처럼 UI 스레드가 멈추는 짧은 작업 전후
 {"type":"data_progress","text":"종로구 지역 데이터 받는 중 42%","fraction":0.42,"in_generate":false}   // 받기 진행(1 % 단위). 지도 밖 푸터 위 한 줄(#dl) — 생성 중(in_generate)이면 [멈추기] 없이(푸터 [취소]가 멈춘다)
+{"type":"update_state","state":"running|done|failed","text":"","next":"reopen|restart"}   // install_update. failed면 text = yak 출력 끝부분. done이면 next — Rhino 8은 reopen(cmd_site.reopen_panel_later가 Idle에서 Gorani를 다시 불러 새 판 패널로, 재시작 없음 — yak이 옛 판 폴더를 지워 옛 패널은 계속 못 쓴다), Rhino 7은 restart(C# 플러그인이 바뀐다)
 {"type":"data_progress","done":true,"ok":false,"text":"받기를 멈췄습니다 — 받은 지역은 남습니다","in_generate":false}   // 끝. ok면 줄을 숨기고, 아니면 text + [다시 받기]
 {"type":"error","context":"init|search|select|preflight|generate|import|export|open","text":"한 줄","detail":"traceback 또는 빈 문자열"}
 
@@ -271,6 +275,7 @@ Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드�
 - 패널을 열 때(`init`) 매니페스트를 `NOTICE_TIMEOUT_SECONDS`(3 s)까지 기다린다. 못 받으면 아무것도 띄우지 않는다 — 사용자를 막지 않는다.
 - `version < update.min` → 강제 모달(닫기 없음, [다시 확인]·[결과 폴더]·[웹페이지]). 지원을 끊을 때만 올린다.
 - `version < update.latest` → 권장 모달(하루 한 번 — [나중에] = `options.update_later_date`) + 주황 띠(닫기 없음, 업데이트할 때까지).
+- 모달·띠의 주 버튼: Rhino 8·7(`host.self_update`)은 [지금 업데이트](`install_update` — 깔면 '다시 시작하면 열립니다'), 그 밖(SketchUp·Blender·yak 없음·설치 실패)은 순서 안내 + [업데이트 방법]. 목 패널 `&selfupd=0`은 수동 안내, `&updfail=1`은 실패 화면.
 - 공지 → 위쪽 띠는 한 번에 하나(업데이트 > 공지 순서), 나머지는 띠의 `+N` → 더보기 메뉴 '공지' 목록. 띠 [×]는 `options.closed_notices`에 id를 넣고, 메뉴에서는 계속 보인다(흐리게 '닫음'). `level`: `warn` = 주황(꼭 알아야 할 것), `info` = 파랑. 빨강은 오류에만.
 - 공지 `id`는 바꾸지 않는다 — 바꾸면 닫은 사람에게 다시 뜬다. 목 패널: `site_ui.html?mock=1&step=1&update=soft|hard`(공지 견본 셋 포함), `&notice=1`은 공지만.
 - 버전은 `constants.PANEL_VERSION` 하나 — 배포할 때 올린다. 0.1.0 이전 설치본에는 이 확인이 없다(그 사용자는 막을 수 없다).
@@ -306,7 +311,7 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
 - `search`·`set_area`·`set_point`·`preflight`에 JS가 `region`을 붙인다(`REGION_CMDS`). Global이면 필지 DB를 보지 않는다 — 검색은 Nominatim만, 구역 안 필지 0, preflight는 DB 개수 대신 경고 `abroad`, 생성은 `osm_context`(Overpass·지형 타일, 팩 받기 없음). 엔진 판정은 `context_builder.is_global(request)` = `region == "global"` 또는 지역 TM 원점.
 - 좌표계는 모드가 아니라 위치로 정한다: 대상지 중심이 `map.korea_bounds` 밖이면 `set_area`·`set_point`가 투영 원점을 그 중심으로(`non_rhino_utils.set_projection`, 이후 `ring_tm`·`center_tm`은 지역 횡메르카토르 m), 한국 안이면 Global이어도 EPSG:5186. `select_lots`는 늘 EPSG:5186.
 - Global: 필지 방식 칸 비활성(필지 방식이었으면 위치 방식으로), 지도 필지선·시군구 팩 칩·DB 안내 화면 없음, 구역 안의 필지 수 없음. 도면 목록은 `sheet_catalog[].korea_only`(= `constants.SHEET_KOREA_ONLY`)를 뺀다 — 엔진도 `get_sheet_ids`에서 뺀다.
-- Korea에서 대상지가 한국 밖이 되면(`area_state`·`point_state` 중심) Global로 바꾸고 토스트. 한국 밖 대상지가 있는 채로 Korea는 고를 수 없다. 최근 대상지(필지)를 고르면 Korea로.
+- Korea에서 대상지가 한국 밖이 되면(`area_state`·`point_state` 중심) Global로 바꾸고 토스트. 한국 밖 대상지가 있는 채로 Korea는 고를 수 없다. 최근 결과를 열면 그 결과의 `options.region`으로.
 - 블로커(필지 DB 없음, 받을 곳 없음)는 Korea 모드에서만, 버튼 [Global로 쓰기].
 - 하는 일이 없는 칸은 보이지 않는다: Global은 고급의 무벽·가건물·도시계획 경계선, 베이스맵 레이어 토지이용·용도지역, 결과 신뢰도의 정합 오차·국가 DB 기준일·필지 수가 없다. 한국 밖 대상지는 ③ 좌표 칸이 없고 늘 원점으로(실제 좌표가 지역 TM이라 GIS와 겹칠 수 없다). 행이 없는 조서 CSV는 쓰지 않는다.
 - Global 역세권·공공시설 도면 = OSM `railway=station` 점(이름 있는 것) · 학교 면(학교 부지)·`place=square`(광장) · 시설 면(`constants.OSM_PUBLIC_USE`) 안 용도 미상 건물에 국내 용도 대분류(osm_context._apply_public_use).
@@ -314,7 +319,7 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
 
 ## 대상지 방식 (2026-10-10)
 
-① 첫 화면은 지도다(2026-10-14 — 소개·방식 고르기 화면 없음). 지도 위 도구줄의 방식 칸 [필지·구역·위치]로 바꾸고, 처음엔 마지막 방식(`options.mode`, 저장된 옵션 그대로). 방식을 바꾸면 대상지를 지우고 `init_state.modes.defaults[mode]`(constants `MODE_DEFAULTS` — 축척·대상지 바닥면만: 필지 1:1000·1:3000 / 구역 1:3000 / 위치 1:5000)를 옵션에 덮고 `save_prefs`. 범위(radius·shape)는 방식을 바꿔도 마지막 값 그대로다(기본 사각형 한 변 500 m = radius 250, 2026-10-19). `prefs.json`의 `version` < 2면 예전에 저장한 radius·shape는 한 번 버린다(`site_prefs.PREFS_VERSION`). [새 대상지]는 대상지만 지우고 같은 방식의 지도로.
+① 첫 화면은 지도다(2026-10-14 — 소개·방식 고르기 화면 없음). 지도 위 도구줄의 방식 칸 [필지·구역·위치]로 바꾸고, 처음엔 마지막 방식(`options.mode`, 저장된 옵션 그대로). 방식을 바꾸면 대상지를 지우고 `init_state.modes.defaults[mode]`(constants `MODE_DEFAULTS` — 축척만: 필지 1:1000·1:3000 / 구역 1:3000 / 위치 1:5000. 대상지 바닥 면 생성은 방식 기본이 아니라 늘 켠다, 2026-11-08)를 옵션에 덮고 `save_prefs`. 범위(radius·shape)는 방식을 바꿔도 마지막 값 그대로다(기본 사각형 한 변 500 m = radius 250, 2026-10-19). `prefs.json`의 `version` < 2면 예전에 저장한 radius·shape는 한 번 버린다(`site_prefs.PREFS_VERSION`). [새 대상지]는 대상지만 지우고 같은 방식의 지도로.
 
 | 방식 | 요청 `target` | 대상지 경계(`site_rings`) | 대상 필지 | 결과 폴더명 |
 |---|---|---|---|---|
@@ -329,11 +334,12 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
 
 ```jsonc
 {"type":"area_state","ok":true,"text":"",            // ok=false면 text 한 줄(자기교차·너무 작음…) — 패널은 이전 구역을 유지한다
- "ring_tm":[[x,y]],"ring_lnglat":[[lng,lat]],"center":[lng,lat],"center_tm":[x,y],"offsets":[[dx,dy]],
- "area":60000.0,"lots":69,"lots_area":44242.0,"lot_name":"성수동2가_333-139_구역",
- "target_geojson":FC,                                 // role="target" 안의 필지 + role="area" 구역 1개
+ "rings_tm":[[[x,y]]],"rings_lnglat":[[[lng,lat]]],"center":[lng,lat],"center_tm":[x,y],"ring_offsets":[[[dx,dy]]],   // 구역마다(합친 뒤, 넓은 순). offsets는 묶음 가운데 기준
+ "area":60000.0,"lots":69,"lots_area":44242.0,"lot_name":"성수동2가_333-139_구역",   // 구역이 여럿이면 '…_구역외1'(가장 넓은 구역 자리), area는 합   // 트레이 '대상지' 줄은 address(해외) 또는 lot_name(_ → 공백) + 면적·안의 필지 수
+ "target_geojson":FC,                                 // role="target" 안의 필지 + role="area" 구역마다 1개
  "warnings":[warning]}
-{"type":"point_state","ok":true,"center":[lng,lat],"center_tm":[x,y],"lot_name":"성수동2가_333-139_일대"}
+{"type":"point_state","ok":true,"center":[lng,lat],"center_tm":[x,y],"lot_name":"성수동2가_333-139_일대","address":""}
+// address — 해외 대상지(지역 TM)만 Nominatim reverse 짧은 주소 '도로, 동네, 도시'(output_lang 언어, osm_context.get_place_address, 3 s, 못 받으면 ''). 패널 '대상지' 줄은 address가 있으면 그것, 없으면 lot_name. area_state도 같은 칸. 해외 lot_name(결과 폴더 이름)도 같은 주소 'Greenwich St_Russian Hill_San Francisco_vicinity'(도로 종류는 약어 constants.ADDRESS_ABBREVIATIONS, context_builder.get_folder_safe_name — 못 쓰는 글자 빼고 40자, 넘치면 뒤 칸부터 뺀다), 주소를 못 받으면 'N37.8010_W122.4187_vicinity'(2026-11-08)
 {"type":"curve_shape","ok":true,"text":"","located":false,"ring_tm":[],"offsets":[[dx,dy]],"area":22800.0,"vertices":4}
 ```
 
@@ -348,18 +354,19 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
 ```jsonc
 {"mode":"lots","placement":"origin",                 // mode = 마지막 방식(첫 화면 방식 칸 초깃값). placement origin|world
  "radius":500,"shape":"circle",                       // circle|rect|frame|site(+예전 buffer). radius 100~2000
- "flatten_site":false,"flatten_level":"mean",          // 대상지 평탄화(lots·area) — 높이 = 대상지 경계 자연 지반 mean|min|max
- "site_output":"curve",                                // 대상지 표시(lots·area): curve = 경계 커브만, mesh = 바닥 메시도(CTX::Site::ground). 방식 기본: 필지 mesh, 구역 curve
+ "flatten_site":false,"flatten_level":"mean",          // 대상지 땅 평평하게(lots·area) — 높이 = 대상지 경계 자연 지반 mean|min|max
+ "site_output":"mesh",                                 // 화면에 없다 — 늘 mesh(FIXED_3D, 2026-11-08 [Line]·[Surface] 선택을 없앴다). lots·area: 대상지 경계 커브 + 바닥 메시(CTX::Site::ground). curve = 경계 커브만(엔진은 아직 받는다)
  "import_after":true,                                  // context.3dm은 항상 쓴다(산출물의 뼈대, 수 초). 끌 수 있는 건 Import뿐
  "make_basemap":true,"paper":"A3","paper_mm":[420,297],"scales":[5000],"basemap_layers_on":[],"basemap_preset":"a3",   // basemap_preset: 패널 2D 카드 칩 a3|a1(축척을 범위에 맞춰 자동 — 범위 2 × radius가 용지에 들어가는 가장 상세한 축척)|custom. 엔진은 보지 않는다   // A3 가로 = 분석도 템플릿 기준(2026-10-13)   // "02b_landuse"|"05_road_center"|"11_zoning" — Global은 05만 보인다
                                                        // scales: ② 프레임 미리보기·③ .ai select 기본값 전용(prefs·preflight에만). generate 페이로드에서 JS가 뺀다. dirty 판정 제외
  "make_sheets":true,"sheet_ids":[0,1,…,22],"floor_breaks":[12,20],"elev_preset":"20m",   // "20m"|"50m". 카탈로그에 없는 id는 엔진이 버린다(get_sheet_ids)
  "make_tables":true,
  "include_minor_buildings":false,                       // Korea만 보인다(국가 DB 무벽·가건물). 2026-10-16 v1에서 아무 일도 안 하던 demolished·refresh_buildings·include_api_objects는 뺐다
- "include_zoning":true,                                // Korea만 보인다   // CTX::Zoning::<구분>::<종류> — 용도지역·용도지구·용도구역·도시계획시설·지구단위계획(현황도 11~13 범례 색, 범위 bbox로 자름)
+ "include_zoning":true,                                // 화면에 없다 — 늘 true(FIXED_3D, 2026-11-07 옵션을 없앴다). 한국 대상지만 자료가 있다   // CTX::Zoning::<구분>::<종류> — 용도지역·용도지구·용도구역·도시계획시설·지구단위계획(현황도 11~13 범례 색, 범위 bbox로 자름)
  "terrain_vertex_color":false,
  "terrain_step":0,                                     // 지형 표현(③ 지형): 0 = 매끈, 1|2|5 = 계단형(등고 모형) 단 간격 m. 지반·수면 메시를 단마다 수평면 + 수직 벽으로, 건물 바닥도 계단 지반 기준
  "terrain_block":true,                                 // 지형을 바닥까지 채우기: 지형 옆면·바닥(CTX::Terrain::block, BASE_M). 건물·필지·도로중심선·용도지역은 이 값과 상관없이 늘 범위 링으로 자른다(원·사각형 범위만). 끄면 3D 설정 요약에 '지형 표면만'. 입체 매스도는 style.axo_ground
+ "geometry_type":"mesh",                               // 3D 형상(Rhino 8만 — host.brep): mesh = 동별·분류별 Mesh(기본), brep = 건물은 닫힌 폴리서피스(Extrusion.ToBrep), 지형·수면·대상지 바닥·덩어리는 같은 평면인 메시 면을 평면 면 하나로 묶고 나머지는 메시 면 하나 = Brep 면 하나(context_geometry.get_mesh_brep — 모양·면적은 메시와 같다). 변환 실패한 분류는 메시로 남기고 warn brep_failed. Brep이면 3D 설정 요약에 'Brep'
  "make_dwg":false,                                     // 3dm 2D 도면(BM::)만 basemap_<축척>.dwg로도 저장(고급 > 3dm). 결과 경로는 done.context.dwg
  "zoom_after_import":true,
  "style":{"preset":"std"}}                              // 도면 스타일 — 사용자가 고른·바꾼 값. 해석은 sheet_svg.get_style(STYLE_*): 색 10개(paper·block·road·green·water·building·rail·site·extent·ink),
@@ -422,7 +429,7 @@ Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `r
 
 | 파일 | 내용 | 쓰는 쪽 | 읽는 쪽 |
 |---|---|---|---|
-| `~/.gorani/prefs.json` | `{"options":{…20키…(lang 포함)}, "recent":[{pnus,label,total_area,date}×5]}` | `save_prefs`(options), `generate` 성공(recent 앞에 삽입·중복 제거·5개), `remove_recent`(x) | `init` |
+| `~/.gorani/prefs.json` | `{"options":{…20키…(lang 포함)}, "hidden_results":["<결과 폴더>", …]}` | `save_prefs`(options), `hide_result`(x, HIDDEN_RESULTS_MAX 200) | `init` |
 | `~/.gorani/source_news.json` | `{"checked_at":"2026-10-07","building":{"newer_date":"2026-09-09"},"lot":{…},"upis":{…}}` | `dev_check_sources.py`(P1. 없으면 `newer_date:null`) | `preflight`·`init`(배지)·생성기(`done.warnings`) |
 | `~/.gorani/client_id` | 무작위 UUID 한 줄(사용 통계 설치 식별) | `usage_stats.get_client_id`(없으면 생성) | `usage_stats` |
 | `.env`(`HOME_DIR`) | `VWORLD_API_KEY=…`(지도·위성 배경, 항공사진, 주소 보조 검색 — 없으면 OSM·Esri·지명 검색). `= ` 뒤 공백 금지 | 사용자(OS 편집기). 없으면 `open_path`가 한 줄 템플릿 생성 | `pnu_loader._read_local_env_value`(strip)·생성기 |

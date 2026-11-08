@@ -6,6 +6,7 @@ Rhino 커브·벡터·Brep을 다루는 연산은 ``utils.py``에 둔다.
 좌표 단위를 임의로 변환하지 않으며 프로젝트 내부 좌표는 m로 유지한다.
 """
 
+import bisect
 import contextlib
 import math
 import re
@@ -380,6 +381,30 @@ def korea_projection():
         _apply_projection()
 
 
+def get_lnglat_in_crs(points, crs):
+    # type: (list, str) -> list
+    """저장된 결과(context.json crs)의 평면좌표 → 경위도. crs는 'EPSG:5186' 또는 get_crs_label의 지역 횡메르카토르
+    (원점이 0.01° 반올림이라 라벨 두 자리가 곧 원점이다 — set_projection). 지금 원점(프로세스 전역)은 끝나면 되돌린다.
+    출력: [[lng, lat]] — crs를 못 읽으면 빈 목록."""
+    match = re.match(r"^\+proj=tmerc \+lat_0=(-?[\d.]+) \+lon_0=(-?[\d.]+) ", crs or "")
+    if crs != "EPSG:5186" and not match:
+        return []
+    saved = os.environ.get(PROJECTION_ENV)
+    if match:
+        os.environ[PROJECTION_ENV] = "%s,%s" % (match.group(2), match.group(1))
+    else:
+        os.environ.pop(PROJECTION_ENV, None)
+    _apply_projection()
+    try:
+        return [list(get_wgs84_from_tm(float(x), float(y))) for x, y in points]
+    finally:
+        if saved:
+            os.environ[PROJECTION_ENV] = saved
+        else:
+            os.environ.pop(PROJECTION_ENV, None)
+        _apply_projection()
+
+
 def _apply_projection():
     # type: () -> None
     """환경변수의 원점(없으면 EPSG:5186)을 모듈 전역에 적용한다. import 때도 부른다."""
@@ -506,6 +531,145 @@ def is_point_in_polygon(x, y, rings):
     if not rings or not is_point_in_ring(x, y, rings[0]):
         return False
     return not any(is_point_in_ring(x, y, hole) for hole in rings[1:])
+
+
+def get_noded_segments(rings, tol=1e-3, cell=10.0):
+    # type: (list, float, float) -> list
+    """닫힌 링들 → 교차점·겹친 구간에서 나눈, 서로 겹치지 않는 선분 ``[((x, y), (x, y))]``(좌표는 tol 격자로 맞춤, 중복 없음).
+    분류 경계(도로·하천·녹지·대상지)는 같은 선을 겹쳐 지나고 서로 걸친다 — 그대로 Rhino BrepFace.Split·제약 삼각분할에 넣으면 실패한다
+    (서울 팩 청계천·창릉천 R=500, 2026-11-07). 이렇게 노딩한 선분은 Mesh.CreateFromTessellation 제약선으로 그대로 쓴다."""
+    def snap(v):
+        return round(v / tol) * tol
+
+    segs = []
+    for ring in rings:
+        n = len(ring)
+        for k in range(n):
+            a = (snap(ring[k][0]), snap(ring[k][1]))
+            b = (snap(ring[(k + 1) % n][0]), snap(ring[(k + 1) % n][1]))
+            if a != b:
+                segs.append((a, b))
+    grid = {}
+    for i, (a, b) in enumerate(segs):
+        for gx in range(int(math.floor(min(a[0], b[0]) / cell)), int(math.floor(max(a[0], b[0]) / cell)) + 1):
+            for gy in range(int(math.floor(min(a[1], b[1]) / cell)), int(math.floor(max(a[1], b[1]) / cell)) + 1):
+                grid.setdefault((gx, gy), []).append(i)
+    cuts = [set() for _ in segs]
+
+    def param_on(p, a, b):
+        """p가 선분 a-b 안쪽(끝 제외) tol 안이면 매개변수 t, 아니면 None."""
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy)
+        if 0.0 < t < 1.0 and math.hypot(a[0] + dx * t - p[0], a[1] + dy * t - p[1]) <= tol:
+            return t
+        return None
+
+    done = set()
+    for ids in grid.values():
+        for x in range(len(ids)):
+            for y in range(x + 1, len(ids)):
+                i, j = ids[x], ids[y]
+                if (i, j) in done:
+                    continue
+                done.add((i, j))
+                (a, b), (c, d) = segs[i], segs[j]
+                for p, (s0, s1), k in ((c, segs[i], i), (d, segs[i], i), (a, segs[j], j), (b, segs[j], j)):   # 끝점이 다른 선분 위(T자·겹침)
+                    t = param_on(p, s0, s1)
+                    if t is not None:
+                        cuts[k].add(t)
+                r, q = (b[0] - a[0], b[1] - a[1]), (d[0] - c[0], d[1] - c[1])
+                den = r[0] * q[1] - r[1] * q[0]
+                if abs(den) < 1e-12:
+                    continue
+                t = ((c[0] - a[0]) * q[1] - (c[1] - a[1]) * q[0]) / den
+                u = ((c[0] - a[0]) * r[1] - (c[1] - a[1]) * r[0]) / den
+                if 0.0 < t < 1.0 and 0.0 < u < 1.0:   # 십자 교차
+                    cuts[i].add(t)
+                    cuts[j].add(u)
+    out = set()
+    for (a, b), ts in zip(segs, cuts):
+        pts = [a] + [(snap(a[0] + (b[0] - a[0]) * t), snap(a[1] + (b[1] - a[1]) * t)) for t in sorted(ts)] + [b]
+        for p1, p2 in zip(pts, pts[1:]):
+            if p1 != p2:
+                out.add((p1, p2) if p1 < p2 else (p2, p1))
+    return sorted(out)
+
+
+def get_split_triangles(verts, faces, segments, tol=1e-3):
+    # type: (list, list, list, float) -> list
+    """삼각형 메시를 제약 선분으로 나뉜 영역마다 묶는다 — 선분을 건너지 않고 이웃한 삼각형끼리(BrepFace.Split의 면에 해당).
+    입력: verts ``[(x, y, …)]``, faces ``[(a, b, c)]``, segments = get_noded_segments 결과. 출력: 영역마다 면 번호 목록."""
+    def key(v):
+        return (round(v[0] / tol), round(v[1] / tol))
+
+    barrier = {frozenset((key(a), key(b))) for a, b in segments}
+    by_edge = {}
+    for f, face in enumerate(faces):
+        for k in range(len(face)):
+            e = frozenset((key(verts[face[k]]), key(verts[face[(k + 1) % len(face)]])))
+            by_edge.setdefault(e, []).append(f)
+    region = [-1] * len(faces)
+    groups = []
+    for start in range(len(faces)):
+        if region[start] >= 0:
+            continue
+        region[start] = len(groups)
+        stack, members = [start], []
+        while stack:
+            f = stack.pop()
+            members.append(f)
+            face = faces[f]
+            for k in range(len(face)):
+                e = frozenset((key(verts[face[k]]), key(verts[face[(k + 1) % len(face)]])))
+                if e in barrier:
+                    continue
+                for g in by_edge.get(e, ()):
+                    if region[g] < 0:
+                        region[g] = len(groups)
+                        stack.append(g)
+        groups.append(members)
+    return groups
+
+
+class PolygonIndex(object):
+    """폴리곤 여럿(각각 [외곽, 구멍…])의 점 포함 판정 — y 띠마다 걸친 변만 보는 홀짝 반직선. 점 수만 개 × 정점 수천 개(OSM 호수)에서도 빠르다."""
+
+    def __init__(self, polygons, band=5.0):
+        # type: (list, float) -> None
+        self.band, self.bands, self.edges, self._near = float(band), {}, [], None
+        for pid, rings in enumerate(polygons):
+            for ring in rings:
+                for k in range(len(ring)):
+                    (x1, y1), (x2, y2) = ring[k][:2], ring[(k + 1) % len(ring)][:2]
+                    self.edges.append((x1, y1, x2, y2))
+                    if y1 == y2:
+                        continue
+                    for b in range(int(math.floor(min(y1, y2) / self.band)), int(math.floor(max(y1, y2) / self.band)) + 1):
+                        self.bands.setdefault(b, []).append((x1, y1, x2, y2, pid))
+
+    def is_near(self, x, y, dist):
+        # type: (float, float, float) -> bool
+        """(x, y)에서 dist 안에 폴리곤 변이 있는지(안팎 무관)."""
+        if self._near is None or self._near[0] != dist:
+            grid = {}
+            for x1, y1, x2, y2 in self.edges:
+                for i in range(int(math.floor((min(x1, x2) - dist) / dist)), int(math.floor((max(x1, x2) + dist) / dist)) + 1):
+                    for j in range(int(math.floor((min(y1, y2) - dist) / dist)), int(math.floor((max(y1, y2) + dist) / dist)) + 1):
+                        grid.setdefault((i, j), []).append((x1, y1, x2 - x1, y2 - y1))
+            self._near = (dist, grid)
+        for ax, ay, dx, dy in self._near[1].get((int(math.floor(x / dist)), int(math.floor(y / dist))), ()):
+            t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / ((dx * dx + dy * dy) or 1.0)))
+            if math.hypot(x - ax - dx * t, y - ay - dy * t) <= dist:
+                return True
+        return False
+
+    def contains(self, x, y):
+        # type: (float, float) -> bool
+        odd = set()
+        for x1, y1, x2, y2, pid in self.bands.get(int(math.floor(y / self.band)), ()):
+            if (y1 > y) != (y2 > y) and x1 + (y - y1) * (x2 - x1) / (y2 - y1) > x:
+                odd ^= {pid}
+        return bool(odd)
 
 
 class GridIndex(object):
@@ -1014,24 +1178,131 @@ def _get_step_band(z, step):
     return z, int(math.floor(z / step))
 
 
-def _get_cross_xy(low, low_z, high, high_z, level):
-    # type: (tuple, float, tuple, float, float) -> tuple
-    """아래 단 점 low → 위 단 점 high 변이 높이 level을 지나는 (x, y). 위 점이 경계 위면 그 점 그대로.
-    늘 아래 → 위 순서로 보간해 이웃 면·대상지 벽이 같은 변에서 같은 값을 얻는다."""
-    if high_z == level:
-        return high[0], high[1]
-    t = (level - low_z) / (high_z - low_z)
-    return low[0] + (high[0] - low[0]) * t, low[1] + (high[1] - low[1]) * t
+class TinProfile(object):
+    """TIN 위 평면 선분의 높이 단면 — 계단 지형 단 경계 교차점을 메시 변 선형 보간 대신 TIN에서 찾는다(get_stepped_mesh·get_stepped_edges tin=).
+
+    등고선 TIN은 같은 등고선 점끼리 이은 평평한 삼각형이 많다(서대문 안산 R=250: TIN 21,267면 중 14,022면). 그 위 3 m 격자 정점은
+    단 높이에 정확히 놓여(정점 37 %), 선형 보간하면 교차점이 격자 정점에 붙어 단 테두리가 격자를 따라 톱니가 됐다(죽림리 301-3 구역, 2026-11-08).
+    TIN 단면은 평평한 삼각형이 끝나는 자리(= 실제 등고선)를 준다. 입력은 verts ``[(x, y, z)]``, faces 3·4각형, 색인 칸 cell(m).
+    """
+
+    def __init__(self, verts, faces, cell):
+        # type: (list, list, float) -> None
+        self.cell = float(cell)
+        self._cells = {}
+        self._tris = []
+        for face in faces:
+            for a, b, c in ((face[0], face[k], face[k + 1]) for k in range(1, len(face) - 1)):
+                p, q, r = verts[a], verts[b], verts[c]
+                det = (q[0] - p[0]) * (r[1] - p[1]) - (r[0] - p[0]) * (q[1] - p[1])
+                if abs(det) < 1e-9:   # 평면에서 넓이 0
+                    continue
+                if det < 0:
+                    q, r, det = r, q, -det
+                # z = z0 + gx·(x − x0) + gy·(y − y0)
+                gx = ((q[2] - p[2]) * (r[1] - p[1]) - (r[2] - p[2]) * (q[1] - p[1])) / det
+                gy = ((r[2] - p[2]) * (q[0] - p[0]) - (q[2] - p[2]) * (r[0] - p[0])) / det
+                index = len(self._tris)
+                sides = tuple((u[0], u[1], v[0] - u[0], v[1] - u[1], 1e-9 * math.hypot(v[0] - u[0], v[1] - u[1])) for u, v in ((p, q), (q, r), (r, p)))
+                self._tris.append((p, gx, gy, min(p[0], q[0], r[0]), min(p[1], q[1], r[1]), max(p[0], q[0], r[0]), max(p[1], q[1], r[1]), sides))
+                for i in range(int(math.floor(min(p[0], q[0], r[0]) / self.cell)), int(math.floor(max(p[0], q[0], r[0]) / self.cell)) + 1):
+                    for j in range(int(math.floor(min(p[1], q[1], r[1]) / self.cell)), int(math.floor(max(p[1], q[1], r[1]) / self.cell)) + 1):
+                        self._cells.setdefault((i, j), []).append(index)
+
+    def get_pieces(self, a, b):
+        # type: (tuple, tuple) -> list
+        """선분 a → b ``(x, y)``의 단면 ``[(t0, t1, z0, z1)]``(t 오름차순, 삼각형 하나 안에서는 z가 t에 선형). [0, 1]을 다 덮지 못하면 None."""
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        bx0, by0, bx1, by1 = min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])
+        seen, pieces = set(), []
+        for i in range(int(math.floor(min(a[0], b[0]) / self.cell)), int(math.floor(max(a[0], b[0]) / self.cell)) + 1):
+            for j in range(int(math.floor(min(a[1], b[1]) / self.cell)), int(math.floor(max(a[1], b[1]) / self.cell)) + 1):
+                for index in self._cells.get((i, j), ()):
+                    if index in seen:
+                        continue
+                    seen.add(index)
+                    p, gx, gy, x0, y0, x1, y1, sides = self._tris[index]
+                    if x0 > bx1 or x1 < bx0 or y0 > by1 or y1 < by0:
+                        continue
+                    t0, t1 = 0.0, 1.0
+                    for ux, uy, ex, ey, eps in sides:   # 반시계 삼각형 — 변 왼쪽(cross ≥ 0)이 안
+                        c0 = ex * (a[1] - uy) - ey * (a[0] - ux)
+                        dc = ex * dy - ey * dx
+                        if abs(dc) < 1e-15:
+                            if c0 < -eps:
+                                t0 = 2.0
+                            continue
+                        t = (-eps - c0) / dc
+                        if dc > 0:
+                            t0 = max(t0, t)
+                        else:
+                            t1 = min(t1, t)
+                    if t1 - t0 > 1e-9:
+                        z0 = p[2] + gx * (a[0] + dx * t0 - p[0]) + gy * (a[1] + dy * t0 - p[1])
+                        z1 = p[2] + gx * (a[0] + dx * t1 - p[0]) + gy * (a[1] + dy * t1 - p[1])
+                        pieces.append((t0, t1, z0, z1))
+        pieces.sort()
+        reach = 0.0
+        for t0, t1, _z0, _z1 in pieces:
+            if t0 > reach + 1e-6:
+                return None
+            reach = max(reach, t1)
+        return pieces if reach >= 1.0 - 1e-6 else None
+
+    def get_cross_ts(self, low, high, levels):
+        # type: (tuple, tuple, list) -> list
+        """아래 단 점 low → 위 단 점 high ``(x, y, z)``가 높이 levels(오름차순)를 마지막으로 넘는 자리 t 목록(= 단면이 그 높이 아래인 마지막 자리).
+        단면 = TIN 높이 + 양 끝 정점과의 차를 t로 선형 보간한 값(물가 비탈처럼 TIN 뒤에 바뀐 정점도 끝이 맞는다).
+        levels가 오르면 t도 오른다(단 다각형이 꼬이지 않는다). 단면이 TIN 밖으로 끊기면 None."""
+        pieces = self.get_pieces(low, high)
+        if not pieces:
+            return None
+        ca, cb = low[2] - pieces[0][2], high[2] - pieces[-1][3]
+        pieces = [(t0, t1, z0 + ca + (cb - ca) * t0, z1 + ca + (cb - ca) * t1) for t0, t1, z0, z1 in pieces]
+        out = []
+        for level in levels:
+            t = None
+            for t0, t1, z0, z1 in reversed(pieces):
+                if z1 < level:
+                    t = t1
+                    break
+                if z0 < level:
+                    t = t0 + (level - z0) / (z1 - z0) * (t1 - t0)
+                    break
+            if t is None:
+                return None
+            out.append(t)
+        return out
 
 
-def get_stepped_mesh(verts, faces, step):
-    # type: (list, list, float) -> tuple
+def _get_edge_crosses(low, low_z, high, high_z, j0, j1, step, tin):
+    # type: (tuple, float, tuple, float, int, int, float, object) -> list
+    """아래 단 점 low → 위 단 점 high 변이 단 경계 j0..j1을 지나는 자리 ``[(x, y, 위 점인가)]``. 늘 아래 → 위 순서로 구해
+    이웃 면·대상지 벽이 같은 변에서 같은 값을 얻는다. tin(TinProfile)이 있으면 TIN 단면, 없거나 못 구하면 정점 높이 선형 보간(위 점이 경계 위면 그 점)."""
+    levels = [j * step for j in range(j0, j1 + 1)]
+    ts = tin.get_cross_ts((low[0], low[1], low_z), (high[0], high[1], high_z), [level - constants.TERRAIN_STEP_SNAP for level in levels]) if tin is not None else None
+    out = []
+    for k, level in enumerate(levels):
+        if ts is None:
+            t = 1.0 if high_z == level else (level - low_z) / (high_z - low_z)
+        else:
+            t = ts[k]
+        if t >= 1.0 - 1e-6 and high_z == level:
+            out.append((high[0], high[1], True))
+        else:
+            out.append((low[0] + (high[0] - low[0]) * t, low[1] + (high[1] - low[1]) * t, False))
+    return out
+
+
+def get_stepped_mesh(verts, faces, step, tin=None):
+    # type: (list, list, float, object) -> tuple
     """매끈한 지형 메시 → 계단형 지형(등고 모형) 메시.
 
     입력: verts ``[(x, y, z)]``, faces ``[(a, b, c)]`` 또는 ``(a, b, c, d)`` — 공유 정점 번호. step = 단 간격 m(> 0).
+          tin = TinProfile(메시를 TIN에 입힌 경우 — Rhino 3 m 격자). 없으면 정점 높이 선형 보간(메시 정점이 곧 TIN 점인 mesh_geometry).
     처리: 정점 단 = floor(z / step). 한 단 안의 면은 그 단 높이로 내린다. 여러 단에 걸친 면은 삼각형으로 나눠
           둘레(원래 정점 + 변 위 단 경계 교차점)를 돌며 단마다 다각형을 뽑고, 단 경계선마다 높이 step 수직 벽(아래 단 쪽을 본다).
-          교차점은 정점 번호로 묶어 이웃 면과 공유한다. 벽 정점은 단 면과 따로 둔다(공유하면 모서리 음영이 뭉개진다).
+          교차점(_get_edge_crosses)은 변마다 한 번 구해 이웃 면과 공유한다. 벽 정점은 단 면과 따로 둔다(공유하면 모서리 음영이 뭉개진다).
     출력: ``(verts, faces)`` — 면은 3·4각형. 입력은 바꾸지 않는다.
     """
     zs, bands = zip(*[_get_step_band(v[2], step) for v in verts]) if verts else ((), ())
@@ -1047,12 +1318,16 @@ def get_stepped_mesh(verts, faces, step):
     def vertex(i):
         return add(i, verts[i][0], verts[i][1], bands[i] * step)
 
+    crosses = {}
+
     def cross(a, b, j):
-        """변 a-b × 단 경계 j → (묶음 키, x, y). 위 정점이 경계 위면 키 = 그 정점."""
+        """변 a-b × 단 경계 j → (묶음 키, x, y). 교차점이 위 정점이면 키 = 그 정점."""
         if bands[a] > bands[b]:
             a, b = b, a
-        x, y = _get_cross_xy(verts[a], zs[a], verts[b], zs[b], j * step)
-        return (b if zs[b] == j * step else (a, b, j)), x, y
+        if (a, b) not in crosses:
+            crosses[(a, b)] = _get_edge_crosses(verts[a], zs[a], verts[b], zs[b], bands[a] + 1, bands[b], step, tin)
+        x, y, at_high = crosses[(a, b)][j - bands[a] - 1]
+        return (b if at_high else (a, b, j)), x, y
 
     def add_face(face):
         face = [i for k, i in enumerate(face) if i != face[k - 1]]
@@ -1100,23 +1375,172 @@ def get_stepped_mesh(verts, faces, step):
     return out_verts, out_faces
 
 
-def get_stepped_edges(a, b, step):
-    # type: (tuple, tuple, float) -> list
+def get_stepped_edges(a, b, step, tin=None):
+    # type: (tuple, tuple, float, object) -> list
     """자연 지반 변 a → b ``(x, y, z)``를 계단 지형 위 토막 ``[(p, q)]``로 — 토막 두 끝 z = 그 토막의 단 높이.
-    get_stepped_mesh와 같은 교차점이라 대상지 경계 벽 윗선이 주변 계단 지형과 맞는다. step <= 0이면 ``[(a, b)]`` 그대로."""
+    get_stepped_mesh와 같은 교차점(같은 tin)이라 대상지 경계 벽 윗선이 주변 계단 지형과 맞는다. step <= 0이면 ``[(a, b)]`` 그대로."""
     if step <= 0:
         return [(a, b)]
     (za, ka), (zb, kb) = _get_step_band(a[2], step), _get_step_band(b[2], step)
     up = ka < kb
-    pts = [(a[0], a[1])]
-    for j in (range(ka + 1, kb + 1) if up else range(ka, kb, -1)):
-        pts.append(_get_cross_xy(a, za, b, zb, j * step) if up else _get_cross_xy(b, zb, a, za, j * step))
-    pts.append((b[0], b[1]))
+    if up:
+        crosses = _get_edge_crosses(a, za, b, zb, ka + 1, kb, step, tin)
+    else:
+        crosses = _get_edge_crosses(b, zb, a, za, kb + 1, ka, step, tin)[::-1]
+    pts = [(a[0], a[1])] + [(x, y) for x, y, _at_high in crosses] + [(b[0], b[1])]
     out = []
     for k in range(len(pts) - 1):
         z = (ka + (k if up else -k)) * step
         if pts[k] != pts[k + 1]:
             out.append(((pts[k][0], pts[k][1], z), (pts[k + 1][0], pts[k + 1][1], z)))
+    return out
+
+
+def _get_segment_distances(points, segments, cell):
+    # type: (list, list, float) -> list
+    """점마다 선분 묶음까지 최단 거리. 칸 색인 + 고리 넓히기(고리 r까지 본 최단이 r × cell 이하면 확정)."""
+    grid = {}
+    for k, ((ax, ay), (bx, by)) in enumerate(segments):
+        for i in range(int(math.floor(min(ax, bx) / cell)), int(math.floor(max(ax, bx) / cell)) + 1):
+            for j in range(int(math.floor(min(ay, by) / cell)), int(math.floor(max(ay, by) / cell)) + 1):
+                grid.setdefault((i, j), []).append(k)
+    out = []
+    for x, y in points:
+        ci, cj = int(math.floor(x / cell)), int(math.floor(y / cell))
+        best, r, seen = None, 0, set()
+        while r < 1000:
+            for i in range(ci - r, ci + r + 1):
+                for j in ((cj - r, cj + r) if abs(i - ci) != r else range(cj - r, cj + r + 1)):
+                    for k in grid.get((i, j), ()):
+                        if k in seen:
+                            continue
+                        seen.add(k)
+                        (ax, ay), (bx, by) = segments[k]
+                        dx, dy = bx - ax, by - ay
+                        t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / ((dx * dx + dy * dy) or 1.0)))
+                        d = math.hypot(x - ax - dx * t, y - ay - dy * t)
+                        if best is None or d < best:
+                            best = d
+            if best is not None and best <= r * cell:
+                break
+            r += 1
+        out.append(best or 0.0)
+    return out
+
+
+def get_flat_fill_points(verts, faces, levels):
+    # type: (list, list, list) -> list
+    """등고선 TIN의 평평한 삼각형 자리(같은 높이 등고선끼리 이어 메워진 골짜기 바닥·꼭대기)에 넣을 점 ``[(x, y, z)]``.
+
+    입력: TIN verts ``[(x, y, z)]``, faces ``[(a, b, c)]``, levels = 원본 등고선 높이들(이 높이의 덩어리만 — 격자 지형·표고점의 진짜 평지는 그대로. 없으면 [] 반환).
+    처리: 세 정점 높이가 같은 삼각형을 변으로 이어 덩어리(높이 L)로 묶는다. 덩어리 테두리 너머 이웃 삼각형의 남은 정점이 변 길이로
+          TERRAIN_FLAT_SIDE_SHARE 이상 높으면 골짜기(안쪽을 낮춘다), 1 − 그 비율 이하면 꼭대기(올린다), 그 사이는 그대로 둔다(등고선이 꺾인 자리의 조각).
+          깊이 = min(이웃 높이 차 중앙값 × TERRAIN_FLAT_DEPTH_RATIO, 이웃 경사 중앙값 × 덩어리 안 테두리까지 최대 거리).
+          덩어리의 삼각형마다 무게중심 하나, 높이 = L ∓ 깊이 × (테두리까지 거리 / 최대 거리) — 테두리(원본 등고선)는 L 그대로, 가운데가 가장 깊다.
+          덩어리 안 표고점은 이미 TIN 정점이라 그 둘레 삼각형은 평평하지 않다(덩어리에 들지 않는다).
+    출력: 더할 점 목록. 이 점을 넣고 TIN을 다시 만든다.
+    """
+    edges = {}
+    for f, face in enumerate(faces):
+        for k in range(3):
+            a, b = face[k], face[(k + 1) % 3]
+            edges.setdefault((a, b) if a < b else (b, a), []).append(f)
+    flat = [abs(verts[a][2] - verts[b][2]) < 1e-6 and abs(verts[b][2] - verts[c][2]) < 1e-6 for a, b, c in faces]
+    parent = list(range(len(faces)))
+
+    def find(f):
+        while parent[f] != f:
+            parent[f] = parent[parent[f]]
+            f = parent[f]
+        return f
+
+    for owners in edges.values():
+        if len(owners) == 2 and flat[owners[0]] and flat[owners[1]]:
+            parent[find(owners[0])] = find(owners[1])
+    groups = {}
+    for f in range(len(faces)):
+        if flat[f]:
+            groups.setdefault(find(f), []).append(f)
+    out = []
+    levels = set(levels)
+    for group in groups.values():
+        level = verts[faces[group[0]][0]][2]
+        if level not in levels:
+            continue
+        members = set(group)
+        up = down = 0.0
+        diffs, slopes, boundary = [], [], []
+        for f in group:
+            face = faces[f]
+            for k in range(3):
+                a, b = face[k], face[(k + 1) % 3]
+                owners = edges[(a, b) if a < b else (b, a)]
+                other = [g for g in owners if g not in members]
+                if len(owners) == 2 and not other:
+                    continue   # 덩어리 안쪽 변
+                pa, pb = verts[a], verts[b]
+                boundary.append(((pa[0], pa[1]), (pb[0], pb[1])))
+                if not other:
+                    continue   # TIN 가장자리
+                v = next(i for i in faces[other[0]] if i != a and i != b)
+                dz = verts[v][2] - level
+                length = math.hypot(pb[0] - pa[0], pb[1] - pa[1])
+                if abs(dz) < 1e-6 or length < 1e-9:
+                    continue
+                dist = abs((pb[0] - pa[0]) * (verts[v][1] - pa[1]) - (pb[1] - pa[1]) * (verts[v][0] - pa[0])) / length
+                if dz > 0:
+                    up += length
+                else:
+                    down += length
+                diffs.append(abs(dz))
+                slopes.append(abs(dz) / dist if dist > 1e-9 else 0.0)
+        total = up + down
+        if not total or not boundary:
+            continue
+        if up >= constants.TERRAIN_FLAT_SIDE_SHARE * total:
+            sign = -1.0
+        elif up <= (1.0 - constants.TERRAIN_FLAT_SIDE_SHARE) * total:
+            sign = 1.0
+        else:
+            continue
+        centers = []
+        for f in group:
+            a, b, c = (verts[i] for i in faces[f])
+            centers.append(((a[0] + b[0] + c[0]) / 3.0, (a[1] + b[1] + c[1]) / 3.0))
+        dists = _get_segment_distances(centers, boundary, 10.0)
+        far = max(dists)
+        if far < 1e-6:
+            continue
+        diffs.sort()
+        slopes.sort()
+        depth = min(diffs[len(diffs) // 2] * constants.TERRAIN_FLAT_DEPTH_RATIO, slopes[len(slopes) // 2] * far)
+        out.extend((x, y, level + sign * depth * d / far) for (x, y), d in zip(centers, dists))
+    return out
+
+
+def get_smoothed_z(zs, neighbors, fixed, levels, iterations):
+    # type: (list, list, list, list, int) -> list
+    """격자 정점 높이 다듬기(등고선 고정) — TIN 삼각형 면의 꺾임을 편다.
+
+    입력: zs 정점 높이, neighbors 정점마다 이웃 정점 번호 목록, fixed 정점마다 고정 여부, levels 원본 등고선 높이(오름차순), 반복 횟수.
+    처리: 고정이 아닌 정점을 이웃 평균으로 iterations번 바꾼다(제자리 — 가우스-자이델). 높이는 처음 높이를 품은 등고선 두 높이 사이로 가둔다 —
+          등고선 높이를 넘나들지 않으니 그 높이의 단 테두리가 원본 등고선에서 움직이지 않는다. 처음부터 등고선 높이에 정확히 있는 정점은 그대로.
+    출력: 새 높이 목록. 입력은 바꾸지 않는다.
+    """
+    out = list(zs)
+    bands = []
+    for z in zs:
+        k = bisect.bisect_right(levels, z)
+        lo = levels[k - 1] if k else -1e18
+        hi = levels[k] if k < len(levels) else 1e18
+        bands.append((z, z) if lo == z else (lo, hi))
+    free = [i for i in range(len(zs)) if not fixed[i] and neighbors[i] and bands[i][0] != bands[i][1]]
+    for _ in range(iterations):
+        for i in free:
+            nb = neighbors[i]
+            v = sum(out[j] for j in nb) / len(nb)
+            lo, hi = bands[i]
+            out[i] = lo if v < lo else hi if v > hi else v
     return out
 
 
@@ -1310,6 +1734,489 @@ def get_block_skirt(meshes, ring, base_z, tol=1e-3):
         rim = sorted(bottom.values(), key=lambda p: math.atan2(p[1] - cy, p[0] - cx))
         ids = [vertex(x, y, base_z) for x, y in rim]
         faces += [(center, ids[(k + 1) % len(ids)], ids[k]) for k in range(len(ids))]
+    return verts, faces
+
+
+def get_boundary_loops(faces):
+    # type: (list) -> list
+    """면 묶음(정점 번호 3·4각형, 같은 방향으로 돈다)의 경계 고리 ``[[정점 번호]]`` — 바깥 테두리와 구멍 모두, 면 돌림 방향 그대로.
+    경계가 한 정점에서 갈리면(두 고리가 점으로 맞닿음) None — 고리를 하나로 정할 수 없다."""
+    count = {}
+    for face in faces:
+        for k in range(len(face)):
+            a, b = face[k], face[(k + 1) % len(face)]
+            key = (a, b) if a < b else (b, a)
+            count[key] = count.get(key, 0) + 1
+    nxt = {}
+    for face in faces:
+        for k in range(len(face)):
+            a, b = face[k], face[(k + 1) % len(face)]
+            if a != b and count[(a, b) if a < b else (b, a)] == 1:
+                if a in nxt:
+                    return None
+                nxt[a] = b
+    loops = []
+    while nxt:
+        start = v = next(iter(nxt))
+        loop = []
+        while True:
+            loop.append(v)
+            v = nxt.pop(v, None)
+            if v is None:
+                return None
+            if v == start:
+                break
+        if len(loop) >= 3:
+            loops.append(loop)
+    return loops
+
+
+def get_planar_faces(verts, faces, groups, tol):
+    # type: (list, list, list, float) -> tuple
+    """메시 → Brep 평면 면 목록(context_geometry.get_mesh_brep이 이어 붙이기 없이 Brep을 조립한다).
+
+    입력: verts ``[(x, y, z)]``, faces 3·4각형, groups = 같은 평면으로 묶인 면 번호 목록들(Mesh.MergeAllCoplanarFaces의 n-gon), tol(m).
+    처리: 묶음마다 경계 고리(get_boundary_loops — 바깥 + 구멍) 하나의 면, 묶음에 없는 면은 그 면 하나(평면이 아닌 4각형은 삼각형 둘).
+          정점은 좌표로 묶어(계단 지형은 벽·단 면 정점을 따로 둔다) 이웃 면이 같은 정점·변을 쓰게 한다. 고리를 못 정하는 묶음(점으로 맞닿음)과
+          고리 넓이가 면 넓이 합과 다른 묶음(돌림 방향이 엇갈린 면 — 평탄면 높이를 가로지르는 대상지 경계 벽 띠, 성수 333-139 134.6 → 113.3 ㎡)은 면마다 따로.
+    출력: ``(points, planes)`` — points ``[(x, y, z)]``, planes ``[(origin, x_axis, y_axis, loops)]``, loops ``[[(점 번호, u, v)]]``는
+          바깥 고리 먼저(uv 반시계), 구멍은 시계. 넓이 0인 면은 뺀다.
+    """
+    keys, points = {}, []
+
+    def point(i):
+        p = verts[i]
+        key = (round(p[0], 6), round(p[1], 6), round(p[2], 6))
+        k = keys.get(key)
+        if k is None:
+            k = keys[key] = len(points)
+            points.append(p)
+        return k
+
+    def newell(loops):
+        """고리들(점 번호)의 뉴웰 벡터 = 넓이 × 2 × 법선(바깥 고리 반시계 쪽)."""
+        nx = ny = nz = 0.0
+        for loop in loops:
+            for k in range(len(loop)):
+                a, b = points[loop[k - 1]], points[loop[k]]
+                nx += (a[1] - b[1]) * (a[2] + b[2])
+                ny += (a[2] - b[2]) * (a[0] + b[0])
+                nz += (a[0] - b[0]) * (a[1] + b[1])
+        return nx, ny, nz
+
+    def plane(loops):
+        """고리들(점 번호) → (origin, x, y, uv 고리) 또는 None."""
+        nx, ny, nz = newell(loops)
+        size = math.sqrt(nx * nx + ny * ny + nz * nz)
+        if size < 1e-9:
+            return None
+        z = (nx / size, ny / size, nz / size)
+        ref = (1.0, 0.0, 0.0) if abs(z[0]) < 0.9 else (0.0, 1.0, 0.0)
+        d = ref[0] * z[0] + ref[1] * z[1] + ref[2] * z[2]
+        x = (ref[0] - d * z[0], ref[1] - d * z[1], ref[2] - d * z[2])
+        lx = math.sqrt(x[0] * x[0] + x[1] * x[1] + x[2] * x[2])
+        x = (x[0] / lx, x[1] / lx, x[2] / lx)
+        y = (z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0])
+        o = points[loops[0][0]]
+        uv_loops = []
+        for loop in loops:
+            uv = []
+            for k in loop:
+                p = points[k]
+                dx, dy, dz = p[0] - o[0], p[1] - o[1], p[2] - o[2]
+                if abs(dx * z[0] + dy * z[1] + dz * z[2]) > tol:
+                    return None   # 평면이 아니다
+                uv.append((k, dx * x[0] + dy * x[1] + dz * x[2], dx * y[0] + dy * y[1] + dz * y[2]))
+            uv_loops.append(uv)
+        areas = [get_ring_area([q[1:] for q in uv]) * get_ring_orientation([q[1:] for q in uv]) for uv in uv_loops]
+        if sum(1 for a in areas if a > 0) != 1:
+            return None
+        outer = areas.index(max(areas))
+        return o, x, y, [uv_loops[outer]] + [uv for k, uv in enumerate(uv_loops) if k != outer]
+
+    def clean(loop):
+        out = [k for n, k in enumerate(loop) if k != loop[n - 1]]
+        return out if len(out) >= 3 else None
+
+    planes, grouped = [], set()
+    for group in groups:
+        loops = get_boundary_loops([faces[f] for f in group]) if len(group) > 1 else None
+        loops = [clean([point(i) for i in loop]) for loop in loops] if loops else None
+        made = plane([loop for loop in loops if loop]) if loops and loops[0] else None
+        if made:
+            face_area = sum(0.5 * math.sqrt(sum(c * c for c in newell([[point(i) for i in faces[f]]]))) for f in group)
+            loop_area = sum(get_ring_area([q[1:] for q in uv]) * get_ring_orientation([q[1:] for q in uv]) for uv in made[3])
+            if abs(loop_area - face_area) > 1e-6 * face_area + 1e-6:
+                made = None
+        if made:
+            planes.append(made)
+            grouped.update(group)
+    for f, face in enumerate(faces):
+        if f in grouped:
+            continue
+        loop = clean([point(i) for i in face])
+        if not loop:
+            continue
+        made = plane([loop])
+        if made is None and len(loop) == 4:   # 평면이 아닌 4각형
+            for tri in ((loop[0], loop[1], loop[2]), (loop[0], loop[2], loop[3])):
+                made_tri = plane([list(tri)])
+                if made_tri:
+                    planes.append(made_tri)
+        elif made:
+            planes.append(made)
+    return points, planes
+
+
+def _get_boundary_edges(verts, faces):
+    # type: (list, list) -> list
+    """메시의 경계 변 ``[(p, q)]`` — 한 면에만 속한 변, 면이 위를 볼 때의 진행 방향(왼쪽 = 면 안쪽).
+    정점은 좌표로 묶는다(이어 붙이기만 하고 용접하지 않은 Rhino 영역 메시의 이음매를 경계로 세지 않는다). 수직 면(평면 넓이 0)은 건너뛴다."""
+    edges = {}
+    for face in faces:
+        pts = [verts[i] for i in face]
+        area = sum(pts[k][0] * pts[(k + 1) % len(pts)][1] - pts[(k + 1) % len(pts)][0] * pts[k][1] for k in range(len(pts)))
+        if abs(area) < 1e-9:
+            continue
+        if area < 0:
+            pts.reverse()
+        for k in range(len(pts)):
+            p, q = pts[k], pts[(k + 1) % len(pts)]
+            kp, kq = (round(p[0], 4), round(p[1], 4), round(p[2], 4)), (round(q[0], 4), round(q[1], 4), round(q[2], 4))
+            if kp == kq:
+                continue
+            key = (kp, kq) if kp < kq else (kq, kp)
+            edges[key] = None if key in edges else (p, q)
+    return [edge for edge in edges.values() if edge]
+
+
+class WaterShore(object):
+    """수면 경계 색인 — (x, y)가 수면 경계(물가선) 위면 그 자리 수면 높이. 수면 = 판 여러 개를 이어 붙인 메시(로컬 m, 기울어도 된다)."""
+
+    def __init__(self, water, tol=1e-3, cell=5.0):
+        # type: (tuple, float, float) -> None
+        self.tol, self.cell, self.grid = tol, float(cell), {}
+        for p, q in _get_boundary_edges(*water):
+            for i in range(int(math.floor((min(p[0], q[0]) - tol) / cell)), int(math.floor((max(p[0], q[0]) + tol) / cell)) + 1):
+                for j in range(int(math.floor((min(p[1], q[1]) - tol) / cell)), int(math.floor((max(p[1], q[1]) + tol) / cell)) + 1):
+                    self.grid.setdefault((i, j), []).append((p[0], p[1], q[0] - p[0], q[1] - p[1], p[2], q[2]))
+
+    def get_hits(self, x, y):
+        # type: (float, float) -> list
+        """(x, y)를 지나는 수면 경계 변들의 그 자리 수면 높이(mm 반올림, 중복 없이 오름차순). 물가가 아니면 []."""
+        hits = set()
+        for ax, ay, dx, dy, za, zb in self.grid.get((int(math.floor(x / self.cell)), int(math.floor(y / self.cell))), ()):
+            t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / ((dx * dx + dy * dy) or 1.0)))
+            if math.hypot(x - ax - dx * t, y - ay - dy * t) <= self.tol:
+                hits.add(round(za + (zb - za) * t, 3))
+        return sorted(hits)
+
+    def get_z(self, x, y):
+        # type: (float, float) -> object
+        """물가선 위면 그 자리 수면 높이(여럿이면 낮은 것), 아니면 None."""
+        hits = self.get_hits(x, y)
+        return hits[0] if hits else None
+
+    def get_near(self, x, y, reach):
+        # type: (float, float, float) -> object
+        """reach 안 가장 가까운 물가선 점 → (거리, 그 자리 수면 높이), 없으면 None. 물가 비탈(get_shore_fitted)용 — 칸 = reach 색인을 처음 부를 때 만든다."""
+        if getattr(self, "_reach", None) != reach:
+            self._reach, self._near = reach, {}
+            for edges in self.grid.values():
+                for edge in edges:
+                    ax, ay, dx, dy = edge[:4]
+                    for i in range(int(math.floor(min(ax, ax + dx) / reach)), int(math.floor(max(ax, ax + dx) / reach)) + 1):
+                        for j in range(int(math.floor(min(ay, ay + dy) / reach)), int(math.floor(max(ay, ay + dy) / reach)) + 1):
+                            self._near.setdefault((i, j), set()).add(edge)
+        ci, cj = int(math.floor(x / reach)), int(math.floor(y / reach))
+        best = None
+        for i in (ci - 1, ci, ci + 1):
+            for j in (cj - 1, cj, cj + 1):
+                for ax, ay, dx, dy, za, zb in self._near.get((i, j), ()):
+                    t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / ((dx * dx + dy * dy) or 1.0)))
+                    d = math.hypot(x - ax - dx * t, y - ay - dy * t)
+                    if d <= reach and (best is None or d < best[0]):
+                        best = (d, za + (zb - za) * t)
+        return best
+
+
+def get_shore_fitted(verts, shore, reach=None):
+    # type: (list, WaterShore, float) -> list
+    """물가선 위 정점의 Z를 수면 높이로 맞추고, reach(기본 WATER_SHORE_FALLOFF) 안 정점은 수면 쪽으로 부드럽게 내린 새 정점 목록(하이드로 플래트닝 — 물가선 = 수위).
+    물가 정점이 TIN의 '가장 가까운 입력점' 높이(둑 꼭대기 등고선 등)를 받아 수면과 수 m 떨어지던 것을 지형이 물가에서 비탈로 오르게 바꾼다.
+    물가선 정점만 내리면 바로 안쪽 정점은 둑 높이 그대로라 한 면 폭에 수 m가 떨어져 물가가 톱니로 보였다(2026-11-08 사용자, 죽림리 301-3 구역 —
+    매끈 지형에 수직면 330개·최대 6 m). 그래서 reach 안은 smoothstep으로 이어 내린다(수면보다 낮은 정점은 그대로)."""
+    reach = constants.WATER_SHORE_FALLOFF if reach is None else reach
+    out = []
+    for x, y, z in verts:
+        shore_z = shore.get_z(x, y)
+        if shore_z is None and reach > 0:
+            near = shore.get_near(x, y, reach)
+            if near is not None and z > near[1]:
+                t = near[0] / reach
+                z = near[1] + (z - near[1]) * t * t * (3.0 - 2.0 * t)
+        out.append((x, y, z if shore_z is None else shore_z))
+    return out
+
+
+def _is_on_ring(x, y, ring, tol):
+    # type: (float, float, list, float) -> bool
+    for k in range(len(ring)):
+        (ax, ay), (bx, by) = ring[k][:2], ring[(k + 1) % len(ring)][:2]
+        dx, dy = bx - ax, by - ay
+        t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / ((dx * dx + dy * dy) or 1.0)))
+        if math.hypot(x - ax - dx * t, y - ay - dy * t) <= tol:
+            return True
+    return False
+
+
+def get_water_surface(bodies, still, ring, window, grade, cell, tol=1e-3):
+    # type: (list, list, list, float, float, float, float) -> tuple
+    """수면 판마다 정점 높이(하이드로 플래트닝). 고인 물은 평평하게, 흐르는 물은 물가를 따라 하류로 매끄럽게 기운다.
+
+    입력: bodies = 수면 폴리곤마다 지형(TIN)에 얹은 메시 ``[(verts, faces)]``(로컬 m). still = 판마다 고인 물인지.
+          ring = 범위 링(로컬) — 범위에 잘린 수면 가장자리는 물가가 아니다. window = 물가 최저 창(m), grade = 수면 최대 기울기, cell = 안쪽 채움 격자(m).
+    처리: ① 고인 물 = 물가 높이 하위 10 % 평면.
+          ② 흐르는 물 — 물가 = 흐르는 판 전체의 바깥 경계(도엽 이음매는 두 판이 같이 가져 빠진다, 범위 링 위도 뺀다), 고인 물과 맞닿은 물가는
+             그 수위 이하(강이 호수 높이로 들어간다). 물가 높이를 5 m 칸으로 솎아 창 안 최저(둑 꼭대기 등고선 같은 튀는 값을 버린다 —
+             창 = max(window, 강폭 × 2), 강폭 ≈ 2 × 넓이 / 둘레라 넓은 강일수록 평평하다)
+             → 기울기 grade 이하로 낮추는 하한 포락(등고선 5 m 간격 계단을 경사로로) → 격자 칸에 가장 가까운 물가 값을 채우고 몇 번 다듬어
+             쌍선형 보간 — 단면은 양안 사이로 이어지고, 도엽으로 잘린 판도 자리의 함수라 저절로 이어진다.
+    출력: ``(new_verts_list, levels)`` — 판마다 새 정점 목록(WATER_LIFT 전), levels = 판마다 (최저, 최고) Z.
+    """
+    out = [list(verts) for verts, _faces in bodies]
+    for i, (verts, faces) in enumerate(bodies):
+        if still[i] and verts:
+            shore = sorted(q[2] for edge in _get_boundary_edges(verts, faces) for q in edge if not _is_on_ring(q[0], q[1], ring, 0.01))
+            level = shore[len(shore) // 10] if shore else min(v[2] for v in verts)   # 물가 하위 10 % — 최저 한 점에 끌리지 않게(취리히 호수 최저 403.8·하위 10 % 405.8, 실제 약 406 m)
+            out[i] = [(x, y, level) for x, y, _z in verts]
+    flowing = [i for i in range(len(bodies)) if not still[i] and bodies[i][0]]
+    if flowing:
+        count, ends, owner = {}, {}, {}
+        for i in flowing:
+            verts, faces = bodies[i]
+            for face in faces:
+                for k in range(len(face)):
+                    a, b = verts[face[k]], verts[face[(k + 1) % len(face)]]
+                    ka, kb = (round(a[0], 3), round(a[1], 3)), (round(b[0], 3), round(b[1], 3))
+                    if ka == kb:
+                        continue
+                    key = (ka, kb) if ka < kb else (kb, ka)
+                    count[key] = count.get(key, 0) + 1
+                    owner.setdefault(key, set()).add(i)
+                    ends[ka], ends[kb] = a, b
+        # 이어진 흐르는 물(도엽 이음매·본류에 붙은 곁가지)은 한 강 — 강폭과 창을 묶음 전체로 잰다(곁가지 폭 7 m가 창을 잡아
+        # 성수 한강 옆 조각이 7.9 m에 남고 그 값이 한강 안쪽으로 번졌다). 강폭 ≈ 2 × 넓이 / 물가 둘레, 창 = max(window, 강폭 × 2)
+        parent = {i: i for i in flowing}
+
+        def find(i):
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
+
+        for ids in owner.values():
+            first = next(iter(ids))
+            for j in ids:
+                parent[find(j)] = find(first)
+        area, perimeter = {}, {}
+        for i in flowing:
+            verts, faces = bodies[i]
+            area[find(i)] = area.get(find(i), 0.0) + sum(abs(get_ring_area([verts[v][:2] for v in face])) for face in faces)
+        for key, n in count.items():
+            d = math.hypot(key[1][0] - key[0][0], key[1][1] - key[0][1])
+            if n == 1 and d <= 30.0:   # 물가는 수 m 간격 — 범위에 잘린 변·범위 모서리 가는 삼각형 변(성수 R=1000 650~1,200 m)은 30 m보다 길다
+                root = find(next(iter(owner[key])))
+                perimeter[root] = perimeter.get(root, 0.0) + d
+        win_of = {i: max(window, 4.0 * area[find(i)] / perimeter[find(i)] if perimeter.get(find(i)) else window) for i in flowing}
+        span = {}
+        for key, ids in owner.items():
+            for k_ in key:
+                span[k_] = max([span.get(k_, 0.0)] + [win_of[i] for i in ids])
+        still_bodies = [(out[i], bodies[i][1]) for i in range(len(bodies)) if still[i] and bodies[i][0]]
+        still_shore = WaterShore(_join_meshes(still_bodies), tol) if still_bodies else None
+        thin = {}   # 5 m 칸마다 가장 낮은 물가 점
+        for key in {k for edge, n in count.items() if n == 1 for k in edge}:
+            x, y, z = ends[key]
+            if _is_on_ring(x, y, ring, 0.01):
+                continue
+            if still_shore is not None:
+                lake_z = still_shore.get_z(x, y)
+                if lake_z is not None:
+                    z = min(z, lake_z)
+            ck = (int(math.floor(x / 5.0)), int(math.floor(y / 5.0)))
+            if ck not in thin or z < thin[ck][2]:
+                thin[ck] = (x, y, z, max(span[key], thin[ck][3] if ck in thin else 0.0))
+        samples = list(thin.values())
+        if samples:
+            out_levels = _get_shore_levels(samples, grade)
+            raster = _ShoreRaster([(s_[0], s_[1], z) for s_, z in zip(samples, out_levels)], cell)
+            for i in flowing:
+                out[i] = [(x, y, raster.get_z(x, y)) for x, y, _z in bodies[i][0]]
+    levels = [(min(v[2] for v in verts), max(v[2] for v in verts)) if verts else (0.0, 0.0) for verts in out]
+    return out, levels
+
+
+def _join_meshes(meshes):
+    # type: (list) -> tuple
+    verts, faces = [], []
+    for mesh_verts, mesh_faces in meshes:
+        start = len(verts)
+        verts.extend(mesh_verts)
+        faces.extend(tuple(start + i for i in face) for face in mesh_faces)
+    return verts, faces
+
+
+def _get_shore_levels(samples, grade):
+    # type: (list, float) -> list
+    """물가 점 ``[(x, y, z, window)]`` → 수위. 점마다 window 안 최저 → 기울기 grade 하한 포락(다익스트라, 이웃 = 15 m 안)."""
+    import heapq
+    cell = 50.0
+    grid = {}
+    for k, s_ in enumerate(samples):
+        grid.setdefault((int(math.floor(s_[0] / cell)), int(math.floor(s_[1] / cell))), []).append(k)
+    low = []
+    for x, y, z, win in samples:
+        i, j, reach = int(math.floor(x / cell)), int(math.floor(y / cell)), int(math.ceil(win / cell))
+        best = z
+        for di in range(-reach, reach + 1):
+            for dj in range(-reach, reach + 1):
+                for k in grid.get((i + di, j + dj), ()):
+                    sx, sy, sz = samples[k][:3]
+                    if sz < best and math.hypot(sx - x, sy - y) <= win:
+                        best = sz
+        low.append(best)
+    link = 15.0
+    near = {}
+    for k, (x, y, _z, _w) in enumerate(samples):
+        near.setdefault((int(math.floor(x / link)), int(math.floor(y / link))), []).append(k)
+    level = list(low)
+    heap = [(z, k) for k, z in enumerate(level)]
+    heapq.heapify(heap)
+    while heap:
+        z, k = heapq.heappop(heap)
+        if z > level[k]:
+            continue
+        x, y = samples[k][:2]
+        i, j = int(math.floor(x / link)), int(math.floor(y / link))
+        for di in (-1, 0, 1):
+            for dj in (-1, 0, 1):
+                for m in near.get((i + di, j + dj), ()):
+                    cand = z + grade * math.hypot(samples[m][0] - x, samples[m][1] - y)
+                    if cand < level[m] - 1e-9:
+                        level[m] = cand
+                        heapq.heappush(heap, (cand, m))
+    return level
+
+
+class _ShoreRaster(object):
+    """물가 수위를 격자에 채운 높이장 — 칸마다 가장 가까운 물가 값(다익스트라) → 물가가 없는 칸만 몇 번 이웃 평균(접힘 다듬기) → 쌍선형 보간."""
+
+    def __init__(self, samples, cell, max_cells=40000, smooth=10):
+        # type: (list, float, int, int) -> None
+        import heapq
+        xs, ys = [s[0] for s in samples], [s[1] for s in samples]
+        pad = 2 * cell
+        self.x0, self.y0 = min(xs) - pad, min(ys) - pad
+        span = max(max(xs) - self.x0 + pad, max(ys) - self.y0 + pad)
+        self.cell = max(float(cell), span / math.sqrt(max_cells))
+        self.nx = int(math.ceil((max(xs) + pad - self.x0) / self.cell)) + 1
+        self.ny = int(math.ceil((max(ys) + pad - self.y0) / self.cell)) + 1
+        n = self.nx * self.ny
+        dist, value, seed = [float("inf")] * n, [0.0] * n, [False] * n
+        heap = []
+        for x, y, z in samples:
+            i, j = int(round((x - self.x0) / self.cell)), int(round((y - self.y0) / self.cell))
+            k = j * self.nx + i
+            d = math.hypot(x - (self.x0 + i * self.cell), y - (self.y0 + j * self.cell))
+            if d < dist[k] or (d == dist[k] and z < value[k]):
+                dist[k], value[k], seed[k] = d, z, True
+        for k in range(n):
+            if seed[k]:
+                heap.append((dist[k], k))
+        heapq.heapify(heap)
+        steps = [(di, dj, math.hypot(di, dj) * self.cell) for di in (-1, 0, 1) for dj in (-1, 0, 1) if di or dj]
+        while heap:
+            d, k = heapq.heappop(heap)
+            if d > dist[k]:
+                continue
+            i, j = k % self.nx, k // self.nx
+            for di, dj, w in steps:
+                a, b = i + di, j + dj
+                if 0 <= a < self.nx and 0 <= b < self.ny:
+                    m = b * self.nx + a
+                    if d + w < dist[m]:
+                        dist[m], value[m] = d + w, value[k]
+                        heapq.heappush(heap, (d + w, m))
+        for _ in range(smooth):
+            nxt = list(value)
+            for k in range(n):
+                if seed[k]:
+                    continue
+                i, j = k % self.nx, k // self.nx
+                total, cnt = 0.0, 0
+                for a, b in ((i - 1, j), (i + 1, j), (i, j - 1), (i, j + 1)):
+                    if 0 <= a < self.nx and 0 <= b < self.ny:
+                        total += value[b * self.nx + a]
+                        cnt += 1
+                nxt[k] = total / cnt
+            value = nxt
+        self.value = value
+
+    def get_z(self, x, y):
+        # type: (float, float) -> float
+        fx, fy = (x - self.x0) / self.cell, (y - self.y0) / self.cell
+        i, j = max(0, min(self.nx - 2, int(math.floor(fx)))), max(0, min(self.ny - 2, int(math.floor(fy))))
+        tx, ty = min(1.0, max(0.0, fx - i)), min(1.0, max(0.0, fy - j))
+        v = self.value
+        a, b = v[j * self.nx + i], v[j * self.nx + i + 1]
+        c, d = v[(j + 1) * self.nx + i], v[(j + 1) * self.nx + i + 1]
+        return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty
+
+
+def get_water_walls(water, neighbors, tol=1e-3):
+    # type: (tuple, list, float) -> tuple
+    """수면 둘레에 남은 단차를 막는 세로 벽 — 물가는 get_shore_fitted로 수위에 맞추므로, 남는 것은 고인 물과 흐르는 물이
+    다른 높이로 만나는 곳(댐·보)과 평탄화한 대상지 정도다. 막지 않으면 틈으로 뒤가 비친다.
+
+    입력: water = 수면 메시 (verts, faces) — 판 여러 개(로컬 m, 기울어도 된다). neighbors = 둘레 메시들 ``[(verts, faces)]``.
+    처리: 이웃 메시와 수면 자신의 경계 변 p→q마다 p·q·가운데가 모두 물가선 위이고 그 자리 수면이 변 끝보다 낮으면
+          → 끝마다 바로 아래 수면 높이까지 벽(수면 쪽을 본다). 한 끝만 낮으면 3각형.
+    출력: ``(verts, faces)`` — 면은 3·4각형. 벽이 없으면 ([], []).
+    """
+    shore = WaterShore(water, tol)
+    verts, faces, index = [], [], {}
+
+    def vertex(x, y, z):
+        key = (round(x, 6), round(y, 6), round(z, 6))
+        if key not in index:
+            index[key] = len(verts)
+            verts.append((x, y, z))
+        return index[key]
+
+    for mesh in [water] + list(neighbors):
+        for p, q in _get_boundary_edges(*mesh):
+            if math.hypot(q[0] - p[0], q[1] - p[1]) < tol:
+                continue
+            mid = shore.get_hits((p[0] + q[0]) * 0.5, (p[1] + q[1]) * 0.5)
+            if not [h for h in mid if h < (p[2] + q[2]) * 0.5 - tol]:   # 변 가운데 아래에 수면이 없으면 막을 틈이 아니다
+                continue
+            ends = []
+            for end in (p, q):   # 끝마다 바로 아래 수면, 없으면 그 끝이 수면 높이일 때만(벽이 거기서 0으로 줄어든다)
+                hits = shore.get_hits(end[0], end[1])
+                below = [h for h in hits if h < end[2] - tol]
+                ends.append(max(below) if below else end[2] if any(abs(h - end[2]) <= tol for h in hits) else None)
+            if None in ends:
+                continue
+            zp, zq = ends
+            ring = [vertex(p[0], p[1], p[2])]   # p → (p 아래) → (q 아래) → q: 이웃 면 진행 방향 오른쪽 = 수면 쪽을 본다
+            if p[2] > zp + tol:
+                ring.append(vertex(p[0], p[1], zp))
+            ring.append(vertex(q[0], q[1], zq))
+            if q[2] > zq + tol:
+                ring.append(vertex(q[0], q[1], q[2]))
+            if len(ring) >= 3:
+                faces.append(tuple(ring))
     return verts, faces
 
 

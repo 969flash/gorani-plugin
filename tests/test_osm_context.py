@@ -68,7 +68,9 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(osm_context.get_building_height({"building:levels": "5"})[1:], (5, "osm_levels", "C"))
         self.assertEqual(osm_context.get_building_height({})[2:], ("default", "D"))
         self.assertEqual(osm_context.get_road_width({"highway": "residential", "lanes": "2"}), 6.6)
-        self.assertEqual(osm_context.get_feature_kind({"natural": "water"}, True), ("water", "river"))
+        self.assertEqual(osm_context.get_feature_kind({"natural": "water"}, True), ("water", "lake"))   # water=* 없으면 고인 물
+        self.assertEqual(osm_context.get_feature_kind({"natural": "water", "water": "river"}, True), ("water", "river"))
+        self.assertEqual(osm_context.get_feature_kind({"waterway": "riverbank"}, True), ("water", "river"))
         self.assertEqual(osm_context.get_feature_kind({"highway": "primary"}, False), ("road", "centerline"))
         self.assertIsNone(osm_context.get_feature_kind({"amenity": "bench"}, False))
         self.assertEqual(osm_context.get_feature_kind({"amenity": "school"}, True), ("public", "school_lot"))
@@ -80,26 +82,62 @@ class ParseTest(unittest.TestCase):
         for value in constants.OSM_PUBLIC_USE:   # Overpass가 시설 면을 받아 와야 용도를 줄 수 있다
             self.assertIn(value, constants.OSM_OVERPASS_QUERY)
 
-    def test_first_server_gateway_retry(self):
-        """첫 Overpass 서버가 502면 쉬었다 한 번 더 묻는다(2026-10-25 트롬쇠) — 두 번째 미러로 바로 넘어가지 않는다."""
-        import io
-        import urllib.error
+    def _overpass_with(self, answers, waits=(0.0, 0.0, 0.0), on_wait=None):
+        """_fetch가 answers를 차례로 낸다(예외면 raise). 돌려줌: (결과 또는 예외, 부른 주소들)."""
         calls = []
 
         def fake_fetch(url, data=None, timeout=None):
             calls.append(url)
-            if len(calls) == 1:
-                raise urllib.error.HTTPError(url, 502, "Bad Gateway", {}, io.BytesIO(b""))
-            return json.dumps({"elements": [{"id": 7}]}).encode("utf-8")
-        saved = osm_context._fetch, constants.OSM_GATEWAY_WAIT_SECONDS
-        osm_context._fetch, constants.OSM_GATEWAY_WAIT_SECONDS = fake_fetch, 0
+            answer = answers[min(len(calls), len(answers)) - 1]
+            if isinstance(answer, Exception):
+                raise answer
+            return json.dumps({"elements": answer}).encode("utf-8")
+        saved = osm_context._fetch, constants.OSM_RETRY_WAITS, osm_context.time.sleep
+        osm_context._fetch, constants.OSM_RETRY_WAITS, osm_context.time.sleep = fake_fetch, waits, lambda s: None
         osm_context._CACHE.clear()
         try:
-            elements = osm_context.get_overpass_elements((200000.0, 550000.0, 200100.0, 550100.0), endpoints=("https://a/api", "https://b/api"))
+            result = osm_context.get_overpass_elements((200000.0, 550000.0, 200100.0, 550100.0), endpoints=("https://a/api", "https://b/api"), on_wait=on_wait)
+        except Exception as error:
+            result = error
         finally:
-            osm_context._fetch, constants.OSM_GATEWAY_WAIT_SECONDS = saved
+            osm_context._fetch, constants.OSM_RETRY_WAITS, osm_context.time.sleep = saved
             osm_context._CACHE.clear()
-        self.assertEqual((elements, calls), ([{"id": 7}], ["https://a/api", "https://a/api"]))
+        return result, calls
+
+    def test_first_server_busy_retries(self):
+        """첫 Overpass 서버가 붐비면(502·429·runtime error) 쉬며 세 번까지 다시 묻는다 — 2026-11-04 Innsbruck 502 뒤 같은 질의가 받아졌다."""
+        import io
+        import urllib.error
+        busy = lambda code: urllib.error.HTTPError("https://a/api", code, "busy", {}, io.BytesIO(b""))
+        result, calls = self._overpass_with([busy(502), busy(429), RuntimeError("runtime error: Query timed out"), [{"id": 7}]])
+        self.assertEqual((result, calls), ([{"id": 7}], ["https://a/api"] * 4))
+        result, calls = self._overpass_with([busy(504)] * 4 + [[{"id": 8}]])   # 세 번 다 붐비면 다음 미러
+        self.assertEqual((result, calls), ([{"id": 8}], ["https://a/api"] * 4 + ["https://b/api"]))
+
+    def test_retry_wait_reports_and_cancels(self):
+        """기다리는 동안 1초마다 진행 문구 — 콜백이 취소 예외를 내면 더 묻지 않고 그대로 올라간다."""
+        import io
+        import urllib.error
+        texts = []
+
+        class Cancelled(Exception):   # context_builder.Cancelled와 같은 일반 예외
+            pass
+
+        def on_wait(text):
+            texts.append(text)
+            if len(texts) == 3:
+                raise Cancelled("cancel")
+        result, calls = self._overpass_with([urllib.error.HTTPError("https://a/api", 502, "busy", {}, io.BytesIO(b""))], waits=(5.0, 15.0, 30.0), on_wait=on_wait)
+        self.assertIsInstance(result, Cancelled)   # 붐빔 RuntimeError로 바뀌지 않는다
+        self.assertEqual(calls, ["https://a/api"])
+        self.assertIn("1/3", texts[0])
+        self.assertIn("5", texts[0])
+
+    def test_timeout_not_retried(self):
+        """시간 초과는 다시 묻지 않는다(한 번에 60 s — 세 번이면 생성이 몇 분 멈춘다). 붐빔으로는 알린다."""
+        result, calls = self._overpass_with([OSError("timed out")])
+        self.assertEqual(calls, ["https://a/api", "https://b/api"])
+        self.assertIn(osm_context.tr("OSM(Overpass) 서버가 붐빕니다. 1~2분 뒤 다시 시도하세요"), str(result))
 
     def test_elements_to_context(self):
         non_rhino_utils.set_projection(2.29, 48.86)
@@ -279,7 +317,7 @@ class JapanTest(unittest.TestCase):
 
     def test_overpass_down_keeps_plateau(self):
         """Overpass가 모두 막혀도 일본 팩이 있으면 PLATEAU 건물로 만든다(출처에 osm 없음). 팩이 없으면 그대로 실패."""
-        def down(bounds, query=None, endpoints=None):
+        def down(bounds, query=None, endpoints=None, on_wait=None):
             raise RuntimeError("Overpass down")
         saved = osm_context.get_overpass_elements, osm_context.get_terrain_spots, osm_context.data_pack.get_data_dir
         with tempfile.TemporaryDirectory() as data_dir:

@@ -172,6 +172,17 @@ def get_dimension_counts(rows, param, labels):
     return dict((key, rows) for key, rows in counts.items() if rows)   # 그 매개변수를 보내지 않는 이벤트((not set)뿐)는 뺀다
 
 
+def get_ui_detail_counts(rows):
+    # type: (list) -> dict
+    """[action, detail] × eventCount 행 → {"ui.<action>.detail": [[분류값, 횟수]]}. 분류값이 없는 버튼은 뺀다."""
+    by_action = collections.defaultdict(collections.Counter)
+    for row in rows:
+        detail = row["customEvent:detail"]
+        if detail not in ("", "(not set)"):
+            by_action[row["customEvent:action"]][detail] += row["eventCount"]
+    return dict(("ui.%s.detail" % action, [[k, v] for k, v in counts.most_common()]) for action, counts in by_action.items())
+
+
 def get_region_counts(pnu_rows, labels):
     # type: (list, dict) -> list
     """build 이벤트 pnus* 값(쉼표 PNU 목록)을 시군구(PNU 앞 5자리)로 모은다. 이벤트 하나가 같은 시군구를 여러 번 세지 않게 한다."""
@@ -202,7 +213,7 @@ def get_app_stats(run, period, metadata, labels, exclude_dev=False):
         report(period, ["language"], ["activeUsers"]),
         report(period, ["country"], ["activeUsers"]),
     ]
-    params = [p for p in constants.ADMIN_GA_DIMENSIONS["app"] if p in customs and p not in ("lng", "lat", "dev") + PNU_PARAMS]
+    params = [p for p in constants.ADMIN_GA_DIMENSIONS["app"] if p in customs and p not in ("lng", "lat", "dev", "detail") + PNU_PARAMS]
     requests += [report(period, ["eventName", "customEvent:" + p], ["eventCount"], limit=500) for p in params]
     pnus = [p for p in PNU_PARAMS if p in customs]
     requests += [report(period, ["customEvent:" + p], ["eventCount"], event="build", limit=2000) for p in pnus]
@@ -213,6 +224,9 @@ def get_app_stats(run, period, metadata, labels, exclude_dev=False):
         requests.append(report(period, ["date", "customEvent:result"], ["eventCount"], event="build"))
     if averages:
         requests.append(report(period, ["eventName"], averages, event="build"))
+    has_ui = "action" in customs and "detail" in customs
+    if has_ui:   # 버튼별 분류값(search_pick → lot·place·recent) — detail만 모으면 버튼끼리 섞인다
+        requests.append(report(period, ["customEvent:action", "customEvent:detail"], ["eventCount"], event="ui", limit=1000))
     reports = [get_report_rows(r) for r in run(requests)]
     totals, events, daily, daily_events, oses, languages, countries = reports[:7]
     rest = reports[7:]
@@ -237,6 +251,8 @@ def get_app_stats(run, period, metadata, labels, exclude_dev=False):
     if averages:
         for row in rest.pop(0):
             average = {"build." + name.split(":", 1)[1]: row[name] for name in averages}
+    if has_ui:
+        dims.update(get_ui_detail_counts(rest.pop(0)))
     return {
         "totals": {"users": _get_pair(totals, "activeUsers"), "new_users": _get_pair(totals, "newUsers")},
         "events": {name: {"count": _get_pair(events, "eventCount", eventName=name), "users": _get_pair(events, "totalUsers", eventName=name)}
@@ -293,7 +309,9 @@ def get_property_kinds(token):
     # type: (str) -> list
     """서비스 계정이 볼 수 있는 속성 → [(속성 번호, 이름, rhino|sketchup|web)]. 측정 ID로 구분하고 모르는 속성(옛 Blender)은 뺀다."""
     headers = {"Authorization": "Bearer " + token}
-    kinds = dict((ids[0], host) for host, ids in constants.GA_STREAMS.items())
+    kinds = {}
+    for host, ids in constants.GA_STREAMS.items():   # 같은 측정 ID를 함께 쓰는 판(rhino7 = rhino 속성)은 앞 이름 — 뒤가 덮어써 Rhino 화면이 비었다(2026-11-04)
+        kinds.setdefault(ids[0], host)
     kinds[constants.ADMIN_GA_WEB_ID] = "web"
     found = []
     for account in _get_json(GA_ADMIN_URL + "accountSummaries?pageSize=200", headers=headers).get("accountSummaries", []):
@@ -396,6 +414,8 @@ def get_demo_ga(period, labels, exclude_dev=False):
             "totals": {"users": pair(int(sum(users) * .45), 1.12), "new_users": pair(int(sum(users) * .18), 1.3)},
             "events": {"panel_open": {"count": pair(sum(users) * 2, 1.15), "users": pair(int(sum(users) * .45), 1.12)},
                        "build": {"count": pair(sum(builds), 1.2), "users": pair(int(sum(users) * .3), 1.18)},
+                       "make_2d": {"count": pair(120 * scale, 1.25), "users": pair(int(sum(users) * .12), 1.2)},
+                       "ui": {"count": pair(sum(builds) * 2, 1.1), "users": pair(int(sum(users) * .35), 1.1)},
                        "pack_download": {"count": pair(int(sum(builds) * .6), 1.1), "users": pair(int(sum(users) * .2), 1.1)},
                        "app_error": {"count": pair(int(sum(builds) * .05), .8), "users": pair(int(sum(users) * .04), .9)}},
             "daily": {"users": users, "new_users": [int(u * .3) for u in users], "opens": [u * 2 for u in users], "builds": builds,
@@ -411,7 +431,20 @@ def get_demo_ga(period, labels, exclude_dev=False):
                      "error.context": [["generate", 5 * scale], ["make_2d", 3 * scale], ["download", 2 * scale]],
                      "error.error": [["TimeoutError", 4 * scale], ["ValueError", 3 * scale], ["KeyError", 1 * scale]],
                      "pack_download.packs": [[region(c), (9 - i) * 3 * scale] for i, c in enumerate(codes)],
-                     "build.region": [[region(c), (9 - i) * 4 * scale] for i, c in enumerate(codes) if c.isdigit()]},
+                     "build.region": [[region(c), (9 - i) * 4 * scale] for i, c in enumerate(codes) if c.isdigit()],
+                     # 2026-11-02 — 3D 설정(options3d를 쉼표로 나눈 것)·2D 산출물·패널 버튼
+                     "build.options3d": [["smooth", 70 * scale], ["step2", 18 * scale], ["step5", 9 * scale], ["step1", 3 * scale],
+                                         ["block", 81 * scale], ["surface-only", 19 * scale],
+                                         ["flat-no", 88 * scale], ["flat-mean", 9 * scale], ["flat-min", 3 * scale],
+                                         ["db", 85 * scale], ["osm", 15 * scale]],
+                     "make_2d.outputs2d": [["sheets", 34 * scale], ["basemap-a3", 22 * scale], ["tables", 9 * scale], ["basemap-a1", 5 * scale], ["dwg", 4 * scale]],
+                     "make_2d.style": [["std", 21 * scale], ["vivid", 6 * scale], ["std+edited", 4 * scale], ["mono", 3 * scale], ["saved", 2 * scale]],
+                     "make_2d.output_lang": [["ko", 30 * scale], ["en", 10 * scale]],
+                     "make_2d.result": [["ok", 38 * scale], ["failed", 2 * scale]],
+                     "ui.action": [["open", 41 * scale], ["recent", 25 * scale], ["search_pick", 22 * scale], ["sheet_view", 18 * scale], ["style_open", 12 * scale],
+                                   ["sheet_ai", 9 * scale], ["st_apply", 7 * scale], ["recent_del", 4 * scale], ["open_url", 3 * scale], ["force_osm", 2 * scale]],
+                     "ui.search_pick.detail": [["lot", 17 * scale], ["place", 4 * scale], ["recent", 1 * scale]],
+                     "ui.open.detail": [["folder", 29 * scale], ["ai", 8 * scale], ["3dm", 4 * scale]]},
             "points": [[126.97 + rand.gauss(0, .08), 37.56 + rand.gauss(0, .06), rand.randint(1, 6)] for _ in range(30 * scale)]
             + [[129.07 + rand.gauss(0, .05), 35.17 + rand.gauss(0, .04), rand.randint(1, 3)] for _ in range(6 * scale)]
             + [[139.7 + rand.gauss(0, .1), 35.68 + rand.gauss(0, .08), rand.randint(1, 3)] for _ in range(5 * scale)]

@@ -431,12 +431,6 @@
   "ja": "先に{0}で閉じた平面カーブを1本選択しておくと、すぐに取り込みます",
   "zh": "先在 {0} 中选中一条闭合平面曲线，即可直接导入"
  },
- "{0} 커브 가져오기": {
-  "en": "Use {0} curve",
-  "es": "Usar curva de {0}",
-  "ja": "{0}のカーブを使用",
-  "zh": "使用 {0} 曲线"
- },
  "꼭짓점 {0}개": {
   "en": "Vertices: {0}",
   "es": "Vértices: {0}",
@@ -593,42 +587,6 @@
   "ja": "等高線模型のように段ごとに平らな地形",
   "zh": "像等高线模型一样逐级平整的地形"
  },
- "대상지 바닥면": {
-  "en": "Site ground",
-  "es": "Suelo del sitio",
-  "ja": "対象地の地面",
-  "zh": "场地地面"
- },
- "Line": {
-  "en": "Line",
-  "es": "Línea",
-  "ja": "ライン",
-  "zh": "线"
- },
- "Surface": {
-  "en": "Surface",
-  "es": "Superficie",
-  "ja": "サーフェス",
-  "zh": "面"
- },
- "대상지 경계선만 냅니다": {
-  "en": "Outputs only the site boundary",
-  "es": "Solo genera el límite del sitio",
-  "ja": "対象地の境界線のみを出力します",
-  "zh": "仅输出场地边界线"
- },
- "경계선과 함께, 대상지 경계로 자른 지형을 따로 냅니다": {
-  "en": "Outputs the boundary plus a separate terrain piece cut to the site",
-  "es": "Genera el límite y, aparte, el terreno recortado por el límite del sitio",
-  "ja": "境界線に加え、対象地の境界で切り取った地形を別に出力します",
-  "zh": "除边界线外，另外输出按场地边界裁剪的地形"
- },
- "대상지 평탄화": {
-  "en": "Flatten site",
-  "es": "Aplanar sitio",
-  "ja": "対象地の平坦化",
-  "zh": "场地平整"
- },
  "평평하게 할 높이": {
   "en": "Flatten to height",
   "es": "Altura de aplanado",
@@ -652,30 +610,6 @@
   "es": "Altura máxima del límite",
   "ja": "境界の最高高さ",
   "zh": "边界最高高度"
- },
- "용도지역, 지구, 구역, 도시계획시설, 지구단위계획 경계": {
-  "en": "Zoning, districts, zones, planning facilities and district unit plan boundaries",
-  "es": "Límites de zonificación, distritos, zonas, equipamientos urbanísticos y planes de unidad de distrito",
-  "ja": "用途地域・地区・区域、都市計画施設、地区単位計画の境界",
-  "zh": "用途分区、地区、区域、城市规划设施、地区单元规划边界"
- },
- "용도지역 경계선": {
-  "en": "Zoning boundaries",
-  "es": "Límites de zonificación",
-  "ja": "用途地域の境界線",
-  "zh": "用途分区边界线"
- },
- "평탄화": {
-  "en": "Flattened",
-  "es": "Aplanado",
-  "ja": "平坦化",
-  "zh": "平整"
- },
- "경계선 뺌": {
-  "en": "No zoning lines",
-  "es": "Sin líneas de zonificación",
-  "ja": "用途地域線なし",
-  "zh": "无用途分区线"
  },
  "{0}장": {
   "en": "Sheets: {0}",
@@ -706,12 +640,6 @@
   "es": "Arrastra el mapa para colocar el área",
   "ja": "地図をドラッグしてエリアの位置を合わせてください",
   "zh": "拖动地图调整区域位置"
- },
- "[지도에 그리기]로 대상지 경계를 그리세요": {
-  "en": "Use [Draw on map] to draw the site boundary",
-  "es": "Usa [Dibujar en el mapa] para dibujar el límite del sitio",
-  "ja": "[地図に描画]で対象地の境界を描いてください",
-  "zh": "使用 [在地图上绘制] 绘制场地边界"
  },
  "지도를 눌러 위치를 찍으세요": {
   "en": "Click the map to drop a point",
@@ -1252,18 +1180,6 @@
   "es": "Descargar {0}",
   "ja": "{0}をダウンロード",
   "zh": "下载 {0}"
- },
- "결과 폴더의 {0}을 지금 열린 파일로 불러옵니다": {
-  "en": "Loads {0} from the result folder into the open file",
-  "es": "Carga {0} de la carpeta de resultados en el archivo abierto",
-  "ja": "結果フォルダの{0}を、今開いているファイルに読み込みます",
-  "zh": "将结果文件夹中的 {0} 载入当前打开的文件"
- },
- "{0}에 불러오기": {
-  "en": "Load into {0}",
-  "es": "Cargar en {0}",
-  "ja": "{0}に読み込み",
-  "zh": "载入 {0}"
  },
  "3D를 지웠나요?": {
   "en": "Deleted the 3D?",
@@ -5783,12 +5699,6 @@
   "ja": "地形の塊",
   "zh": "地形实体"
  },
- "평평하게": {
-  "en": "Flat",
-  "es": "Plano",
-  "ja": "平坦",
-  "zh": "平面"
- },
  "범위가 원이나 사각형이 아니라 경계에서 자르지 않았습니다": {
   "en": "The extent is not a circle or rectangle, so nothing was trimmed at its edge",
   "es": "El ámbito no es un círculo ni un rectángulo, así que no se recortó en su borde",
@@ -5807,12 +5717,6 @@
   "ja": "{0}を削除",
   "zh": "删除{0}"
  },
- "최근 대상지에서 지우기": {
-  "en": "Remove from recent sites",
-  "es": "Quitar de sitios recientes",
-  "ja": "最近の対象地から削除",
-  "zh": "从最近的场地中删除"
- },
  "새로 설치한 판으로 엽니다: {0}": {
   "en": "Opening the newly installed version: {0}",
   "es": "Abriendo la versión recién instalada: {0}",
@@ -5830,5 +5734,155 @@
   "es": "Enviar un correo",
   "ja": "メールを送る",
   "zh": "发送邮件"
+ },
+ "형상": {
+  "en": "Geometry",
+  "es": "Geometría",
+  "ja": "形状",
+  "zh": "几何"
+ },
+ "3D 형상": {
+  "en": "3D geometry",
+  "es": "Geometría 3D",
+  "ja": "3D形状",
+  "zh": "3D几何"
+ },
+ "가볍고 빠릅니다": {
+  "en": "Light and fast",
+  "es": "Ligero y rápido",
+  "ja": "軽くて速い",
+  "zh": "轻量且快速"
+ },
+ "건물은 닫힌 폴리서피스로 냅니다. 파일이 무겁고 오래 걸립니다": {
+  "en": "Buildings come out as closed polysurfaces. Files are heavier and take longer",
+  "es": "Los edificios salen como polisuperficies cerradas. Los archivos pesan más y tardan más",
+  "ja": "建物を閉じたポリサーフェスで出します。ファイルが重く、時間がかかります",
+  "zh": "建筑输出为封闭多重曲面。文件更大，耗时更长"
+ },
+ "지형 일부를 Brep으로 바꾸지 못해 메시로 냈습니다": {
+  "en": "Some terrain could not be converted to Brep and was output as mesh",
+  "es": "Parte del terreno no se pudo convertir a Brep y se exportó como malla",
+  "ja": "地形の一部をBrepに変換できず、メッシュで出しました",
+  "zh": "部分地形无法转换为Brep，已按网格输出"
+ },
+ "OSM 서버가 붐벼 다시 시도합니다 ({0}/{1}, {2}초 뒤)": {
+  "en": "OSM server is busy. Retrying ({0}/{1}) in {2} s",
+  "es": "El servidor de OSM está ocupado. Reintento ({0}/{1}) en {2} s",
+  "ja": "OSMサーバーが混雑しています。再試行 ({0}/{1})、{2}秒後",
+  "zh": "OSM 服务器繁忙，{2} 秒后重试（{0}/{1}）"
+ },
+ "지금 업데이트": {
+  "en": "Update now",
+  "es": "Actualizar ahora",
+  "ja": "今すぐアップデート",
+  "zh": "立即更新"
+ },
+ "설치 중…": {
+  "en": "Installing…",
+  "es": "Instalando…",
+  "ja": "インストール中…",
+  "zh": "正在安装…"
+ },
+ "설치했습니다": {
+  "en": "Installed",
+  "es": "Instalado",
+  "ja": "インストールしました",
+  "zh": "已安装"
+ },
+ "{0}을 다시 시작하면 Gorani {1}이 열립니다": {
+  "en": "Restart {0} to open Gorani {1}",
+  "es": "Reinicie {0} para abrir Gorani {1}",
+  "ja": "{0}を再起動するとGorani {1}が開きます",
+  "zh": "重新启动 {0} 后将打开 Gorani {1}"
+ },
+ "업데이트하지 못했습니다. 아래 순서로 직접 업데이트하세요.": {
+  "en": "Could not update. Please update manually with the steps below.",
+  "es": "No se pudo actualizar. Actualice manualmente con los pasos siguientes.",
+  "ja": "アップデートできませんでした。以下の手順で手動でアップデートしてください。",
+  "zh": "无法更新。请按以下步骤手动更新。"
+ },
+ "Rhino 패키지 도구(yak)를 찾지 못했습니다": {
+  "en": "Could not find the Rhino package tool (yak)",
+  "es": "No se encontró la herramienta de paquetes de Rhino (yak)",
+  "ja": "Rhinoのパッケージツール(yak)が見つかりません",
+  "zh": "找不到 Rhino 包管理工具（yak）"
+ },
+ "업데이트가 너무 오래 걸려 멈췄습니다": {
+  "en": "The update took too long and was stopped",
+  "es": "La actualización tardó demasiado y se detuvo",
+  "ja": "アップデートに時間がかかりすぎたため停止しました",
+  "zh": "更新耗时过长，已停止"
+ },
+ "Gorani {0}을 깔았습니다. 새 판으로 패널을 다시 엽니다": {
+  "en": "Gorani {0} is installed. Reopening the panel with the new version",
+  "es": "Gorani {0} está instalado. Se vuelve a abrir el panel con la nueva versión",
+  "ja": "Gorani {0}をインストールしました。新しい版でパネルを開き直します",
+  "zh": "已安装 Gorani {0}。正在用新版本重新打开面板"
+ },
+ "최근 결과": {
+  "en": "Recent results",
+  "es": "Resultados recientes",
+  "ja": "最近の結果",
+  "zh": "最近的结果"
+ },
+ "목록에서 빼기(결과 폴더는 남습니다)": {
+  "en": "Remove from list (the result folder stays)",
+  "es": "Quitar de la lista (la carpeta del resultado se conserva)",
+  "ja": "一覧から外す(結果フォルダは残ります)",
+  "zh": "从列表中移除(结果文件夹会保留)"
+ },
+ "지난 결과를 열었습니다": {
+  "en": "Opened a saved result",
+  "es": "Se abrió un resultado guardado",
+  "ja": "保存された結果を開きました",
+  "zh": "已打开保存的结果"
+ },
+ "만든 2D 고르기": {
+  "en": "Choose a 2D set",
+  "es": "Elegir un 2D",
+  "ja": "作った2Dを選ぶ",
+  "zh": "选择已生成的 2D"
+ },
+ "만든 2D {0}개": {
+  "en": "{0} 2D sets made",
+  "es": "{0} 2D creados",
+  "ja": "作った2D {0}件",
+  "zh": "已生成 {0} 套 2D"
+ },
+ "대상지 땅 평평하게": {
+  "en": "Flatten site ground",
+  "es": "Aplanar el terreno del sitio",
+  "ja": "対象地の地面を平らに",
+  "zh": "将场地地面整平"
+ },
+ "주소": {
+  "en": "Address",
+  "es": "Dirección",
+  "ja": "住所",
+  "zh": "地址"
+ },
+ "커브 가져오기": {
+  "en": "Use curve",
+  "es": "Usar curva",
+  "ja": "カーブを使用",
+  "zh": "使用曲线"
+ },
+ "구역이 없습니다": {
+  "en": "No area",
+  "es": "No hay zona",
+  "ja": "区域がありません",
+  "zh": "没有区域"
+ },
+ "구역 사이에 둘러싸인 빈 곳 {0}개는 대상지에 넣었습니다": {
+  "en": "{0} gap(s) enclosed by areas were included in the site",
+  "es": "Se incluyeron en el sitio {0} huecos rodeados por zonas",
+  "ja": "区域に囲まれた空き {0} か所を対象地に含めました",
+  "zh": "已将被区域包围的 {0} 处空隙并入场地"
+ },
+ "구역은 바깥 경계만 씁니다.": {
+  "en": "Only the outer boundary of areas is used.",
+  "es": "Solo se usa el límite exterior de las zonas.",
+  "ja": "区域は外側の境界だけを使います。",
+  "zh": "区域只使用外边界。"
  }
 }

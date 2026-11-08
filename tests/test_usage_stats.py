@@ -85,5 +85,26 @@ class UsageStatsTest(unittest.TestCase):
             self.assertEqual(usage_stats.get_client_id(path), usage_stats.get_client_id(path))
 
 
+    def test_options3d_one_param(self):   # 3D 설정은 한 칸 — 이벤트 매개변수 25개 상한
+        self.assertEqual(usage_stats.get_options3d(dict(constants.PANEL_DEFAULT_OPTIONS)), "smooth,block,flat-no,db")
+        options = dict(constants.PANEL_DEFAULT_OPTIONS, terrain_step=2, terrain_block=False, flatten_site=True,
+                       flatten_level="min", region="global")
+        self.assertEqual(usage_stats.get_options3d(options), "step2,surface-only,flat-min,osm")
+
+    def test_outputs2d(self):
+        params = usage_stats.get_outputs2d_params({"make_basemap": True, "basemap_preset": "a1", "make_sheets": True, "sheet_ids": [1, 2, 3],
+                                                   "make_dwg": True, "style": {"preset": "vivid", "site": "#FF0000"}, "output_lang": "en"})
+        self.assertEqual(params, {"outputs2d": "basemap-a1,sheets,dwg", "sheets": 3, "style": "vivid+edited", "output_lang": "en"})
+        self.assertEqual(usage_stats.get_outputs2d_params({"make_sheets": True, "style": {"preset": "std", "name": "우리 사무소"}})["style"], "saved")   # 저장 이름은 안 보낸다
+        self.assertEqual(usage_stats.get_outputs2d_params({})["outputs2d"], "none")
+
+    def test_ui_only_known_actions(self):   # 패널이 임의 값을 GA로 보내지 못하게 — 목록 밖 버튼은 버리고, detail은 짧은 영문 분류값만
+        self.assertIsNone(usage_stats.get_ui_params("set_point", "x"))
+        self.assertEqual(usage_stats.get_ui_params("open", ".AI"), {"action": "open", "detail": ".ai"})
+        self.assertEqual(usage_stats.get_ui_params("search_pick", "성수동 lot")["detail"], "lot")   # 한글·공백은 남지 않는다
+        self.assertIsNone(usage_stats.get_ui_params("recent", "")["detail"])
+        self.assertTrue(len(usage_stats.get_ui_params("open", "x" * 99)["detail"]) <= constants.GA_UI_DETAIL_MAX)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -321,8 +321,8 @@ def get_target_key(spec):
     mode = spec.get("mode") or "lots"
     if mode == "lots":
         text = ",".join(sorted(str(p) for p in spec.get("pnus") or []))
-    elif mode == "area":
-        text = "area:" + ";".join("%.2f,%.2f" % (float(x), float(y)) for x, y in spec.get("ring") or [])
+    elif mode == "area":   # 구역 하나면 예전과 같은 값(이전 결과의 키가 그대로) — 여럿이면 '|'로 잇는다
+        text = "area:" + "|".join(";".join("%.2f,%.2f" % (float(x), float(y)) for x, y in ring) for ring in get_spec_rings(spec))
     else:
         text = "point:%.1f,%.1f" % tuple(float(v) for v in spec.get("center") or (0, 0))
     return hashlib.sha1(text.encode("utf-8")).hexdigest()[:8]
@@ -336,6 +336,30 @@ def get_area_ring(points):
     if problem:
         raise DomainError("area_invalid", problem)
     return ring
+
+
+def get_spec_rings(spec):
+    # type: (dict) -> list
+    """요청·결과의 구역 링 목록 — rings(여러 구역, 2026-11-08) 또는 예전 ring 하나."""
+    rings = spec.get("rings")
+    if rings:
+        return [ring for ring in rings if ring]
+    return [spec["ring"]] if spec.get("ring") else []
+
+
+def get_area_rings(rings):
+    # type: (list) -> tuple
+    """구역 링 여러 개 → (정리·합친 링 목록 넓은 순, 경고). 하나씩 안전장치(get_area_ring)를 거치고, 겹치거나 맞닿은 구역은 하나로 합친다
+    (non_rhino_utils.get_merged_rings — 합필과 같은 함수, 겹침도 지운다). 구역끼리 둘러싼 빈 곳(구멍)은 채운다 — 경고."""
+    rings = [get_area_ring(ring) for ring in rings]
+    if not rings:
+        raise DomainError("area_invalid", tr("구역이 없습니다"))
+    if len(rings) == 1:
+        return rings, []
+    outers, holes = non_rhino_utils.get_merged_rings([[ring] for ring in rings], constants.UNION_TOLERANCE)
+    warnings = [_warning("info", "area_hole", tr("구역 사이에 둘러싸인 빈 곳 {0}개는 대상지에 넣었습니다", len(holes)),
+                         tr("구역은 바깥 경계만 씁니다."))] if holes else []
+    return [non_rhino_utils.get_clean_ring(ring) for ring in outers], warnings
 
 
 def get_area_lot_fractions(ring, site_db=None):
@@ -378,11 +402,29 @@ def get_place_name(center, site_db=None):
     return (parts[-2] if len(parts) >= 2 else ""), (lot.lot_number or "")
 
 
-def _get_place_label(center, suffix, site_db):
-    # type: (tuple, str, str) -> str
-    """'성수동2가_333-139_구역' — 결과 폴더명. 필지가 없으면 'E198100_N552000_<suffix>', 해외면 'N37.7929_W122.4194_<suffix>'."""
+def get_folder_safe_name(address):
+    # type: (str) -> str
+    """주소 '도로, 동네, 도시' → 폴더 이름 칸 '도로_동네_도시'. Windows·macOS에서 못 쓰는 글자(<>:"/\\|?* 제어 문자)는 빼고, 길면 뒤 칸부터 뺀다."""
+    parts = [re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", part).strip(" .") for part in (address or "").split(",")]
+    name = ""
+    for part in (part for part in parts if part):   # 넘치면 뒤 칸을 통째로 뺀다 — 글자로 자르면 'Paris'가 'Pa'가 됐다
+        joined = name + "_" + part if name else part
+        if len(joined) > constants.RESULT_ADDRESS_MAX_CHARS:
+            break
+        name = joined
+    return name or (parts[0] if parts else "")[:constants.RESULT_ADDRESS_MAX_CHARS].strip(" ._")   # 첫 칸만으로 넘치면 그것만 자른다
+
+
+def _get_place_label(center, suffix, site_db, lang="ko"):
+    # type: (tuple, str, str, str) -> str
+    """'성수동2가_333-139_구역' — 결과 폴더명. 필지가 없으면 'E198100_N552000_<suffix>'.
+    해외면 주소 'Greenwich Street_Russian Hill_San Francisco_<suffix>'(osm_context.get_place_address, lang 언어 — 2026-11-08 사용자),
+    주소를 못 받으면 'N37.7929_W122.4194_<suffix>'."""
     if non_rhino_utils.is_local_projection():
         lng, lat = non_rhino_utils.get_wgs84_from_tm(*center)
+        address = get_folder_safe_name(osm_context.get_place_address(lng, lat, lang))
+        if address:
+            return "%s_%s" % (address, suffix)
         return "%s%.4f_%s%.4f_%s" % ("N" if lat >= 0 else "S", abs(lat), "E" if lng >= 0 else "W", abs(lng), suffix)
     dong, jibun = get_place_name(center, site_db)
     if not dong and not jibun:
@@ -413,19 +455,29 @@ def resolve_target(request, with_lots=True):
         return Target(mode, spec, get_target_key(spec), get_lot_name(lot_data.lots, lang), get_lots_center(lot_data.lots), rings,
                       list(lot_data.lots), lot_data, warnings)
     if mode == "area":
-        ring = get_area_ring(spec.get("ring"))
-        spec["ring"] = [[round(x, 3), round(y, 3)] for x, y in ring]
-        ring = [tuple(p) for p in spec["ring"]]
-        min_x, min_y, max_x, max_y = non_rhino_utils.get_bbox(ring)
+        rings, area_warnings = get_area_rings(get_spec_rings(spec))
+        spec.pop("ring", None)
+        spec["rings"] = [[[round(x, 3), round(y, 3)] for x, y in ring] for ring in rings]
+        rings = [[tuple(p) for p in ring] for ring in spec["rings"]]
+        min_x, min_y, max_x, max_y = non_rhino_utils.get_bbox([p for ring in rings for p in ring])
         center = ((min_x + max_x) * 0.5, (min_y + max_y) * 0.5)
-        target = Target(mode, spec, get_target_key(spec), "", center, [ring], [])
+        target = Target(mode, spec, get_target_key(spec), "", center, rings, [])
+        target.warnings.extend(area_warnings)
+        suffix = non_rhino_utils.get_output_name("area", lang) + (non_rhino_utils.get_output_name("more", lang) % (len(rings) - 1) if len(rings) > 1 else "")
+        first_box = non_rhino_utils.get_bbox(rings[0])   # 이름은 가장 넓은 구역 자리 + '외 n'
+        first_center = ((first_box[0] + first_box[2]) * 0.5, (first_box[1] + first_box[3]) * 0.5)
         if with_lots and abroad:
-            target.name = _get_place_label(center, non_rhino_utils.get_output_name("area", lang), site_db)
+            target.name = _get_place_label(first_center, suffix, site_db, lang)
         elif with_lots:
-            lots = get_area_lots(ring, site_db)
+            lots, seen = [], set()
+            for ring in rings:
+                for lot in get_area_lots(ring, site_db):
+                    if lot.pnu not in seen:
+                        seen.add(lot.pnu)
+                        lots.append(lot)
             target.lot_data = _load_lots([lot.pnu for lot in lots], site_db) if lots else None
             target.lots = list(target.lot_data.lots) if target.lot_data else []
-            target.name = _get_place_label(center, non_rhino_utils.get_output_name("area", lang), site_db)
+            target.name = _get_place_label(first_center, suffix, site_db, lang)
             if not lots:
                 target.warnings.append(_warning("warn", "area_no_lots", tr("구역 안 필지 0 — 대상지 조서가 비어 나옵니다"),
                                                 tr("필지 면적의 {0} % 이상이 구역 안에 있어야 대상 필지로 셉니다.", round(constants.AREA_LOT_MIN_FRACTION * 100))))
@@ -437,7 +489,7 @@ def resolve_target(request, with_lots=True):
     spec["center"] = [round(center[0], 2), round(center[1], 2)]
     target = Target(mode, spec, get_target_key(spec), "", center, [], [])
     if with_lots:
-        target.name = _get_place_label(center, non_rhino_utils.get_output_name("vicinity", lang), site_db)
+        target.name = _get_place_label(center, non_rhino_utils.get_output_name("vicinity", lang), site_db, lang)
     return target
 
 
@@ -819,7 +871,7 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
     """prepare의 해외 갈래 — 필지·계획 없이 OSM 건물·피처 + 지형 타일 표고점(osm_context). 인터넷이 안 되면 DomainError(osm_failed)."""
     _report(progress, "query", 0.3, tr("OpenStreetMap·지형 타일 받는 중"))
     try:
-        context = osm_context.load(bounds, today.isoformat())
+        context = osm_context.load(bounds, today.isoformat(), on_wait=lambda text: _report(progress, "query", 0.3, text))   # 붐빈 서버를 기다리는 동안 진행 줄·취소
     except (RuntimeError, OSError) as exc:   # 지형 타일 URLError·시간 초과는 OSError — '예상 밖 오류'로 새지 않게(2026-10-23 감사)
         raise DomainError("osm_failed", str(exc))
     # OSM에는 국내 '무벽·가건물' 구분이 없다 — include_minor_buildings와 무관하게 전부 넣는다
@@ -918,6 +970,109 @@ def get_last_2d_dir(result_dir):
     """마지막으로 만든 2D 폴더(context.json last_2d_dir). 없으면 예전 규칙의 2D/."""
     last = _read_meta(result_dir).get("last_2d_dir") if os.path.exists(os.path.join(result_dir, constants.CONTEXT_META_FILE_NAME)) else None
     return last if last and os.path.isdir(last) else get_2d_dir(result_dir)
+
+
+def _get_2d_dirs(result_dir):
+    # type: (str) -> list
+    """
+    결과 폴더 안 2D 폴더 이름 — 만든 순서(마지막이 최신).
+    2D_<스타일>_<HHMM>, 예전 2D/, 그리고 사용자가 이름을 바꿨어도 made_2d.json이 든 폴더.
+    순서는 폴더 수정 시각: 이름순이면 스타일 이름이 시각보다 앞이라 '2D_선명_2245'가 '2D_표준_1343'보다 앞서 최신이 뒤바뀐다(2026-11-07 시험).
+    """
+    prefix = constants.RESULT_2D_DIR_FORMAT.split("%")[0]
+    found = []
+    for name in os.listdir(result_dir):
+        path = os.path.join(result_dir, name)
+        if os.path.isdir(path) and (name.startswith(prefix) or name == constants.RESULT_2D_DIRNAME or os.path.exists(os.path.join(path, constants.MADE_2D_FILE_NAME))):
+            found.append((os.path.getmtime(path), name))
+    return [name for _mtime, name in sorted(found)]
+
+
+def get_recent_results(result_root=None, hidden=(), model_name=None, limit=None):
+    # type: (str, tuple, str, int) -> list
+    """
+    입력: 결과 루트(기본 HOME_DIR/result), 목록에서 뺀 폴더(site_prefs.get_hidden_results), 이 프로그램의 3D 파일 이름(HOST_LABELS model).
+    처리: context.json이 있는 결과 폴더를 context.json 시각 순(새것 먼저)으로 — 예전 판 폴더(context.json 없음)·다른 프로그램 결과(그 3D 파일 없음)는 뺀다.
+          패널 '최근 결과'(2026-11-07 — 대상지를 바꾸거나 패널을 닫으면 결과 화면으로 돌아갈 길이 없었다. 파일은 다 남아 있었다).
+    출력: [{dir, label, mode, built_at, buildings, has_2d}] RECENT_RESULTS_MAX개까지.
+    """
+    root = result_root or os.path.join(constants.HOME_DIR, constants.RESULT_DIRNAME)
+    model_name = model_name or constants.HOST_LABELS[get_host()]["model"]
+    hidden = set(hidden or ())
+    found = []
+    for name in os.listdir(root) if os.path.isdir(root) else []:
+        folder = os.path.join(root, name)
+        meta_path = os.path.join(folder, constants.CONTEXT_META_FILE_NAME)
+        if folder in hidden or not os.path.exists(meta_path) or not os.path.exists(os.path.join(folder, model_name)):
+            continue
+        found.append((os.path.getmtime(meta_path), folder))
+    results = []
+    for _mtime, folder in sorted(found, reverse=True)[:limit or constants.RECENT_RESULTS_MAX]:
+        try:
+            meta = _read_meta(folder)
+        except (OSError, ValueError):   # 쓰다 만 context.json — 목록에서만 뺀다
+            continue
+        results.append({"dir": folder, "label": str(meta.get("lot_name") or os.path.basename(folder)).replace("_", " "),
+                        "mode": meta.get("mode") or "lots", "built_at": meta.get("built_at") or "",
+                        "buildings": (meta.get("counts") or {}).get("buildings"), "has_2d": bool(_get_2d_dirs(folder))})
+    return results
+
+
+def get_result_state(result_dir, model_name=None):
+    # type: (str, str) -> dict
+    """
+    입력: 결과 폴더(get_recent_results의 dir).
+    처리: context.json으로 결과 화면에 필요한 것 — 3D 파일·건물 수·옵션·만든 2D 폴더, 그리고 지도에 대상지를 되살릴 경위도
+          (구역 링·위치·필지 중심 — crs로 바꾼다, non_rhino_utils.get_lnglat_in_crs).
+          만든 2D는 폴더마다 made_2d.json(2D를 만들 때 패널이 받은 결과)이 있으면 그것도 — 패널이 2D 카드를 그대로 다시 그린다.
+    출력: {type: result_opened, dir, lot_name, label, built_at, context{path, buildings, imported}, options, target, target_lnglat{center, ring},
+          made2d_list: [{dir, made2d|null, made_at}](만든 순서 — 마지막이 최신, made_at = 폴더 수정 시각)}.
+    """
+    meta = _read_meta(result_dir)
+    model_name = model_name or constants.HOST_LABELS[get_host()]["model"]
+    target = meta.get("target") or {"mode": meta.get("mode") or "lots", "pnus": meta.get("pnus") or []}
+    crs = meta.get("crs") or "EPSG:5186"
+    center = non_rhino_utils.get_lnglat_in_crs([meta["center"]], crs) if len(meta.get("center") or []) == 2 else []
+    rings = [non_rhino_utils.get_lnglat_in_crs(ring, crs) for ring in get_spec_rings(target)] if target.get("mode") == "area" else []
+    point = non_rhino_utils.get_lnglat_in_crs([target["center"]], crs) if target.get("mode") == "point" and target.get("center") else []
+    return {"type": "result_opened", "dir": result_dir, "lot_name": meta.get("lot_name") or "", "lot_key": meta.get("lot_key") or "",
+            "label": str(meta.get("lot_name") or os.path.basename(result_dir)).replace("_", " "), "built_at": meta.get("built_at") or "",
+            "context": {"path": os.path.join(result_dir, model_name), "buildings": (meta.get("counts") or {}).get("buildings"), "imported": False},
+            "options": meta.get("options") or {}, "target": target, "korea": crs == "EPSG:5186",
+            "target_lnglat": {"center": (point or center or [None])[0], "ring": rings[0] if rings else [], "rings": rings},
+            "made2d_list": [{"dir": os.path.join(result_dir, name), "made2d": _read_made_2d(os.path.join(result_dir, name), result_dir),
+                             "made_at": time.strftime("%Y-%m-%dT%H:%M", time.localtime(os.path.getmtime(os.path.join(result_dir, name))))} for name in _get_2d_dirs(result_dir)]}
+
+
+def _rebase_paths(value, mapping):
+    # type: (object, list) -> object
+    """저장된 절대 경로(만들 때의 위치)를 지금 위치로 — mapping [(옛 경로, 지금 경로)]. 문자열·목록·dict 안을 모두 훑는다(썸네일 data: 주소는 그대로)."""
+    if isinstance(value, str):
+        for old, new in mapping:
+            if old and (value == old or value.startswith(old + os.sep) or value.startswith(old + "/")):
+                return new + value[len(old):]
+        return value
+    if isinstance(value, list):
+        return [_rebase_paths(item, mapping) for item in value]
+    if isinstance(value, dict):
+        return {key: _rebase_paths(item, mapping) for key, item in value.items()}
+    return value
+
+
+def _read_made_2d(folder, result_dir):
+    # type: (str, str) -> dict
+    """
+    2D 폴더의 made_2d.json — 없거나(이 기능 전에 만든 2D) 깨졌으면 None(패널은 폴더 링크만).
+    안의 절대 경로(도면·.ai·조서)는 폴더 이름을 바꾸거나 옮겨도 열리게 지금 위치로 바꾼다(2D 폴더가 먼저 — 더 긴 경로).
+    """
+    try:
+        with open(os.path.join(folder, constants.MADE_2D_FILE_NAME), encoding="utf-8") as handle:
+            made = json.load(handle)
+    except (OSError, ValueError):
+        return None
+    made = _rebase_paths(made, [(made.get("folder"), folder), (made.get("dir"), result_dir)])
+    made["folder"], made["dir"] = folder, result_dir
+    return made
 
 
 def get_basemap_file_name(prepared, scale, ext=".ai"):
@@ -1173,7 +1328,10 @@ def _run_phases(request, progress, doc, response, state):
     ids += context_baker.write_ref_and_origin(doc, prepared, lot_key)
     if len(ids) < len(items) + 2:
         response["warnings"].append(_warning("warn", "skipped", tr("베이크 실패 {0}건", len(items) + 2 - len(ids)), ""))
-    layers = {item.layer for item in items} | {constants.CTX_ROOT_LAYER + "::Ref"}
+    layers = set()   # 문서에 생기는 레이어 = 객체 레이어 + 그 부모(CTX::Zoning::용도지역 같은 중간 레이어, 뿌리 CTX·BM 제외) — context.3dm 레이어 수와 같게
+    for path in {item.layer for item in items} | {constants.CTX_ROOT_LAYER + "::Ref"}:
+        names = path.split("::")
+        layers.update("::".join(names[:k]) for k in range(2, len(names) + 1))
     _report(progress, "write_3dm", 0.85, tr("{0} 저장", constants.HOST_LABELS[get_host()]["model"]))
     state["save_timing"] = {}
     path = context_baker.save_copy(doc, os.path.join(prepared.result_dir, constants.CONTEXT_MODEL_FILE_NAME), ids, state["save_timing"])
@@ -1576,6 +1734,10 @@ def make_2d(result_dir, options, progress=None, keep=None, site_db=None, context
         lines.append(tr("오류 {0}: {1}", response["error"]["code"], response["error"]["title"]) + "\n" + str(response["error"]["detail"]))
     context_report.append_log(result_dir, lines)
     response["files"] = _list_files(result_dir)
+    if response["ok"]:   # 지난 결과를 다시 열 때 2D 카드를 그대로 — 패널이 받은 것과 같은 꼴(get_result_state)
+        with open(os.path.join(out_dir, constants.MADE_2D_FILE_NAME), "w", encoding="utf-8") as handle:
+            json.dump({key: response[key] for key in ("dir", "folder", "elapsed_s", "options", "basemap", "sheets", "tables")},
+                      handle, ensure_ascii=False, default=str)
     return response
 
 

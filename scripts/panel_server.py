@@ -26,7 +26,8 @@ import traceback
 import urllib.parse
 
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
-DIRECT_CMDS = ("cancel", "host_reply")   # 서버 스레드(메인 스레드 판은 poll)에서 바로 — 플래그·응답만 건드린다
+DIRECT_CMDS = ("cancel", "host_reply", "panel_closed")   # 서버 스레드(메인 스레드 판은 poll)에서 바로 — 플래그·응답만 건드린다.
+# panel_closed = Windows SketchUp이 창을 닫으면 Ruby가 POST로(cmd_sketchup — stdin이 없다). 호스트 호출을 기다리는 메인 스레드 대신 받아야 한다
 PING_SECONDS = 15        # 이벤트 줄 ping 간격 — 끊긴 탭을 알아챈다
 REQUEST_TIMEOUT = 5      # s — 메인 스레드 판에서 느린 연결 하나가 Blender를 오래 막지 않게(요청 읽기·이벤트 쓰기)
 REQUEST_QUEUE = 64       # 메인 스레드 판 연결 대기열 — 다음 poll까지(타이머 0.1 s, 생성 중에는 진행 콜백 사이) 쌓이는 요청

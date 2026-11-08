@@ -68,7 +68,7 @@ def _get_payload(item):
     # type: (object) -> dict
     """BakeItem → JSON 한 항목(레이어 색·숨김 포함 — Ruby는 constants를 모른다)."""
     return {"layer": item.layer, "name": item.name, "rgb": list(get_layer_rgb(item.layer)),
-            "hidden": item.layer.partition("::")[2] in constants.CTX_HIDDEN_LAYERS,
+            "hidden": any(item.layer.partition("::")[2] == h or item.layer.partition("::")[2].startswith(h + "::") for h in constants.CTX_HIDDEN_LAYERS),   # 하위 레이어도
             "verts": item.verts, "faces": item.faces, "polylines": item.polylines, "prisms": item.prisms,
             "attrs": {str(k): "" if v is None else str(v) for k, v in (item.attrs or {}).items()}}
 

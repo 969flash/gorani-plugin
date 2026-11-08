@@ -172,7 +172,7 @@ def run_one(persona):
         if persona.get("ring"):
             got = step("set_area", {"cmd": "set_area", "ring_lnglat": persona["ring"], "region": region, "lang": lang})
             st = next((m for m in got if m.get("type") == "area_state"), {})
-            target = {"mode": "area", "ring": st.get("ring_tm")}
+            target = {"mode": "area", "rings": st.get("rings_tm")}   # 패널과 같은 꼴(구역 여러 개, 2026-11-08 — 예전 ring_tm은 없어졌다)
             report["target_name"] = st.get("lot_name")
         elif persona.get("pnus") or persona.get("pick_search"):
             got = step("select_lots", {"cmd": "select_lots", "pnus": persona["pnus"], "lang": lang})

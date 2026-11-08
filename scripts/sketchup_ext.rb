@@ -10,6 +10,7 @@
 
 require "json"
 require "fileutils"
+require "socket"
 
 module BSH
   module Gorani
@@ -20,11 +21,26 @@ module BSH
     LAYER_KEY = "GORANI_LAYER"           # 항목 그룹의 레이어(태그) 이름
     TAG_FOLDER = "CTX"                      # constants.CTX_ROOT_LAYER
     M = 1.m.to_f                            # m → 인치
+    DEBUG = false                           # true면 실패를 Ruby 콘솔에도(EW 요건 'Printing to the Console' — 평소에는 패널·사이드카 로그로만)
     RPC = %w[get_model_attrs set_model_attrs clear bake ref save zoom import pick_curve].freeze
     TERRAIN_SMOOTH = Geom::PolygonMesh::AUTO_SOFTEN | Geom::PolygonMesh::SMOOTH_SOFT_EDGES
     LOG_DIR = File.join(Dir.home, "Gorani")   # 사이드카 constants.HOME_DIR과 같은 자리
+    SIDECAR_START_SECONDS = 90   # 사이드카가 주소를 줄 때까지 기다리는 상한(타이머로 — SketchUp을 막지 않는다). 첫 실행은 백신 검사·.pyc 읽기로 느리다
+    # 사이드카가 주소를 주기 전 창에 보이는 화면 — 패널(DESIGN.md)과 같은 색·글꼴. Ruby 문구는 영어 하나(번역 사전은 사이드카 몫)
+    STARTING_HTML = <<~HTML
+      <!doctype html><html><head><meta charset="utf-8"><style>
+      :root { color-scheme: light dark; --paper: #f5f6f8; --ink: #111418; --ink3: #7d8798; --accent: #0057ff; --track: #e5e8ed; }
+      @media (prefers-color-scheme: dark) { :root { --paper: #0c1016; --ink: #e8ecf2; --ink3: #7f8a9c; --accent: #5b8bff; --track: #252d38; } }
+      html, body { height: 100%; margin: 0; background: var(--paper); color: var(--ink); font: 13px/20px "Segoe UI", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+      main { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 0 32px; text-align: center; }
+      b { font-size: 15px; font-weight: 600; } p { margin: 0; color: var(--ink3); font-size: 12px; } code { font-size: 11px; word-break: break-all; color: var(--ink3); }
+      .bar { width: 160px; height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; margin-top: 8px; }
+      .bar i { display: block; width: 40%; height: 100%; border-radius: 2px; background: var(--accent); animation: go 1.2s ease-in-out infinite; }
+      @keyframes go { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+      </style></head><body><main><b>Starting Gorani</b><p>The first start can take up to a minute.</p><div class="bar"><i></i></div></main></body></html>
+    HTML
 
-    @wrappers ||= {}   # lot_key → 대상지 그룹. 사이드카(@io·@url)·패널(@dialog)·마지막 그룹(@last_wrapper)도 모듈 변수 — 다시 읽어도 이어 쓴다
+    @wrappers ||= {}   # lot_key → 대상지 그룹. 사이드카(@pid·@io·@url)·패널(@dialog)·마지막 그룹(@last_wrapper)도 모듈 변수 — 다시 읽어도 이어 쓴다
 
     # ── 사이드카·패널 ─────────────────────────────────────
 
@@ -35,30 +51,56 @@ module BSH
     end
 
     def self.sidecar_alive?
-      @io && Process.waitpid(@io.pid, Process::WNOHANG).nil?
+      @pid && Process.waitpid(@pid, Process::WNOHANG).nil?
     rescue Errno::ECHILD
       false
     end
 
-    def self.sidecar_url
-      return @url if sidecar_alive?
+    # 사이드카를 띄우기만 한다 — 주소는 poll_start가 타이머로 읽는다(기다리며 SketchUp을 붙잡지 않는다)
+    def self.start_sidecar
       python = python_path
       raise "Bundled Python not found: #{python}" unless File.exist?(python)
       File.chmod(0o755, python) unless File.executable?(python)   # 압축을 풀며 실행 권한을 잃는 경우
       FileUtils.mkdir_p(LOG_DIR)
-      log = File.join(LOG_DIR, "sketchup_sidecar.log")
+      @log = File.join(LOG_DIR, "sketchup_sidecar.log")
       script = File.join(ROOT, "scripts", "cmd_sketchup.py")
-      @io = IO.popen([python, "-I", "-B", "-X", "utf8", script, Sketchup.version], "r+", err: [log, "w"])
-      @io.sync = true
-      @url = @io.gets.to_s.strip
-      raise "The Gorani engine did not start. See #{log}" unless @url.start_with?("http://127.0.0.1:")
-      @url
+      args = [python, "-I", "-B", "-X", "utf8", script, Sketchup.version]
+      @url, @url_buffer = "", +""
+      if Sketchup.platform == :platform_win
+        # 창 없는 pythonw.exe에는 IO.popen 파이프가 닿지 않는다(사이드카 sys.stdout·stdin = None, 2026-11-05 사용자 로그).
+        # stdout을 파일로 돌려도 닿지 않았다(2026-11-06: 주소가 로그에만) — 주소 파일 경로를 인자로 넘겨 사이드카가 직접 쓴다.
+        # 알림은 HTTP(tell_sidecar), SketchUp 종료는 사이드카가 이 프로세스 번호로 안다
+        @url_file = File.join(LOG_DIR, "sketchup_sidecar.url")
+        File.delete(@url_file) if File.exist?(@url_file)
+        @io = nil
+        @pid = Process.spawn(*args, Process.pid.to_s, @url_file, err: [@log, "w"])
+      else
+        @url_file = nil
+        @io = IO.popen(args, "r+", err: [@log, "w"])
+        @io.sync = true
+        @pid = @io.pid
+      end
+      @start_deadline = Time.now + SIDECAR_START_SECONDS
     end
 
-    # 패널을 하나만 띄운다. 사이드카가 죽어 새로 떴으면(주소가 바뀌면) 열린 창도 새 주소로
+    # 타이머마다 한 번 — 막지 않고 본다. 주소가 나왔으면 그 주소, 아니면 nil
+    def self.read_sidecar_url
+      if @url_file
+        line = File.exist?(@url_file) ? File.read(@url_file).lines.first.to_s.strip : ""
+      else
+        if IO.select([@io], nil, nil, 0)
+          chunk = @io.read_nonblock(4096, exception: false)
+          @url_buffer << chunk if chunk.is_a?(String)
+        end
+        line = @url_buffer.include?("\n") ? @url_buffer.lines.first.strip : ""
+      end
+      line.start_with?("http://127.0.0.1:") ? line : nil
+    end
+
+    # 버튼 → 창부터 띄운다. 사이드카가 이미 떠 있으면 그 주소, 아니면 '시작하는 중' 화면을 보이고 poll_start가 주소로 바꾼다.
+    # 첫 실행(Windows 백신 검사·.pyc 읽기)이 수십 초라 그동안 SketchUp을 붙잡으면 '응답 없음'이 됐다(2026-11-06 — 강제 종료로 툴바 배치가 날아갔다)
     def self.show_panel
       raise "Gorani needs SketchUp 2022 or later" if Sketchup.version.to_i < 22   # EntitiesBuilder
-      url = sidecar_url
       unless @dialog && @dialog.visible?
         @dialog = UI::HtmlDialog.new(dialog_title: "Gorani", preferences_key: "BSH_Gorani", scrollable: true, resizable: true,
                                      width: 480, height: 900, min_width: 380, min_height: 500, style: UI::HtmlDialog::STYLE_DIALOG)
@@ -66,17 +108,71 @@ module BSH
         @dialog.set_on_closed { tell_sidecar("panel_closed") }
         @dialog_url = nil
       end
-      @dialog.set_url(url) unless @dialog_url == url
-      @dialog_url = url
+      if !@starting && sidecar_alive? && @url.to_s.start_with?("http://127.0.0.1:")
+        @dialog.set_url(@url) unless @dialog_url == @url
+        @dialog_url = @url
+      else
+        unless @starting
+          start_sidecar
+          @starting = true
+          @start_timer = UI.start_timer(0.25, true) { poll_start }
+        end
+        @dialog.set_html(STARTING_HTML) unless @dialog_url == :starting
+        @dialog_url = :starting
+      end
       @dialog.visible? ? @dialog.bring_to_front : @dialog.show
     rescue StandardError => e
+      stop_start_timer
       UI.messagebox("Could not open Gorani.\n#{e.message}")
+    end
+
+    def self.poll_start
+      url = read_sidecar_url
+      if url
+        stop_start_timer
+        @url = url
+        @dialog.set_url(url)
+        @dialog_url = url
+      elsif !sidecar_alive? || Time.now > @start_deadline
+        stop_start_timer
+        @dialog.set_html(get_failed_html(@log))
+        @dialog_url = nil
+      end
+    rescue StandardError => e
+      stop_start_timer
+      @dialog.set_html(get_failed_html(@log, e.message)) if @dialog
+    end
+
+    def self.stop_start_timer
+      UI.stop_timer(@start_timer) if @start_timer
+      @start_timer = nil
+      @starting = false
+    end
+
+    def self.get_failed_html(log, detail = nil)
+      esc = ->(text) { text.to_s.gsub("&", "&amp;").gsub("<", "&lt;").gsub(">", "&gt;") }
+      STARTING_HTML.sub(%r{<main>.*</main>}m, "<main><b>Gorani could not start</b><p>See the log file:</p><code>#{esc.call(log)}</code>" +
+                        (detail ? "<p>#{esc.call(detail)}</p>" : "") + "<p>Close this window and press the Gorani button again.</p></main>")
     end
 
     # 패널을 거치지 않는 알림 — 사이드카 stdin 한 줄(cmd_sketchup._read_parent). 패널을 닫으면 생성을 멈추고 기다리던 호스트 호출을 끝낸다
     def self.tell_sidecar(cmd)
-      @io.puts(JSON.generate(cmd: cmd)) if sidecar_alive?
-    rescue IOError, SystemCallError
+      return unless sidecar_alive?
+      if @io
+        @io.puts(JSON.generate(cmd: cmd))
+      else   # Windows — stdin이 없다. 패널 주소의 POST /cmd(panel_server.DIRECT_CMDS).
+        # net/http는 OpenSSL을 끌어와 SketchUp(특히 Windows)에서 느리다(rubocop-sketchup SketchupPerformance/OpenSSL, EW 요건 점검 2026-11-08) — 로컬 소켓으로 직접
+        port, token = @url.match(%r{\Ahttp://127\.0\.0\.1:(\d+)/\?token=([^\s&]+)})&.captures
+        return unless port
+        body = JSON.generate(cmd: cmd)
+        Socket.tcp("127.0.0.1", port.to_i, connect_timeout: 2) do |sock|
+          sock.write("POST /cmd?token=#{token} HTTP/1.0\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n" \
+                     "Content-Length: #{body.bytesize}\r\n\r\n#{body}")
+          sock.close_write
+          sock.read if IO.select([sock], nil, nil, 5)   # 서버가 답하고 닫을 때까지(HTTP/1.0)
+        end
+      end
+    rescue StandardError
       nil
     end
 
@@ -85,7 +181,7 @@ module BSH
       raise ArgumentError, "Unknown call: #{msg['method']}" unless RPC.include?(msg["method"])
       reply(msg["id"], true, send("rpc_#{msg['method']}", msg["args"] || {}), "")
     rescue StandardError => e
-      warn "[Gorani] #{e.class}: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+      warn "[Gorani] #{e.class}: #{e.message}\n#{e.backtrace.first(5).join("\n")}" if DEBUG
       reply(msg && msg["id"], false, nil, "#{e.class}: #{e.message}")
     end
 
@@ -197,7 +293,7 @@ module BSH
         end
       rescue ArgumentError => e   # 자기교차 발자국 등
         failed += 1
-        warn "[Gorani] building #{name}: #{e.message}"
+        warn "[Gorani] building #{name}: #{e.message}" if DEBUG
         group.erase! if group && group.valid?
       end
       failed
@@ -236,7 +332,7 @@ module BSH
         end
         ids << group.persistent_id
       rescue StandardError => e
-        warn "[Gorani] #{item['layer']} #{item['name']}: #{e.message}"
+        warn "[Gorani] #{item['layer']} #{item['name']}: #{e.message}" if DEBUG
       end
       model.commit_operation
       ids

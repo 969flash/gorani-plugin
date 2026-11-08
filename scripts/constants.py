@@ -74,6 +74,7 @@ LAND_USE_APPLIED = (LAND_USE_INCLUDED, LAND_USE_OVERLAP)
 LAND_CATEGORY_ROAD = "도로"
 # 수계로 볼 지목 — 하천·구거(도랑)·유지(연못·저수지). 제방은 수면이 아니라 뺀다.
 LAND_CATEGORIES_WATER = ("하천", "구거", "유지")
+LAND_CATEGORIES_STILL_WATER = ("유지",)   # 고인 물(연못·저수지) — 평평한 수면
 
 # 토지특성정보 A13(용도지역코드1) → UPIS 코드. 대장 값이라 공간교차보다 정확하다.
 # 표에 없는 코드(00 지정되지않음, 44 개발제한구역, 51 용도미지정, 61~ 비도시지역)는
@@ -245,8 +246,9 @@ OSM_OVERPASS_URLS = ("https://overpass-api.de/api/interpreter", "https://overpas
 OSM_MIRROR_TIMEOUT_SECONDS = 30   # 두 번째 미러부터 — 다 죽은 날 생성이 수 분 멈추지 않게(첫 서버는 OSM_TIMEOUT_SECONDS)
 # 첫 서버(overpass-api.de)가 502·503·504(순간 붐빔)면 쉬었다 한 번 더 — 2026-10-25 가상 사용자 트롬쇠 2D: 502 직후 같은 질의가 58 s에 4.9 MB로 받아졌다.
 # 두 번째(openstreetmap.fr)는 응답을 약 1.8 MB에서 끊어(200인데 JSON이 깨짐) 큰 질의의 대체가 못 된다
-OSM_GATEWAY_RETRIES = 1
-OSM_GATEWAY_WAIT_SECONDS = 10
+# 2026-11-04 GA: 해외 생성의 26 %(10/39)가 osm_failed — 다시 재 보니 overpass-api.de 502, openstreetmap.fr은 403('white-listed usages only'),
+# 잠시 뒤 같은 질의는 53.7 s에 받아졌다(Innsbruck 1 km). 기다림을 늘려 세 번까지(합 50 s). 시간 초과는 다시 묻지 않는다(한 번에 60 s)
+OSM_RETRY_WAITS = (5.0, 15.0, 30.0)   # s — 첫 서버가 429·502·503·504·runtime error일 때 n번째 다시 묻기 전 기다림
 OSM_OVERPASS_QUERY = """[out:json][timeout:55][bbox:{bbox}];
 (
   way["building"]; relation["building"]["type"="multipolygon"];
@@ -295,6 +297,14 @@ OSM_PUBLIC_USE = {"school": "10000", "kindergarten": "10000", "college": "10000"
                   "hospital": "09000", "clinic": "09000", "nursing_home": "11000", "social_facility": "11000", "childcare": "11000",
                   "community_centre": "05000", "arts_centre": "05000", "theatre": "05000", "sports_centre": "13000"}
 OSM_NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"   # 지명 검색 — 사용자가 [검색]을 누를 때 한 번
+OSM_NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"   # 해외 대상지 주소 — 패널 '대상지' 줄에 위경도 대신(2026-11-08 사용자). 지도에서 찍거나 구역을 그릴 때 한 번
+RESULT_ADDRESS_MAX_CHARS = 40   # 해외 결과 폴더 이름의 주소 칸 — 길면 안 된다(2026-11-08 사용자). Windows 경로 260자 안에 2D 폴더·파일 이름까지
+# 해외 주소의 도로 이름 안 도로 종류 낱말 → 약어(미국 우정청 표준 약어 USPS Pub. 28 C1). 도로 칸에만 — 동네·도시 이름('North Beach')은 그대로. 패널 표시·폴더 이름 공통
+ADDRESS_ABBREVIATIONS = {
+    "Street": "St", "Avenue": "Ave", "Boulevard": "Blvd", "Road": "Rd", "Drive": "Dr", "Lane": "Ln", "Place": "Pl", "Court": "Ct",
+    "Square": "Sq", "Terrace": "Ter", "Highway": "Hwy", "Parkway": "Pkwy", "Expressway": "Expy", "Circle": "Cir", "Crescent": "Cres",
+}
+OSM_REVERSE_TIMEOUT_SECONDS = 3   # 대상지를 찍을 때마다 UI 스레드에서 기다린다 — 못 받으면 위경도 이름 그대로
 OSM_SEARCH_TIMEOUT_SECONDS = 10   # 지명 검색은 UI 스레드에서 기다린다 — Overpass 60 s를 쓰면 막힌 망에서 검색 한 번에 1분 멈췄다(2026-10-23 감사)
 OSM_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 OSM_TERRAIN_ZOOM = 13           # 픽셀 약 19 m(적도)·15 m(위도 37°). 원천 DEM이 약 30 m라 더 키워도 정밀해지지 않는다
@@ -428,6 +438,11 @@ GA_ENDPOINT = "https://www.google-analytics.com/mp/collect"
 GA_TIMEOUT_SECONDS = 5  # 백그라운드 스레드라 패널을 막지 않는다
 GA_PARAM_VALUE_MAX = 100  # GA4 표준 속성 이벤트 매개변수 값 길이 상한(360은 500)
 GA_PNU_PARAMS = 4  # 필지 PNU를 나눠 담는 매개변수 수(값 하나에 5개 → 20필지). 이벤트당 매개변수 상한 25 안에서
+# 패널 버튼 → ui 이벤트(action·detail, 2026-11-02). 목록 밖 action은 버린다 — 패널이 임의 값을 GA로 보내지 못하게. 검색어·주소·경로는 보내지 않는다
+GA_UI_ACTIONS = ("recent", "recent_del", "search_pick", "mode", "force_osm", "output_lang", "pick_curve", "eum", "download_area",
+                 "rerange", "to_result", "retry", "open", "open_url", "import", "export", "copylog",
+                 "sheet_ai", "sheet_ai_all", "sheet_view", "style_open", "st_apply", "st_save_ok")
+GA_UI_DETAIL_MAX = 24   # detail = 짧은 분류값(lot·place, ko·en, 폴더·.ai 등)만
 # 관리자 페이지 통계(dev_stats — 이 Mac에서만). 열쇠·쌓은 기록은 저장소 밖 ADMIN_DIR에 둔다(공개 저장소)
 ADMIN_DIR = os.path.join(os.path.expanduser("~"), ".config", "gorani")
 ADMIN_GA_KEY_PATH = os.path.join(ADMIN_DIR, "ga_service_account.json")   # GA4 Data API 서비스 계정 키(GCP gorani-stats) — GA 계정 단위 '편집자'(맞춤 측정기준 등록에 필요)
@@ -446,13 +461,15 @@ ADMIN_STORE_URLS = {   # 프로그램별 배포 자리 — 빈 값 = 아직 공�
 ADMIN_TEST_AGENTS = ("curl/", "HeadlessChrome", "python-requests")   # 국내 서버 기록에서 늘 시험으로 보는 User-Agent
 ADMIN_GA_WEB_ID = "G-ZVM7EZPRPQ"   # 웹사이트 속성 "Gorani 웹"(969flash/gorani assets/site.js). 플러그인 속성은 GA_STREAMS — 이 밖의 속성(옛 Blender)은 대시보드에서 뺀다
 # 대시보드가 쓰는 이벤트 매개변수 — GA 맞춤 측정기준·측정항목으로 등록해야 Data API로 읽힌다(등록한 날부터 쌓임). 관리자 페이지 [연결]에서 한 번에 등록
-# 플러그인 = cmd_site._send_stats(panel_open·build·pack_download·error) + usage_stats.get_target_params, 웹 = site.js track(copy_command·install_tab·demo_chapter)
+# 플러그인 = cmd_site._send_stats(panel_open·build·make_2d·ui·pack_download·error) + usage_stats.get_target_params·get_options3d·get_outputs2d_params·get_ui_params,
+# 웹 = site.js track(copy_command·install_tab·demo_chapter)
 ADMIN_GA_DIMENSIONS = {
     "app": ("version", "host", "rhino", "mode", "result", "korea", "error", "context", "packs", "placement", "shape", "radius",
-            "lng", "lat", "pnus", "pnus_2", "pnus_3", "pnus_4", "dev"),
+            "lng", "lat", "pnus", "pnus_2", "pnus_3", "pnus_4", "dev",
+            "options3d", "outputs2d", "style", "output_lang", "action", "detail"),   # 2026-11-02 — 3D 설정·2D 산출물·패널 버튼
     "web": ("host", "command", "chapter", "dev"),   # dev = 개발자 PC·브라우저 표시(usage_stats·site.js) — [내 테스트 제외]
 }
-ADMIN_GA_METRICS = {"app": (("elapsed_s", "SECONDS"), ("buildings", "STANDARD"), ("area", "STANDARD")), "web": ()}
+ADMIN_GA_METRICS = {"app": (("elapsed_s", "SECONDS"), ("buildings", "STANDARD"), ("area", "STANDARD"), ("sheets", "STANDARD")), "web": ()}
 # [/blender-cut]
 # 테이블별 객체 최대 폭 m — bbox 질의의 min_x 하한에 쓴다. dev_context_builder가 빌드 끝에 넘지 않는지 검사한다.
 # 실측(2026-10-08): 건물 최대 887 m(가로·세로 중 큰 값), features 최대 2,779 m(도엽 1장 높이 — 도엽 단위로 잘려 있다).
@@ -571,8 +588,12 @@ HEIGHT_GRADES = ("A", "B", "C", "D")
 # ═════════════════════════════════════════════════════════
 # 패널 — docs/panel_ui.md·docs/ui_spec.md
 # ═════════════════════════════════════════════════════════
-PANEL_VERSION = "0.3.7"   # 배포 버전 하나(모든 호스트 패키지 버전 = dev_deploy.PACKAGE_VERSION). 매니페스트 update.latest·min과 비교한다
+PANEL_VERSION = "0.3.9"   # 배포 버전 하나(모든 호스트 패키지 버전 = dev_deploy.PACKAGE_VERSION). 매니페스트 update.latest·min과 비교한다
 NOTICE_TIMEOUT_SECONDS = 3   # 패널을 열 때 매니페스트(공지·업데이트)를 기다리는 한도 — 못 받으면 공지 없이 연다
+UPDATE_INSTALL_SECONDS = 600   # 패널 [지금 업데이트](yak install)를 기다리는 상한 — Rhino 7판은 번들 파이썬까지 수백 MB
+# [blender-cut] [지금 업데이트]는 Rhino 8·7만 — 이 상수를 쓰는 data_pack.get_yak_path도 같은 구간이라 Blender 패키지에는 둘 다 없다(빌드 점검이 'RHINO' 코드를 막는다)
+RHINO_DIR_ENV = "GORANI_RHINO_DIR"   # Rhino 7 사이드카에 C# 호스트가 넘기는 Rhino 실행 폴더 — data_pack.get_yak_path
+# [/blender-cut]
 MANIFEST_RETRY_SECONDS = 60   # 지도 이동(area_packs)이 매니페스트를 못 받았으면 이만큼은 다시 묻지 않는다 — 막힌 망에서 이동마다 멈추지 않게
 # 언어 — 패널 헤더에서 고른다(options.lang). 사전은 scripts/i18n.json 하나(패널 JS·Python 공용, i18n.py)
 LANGS = ("en", "ko", "es", "ja", "zh")   # 고르기 순서. zh = 중국어 간체
@@ -605,13 +626,13 @@ CTX_LAYERS = {   # 이름: (RGB)
     "Site": (220, 40, 40), "Parcels": (185, 185, 180), "Buildings": (128, 128, 128), "Terrain": (236, 232, 222),
     "Water": (46, 125, 224), "Roads": (168, 168, 162), "Green": (228, 235, 226), "Rail": (110, 110, 110),
     "Bridges": (150, 150, 150), "Zoning": (200, 120, 40), "QA::cadastre_mismatch": (255, 0, 255), "Ref": (0, 0, 0),
-    "Site::ground": (236, 150, 120), "Site::lots": (235, 140, 140), "Terrain::site_flat": (214, 196, 170), "Terrain::site_wall": (150, 140, 128), "Terrain::site_original": (236, 232, 222),
+    "Site::ground": (236, 150, 120), "Site::lots": (235, 140, 140), "Terrain::site_flat": (214, 196, 170), "Terrain::site_wall": (150, 140, 128), "Terrain::site_original": (236, 232, 222), "Site::original": (236, 232, 222), "Site::original::Terrain": (236, 232, 222), "Site::original::Green": (228, 235, 226),
     "Terrain::block": (200, 192, 180),   # 지형을 바닥까지 채우기 — 지형 덩어리 옆면·바닥
 }
 # CTX::Zoning 하위 레이어 — overlays theme → 'CTX::Zoning::<이름>::<종류>'. 종류는 용도지역이면 현황도 11 범례 이름, 나머지는 overlay.kind.
 # 색은 현황도 11~13 범례 색(context_baker.get_layer_rgb). 현황도에 없는 theme(건축선 notice_road)은 넣지 않는다.
 ZONING_LAYERS = {"zone": "용도지역", "district": "용도지구", "area": "용도구역", "facility": "도시계획시설", "plan": "지구단위계획"}
-CTX_HIDDEN_LAYERS = ("Terrain::site_original", "Site::lots")   # 처음 만들 때 끈다(평탄화 전 원지형·합필 전 필지 — 필요할 때 켜 본다). 사용자가 켠 뒤로는 건드리지 않는다
+CTX_HIDDEN_LAYERS = ("Terrain::site_original", "Site::original", "Site::lots")   # 처음 만들 때 끈다(평탄화 전 원지형·대상지 면 아래 원래 지형·녹지·합필 전 필지 — 필요할 때 켜 본다). 사용자가 켠 뒤로는 건드리지 않는다
 # 베이스맵 레이어 순서·K톤(0~100)·선두께 mm(1:5000, 1:1000). fill=None이면 선만.
 BM_LAYERS = [
     ("00_frame_scale", "프레임·축척·방위", None, 100, (0.5, 0.5)),
@@ -727,7 +748,7 @@ PANEL_DEFAULT_OPTIONS = {
     "output_lang": None,   # 결과물(폴더·파일 이름) 언어 OUTPUT_LANGS — None = 첫 실행, 패널이 시스템 언어로 정한다(한국어면 ko, 아니면 en)
     "radius": 250, "shape": "rect",   # 범위 기본 = 사각형 한 변 500 m(2026-10-19 사용자 결정). 방식을 바꿔도 마지막 범위를 유지한다
     "flatten_site": False, "flatten_level": "mean",
-    "site_output": "curve",   # 대상지 표시(lots·area): curve = 경계 커브만, mesh = 대상지 바닥 메시도(CTX::Site::ground, 대상지 색). 필지 방식 기본 mesh   # 대상지 평탄화(lots·area) — 높이 = 경계 자연 지반의 mean|min|max
+    "site_output": "mesh",   # 대상지 표시(lots·area): mesh = 경계 커브 + 대상지 바닥 메시(CTX::Site::ground, 대상지 색), curve = 경계 커브만. 패널은 늘 mesh(옵션을 없앴다, 2026-11-08 — FIXED_3D)   # 대상지 평탄화(lots·area) — 높이 = 경계 자연 지반의 mean|min|max
     "import_after": True,
     # 2D 자료는 기본 끔 — 주목적은 3D, 2D는 패널 결과 화면에서 3D 뒤에 고른다(make_2d, 2026-10-19). 3D만이면 실측 약 8 s, 2D까지면 시간 2.5배(ESTIMATE_* 주석)
     "make_basemap": False, "paper": "A3", "paper_mm": [420, 297], "scales": [5000], "basemap_layers_on": [],
@@ -738,6 +759,7 @@ PANEL_DEFAULT_OPTIONS = {
     "include_zoning": True,   # CTX::Zoning — 용도지역·용도지구·용도구역·도시계획시설·지구단위계획 경계(현황도 11~13의 2D 커브)
     "terrain_vertex_color": False,
     "terrain_block": True,   # 지형을 바닥까지 채우기 — 지형 옆면·바닥(Terrain::block). 범위 링으로 건물·커브를 자르는 것은 늘 한다. 입체 매스도는 style.axo_ground가 따로 정한다
+    "geometry_type": "mesh",   # Rhino 8 3D 형상: mesh = 동별·분류별 Mesh(기본 — 화면이 가볍다), brep = 건물은 닫힌 폴리서피스, 지형은 같은 평면 면을 묶은 Brep(무겁다 — 성수 500 m 3.8 → 44 MB). 패널은 HOST_LABELS의 brep일 때만 보인다
     "terrain_step": 0,   # 지형 표현: 0 = 매끈(TIN), > 0 = 계단형(등고 모형) 단 간격 m — 패널은 1·2·5 m. 국내 원천 등고선은 5 m 간격이라 1·2 m 단은 보간값
     "make_dwg": False,   # 2D 도면(BM::)을 .dwg로도 — CAD 사용자용. 기본 off
     "zoom_after_import": True,
@@ -768,9 +790,9 @@ REGIONS = ("kr", "global")   # 헤더 토글. kr = 국가 DB(필지·대장·UPI
 # 필지 = 건축 대지검토 규모, 구역 = 지구단위계획·정비구역 현황분석 규모, 위치 = 광역 베이스맵(범위 = 용지 프레임)
 # 범위(radius·shape)는 방식과 무관하게 마지막 값을 쓴다 — 방식마다 덮으면 기본값이 제각각이라 혼란이었다(2026-10-19 QA)
 MODE_DEFAULTS = {
-    "lots": {"scales": [1000, 3000], "site_output": "mesh"},   # A3 1:1000 = 420×297 m(지번) + 1:3000 주변
-    "area": {"scales": [3000], "site_output": "curve"},
-    "point": {"scales": [5000], "site_output": "curve"},
+    "lots": {"scales": [1000, 3000]},   # A3 1:1000 = 420×297 m(지번) + 1:3000 주변
+    "area": {"scales": [3000]},
+    "point": {"scales": [5000]},
 }
 # 패널에 보이는 범위 형태 — 어느 방식이든 원(반경)·사각형(한 변 = 2 × radius) 둘(2026-10-19, 방식마다 달라 혼란이었다).
 # 엔진은 buffer·site(그린 구역 그대로)·frame(용지 프레임)도 받는다(예전 요청 호환)
@@ -789,7 +811,17 @@ TERRAIN_RESAMPLE = 4.0          # m — 등고선 리샘플 간격 (07 §1)
 TERRAIN_GRID = 3.0              # m — 출력 지형 메시 칸(2026-10-10: 들로네 대신 쿼드 위주 — 영역 경계는 원래 선, 안쪽은 정사각 칸)
 TERRAIN_GRID_MAX_FACES = 250000 # 범위 bbox ÷ 칸² 상한 — 넘으면 칸을 키운다(위치 1:5000 용지 4.2×3.0 km → 약 7 m)
 TERRAIN_MARGIN = 20.0           # m — TIN 입력 범위 여유 (범위 bbox ∪ 건물 bbox + 이 값)
+TERRAIN_PROFILE_CELL = 10.0     # m — 계단 지형 단 경계를 TIN 단면에서 찾을 때(non_rhino_utils.TinProfile) TIN 삼각형 색인 칸. 격자 변(3~4 m)이 칸 1~4개에 걸친다
 TERRAIN_STEP_SNAP = 1e-4        # m — 계단 지형: 단 경계에서 이만큼 안의 정점은 경계 위로 본다(투영 오차로 생기는 실오라기 면 방지)
+# 등고선 TIN의 평평한 삼각형 보정(non_rhino_utils.get_flat_fill_points, 2026-11-08) — 같은 높이 등고선끼리 이어 골짜기 바닥·꼭대기가 평지로 메워졌다
+# (성북동 R=100: 50 m 등고선 아래 골짜기가 50 m 평지, 계단 50 m 단 테두리가 원본 등고선에서 중앙값 33 m 벗어남)
+TERRAIN_FLAT_SIDE_SHARE = 0.6   # 평지 덩어리 테두리 너머 이웃이 이 비율(변 길이) 이상 높으면 골짜기(낮춤), 1 − 이 비율 이하면 꼭대기(올림), 그 사이는 그대로(등고선이 꺾인 자리의 조각).
+                                # 골짜기는 하류 끝이 낮은 쪽으로 열려 0.64~0.71이었다 — 0.75면 큰 덩어리를 못 고쳤다(성북동: 원본 등고선 0.5 m 이내 45 → 87 %, 중앙값 4.0 → 0.0 m)
+TERRAIN_FLAT_DEPTH_RATIO = 0.5  # 골짜기 깊이·꼭대기 높이 = 이웃 등고선과의 높이 차 × 이 값(다음 등고선이 없으니 간격의 절반 안쪽이라고 본다). 이웃 경사 × 덩어리 폭을 넘지 않는다
+# 등고선 고정 다듬기(context_geometry._smooth_ground, 매끈한 지형만 — 계단은 보정한 TIN 그대로) — 3 m 격자 높이를 이웃 평균으로 다듬어 TIN 삼각형 면의 꺾임을 편다. 원본 등고선·표고점 곁 정점은 그대로,
+# 나머지는 처음 높이를 품은 등고선 두 높이 사이로 가둔다(등고선 높이의 단 테두리가 움직이지 않는다). 정답 지형 시험: 정답과 평균 차이 TIN 0.91 → 25번 0.77·50번 0.73 m
+TERRAIN_SMOOTH_ITERATIONS = 40  # 제자리(가우스-자이델) 반복 횟수
+TERRAIN_SMOOTH_FIX = 0.6        # × 격자 칸 — 원본 등고선·표고점에서 이 거리 안의 정점은 고정. 선을 따라 끊김 없이 고정해야 고정점 둘레가 오돌토돌해지지 않는다
 # 지형을 바닥까지 채우기(options.terrain_block, 2026-10-28) — 지형을 모형 받침처럼 바닥까지 덩어리로. 바닥 = 범위 안 최저 지반 − 두께, 5 m 단위 내림.
 # 해발 0 m 바닥은 버렸다 — 두께가 표고에 끌려간다(서울 평지 20 m·산지 수백 m, 해수면 아래 간척지는 음수)
 BLOCK_DEPTH_RATIO = 0.03        # 두께 = 범위 짧은 변 × 이 값(500 m 사각형 15 m) — 등각 다이어그램에서 받침이 얇은 판으로 읽히는 비율
@@ -798,10 +830,19 @@ BLOCK_BASE_SNAP = 5.0           # m — 바닥 높이를 이 단위로 내림(BA
 CLASSIFY_GRID = 50.0            # m — 면 분류용 격자 버킷
 WATER_LIFT = 0.02               # m — 수면 메시를 지형 위로 띄우는 높이
 WATER_EDGE_STEP = 2.0           # m — 수면 경계 조밀화 간격 (TIN 입력, code_map §5.1)
+OSM_FLOWING_WATER = ("river", "canal", "stream", "ditch", "drain", "rapids", "fish_pass")   # natural=water + water=* 중 흐르는 물(OSM wiki Key:water) — 나머지 수면은 고인 물
+WATER_STILL_KINDS = ("lake",)   # 고인 물 = 평평한 수면 하나(물가 최저). 나머지(river·stream)는 흐르는 물 — 물가를 따라 기운다
+WATER_SHORE_FALLOFF = 15.0      # m — 물가선에서 이 거리 안 지형을 수면 쪽으로 부드럽게 내린다(non_rhino_utils.get_shore_fitted). 물가선 정점만 내리면 한 면 폭에 둑 높이(수 m)가 떨어져 톱니로 보였다(2026-11-08 죽림리)
+WATER_SHORE_WINDOW = 50.0       # m — 흐르는 물 수위 = 이 거리 안 물가 높이의 최저. 물가 정점이 둑 꼭대기 등고선(성수 한강 15 m)을 받은 튀는 값을 걸러 낸다
+WATER_MAX_GRADE = 0.02          # 흐르는 물 수면의 최대 기울기(2 %) — 등고선 5 m 간격 때문에 계단진 물가 높이를 250 m 경사로로 편다. 수면(면)이 있는 하천은 폭이 넓어 대개 1 % 미만(5 %는 청계천·홍제천 수면이 급류처럼 보였다)
+WATER_BLEND_SOURCE = "aws_terrain"   # 수면 둘레 칸이 호수·강 바닥 수심과 섞인 격자 지형 원천(osm_context.get_terrain_spots) — 일본 지리원 5 m는 수면이 값 없음이라 해당 없음
+WATER_BLEND_BUFFER = 30.0       # m — 그 원천 표고점을 수면 경계에서 이 거리 안이면 뺀다(원천 DEM 약 30 m 한 칸)
+WATER_SURFACE_CELL = 10.0       # m — 흐르는 물 안쪽 수위를 채우는 격자 칸(물가 수위를 가장 가까운 칸에서 가져와 쌍선형 보간)
 WATER_SURFACE_KINDS = ("river", "stream", "lake")   # features theme water 중 수면(면)으로 다루는 kind — 3dm CTX::Water 분류·시트 바탕 수계가 같이 쓴다. shore(습지)는 TOPO_LAYERS 주석 참고
 TERRAIN_CLASS_PRIORITY = ("water", "rail", "road", "green")
 TERRAIN_UNION_CLASSES = ("road", "green")   # Rhino 면 분할 전에 Boolean 합집합으로 겹침을 없애는 분류 — OSM 도로면 버퍼(교차부마다 겹침)·녹지. 수면은 폴리곤별 수위를 따로 쓰므로 합치지 않는다   # 면 분류 우선순위(앞이 이김), 나머지 terrain, 범위 밖 outside (code_map §5.3)
 BUILDING_SLOPE_FLAG = 3.0       # m — 발자국 정점 지형 고저차가 이보다 크면 HEIGHT_SRC에 '~slope' (deliverables A.1)
+BREP_COPLANAR_ANGLE = 0.1      # ° — Brep 출력(options.geometry_type = brep)에서 지형 메시 면을 한 평면 면으로 묶는 각 허용(같은 TIN 삼각형 위 칸은 정확히 같은 평면 — 0.1°·1° 결과 같음, 2026-11-05)
 SLOPE_BREAKS_DEG = (5, 10, 15, 21, 27)       # 경사 6단계 (서울시 2013 범례)
 ELEV_PRESETS = {"20m": 20.0, "50m": 50.0}    # 표고 단계 간격
 ELEV_MIN_BANDS = 4                           # 이보다 단계가 적으면(평탄지) 아래 간격으로 줄인다 — 표고도에 읽을 거리가 생기게
@@ -828,10 +869,11 @@ HOST_LABELS = {
                 # [/blender-cut]
                 "aerial": False, "update_notice": False, "ip_center": False},   # 확장 스토어 약관: 분석 전송·상용 영상(Esri)·제3자 IP 조회 불가, 업데이트는 Blender가 한다
     # [blender-cut] SketchUp도 Extension Warehouse 심사(개인정보 정책 위반 = 반려 사유)라 동의제 — GA_STREAMS에 sketchup 속성을 넣기 전에는 묻지도 않는다
-    "rhino": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": True, "ask_stats": False},
+    "rhino": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": True, "ask_stats": False,
+              "brep": True, "self_update": True},   # self_update = 패널 [지금 업데이트](yak — data_pack.install_update). yak을 못 찾으면 init이 끈다   # brep = 3D 설정 '형상' Mesh|Brep(options.geometry_type) — RhinoCommon 베이크만(Rhino 7판은 사이드카라 없다)
     "sketchup": {"id": "sketchup", "name": "SketchUp", "doc": "SketchUp 모델", "model": SKETCHUP_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},
     # Rhino 7판(cmd_rhino7 사이드카 + rhino7_host.cs) — 패널에는 Rhino로 보인다. DWG는 Rhino 8 헤드리스 문서(context_baker.save_dwg)라 없다
-    "rhino7": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": False, "ask_stats": False},
+    "rhino7": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": False, "ask_stats": False, "self_update": True},
     "archicad": {"id": "archicad", "name": "Archicad", "doc": "Archicad 프로젝트", "model": ARCHICAD_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},   # GA 속성을 만들기 전에는 묻지 않는다
     "web": {"id": "web", "name": "브라우저", "doc": "3D 모델", "model": WEB_MODEL_FILE_NAME, "dwg": False, "ask_stats": False},   # 통계는 웹사이트 GA(페이지)만
     # [/blender-cut]
@@ -845,6 +887,7 @@ BLENDER_CURVE_WAIT = 60.0       # s — [Blender 커브 가져오기]를 눌렀�
 # [blender-cut]
 # SketchUp판(cmd_sketchup 사이드카 — 번들 파이썬 + sketchup_ext.rb)
 HOST_ENV = "GORANI_HOST"     # SketchUp 사이드카는 'sketchup', Rhino 7 사이드카는 'rhino7', 웹판 워커는 'web'으로 둔다 — context_builder.get_host
+SKETCHUP_PARENT_POLL_SECONDS = 2.0   # s — Windows 사이드카가 SketchUp 프로세스가 끝났는지 보는 간격(cmd_sketchup._watch_parent)
 SKETCHUP_HOST_TIMEOUT = 1800.0  # s — 호스트 호출(베이크 등) 응답 대기 상한. 패널을 닫으면(Ruby가 panel_closed를 stdin으로) 기다리지 않고 바로 실패한다
 SKETCHUP_HOST_POLL = 0.5        # s — 응답을 기다리며 패널 닫힘을 확인하는 간격
 SKETCHUP_ZOOM_MIN_SPAN = 400.0  # m — 생성 뒤 화면 맞춤에서 대상지 + 여백의 최소 한 변. 작은 필지도 주변 맥락이 보이게(Rhino는 대상지 + 대각선 반 여백만)
@@ -883,6 +926,8 @@ OUTPUT_NAMES = {
            "tables": {"parcels": "parcels", "buildings": "buildings", "sheet_stats": "sheet_stats", "height_src_stats": "height_src_stats", "alignment": "alignment"},
            "styles": {"std": "Standard", "vivid": "Vivid", "mono": "Mono", "dark": "Dark"}},
 }   # 도면 이름은 여기 말고 i18n.json(SHEET_CATALOG 이름이 키) — non_rhino_utils.get_sheet_label
+RECENT_RESULTS_MAX = 5   # 패널 '최근 결과'(지도 트레이) — context_builder.get_recent_results
+MADE_2D_FILE_NAME = "made_2d.json"   # 2D 폴더마다 — make_2d가 패널에 보낸 결과(도면 목록·썸네일·.ai·조서). 지난 결과를 열면 2D 카드를 그대로 다시 그린다
 RESULT_2D_DIR_FORMAT = "2D_%s_%s"   # (스타일 이름, HHMM) — [2D 자료 만들기]마다 결과 폴더 안 새 폴더. 같은 결과에 스타일을 바꿔 다시 만들면 앞 것을 덮어썼다(2026-10-21 사용자)
 RESULT_2D_DIRNAME = "2D"   # 2D 산출물(베이스맵 .ai·.dwg·sheets/·tables/)을 결과 폴더 안 한곳에 — 패널 2D 카드 [폴더 열기]가 여기를 연다(2026-10-19)
 RESULT_TABLES_DIRNAME = "tables"

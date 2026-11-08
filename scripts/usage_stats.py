@@ -50,6 +50,59 @@ def get_payload(name, params, client_id):
     }
 
 
+def get_options3d(options):
+    # type: (dict) -> str
+    """
+    입력: 생성 options(PANEL_DEFAULT_OPTIONS로 채운 것).
+    처리: 3D 설정을 한 칸에 — 이벤트 매개변수 25개 상한 안에 들게. 기본값도 적는다(기본 그대로 쓰는 비율을 세려고).
+    출력: 'smooth,block,flat-no,db' 꼴. 순서 = 지형·바닥 채우기·대상지 땅 평평하게·한국 자료 출처(용도지역·지구 선·대상지 면 생성은 늘 해서 옵션이 아니다, 2026-11-08).
+    """
+    step = int(float(options.get("terrain_step") or 0))
+    return ",".join([
+        "step%d" % step if step else "smooth",
+        "block" if options.get("terrain_block", True) else "surface-only",
+        "flat-" + str(options.get("flatten_level") or "mean") if options.get("flatten_site") else "flat-no",
+        "osm" if options.get("region") == "global" else "db"])
+
+
+def get_outputs2d_params(options):
+    # type: (dict) -> dict
+    """
+    입력: make_2d options.
+    처리: 고른 2D 산출물을 한 칸(outputs2d)에, 다이어그램 장수(sheets)·스타일(style)·결과 언어(output_lang)는 따로.
+          스타일은 프리셋 이름, 고친 스타일이면 '+edited', 저장한 스타일이면 'saved'(이름은 사용자 입력이라 보내지 않는다).
+    출력: {outputs2d: 'basemap-a3,sheets,tables,dwg', sheets, style, output_lang}.
+    """
+    parts = []
+    if options.get("make_basemap"):
+        parts.append("basemap-" + str(options.get("basemap_preset") or "a3"))
+    if options.get("make_sheets"):
+        parts.append("sheets")
+    if options.get("make_tables"):
+        parts.append("tables")
+    if options.get("make_dwg"):
+        parts.append("dwg")
+    style = dict(options.get("style") or {})
+    preset = str(style.pop("preset", None) or constants.STYLE_DEFAULT_PRESET)
+    style_label = "saved" if style.pop("name", None) else preset + ("+edited" if style else "")
+    return {"outputs2d": ",".join(parts) or "none", "sheets": len(options.get("sheet_ids") or []) if options.get("make_sheets") else 0,
+            "style": style_label if options.get("make_sheets") else None, "output_lang": options.get("output_lang")}
+
+
+def get_ui_params(action, detail=None):
+    # type: (str, str) -> dict
+    """
+    입력: 패널이 보낸 버튼 이름·짧은 분류값.
+    처리: constants.GA_UI_ACTIONS 밖이면 None(보내지 않음). detail은 영문 소문자·숫자·.-_만 남기고 GA_UI_DETAIL_MAX로 자른다 —
+          주소·검색어·경로가 섞여 들어가지 않게.
+    출력: {action, detail} 또는 None.
+    """
+    if action not in constants.GA_UI_ACTIONS:
+        return None
+    clean = "".join(ch for ch in str(detail or "").lower() if ch.isascii() and (ch.isalnum() or ch in ".-_"))[:constants.GA_UI_DETAIL_MAX]
+    return {"action": action, "detail": clean or None}
+
+
 def get_target_params(target, lots=None):
     # type: (dict, list) -> dict
     """
@@ -71,10 +124,11 @@ def get_target_params(target, lots=None):
         if lots:
             params["area"] = round(sum(lot.area for lot in lots), 1)
     elif mode == "area":
-        ring = [tuple(p) for p in target.get("ring") or []]
-        min_x, min_y, max_x, max_y = (min(p[0] for p in ring), min(p[1] for p in ring), max(p[0] for p in ring), max(p[1] for p in ring))
+        rings = [[tuple(p) for p in ring] for ring in context_builder.get_spec_rings(target)]   # 구역 여러 개(2026-11-08)
+        pts = [p for ring in rings for p in ring]
+        min_x, min_y, max_x, max_y = (min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts))
         center = ((min_x + max_x) / 2.0, (min_y + max_y) / 2.0)
-        params.update(area=round(non_rhino_utils.get_ring_area(ring), 1), width=round(max_x - min_x, 1), height=round(max_y - min_y, 1))
+        params.update(area=round(sum(non_rhino_utils.get_ring_area(ring) for ring in rings), 1), width=round(max_x - min_x, 1), height=round(max_y - min_y, 1))
     else:
         center = target.get("center")
     if center:

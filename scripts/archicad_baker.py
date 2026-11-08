@@ -173,7 +173,7 @@ def _ensure_layers(host, layers):
     missing = [name for name in layers if _get_layer_name(name) not in have]
     if missing:
         host.call("CreateLayers", layerDataArray=[{"name": _get_layer_name(name),
-                                                   "isHidden": name.partition("::")[2] in constants.CTX_HIDDEN_LAYERS} for name in missing])
+                                                   "isHidden": any(name.partition("::")[2] == h or name.partition("::")[2].startswith(h + "::") for h in constants.CTX_HIDDEN_LAYERS)} for name in missing])
         have = read()
     return {name: have[_get_layer_name(name)] for name in layers if _get_layer_name(name) in have}
 

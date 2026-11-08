@@ -46,6 +46,46 @@ def _box(cx, cy, half_w, half_h):
     return [(cx - half_w, cy - half_h), (cx + half_w, cy - half_h), (cx + half_w, cy + half_h), (cx - half_w, cy + half_h)]
 
 
+class AbroadFolderNameTest(unittest.TestCase):
+    """해외 결과 폴더 이름 = 주소(2026-11-08 사용자) — 못 쓰는 글자는 빼고, 주소를 못 받으면 위경도."""
+
+    def test_folder_safe_name(self):
+        self.assertEqual(context_builder.get_folder_safe_name("Greenwich St, Russian Hill, San Francisco"), "Greenwich St_Russian Hill_San Francisco")
+        self.assertEqual(context_builder.get_folder_safe_name('A/B: "C", D?*'), "AB C_D")
+        self.assertEqual(context_builder.get_folder_safe_name(""), "")
+        self.assertLessEqual(len(context_builder.get_folder_safe_name("x" * 200)), constants.RESULT_ADDRESS_MAX_CHARS)
+        self.assertEqual(context_builder.get_folder_safe_name("Ave Gustave Eiffel, 7th Arrondissement, Paris"), "Ave Gustave Eiffel_7th Arrondissement")   # 넘치는 칸은 통째로
+
+    def test_place_label_abroad(self):
+        original = context_builder.osm_context.get_place_address
+        try:
+            non_rhino_utils.set_projection(-122.4187, 37.8010)
+            center = non_rhino_utils.get_tm_from_wgs84(-122.4187, 37.8010)
+            context_builder.osm_context.get_place_address = lambda lng, lat, lang: "Greenwich St, Russian Hill, San Francisco"
+            self.assertEqual(context_builder._get_place_label(center, "vicinity", None, "en"), "Greenwich St_Russian Hill_San Francisco_vicinity")
+            context_builder.osm_context.get_place_address = lambda lng, lat, lang: ""   # 망이 막혔다
+            self.assertEqual(context_builder._get_place_label(center, "vicinity", None, "en"), "N37.8010_W122.4187_vicinity")
+        finally:
+            context_builder.osm_context.get_place_address = original
+            non_rhino_utils.set_projection()
+
+
+class AreaRingsTest(unittest.TestCase):
+    """구역 여러 개(2026-11-08 사용자) — 겹치거나 맞닿으면 하나로, 떨어지면 따로. 구역 하나의 키는 예전 그대로."""
+
+    def test_merge(self):
+        sq = lambda x, y, s: [(x, y), (x + s, y), (x + s, y + s), (x, y + s)]
+        rings, warnings = context_builder.get_area_rings([sq(0, 0, 100), sq(50, 50, 100)])
+        self.assertEqual(len(rings), 1)
+        self.assertAlmostEqual(non_rhino_utils.get_ring_area(rings[0]), 17500.0, delta=1.0)
+        rings, _ = context_builder.get_area_rings([sq(0, 0, 100), sq(300, 0, 50)])
+        self.assertEqual([round(non_rhino_utils.get_ring_area(r)) for r in rings], [10000, 2500])   # 넓은 순
+        rings, _ = context_builder.get_area_rings([sq(0, 0, 100), sq(100, 0, 100)])
+        self.assertEqual(len(rings), 1)   # 맞닿음
+        self.assertEqual(context_builder.get_target_key({"mode": "area", "ring": sq(0, 0, 10)}),
+                         context_builder.get_target_key({"mode": "area", "rings": [sq(0, 0, 10)]}))   # 예전 결과의 키
+
+
 class RingTest(unittest.TestCase):
     def test_clean_ring_ccw_without_closing_point(self):
         ring = non_rhino_utils.get_clean_ring([(0, 0), (0, 10), (10, 10), (10, 0), (0, 0)])   # 시계 + 닫힘점
@@ -157,8 +197,13 @@ class ControllerTest(unittest.TestCase):
         state = cmd_site.get_area_state({"ring_tm": _box(cx, cy, 150, 100)}, SITE_DB)
         self.assertTrue(state["ok"])
         self.assertEqual(state["target_geojson"]["features"][-1]["properties"]["role"], "area")
-        moved = cmd_site.get_area_state({"center": state["center"], "offsets": state["offsets"]}, SITE_DB)   # 지도에서 옮겨 놓기
-        self.assertLess(max(abs(a[0] - b[0]) + abs(a[1] - b[1]) for a, b in zip(moved["ring_tm"], state["ring_tm"])), 0.05)
+        moved = cmd_site.get_area_state({"center": state["center"], "ring_offsets": state["ring_offsets"]}, SITE_DB)   # 묶음째 옮기기 — 같은 자리
+        self.assertLess(max(abs(a[0] - b[0]) + abs(a[1] - b[1]) for a, b in zip(moved["rings_tm"][0], state["rings_tm"][0])), 0.05)
+        added = cmd_site.get_area_state({"rings_lnglat": state["rings_lnglat"], "ring_tm": _box(cx + 400, cy, 50, 50)}, SITE_DB)   # 떨어진 구역 더하기
+        self.assertEqual(len(added["rings_tm"]), 2)
+        merged = cmd_site.get_area_state({"rings_lnglat": state["rings_lnglat"], "ring_tm": _box(cx + 50, cy, 150, 100)}, SITE_DB)   # 겹치면 하나로
+        self.assertEqual(len(merged["rings_tm"]), 1)
+        self.assertGreater(merged["area"], state["area"])
         bad = cmd_site.get_area_state({"ring_tm": [(cx, cy), (cx + 100, cy + 100), (cx + 100, cy), (cx, cy + 100)]}, SITE_DB)
         self.assertFalse(bad["ok"])
         self.assertIn("자기교차", bad["text"])

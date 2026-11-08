@@ -144,25 +144,6 @@
    },
    "basemap_preset": "a3"
   },
-  "recent": [
-   {
-    "pnus": [
-     "1120010200102770017",
-     "1120010200102770018"
-    ],
-    "label": "성수동2가 277-17 외 1",
-    "total_area": 1234.5,
-    "date": "2026-10-06"
-   },
-   {
-    "pnus": [
-     "1120010200102810001"
-    ],
-    "label": "성수동2가 281-1",
-    "total_area": 845,
-    "date": "2026-10-02"
-   }
-  ],
   "sheet_catalog": [
    {
     "id": 0,
@@ -483,20 +464,17 @@
      "scales": [
       1000,
       3000
-     ],
-     "site_output": "mesh"
+     ]
     },
     "area": {
      "scales": [
       3000
-     ],
-     "site_output": "curve"
+     ]
     },
     "point": {
      "scales": [
       5000
-     ],
-     "site_output": "curve"
+     ]
     }
    },
    "shapes": {
@@ -520,7 +498,8 @@
    "doc": "Rhino 문서",
    "model": "context.3dm",
    "dwg": true,
-   "ask_stats": false
+   "ask_stats": false,
+   "brep": true
   },
   "links": {
    "website": "https://969flash.github.io/gorani/",
@@ -535,6 +514,32 @@
     "en",
     "English"
    ]
+  ],
+  "results": [
+   {
+    "dir": "/Users/me/Gorani/result/성수동2가_277-17외1_20261106_1432",
+    "label": "성수동2가 277-17외1",
+    "mode": "lots",
+    "built_at": "2026-11-06T14:32:10",
+    "buildings": 2695,
+    "has_2d": true
+   },
+   {
+    "dir": "/Users/me/Gorani/result/태평로1가_29-1_구역_20261105",
+    "label": "태평로1가 29-1 구역",
+    "mode": "area",
+    "built_at": "2026-11-05T09:10:44",
+    "buildings": 812,
+    "has_2d": false
+   },
+   {
+    "dir": "/Users/me/Gorani/result/N37.8010_W122.4187_vicinity_20261030",
+    "label": "N37.8010 W122.4187 vicinity",
+    "mode": "point",
+    "built_at": "2026-10-30T17:45:02",
+    "buildings": 2161,
+    "has_2d": true
+   }
   ]
  },
  {
