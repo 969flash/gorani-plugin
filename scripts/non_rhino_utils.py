@@ -1125,35 +1125,138 @@ def get_inside_fraction(parts, ring, ring_bbox=None):
 
 def _get_step_band(z, step):
     # type: (float, float) -> tuple
-    """표고 z → (경계 비교용 z − TERRAIN_STEP_OFFSET, 단 번호). 단 k 높이 = k × step(정수 m 그대로), 단 경계는 k × step + TERRAIN_STEP_OFFSET.
-    단 경계 TERRAIN_STEP_SNAP 안이면 z를 경계에 붙이고 경계 위 단으로.
-    경계를 비키는 까닭: 등고선 TIN은 같은 등고선 점끼리 이은 평평한 삼각형이 많아 정점의 약 40 %가 정확히 5 m 배수다(죽림리 301-3 구역 매끈 지형 65,728점 중 28,565점).
-    경계가 그 높이와 같으면 교차점이 보간되지 않고 메시 정점(3 m 격자)을 따라가 계단 테두리가 톱니가 됐다(2026-11-08 사용자)."""
-    z -= constants.TERRAIN_STEP_OFFSET
+    """표고 z → (z, 단 번호 floor(z / step)). 단 경계 TERRAIN_STEP_SNAP 안이면 z를 경계에 붙이고 경계 위 단으로."""
     k = int(round(z / step))
     if abs(z - k * step) < constants.TERRAIN_STEP_SNAP:
         return k * step, k
     return z, int(math.floor(z / step))
 
 
-def _get_cross_xy(low, low_z, high, high_z, level):
-    # type: (tuple, float, tuple, float, float) -> tuple
-    """아래 단 점 low → 위 단 점 high 변이 높이 level을 지나는 (x, y). 위 점이 경계 위면 그 점 그대로.
-    늘 아래 → 위 순서로 보간해 이웃 면·대상지 벽이 같은 변에서 같은 값을 얻는다."""
-    if high_z == level:
-        return high[0], high[1]
-    t = (level - low_z) / (high_z - low_z)
-    return low[0] + (high[0] - low[0]) * t, low[1] + (high[1] - low[1]) * t
+class TinProfile(object):
+    """TIN 위 평면 선분의 높이 단면 — 계단 지형 단 경계 교차점을 메시 변 선형 보간 대신 TIN에서 찾는다(get_stepped_mesh·get_stepped_edges tin=).
+
+    등고선 TIN은 같은 등고선 점끼리 이은 평평한 삼각형이 많다(서대문 안산 R=250: TIN 21,267면 중 14,022면). 그 위 3 m 격자 정점은
+    단 높이에 정확히 놓여(정점 37 %), 선형 보간하면 교차점이 격자 정점에 붙어 단 테두리가 격자를 따라 톱니가 됐다(죽림리 301-3 구역, 2026-11-08).
+    TIN 단면은 평평한 삼각형이 끝나는 자리(= 실제 등고선)를 준다. 입력은 verts ``[(x, y, z)]``, faces 3·4각형, 색인 칸 cell(m).
+    """
+
+    def __init__(self, verts, faces, cell):
+        # type: (list, list, float) -> None
+        self.cell = float(cell)
+        self._cells = {}
+        self._tris = []
+        for face in faces:
+            for a, b, c in ((face[0], face[k], face[k + 1]) for k in range(1, len(face) - 1)):
+                p, q, r = verts[a], verts[b], verts[c]
+                det = (q[0] - p[0]) * (r[1] - p[1]) - (r[0] - p[0]) * (q[1] - p[1])
+                if abs(det) < 1e-9:   # 평면에서 넓이 0
+                    continue
+                if det < 0:
+                    q, r, det = r, q, -det
+                # z = z0 + gx·(x − x0) + gy·(y − y0)
+                gx = ((q[2] - p[2]) * (r[1] - p[1]) - (r[2] - p[2]) * (q[1] - p[1])) / det
+                gy = ((r[2] - p[2]) * (q[0] - p[0]) - (q[2] - p[2]) * (r[0] - p[0])) / det
+                index = len(self._tris)
+                sides = tuple((u[0], u[1], v[0] - u[0], v[1] - u[1], 1e-9 * math.hypot(v[0] - u[0], v[1] - u[1])) for u, v in ((p, q), (q, r), (r, p)))
+                self._tris.append((p, gx, gy, min(p[0], q[0], r[0]), min(p[1], q[1], r[1]), max(p[0], q[0], r[0]), max(p[1], q[1], r[1]), sides))
+                for i in range(int(math.floor(min(p[0], q[0], r[0]) / self.cell)), int(math.floor(max(p[0], q[0], r[0]) / self.cell)) + 1):
+                    for j in range(int(math.floor(min(p[1], q[1], r[1]) / self.cell)), int(math.floor(max(p[1], q[1], r[1]) / self.cell)) + 1):
+                        self._cells.setdefault((i, j), []).append(index)
+
+    def get_pieces(self, a, b):
+        # type: (tuple, tuple) -> list
+        """선분 a → b ``(x, y)``의 단면 ``[(t0, t1, z0, z1)]``(t 오름차순, 삼각형 하나 안에서는 z가 t에 선형). [0, 1]을 다 덮지 못하면 None."""
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        bx0, by0, bx1, by1 = min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])
+        seen, pieces = set(), []
+        for i in range(int(math.floor(min(a[0], b[0]) / self.cell)), int(math.floor(max(a[0], b[0]) / self.cell)) + 1):
+            for j in range(int(math.floor(min(a[1], b[1]) / self.cell)), int(math.floor(max(a[1], b[1]) / self.cell)) + 1):
+                for index in self._cells.get((i, j), ()):
+                    if index in seen:
+                        continue
+                    seen.add(index)
+                    p, gx, gy, x0, y0, x1, y1, sides = self._tris[index]
+                    if x0 > bx1 or x1 < bx0 or y0 > by1 or y1 < by0:
+                        continue
+                    t0, t1 = 0.0, 1.0
+                    for ux, uy, ex, ey, eps in sides:   # 반시계 삼각형 — 변 왼쪽(cross ≥ 0)이 안
+                        c0 = ex * (a[1] - uy) - ey * (a[0] - ux)
+                        dc = ex * dy - ey * dx
+                        if abs(dc) < 1e-15:
+                            if c0 < -eps:
+                                t0 = 2.0
+                            continue
+                        t = (-eps - c0) / dc
+                        if dc > 0:
+                            t0 = max(t0, t)
+                        else:
+                            t1 = min(t1, t)
+                    if t1 - t0 > 1e-9:
+                        z0 = p[2] + gx * (a[0] + dx * t0 - p[0]) + gy * (a[1] + dy * t0 - p[1])
+                        z1 = p[2] + gx * (a[0] + dx * t1 - p[0]) + gy * (a[1] + dy * t1 - p[1])
+                        pieces.append((t0, t1, z0, z1))
+        pieces.sort()
+        reach = 0.0
+        for t0, t1, _z0, _z1 in pieces:
+            if t0 > reach + 1e-6:
+                return None
+            reach = max(reach, t1)
+        return pieces if reach >= 1.0 - 1e-6 else None
+
+    def get_cross_ts(self, low, high, levels):
+        # type: (tuple, tuple, list) -> list
+        """아래 단 점 low → 위 단 점 high ``(x, y, z)``가 높이 levels(오름차순)를 마지막으로 넘는 자리 t 목록(= 단면이 그 높이 아래인 마지막 자리).
+        단면 = TIN 높이 + 양 끝 정점과의 차를 t로 선형 보간한 값(물가 비탈처럼 TIN 뒤에 바뀐 정점도 끝이 맞는다).
+        levels가 오르면 t도 오른다(단 다각형이 꼬이지 않는다). 단면이 TIN 밖으로 끊기면 None."""
+        pieces = self.get_pieces(low, high)
+        if not pieces:
+            return None
+        ca, cb = low[2] - pieces[0][2], high[2] - pieces[-1][3]
+        pieces = [(t0, t1, z0 + ca + (cb - ca) * t0, z1 + ca + (cb - ca) * t1) for t0, t1, z0, z1 in pieces]
+        out = []
+        for level in levels:
+            t = None
+            for t0, t1, z0, z1 in reversed(pieces):
+                if z1 < level:
+                    t = t1
+                    break
+                if z0 < level:
+                    t = t0 + (level - z0) / (z1 - z0) * (t1 - t0)
+                    break
+            if t is None:
+                return None
+            out.append(t)
+        return out
 
 
-def get_stepped_mesh(verts, faces, step):
-    # type: (list, list, float) -> tuple
+def _get_edge_crosses(low, low_z, high, high_z, j0, j1, step, tin):
+    # type: (tuple, float, tuple, float, int, int, float, object) -> list
+    """아래 단 점 low → 위 단 점 high 변이 단 경계 j0..j1을 지나는 자리 ``[(x, y, 위 점인가)]``. 늘 아래 → 위 순서로 구해
+    이웃 면·대상지 벽이 같은 변에서 같은 값을 얻는다. tin(TinProfile)이 있으면 TIN 단면, 없거나 못 구하면 정점 높이 선형 보간(위 점이 경계 위면 그 점)."""
+    levels = [j * step for j in range(j0, j1 + 1)]
+    ts = tin.get_cross_ts((low[0], low[1], low_z), (high[0], high[1], high_z), [level - constants.TERRAIN_STEP_SNAP for level in levels]) if tin is not None else None
+    out = []
+    for k, level in enumerate(levels):
+        if ts is None:
+            t = 1.0 if high_z == level else (level - low_z) / (high_z - low_z)
+        else:
+            t = ts[k]
+        if t >= 1.0 - 1e-6 and high_z == level:
+            out.append((high[0], high[1], True))
+        else:
+            out.append((low[0] + (high[0] - low[0]) * t, low[1] + (high[1] - low[1]) * t, False))
+    return out
+
+
+def get_stepped_mesh(verts, faces, step, tin=None):
+    # type: (list, list, float, object) -> tuple
     """매끈한 지형 메시 → 계단형 지형(등고 모형) 메시.
 
     입력: verts ``[(x, y, z)]``, faces ``[(a, b, c)]`` 또는 ``(a, b, c, d)`` — 공유 정점 번호. step = 단 간격 m(> 0).
+          tin = TinProfile(메시를 TIN에 입힌 경우 — Rhino 3 m 격자). 없으면 정점 높이 선형 보간(메시 정점이 곧 TIN 점인 mesh_geometry).
     처리: 정점 단 = floor(z / step). 한 단 안의 면은 그 단 높이로 내린다. 여러 단에 걸친 면은 삼각형으로 나눠
           둘레(원래 정점 + 변 위 단 경계 교차점)를 돌며 단마다 다각형을 뽑고, 단 경계선마다 높이 step 수직 벽(아래 단 쪽을 본다).
-          교차점은 정점 번호로 묶어 이웃 면과 공유한다. 벽 정점은 단 면과 따로 둔다(공유하면 모서리 음영이 뭉개진다).
+          교차점(_get_edge_crosses)은 변마다 한 번 구해 이웃 면과 공유한다. 벽 정점은 단 면과 따로 둔다(공유하면 모서리 음영이 뭉개진다).
     출력: ``(verts, faces)`` — 면은 3·4각형. 입력은 바꾸지 않는다.
     """
     zs, bands = zip(*[_get_step_band(v[2], step) for v in verts]) if verts else ((), ())
@@ -1169,12 +1272,16 @@ def get_stepped_mesh(verts, faces, step):
     def vertex(i):
         return add(i, verts[i][0], verts[i][1], bands[i] * step)
 
+    crosses = {}
+
     def cross(a, b, j):
-        """변 a-b × 단 경계 j → (묶음 키, x, y). 위 정점이 경계 위면 키 = 그 정점."""
+        """변 a-b × 단 경계 j → (묶음 키, x, y). 교차점이 위 정점이면 키 = 그 정점."""
         if bands[a] > bands[b]:
             a, b = b, a
-        x, y = _get_cross_xy(verts[a], zs[a], verts[b], zs[b], j * step)
-        return (b if zs[b] == j * step else (a, b, j)), x, y
+        if (a, b) not in crosses:
+            crosses[(a, b)] = _get_edge_crosses(verts[a], zs[a], verts[b], zs[b], bands[a] + 1, bands[b], step, tin)
+        x, y, at_high = crosses[(a, b)][j - bands[a] - 1]
+        return (b if at_high else (a, b, j)), x, y
 
     def add_face(face):
         face = [i for k, i in enumerate(face) if i != face[k - 1]]
@@ -1222,18 +1329,19 @@ def get_stepped_mesh(verts, faces, step):
     return out_verts, out_faces
 
 
-def get_stepped_edges(a, b, step):
-    # type: (tuple, tuple, float) -> list
+def get_stepped_edges(a, b, step, tin=None):
+    # type: (tuple, tuple, float, object) -> list
     """자연 지반 변 a → b ``(x, y, z)``를 계단 지형 위 토막 ``[(p, q)]``로 — 토막 두 끝 z = 그 토막의 단 높이.
-    get_stepped_mesh와 같은 교차점이라 대상지 경계 벽 윗선이 주변 계단 지형과 맞는다. step <= 0이면 ``[(a, b)]`` 그대로."""
+    get_stepped_mesh와 같은 교차점(같은 tin)이라 대상지 경계 벽 윗선이 주변 계단 지형과 맞는다. step <= 0이면 ``[(a, b)]`` 그대로."""
     if step <= 0:
         return [(a, b)]
     (za, ka), (zb, kb) = _get_step_band(a[2], step), _get_step_band(b[2], step)
     up = ka < kb
-    pts = [(a[0], a[1])]
-    for j in (range(ka + 1, kb + 1) if up else range(ka, kb, -1)):
-        pts.append(_get_cross_xy(a, za, b, zb, j * step) if up else _get_cross_xy(b, zb, a, za, j * step))
-    pts.append((b[0], b[1]))
+    if up:
+        crosses = _get_edge_crosses(a, za, b, zb, ka + 1, kb, step, tin)
+    else:
+        crosses = _get_edge_crosses(b, zb, a, za, kb + 1, ka, step, tin)[::-1]
+    pts = [(a[0], a[1])] + [(x, y) for x, y, _at_high in crosses] + [(b[0], b[1])]
     out = []
     for k in range(len(pts) - 1):
         z = (ka + (k if up else -k)) * step
@@ -1433,6 +1541,137 @@ def get_block_skirt(meshes, ring, base_z, tol=1e-3):
         ids = [vertex(x, y, base_z) for x, y in rim]
         faces += [(center, ids[(k + 1) % len(ids)], ids[k]) for k in range(len(ids))]
     return verts, faces
+
+
+def get_boundary_loops(faces):
+    # type: (list) -> list
+    """면 묶음(정점 번호 3·4각형, 같은 방향으로 돈다)의 경계 고리 ``[[정점 번호]]`` — 바깥 테두리와 구멍 모두, 면 돌림 방향 그대로.
+    경계가 한 정점에서 갈리면(두 고리가 점으로 맞닿음) None — 고리를 하나로 정할 수 없다."""
+    count = {}
+    for face in faces:
+        for k in range(len(face)):
+            a, b = face[k], face[(k + 1) % len(face)]
+            key = (a, b) if a < b else (b, a)
+            count[key] = count.get(key, 0) + 1
+    nxt = {}
+    for face in faces:
+        for k in range(len(face)):
+            a, b = face[k], face[(k + 1) % len(face)]
+            if a != b and count[(a, b) if a < b else (b, a)] == 1:
+                if a in nxt:
+                    return None
+                nxt[a] = b
+    loops = []
+    while nxt:
+        start = v = next(iter(nxt))
+        loop = []
+        while True:
+            loop.append(v)
+            v = nxt.pop(v, None)
+            if v is None:
+                return None
+            if v == start:
+                break
+        if len(loop) >= 3:
+            loops.append(loop)
+    return loops
+
+
+def get_planar_faces(verts, faces, groups, tol):
+    # type: (list, list, list, float) -> tuple
+    """메시 → Brep 평면 면 목록(context_geometry.get_mesh_brep이 이어 붙이기 없이 Brep을 조립한다).
+
+    입력: verts ``[(x, y, z)]``, faces 3·4각형, groups = 같은 평면으로 묶인 면 번호 목록들(Mesh.MergeAllCoplanarFaces의 n-gon), tol(m).
+    처리: 묶음마다 경계 고리(get_boundary_loops — 바깥 + 구멍) 하나의 면, 묶음에 없는 면은 그 면 하나(평면이 아닌 4각형은 삼각형 둘).
+          정점은 좌표로 묶어(계단 지형은 벽·단 면 정점을 따로 둔다) 이웃 면이 같은 정점·변을 쓰게 한다. 고리를 못 정하는 묶음(점으로 맞닿음)과
+          고리 넓이가 면 넓이 합과 다른 묶음(돌림 방향이 엇갈린 면 — 평탄면 높이를 가로지르는 대상지 경계 벽 띠, 성수 333-139 134.6 → 113.3 ㎡)은 면마다 따로.
+    출력: ``(points, planes)`` — points ``[(x, y, z)]``, planes ``[(origin, x_axis, y_axis, loops)]``, loops ``[[(점 번호, u, v)]]``는
+          바깥 고리 먼저(uv 반시계), 구멍은 시계. 넓이 0인 면은 뺀다.
+    """
+    keys, points = {}, []
+
+    def point(i):
+        p = verts[i]
+        key = (round(p[0], 6), round(p[1], 6), round(p[2], 6))
+        k = keys.get(key)
+        if k is None:
+            k = keys[key] = len(points)
+            points.append(p)
+        return k
+
+    def newell(loops):
+        """고리들(점 번호)의 뉴웰 벡터 = 넓이 × 2 × 법선(바깥 고리 반시계 쪽)."""
+        nx = ny = nz = 0.0
+        for loop in loops:
+            for k in range(len(loop)):
+                a, b = points[loop[k - 1]], points[loop[k]]
+                nx += (a[1] - b[1]) * (a[2] + b[2])
+                ny += (a[2] - b[2]) * (a[0] + b[0])
+                nz += (a[0] - b[0]) * (a[1] + b[1])
+        return nx, ny, nz
+
+    def plane(loops):
+        """고리들(점 번호) → (origin, x, y, uv 고리) 또는 None."""
+        nx, ny, nz = newell(loops)
+        size = math.sqrt(nx * nx + ny * ny + nz * nz)
+        if size < 1e-9:
+            return None
+        z = (nx / size, ny / size, nz / size)
+        ref = (1.0, 0.0, 0.0) if abs(z[0]) < 0.9 else (0.0, 1.0, 0.0)
+        d = ref[0] * z[0] + ref[1] * z[1] + ref[2] * z[2]
+        x = (ref[0] - d * z[0], ref[1] - d * z[1], ref[2] - d * z[2])
+        lx = math.sqrt(x[0] * x[0] + x[1] * x[1] + x[2] * x[2])
+        x = (x[0] / lx, x[1] / lx, x[2] / lx)
+        y = (z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0])
+        o = points[loops[0][0]]
+        uv_loops = []
+        for loop in loops:
+            uv = []
+            for k in loop:
+                p = points[k]
+                dx, dy, dz = p[0] - o[0], p[1] - o[1], p[2] - o[2]
+                if abs(dx * z[0] + dy * z[1] + dz * z[2]) > tol:
+                    return None   # 평면이 아니다
+                uv.append((k, dx * x[0] + dy * x[1] + dz * x[2], dx * y[0] + dy * y[1] + dz * y[2]))
+            uv_loops.append(uv)
+        areas = [get_ring_area([q[1:] for q in uv]) * get_ring_orientation([q[1:] for q in uv]) for uv in uv_loops]
+        if sum(1 for a in areas if a > 0) != 1:
+            return None
+        outer = areas.index(max(areas))
+        return o, x, y, [uv_loops[outer]] + [uv for k, uv in enumerate(uv_loops) if k != outer]
+
+    def clean(loop):
+        out = [k for n, k in enumerate(loop) if k != loop[n - 1]]
+        return out if len(out) >= 3 else None
+
+    planes, grouped = [], set()
+    for group in groups:
+        loops = get_boundary_loops([faces[f] for f in group]) if len(group) > 1 else None
+        loops = [clean([point(i) for i in loop]) for loop in loops] if loops else None
+        made = plane([loop for loop in loops if loop]) if loops and loops[0] else None
+        if made:
+            face_area = sum(0.5 * math.sqrt(sum(c * c for c in newell([[point(i) for i in faces[f]]]))) for f in group)
+            loop_area = sum(get_ring_area([q[1:] for q in uv]) * get_ring_orientation([q[1:] for q in uv]) for uv in made[3])
+            if abs(loop_area - face_area) > 1e-6 * face_area + 1e-6:
+                made = None
+        if made:
+            planes.append(made)
+            grouped.update(group)
+    for f, face in enumerate(faces):
+        if f in grouped:
+            continue
+        loop = clean([point(i) for i in face])
+        if not loop:
+            continue
+        made = plane([loop])
+        if made is None and len(loop) == 4:   # 평면이 아닌 4각형
+            for tri in ((loop[0], loop[1], loop[2]), (loop[0], loop[2], loop[3])):
+                made_tri = plane([list(tri)])
+                if made_tri:
+                    planes.append(made_tri)
+        elif made:
+            planes.append(made)
+    return points, planes
 
 
 def _get_boundary_edges(verts, faces):
