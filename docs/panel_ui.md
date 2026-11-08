@@ -274,7 +274,7 @@ Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드�
 
 - 패널을 열 때(`init`) 매니페스트를 `NOTICE_TIMEOUT_SECONDS`(3 s)까지 기다린다. 못 받으면 아무것도 띄우지 않는다 — 사용자를 막지 않는다.
 - `version < update.min` → 강제 모달(닫기 없음, [다시 확인]·[결과 폴더]·[웹페이지]). 지원을 끊을 때만 올린다.
-- `version < update.latest` → 권장 모달(하루 한 번 — [나중에] = `options.update_later_date`) + 주황 띠(닫기 없음, 업데이트할 때까지).
+- `version < update.latest` → 권장 팝업 — **그날 처음 열 때 한 번만** 뜬다(뜨는 순간 `options.update_later_date`에 그날을 적는다. 같은 날 다시 열어도 안 뜬다). 오른쪽 위 X(또는 Esc)로 닫고, 주 버튼은 [지금 업데이트]. 위쪽 주황 띠는 없다 — 업데이트 안내는 팝업과 더보기 메뉴 '공지' 목록에만 있고, 띠는 설치 중·결과(깔았음·실패)일 때만 뜬다. `update.groups`가 있으면 새 기능·개선·안정성 제목으로 나눠 보인다(없으면 `items` 한 줄 목록). 글씨는 12.5 px(제목 14 px)로 작게.
 - 모달·띠의 주 버튼: Rhino 8·7(`host.self_update`)은 [지금 업데이트](`install_update` — 깔면 '다시 시작하면 열립니다'), 그 밖(SketchUp·Blender·yak 없음·설치 실패)은 순서 안내 + [업데이트 방법]. 목 패널 `&selfupd=0`은 수동 안내, `&updfail=1`은 실패 화면.
 - 공지 → 위쪽 띠는 한 번에 하나(업데이트 > 공지 순서), 나머지는 띠의 `+N` → 더보기 메뉴 '공지' 목록. 띠 [×]는 `options.closed_notices`에 id를 넣고, 메뉴에서는 계속 보인다(흐리게 '닫음'). `level`: `warn` = 주황(꼭 알아야 할 것), `info` = 파랑. 빨강은 오류에만.
 - 공지 `id`는 바꾸지 않는다 — 바꾸면 닫은 사람에게 다시 뜬다. 목 패널: `site_ui.html?mock=1&step=1&update=soft|hard`(공지 견본 셋 포함), `&notice=1`은 공지만.

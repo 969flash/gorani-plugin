@@ -5818,5 +5818,23 @@
   "es": "Solo se usa el límite exterior de las zonas.",
   "ja": "区域は外側の境界だけを使います。",
   "zh": "区域只使用外边界。"
+ },
+ "새 기능": {
+  "en": "New",
+  "es": "Novedades",
+  "ja": "新機能",
+  "zh": "新功能"
+ },
+ "개선": {
+  "en": "Improvements",
+  "es": "Mejoras",
+  "ja": "改善",
+  "zh": "改进"
+ },
+ "안정성": {
+  "en": "Stability",
+  "es": "Estabilidad",
+  "ja": "安定性",
+  "zh": "稳定性"
  }
 }
