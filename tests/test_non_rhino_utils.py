@@ -457,6 +457,51 @@ class SteppedTinPlateauTest(unittest.TestCase):
                 self.assertGreater(off, 0.5)   # 선형 보간은 격자 정점을 따라간다(톱니)
 
 
+class FlatFillTest(unittest.TestCase):
+    """등고선 TIN의 평평한 삼각형 — 골짜기(이웃이 높다)는 안쪽을 낮추고 꼭대기(이웃이 낮다)는 올린다, 등고선 높이가 아닌 평지는 그대로."""
+
+    def _valley(self, side_z):
+        # 가운데 띠(x 10~30)는 양쪽 50 m 등고선 점끼리 이은 평지, 바깥(x 0·40)은 side_z
+        verts, faces = [], []
+        for j in range(7):
+            for x, z in ((0, side_z), (10, 50.0), (30, 50.0), (40, side_z)):
+                verts.append((float(x), j * 10.0, z))
+        for j in range(6):
+            a = j * 4
+            for i in range(3):
+                faces += [(a + i, a + i + 1, a + i + 5), (a + i, a + i + 5, a + i + 4)]
+        return verts, faces
+
+    def test_valley_goes_down_ridge_goes_up(self):
+        for side_z, sign in ((55.0, -1), (45.0, 1)):
+            verts, faces = self._valley(side_z)
+            pts = u.get_flat_fill_points(verts, faces, [45.0, 50.0, 55.0])
+            self.assertTrue(pts)
+            self.assertTrue(all(10 <= x <= 30 for x, _y, _z in pts))
+            zs = [z for _x, _y, z in pts]
+            extreme = min(zs) if sign < 0 else max(zs)
+            self.assertTrue(0.5 < abs(extreme - 50.0) <= 2.5 + 1e-9)   # 이웃 등고선 간격 5 m의 절반 안
+            self.assertTrue(all((z - 50.0) * sign >= 0 for z in zs))
+
+    def test_not_contour_level_untouched(self):
+        verts, faces = self._valley(55.0)
+        self.assertEqual(u.get_flat_fill_points(verts, faces, [45.0, 55.0]), [])
+
+
+class SmoothedZTest(unittest.TestCase):
+    def test_fixed_and_band(self):
+        # 줄 9점: 0·8번 고정, 4번은 등고선 높이(50) 위라 그대로, 나머지는 이웃 평균으로 가되 [45, 50]·[50, 55] 밖으로 못 나간다
+        zs = [45.0, 49.9, 46.0, 49.0, 50.0, 54.0, 51.0, 54.5, 55.0]
+        nb = [[1]] + [[i - 1, i + 1] for i in range(1, 8)] + [[7]]
+        fixed = [True] + [False] * 7 + [True]
+        out = u.get_smoothed_z(zs, nb, fixed, [45.0, 50.0, 55.0], 200)
+        self.assertEqual((out[0], out[4], out[8]), (45.0, 50.0, 55.0))
+        for z0, z1 in zip(zs, out):
+            lo = 45.0 if z0 < 50 else 50.0
+            self.assertTrue(lo <= z1 <= lo + 5.0)
+        self.assertAlmostEqual(out[2], 47.5, 3)   # 45 → 50 사이 곧은 비탈
+        self.assertAlmostEqual(out[6], 52.5, 3)
+
 class BoundaryLoopsTest(unittest.TestCase):
     def test_hole_and_pinch(self):
         n = 3

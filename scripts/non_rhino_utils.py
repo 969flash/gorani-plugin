@@ -6,6 +6,7 @@ Rhino 커브·벡터·Brep을 다루는 연산은 ``utils.py``에 둔다.
 좌표 단위를 임의로 변환하지 않으며 프로젝트 내부 좌표는 m로 유지한다.
 """
 
+import bisect
 import contextlib
 import math
 import re
@@ -1347,6 +1348,154 @@ def get_stepped_edges(a, b, step, tin=None):
         z = (ka + (k if up else -k)) * step
         if pts[k] != pts[k + 1]:
             out.append(((pts[k][0], pts[k][1], z), (pts[k + 1][0], pts[k + 1][1], z)))
+    return out
+
+
+def _get_segment_distances(points, segments, cell):
+    # type: (list, list, float) -> list
+    """점마다 선분 묶음까지 최단 거리. 칸 색인 + 고리 넓히기(고리 r까지 본 최단이 r × cell 이하면 확정)."""
+    grid = {}
+    for k, ((ax, ay), (bx, by)) in enumerate(segments):
+        for i in range(int(math.floor(min(ax, bx) / cell)), int(math.floor(max(ax, bx) / cell)) + 1):
+            for j in range(int(math.floor(min(ay, by) / cell)), int(math.floor(max(ay, by) / cell)) + 1):
+                grid.setdefault((i, j), []).append(k)
+    out = []
+    for x, y in points:
+        ci, cj = int(math.floor(x / cell)), int(math.floor(y / cell))
+        best, r, seen = None, 0, set()
+        while r < 1000:
+            for i in range(ci - r, ci + r + 1):
+                for j in ((cj - r, cj + r) if abs(i - ci) != r else range(cj - r, cj + r + 1)):
+                    for k in grid.get((i, j), ()):
+                        if k in seen:
+                            continue
+                        seen.add(k)
+                        (ax, ay), (bx, by) = segments[k]
+                        dx, dy = bx - ax, by - ay
+                        t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / ((dx * dx + dy * dy) or 1.0)))
+                        d = math.hypot(x - ax - dx * t, y - ay - dy * t)
+                        if best is None or d < best:
+                            best = d
+            if best is not None and best <= r * cell:
+                break
+            r += 1
+        out.append(best or 0.0)
+    return out
+
+
+def get_flat_fill_points(verts, faces, levels):
+    # type: (list, list, list) -> list
+    """등고선 TIN의 평평한 삼각형 자리(같은 높이 등고선끼리 이어 메워진 골짜기 바닥·꼭대기)에 넣을 점 ``[(x, y, z)]``.
+
+    입력: TIN verts ``[(x, y, z)]``, faces ``[(a, b, c)]``, levels = 원본 등고선 높이들(이 높이의 덩어리만 — 격자 지형·표고점의 진짜 평지는 그대로. 없으면 [] 반환).
+    처리: 세 정점 높이가 같은 삼각형을 변으로 이어 덩어리(높이 L)로 묶는다. 덩어리 테두리 너머 이웃 삼각형의 남은 정점이 변 길이로
+          TERRAIN_FLAT_SIDE_SHARE 이상 높으면 골짜기(안쪽을 낮춘다), 1 − 그 비율 이하면 꼭대기(올린다), 그 사이는 그대로 둔다(등고선이 꺾인 자리의 조각).
+          깊이 = min(이웃 높이 차 중앙값 × TERRAIN_FLAT_DEPTH_RATIO, 이웃 경사 중앙값 × 덩어리 안 테두리까지 최대 거리).
+          덩어리의 삼각형마다 무게중심 하나, 높이 = L ∓ 깊이 × (테두리까지 거리 / 최대 거리) — 테두리(원본 등고선)는 L 그대로, 가운데가 가장 깊다.
+          덩어리 안 표고점은 이미 TIN 정점이라 그 둘레 삼각형은 평평하지 않다(덩어리에 들지 않는다).
+    출력: 더할 점 목록. 이 점을 넣고 TIN을 다시 만든다.
+    """
+    edges = {}
+    for f, face in enumerate(faces):
+        for k in range(3):
+            a, b = face[k], face[(k + 1) % 3]
+            edges.setdefault((a, b) if a < b else (b, a), []).append(f)
+    flat = [abs(verts[a][2] - verts[b][2]) < 1e-6 and abs(verts[b][2] - verts[c][2]) < 1e-6 for a, b, c in faces]
+    parent = list(range(len(faces)))
+
+    def find(f):
+        while parent[f] != f:
+            parent[f] = parent[parent[f]]
+            f = parent[f]
+        return f
+
+    for owners in edges.values():
+        if len(owners) == 2 and flat[owners[0]] and flat[owners[1]]:
+            parent[find(owners[0])] = find(owners[1])
+    groups = {}
+    for f in range(len(faces)):
+        if flat[f]:
+            groups.setdefault(find(f), []).append(f)
+    out = []
+    levels = set(levels)
+    for group in groups.values():
+        level = verts[faces[group[0]][0]][2]
+        if level not in levels:
+            continue
+        members = set(group)
+        up = down = 0.0
+        diffs, slopes, boundary = [], [], []
+        for f in group:
+            face = faces[f]
+            for k in range(3):
+                a, b = face[k], face[(k + 1) % 3]
+                owners = edges[(a, b) if a < b else (b, a)]
+                other = [g for g in owners if g not in members]
+                if len(owners) == 2 and not other:
+                    continue   # 덩어리 안쪽 변
+                pa, pb = verts[a], verts[b]
+                boundary.append(((pa[0], pa[1]), (pb[0], pb[1])))
+                if not other:
+                    continue   # TIN 가장자리
+                v = next(i for i in faces[other[0]] if i != a and i != b)
+                dz = verts[v][2] - level
+                length = math.hypot(pb[0] - pa[0], pb[1] - pa[1])
+                if abs(dz) < 1e-6 or length < 1e-9:
+                    continue
+                dist = abs((pb[0] - pa[0]) * (verts[v][1] - pa[1]) - (pb[1] - pa[1]) * (verts[v][0] - pa[0])) / length
+                if dz > 0:
+                    up += length
+                else:
+                    down += length
+                diffs.append(abs(dz))
+                slopes.append(abs(dz) / dist if dist > 1e-9 else 0.0)
+        total = up + down
+        if not total or not boundary:
+            continue
+        if up >= constants.TERRAIN_FLAT_SIDE_SHARE * total:
+            sign = -1.0
+        elif up <= (1.0 - constants.TERRAIN_FLAT_SIDE_SHARE) * total:
+            sign = 1.0
+        else:
+            continue
+        centers = []
+        for f in group:
+            a, b, c = (verts[i] for i in faces[f])
+            centers.append(((a[0] + b[0] + c[0]) / 3.0, (a[1] + b[1] + c[1]) / 3.0))
+        dists = _get_segment_distances(centers, boundary, 10.0)
+        far = max(dists)
+        if far < 1e-6:
+            continue
+        diffs.sort()
+        slopes.sort()
+        depth = min(diffs[len(diffs) // 2] * constants.TERRAIN_FLAT_DEPTH_RATIO, slopes[len(slopes) // 2] * far)
+        out.extend((x, y, level + sign * depth * d / far) for (x, y), d in zip(centers, dists))
+    return out
+
+
+def get_smoothed_z(zs, neighbors, fixed, levels, iterations):
+    # type: (list, list, list, list, int) -> list
+    """격자 정점 높이 다듬기(등고선 고정) — TIN 삼각형 면의 꺾임을 편다.
+
+    입력: zs 정점 높이, neighbors 정점마다 이웃 정점 번호 목록, fixed 정점마다 고정 여부, levels 원본 등고선 높이(오름차순), 반복 횟수.
+    처리: 고정이 아닌 정점을 이웃 평균으로 iterations번 바꾼다(제자리 — 가우스-자이델). 높이는 처음 높이를 품은 등고선 두 높이 사이로 가둔다 —
+          등고선 높이를 넘나들지 않으니 그 높이의 단 테두리가 원본 등고선에서 움직이지 않는다. 처음부터 등고선 높이에 정확히 있는 정점은 그대로.
+    출력: 새 높이 목록. 입력은 바꾸지 않는다.
+    """
+    out = list(zs)
+    bands = []
+    for z in zs:
+        k = bisect.bisect_right(levels, z)
+        lo = levels[k - 1] if k else -1e18
+        hi = levels[k] if k < len(levels) else 1e18
+        bands.append((z, z) if lo == z else (lo, hi))
+    free = [i for i in range(len(zs)) if not fixed[i] and neighbors[i] and bands[i][0] != bands[i][1]]
+    for _ in range(iterations):
+        for i in free:
+            nb = neighbors[i]
+            v = sum(out[j] for j in nb) / len(nb)
+            lo, hi = bands[i]
+            out[i] = lo if v < lo else hi if v > hi else v
     return out
 
 

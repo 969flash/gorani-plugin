@@ -338,6 +338,13 @@ def build_terrain(prepared):
     tin_verts, tin_faces = _get_tin(local_pts, eps)
     if not tin_faces:
         raise RuntimeError(tr("지형 TIN 생성 실패 — 입력점 {0}", len(points)))
+    # 같은 높이 등고선끼리 이은 평평한 삼각형(골짜기 바닥·꼭대기)에 점을 더해 다시(context_geometry.build_terrain과 같다). 아래 CDT도 이 점을 정점으로 쓴다
+    levels = sorted({float(f.value) for f in prepared.context.get_features("terrain", "contour") if f.value is not None})
+    fill = non_rhino_utils.get_flat_fill_points(tin_verts, tin_faces, levels)
+    if fill:
+        local_pts = local_pts + fill
+        tin_verts, tin_faces = _get_tin(local_pts, eps)
+    counts["flat_fill_points"] = len(fill)
     tin = _Ground(tin_verts, tin_faces)
     counts.update(tin_s=round(time.time() - t, 3), tin_faces=len(tin_faces))
 
