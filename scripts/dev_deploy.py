@@ -850,15 +850,21 @@ def _stage_python(python_dir):
     return host_python
 
 
-def _stage_sidecar_scripts(target, host_python, plain_names):
-    # type: (str, str, tuple) -> int
-    """사이드카 판(SketchUp·Rhino 7)의 scripts/ — 평문 진입 스크립트 + UI 에셋 + 로직 .pyc(번들 파이썬 3.12로 컴파일). 컴파일한 모듈 수를 돌려준다."""
+def _stage_sidecar_scripts(target, host_python, plain_names, source=False):
+    # type: (str, str, tuple, bool) -> int
+    """사이드카 판(SketchUp·Rhino 7)의 scripts/ — 평문 진입 스크립트 + UI 에셋 + 로직 .pyc(번들 파이썬 3.12로 컴파일). 모듈 수를 돌려준다.
+    source면 로직도 평문 .py 그대로 — SketchUp EW 요건 'Readable to Reviewer'(컴파일한 코드 금지, 2026-11-08). 사이드카는 `-B`로 떠
+    확장 폴더에 __pycache__를 쓰지 않는다(서명된 확장 폴더 쓰기 금지)."""
     for name in plain_names + UI_FILE_NAMES:
         shutil.copyfile(os.path.join(SCRIPTS_DIR, name), os.path.join(target, name))
     for dir_name in UI_DIR_NAMES:
         shutil.copytree(os.path.join(SCRIPTS_DIR, dir_name), os.path.join(target, dir_name))
     names = [n[:-3] for n in sorted(os.listdir(SCRIPTS_DIR)) if n.endswith(".py") and n[:-3] not in SKETCHUP_EXCLUDED_NAMES
              and n[:-3] != "loader" and not n.startswith(("dev_", "cmd_", "probe_", "server_", "blender_", "web_"))]
+    if source:
+        for name in names:
+            shutil.copyfile(os.path.join(SCRIPTS_DIR, name + ".py"), os.path.join(target, name + ".py"))
+        return len(names)
     compile_source = ("import py_compile, sys\nsource, target = sys.argv[1:3]\n"
                       "for name in sys.argv[3:]:\n"
                       "    py_compile.compile(source + '/' + name + '.py', cfile=target + '/' + name + '.pyc', dfile=name + '.py', doraise=True, optimize=2)\n")
@@ -876,7 +882,7 @@ def build_sketchup():
     target = os.path.join(ext_dir, "scripts")
     os.makedirs(target)
     host_python = _stage_python(os.path.join(ext_dir, "python"))
-    count = _stage_sidecar_scripts(target, host_python, SKETCHUP_PLAIN_NAMES)
+    count = _stage_sidecar_scripts(target, host_python, SKETCHUP_PLAIN_NAMES, source=True)   # EW 심사자가 읽을 수 있게 평문
     shutil.copyfile(os.path.join(SCRIPTS_DIR, "sketchup_ext.rb"), os.path.join(ext_dir, "main.rb"))
     os.makedirs(os.path.join(ext_dir, "icons"))
     # 도구 막대 아이콘 — Windows는 SVG, macOS는 PNG(SketchUp 맥은 SVG 대신 PDF를 받는다 — PNG는 48 px를 줄여 그린다)
@@ -889,7 +895,7 @@ def build_sketchup():
     with open(os.path.join(work_dir, SKETCHUP_EXT_ID + ".rb"), "w", encoding="utf-8") as f:
         f.write(SKETCHUP_ROOT_SOURCE % {"id": SKETCHUP_EXT_ID, "version": PACKAGE_VERSION, "creator": PUBLISHER["name"],
                                         "year": datetime.date.today().year})
-    print("  로직 모듈 %d개 컴파일" % count)
+    print("  로직 모듈 %d개(평문 .py)" % count)
     rbz = os.path.join(BUILD_DIR, "%s-%s.rbz" % (SKETCHUP_EXT_ID, PACKAGE_VERSION))
     with zipfile.ZipFile(rbz, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
         for folder, _dirs, files in os.walk(work_dir):

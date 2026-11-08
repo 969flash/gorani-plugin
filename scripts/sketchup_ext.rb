@@ -10,7 +10,7 @@
 
 require "json"
 require "fileutils"
-require "net/http"
+require "socket"
 
 module BSH
   module Gorani
@@ -21,6 +21,7 @@ module BSH
     LAYER_KEY = "GORANI_LAYER"           # 항목 그룹의 레이어(태그) 이름
     TAG_FOLDER = "CTX"                      # constants.CTX_ROOT_LAYER
     M = 1.m.to_f                            # m → 인치
+    DEBUG = false                           # true면 실패를 Ruby 콘솔에도(EW 요건 'Printing to the Console' — 평소에는 패널·사이드카 로그로만)
     RPC = %w[get_model_attrs set_model_attrs clear bake ref save zoom import pick_curve].freeze
     TERRAIN_SMOOTH = Geom::PolygonMesh::AUTO_SOFTEN | Geom::PolygonMesh::SMOOTH_SOFT_EDGES
     LOG_DIR = File.join(Dir.home, "Gorani")   # 사이드카 constants.HOME_DIR과 같은 자리
@@ -159,10 +160,16 @@ module BSH
       return unless sidecar_alive?
       if @io
         @io.puts(JSON.generate(cmd: cmd))
-      else   # Windows — stdin이 없다. 패널 주소의 POST /cmd(panel_server.DIRECT_CMDS)
-        uri = URI(@url.sub("/?token=", "/cmd?token="))
-        Net::HTTP.start(uri.host, uri.port, open_timeout: 2, read_timeout: 5) do |http|
-          http.post(uri.request_uri, JSON.generate(cmd: cmd), "Content-Type" => "application/json")
+      else   # Windows — stdin이 없다. 패널 주소의 POST /cmd(panel_server.DIRECT_CMDS).
+        # net/http는 OpenSSL을 끌어와 SketchUp(특히 Windows)에서 느리다(rubocop-sketchup SketchupPerformance/OpenSSL, EW 요건 점검 2026-11-08) — 로컬 소켓으로 직접
+        port, token = @url.match(%r{\Ahttp://127\.0\.0\.1:(\d+)/\?token=([^\s&]+)})&.captures
+        return unless port
+        body = JSON.generate(cmd: cmd)
+        Socket.tcp("127.0.0.1", port.to_i, connect_timeout: 2) do |sock|
+          sock.write("POST /cmd?token=#{token} HTTP/1.0\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n" \
+                     "Content-Length: #{body.bytesize}\r\n\r\n#{body}")
+          sock.close_write
+          sock.read if IO.select([sock], nil, nil, 5)   # 서버가 답하고 닫을 때까지(HTTP/1.0)
         end
       end
     rescue StandardError
@@ -174,7 +181,7 @@ module BSH
       raise ArgumentError, "Unknown call: #{msg['method']}" unless RPC.include?(msg["method"])
       reply(msg["id"], true, send("rpc_#{msg['method']}", msg["args"] || {}), "")
     rescue StandardError => e
-      warn "[Gorani] #{e.class}: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+      warn "[Gorani] #{e.class}: #{e.message}\n#{e.backtrace.first(5).join("\n")}" if DEBUG
       reply(msg && msg["id"], false, nil, "#{e.class}: #{e.message}")
     end
 
@@ -286,7 +293,7 @@ module BSH
         end
       rescue ArgumentError => e   # 자기교차 발자국 등
         failed += 1
-        warn "[Gorani] building #{name}: #{e.message}"
+        warn "[Gorani] building #{name}: #{e.message}" if DEBUG
         group.erase! if group && group.valid?
       end
       failed
@@ -325,7 +332,7 @@ module BSH
         end
         ids << group.persistent_id
       rescue StandardError => e
-        warn "[Gorani] #{item['layer']} #{item['name']}: #{e.message}"
+        warn "[Gorani] #{item['layer']} #{item['name']}: #{e.message}" if DEBUG
       end
       model.commit_operation
       ids
