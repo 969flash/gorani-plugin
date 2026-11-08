@@ -625,13 +625,13 @@ CTX_LAYERS = {   # 이름: (RGB)
     "Site": (220, 40, 40), "Parcels": (185, 185, 180), "Buildings": (128, 128, 128), "Terrain": (236, 232, 222),
     "Water": (46, 125, 224), "Roads": (168, 168, 162), "Green": (228, 235, 226), "Rail": (110, 110, 110),
     "Bridges": (150, 150, 150), "Zoning": (200, 120, 40), "QA::cadastre_mismatch": (255, 0, 255), "Ref": (0, 0, 0),
-    "Site::ground": (236, 150, 120), "Site::lots": (235, 140, 140), "Terrain::site_flat": (214, 196, 170), "Terrain::site_wall": (150, 140, 128), "Terrain::site_original": (236, 232, 222),
+    "Site::ground": (236, 150, 120), "Site::lots": (235, 140, 140), "Terrain::site_flat": (214, 196, 170), "Terrain::site_wall": (150, 140, 128), "Terrain::site_original": (236, 232, 222), "Site::original": (236, 232, 222), "Site::original::Terrain": (236, 232, 222), "Site::original::Green": (228, 235, 226),
     "Terrain::block": (200, 192, 180),   # 지형을 바닥까지 채우기 — 지형 덩어리 옆면·바닥
 }
 # CTX::Zoning 하위 레이어 — overlays theme → 'CTX::Zoning::<이름>::<종류>'. 종류는 용도지역이면 현황도 11 범례 이름, 나머지는 overlay.kind.
 # 색은 현황도 11~13 범례 색(context_baker.get_layer_rgb). 현황도에 없는 theme(건축선 notice_road)은 넣지 않는다.
 ZONING_LAYERS = {"zone": "용도지역", "district": "용도지구", "area": "용도구역", "facility": "도시계획시설", "plan": "지구단위계획"}
-CTX_HIDDEN_LAYERS = ("Terrain::site_original", "Site::lots")   # 처음 만들 때 끈다(평탄화 전 원지형·합필 전 필지 — 필요할 때 켜 본다). 사용자가 켠 뒤로는 건드리지 않는다
+CTX_HIDDEN_LAYERS = ("Terrain::site_original", "Site::original", "Site::lots")   # 처음 만들 때 끈다(평탄화 전 원지형·대상지 면 아래 원래 지형·녹지·합필 전 필지 — 필요할 때 켜 본다). 사용자가 켠 뒤로는 건드리지 않는다
 # 베이스맵 레이어 순서·K톤(0~100)·선두께 mm(1:5000, 1:1000). fill=None이면 선만.
 BM_LAYERS = [
     ("00_frame_scale", "프레임·축척·방위", None, 100, (0.5, 0.5)),
@@ -810,6 +810,7 @@ TERRAIN_RESAMPLE = 4.0          # m — 등고선 리샘플 간격 (07 §1)
 TERRAIN_GRID = 3.0              # m — 출력 지형 메시 칸(2026-10-10: 들로네 대신 쿼드 위주 — 영역 경계는 원래 선, 안쪽은 정사각 칸)
 TERRAIN_GRID_MAX_FACES = 250000 # 범위 bbox ÷ 칸² 상한 — 넘으면 칸을 키운다(위치 1:5000 용지 4.2×3.0 km → 약 7 m)
 TERRAIN_MARGIN = 20.0           # m — TIN 입력 범위 여유 (범위 bbox ∪ 건물 bbox + 이 값)
+TERRAIN_STEP_OFFSET = 0.25      # m — 계단 지형: 단 경계를 등고선 높이(1:5000 주곡선 5 m·간곡선 2.5 m, 1 m 배수)에서 이만큼 비킨다. 단 윗면 높이는 k × step 그대로(non_rhino_utils._get_step_band)
 TERRAIN_STEP_SNAP = 1e-4        # m — 계단 지형: 단 경계에서 이만큼 안의 정점은 경계 위로 본다(투영 오차로 생기는 실오라기 면 방지)
 # 지형을 바닥까지 채우기(options.terrain_block, 2026-10-28) — 지형을 모형 받침처럼 바닥까지 덩어리로. 바닥 = 범위 안 최저 지반 − 두께, 5 m 단위 내림.
 # 해발 0 m 바닥은 버렸다 — 두께가 표고에 끌려간다(서울 평지 20 m·산지 수백 m, 해수면 아래 간척지는 음수)
@@ -821,6 +822,7 @@ WATER_LIFT = 0.02               # m — 수면 메시를 지형 위로 띄우는
 WATER_EDGE_STEP = 2.0           # m — 수면 경계 조밀화 간격 (TIN 입력, code_map §5.1)
 OSM_FLOWING_WATER = ("river", "canal", "stream", "ditch", "drain", "rapids", "fish_pass")   # natural=water + water=* 중 흐르는 물(OSM wiki Key:water) — 나머지 수면은 고인 물
 WATER_STILL_KINDS = ("lake",)   # 고인 물 = 평평한 수면 하나(물가 최저). 나머지(river·stream)는 흐르는 물 — 물가를 따라 기운다
+WATER_SHORE_FALLOFF = 15.0      # m — 물가선에서 이 거리 안 지형을 수면 쪽으로 부드럽게 내린다(non_rhino_utils.get_shore_fitted). 물가선 정점만 내리면 한 면 폭에 둑 높이(수 m)가 떨어져 톱니로 보였다(2026-11-08 죽림리)
 WATER_SHORE_WINDOW = 50.0       # m — 흐르는 물 수위 = 이 거리 안 물가 높이의 최저. 물가 정점이 둑 꼭대기 등고선(성수 한강 15 m)을 받은 튀는 값을 걸러 낸다
 WATER_MAX_GRADE = 0.02          # 흐르는 물 수면의 최대 기울기(2 %) — 등고선 5 m 간격 때문에 계단진 물가 높이를 250 m 경사로로 편다. 수면(면)이 있는 하천은 폭이 넓어 대개 1 % 미만(5 %는 청계천·홍제천 수면이 급류처럼 보였다)
 WATER_BLEND_SOURCE = "aws_terrain"   # 수면 둘레 칸이 호수·강 바닥 수심과 섞인 격자 지형 원천(osm_context.get_terrain_spots) — 일본 지리원 5 m는 수면이 값 없음이라 해당 없음

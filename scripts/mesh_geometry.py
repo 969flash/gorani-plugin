@@ -33,7 +33,7 @@ if geometry is None:
 import constants
 import context_report
 import non_rhino_utils
-from context_geometry import (CLASS_LAYERS, SITE_LAYERS, TOPO_SOURCE_ID, ContextGeo, NearestXYZ, get_building_attrs, get_building_parts, get_class_polygons,
+from context_geometry import (CLASS_LAYERS, GROUND_CLASSES, SITE_CUT_CLASSES, SITE_LAYERS, SITE_ORIGINAL_CLASSES, TOPO_SOURCE_ID, ContextGeo, NearestXYZ, get_building_attrs, get_building_parts, get_class_polygons,
                               get_clip_ring, get_clipped_curves, get_parts, get_tin_points, get_zoning_rings)
 from i18n import tr
 
@@ -371,9 +371,10 @@ def build_terrain(prepared):
     site_world = getattr(prepared, "site_rings", None) or []
     flatten = bool(options.get("flatten_site")) and mode in ("lots", "area") and bool(site_world)
     site_mesh_out = options.get("site_output") == "mesh" and mode in ("lots", "area") and bool(site_world)
-    separate_site = flatten or site_mesh_out
+    separate_site = flatten   # 평평하게는 대상지 땅을 통째로 뗀다(도로까지 같은 높이로)
+    site_cut = site_mesh_out and not flatten   # 면 출력은 대상지 안 지형·녹지만 대상지 면으로 — 도로·철도·수면은 그대로(context_geometry.build_terrain과 같은 규칙)
     site_start = len(rings)
-    if separate_site:
+    if separate_site or site_cut:   # 대상지 경계를 제약선으로 — 면이 경계에서 나뉜다
         rings += [_get_local_ring(ring, origin) for ring in site_world]
 
     t = time.time()
@@ -398,6 +399,8 @@ def build_terrain(prepared):
                 state[1 if outer else 2] = True
         best = min(((prio, index) for (index, _p), (prio, outer, hole) in parts.items() if outer and not hole), default=None)
         cls = constants.TERRAIN_CLASS_PRIORITY[best[0]] if best else "terrain"
+        if site_cut and cls in SITE_CUT_CLASSES and any(i >= site_start for i in inside):
+            cls = SITE_CUT_CLASSES[cls]
         buckets.setdefault(cls, []).append(tri)
         if cls == "water":
             water_regions.setdefault(best[1], []).append(tri)
@@ -410,7 +413,7 @@ def build_terrain(prepared):
     counts["drape_s"] = round(time.time() - t, 3)
 
     meshes = {}
-    for cls in ("terrain", "road", "green", "rail"):
+    for cls in GROUND_CLASSES:
         if buckets.get(cls):
             meshes[cls] = _get_mesh(buckets[cls], xy, zs)
     # 수면 — 고인 물은 평평하게, 흐르는 물은 물가를 따라 기울게(non_rhino_utils.get_water_surface) + WATER_LIFT, 물가 정점 = 수위
@@ -426,20 +429,28 @@ def build_terrain(prepared):
         water_bodies = [{"name": polys[i][1], "still": polys[i][3], "level": round(low, 2), "level_max": round(high, 2), "faces": len(body[1])}
                         for i, body, (low, high) in zip(order, draped, levels)]
         shore = non_rhino_utils.WaterShore(meshes["water"])   # 물가선 = 수위 — 지형·도로가 물가에서 비탈로 오른다
-        for cls in ("terrain", "road", "green", "rail"):
+        for cls in GROUND_CLASSES:
             if cls in meshes:
                 meshes[cls] = (non_rhino_utils.get_shore_fitted(meshes[cls][0], shore), meshes[cls][1])
     counts["water_bodies"] = water_bodies
     step = float(options.get("terrain_step") or 0)
     if step > 0:
         t = time.time()
-        for cls in ("terrain", "road", "green", "rail", "water"):
+        for cls in GROUND_CLASSES + ("water",):
             if cls in meshes:
                 meshes[cls] = non_rhino_utils.get_stepped_mesh(*meshes[cls], step=step)
         counts.update(terrain_step=step, step_s=round(time.time() - t, 3))
 
-    # 대상지 — 바닥 메시(원지형) 또는 평탄면 + 벽 + 원지형 사본(숨김 컬렉션)
+    # 대상지 — 면 출력: 대상지 안 지형·녹지 = 대상지 면(Site::ground), 같은 모양 원래 지형·녹지는 꺼 둔 Site::original / 평평하게: 평탄면 + 벽 + 원지형 사본(숨김 컬렉션)
+    if site_cut:
+        originals = {SITE_ORIGINAL_CLASSES[cls]: meshes.pop(cls) for cls in SITE_CUT_CLASSES.values() if cls in meshes}
+        if originals:
+            meshes["site_ground"] = _join(list(originals.values()))
+            meshes.update(originals)
+            counts["site_output"] = "mesh"
     ground_parts = [meshes[cls] for cls in ("terrain", "road", "green", "rail") if cls in meshes]
+    if site_cut and "site_ground" in meshes:
+        ground_parts.append(meshes["site_ground"])
     if buckets.get("site"):
         site_tris = buckets["site"]
         if flatten:
@@ -499,7 +510,7 @@ def _get_terrain_items(meshes, counts):
                      "LEVEL_SRC": "; ".join("terrain_min" if b["still"] else "shore_smoothed" for b in bodies)}
         elif cls.startswith("site_"):
             flat = "site_level" in counts
-            attrs = {"KIND": {"site_ground": "flattened" if flat else "natural", "site_wall": "edge_wall", "site_original": "natural"}[cls]}
+            attrs = {"KIND": {"site_ground": "flattened" if flat else "natural", "site_wall": "edge_wall", "site_original": "natural", "site_natural_terrain": "natural", "site_natural_green": "natural"}[cls]}
             if flat:
                 attrs.update(LEVEL_M="%.2f" % counts["site_level"], LEVEL_SRC="site_edge_%s" % counts["site_level_how"])
         else:

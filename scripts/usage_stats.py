@@ -124,10 +124,11 @@ def get_target_params(target, lots=None):
         if lots:
             params["area"] = round(sum(lot.area for lot in lots), 1)
     elif mode == "area":
-        ring = [tuple(p) for p in target.get("ring") or []]
-        min_x, min_y, max_x, max_y = (min(p[0] for p in ring), min(p[1] for p in ring), max(p[0] for p in ring), max(p[1] for p in ring))
+        rings = [[tuple(p) for p in ring] for ring in context_builder.get_spec_rings(target)]   # 구역 여러 개(2026-11-08)
+        pts = [p for ring in rings for p in ring]
+        min_x, min_y, max_x, max_y = (min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts))
         center = ((min_x + max_x) / 2.0, (min_y + max_y) / 2.0)
-        params.update(area=round(non_rhino_utils.get_ring_area(ring), 1), width=round(max_x - min_x, 1), height=round(max_y - min_y, 1))
+        params.update(area=round(sum(non_rhino_utils.get_ring_area(ring) for ring in rings), 1), width=round(max_x - min_x, 1), height=round(max_y - min_y, 1))
     else:
         center = target.get("center")
     if center:

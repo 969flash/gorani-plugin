@@ -37,7 +37,12 @@ from i18n import tr
 
 TOPO_SOURCE_ID = "ngii_topo_5000"
 CLASS_LAYERS = {"terrain": "Terrain", "water": "Water", "road": "Roads", "green": "Green", "rail": "Rail", "block": "Terrain::block"}
-SITE_LAYERS = {"site_wall": "Terrain::site_wall", "site_original": "Terrain::site_original"}   # site_ground는 옵션 따라(_get_terrain_items)
+SITE_LAYERS = {"site_wall": "Terrain::site_wall", "site_original": "Terrain::site_original",
+               "site_natural_terrain": "Site::original::Terrain", "site_natural_green": "Site::original::Green"}   # site_ground는 옵션 따라(_get_terrain_items)
+# 대상지 면 출력(평평하게 끔) — 대상지 안 지형·녹지만 대상지 면으로 바꾼다. 도로·철도·수면은 그대로(2026-11-08 사용자 — 대상지를 지나는 기반시설은 덮지 않는다)
+SITE_CUT_CLASSES = {"terrain": "site_terrain", "green": "site_green"}
+SITE_ORIGINAL_CLASSES = {"site_terrain": "site_natural_terrain", "site_green": "site_natural_green"}   # 대상지 면과 같은 모양의 원래 지형·녹지 — 꺼 둔 CTX::Site::original 하나만 켜면 보인다
+GROUND_CLASSES = ("terrain", "road", "green", "rail", "site_terrain", "site_green")   # 물가 비탈·계단을 같이 거치는 지반
 
 
 # [blender-cut] Rhino판 베이크 항목(mesh_geometry.BakeItem이 메시판)
@@ -350,7 +355,7 @@ def get_tin_points(prepared):
     """TIN 입력점(세계좌표). 드라이버의 정밀도 검사도 이것과 비교한다.
 
     입력: Prepared. 처리: TIN 범위 = 범위 bbox ∪ 범위 안 건물 bbox + TERRAIN_MARGIN → 등고선 4 m 리샘플 + 표고점(spot_struct 제외)
-          → (x, y) mm 단위 중복 제거 → 수면 폴리곤 안쪽 점 빼기 → 범위 링 정점(Z = 최근접 입력점) → 분류 폴리곤 경계 조밀화(수면 WATER_EDGE_STEP, 도로·철도·녹지 TERRAIN_RESAMPLE
+          → (x, y) mm 단위 중복 제거 → 수면 폴리곤 안쪽 점 빼기 → 범위 링 정점(Z = 최근접 입력점) → 수면 경계 조밀화(WATER_EDGE_STEP — 도로·철도·녹지 경계 점은 2026-11-08에 뺐다
           × radius/CONTEXT_RADIUS — 반경에 비례해 간격을 넓힌다, Z = 최근접, 범위 bbox 안만).
     출력: ``([(x, y, z)], water_polys, counts)``. 등고선·표고점이 0이면 DomainError(no_terrain_points).
     """
@@ -401,13 +406,15 @@ def get_tin_points(prepared):
     nearest = NearestXYZ(list(pts.values()), constants.CLASSIFY_GRID)
     for x, y in prepared.extent_ring:
         add(x, y, nearest.nearest_z(x, y))
-    # 분류 폴리곤 경계 조밀화 — 수면 WATER_EDGE_STEP, 도로·철도·녹지 TERRAIN_RESAMPLE. 성수 fixture는 등고선·표고점이 689점뿐이라
+    # 분류 폴리곤 경계 조밀화 — 수면만 WATER_EDGE_STEP(물가 높이). (예전: 도로·철도·녹지도 TERRAIN_RESAMPLE — 성수 fixture는 등고선·표고점이 689점뿐이라
     # (평지) 이 점이 없으면 범위 안 면 1,488개·도로면 124개로 분류가 무의미했다(job 1007-221623-027d).
     # 간격은 반경에 비례(R=500 4 m, R=1 km 8 m) — 폴리곤 수가 R²로 늘어 R=1 km에서 74,014점·148k면·분류 6.3 s였다(job 1007-225058)
     # ponytail: 그래도 점 수 ∝ R. 1 km 분류가 거슬리면 step ∝ R² 또는 범위 링 안(is_point_in_ring)만 넣기
     step_factor = max(1.0, float(prepared.radius) / constants.CONTEXT_RADIUS)
     for cls, _name, parts, _still in polys:
-        step = (constants.WATER_EDGE_STEP if cls == "water" else constants.TERRAIN_RESAMPLE) * step_factor
+        if cls != "water":   # 도로·철도·녹지 경계 점은 넣지 않는다 — Z = 최근접 등고선 점이라 도로 옆 지형이 계단처럼 울퉁불퉁했다(2026-11-08 사용자, 죽림리 301-3 구역 계단 테두리).
+            continue         # 출력 메시는 3 m 격자를 따로 만들고 TIN은 높이만 읽으므로(2026-10-10 쿼드 메싱) 분류용 점이 필요 없다
+        step = constants.WATER_EDGE_STEP * step_factor
         for part in parts:
             for ring in part:
                 for p in non_rhino_utils.get_resampled_ring(ring, step):
@@ -702,9 +709,10 @@ def build_terrain(prepared):
     site_world = getattr(prepared, "site_rings", None) or []
     flatten = bool(options.get("flatten_site")) and mode in ("lots", "area") and bool(site_world)
     site_mesh_out = options.get("site_output") == "mesh" and mode in ("lots", "area") and bool(site_world)
-    separate_site = flatten or site_mesh_out
-    site_local = [[(x - ox, y - oy) for x, y in ring] for ring in site_world] if separate_site else []
-    cut_rings += site_local
+    separate_site = flatten   # 평평하게는 대상지 땅을 통째로 뗀다(도로까지 같은 높이로)
+    site_cut = site_mesh_out and not flatten   # 면 출력은 대상지 안 지형·녹지만 대상지 면으로 — 도로·철도·수면은 그대로(2026-11-08 사용자)
+    site_local = [[(x - ox, y - oy) for x, y in ring] for ring in site_world] if (separate_site or site_cut) else []
+    cut_rings += site_local   # 대상지 경계를 제약선으로 — 면이 경계에서 나뉜다
 
     t = time.time()
     edge = max(constants.TERRAIN_GRID, math.sqrt((wx1 - wx0) * (wy1 - wy0) / float(constants.TERRAIN_GRID_MAX_FACES)))
@@ -731,6 +739,8 @@ def build_terrain(prepared):
                 if prio == 0:
                     break
         cls = constants.TERRAIN_CLASS_PRIORITY[best[0]] if best else "terrain"
+        if site_cut and cls in SITE_CUT_CLASSES and any(non_rhino_utils.is_point_in_ring(c.X, c.Y, ring) for ring in site_local):
+            cls = SITE_CUT_CLASSES[cls]   # 대상지 안 지형·녹지 — 물가 비탈·계단은 원래 분류와 똑같이 거친 뒤 대상지 면이 된다
         buckets.setdefault(cls, []).append(mesh)
         if cls == "water":
             water_regions.setdefault(best[1], []).append(mesh)
@@ -740,7 +750,7 @@ def build_terrain(prepared):
     counts["drape_s"] = round(time.time() - t, 3)
 
     meshes = {}
-    for cls in ("terrain", "road", "green", "rail"):
+    for cls in GROUND_CLASSES:
         if buckets.get(cls):
             meshes[cls] = _join(buckets[cls])
     # 수면 — 고인 물은 평평하게, 흐르는 물은 물가를 따라 기울게(non_rhino_utils.get_water_surface) + WATER_LIFT, 물가 정점 = 수위
@@ -759,25 +769,35 @@ def build_terrain(prepared):
         water_bodies = [{"name": polys[i][1], "still": polys[i][3], "level": round(low, 2), "level_max": round(high, 2), "faces": m.Faces.Count}
                         for i, m, (low, high) in zip(order, raw, levels)]
         shore = non_rhino_utils.WaterShore(_get_mesh_faces(meshes["water"]))   # 물가선 = 수위 — 지형·도로가 물가에서 비탈로 오른다
-        for cls in ("terrain", "road", "green", "rail"):
+        for cls in GROUND_CLASSES:
             if cls in meshes:
                 mesh = meshes[cls]
-                for k, v in enumerate(mesh.Vertices.ToPoint3dArray()):
-                    z = shore.get_z(v.X, v.Y)
-                    if z is not None and z != v.Z:
-                        mesh.Vertices.SetVertex(k, v.X, v.Y, z)
+                points = mesh.Vertices.ToPoint3dArray()
+                fitted = non_rhino_utils.get_shore_fitted([(v.X, v.Y, v.Z) for v in points], shore)   # 물가선 = 수위, WATER_SHORE_FALLOFF 안은 비탈로
+                for k, (v, (x, y, z)) in enumerate(zip(points, fitted)):
+                    if z != v.Z:
+                        mesh.Vertices.SetVertex(k, x, y, z)
                 mesh.Normals.ComputeNormals()
     counts["water_bodies"] = water_bodies
     step = float(options.get("terrain_step") or 0)
     if step > 0:
         t = time.time()
-        for cls in ("terrain", "road", "green", "rail", "water"):
+        for cls in GROUND_CLASSES + ("water",):
             if cls in meshes:
                 meshes[cls] = _get_stepped(meshes[cls], step)
         counts.update(terrain_step=step, step_s=round(time.time() - t, 3))
 
-    # 대상지 — 바닥 메시(원지형) 또는 평탄면 + 벽 + 원지형 사본(숨김)
+    # 대상지 — 면 출력: 대상지 안 지형·녹지 = 대상지 면(Site::ground), 같은 모양의 원래 지형·녹지는 꺼 둔 레이어(Site::original 몫)에 — 겹치지 않는다 /
+    # 평평하게: 평탄면 + 벽 + 원지형 사본(숨김)
+    if site_cut:
+        originals = {SITE_ORIGINAL_CLASSES[cls]: meshes.pop(cls) for cls in SITE_CUT_CLASSES.values() if cls in meshes}
+        if originals:
+            meshes["site_ground"] = _join([m.DuplicateMesh() for m in originals.values()])
+            meshes.update(originals)   # 원래 지형·녹지 — 꺼 둔 Site::original
+            counts["site_output"] = "mesh"
     ground_parts = [meshes[cls] for cls in ("terrain", "road", "green", "rail") if cls in meshes]
+    if site_cut and "site_ground" in meshes:
+        ground_parts.append(meshes["site_ground"])
     if buckets.get("site"):
         site_in = _join(buckets["site"])
         if flatten:
@@ -844,7 +864,7 @@ def _get_terrain_items(prepared, meshes, counts):
             attrs = {"KIND": "block", "BASE_M": "%g" % counts["block_base"]}
         elif cls.startswith("site_"):
             flat = "site_level" in counts
-            attrs = {"KIND": {"site_ground": "flattened" if flat else "natural", "site_wall": "edge_wall", "site_original": "natural"}[cls]}
+            attrs = {"KIND": {"site_ground": "flattened" if flat else "natural", "site_wall": "edge_wall", "site_original": "natural", "site_natural_terrain": "natural", "site_natural_green": "natural"}[cls]}
             if flat:
                 attrs.update(LEVEL_M="%.2f" % counts["site_level"], LEVEL_SRC="site_edge_%s" % counts["site_level_how"])
         else:

@@ -73,6 +73,32 @@ try:
     check("구역 이름에 동·지번", ok and ("구역" in info.get("name", "") or "area" in info.get("name", "").lower()), info.get("name"))
     check("구역 아이콘 셋이 같은 줄", ok and info.get("icons") == 3 and not info.get("toolsRow"), "icons %s · 단추 줄 %s · 줄 높이 %s" % (info.get("icons"), info.get("toolsRow"), info.get("oneLine")))
 
+    # ①-2 구역 여러 개(2026-11-08) — 지도 클릭으로 더하기, 겹치면 합치기, 묶음째 옮기기
+    def draw_ring(pts):   # 지도를 누르고(첫 클릭이 그리기 시작) 더블클릭으로 닫는다 — 사용자와 같은 길
+        js(host, "var pts = %s; pts.forEach(function (p) { map.fire('click', { latlng: L.latLng(p[1], p[0]) }); }); map.fire('dblclick'); return 1;" % json.dumps(pts))
+
+    count = lambda: js(host, "return String(state.area && state.area.rings_tm ? state.area.rings_tm.length : 0);")
+    before_area = float(js(host, "return String(state.area.area);"))
+    draw_ring([[127.0245, 37.5535], [127.0251, 37.5535], [127.0251, 37.5540], [127.0245, 37.5540]])   # 떨어진 곳
+    ok = wait_for(host, "state.area && state.area.rings_tm.length === 2", 30)
+    name = js(host, "return document.querySelector('#tray .tval').textContent;")
+    check("지도에 그리면 구역이 더해짐", ok, "구역 %s · %s" % (count(), name))
+    draw_ring([[127.0228, 37.5538], [127.0236, 37.5538], [127.0236, 37.5543], [127.0228, 37.5543]])   # 첫 구역과 겹침
+    ok = wait_for(host, "state.area && state.area.area > %f + 1000" % (before_area + 1), 30)
+    check("겹친 구역은 하나로 합침", ok and count() == "2", "구역 %s · 면적 %s ㎡" % (count(), js(host, "return String(state.area.area);")))
+    c0 = js(host, "return JSON.stringify(state.area.center);")
+    js(host, "ACTIONS.area_move(); map.panBy([120, 0], { animate: false }); return 1;")
+    time.sleep(0.5)
+    js(host, "ACTIONS.stamp_place(); return 1;")
+    ok = wait_for(host, "state.area && JSON.stringify(state.area.center) !== %s" % json.dumps(c0), 30)
+    check("[옮기기]는 묶음째", ok and count() == "2", "구역 %s · 가운데 %s → %s" % (count(), c0, js(host, "return JSON.stringify(state.area.center);")))
+    js(host, "ACTIONS.area_clear(); return 1;")
+    wait_for(host, "!state.area", 15)
+    info = js(host, "return draw.on + '|' + document.querySelectorAll('#tray .recent-row').length;")
+    check("지우면 최근 결과·그리기 꺼짐", info.split("|")[0] == "false", info)
+    js(host, "send({ cmd: 'set_area', ring_lnglat: %s }); return 1;" % json.dumps(AREA))   # 아래 시험이 쓸 구역
+    wait_for(host, "state.area && state.area.ok", 30)
+
     # ② 체크박스 줄 높이
     js(host, "var d = document.getElementById('s3d'); if (d) d.open = true; return 1;")
     time.sleep(0.5)

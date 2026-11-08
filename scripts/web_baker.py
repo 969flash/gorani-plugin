@@ -94,7 +94,7 @@ def get_glb(items, prepared):
     """BakeItem 목록 → GLB 바이트. 레이어마다 노드 하나(면·선 프리미티브), 숨김 레이어는 뺀다."""
     layers = {}
     for item in items:
-        if item.layer.partition("::")[2] in constants.CTX_HIDDEN_LAYERS:
+        if any(item.layer.partition("::")[2] == h or item.layer.partition("::")[2].startswith(h + "::") for h in constants.CTX_HIDDEN_LAYERS):   # 하위 레이어도
             continue
         tris, lines = layers.setdefault(item.layer, ([], []))
         if item.verts and item.faces:
