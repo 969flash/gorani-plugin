@@ -355,7 +355,7 @@ def get_tin_points(prepared):
     """TIN 입력점(세계좌표). 드라이버의 정밀도 검사도 이것과 비교한다.
 
     입력: Prepared. 처리: TIN 범위 = 범위 bbox ∪ 범위 안 건물 bbox + TERRAIN_MARGIN → 등고선 4 m 리샘플 + 표고점(spot_struct 제외)
-          → (x, y) mm 단위 중복 제거 → 수면 폴리곤 안쪽 점 빼기 → 범위 링 정점(Z = 최근접 입력점) → 분류 폴리곤 경계 조밀화(수면 WATER_EDGE_STEP, 도로·철도·녹지 TERRAIN_RESAMPLE
+          → (x, y) mm 단위 중복 제거 → 수면 폴리곤 안쪽 점 빼기 → 범위 링 정점(Z = 최근접 입력점) → 수면 경계 조밀화(WATER_EDGE_STEP — 도로·철도·녹지 경계 점은 2026-11-08에 뺐다
           × radius/CONTEXT_RADIUS — 반경에 비례해 간격을 넓힌다, Z = 최근접, 범위 bbox 안만).
     출력: ``([(x, y, z)], water_polys, counts)``. 등고선·표고점이 0이면 DomainError(no_terrain_points).
     """
@@ -406,13 +406,15 @@ def get_tin_points(prepared):
     nearest = NearestXYZ(list(pts.values()), constants.CLASSIFY_GRID)
     for x, y in prepared.extent_ring:
         add(x, y, nearest.nearest_z(x, y))
-    # 분류 폴리곤 경계 조밀화 — 수면 WATER_EDGE_STEP, 도로·철도·녹지 TERRAIN_RESAMPLE. 성수 fixture는 등고선·표고점이 689점뿐이라
+    # 분류 폴리곤 경계 조밀화 — 수면만 WATER_EDGE_STEP(물가 높이). (예전: 도로·철도·녹지도 TERRAIN_RESAMPLE — 성수 fixture는 등고선·표고점이 689점뿐이라
     # (평지) 이 점이 없으면 범위 안 면 1,488개·도로면 124개로 분류가 무의미했다(job 1007-221623-027d).
     # 간격은 반경에 비례(R=500 4 m, R=1 km 8 m) — 폴리곤 수가 R²로 늘어 R=1 km에서 74,014점·148k면·분류 6.3 s였다(job 1007-225058)
     # ponytail: 그래도 점 수 ∝ R. 1 km 분류가 거슬리면 step ∝ R² 또는 범위 링 안(is_point_in_ring)만 넣기
     step_factor = max(1.0, float(prepared.radius) / constants.CONTEXT_RADIUS)
     for cls, _name, parts, _still in polys:
-        step = (constants.WATER_EDGE_STEP if cls == "water" else constants.TERRAIN_RESAMPLE) * step_factor
+        if cls != "water":   # 도로·철도·녹지 경계 점은 넣지 않는다 — Z = 최근접 등고선 점이라 도로 옆 지형이 계단처럼 울퉁불퉁했다(2026-11-08 사용자, 죽림리 301-3 구역 계단 테두리).
+            continue         # 출력 메시는 3 m 격자를 따로 만들고 TIN은 높이만 읽으므로(2026-10-10 쿼드 메싱) 분류용 점이 필요 없다
+        step = constants.WATER_EDGE_STEP * step_factor
         for part in parts:
             for ring in part:
                 for p in non_rhino_utils.get_resampled_ring(ring, step):
