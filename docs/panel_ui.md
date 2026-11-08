@@ -63,7 +63,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `search` | `query`(str) | `search_result` | 주소·지번·PNU. 키 있으면 VWorld 보조(`pnu_loader.search_lots`) |
 | `map_lots` | `bbox`[minLng,minLat,maxLng,maxLat], `seq`(int) | `map_lots`(같은 `seq`) | 줌 ≥ 17. JS는 `seq` < 최신이면 버린다 |
 | `select_lots` | `pnus`(list, 현재 대상 전체) | `lot_state` / `error{context:"select"}` | 토글마다 전체 목록. 상태 원본은 JS. 빈 배열 = 모두 지움(응답 `lots:[]`) |
-| `set_area` | `ring_tm` \| `ring_lnglat` \| `center`+`offsets` (없으면 지움) | `area_state` | 구역 방식. 지도에 그린 링(경위도), Rhino 커브 실제 좌표(`ring_tm`), 지도에서 옮겨 놓은 커브(`center` 경위도 + `offsets` m). 안전장치·안의 필지는 Python(§대상지 방식) |
+| `set_area` | `rings_lnglat`(지금 구역들) + 새 구역 하나 `ring_lnglat` \| `ring_tm` \| `center`+`offsets` / 또는 `center`+`ring_offsets`(묶음째 옮기기) / 없으면 지움 | `area_state` | 구역 방식. 필지 추가처럼 지도에 그릴 때마다 구역이 더해진다 — 패널은 지금 구역(경위도)과 새 구역을 같이 보내고, Python이 구역마다 안전장치 → 겹치거나 맞닿은 구역을 하나로 합친다(`context_builder.get_area_rings` — 합필과 같은 `get_merged_rings`, 둘러싼 빈 곳은 채우고 경고). 새 구역이 안전장치에 걸리면 ok=false — 패널은 이전 구역을 둔다. 지도에 그린 링(경위도), Rhino 커브 실제 좌표(`ring_tm`), 지도에서 옮겨 놓은 커브(`center` 경위도 + `offsets` m), [옮기기]는 구역 묶음째(`ring_offsets`, 2026-11-08) |
 | `set_point` | `center`([lng,lat], 없으면 지움) | `point_state` | 위치 방식. 지도 클릭·검색 결과 |
 | `pick_curve` | — | `curve_shape` | Rhino 전용. 선택된 커브가 하나면 그것, 없으면 고르기 프롬프트 |
 | `preflight` | `target`(없으면 `pnus` = 필지 방식), `radius`, `shape`, `paper`, `paper_mm`, `scales`, `seq` | `preflight_result`(같은 `seq`) | 2026-10-19부터 Rhino 패널은 보내지 않는다(범위를 JS가 그린다). 예전: ① lots 변경 직후, ② 진입·옵션 변경(300 ms 디바운스). 메모이즈 키 `(tuple(pnus), radius, shape, paper, tuple(paper_mm), tuple(scales))` — `paper_mm`이 빠지면 용지 '직접'에서 가로·세로를 바꿔도 프레임이 안 바뀐다. `init`마다 비운다 |
@@ -334,9 +334,9 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
 
 ```jsonc
 {"type":"area_state","ok":true,"text":"",            // ok=false면 text 한 줄(자기교차·너무 작음…) — 패널은 이전 구역을 유지한다
- "ring_tm":[[x,y]],"ring_lnglat":[[lng,lat]],"center":[lng,lat],"center_tm":[x,y],"offsets":[[dx,dy]],
- "area":60000.0,"lots":69,"lots_area":44242.0,"lot_name":"성수동2가_333-139_구역",   // 트레이 '대상지' 줄은 address(해외) 또는 lot_name(_ → 공백) + 면적·안의 필지 수
- "target_geojson":FC,                                 // role="target" 안의 필지 + role="area" 구역 1개
+ "rings_tm":[[[x,y]]],"rings_lnglat":[[[lng,lat]]],"center":[lng,lat],"center_tm":[x,y],"ring_offsets":[[[dx,dy]]],   // 구역마다(합친 뒤, 넓은 순). offsets는 묶음 가운데 기준
+ "area":60000.0,"lots":69,"lots_area":44242.0,"lot_name":"성수동2가_333-139_구역",   // 구역이 여럿이면 '…_구역외1'(가장 넓은 구역 자리), area는 합   // 트레이 '대상지' 줄은 address(해외) 또는 lot_name(_ → 공백) + 면적·안의 필지 수
+ "target_geojson":FC,                                 // role="target" 안의 필지 + role="area" 구역마다 1개
  "warnings":[warning]}
 {"type":"point_state","ok":true,"center":[lng,lat],"center_tm":[x,y],"lot_name":"성수동2가_333-139_일대","address":""}
 // address — 해외 대상지(지역 TM)만 Nominatim reverse 짧은 주소 '도로, 동네, 도시'(output_lang 언어, osm_context.get_place_address, 3 s, 못 받으면 ''). 패널 '대상지' 줄은 address가 있으면 그것, 없으면 lot_name. area_state도 같은 칸. 해외 lot_name(결과 폴더 이름)도 같은 주소 'Greenwich St_Russian Hill_San Francisco_vicinity'(도로 종류는 약어 constants.ADDRESS_ABBREVIATIONS, context_builder.get_folder_safe_name — 못 쓰는 글자 빼고 40자, 넘치면 뒤 칸부터 뺀다), 주소를 못 받으면 'N37.8010_W122.4187_vicinity'(2026-11-08)

@@ -646,7 +646,7 @@ var state = { screen: "map", run: "idle", job2d: "idle", blocked: false,
   styleOpen: false, styleSheet: 0, styleEdit: null, styleBase: null, madeTargets: {}, appliedStyle: null, openEl: null, styleSaving: false, menuOpen: false, upd: { state: "", text: "" } };
 var map = null, tiles = null, lotsLayer = null, targetLayer = null, extentLayer = null, extentLabel = null;
 var tileErrors = 0, tileFallback = false, tileDead = false, aerial = false;
-var pointLayer = null, draw = { on: false, pts: [], layer: null, rubber: null, first: null }, stamp = { on: false, offsets: null, layer: null };
+var pointLayer = null, draw = { on: false, pts: [], layer: null, rubber: null, first: null }, stamp = { on: false, rings: null, kind: "", layer: null };
 var timers = { prefs: 0, move: 0, elapsed: 0, toast: 0, style: 0, packs: 0 };
 var listItems = [], listIndex = -1, toastAction = null;
 
@@ -677,12 +677,12 @@ function openPath(path) { send({ cmd: "open_path", path: path }); }
 // 대상지 — 방식마다 하나
 function hasTarget() {
   if (state.mode === "lots") return state.lots.length > 0;
-  if (state.mode === "area") return !!(state.area && state.area.ring_tm && state.area.ring_tm.length);
+  if (state.mode === "area") return !!(state.area && state.area.rings_tm && state.area.rings_tm.length);
   if (state.mode === "point") return !!(state.point && state.point.center_tm);
   return false;
 }
 function targetMsg() {
-  if (state.mode === "area") return { mode: "area", ring: state.area.ring_tm };
+  if (state.mode === "area") return { mode: "area", rings: state.area.rings_tm };
   if (state.mode === "point") return { mode: "point", center: state.point.center_tm };
   return { mode: "lots", pnus: state.lots.slice() };
 }
@@ -855,7 +855,7 @@ function resultOptions(o) {   // 결과를 만든 범위·3D 설정만(2D 키·�
 function restoreResultTarget(rs) {   // 지난 결과의 대상지를 지도에 — 필지 PNU, 구역 링, 위치 점(경위도는 Python이 결과의 좌표계로 바꿨다)
   var t = rs.target || {}, g = rs.target_lnglat || {};
   if (t.mode === "lots" && (t.pnus || []).length) { state.flyOnLot = true; resetLots("lots", t.pnus.slice()); }
-  else if (t.mode === "area" && (g.ring || []).length) { resetLots("area"); cancelDraw(); send({ cmd: "set_area", ring_lnglat: g.ring }); if (map && g.center) map.flyTo(ll(g.center), 16); }
+  else if (t.mode === "area" && ((g.rings || []).length || (g.ring || []).length)) { resetLots("area"); cancelDraw(); send({ cmd: "set_area", rings_lnglat: (g.rings || []).length ? g.rings : [g.ring] }); if (map && g.center) map.flyTo(ll(g.center), 16); }
   else if (t.mode === "point" && g.center) { resetLots("point"); send({ cmd: "set_point", center: g.center }); if (map) map.flyTo(ll(g.center), 16); }
   else return false;
   Object.assign(state.options, resultOptions(rs.options));   // 방식 기본값(applyMode)이 범위를 덮은 뒤 그 결과의 설정으로
@@ -1055,24 +1055,25 @@ function finishDraw() {
   if (draw.pts.length < 3) { slotError("tray_err", tr("꼭짓점이 3개 이상이어야 합니다")); return; }
   var ring = draw.pts.map(function (p) { return [p.lng, p.lat]; });
   endDraw();
-  send({ cmd: "set_area", ring_lnglat: ring });
+  send({ cmd: "set_area", rings_lnglat: areaRings(), ring_lnglat: ring });   // 필지 추가처럼 — 지금 구역에 더한다(겹치면 Python이 합친다)
   renderTray(); drawLocalExtent(false);
 }
+function areaRings() { return state.area ? state.area.rings_lnglat || [] : []; }   // 지금 구역들(경위도) — 새 구역을 더할 때 같이 보낸다
 function cancelDraw() { if (draw.on) { endDraw(); renderTray(); drawLocalExtent(false); } }
-// ── 커브 얹기(지도를 움직여 놓기) — 모양은 m 오프셋 그대로, 화면 가운데 고정 ──
+// ── 커브 얹기·구역 옮기기(지도를 움직여 놓기) — 모양은 m 오프셋 그대로, 화면 가운데 고정. stamp.kind = curve(새 구역 하나 더하기) | move(구역 묶음째) ──
 function mPerDeg(lat) {
   var r = lat * Math.PI / 180;
   return [111412.84 * Math.cos(r) - 93.5 * Math.cos(3 * r), 111132.954 - 559.822 * Math.cos(2 * r) + 1.175 * Math.cos(4 * r)];
 }
-function stampLatLngs(c) { var k = mPerDeg(c.lat); return stamp.offsets.map(function (o) { return [c.lat + o[1] / k[1], c.lng + o[0] / k[0]]; }); }
+function stampLatLngs(c) { var k = mPerDeg(c.lat); return stamp.rings.map(function (ring) { return [ring.map(function (o) { return [c.lat + o[1] / k[1], c.lng + o[0] / k[0]]; })]; }); }   // 다각형 여러 개
 function drawStamp() {
   if (!map || !stamp.on) return;
   var pts = stampLatLngs(map.getCenter());
   if (stamp.layer) stamp.layer.setLatLngs(pts); else stamp.layer = L.polygon(pts, MAP_STYLE.stamp).addTo(map);
 }
-function startStamp(offsets, fit) {
-  cancelDraw(); stamp.on = true; stamp.offsets = offsets;
-  if (targetLayer && state.mode === "area") map.removeLayer(targetLayer);
+function startStamp(rings, fit, kind) {
+  cancelDraw(); stamp.on = true; stamp.rings = rings; stamp.kind = kind;
+  if (targetLayer && state.mode === "area" && kind === "move") map.removeLayer(targetLayer);   // 옮기는 동안 옛 자리는 감춘다 — 커브를 더할 때는 그대로
   clearExtent();
   drawStamp();
   if (fit && stamp.layer) map.fitBounds(stamp.layer.getBounds().pad(0.4), { animate: false });
@@ -1083,13 +1084,14 @@ function stopStamp() {
   if (!stamp.on) return;
   stamp.on = false; if (map) { map.off("move", drawStamp); if (stamp.layer) map.removeLayer(stamp.layer); }
   stamp.layer = null;
-  if (targetLayer && state.mode === "area" && map) targetLayer.addTo(map);
+  if (targetLayer && state.mode === "area" && map && !map.hasLayer(targetLayer)) targetLayer.addTo(map);
 }
 function placeStamp() {
   if (!stamp.on || !map) return;
-  var c = map.getCenter(), offsets = stamp.offsets;
+  var c = map.getCenter(), rings = stamp.rings, kind = stamp.kind;
   stopStamp();
-  send({ cmd: "set_area", center: [c.lng, c.lat], offsets: offsets });
+  if (kind === "move") send({ cmd: "set_area", center: [c.lng, c.lat], ring_offsets: rings });
+  else send({ cmd: "set_area", rings_lnglat: areaRings(), center: [c.lng, c.lat], offsets: rings[0] });
   renderTray();
 }
 function setPointLayer() {
@@ -1235,7 +1237,7 @@ function initMap(init) {
       draw.pts.push(e.latlng); redrawDraw(e.latlng); renderTray(); return;
     }
     if (state.mode === "point") send({ cmd: "set_point", center: [e.latlng.lng, e.latlng.lat] });
-    else if (state.mode === "area" && !state.area && !stamp.on) { startDraw(); draw.pts.push(e.latlng); redrawDraw(e.latlng); renderTray(); }   // 첫 클릭이 첫 꼭짓점
+    else if (state.mode === "area" && !stamp.on) { startDraw(); draw.pts.push(e.latlng); redrawDraw(e.latlng); renderTray(); }   // 첫 클릭이 첫 꼭짓점 — 구역이 있어도 새 구역을 더한다(필지 추가처럼)
   });
   map.on("dblclick", function () { if (draw.on) finishDraw(); });
   map.on("mousemove", function (e) { if (draw.on) redrawDraw(e.latlng); });
@@ -2018,7 +2020,7 @@ function restoreTarget(s) {
   resetLots(s.mode); cancelDraw();
   state.options = s.options; send({ cmd: "save_prefs", options: state.options });
   if (s.mode === "lots") send({ cmd: "select_lots", pnus: s.lots });
-  else if (s.mode === "area") send({ cmd: "set_area", ring_tm: s.area.ring_tm });
+  else if (s.mode === "area") send({ cmd: "set_area", rings_lnglat: s.area.rings_lnglat });
   else send({ cmd: "set_point", center: s.point.center });
   renderTray();
 }
@@ -2063,11 +2065,11 @@ var ACTIONS = {
   lot_more: function (b) { var d = $("lot_more"); if (!d) return; d.open = !d.open; b.setAttribute("aria-expanded", d.open); if (d.open) scrollTray(b.closest(".trow")); },
   eum: function (b) { send({ cmd: "open_eum", pnu: b.dataset.pnu }); },
   mode: function (b) { switchMode(b.dataset.mode); },
-  draw_start: startDraw,
+  draw_start: function () { if (state.area) send({ cmd: "set_area" }); startDraw(); },   // 다시 그리기 — 구역을 모두 지우고 처음부터
   draw_done: finishDraw,
   draw_cancel: cancelDraw,
   pick_curve: function () { cancelDraw(); var e = $("tray_err"); if (e) e.innerHTML = ""; toast(tr("{0}에서 닫힌 커브를 고르세요", hostName())); send({ cmd: "pick_curve" }); },
-  area_move: function () { if (state.area && map) { map.setView(ll(state.area.center), map.getZoom(), { animate: false }); startStamp(state.area.offsets, false); } },
+  area_move: function () { if (state.area && map) { map.setView(ll(state.area.center), map.getZoom(), { animate: false }); startStamp(state.area.ring_offsets, false, "move"); } },   // 묶음째
   area_clear: function () { send({ cmd: "set_area" }); },
   stamp_place: placeStamp,
   stamp_cancel: function () { stopStamp(); renderTray(); drawLocalExtent(false); },
@@ -2305,9 +2307,10 @@ var handlers = {
   },
   area_state: function (m) {
     if (!m.ok) { renderTray(); slotError("tray_err", m.text); return; }
-    state.area = m.ring_tm && m.ring_tm.length ? m : null;
+    var first = !state.area;
+    state.area = m.rings_tm && m.rings_tm.length ? m : null;
     if (map) setTargetLayer(state.area ? m.target_geojson : null);
-    renderTray(); drawLocalExtent(!!state.area);
+    renderTray(); drawLocalExtent(!!state.area && first);   // 구역을 더할 때는 지도를 다시 맞추지 않는다
     if (state.area) checkRegionChange();
   },
   point_state: function (m) {
@@ -2317,8 +2320,8 @@ var handlers = {
   },
   curve_shape: function (m) {
     if (!m.ok) { slotError("tray_err", m.text); return; }
-    if (m.located) { send({ cmd: "set_area", ring_tm: m.ring_tm }); toast(tr("커브를 좌표 그대로 놓았습니다. 옮기려면 [옮기기]를 누르세요")); }
-    else { startStamp(m.offsets, true); toast(tr("커브 {0}. 지도를 움직여 자리를 맞추세요", fmtNum(m.area, 0) + " " + sqm())); }
+    if (m.located) { send({ cmd: "set_area", rings_lnglat: areaRings(), ring_tm: m.ring_tm }); toast(tr("커브를 좌표 그대로 놓았습니다. 옮기려면 [옮기기]를 누르세요")); }
+    else { startStamp([m.offsets], true, "curve"); toast(tr("커브 {0}. 지도를 움직여 자리를 맞추세요", fmtNum(m.area, 0) + " " + sqm())); }
   },
   preflight_result: function () {},   // 패널은 보내지 않는다(범위를 JS가 그린다) — 늦게 온 응답은 버린다
   progress: function (m) {

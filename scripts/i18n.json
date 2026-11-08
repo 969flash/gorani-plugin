@@ -5800,5 +5800,23 @@
   "es": "Usar curva",
   "ja": "カーブを使用",
   "zh": "使用曲线"
+ },
+ "구역이 없습니다": {
+  "en": "No area",
+  "es": "No hay zona",
+  "ja": "区域がありません",
+  "zh": "没有区域"
+ },
+ "구역 사이에 둘러싸인 빈 곳 {0}개는 대상지에 넣었습니다": {
+  "en": "{0} gap(s) enclosed by areas were included in the site",
+  "es": "Se incluyeron en el sitio {0} huecos rodeados por zonas",
+  "ja": "区域に囲まれた空き {0} か所を対象地に含めました",
+  "zh": "已将被区域包围的 {0} 处空隙并入场地"
+ },
+ "구역은 바깥 경계만 씁니다.": {
+  "en": "Only the outer boundary of areas is used.",
+  "es": "Solo se usa el límite exterior de las zonas.",
+  "ja": "区域は外側の境界だけを使います。",
+  "zh": "区域只使用外边界。"
  }
 }

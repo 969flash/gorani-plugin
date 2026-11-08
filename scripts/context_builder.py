@@ -321,8 +321,8 @@ def get_target_key(spec):
     mode = spec.get("mode") or "lots"
     if mode == "lots":
         text = ",".join(sorted(str(p) for p in spec.get("pnus") or []))
-    elif mode == "area":
-        text = "area:" + ";".join("%.2f,%.2f" % (float(x), float(y)) for x, y in spec.get("ring") or [])
+    elif mode == "area":   # 구역 하나면 예전과 같은 값(이전 결과의 키가 그대로) — 여럿이면 '|'로 잇는다
+        text = "area:" + "|".join(";".join("%.2f,%.2f" % (float(x), float(y)) for x, y in ring) for ring in get_spec_rings(spec))
     else:
         text = "point:%.1f,%.1f" % tuple(float(v) for v in spec.get("center") or (0, 0))
     return hashlib.sha1(text.encode("utf-8")).hexdigest()[:8]
@@ -336,6 +336,30 @@ def get_area_ring(points):
     if problem:
         raise DomainError("area_invalid", problem)
     return ring
+
+
+def get_spec_rings(spec):
+    # type: (dict) -> list
+    """요청·결과의 구역 링 목록 — rings(여러 구역, 2026-11-08) 또는 예전 ring 하나."""
+    rings = spec.get("rings")
+    if rings:
+        return [ring for ring in rings if ring]
+    return [spec["ring"]] if spec.get("ring") else []
+
+
+def get_area_rings(rings):
+    # type: (list) -> tuple
+    """구역 링 여러 개 → (정리·합친 링 목록 넓은 순, 경고). 하나씩 안전장치(get_area_ring)를 거치고, 겹치거나 맞닿은 구역은 하나로 합친다
+    (non_rhino_utils.get_merged_rings — 합필과 같은 함수, 겹침도 지운다). 구역끼리 둘러싼 빈 곳(구멍)은 채운다 — 경고."""
+    rings = [get_area_ring(ring) for ring in rings]
+    if not rings:
+        raise DomainError("area_invalid", tr("구역이 없습니다"))
+    if len(rings) == 1:
+        return rings, []
+    outers, holes = non_rhino_utils.get_merged_rings([[ring] for ring in rings], constants.UNION_TOLERANCE)
+    warnings = [_warning("info", "area_hole", tr("구역 사이에 둘러싸인 빈 곳 {0}개는 대상지에 넣었습니다", len(holes)),
+                         tr("구역은 바깥 경계만 씁니다."))] if holes else []
+    return [non_rhino_utils.get_clean_ring(ring) for ring in outers], warnings
 
 
 def get_area_lot_fractions(ring, site_db=None):
@@ -431,19 +455,29 @@ def resolve_target(request, with_lots=True):
         return Target(mode, spec, get_target_key(spec), get_lot_name(lot_data.lots, lang), get_lots_center(lot_data.lots), rings,
                       list(lot_data.lots), lot_data, warnings)
     if mode == "area":
-        ring = get_area_ring(spec.get("ring"))
-        spec["ring"] = [[round(x, 3), round(y, 3)] for x, y in ring]
-        ring = [tuple(p) for p in spec["ring"]]
-        min_x, min_y, max_x, max_y = non_rhino_utils.get_bbox(ring)
+        rings, area_warnings = get_area_rings(get_spec_rings(spec))
+        spec.pop("ring", None)
+        spec["rings"] = [[[round(x, 3), round(y, 3)] for x, y in ring] for ring in rings]
+        rings = [[tuple(p) for p in ring] for ring in spec["rings"]]
+        min_x, min_y, max_x, max_y = non_rhino_utils.get_bbox([p for ring in rings for p in ring])
         center = ((min_x + max_x) * 0.5, (min_y + max_y) * 0.5)
-        target = Target(mode, spec, get_target_key(spec), "", center, [ring], [])
+        target = Target(mode, spec, get_target_key(spec), "", center, rings, [])
+        target.warnings.extend(area_warnings)
+        suffix = non_rhino_utils.get_output_name("area", lang) + (non_rhino_utils.get_output_name("more", lang) % (len(rings) - 1) if len(rings) > 1 else "")
+        first_box = non_rhino_utils.get_bbox(rings[0])   # 이름은 가장 넓은 구역 자리 + '외 n'
+        first_center = ((first_box[0] + first_box[2]) * 0.5, (first_box[1] + first_box[3]) * 0.5)
         if with_lots and abroad:
-            target.name = _get_place_label(center, non_rhino_utils.get_output_name("area", lang), site_db, lang)
+            target.name = _get_place_label(first_center, suffix, site_db, lang)
         elif with_lots:
-            lots = get_area_lots(ring, site_db)
+            lots, seen = [], set()
+            for ring in rings:
+                for lot in get_area_lots(ring, site_db):
+                    if lot.pnu not in seen:
+                        seen.add(lot.pnu)
+                        lots.append(lot)
             target.lot_data = _load_lots([lot.pnu for lot in lots], site_db) if lots else None
             target.lots = list(target.lot_data.lots) if target.lot_data else []
-            target.name = _get_place_label(center, non_rhino_utils.get_output_name("area", lang), site_db, lang)
+            target.name = _get_place_label(first_center, suffix, site_db, lang)
             if not lots:
                 target.warnings.append(_warning("warn", "area_no_lots", tr("구역 안 필지 0 — 대상지 조서가 비어 나옵니다"),
                                                 tr("필지 면적의 {0} % 이상이 구역 안에 있어야 대상 필지로 셉니다.", round(constants.AREA_LOT_MIN_FRACTION * 100))))
@@ -999,13 +1033,13 @@ def get_result_state(result_dir, model_name=None):
     target = meta.get("target") or {"mode": meta.get("mode") or "lots", "pnus": meta.get("pnus") or []}
     crs = meta.get("crs") or "EPSG:5186"
     center = non_rhino_utils.get_lnglat_in_crs([meta["center"]], crs) if len(meta.get("center") or []) == 2 else []
-    ring = non_rhino_utils.get_lnglat_in_crs(target.get("ring") or [], crs) if target.get("mode") == "area" else []
+    rings = [non_rhino_utils.get_lnglat_in_crs(ring, crs) for ring in get_spec_rings(target)] if target.get("mode") == "area" else []
     point = non_rhino_utils.get_lnglat_in_crs([target["center"]], crs) if target.get("mode") == "point" and target.get("center") else []
     return {"type": "result_opened", "dir": result_dir, "lot_name": meta.get("lot_name") or "", "lot_key": meta.get("lot_key") or "",
             "label": str(meta.get("lot_name") or os.path.basename(result_dir)).replace("_", " "), "built_at": meta.get("built_at") or "",
             "context": {"path": os.path.join(result_dir, model_name), "buildings": (meta.get("counts") or {}).get("buildings"), "imported": False},
             "options": meta.get("options") or {}, "target": target, "korea": crs == "EPSG:5186",
-            "target_lnglat": {"center": (point or center or [None])[0], "ring": ring},
+            "target_lnglat": {"center": (point or center or [None])[0], "ring": rings[0] if rings else [], "rings": rings},
             "made2d_list": [{"dir": os.path.join(result_dir, name), "made2d": _read_made_2d(os.path.join(result_dir, name), result_dir),
                              "made_at": time.strftime("%Y-%m-%dT%H:%M", time.localtime(os.path.getmtime(os.path.join(result_dir, name))))} for name in _get_2d_dirs(result_dir)]}
 
