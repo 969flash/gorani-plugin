@@ -550,6 +550,61 @@ def _drape(meshes, tin):
     return len(missing)
 
 
+def _smooth_ground(meshes, prepared, edge, levels, counts):
+    # type: (list, object, float, list, dict) -> None
+    """TIN 높이를 입힌 분류 영역 메시(수면 빼고)를 등고선 고정 다듬기(non_rhino_utils.get_smoothed_z) — TIN 삼각형 면의 꺾임을 편다.
+    정점은 좌표로 묶어 영역 경계가 같이 움직인다. 고정: 원본 등고선·표고점에서 TERRAIN_SMOOTH_FIX × 격자 칸 안,
+    영역 바깥 테두리(한 면만 쓰는 변 — 범위 경계·물가·평탄화 대상지 둘레). XY는 그대로, Z만 바꾼다."""
+    t = time.time()
+    index, xy, zs, owners, edge_use = {}, [], [], [], {}
+    for m_index, mesh in enumerate(meshes):
+        verts, faces = _get_mesh_faces(mesh)
+        ids = []
+        for k, (x, y, z) in enumerate(verts):
+            key = (round(x, 4), round(y, 4))
+            i = index.get(key)
+            if i is None:
+                i = index[key] = len(xy)
+                xy.append((x, y))
+                zs.append(z)
+            ids.append(i)
+            owners.append((m_index, k, x, y, i))
+        for face in faces:
+            g = [ids[v] for v in face]
+            for a in range(len(g)):
+                p, q = g[a], g[(a + 1) % len(g)]
+                if p != q:
+                    key = (p, q) if p < q else (q, p)
+                    edge_use[key] = edge_use.get(key, 0) + 1
+    neighbors = [[] for _ in xy]
+    fixed = [False] * len(xy)
+    for (p, q), n in edge_use.items():
+        neighbors[p].append(q)
+        neighbors[q].append(p)
+        if n == 1:
+            fixed[p] = fixed[q] = True
+    ox, oy = float(prepared.origin[0]), float(prepared.origin[1])
+    lines = []
+    for f in prepared.context.get_features("terrain", "contour"):
+        if f.geometry.get("type") == "LineString":
+            pts = [(c[0] - ox, c[1] - oy) for c in f.geometry["coordinates"]]
+            lines += [[[a, b]] for a, b in zip(pts, pts[1:])]
+    for f in prepared.context.get_features("terrain", "spot"):
+        if f.geometry.get("type") == "Point":
+            p = (f.geometry["coordinates"][0] - ox, f.geometry["coordinates"][1] - oy)
+            lines.append([[p, p]])
+    near = non_rhino_utils.PolygonIndex(lines)
+    radius = constants.TERRAIN_SMOOTH_FIX * edge
+    for i, (x, y) in enumerate(xy):
+        if not fixed[i] and near.is_near(x, y, radius):
+            fixed[i] = True
+    new = non_rhino_utils.get_smoothed_z(zs, neighbors, fixed, levels, constants.TERRAIN_SMOOTH_ITERATIONS)
+    for m_index, k, x, y, i in owners:
+        if new[i] != zs[i]:
+            meshes[m_index].Vertices.SetVertex(k, x, y, new[i])
+    counts.update(smooth_vertices=len(xy), smooth_fixed=sum(fixed), smooth_s=round(time.time() - t, 3))
+
+
 def _join(meshes):
     # type: (list) -> rg.Mesh
     """메시들을 하나로 + 같은 정점 용접 + 법선. 비어 있으면 빈 Mesh."""
@@ -665,9 +720,16 @@ def build_terrain(prepared):
     points, water_polys, counts = get_tin_points(prepared)
 
     t = time.time()
-    tin = rg.Mesh.CreateFromTessellation(get_local_pts(points, origin), List[List[rg.Point3d]](), rg.Plane.WorldXY, False)
+    local_pts = get_local_pts(points, origin)
+    tin = rg.Mesh.CreateFromTessellation(local_pts, List[List[rg.Point3d]](), rg.Plane.WorldXY, False)
     if tin is None or tin.Faces.Count == 0:
         raise RuntimeError(tr("지형 TIN 생성 실패 — 입력점 {0}", len(points)))
+    # 같은 높이 등고선끼리 이은 평평한 삼각형(골짜기 바닥·꼭대기)에 점을 더해 다시 — 계단 단 테두리가 원본 등고선을 따른다(non_rhino_utils.get_flat_fill_points)
+    levels = sorted({float(f.value) for f in prepared.context.get_features("terrain", "contour") if f.value is not None})
+    fill = non_rhino_utils.get_flat_fill_points(*_get_mesh_faces(tin), levels=levels)
+    if fill:
+        tin = rg.Mesh.CreateFromTessellation(local_pts + [rg.Point3d(*p) for p in fill], List[List[rg.Point3d]](), rg.Plane.WorldXY, False)
+    counts["flat_fill_points"] = len(fill)
     tin.Vertices.UseDoublePrecisionVertices = True
     counts["tin_s"] = round(time.time() - t, 3)
     counts["tin_faces"] = tin.Faces.Count
@@ -744,6 +806,10 @@ def build_terrain(prepared):
     t = time.time()
     counts["drape_missing"] = _drape([m for group in buckets.values() for m in group], tin)
     counts["drape_s"] = round(time.time() - t, 3)
+    # 매끈한 지형만 다듬는다 — 계단은 보정한 TIN을 그대로 잘라야 단 테두리가 원본 등고선에 붙는다(성북동 계단 5 m: 원본 0.5 m 이내 다듬기 없이 63 %·다듬으면 55 %).
+    # 원본 등고선이 있을 때만(국내) — 격자 지형(해외)은 고정할 선이 없다
+    if levels and not float(options.get("terrain_step") or 0) > 0:
+        _smooth_ground([m for cls, group in buckets.items() if cls != "water" for m in group], prepared, edge, levels, counts)
 
     meshes = {}
     for cls in GROUND_CLASSES:
