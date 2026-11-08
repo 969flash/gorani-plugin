@@ -5836,5 +5836,11 @@
   "es": "Estabilidad",
   "ja": "安定性",
   "zh": "稳定性"
+ },
+ "오늘 그만 보기": {
+  "en": "Don't show again today",
+  "es": "No mostrar más hoy",
+  "ja": "今日はもう表示しない",
+  "zh": "今天不再显示"
  }
 }

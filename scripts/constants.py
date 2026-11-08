@@ -762,7 +762,7 @@ PANEL_DEFAULT_OPTIONS = {
     "terrain_step": 0,   # 지형 표현: 0 = 매끈(TIN), > 0 = 계단형(등고 모형) 단 간격 m — 패널은 1·2·5 m. 국내 원천 등고선은 5 m 간격이라 1·2 m 단은 보간값
     "make_dwg": False,   # 2D 도면(BM::)을 .dwg로도 — CAD 사용자용. 기본 off
     "zoom_after_import": True,
-    "update_later_date": "",   # 권장 업데이트 팝업이 뜬 날(YYYY-MM-DD) — 그날 처음 열 때만 띄우고 같은 날 다시 열어도 띄우지 않는다
+    "update_later_date": "",   # 권장 업데이트 팝업에서 [ ] 오늘 그만 보기를 체크하고 닫은 날(YYYY-MM-DD) — 그날은 다시 띄우지 않는다(체크 안 하면 열 때마다 뜬다)
     "closed_notices": [],   # 패널 공지 띠에서 닫은 공지 id(매니페스트 notices) — 더보기 메뉴에서는 계속 보인다
     "style": {"preset": "std"},   # 도면 스타일 — 사용자가 바꾼 값만. 해석은 sheet_svg.get_style(STYLE_*)
 }

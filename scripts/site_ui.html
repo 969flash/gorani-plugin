@@ -109,9 +109,9 @@ html:lang(zh-Hans) body { font-family: -apple-system, "PingFang SC", "Microsoft 
 /* 업데이트 모달 — 권장(닫기 있음)·강제(닫기 없음). 매니페스트 update 값으로 뜬다 */
 #update_modal { position: fixed; inset: 0; z-index: 1100; background: rgba(17, 20, 24, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
 #update_modal[hidden] { display: none; }
-#update_modal .dlg { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px 18px; width: 100%; max-width: 340px; max-height: 100%; overflow: auto; font-size: 12.5px; line-height: 1.55; }
+#update_modal .dlg { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px 12px; width: 100%; max-width: 330px; max-height: 100%; overflow: auto; font-size: 12px; line-height: 1.55; }
 #update_modal .x { position: absolute; top: 8px; right: 8px; }   /* [나중에] 대신 오른쪽 위 X */
-#update_modal h2 { margin: 0 28px 10px 0; font-size: 14px; line-height: 1.4; font-weight: 700; }
+#update_modal h2 { margin: 0 28px 10px 0; font-size: 13px; line-height: 1.4; font-weight: 700; }
 #update_modal .ver { font-size: 11px; color: var(--ink-3); margin: 0 28px 2px 0; }
 #update_modal p { color: var(--ink-2); margin: 0 0 10px; }
 #update_modal ul { margin: 0 0 12px; padding-left: 16px; color: var(--ink-2); }
@@ -119,9 +119,10 @@ html:lang(zh-Hans) body { font-family: -apple-system, "PingFang SC", "Microsoft 
 #update_modal h3 { margin: 10px 0 4px; font-size: 11px; line-height: 1.4; font-weight: 600; color: var(--ink-3); letter-spacing: .02em; }
 #update_modal h3:first-of-type { margin-top: 0; }
 #update_modal p, #update_modal li { word-break: keep-all; overflow-wrap: break-word; }   /* 한국어가 글자 중간에서 끊기지 않게 */
-#update_modal ol { margin: 0 0 14px; padding: 8px 10px 8px 26px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink-2); font-size: 12px; line-height: 1.8; }
-#update_modal .due { color: var(--warn); font-size: 11.5px; }
+#update_modal ol { margin: 0 0 14px; padding: 8px 10px 8px 26px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink-2); font-size: 11.5px; line-height: 1.8; }
+#update_modal .due { color: var(--warn); font-size: 11px; }
 #update_modal .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+#update_modal label.chk { margin-top: 6px; min-height: 28px; font-size: 11.5px; color: var(--ink-3); }   /* [ ] 오늘 그만 보기 */
 .check-list { display: grid; grid-template-columns: 1.4em 7em 1fr; gap: 4px 8px; margin-bottom: 16px; }
 .check-list .ok { color: var(--ok); } .check-list .bad { color: var(--danger); } .check-list .opt { color: var(--ink-3); }
 /* 더보기 메뉴 — 헤더 아래로 떠오르는 둥근 면(최근 대상지·설정·도움) */
@@ -1860,7 +1861,7 @@ function todayStr() { var d = new Date(); return d.getFullYear() + "-" + ("0" + 
 function updateLevel() {
   var init = state.init, u = init && init.update; if (!u) return "";
   if (u.min && cmpVer(init.version, u.min) < 0) return "hard";
-  if (u.latest && cmpVer(init.version, u.latest) < 0 && (state.updPopup || state.options.update_later_date !== todayStr())) return "soft";   // 그날 처음 열 때만(뜬 날을 update_later_date에 적는다)
+  if (u.latest && cmpVer(init.version, u.latest) < 0 && !state.updClosed && (state.upd.state || state.options.update_later_date !== todayStr())) return "soft";   // 열 때마다 — 단 [ ] 오늘 그만 보기를 체크하고 닫은 날(update_later_date)은 빼고, 설치 중·결과는 늘 보인다
   return "";
 }
 // [지금 업데이트] — Rhino 8·7은 yak으로 바로 깐다(init.host.self_update). 실패하면 수동 안내(순서·웹페이지)로 돌아간다
@@ -1876,10 +1877,8 @@ function updateDoneText() {   // Rhino 8은 패널이 새 판으로 다시 열�
 }
 function renderUpdate() {
   var el = $("update_modal"), lvl = updateLevel(); if (!lvl) { el.hidden = true; return; }
-  if (lvl === "soft" && !state.updPopup) {   // 오늘 처음 뜬다 — 이 세션에서는 X로 닫을 때까지 두고, 오늘은 다시 띄우지 않는다
-    state.updPopup = true; state.options.update_later_date = todayStr(); send({ cmd: "save_prefs", options: state.options });
-  }
   var init = state.init, u = init.update, v = esc(init.version || "");
+  var skip = lvl === "hard" ? "" : '<label class="chk"><input type="checkbox" data-act="update_skip_today"' + (state.updSkipToday ? " checked" : "") + ">" + tr("오늘 그만 보기") + "</label>";
   var close = lvl === "hard" ? "" : '<button type="button" class="ib sm x" data-act="update_close" aria-label="' + tr("닫기") + '" title="' + tr("닫기") + '">' + ico("x") + "</button>";
   if (state.upd.state === "done") {   // 깔았다 — 다시 시작만 남는다(사용 불가 판이면 닫기도 없다)
     el.innerHTML = '<div class="dlg">' + close + '<p class="ver">' + tr("지금 버전 {0}", v) + '</p><h2 id="update_title" tabindex="-1">' + tr("설치했습니다") + "</h2><p>" + esc(updateDoneText()) + "</p></div>";
@@ -1908,7 +1907,7 @@ function renderUpdate() {
     : '<p class="ver">' + tr("지금 버전 {0}", v) + '</p><h2 id="update_title" tabindex="-1">' + esc(pickLang(u.title) || tr("Gorani {0}이 나왔습니다", u.latest)) + "</h2>" +
       (u.body ? "<p>" + esc(pickLang(u.body)) + "</p>" : "") + body +
       (u.deadline ? '<p class="due">' + tr("{0}부터 이 버전({1})은 쓸 수 없습니다.", esc(pickLang(u.deadline)), v) + "</p>" : "") + steps +
-      '<div class="acts">' + updateBtn("primary") + "</div>") + "</div>";
+      '<div class="acts">' + updateBtn("primary") + "</div>" + skip) + "</div>";
   el.hidden = false;
   el.querySelector("h2").focus();
 }
@@ -1928,7 +1927,7 @@ function noticeAct(n) {
 function renderNoticeBands() {
   var box = $("init_warnings");
   Array.prototype.slice.call(box.querySelectorAll(".notice")).forEach(function (d) { box.removeChild(d); });
-  var open = getNotices().filter(function (n) { return !isClosedNotice(n) && (!n.update || state.upd.state); });   // 업데이트 안내는 팝업이 맡는다 — 띠는 설치 중·결과일 때만. 띠는 하나만 — 지도를 밀어내지 않게. 나머지는 +N → 메뉴
+  var open = getNotices().filter(function (n) { return !isClosedNotice(n) && !n.update; });   // 업데이트 안내는 팝업·메뉴가 맡는다 — 위쪽 띠는 자리를 차지하지 않는다. 띠는 하나만 — 지도를 밀어내지 않게. 나머지는 +N → 메뉴
   open.slice(0, 1).forEach(function (n) {
     var d = document.createElement("div"); d.className = "band notice " + (n.level === "warn" ? "lv-warn" : "lv-note");
     d.innerHTML = ico(n.level === "warn" ? "warn" : "info") + "<span>" + esc(n.text) + "</span>" +
@@ -2155,10 +2154,15 @@ var ACTIONS = {
   dismiss: function (b) { b.parentNode.parentNode.removeChild(b.parentNode); },
   install_update: function () {
     if (state.upd.state === "running") return;
-    state.upd = { state: "running", text: "" }; send({ cmd: "install_update" });
+    state.upd = { state: "running", text: "" }; state.updClosed = false; send({ cmd: "install_update" });   // 설치 상황은 팝업으로 보인다
     renderNoticeBands(); renderUpdate(); renderMenu();
   },
-  update_close: function () { state.updPopup = false; renderUpdate(); },   // 오른쪽 위 X — 권장 팝업은 그날 처음 열 때 한 번만(뜰 때 이미 적었다)
+  update_skip_today: function (b) { state.updSkipToday = !!b.checked; },
+  update_close: function () {   // 오른쪽 위 X — [ ] 오늘 그만 보기를 체크했으면 그날은 다시 띄우지 않고(update_later_date), 아니면 이 세션만 닫는다(다음에 열면 또 뜬다)
+    state.updClosed = true;
+    if (state.updSkipToday) { state.options.update_later_date = todayStr(); send({ cmd: "save_prefs", options: state.options }); }
+    renderUpdate();
+  },
   close_notice: function (b) { closeNotice(b.dataset.id); },
   notices: function () { openMenu(); var h = $("menu_notices"); if (h) h.scrollIntoView({ block: "start" }); },
   open_notice: function (b) { send({ cmd: "open_url", notice: b.dataset.id }); },
@@ -2279,7 +2283,7 @@ window.addEventListener("resize", function () { if (map) map.invalidateSize(); }
 // ── 수신 핸들러 (슬롯만 교체) ──
 var handlers = {
   update_state: function (m) {   // install_update — running → done | failed
-    state.upd = { state: m.state, text: m.text || "", next: m.next || "" };
+    state.upd = { state: m.state, text: m.text || "", next: m.next || "" }; state.updClosed = false;   // 결과(깔았음·실패)는 닫았어도 다시 보인다
     renderNoticeBands(); renderUpdate(); renderMenu();
     if (m.state !== "running") announce(m.state === "done" ? updateDoneText() : tr("업데이트하지 못했습니다. 아래 순서로 직접 업데이트하세요."));
   },
