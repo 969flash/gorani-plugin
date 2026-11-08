@@ -875,7 +875,7 @@ function openResult(i) {   // 최근 결과 → 결과 화면(result_opened). �
   var r = ((state.init && state.init.results) || [])[i]; if (!r || state.run === "running" || state.job2d === "running") return;
   hideList(); send({ cmd: "open_result", dir: r.dir });
 }
-function curveBtnHtml() {   // 호스트(Rhino·SketchUp·Blender)의 닫힌 커브로 구역 — 웹판은 없다
+function curveBtnHtml() {   // 호스트 프로그램의 닫힌 커브로 구역 — 웹판은 없다
   return HOST.id === "web" ? "" : '<button type="button" class="btn sm" data-act="pick_curve" title="' + tr("{0}에서 닫힌 평면 커브 하나를 먼저 선택해 두면 바로 가져옵니다", esc(hostName())) + '">' + ico("curve") + tr("커브 가져오기") + "</button>";
 }
 function emptyTrayHtml() {
