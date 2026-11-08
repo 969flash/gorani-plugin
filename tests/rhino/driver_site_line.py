@@ -71,36 +71,42 @@ for name, extra in cases:
     # 면 생성이 기본 — 대상지 바닥 면(Site::ground)이 있고, 대상지 안쪽이 보이는 면으로 다 덮인다(안쪽이 비어 보이지 않는다)
     ground_faces = [g for p, g in objs if p == "CTX::Site::ground" and isinstance(g, rg.Mesh)]
     total, hit = interior_coverage(flat_site[0], surfaces) if flat_site else (0, 0)
-    ok = bool(ground_faces) and total > 50 and hit == total
     row["Site::ground"] = {"meshes": len(ground_faces), "interior_pts": total, "interior_hit": hit}
-    # 면 출력은 지형·도로를 깎지 않는다(2026-11-08) — 대상지 면을 빼도 안쪽이 지형·도로로 다 덮이고, 대상지 면은 그 위 SITE_GROUND_LIFT
-    base_surfaces = [g for p, g in objs if p in SURFACE_LAYERS and p != "CTX::Site::ground" and isinstance(g, rg.Mesh)]
-    base_total, base_hit = interior_coverage(flat_site[0], base_surfaces) if flat_site else (0, 0)
+    # 면 출력(평평하게 끔) — 대상지 안 지형·녹지만 대상지 면, 도로·철도·수면은 그대로, 원래 지형·녹지는 꺼 둔 Site::original(2026-11-08)
     flattened = bool(extra.get("flatten_site"))
-    ok_base = flattened or (base_total > 50 and base_hit == base_total)
-    print("%-14s %-13s 대상지 면 없이 안쪽 %d점 중 %d점 지형·도로  %s" % (name, "지반 그대로", base_total, base_hit, "PASS" if ok_base else "FAIL") + ("(평평하게 — 깎는 것이 맞다)" if flattened else ""))
-    if not ok_base:
-        failed.append("%s/지반 그대로" % name)
-    row["base_coverage"] = {"pts": base_total, "hit": base_hit}
-    if not flattened and ground_faces and flat_site:   # 대상지 면 − 지반 = SITE_GROUND_LIFT(같은 점에서)
+    if not flattened and flat_site:
         box = flat_site[0].GetBoundingBox(True)
-        probe = [rg.Point3d(box.Min.X + (box.Max.X - box.Min.X) * f, box.Min.Y + (box.Max.Y - box.Min.Y) * g, 1e4) for f in (0.3, 0.5, 0.7) for g in (0.3, 0.5, 0.7)]
-        probe = [q for q in probe if flat_site[0].Contains(rg.Point3d(q.X, q.Y, 0), rg.Plane.WorldXY, 0.001) == rg.PointContainment.Inside]
-        def tops(meshes):
+        probe = []
+        for i in range(24):
+            for j in range(24):
+                q = rg.Point3d(box.Min.X + (i + 0.5) / 24 * (box.Max.X - box.Min.X), box.Min.Y + (j + 0.5) / 24 * (box.Max.Y - box.Min.Y), 1e4)
+                if flat_site[0].Contains(rg.Point3d(q.X, q.Y, 0), rg.Plane.WorldXY, 0.001) == rg.PointContainment.Inside:
+                    probe.append(q)
+
+        def hits(layers):   # 꺼 둔 레이어(Site::original)는 doc.Objects에 안 나온다 — 레이어로 찾는다
             joined = rg.Mesh()
-            for m in meshes:
-                joined.Append(m)
-            out, idx = Intersect.Intersection.ProjectPointsToMeshesEx([joined], probe, rg.Vector3d(0, 0, -1), 0.001)
-            best = {}
-            for pt, i in zip(out, idx):
-                best[i] = max(best.get(i, -1e9), pt.Z)
-            return best
-        top_site, top_base = tops(ground_faces), tops(base_surfaces)
-        lifts = [round(top_site[i] - top_base[i], 3) for i in top_site if i in top_base]
-        ok_lift = bool(lifts) and all(abs(v - constants.SITE_GROUND_LIFT) < 0.011 for v in lifts)
-        print("%-14s %-13s 대상지 면 − 지반 %s m  %s" % (name, "띄운 높이", sorted(set(lifts)), "PASS" if ok_lift else "FAIL"))
-        if not ok_lift:
-            failed.append("%s/띄운 높이" % name)
+            for path in layers:
+                index = doc.Layers.FindByFullPath(path, -1)
+                for o in (doc.Objects.FindByLayer(doc.Layers[index]) or []) if index >= 0 else []:
+                    if isinstance(o.Geometry, rg.Mesh):
+                        joined.Append(o.Geometry)
+            if joined.Vertices.Count == 0:
+                return set()
+            _out, idx = Intersect.Intersection.ProjectPointsToMeshesEx([joined], probe, rg.Vector3d(0, 0, -1), 0.001)
+            return set(idx)
+        on_site = hits({"CTX::Site::ground"})
+        on_cut = hits({"CTX::Terrain", "CTX::Green"})
+        on_keep = hits({"CTX::Roads", "CTX::Rail", "CTX::Water"})
+        on_orig = hits({"CTX::Site::original::Terrain", "CTX::Site::original::Green"})
+        overlap = len(on_site & (on_cut | on_keep))
+        cover = len(on_site | on_keep)
+        ok_cut = overlap == 0 and cover == len(probe) and on_orig == on_site
+        print("%-14s %-13s 안쪽 %d점 · 대상지 면 %d · 그대로(도로·철도·수면) %d · 겹침 %d · 원래 사본=대상지 면 %s  %s"
+              % (name, "구멍·사본", len(probe), len(on_site), len(on_keep), overlap, on_orig == on_site, "PASS" if ok_cut else "FAIL"))
+        if not ok_cut:
+            failed.append("%s/구멍·사본" % name)
+        row["cut"] = {"pts": len(probe), "site": len(on_site), "keep": len(on_keep), "overlap": overlap}
+    ok = bool(ground_faces) and total > 50 and hit == total
     print("%-14s %-13s 면 %d개 · 안쪽 %d점 중 %d점 덮임  %s" % (name, "Site::ground", len(ground_faces), total, hit, "PASS" if ok else "FAIL"))
     if not ok:
         failed.append("%s/Site::ground" % name)

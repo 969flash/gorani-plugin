@@ -67,7 +67,8 @@ def _get_collection(scene, full_path):
     collection = bpy.data.collections.get(full_path)
     if collection is None:
         collection = bpy.data.collections.new(full_path)
-        if full_path.partition("::")[2] in constants.CTX_HIDDEN_LAYERS:
+        sub = full_path.partition("::")[2]
+        if any(sub == h or sub.startswith(h + "::") for h in constants.CTX_HIDDEN_LAYERS):   # 하위(Site::original::Terrain)도 — 컬렉션이 납작해 부모로 숨지 않는다
             collection.hide_viewport = collection.hide_render = True
     if collection.name not in root.children:
         root.children.link(collection)

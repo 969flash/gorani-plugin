@@ -625,13 +625,13 @@ CTX_LAYERS = {   # 이름: (RGB)
     "Site": (220, 40, 40), "Parcels": (185, 185, 180), "Buildings": (128, 128, 128), "Terrain": (236, 232, 222),
     "Water": (46, 125, 224), "Roads": (168, 168, 162), "Green": (228, 235, 226), "Rail": (110, 110, 110),
     "Bridges": (150, 150, 150), "Zoning": (200, 120, 40), "QA::cadastre_mismatch": (255, 0, 255), "Ref": (0, 0, 0),
-    "Site::ground": (236, 150, 120), "Site::lots": (235, 140, 140), "Terrain::site_flat": (214, 196, 170), "Terrain::site_wall": (150, 140, 128), "Terrain::site_original": (236, 232, 222),
+    "Site::ground": (236, 150, 120), "Site::lots": (235, 140, 140), "Terrain::site_flat": (214, 196, 170), "Terrain::site_wall": (150, 140, 128), "Terrain::site_original": (236, 232, 222), "Site::original": (236, 232, 222), "Site::original::Terrain": (236, 232, 222), "Site::original::Green": (228, 235, 226),
     "Terrain::block": (200, 192, 180),   # 지형을 바닥까지 채우기 — 지형 덩어리 옆면·바닥
 }
 # CTX::Zoning 하위 레이어 — overlays theme → 'CTX::Zoning::<이름>::<종류>'. 종류는 용도지역이면 현황도 11 범례 이름, 나머지는 overlay.kind.
 # 색은 현황도 11~13 범례 색(context_baker.get_layer_rgb). 현황도에 없는 theme(건축선 notice_road)은 넣지 않는다.
 ZONING_LAYERS = {"zone": "용도지역", "district": "용도지구", "area": "용도구역", "facility": "도시계획시설", "plan": "지구단위계획"}
-CTX_HIDDEN_LAYERS = ("Terrain::site_original", "Site::lots")   # 처음 만들 때 끈다(평탄화 전 원지형·합필 전 필지 — 필요할 때 켜 본다). 사용자가 켠 뒤로는 건드리지 않는다
+CTX_HIDDEN_LAYERS = ("Terrain::site_original", "Site::original", "Site::lots")   # 처음 만들 때 끈다(평탄화 전 원지형·대상지 면 아래 원래 지형·녹지·합필 전 필지 — 필요할 때 켜 본다). 사용자가 켠 뒤로는 건드리지 않는다
 # 베이스맵 레이어 순서·K톤(0~100)·선두께 mm(1:5000, 1:1000). fill=None이면 선만.
 BM_LAYERS = [
     ("00_frame_scale", "프레임·축척·방위", None, 100, (0.5, 0.5)),
@@ -818,10 +818,10 @@ BLOCK_MIN_DEPTH = 5.0           # m — 두께 하한(작은 범위)
 BLOCK_BASE_SNAP = 5.0           # m — 바닥 높이를 이 단위로 내림(BASE_M이 읽기 쉬운 값이 되게)
 CLASSIFY_GRID = 50.0            # m — 면 분류용 격자 버킷
 WATER_LIFT = 0.02               # m — 수면 메시를 지형 위로 띄우는 높이
-SITE_GROUND_LIFT = 0.05         # m — 대상지 면(CTX::Site::ground)을 지형 위로 띄우는 높이. 지형·도로는 그대로 두고 대상지 안쪽 지반을 복사해 얹는다(2026-11-08 사용자 — 깎아 내면 도로가 사라졌다). 수면(0.02)보다 위
 WATER_EDGE_STEP = 2.0           # m — 수면 경계 조밀화 간격 (TIN 입력, code_map §5.1)
 OSM_FLOWING_WATER = ("river", "canal", "stream", "ditch", "drain", "rapids", "fish_pass")   # natural=water + water=* 중 흐르는 물(OSM wiki Key:water) — 나머지 수면은 고인 물
 WATER_STILL_KINDS = ("lake",)   # 고인 물 = 평평한 수면 하나(물가 최저). 나머지(river·stream)는 흐르는 물 — 물가를 따라 기운다
+WATER_SHORE_FALLOFF = 15.0      # m — 물가선에서 이 거리 안 지형을 수면 쪽으로 부드럽게 내린다(non_rhino_utils.get_shore_fitted). 물가선 정점만 내리면 한 면 폭에 둑 높이(수 m)가 떨어져 톱니로 보였다(2026-11-08 죽림리)
 WATER_SHORE_WINDOW = 50.0       # m — 흐르는 물 수위 = 이 거리 안 물가 높이의 최저. 물가 정점이 둑 꼭대기 등고선(성수 한강 15 m)을 받은 튀는 값을 걸러 낸다
 WATER_MAX_GRADE = 0.02          # 흐르는 물 수면의 최대 기울기(2 %) — 등고선 5 m 간격 때문에 계단진 물가 높이를 250 m 경사로로 편다. 수면(면)이 있는 하천은 폭이 넓어 대개 1 % 미만(5 %는 청계천·홍제천 수면이 급류처럼 보였다)
 WATER_BLEND_SOURCE = "aws_terrain"   # 수면 둘레 칸이 호수·강 바닥 수심과 섞인 격자 지형 원천(osm_context.get_terrain_spots) — 일본 지리원 5 m는 수면이 값 없음이라 해당 없음

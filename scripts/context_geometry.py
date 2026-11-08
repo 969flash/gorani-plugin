@@ -37,7 +37,12 @@ from i18n import tr
 
 TOPO_SOURCE_ID = "ngii_topo_5000"
 CLASS_LAYERS = {"terrain": "Terrain", "water": "Water", "road": "Roads", "green": "Green", "rail": "Rail", "block": "Terrain::block"}
-SITE_LAYERS = {"site_wall": "Terrain::site_wall", "site_original": "Terrain::site_original"}   # site_ground는 옵션 따라(_get_terrain_items)
+SITE_LAYERS = {"site_wall": "Terrain::site_wall", "site_original": "Terrain::site_original",
+               "site_natural_terrain": "Site::original::Terrain", "site_natural_green": "Site::original::Green"}   # site_ground는 옵션 따라(_get_terrain_items)
+# 대상지 면 출력(평평하게 끔) — 대상지 안 지형·녹지만 대상지 면으로 바꾼다. 도로·철도·수면은 그대로(2026-11-08 사용자 — 대상지를 지나는 기반시설은 덮지 않는다)
+SITE_CUT_CLASSES = {"terrain": "site_terrain", "green": "site_green"}
+SITE_ORIGINAL_CLASSES = {"site_terrain": "site_natural_terrain", "site_green": "site_natural_green"}   # 대상지 면과 같은 모양의 원래 지형·녹지 — 꺼 둔 CTX::Site::original 하나만 켜면 보인다
+GROUND_CLASSES = ("terrain", "road", "green", "rail", "site_terrain", "site_green")   # 물가 비탈·계단을 같이 거치는 지반
 
 
 # [blender-cut] Rhino판 베이크 항목(mesh_geometry.BakeItem이 메시판)
@@ -702,10 +707,10 @@ def build_terrain(prepared):
     site_world = getattr(prepared, "site_rings", None) or []
     flatten = bool(options.get("flatten_site")) and mode in ("lots", "area") and bool(site_world)
     site_mesh_out = options.get("site_output") == "mesh" and mode in ("lots", "area") and bool(site_world)
-    separate_site = flatten   # 평평하게만 대상지 땅을 따로 뗀다 — 면 출력은 지형·도로를 그대로 두고 복사해 얹는다(2026-11-08 사용자: 깎아 내면 도로가 사라졌다)
-    site_overlay = site_mesh_out and not flatten
-    site_local = [[(x - ox, y - oy) for x, y in ring] for ring in site_world] if (separate_site or site_overlay) else []
-    cut_rings += site_local   # 대상지 경계를 제약선으로 — 면이 경계에서 나뉘어 안쪽만 복사할 수 있다
+    separate_site = flatten   # 평평하게는 대상지 땅을 통째로 뗀다(도로까지 같은 높이로)
+    site_cut = site_mesh_out and not flatten   # 면 출력은 대상지 안 지형·녹지만 대상지 면으로 — 도로·철도·수면은 그대로(2026-11-08 사용자)
+    site_local = [[(x - ox, y - oy) for x, y in ring] for ring in site_world] if (separate_site or site_cut) else []
+    cut_rings += site_local   # 대상지 경계를 제약선으로 — 면이 경계에서 나뉜다
 
     t = time.time()
     edge = max(constants.TERRAIN_GRID, math.sqrt((wx1 - wx0) * (wy1 - wy0) / float(constants.TERRAIN_GRID_MAX_FACES)))
@@ -732,6 +737,8 @@ def build_terrain(prepared):
                 if prio == 0:
                     break
         cls = constants.TERRAIN_CLASS_PRIORITY[best[0]] if best else "terrain"
+        if site_cut and cls in SITE_CUT_CLASSES and any(non_rhino_utils.is_point_in_ring(c.X, c.Y, ring) for ring in site_local):
+            cls = SITE_CUT_CLASSES[cls]   # 대상지 안 지형·녹지 — 물가 비탈·계단은 원래 분류와 똑같이 거친 뒤 대상지 면이 된다
         buckets.setdefault(cls, []).append(mesh)
         if cls == "water":
             water_regions.setdefault(best[1], []).append(mesh)
@@ -741,7 +748,7 @@ def build_terrain(prepared):
     counts["drape_s"] = round(time.time() - t, 3)
 
     meshes = {}
-    for cls in ("terrain", "road", "green", "rail"):
+    for cls in GROUND_CLASSES:
         if buckets.get(cls):
             meshes[cls] = _join(buckets[cls])
     # 수면 — 고인 물은 평평하게, 흐르는 물은 물가를 따라 기울게(non_rhino_utils.get_water_surface) + WATER_LIFT, 물가 정점 = 수위
@@ -760,31 +767,35 @@ def build_terrain(prepared):
         water_bodies = [{"name": polys[i][1], "still": polys[i][3], "level": round(low, 2), "level_max": round(high, 2), "faces": m.Faces.Count}
                         for i, m, (low, high) in zip(order, raw, levels)]
         shore = non_rhino_utils.WaterShore(_get_mesh_faces(meshes["water"]))   # 물가선 = 수위 — 지형·도로가 물가에서 비탈로 오른다
-        for cls in ("terrain", "road", "green", "rail"):
+        for cls in GROUND_CLASSES:
             if cls in meshes:
                 mesh = meshes[cls]
-                for k, v in enumerate(mesh.Vertices.ToPoint3dArray()):
-                    z = shore.get_z(v.X, v.Y)
-                    if z is not None and z != v.Z:
-                        mesh.Vertices.SetVertex(k, v.X, v.Y, z)
+                points = mesh.Vertices.ToPoint3dArray()
+                fitted = non_rhino_utils.get_shore_fitted([(v.X, v.Y, v.Z) for v in points], shore)   # 물가선 = 수위, WATER_SHORE_FALLOFF 안은 비탈로
+                for k, (v, (x, y, z)) in enumerate(zip(points, fitted)):
+                    if z != v.Z:
+                        mesh.Vertices.SetVertex(k, x, y, z)
                 mesh.Normals.ComputeNormals()
     counts["water_bodies"] = water_bodies
     step = float(options.get("terrain_step") or 0)
     if step > 0:
         t = time.time()
-        for cls in ("terrain", "road", "green", "rail", "water"):
+        for cls in GROUND_CLASSES + ("water",):
             if cls in meshes:
                 meshes[cls] = _get_stepped(meshes[cls], step)
         counts.update(terrain_step=step, step_s=round(time.time() - t, 3))
 
-    # 대상지 — 면 출력: 지형·도로·녹지·수면 중 경계 안 면을 복사해 SITE_GROUND_LIFT 위에(지반은 그대로) / 평평하게: 평탄면 + 벽 + 원지형 사본(숨김)
-    ground_parts = [meshes[cls] for cls in ("terrain", "road", "green", "rail") if cls in meshes]
-    if site_overlay:
-        overlay = non_rhino_utils.get_faces_inside([_get_mesh_faces(meshes[k]) for k in ("terrain", "road", "green", "rail", "water") if k in meshes],
-                                                   site_local, constants.SITE_GROUND_LIFT)
-        if overlay[1]:
-            meshes["site_ground"] = _get_rhino_mesh(*overlay)
+    # 대상지 — 면 출력: 대상지 안 지형·녹지 = 대상지 면(Site::ground), 같은 모양의 원래 지형·녹지는 꺼 둔 레이어(Site::original 몫)에 — 겹치지 않는다 /
+    # 평평하게: 평탄면 + 벽 + 원지형 사본(숨김)
+    if site_cut:
+        originals = {SITE_ORIGINAL_CLASSES[cls]: meshes.pop(cls) for cls in SITE_CUT_CLASSES.values() if cls in meshes}
+        if originals:
+            meshes["site_ground"] = _join([m.DuplicateMesh() for m in originals.values()])
+            meshes.update(originals)   # 원래 지형·녹지 — 꺼 둔 Site::original
             counts["site_output"] = "mesh"
+    ground_parts = [meshes[cls] for cls in ("terrain", "road", "green", "rail") if cls in meshes]
+    if site_cut and "site_ground" in meshes:
+        ground_parts.append(meshes["site_ground"])
     if buckets.get("site"):
         site_in = _join(buckets["site"])
         if flatten:
@@ -804,7 +815,7 @@ def build_terrain(prepared):
     clip = get_clip_ring(prepared) if options.get("terrain_block") else None
     if clip is not None:   # 지형을 바닥까지 채우기 — 윗면(분류별 + 수면 + 대상지) 범위 경계에서 바닥까지 옆면·바닥면
         t = time.time()
-        tops = [_get_mesh_faces(meshes[k]) for k in ("terrain", "road", "green", "rail", "water") + (() if site_overlay else ("site_ground",)) if k in meshes]   # 얹은 대상지 면은 지형 위 사본
+        tops = [_get_mesh_faces(meshes[k]) for k in ("terrain", "road", "green", "rail", "water", "site_ground") if k in meshes]
         base = non_rhino_utils.get_block_base(min(v[2] for verts_, _f in tops for v in verts_), clip)
         block = non_rhino_utils.get_block_skirt(tops, [(x - ox, y - oy) for x, y in clip], base)
         if block[1]:
@@ -812,7 +823,7 @@ def build_terrain(prepared):
         counts.update(block_base=base, block_s=round(time.time() - t, 3))
     if "water" in meshes:   # 남은 수면 단차(보·댐·평탄화 대상지)를 세로 벽으로 막아 지형에 붙인다 — 용접하지 않는다(모서리 음영이 뭉개진다)
         walls = non_rhino_utils.get_water_walls(_get_mesh_faces(meshes["water"]),
-                                                [_get_mesh_faces(meshes[k]) for k in ("terrain", "road", "green", "rail") + (() if site_overlay else ("site_ground",)) if k in meshes])
+                                                [_get_mesh_faces(meshes[k]) for k in ("terrain", "road", "green", "rail", "site_ground") if k in meshes])
         if walls[1]:
             wall_mesh = _get_rhino_mesh(*walls)
             if "terrain" in meshes:
@@ -851,7 +862,7 @@ def _get_terrain_items(prepared, meshes, counts):
             attrs = {"KIND": "block", "BASE_M": "%g" % counts["block_base"]}
         elif cls.startswith("site_"):
             flat = "site_level" in counts
-            attrs = {"KIND": {"site_ground": "flattened" if flat else "natural", "site_wall": "edge_wall", "site_original": "natural"}[cls]}
+            attrs = {"KIND": {"site_ground": "flattened" if flat else "natural", "site_wall": "edge_wall", "site_original": "natural", "site_natural_terrain": "natural", "site_natural_green": "natural"}[cls]}
             if flat:
                 attrs.update(LEVEL_M="%.2f" % counts["site_level"], LEVEL_SRC="site_edge_%s" % counts["site_level_how"])
         else:

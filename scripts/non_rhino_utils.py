@@ -335,28 +335,6 @@ def korea_projection():
         _apply_projection()
 
 
-def get_faces_inside(meshes, rings, lift):
-    # type: (list, list, float) -> tuple
-    """메시들(verts, faces) 중 면 중심이 rings 안인 면만 복사 → (verts, faces), Z + lift. 입력은 바꾸지 않는다.
-    대상지 면(Site::ground) — 지형을 대상지 경계로 나눠 두었으므로(경계가 제약선) 면은 통째로 안이거나 밖이다."""
-    out_verts, out_faces = [], []
-    for verts, faces in meshes:
-        index = {}
-        for face in faces:
-            cx = sum(verts[i][0] for i in face) / len(face)
-            cy = sum(verts[i][1] for i in face) / len(face)
-            if not any(is_point_in_ring(cx, cy, ring) for ring in rings):
-                continue
-            new_face = []
-            for i in face:
-                if i not in index:
-                    index[i] = len(out_verts)
-                    out_verts.append((verts[i][0], verts[i][1], verts[i][2] + lift))
-                new_face.append(index[i])
-            out_faces.append(tuple(new_face))
-    return out_verts, out_faces
-
-
 def get_lnglat_in_crs(points, crs):
     # type: (list, str) -> list
     """저장된 결과(context.json crs)의 평면좌표 → 경위도. crs는 'EPSG:5186' 또는 get_crs_label의 지역 횡메르카토르
@@ -1502,14 +1480,44 @@ class WaterShore(object):
         hits = self.get_hits(x, y)
         return hits[0] if hits else None
 
+    def get_near(self, x, y, reach):
+        # type: (float, float, float) -> object
+        """reach 안 가장 가까운 물가선 점 → (거리, 그 자리 수면 높이), 없으면 None. 물가 비탈(get_shore_fitted)용 — 칸 = reach 색인을 처음 부를 때 만든다."""
+        if getattr(self, "_reach", None) != reach:
+            self._reach, self._near = reach, {}
+            for edges in self.grid.values():
+                for edge in edges:
+                    ax, ay, dx, dy = edge[:4]
+                    for i in range(int(math.floor(min(ax, ax + dx) / reach)), int(math.floor(max(ax, ax + dx) / reach)) + 1):
+                        for j in range(int(math.floor(min(ay, ay + dy) / reach)), int(math.floor(max(ay, ay + dy) / reach)) + 1):
+                            self._near.setdefault((i, j), set()).add(edge)
+        ci, cj = int(math.floor(x / reach)), int(math.floor(y / reach))
+        best = None
+        for i in (ci - 1, ci, ci + 1):
+            for j in (cj - 1, cj, cj + 1):
+                for ax, ay, dx, dy, za, zb in self._near.get((i, j), ()):
+                    t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / ((dx * dx + dy * dy) or 1.0)))
+                    d = math.hypot(x - ax - dx * t, y - ay - dy * t)
+                    if d <= reach and (best is None or d < best[0]):
+                        best = (d, za + (zb - za) * t)
+        return best
 
-def get_shore_fitted(verts, shore):
-    # type: (list, WaterShore) -> list
-    """물가선 위 정점의 Z를 수면 높이로 맞춘 새 정점 목록(하이드로 플래트닝 — 물가선 = 수위).
-    물가 정점이 TIN의 '가장 가까운 입력점' 높이(둑 꼭대기 등고선 등)를 받아 수면과 수 m 떨어지던 것을 지형이 물가에서 비탈로 오르게 바꾼다."""
+
+def get_shore_fitted(verts, shore, reach=None):
+    # type: (list, WaterShore, float) -> list
+    """물가선 위 정점의 Z를 수면 높이로 맞추고, reach(기본 WATER_SHORE_FALLOFF) 안 정점은 수면 쪽으로 부드럽게 내린 새 정점 목록(하이드로 플래트닝 — 물가선 = 수위).
+    물가 정점이 TIN의 '가장 가까운 입력점' 높이(둑 꼭대기 등고선 등)를 받아 수면과 수 m 떨어지던 것을 지형이 물가에서 비탈로 오르게 바꾼다.
+    물가선 정점만 내리면 바로 안쪽 정점은 둑 높이 그대로라 한 면 폭에 수 m가 떨어져 물가가 톱니로 보였다(2026-11-08 사용자, 죽림리 301-3 구역 —
+    매끈 지형에 수직면 330개·최대 6 m). 그래서 reach 안은 smoothstep으로 이어 내린다(수면보다 낮은 정점은 그대로)."""
+    reach = constants.WATER_SHORE_FALLOFF if reach is None else reach
     out = []
     for x, y, z in verts:
         shore_z = shore.get_z(x, y)
+        if shore_z is None and reach > 0:
+            near = shore.get_near(x, y, reach)
+            if near is not None and z > near[1]:
+                t = near[0] / reach
+                z = near[1] + (z - near[1]) * t * t * (3.0 - 2.0 * t)
         out.append((x, y, z if shore_z is None else shore_z))
     return out
 
