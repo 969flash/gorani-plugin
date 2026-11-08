@@ -272,6 +272,7 @@ Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드�
  "notices": [{"id": "2026-11-maint", "level": "info", "date": "2026-10-28", "text": "11월 3일 02~06시 서버 점검으로 DB 받기가 멈춥니다", "url": "https://…"}]}
 ```
 
+- **버전 안내 문구는 한 곳에서 쓴다**(2026-11-08): `update.groups` = `[{"type": "new"|"improved"|"stable", "items": {"ko": [..], "en": [..], …}}]`(새 기능·개선·안정성). `update.items`(언어별 한 줄 목록)는 groups를 이어 붙인 값 — 패널 모달은 items만 읽고(코드는 그대로), 웹페이지 버전 기록은 같은 매니페스트의 groups를 읽는다. 그래서 사용자 창의 문구와 웹페이지 문구가 같다. `dev_deploy.get_update_items`가 올릴 때 groups에서 items를 만들고, 관리자 페이지 검사(`get_notice_errors`)는 둘이 다르면 게시를 막는다. 문구는 사용자 관점으로, 한 줄에 한 가지, "~할 수 있습니다" 꼴. 서버·내부 수정은 '안정성' 한 줄로 묶는다. 웹페이지(969flash/gorani)는 새 판을 `assets/changelog.json`에 옮겨 적어 지난 기록으로 남긴다.
 - 패널을 열 때(`init`) 매니페스트를 `NOTICE_TIMEOUT_SECONDS`(3 s)까지 기다린다. 못 받으면 아무것도 띄우지 않는다 — 사용자를 막지 않는다.
 - `version < update.min` → 강제 모달(닫기 없음, [다시 확인]·[결과 폴더]·[웹페이지]). 지원을 끊을 때만 올린다.
 - `version < update.latest` → 권장 모달(하루 한 번 — [나중에] = `options.update_later_date`) + 주황 띠(닫기 없음, 업데이트할 때까지).
