@@ -122,7 +122,8 @@ html:lang(zh-Hans) body { font-family: -apple-system, "PingFang SC", "Microsoft 
 #update_modal ol { margin: 0 0 14px; padding: 8px 10px 8px 26px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink-2); font-size: 11.5px; line-height: 1.8; }
 #update_modal .due { color: var(--warn); font-size: 11px; }
 #update_modal .acts { display: flex; gap: 8px; flex-wrap: wrap; }
-#update_modal label.chk { margin-top: 6px; min-height: 28px; font-size: 11.5px; color: var(--ink-3); }   /* [ ] 오늘 그만 보기 */
+#update_modal .foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 4px; }   /* 아래 한 줄: 왼쪽 [ ] 오늘 그만 보기, 오른쪽 [지금 업데이트] */
+#update_modal label.chk { min-height: 28px; font-size: 11.5px; color: var(--ink-3); }
 .check-list { display: grid; grid-template-columns: 1.4em 7em 1fr; gap: 4px 8px; margin-bottom: 16px; }
 .check-list .ok { color: var(--ok); } .check-list .bad { color: var(--danger); } .check-list .opt { color: var(--ink-3); }
 /* 더보기 메뉴 — 헤더 아래로 떠오르는 둥근 면(최근 대상지·설정·도움) */
@@ -1907,7 +1908,7 @@ function renderUpdate() {
     : '<p class="ver">' + tr("지금 버전 {0}", v) + '</p><h2 id="update_title" tabindex="-1">' + esc(pickLang(u.title) || tr("Gorani {0}이 나왔습니다", u.latest)) + "</h2>" +
       (u.body ? "<p>" + esc(pickLang(u.body)) + "</p>" : "") + body +
       (u.deadline ? '<p class="due">' + tr("{0}부터 이 버전({1})은 쓸 수 없습니다.", esc(pickLang(u.deadline)), v) + "</p>" : "") + steps +
-      '<div class="acts">' + updateBtn("primary") + "</div>" + skip) + "</div>";
+      '<div class="foot">' + skip + updateBtn("primary") + "</div>") + "</div>";
   el.hidden = false;
   el.querySelector("h2").focus();
 }
