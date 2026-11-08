@@ -9,7 +9,7 @@ Rhino 밖 python3 전용(geopandas·shapely·scipy·pyproj).
 입력:
   data/seoul_site.db                         필지(EPSG:5186)
   ../Seoungsu/data/raw/shp/3770507*/         수치지형도 1:5000 성수 4도엽(EPSG:5186)
-  data/raw/seoul_zoning/2026-02/extracted/**/UPIS_C_UQ111.shp  서울 용도지역 원본(EPSG:5174)
+  data/raw/seoul_zoning/2026-09/extracted/**/UPIS_C_UQ111.shp  서울 용도지역 원본(EPSG:5174)
 """
 import glob
 import json
@@ -31,7 +31,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(ROOT, "data", "seoul_site.db")
 SHP_DIR = os.path.join(ROOT, "..", "Seoungsu", "data", "raw", "shp")
 TILES = ["37705072", "37705073", "37705082", "37705083"]
-UPIS_GLOB = os.path.join(ROOT, "data", "raw", "seoul_zoning", "2026-02", "extracted", "*", "UPIS_C_UQ111.shp")
+UPIS_GLOB = os.path.join(ROOT, "data", "raw", "seoul_zoning", "2026-09", "extracted", "*", "UPIS_C_UQ111.shp")
 OUT_DIR = os.path.join(ROOT, "result", "probe_alignment")
 SAMPLE_STEP = 10.0      # 경계선 샘플 간격 m
 SEAM_BUFFER = 3.0       # 도엽 경계·bbox 경계 주변 제외 폭 m
