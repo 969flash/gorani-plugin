@@ -242,7 +242,8 @@ class _Ground(object):
             dx, dy = x - x0, y - y0
             u = (dx * e2y - dy * e2x) * inv
             v = (e1x * dy - e1y * dx) * inv
-            if u >= -1e-9 and v >= -1e-9 and u + v <= 1.0 + 1e-9:
+            # 무게중심 좌표 1e-6 여유 — 범위 테두리 점이 0.1 mm 격자 맞춤으로 TIN 볼록 껍질 밖에 26 µm 밀려 빗나갔다(성수 333-139 R=500, −1.65e-7)
+            if u >= -1e-6 and v >= -1e-6 and u + v <= 1.0 + 1e-6:
                 z = z0 + u * dz1 + v * dz2
                 if best is None or z > best:
                     best = z

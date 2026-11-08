@@ -25,7 +25,7 @@ TODAY = datetime.date(2026, 10, 7)
 HOLE_PNU = "1120011400100130219"   # 성수동1가 13-219 — 구멍 3개(test_context_builder와 같은 필지)
 
 # docs/panel_ui.md 푸시 정의의 키 집합
-INIT_KEYS = {"type", "version", "blocked", "paths", "generator", "host", "stats_consent", "links", "output_langs", "can_download", "sources", "warnings", "tile", "map", "options", "modes", "recent", "sheet_catalog",
+INIT_KEYS = {"type", "version", "blocked", "paths", "generator", "host", "stats_consent", "links", "output_langs", "can_download", "sources", "warnings", "tile", "map", "options", "modes", "results", "sheet_catalog",
              "style_presets", "style_defaults", "style_ramps", "styles", "update", "notices"}
 SOURCE_KEYS = {"id", "label", "name", "date", "age_months", "level", "newer_date", "text"}
 SEARCH_KEYS = {"type", "query", "seq", "matches", "message"}
@@ -91,7 +91,8 @@ class InitStateTest(unittest.TestCase):
         self.assertEqual(set(state), INIT_KEYS)
         self.assertFalse(state["blocked"])
         self.assertEqual(state["generator"], {"ok": True, "python": "Rhino Python", "text": "Rhino 내장"})
-        self.assertEqual(state["host"], constants.HOST_LABELS["rhino"])   # python3 = Rhino 쪽(bpy 없음)
+        expected = dict(constants.HOST_LABELS["rhino"], self_update=bool(cmd_site.loader.load("data_pack").get_yak_path()))   # yak을 못 찾으면 init이 끈다
+        self.assertEqual(state["host"], expected)   # python3 = Rhino 쪽(bpy 없음)
         self.assertEqual([s["id"] for s in state["sources"]], ["lot", "building", "terrain", "api"])
         for source in state["sources"]:
             self.assertTrue(SOURCE_KEYS <= set(source), source)
