@@ -65,6 +65,9 @@ def get_notice_errors(data):
             if formats_ok and update.get(key) and get_version_key(update[key]) > get_version_key(constants.PANEL_VERSION):
                 errors.append("%s은 아직 배포하지 않은 버전입니다(배포한 최신 %s) — 이대로면 %s. 그 버전을 배포하고 PANEL_VERSION을 올린 뒤에 게시하세요"
                               % (update[key], constants.PANEL_VERSION, effect))
+    if isinstance(update, dict) and update.get("groups"):   # 분류(groups)가 있으면 items는 그것을 이어 붙인 값이어야 한다(웹페이지 버전 기록과 같은 문장)
+        if update.get("items") != dev_deploy.get_update_items(update):
+            errors.append("업데이트 안내의 items가 groups와 다릅니다 — groups(새 기능·개선·안정성)를 고치면 items는 그것을 이어 붙인 값으로 맞추세요")
     seen = set()
     for index, notice in enumerate(data.get("notices") or []):
         name = "공지 %d" % (index + 1)

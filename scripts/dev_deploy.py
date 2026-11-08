@@ -1563,6 +1563,21 @@ def upload(site_only=False):
     return constants.DATA_MANIFEST_URL
 
 
+def get_update_items(update):
+    # type: (dict) -> dict
+    """업데이트 안내의 한 줄 목록(items, 언어별) — `groups`(새 기능·개선·안정성)가 있으면 그것을 이어 붙인 값이 원본이다.
+    플러그인 패널은 items만 읽고, 웹페이지 버전 기록은 groups를 읽는다. 같은 문장이 두 곳에 뜨게 한 곳에서만 쓴다."""
+    groups = (update or {}).get("groups")
+    if not groups:
+        return (update or {}).get("items")
+    langs = []
+    for group in groups:
+        for lang in group.get("items") or {}:
+            if lang not in langs:
+                langs.append(lang)
+    return {lang: [text for group in groups for text in (group.get("items") or {}).get(lang, [])] for lang in langs}
+
+
 def _read_notices():
     # type: () -> dict
     """docs/notices.json + docs/countries.json → {"update", "notices", "countries"}. 매니페스트를 올릴 때마다 넣어 팩을 다시 올려도 공지·나라 목록이 지워지지 않게 한다.
@@ -1575,7 +1590,10 @@ def _read_notices():
     bad = [entry.get("code") for entry in countries if not entry.get("disabled") and data_pack._get_country_pack(entry) is None]
     if bad:
         raise ValueError("docs/countries.json 항목이 틀렸습니다(code 2자·bounds 4수·code_pattern 정규식·manifest·source_id·label): %s" % bad)
-    return {"update": data.get("update"), "notices": data.get("notices") or [], "countries": countries, "services": services}
+    update = data.get("update")
+    if update and update.get("groups"):
+        update = dict(update, items=get_update_items(update))   # 올리는 값은 groups에서 만든다 — 손으로 고친 items가 어긋나 올라가지 않게
+    return {"update": update, "notices": data.get("notices") or [], "countries": countries, "services": services}
 
 
 def build_config(path=None):
