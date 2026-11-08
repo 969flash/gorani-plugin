@@ -66,7 +66,9 @@ try:
     quads = sum(o.Geometry.Faces.QuadCount for o in terrain)
     faces = sum(o.Geometry.Faces.Count for o in terrain)
     check("terrain_quads", terrain and quads >= 0.5 * faces, "quad %d / %d" % (quads, faces))   # 경계 옆만 삼각형
-    flat, wall, orig = layer_objs("CTX::Terrain::site_flat"), layer_objs("CTX::Terrain::site_wall"), layer_objs("CTX::Terrain::site_original")
+    # 평탄면 — site_output=mesh(기본, 2026-11-08)면 대상지 바닥 CTX::Site::ground, curve면 CTX::Terrain::site_flat
+    flat = layer_objs("CTX::Site::ground") or layer_objs("CTX::Terrain::site_flat")
+    wall, orig = layer_objs("CTX::Terrain::site_wall"), layer_objs("CTX::Terrain::site_original")
     scale = context_baker.get_model_unit_scale(doc)
     level = float(flat[0].Attributes.GetUserString("LEVEL_M")) if flat else None
     zs = {round(flat[0].Geometry.Vertices.Point3dAt(k).Z / scale, 3) for k in range(flat[0].Geometry.Vertices.Count)} if flat else set()
@@ -78,7 +80,7 @@ try:
     check("site_wall", wall and wall[0].Geometry.Faces.Count > 10, str(wall[0].Geometry.Faces.Count if wall else 0))
     # 틈 없음 — 지형·도로·녹지·철도 + 평탄면 + 벽을 합쳐 용접 → 대상지 경계 1 m 안에 열린 모서리 0
     joined = rg.Mesh()
-    for path in ("CTX::Terrain", "CTX::Roads", "CTX::Green", "CTX::Rail", "CTX::Terrain::site_flat", "CTX::Terrain::site_wall"):
+    for path in ("CTX::Terrain", "CTX::Roads", "CTX::Green", "CTX::Rail", "CTX::Site::ground", "CTX::Terrain::site_flat", "CTX::Terrain::site_wall"):
         for o in layer_objs(path):
             if isinstance(o.Geometry, rg.Mesh):
                 joined.Append(o.Geometry)
@@ -181,7 +183,8 @@ try:
     g_area = rg.AreaMassProperties.Compute(ground[0].Geometry).Area / scale ** 2 if len(ground) == 1 else 0.0
     lots_layer = doc.Layers.FindByFullPath("CTX::Site::lots", -1)
     bm_layer = next((l for l in doc.Layers if l.FullPath.startswith(constants.BM_ROOT_LAYER + "::10b_site_lots")), None)
-    check("merged_site", r4["ok"] and len(sites) == 1 and abs(got - want) < 1.0 and abs(g_area - want) / want < 0.01,   # 바닥 메시는 지형 경사만큼 크다
+    # 바닥 = 대상지 안 지형·녹지만(도로·철도·수면은 그대로 — 2026-11-08 구멍 방식). 이 두 필지는 안쪽 도로만큼 바닥이 작다(main c318d43 6,384 ㎡ / 필지 6,456 ㎡)
+    check("merged_site", r4["ok"] and len(sites) == 1 and abs(got - want) < 1.0 and 0.97 < g_area / want < 1.01,
           "Site %d · %.1f ㎡ · 바닥 %.1f ㎡ vs %.1f ㎡" % (len(sites), got, g_area, want))
     check("merged_lots_hidden", len(before) == 2 and lots_layer >= 0 and not doc.Layers[lots_layer].IsVisible
           and bm_layer is not None and not bm_layer.IsVisible and not bm_layer.GetPersistentVisibility(),
