@@ -88,7 +88,14 @@
       "Puedes volver a abrir un resultado anterior y seguir trabajando.",
       "En Rhino, pulsa [Actualizar ahora] en el aviso de actualización para instalar al instante."
      ]
-    }
+    },
+    "hosts": [
+     null,
+     null,
+     [
+      "rhino"
+     ]
+    ]
    },
    {
     "type": "improved",
@@ -128,7 +135,16 @@
       "Los sitios fuera de Corea muestran una dirección en lugar de latitud y longitud.",
       "Datos públicos: plan de uso del suelo actualizado a la edición 2026-10-09 y UPIS de Seúl a 2026-09."
      ]
-    }
+    },
+    "hosts": [
+     null,
+     null,
+     [
+      "rhino"
+     ],
+     null,
+     null
+    ]
    },
    {
     "type": "stable",
@@ -148,7 +164,10 @@
      "es": [
       "Se corrigieron varios problemas, como fallos al dividir las caras del terreno."
      ]
-    }
+    },
+    "hosts": [
+     null
+    ]
    }
   ]
  },

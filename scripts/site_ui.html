@@ -1893,7 +1893,8 @@ function renderUpdate() {
   if (Array.isArray(u.groups) && u.groups.length) {   // 새 기능·개선·안정성 — 웹페이지 버전 기록과 같은 글
     var GROUP_NAMES = { "new": tr("새 기능"), improved: tr("개선"), stable: tr("안정성") };
     body = u.groups.map(function (g) {
-      var rows = pickLang(g.items) || []; if (!rows.length) return "";
+      var hosts = g.hosts || [], rows = (pickLang(g.items) || []).filter(function (r, i) { return !hosts[i] || hosts[i].indexOf(HOST.id) >= 0; });   // hosts[i] = 그 항목이 보일 프로그램(없으면 모두)
+      if (!rows.length) return "";
       return (GROUP_NAMES[g.type] ? "<h3>" + esc(GROUP_NAMES[g.type]) + "</h3>" : "") + list(rows);
     }).join("");
   } else {

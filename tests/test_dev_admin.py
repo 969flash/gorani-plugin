@@ -24,6 +24,19 @@ class NoticeErrorsTest(unittest.TestCase):
         self.assertIn("groups", errors[0])
         self.assertEqual(dev_admin.get_notice_errors({"update": {"latest": dev_admin.constants.PANEL_VERSION, "items": {"ko": ["아무거나"]}}, "notices": []}), [])
 
+    def test_groups_hosts(self):
+        base = {"latest": dev_admin.constants.PANEL_VERSION}
+        rows = {"ko": ["가", "나"], "en": ["a", "b"]}
+        def errors(hosts):
+            groups = [{"type": "new", "items": rows, "hosts": hosts}]
+            flat = dev_admin.dev_deploy.get_update_items({"groups": groups})
+            return dev_admin.get_notice_errors({"update": dict(base, groups=groups, items=flat), "notices": []})
+        self.assertEqual(errors([None, ["rhino"]]), [])
+        self.assertEqual(errors([["rhino", "sketchup"], None]), [])
+        self.assertEqual(len(errors([None])), 1)              # 항목 수와 다름
+        self.assertEqual(len(errors([None, ["photoshop"]])), 1)   # 모르는 프로그램
+        self.assertEqual(len(errors([None, []])), 1)          # 빈 목록 = 아무에게도 안 보임
+
     def test_repo_notices_consistent(self):
         import json
         data = json.loads((Path(__file__).resolve().parents[1] / "docs" / "notices.json").read_text(encoding="utf-8"))

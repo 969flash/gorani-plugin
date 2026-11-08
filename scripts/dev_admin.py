@@ -31,6 +31,7 @@ import panel_server  # noqa: E402
 
 ADMIN_HTML_PATH = os.path.join(SCRIPTS_DIR, "dev_admin.html")
 MOCK_PATH = os.path.join(ROOT_DIR, "tests", "fixtures", "site_ui_mock.json")
+NOTICE_HOSTS = ("rhino", "sketchup", "blender", "autocad")   # 업데이트 안내 groups[].hosts에 쓰는 프로그램 이름(패널 HOST.id). Blender 패키지에 안 들어가는 관리자 도구에만 둔다
 VERSION_PATTERN = re.compile(r"^\d+(\.\d+)*$")
 UPDATE_TEXT_KEYS = ("title", "body", "deadline")
 
@@ -65,6 +66,16 @@ def get_notice_errors(data):
             if formats_ok and update.get(key) and get_version_key(update[key]) > get_version_key(constants.PANEL_VERSION):
                 errors.append("%s은 아직 배포하지 않은 버전입니다(배포한 최신 %s) — 이대로면 %s. 그 버전을 배포하고 PANEL_VERSION을 올린 뒤에 게시하세요"
                               % (update[key], constants.PANEL_VERSION, effect))
+    if isinstance(update, dict) and update.get("groups"):
+        for group in update["groups"]:   # hosts = 항목마다 보일 프로그램(None = 모두). 항목과 같은 길이, 알려진 프로그램 이름만
+            hosts = group.get("hosts")
+            if hosts is None:
+                continue
+            sizes = {len(rows) for rows in (group.get("items") or {}).values()}
+            if sizes != {len(hosts)}:
+                errors.append("업데이트 안내 groups의 hosts는 항목(items)과 같은 개수여야 합니다(언어마다 항목 수도 같아야 합니다)")
+            elif any(h is not None and not (isinstance(h, list) and h and all(x in NOTICE_HOSTS for x in h)) for h in hosts):
+                errors.append("업데이트 안내 groups의 hosts는 null(모두) 또는 %s 중 하나 이상의 목록입니다" % "·".join(NOTICE_HOSTS))
     if isinstance(update, dict) and update.get("groups"):   # 분류(groups)가 있으면 items는 그것을 이어 붙인 값이어야 한다(웹페이지 버전 기록과 같은 문장)
         if update.get("items") != dev_deploy.get_update_items(update):
             errors.append("업데이트 안내의 items가 groups와 다릅니다 — groups(새 기능·개선·안정성)를 고치면 items는 그것을 이어 붙인 값으로 맞추세요")
