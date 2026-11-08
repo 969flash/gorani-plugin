@@ -1125,7 +1125,11 @@ def get_inside_fraction(parts, ring, ring_bbox=None):
 
 def _get_step_band(z, step):
     # type: (float, float) -> tuple
-    """표고 z → (z, 단 번호 floor(z / step)). 단 경계 TERRAIN_STEP_SNAP 안이면 z를 경계에 붙이고 경계 위 단으로."""
+    """표고 z → (경계 비교용 z − TERRAIN_STEP_OFFSET, 단 번호). 단 k 높이 = k × step(정수 m 그대로), 단 경계는 k × step + TERRAIN_STEP_OFFSET.
+    단 경계 TERRAIN_STEP_SNAP 안이면 z를 경계에 붙이고 경계 위 단으로.
+    경계를 비키는 까닭: 등고선 TIN은 같은 등고선 점끼리 이은 평평한 삼각형이 많아 정점의 약 40 %가 정확히 5 m 배수다(죽림리 301-3 구역 매끈 지형 65,728점 중 28,565점).
+    경계가 그 높이와 같으면 교차점이 보간되지 않고 메시 정점(3 m 격자)을 따라가 계단 테두리가 톱니가 됐다(2026-11-08 사용자)."""
+    z -= constants.TERRAIN_STEP_OFFSET
     k = int(round(z / step))
     if abs(z - k * step) < constants.TERRAIN_STEP_SNAP:
         return k * step, k
