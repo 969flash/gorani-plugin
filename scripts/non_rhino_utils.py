@@ -1125,7 +1125,11 @@ def get_inside_fraction(parts, ring, ring_bbox=None):
 
 def _get_step_band(z, step):
     # type: (float, float) -> tuple
-    """표고 z → (z, 단 번호 floor(z / step)). 단 경계 TERRAIN_STEP_SNAP 안이면 z를 경계에 붙이고 경계 위 단으로."""
+    """표고 z → (경계 비교용 z − TERRAIN_STEP_OFFSET, 단 번호). 단 k 높이 = k × step(정수 m 그대로), 단 경계는 k × step + TERRAIN_STEP_OFFSET.
+    단 경계 TERRAIN_STEP_SNAP 안이면 z를 경계에 붙이고 경계 위 단으로.
+    경계를 비키는 까닭: 등고선 TIN은 같은 등고선 점끼리 이은 평평한 삼각형이 많아 정점의 약 40 %가 정확히 5 m 배수다(죽림리 301-3 구역 매끈 지형 65,728점 중 28,565점).
+    경계가 그 높이와 같으면 교차점이 보간되지 않고 메시 정점(3 m 격자)을 따라가 계단 테두리가 톱니가 됐다(2026-11-08 사용자)."""
+    z -= constants.TERRAIN_STEP_OFFSET
     k = int(round(z / step))
     if abs(z - k * step) < constants.TERRAIN_STEP_SNAP:
         return k * step, k
@@ -1480,14 +1484,44 @@ class WaterShore(object):
         hits = self.get_hits(x, y)
         return hits[0] if hits else None
 
+    def get_near(self, x, y, reach):
+        # type: (float, float, float) -> object
+        """reach 안 가장 가까운 물가선 점 → (거리, 그 자리 수면 높이), 없으면 None. 물가 비탈(get_shore_fitted)용 — 칸 = reach 색인을 처음 부를 때 만든다."""
+        if getattr(self, "_reach", None) != reach:
+            self._reach, self._near = reach, {}
+            for edges in self.grid.values():
+                for edge in edges:
+                    ax, ay, dx, dy = edge[:4]
+                    for i in range(int(math.floor(min(ax, ax + dx) / reach)), int(math.floor(max(ax, ax + dx) / reach)) + 1):
+                        for j in range(int(math.floor(min(ay, ay + dy) / reach)), int(math.floor(max(ay, ay + dy) / reach)) + 1):
+                            self._near.setdefault((i, j), set()).add(edge)
+        ci, cj = int(math.floor(x / reach)), int(math.floor(y / reach))
+        best = None
+        for i in (ci - 1, ci, ci + 1):
+            for j in (cj - 1, cj, cj + 1):
+                for ax, ay, dx, dy, za, zb in self._near.get((i, j), ()):
+                    t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / ((dx * dx + dy * dy) or 1.0)))
+                    d = math.hypot(x - ax - dx * t, y - ay - dy * t)
+                    if d <= reach and (best is None or d < best[0]):
+                        best = (d, za + (zb - za) * t)
+        return best
 
-def get_shore_fitted(verts, shore):
-    # type: (list, WaterShore) -> list
-    """물가선 위 정점의 Z를 수면 높이로 맞춘 새 정점 목록(하이드로 플래트닝 — 물가선 = 수위).
-    물가 정점이 TIN의 '가장 가까운 입력점' 높이(둑 꼭대기 등고선 등)를 받아 수면과 수 m 떨어지던 것을 지형이 물가에서 비탈로 오르게 바꾼다."""
+
+def get_shore_fitted(verts, shore, reach=None):
+    # type: (list, WaterShore, float) -> list
+    """물가선 위 정점의 Z를 수면 높이로 맞추고, reach(기본 WATER_SHORE_FALLOFF) 안 정점은 수면 쪽으로 부드럽게 내린 새 정점 목록(하이드로 플래트닝 — 물가선 = 수위).
+    물가 정점이 TIN의 '가장 가까운 입력점' 높이(둑 꼭대기 등고선 등)를 받아 수면과 수 m 떨어지던 것을 지형이 물가에서 비탈로 오르게 바꾼다.
+    물가선 정점만 내리면 바로 안쪽 정점은 둑 높이 그대로라 한 면 폭에 수 m가 떨어져 물가가 톱니로 보였다(2026-11-08 사용자, 죽림리 301-3 구역 —
+    매끈 지형에 수직면 330개·최대 6 m). 그래서 reach 안은 smoothstep으로 이어 내린다(수면보다 낮은 정점은 그대로)."""
+    reach = constants.WATER_SHORE_FALLOFF if reach is None else reach
     out = []
     for x, y, z in verts:
         shore_z = shore.get_z(x, y)
+        if shore_z is None and reach > 0:
+            near = shore.get_near(x, y, reach)
+            if near is not None and z > near[1]:
+                t = near[0] / reach
+                z = near[1] + (z - near[1]) * t * t * (3.0 - 2.0 * t)
         out.append((x, y, z if shore_z is None else shore_z))
     return out
 

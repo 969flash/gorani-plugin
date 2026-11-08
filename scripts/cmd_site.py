@@ -245,8 +245,8 @@ def get_lot_state(pnus, site_db=None):
 
 def _empty_area_state(text=""):
     # type: (str) -> dict
-    return {"type": "area_state", "ok": not text, "text": text, "ring_tm": [], "ring_lnglat": [], "center": None, "center_tm": None,
-            "offsets": [], "area": 0.0, "lots": 0, "lots_area": 0.0, "lot_name": "", "target_geojson": _EMPTY_FC, "warnings": []}
+    return {"type": "area_state", "ok": not text, "text": text, "rings_tm": [], "rings_lnglat": [], "ring_offsets": [], "center": None, "center_tm": None,
+            "area": 0.0, "lots": 0, "lots_area": 0.0, "lot_name": "", "address": "", "target_geojson": _EMPTY_FC, "warnings": []}
 
 
 def _get_name_options(msg):
@@ -256,48 +256,73 @@ def _get_name_options(msg):
     return {"region": msg.get("region"), "output_lang": loader.load("site_prefs").get_options().get("output_lang")}
 
 
+def _get_abroad_address(lnglat, msg):
+    # type: (list, dict) -> str
+    """해외 대상지(지역 TM)면 패널 '대상지' 줄에 위경도 대신 보일 주소(Nominatim reverse), 국내·못 받으면 ''. 결과 폴더 이름(lot_name)도 같은 주소다(context_builder._get_place_label)."""
+    if not loader.load("non_rhino_utils").is_local_projection():
+        return ""
+    return loader.load("osm_context").get_place_address(float(lnglat[0]), float(lnglat[1]), _get_name_options(msg).get("output_lang") or "en")
+
+
+def _get_area_input_rings(msg):
+    # type: (dict) -> list
+    """area 입력 → TM 링 목록(투영도 여기서 맞춘다). 묶음 옮기기면 그것만, 아니면 지금 구역(rings_lnglat) + 새 구역 하나."""
+    non_rhino_utils = loader.load("non_rhino_utils")
+    if msg.get("center") and msg.get("ring_offsets"):   # [옮기기] — 구역 묶음째 새 자리로
+        non_rhino_utils.set_projection(float(msg["center"][0]), float(msg["center"][1]))
+        cx, cy = non_rhino_utils.get_tm_from_wgs84(float(msg["center"][0]), float(msg["center"][1]))
+        return [[(cx + float(dx), cy + float(dy)) for dx, dy in ring] for ring in msg["ring_offsets"]]
+    lnglat_rings = [[(float(lng), float(lat)) for lng, lat in ring] for ring in msg.get("rings_lnglat") or [] if ring]
+    if msg.get("ring_lnglat"):
+        lnglat_rings.append([(float(lng), float(lat)) for lng, lat in msg["ring_lnglat"]])
+    stamped = msg.get("center") and msg.get("offsets")
+    if not msg.get("ring_tm"):   # Rhino 커브 실제 좌표(ring_tm)는 지금 투영 그대로 — 아니면 모든 점의 가운데로(해외면 지역 원점)
+        pts = [p for ring in lnglat_rings for p in ring] + ([tuple(float(v) for v in msg["center"])] if stamped else [])
+        if pts:
+            non_rhino_utils.set_projection(sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts))
+    rings = [[non_rhino_utils.get_tm_from_wgs84(lng, lat) for lng, lat in ring] for ring in lnglat_rings]
+    if msg.get("ring_tm"):
+        rings.append([(float(x), float(y)) for x, y in msg["ring_tm"]])
+    elif stamped:   # Rhino 커브를 지도에서 옮겨 놓은 것 — 모양은 m 그대로, 위치만 지도에서
+        cx, cy = non_rhino_utils.get_tm_from_wgs84(float(msg["center"][0]), float(msg["center"][1]))
+        rings.append([(cx + float(dx), cy + float(dy)) for dx, dy in msg["offsets"]])
+    return rings
+
+
 def get_area_state(msg, site_db=None):
     # type: (dict, str) -> dict
-    """area_state 페이로드 — 구역 링 하나를 정리·검사하고 안의 필지를 센다.
+    """area_state 페이로드 — 구역 여러 개를 정리·검사하고(겹치면 하나로 합친다) 안의 필지를 센다. 필지 추가처럼 지도에 그릴 때마다 구역이 더해진다(2026-11-08).
 
-    입력: msg 중 하나 — ring_tm [[x, y]] EPSG:5186 / ring_lnglat [[lng, lat]](지도에 그린 것) / center [lng, lat] + offsets [[dx, dy]] m
-          (Rhino 커브를 지도에서 옮겨 놓은 것 — 모양은 m로 그대로, 위치만 지도에서). 아무것도 없으면 빈 상태(지움).
-    처리: context_builder.resolve_target(area) — 안전장치(get_ring_problem)·안의 필지(50 % 규칙)·이름.
-    출력: {"type": "area_state", ok, text, ring_tm, ring_lnglat(닫힘), center, center_tm, offsets, area, lots, lots_area, lot_name,
-          target_geojson(role area 1 + role target 필지), warnings}. 링 문제는 ok=false + text(사용자용 한 줄).
+    입력: msg — rings_lnglat [[[lng, lat]]](지금 구역들, 없으면 처음) + 새 구역 하나: ring_lnglat(지도에 그린 것) / ring_tm(Rhino 커브 실제 좌표) /
+          center + offsets(Rhino 커브를 지도에서 옮겨 놓은 것). 또는 center + ring_offsets(묶음째 옮기기 — 그것만 쓴다). 아무것도 없으면 빈 상태(지움).
+    처리: context_builder.resolve_target(area) — 구역마다 안전장치(get_ring_problem) → 겹친 구역 합치기(get_area_rings) → 안의 필지(50 % 규칙)·이름.
+    출력: {"type": "area_state", ok, text, rings_tm, rings_lnglat(닫힘), ring_offsets(묶음 가운데 기준 m), center, center_tm, area(합), lots, lots_area,
+          lot_name, address, target_geojson(role area 구역마다 + role target 필지), warnings}. 링 문제는 ok=false + text(사용자용 한 줄) — 패널은 이전 구역을 둔다.
     """
     context_builder = loader.load("context_builder")
     non_rhino_utils = loader.load("non_rhino_utils")
     review_map = loader.load("review_map")
-    if msg.get("ring_tm"):
-        points = [(float(x), float(y)) for x, y in msg["ring_tm"]]
-    elif msg.get("ring_lnglat"):
-        lnglats = [(float(lng), float(lat)) for lng, lat in msg["ring_lnglat"]]
-        non_rhino_utils.set_projection(sum(p[0] for p in lnglats) / len(lnglats), sum(p[1] for p in lnglats) / len(lnglats))   # 해외면 지역 원점
-        points = [non_rhino_utils.get_tm_from_wgs84(lng, lat) for lng, lat in lnglats]
-    elif msg.get("center") and msg.get("offsets"):
-        non_rhino_utils.set_projection(float(msg["center"][0]), float(msg["center"][1]))
-        cx, cy = non_rhino_utils.get_tm_from_wgs84(float(msg["center"][0]), float(msg["center"][1]))
-        points = [(cx + float(dx), cy + float(dy)) for dx, dy in msg["offsets"]]
-    else:
+    rings = _get_area_input_rings(msg)
+    if not rings:
         return _empty_area_state()
     try:
-        request = context_builder.get_request_with_defaults({"target": {"mode": "area", "ring": points}, "site_db": site_db,
+        request = context_builder.get_request_with_defaults({"target": {"mode": "area", "rings": rings}, "site_db": site_db,
                                                              "options": _get_name_options(msg)})   # Global이면 안의 필지를 세지 않는다
         target = context_builder.resolve_target(request)
     except (ValueError, KeyError, FileNotFoundError, RuntimeError) as error:
         return _empty_area_state(str(error.args[0]) if error.args else str(error))
-    ring = target.site_rings[0]
     cx, cy = target.center
+    center = review_map.get_wgs84_ring([target.center])[0]
     geojson = review_map.get_parcels_geojson([lot.pnu for lot in target.lots], "target", site_db) if target.lots else {"type": "FeatureCollection", "features": []}
-    ring_lnglat = review_map.get_wgs84_ring(list(ring) + [ring[0]])
-    geojson["features"].append({"type": "Feature", "properties": {"role": "area"}, "geometry": {"type": "Polygon", "coordinates": [ring_lnglat]}})
+    rings_lnglat = [review_map.get_wgs84_ring(list(ring) + [ring[0]]) for ring in target.site_rings]
+    for ring_lnglat in rings_lnglat:
+        geojson["features"].append({"type": "Feature", "properties": {"role": "area"}, "geometry": {"type": "Polygon", "coordinates": [ring_lnglat]}})
     return {
-        "type": "area_state", "ok": True, "text": "", "ring_tm": [list(p) for p in ring], "ring_lnglat": ring_lnglat,
-        "center": review_map.get_wgs84_ring([target.center])[0], "center_tm": [cx, cy],
-        "offsets": [[round(x - cx, 3), round(y - cy, 3)] for x, y in ring], "area": round(non_rhino_utils.get_ring_area(ring), 1),
+        "type": "area_state", "ok": True, "text": "", "rings_tm": [[list(p) for p in ring] for ring in target.site_rings], "rings_lnglat": rings_lnglat,
+        "ring_offsets": [[[round(x - cx, 3), round(y - cy, 3)] for x, y in ring] for ring in target.site_rings],
+        "center": center, "center_tm": [cx, cy], "area": round(sum(non_rhino_utils.get_ring_area(ring) for ring in target.site_rings), 1),
         "lots": len(target.lots), "lots_area": round(sum(lot.area for lot in target.lots), 1), "lot_name": target.name,
-        "target_geojson": geojson, "warnings": target.warnings,
+        "address": _get_abroad_address(center, msg), "target_geojson": geojson, "warnings": target.warnings,
     }
 
 
@@ -315,7 +340,7 @@ def get_point_state(msg, site_db=None):
                                                          "options": _get_name_options(msg)})
     target = context_builder.resolve_target(request)
     return {"type": "point_state", "ok": True, "center": [round(lng, 7), round(lat, 7)], "center_tm": [round(x, 2), round(y, 2)],
-            "lot_name": target.name}
+            "lot_name": target.name, "address": _get_abroad_address((lng, lat), msg)}
 
 
 def get_area_packs(bbox, seq=None, manifest=None):

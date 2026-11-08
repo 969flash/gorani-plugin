@@ -55,15 +55,13 @@ def get_options3d(options):
     """
     입력: 생성 options(PANEL_DEFAULT_OPTIONS로 채운 것).
     처리: 3D 설정을 한 칸에 — 이벤트 매개변수 25개 상한 안에 들게. 기본값도 적는다(기본 그대로 쓰는 비율을 세려고).
-    출력: 'smooth,block,site-line,flat-no,zoning,db' 꼴. 순서 = 지형·바닥 채우기·대상지·평탄화·용도지역 경계선·한국 자료 출처.
+    출력: 'smooth,block,flat-no,db' 꼴. 순서 = 지형·바닥 채우기·대상지 땅 평평하게·한국 자료 출처(용도지역·지구 선·대상지 면 생성은 늘 해서 옵션이 아니다, 2026-11-08).
     """
     step = int(float(options.get("terrain_step") or 0))
     return ",".join([
         "step%d" % step if step else "smooth",
         "block" if options.get("terrain_block", True) else "surface-only",
-        "site-surface" if options.get("site_output") == "mesh" else "site-line",
         "flat-" + str(options.get("flatten_level") or "mean") if options.get("flatten_site") else "flat-no",
-        "zoning" if options.get("include_zoning", True) else "zoning-no",
         "osm" if options.get("region") == "global" else "db"])
 
 
@@ -126,10 +124,11 @@ def get_target_params(target, lots=None):
         if lots:
             params["area"] = round(sum(lot.area for lot in lots), 1)
     elif mode == "area":
-        ring = [tuple(p) for p in target.get("ring") or []]
-        min_x, min_y, max_x, max_y = (min(p[0] for p in ring), min(p[1] for p in ring), max(p[0] for p in ring), max(p[1] for p in ring))
+        rings = [[tuple(p) for p in ring] for ring in context_builder.get_spec_rings(target)]   # 구역 여러 개(2026-11-08)
+        pts = [p for ring in rings for p in ring]
+        min_x, min_y, max_x, max_y = (min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts))
         center = ((min_x + max_x) / 2.0, (min_y + max_y) / 2.0)
-        params.update(area=round(non_rhino_utils.get_ring_area(ring), 1), width=round(max_x - min_x, 1), height=round(max_y - min_y, 1))
+        params.update(area=round(sum(non_rhino_utils.get_ring_area(ring) for ring in rings), 1), width=round(max_x - min_x, 1), height=round(max_y - min_y, 1))
     else:
         center = target.get("center")
     if center:

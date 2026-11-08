@@ -252,7 +252,13 @@ class CleanEdgeTest(unittest.TestCase):
     def test_shore_fitted(self):
         water = ([(0, 0, 1.0), (10, 0, 2.0), (10, 4, 2.0), (0, 4, 1.0)], [(0, 1, 2, 3)])
         bank = [(5, 0, 7.0), (5, -3, 9.0), (10, 2, 4.0)]   # 물가선 위 점은 그 자리 수면(보간)으로, 물에서 떨어진 점은 그대로
-        self.assertEqual(u.get_shore_fitted(bank, u.WaterShore(water)), [(5, 0, 1.5), (5, -3, 9.0), (10, 2, 2.0)])
+        self.assertEqual(u.get_shore_fitted(bank, u.WaterShore(water), reach=0), [(5, 0, 1.5), (5, -3, 9.0), (10, 2, 2.0)])
+        # 물가 비탈(2026-11-08) — reach 안은 smoothstep으로 수면 쪽으로, reach 밖·수면보다 낮은 점은 그대로
+        out = u.get_shore_fitted([(5, -3, 9.0), (5, -20, 9.0), (5, -1, 0.5)], u.WaterShore(water), reach=10.0)
+        t = 0.3
+        self.assertAlmostEqual(out[0][2], 1.5 + (9.0 - 1.5) * t * t * (3 - 2 * t), places=6)
+        self.assertEqual(out[1][2], 9.0)
+        self.assertEqual(out[2][2], 0.5)
 
     def test_contours(self):
         tri = ((0, 0, 0.0), (10, 0, 10.0), (0, 10, 0.0))
@@ -402,6 +408,7 @@ class SteppedMeshTest(unittest.TestCase):
         self.assertEqual(u.get_stepped_edges((0, 0, 1.3), (1, 0, 2.7), 0), [((0, 0, 1.3), (1, 0, 2.7))])
 
 
+
 if __name__ == "__main__":
     unittest.main()
 
@@ -436,4 +443,3 @@ class BufferedLineTest(unittest.TestCase):
         self.assertFalse(u.is_point_in_ring(15, 7, hairpin))
         self.assertIsNone(u.get_buffered_line_ring([(0, 0), (0, 0)], 10))
         self.assertIsNone(u.get_buffered_line_ring([(0, 0), (1, 1)], 0))
-

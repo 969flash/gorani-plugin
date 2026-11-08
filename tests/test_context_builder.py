@@ -222,6 +222,40 @@ class PrefsTest(unittest.TestCase):
             self.assertEqual(context_builder.get_result_state(lots, "context.3dm")["made2d_list"][0]["made2d"]["sheets"][0]["id"], 9)
             self.assertEqual(non_rhino_utils.get_crs_label(), "EPSG:5186")   # 바꿨던 원점은 되돌린다
 
+    def test_made_2d_survives_rename_and_orders_by_time(self):
+        """결과 폴더·2D 폴더 이름을 바꿔도 2D 카드의 파일 경로가 살고, 마지막 2D는 이름이 아니라 만든 시각으로 고른다(스타일 이름이 시각 앞이라 이름순은 틀렸다)."""
+        import time
+        with tempfile.TemporaryDirectory() as root:
+            old_result = os.path.join(root, "원래이름")
+            old_dirs = {"표준": os.path.join(old_result, "2D_표준_1343"), "선명": os.path.join(old_result, "2D_선명_1502")}
+            for style, folder in old_dirs.items():
+                os.makedirs(os.path.join(folder, "다이어그램"))
+                sheet = os.path.join(folder, "다이어그램", "09.svg")
+                open(sheet, "w").close()
+                with open(os.path.join(folder, constants.MADE_2D_FILE_NAME), "w", encoding="utf-8") as f:
+                    json.dump({"dir": old_result, "folder": folder, "sheets": [{"id": 9, "path": sheet, "thumb": "data:image/png;base64,AA"}],
+                               "basemap": {"exported": [os.path.join(folder, "basemap_1000.ai")]}}, f)
+            with open(os.path.join(old_result, "context.json"), "w", encoding="utf-8") as f:
+                json.dump({"lot_name": "x", "mode": "lots", "crs": "EPSG:5186", "center": [204500.0, 549000.0], "target": {"mode": "lots", "pnus": ["1"]}}, f)
+            open(os.path.join(old_result, "context.3dm"), "w").close()
+            now = time.time()
+            os.utime(old_dirs["표준"], (now - 600, now - 600))   # 표준을 먼저, 선명을 나중에 만들었다 — 이름순으로는 선명이 앞
+            os.utime(old_dirs["선명"], (now, now))
+            new_result = os.path.join(root, "내가 바꾼 이름")
+            os.rename(old_result, new_result)
+            os.rename(os.path.join(new_result, "2D_표준_1343"), os.path.join(new_result, "우리팀 납품본"))   # 2D 폴더 이름도 바꿈
+            state = context_builder.get_result_state(new_result, "context.3dm")
+            listed = [os.path.basename(x["dir"]) for x in state["made2d_list"]]
+            self.assertEqual(listed, ["우리팀 납품본", "2D_선명_1502"])
+            self.assertTrue(all(len(x["made_at"]) == 16 for x in state["made2d_list"]))   # 2026-11-06T14:32 — 선택 글('11-06 15:02 선명')   # 이름을 바꾼 폴더도 찾고, 마지막 = 나중에 만든 선명
+            latest = state["made2d_list"][-1]["made2d"]
+            self.assertEqual(latest["folder"], os.path.join(new_result, "2D_선명_1502"))
+            self.assertTrue(os.path.exists(latest["sheets"][0]["path"]))   # 옛 위치가 아니라 지금 위치의 파일
+            self.assertTrue(latest["basemap"]["exported"][0].startswith(new_result))
+            self.assertEqual(latest["sheets"][0]["thumb"], "data:image/png;base64,AA")
+            renamed = state["made2d_list"][0]["made2d"]   # 이름을 바꾼 2D 폴더 — 안의 경로도 새 폴더 이름으로
+            self.assertTrue(os.path.exists(renamed["sheets"][0]["path"]) and "우리팀 납품본" in renamed["sheets"][0]["path"])
+
     def test_old_prefs_range_resets_once(self):
         # 범위 기본값이 사각형 한 변 500 m로 바뀌었다(2026-10-19) — 그 전 prefs의 radius·shape만 한 번 버린다
         with tempfile.TemporaryDirectory() as tmp:

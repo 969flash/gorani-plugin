@@ -434,9 +434,9 @@ def get_demo_ga(period, labels, exclude_dev=False):
                      "build.region": [[region(c), (9 - i) * 4 * scale] for i, c in enumerate(codes) if c.isdigit()],
                      # 2026-11-02 — 3D 설정(options3d를 쉼표로 나눈 것)·2D 산출물·패널 버튼
                      "build.options3d": [["smooth", 70 * scale], ["step2", 18 * scale], ["step5", 9 * scale], ["step1", 3 * scale],
-                                         ["block", 81 * scale], ["surface-only", 19 * scale], ["site-line", 62 * scale], ["site-surface", 38 * scale],
+                                         ["block", 81 * scale], ["surface-only", 19 * scale],
                                          ["flat-no", 88 * scale], ["flat-mean", 9 * scale], ["flat-min", 3 * scale],
-                                         ["zoning", 90 * scale], ["zoning-no", 10 * scale], ["db", 85 * scale], ["osm", 15 * scale]],
+                                         ["db", 85 * scale], ["osm", 15 * scale]],
                      "make_2d.outputs2d": [["sheets", 34 * scale], ["basemap-a3", 22 * scale], ["tables", 9 * scale], ["basemap-a1", 5 * scale], ["dwg", 4 * scale]],
                      "make_2d.style": [["std", 21 * scale], ["vivid", 6 * scale], ["std+edited", 4 * scale], ["mono", 3 * scale], ["saved", 2 * scale]],
                      "make_2d.output_lang": [["ko", 30 * scale], ["en", 10 * scale]],
