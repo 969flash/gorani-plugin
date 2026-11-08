@@ -335,6 +335,28 @@ def korea_projection():
         _apply_projection()
 
 
+def get_faces_inside(meshes, rings, lift):
+    # type: (list, list, float) -> tuple
+    """메시들(verts, faces) 중 면 중심이 rings 안인 면만 복사 → (verts, faces), Z + lift. 입력은 바꾸지 않는다.
+    대상지 면(Site::ground) — 지형을 대상지 경계로 나눠 두었으므로(경계가 제약선) 면은 통째로 안이거나 밖이다."""
+    out_verts, out_faces = [], []
+    for verts, faces in meshes:
+        index = {}
+        for face in faces:
+            cx = sum(verts[i][0] for i in face) / len(face)
+            cy = sum(verts[i][1] for i in face) / len(face)
+            if not any(is_point_in_ring(cx, cy, ring) for ring in rings):
+                continue
+            new_face = []
+            for i in face:
+                if i not in index:
+                    index[i] = len(out_verts)
+                    out_verts.append((verts[i][0], verts[i][1], verts[i][2] + lift))
+                new_face.append(index[i])
+            out_faces.append(tuple(new_face))
+    return out_verts, out_faces
+
+
 def get_lnglat_in_crs(points, crs):
     # type: (list, str) -> list
     """저장된 결과(context.json crs)의 평면좌표 → 경위도. crs는 'EPSG:5186' 또는 get_crs_label의 지역 횡메르카토르

@@ -49,7 +49,7 @@ def interior_coverage(site_curve, meshes, n=18):
 
 
 # site_output은 주지 않는다 — 패널에서 [Line]·[Surface] 선택을 없애고 면 생성을 기본값으로 했다(2026-11-08). 엔진 기본값이 mesh여야 한다
-cases = [("매끈", {"terrain_step": 0}),
+cases = [("매끈", {"terrain_step": 0}), ("계단 1 m", {"terrain_step": 1}),
          ("계단 2 m·평평하게", {"terrain_step": 2, "flatten_site": True})]
 failed = []
 for name, extra in cases:
@@ -73,6 +73,34 @@ for name, extra in cases:
     total, hit = interior_coverage(flat_site[0], surfaces) if flat_site else (0, 0)
     ok = bool(ground_faces) and total > 50 and hit == total
     row["Site::ground"] = {"meshes": len(ground_faces), "interior_pts": total, "interior_hit": hit}
+    # 면 출력은 지형·도로를 깎지 않는다(2026-11-08) — 대상지 면을 빼도 안쪽이 지형·도로로 다 덮이고, 대상지 면은 그 위 SITE_GROUND_LIFT
+    base_surfaces = [g for p, g in objs if p in SURFACE_LAYERS and p != "CTX::Site::ground" and isinstance(g, rg.Mesh)]
+    base_total, base_hit = interior_coverage(flat_site[0], base_surfaces) if flat_site else (0, 0)
+    flattened = bool(extra.get("flatten_site"))
+    ok_base = flattened or (base_total > 50 and base_hit == base_total)
+    print("%-14s %-13s 대상지 면 없이 안쪽 %d점 중 %d점 지형·도로  %s" % (name, "지반 그대로", base_total, base_hit, "PASS" if ok_base else "FAIL") + ("(평평하게 — 깎는 것이 맞다)" if flattened else ""))
+    if not ok_base:
+        failed.append("%s/지반 그대로" % name)
+    row["base_coverage"] = {"pts": base_total, "hit": base_hit}
+    if not flattened and ground_faces and flat_site:   # 대상지 면 − 지반 = SITE_GROUND_LIFT(같은 점에서)
+        box = flat_site[0].GetBoundingBox(True)
+        probe = [rg.Point3d(box.Min.X + (box.Max.X - box.Min.X) * f, box.Min.Y + (box.Max.Y - box.Min.Y) * g, 1e4) for f in (0.3, 0.5, 0.7) for g in (0.3, 0.5, 0.7)]
+        probe = [q for q in probe if flat_site[0].Contains(rg.Point3d(q.X, q.Y, 0), rg.Plane.WorldXY, 0.001) == rg.PointContainment.Inside]
+        def tops(meshes):
+            joined = rg.Mesh()
+            for m in meshes:
+                joined.Append(m)
+            out, idx = Intersect.Intersection.ProjectPointsToMeshesEx([joined], probe, rg.Vector3d(0, 0, -1), 0.001)
+            best = {}
+            for pt, i in zip(out, idx):
+                best[i] = max(best.get(i, -1e9), pt.Z)
+            return best
+        top_site, top_base = tops(ground_faces), tops(base_surfaces)
+        lifts = [round(top_site[i] - top_base[i], 3) for i in top_site if i in top_base]
+        ok_lift = bool(lifts) and all(abs(v - constants.SITE_GROUND_LIFT) < 0.011 for v in lifts)
+        print("%-14s %-13s 대상지 면 − 지반 %s m  %s" % (name, "띄운 높이", sorted(set(lifts)), "PASS" if ok_lift else "FAIL"))
+        if not ok_lift:
+            failed.append("%s/띄운 높이" % name)
     print("%-14s %-13s 면 %d개 · 안쪽 %d점 중 %d점 덮임  %s" % (name, "Site::ground", len(ground_faces), total, hit, "PASS" if ok else "FAIL"))
     if not ok:
         failed.append("%s/Site::ground" % name)

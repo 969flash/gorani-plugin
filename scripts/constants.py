@@ -818,6 +818,7 @@ BLOCK_MIN_DEPTH = 5.0           # m — 두께 하한(작은 범위)
 BLOCK_BASE_SNAP = 5.0           # m — 바닥 높이를 이 단위로 내림(BASE_M이 읽기 쉬운 값이 되게)
 CLASSIFY_GRID = 50.0            # m — 면 분류용 격자 버킷
 WATER_LIFT = 0.02               # m — 수면 메시를 지형 위로 띄우는 높이
+SITE_GROUND_LIFT = 0.05         # m — 대상지 면(CTX::Site::ground)을 지형 위로 띄우는 높이. 지형·도로는 그대로 두고 대상지 안쪽 지반을 복사해 얹는다(2026-11-08 사용자 — 깎아 내면 도로가 사라졌다). 수면(0.02)보다 위
 WATER_EDGE_STEP = 2.0           # m — 수면 경계 조밀화 간격 (TIN 입력, code_map §5.1)
 OSM_FLOWING_WATER = ("river", "canal", "stream", "ditch", "drain", "rapids", "fish_pass")   # natural=water + water=* 중 흐르는 물(OSM wiki Key:water) — 나머지 수면은 고인 물
 WATER_STILL_KINDS = ("lake",)   # 고인 물 = 평평한 수면 하나(물가 최저). 나머지(river·stream)는 흐르는 물 — 물가를 따라 기운다

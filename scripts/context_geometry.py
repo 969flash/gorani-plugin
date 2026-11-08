@@ -702,9 +702,10 @@ def build_terrain(prepared):
     site_world = getattr(prepared, "site_rings", None) or []
     flatten = bool(options.get("flatten_site")) and mode in ("lots", "area") and bool(site_world)
     site_mesh_out = options.get("site_output") == "mesh" and mode in ("lots", "area") and bool(site_world)
-    separate_site = flatten or site_mesh_out
-    site_local = [[(x - ox, y - oy) for x, y in ring] for ring in site_world] if separate_site else []
-    cut_rings += site_local
+    separate_site = flatten   # 평평하게만 대상지 땅을 따로 뗀다 — 면 출력은 지형·도로를 그대로 두고 복사해 얹는다(2026-11-08 사용자: 깎아 내면 도로가 사라졌다)
+    site_overlay = site_mesh_out and not flatten
+    site_local = [[(x - ox, y - oy) for x, y in ring] for ring in site_world] if (separate_site or site_overlay) else []
+    cut_rings += site_local   # 대상지 경계를 제약선으로 — 면이 경계에서 나뉘어 안쪽만 복사할 수 있다
 
     t = time.time()
     edge = max(constants.TERRAIN_GRID, math.sqrt((wx1 - wx0) * (wy1 - wy0) / float(constants.TERRAIN_GRID_MAX_FACES)))
@@ -776,8 +777,14 @@ def build_terrain(prepared):
                 meshes[cls] = _get_stepped(meshes[cls], step)
         counts.update(terrain_step=step, step_s=round(time.time() - t, 3))
 
-    # 대상지 — 바닥 메시(원지형) 또는 평탄면 + 벽 + 원지형 사본(숨김)
+    # 대상지 — 면 출력: 지형·도로·녹지·수면 중 경계 안 면을 복사해 SITE_GROUND_LIFT 위에(지반은 그대로) / 평평하게: 평탄면 + 벽 + 원지형 사본(숨김)
     ground_parts = [meshes[cls] for cls in ("terrain", "road", "green", "rail") if cls in meshes]
+    if site_overlay:
+        overlay = non_rhino_utils.get_faces_inside([_get_mesh_faces(meshes[k]) for k in ("terrain", "road", "green", "rail", "water") if k in meshes],
+                                                   site_local, constants.SITE_GROUND_LIFT)
+        if overlay[1]:
+            meshes["site_ground"] = _get_rhino_mesh(*overlay)
+            counts["site_output"] = "mesh"
     if buckets.get("site"):
         site_in = _join(buckets["site"])
         if flatten:
@@ -797,7 +804,7 @@ def build_terrain(prepared):
     clip = get_clip_ring(prepared) if options.get("terrain_block") else None
     if clip is not None:   # 지형을 바닥까지 채우기 — 윗면(분류별 + 수면 + 대상지) 범위 경계에서 바닥까지 옆면·바닥면
         t = time.time()
-        tops = [_get_mesh_faces(meshes[k]) for k in ("terrain", "road", "green", "rail", "water", "site_ground") if k in meshes]
+        tops = [_get_mesh_faces(meshes[k]) for k in ("terrain", "road", "green", "rail", "water") + (() if site_overlay else ("site_ground",)) if k in meshes]   # 얹은 대상지 면은 지형 위 사본
         base = non_rhino_utils.get_block_base(min(v[2] for verts_, _f in tops for v in verts_), clip)
         block = non_rhino_utils.get_block_skirt(tops, [(x - ox, y - oy) for x, y in clip], base)
         if block[1]:
@@ -805,7 +812,7 @@ def build_terrain(prepared):
         counts.update(block_base=base, block_s=round(time.time() - t, 3))
     if "water" in meshes:   # 남은 수면 단차(보·댐·평탄화 대상지)를 세로 벽으로 막아 지형에 붙인다 — 용접하지 않는다(모서리 음영이 뭉개진다)
         walls = non_rhino_utils.get_water_walls(_get_mesh_faces(meshes["water"]),
-                                                [_get_mesh_faces(meshes[k]) for k in ("terrain", "road", "green", "rail", "site_ground") if k in meshes])
+                                                [_get_mesh_faces(meshes[k]) for k in ("terrain", "road", "green", "rail") + (() if site_overlay else ("site_ground",)) if k in meshes])
         if walls[1]:
             wall_mesh = _get_rhino_mesh(*walls)
             if "terrain" in meshes:

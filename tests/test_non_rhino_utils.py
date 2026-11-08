@@ -403,6 +403,18 @@ class SteppedMeshTest(unittest.TestCase):
 
 
 
+
+class FacesInsideTest(unittest.TestCase):
+    def test_faces_inside(self):
+        """대상지 면 — 경계 안 면만 복사해 lift만큼 올린다(입력은 그대로)."""
+        verts = [(0, 0, 1.0), (10, 0, 1.0), (10, 10, 1.0), (0, 10, 1.0), (20, 0, 2.0), (20, 10, 2.0)]
+        faces = [(0, 1, 2, 3), (1, 4, 5, 2)]
+        out_v, out_f = u.get_faces_inside([(verts, faces)], [[(-1, -1), (11, -1), (11, 11), (-1, 11)]], 0.05)
+        self.assertEqual(len(out_f), 1)
+        self.assertEqual(len(out_v), 4)
+        self.assertTrue(all(abs(v[2] - 1.05) < 1e-9 for v in out_v))
+        self.assertEqual(verts[0], (0, 0, 1.0))
+
 if __name__ == "__main__":
     unittest.main()
 
@@ -437,4 +449,3 @@ class BufferedLineTest(unittest.TestCase):
         self.assertFalse(u.is_point_in_ring(15, 7, hairpin))
         self.assertIsNone(u.get_buffered_line_ring([(0, 0), (0, 0)], 10))
         self.assertIsNone(u.get_buffered_line_ring([(0, 0), (1, 1)], 0))
-
