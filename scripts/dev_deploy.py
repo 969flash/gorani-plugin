@@ -12,6 +12,7 @@
     python3 scripts/dev_deploy.py repack     # 시도 팩 압축본을 풀어 (줄이고) 시군구 팩으로 나눠 다시 압축
     python3 scripts/dev_deploy.py rebounds   # 매니페스트의 팩 범위만 다시 잰다(시군구 필지 중심점 핵심 범위 — constants.PACK_BOUNDS_*)
     python3 scripts/dev_deploy.py upload     # 필지 팩 + 매니페스트는 Hugging Face(hf auth login 먼저), 컨텍스트·등고선 팩은 국내 버킷(~/.oci/config 먼저)
+    python3 scripts/dev_deploy.py packs --sido 41 --drop --site-only   # 필지 팩만 다시(토지이용계획 월간 갱신) → upload --site-only → mirror --dirs ""
     python3 scripts/dev_deploy.py notices    # docs/notices.json(업데이트·공지)·docs/countries.json(나라별 건물 팩 목록·services)을 Hugging Face 매니페스트에 넣고, config.json(원격 설정 — remote_config.build: 도면 색·범례·구간·코드표·파라미터·번역)을 같이 올린다 — 팩은 그대로. 새 나라·도면 색·번역 수정은 이것으로 끝(플러그인 판 없음)
     python3 scripts/dev_deploy.py config     # build/config.json만 만들어 본다(올리지 않음)
     python3 scripts/dev_deploy.py mirror     # Hugging Face 데이터셋 → GitHub 사본(constants.DATA_GITHUB_REPO, 팩은 Releases — Blender판이 읽는다). upload·notices 뒤에 돌린다
@@ -1270,10 +1271,12 @@ def _get_sha256(path):
 
 def _update_manifest(pack_dir, slug, entries):
     # type: (str, str, list) -> str
-    """매니페스트에서 그 시도의 항목(시도 팩 <slug>_* 와 그 시도 시군구 팩)을 빼고 entries를 넣는다. 파일 잠금 — 시도 여러 개를 동시에 압축한다."""
+    """매니페스트에서 그 시도의 항목(시도 팩 <slug>_* 와 그 시도 시군구 팩) 중 entries에 있는 종류만 빼고 entries를 넣는다
+    (필지 팩만 다시 만들면 컨텍스트·등고선 항목은 그대로). 파일 잠금 — 시도 여러 개를 동시에 압축한다."""
     import fcntl
     manifest_path = os.path.join(pack_dir, "manifest.json")
     code = next(c for c, (_name, s) in constants.SIDO.items() if s == slug)
+    kinds = {entry["name"].rsplit("_", 1)[1] for entry in entries}
     with open(manifest_path + ".lock", "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         packs = {}
@@ -1281,7 +1284,7 @@ def _update_manifest(pack_dir, slug, entries):
             with open(manifest_path, encoding="utf-8") as f:
                 packs = {pack["name"]: pack for pack in json.load(f)["packs"]}
         packs = {name: pack for name, pack in packs.items()
-                 if not name.startswith(slug + "_") and not (name[:5].isdigit() and name[:2] == code)}
+                 if name.rsplit("_", 1)[1] not in kinds or not (name.startswith(slug + "_") or (name[:5].isdigit() and name[:2] == code))}
         packs.update({entry["name"]: entry for entry in entries})
         with open(manifest_path + ".tmp", "w", encoding="utf-8") as f:
             json.dump({"version": datetime.date.today().isoformat(), "packs": sorted(packs.values(), key=lambda p: p["name"])},
@@ -1315,12 +1318,13 @@ def _split_and_compress(slug, pack_dir):
     return entries
 
 
-def build_packs(sido_codes=None, drop=False):
-    # type: (list, bool) -> str
+def build_packs(sido_codes=None, drop=False, site_only=False):
+    # type: (list, bool, bool) -> str
     """data/의 시도 DB → 줄인 시도 팩 DB → 시군구 팩(<시군구코드>_<종류>.db.xz) + manifest.json. 매니페스트 경로를 돌려준다.
 
     사용자는 대상지에 걸리는 시군구 팩만 받는다(data_pack). sido_codes를 주면 그 시도만 만들고 다른 시도 항목은 그대로 둔다.
     drop이면 압축 뒤 원본 DB(data/<시도>_site.db·_context.db)를 지운다 — 서울은 개발용이라 남긴다. 전국 원본은 디스크에 다 못 둔다.
+    site_only면 필지 팩만(토지이용계획·토지특성 갱신) — data/에 컨텍스트 DB가 있어도(서울) 컨텍스트·등고선 팩은 그대로 둔다.
     """
     pack_dir = os.path.join(BUILD_DIR, "packs")
     os.makedirs(pack_dir, exist_ok=True)
@@ -1332,7 +1336,7 @@ def build_packs(sido_codes=None, drop=False):
         sources = set()
         for kind, _label, source_kind in PACK_KINDS:
             source = os.path.join(data_dir, "%s_%s.db" % (slug, source_kind))
-            if not os.path.exists(source):
+            if not os.path.exists(source) or (site_only and kind != "site"):
                 continue
             sources.add(source)
             pack_name = "%s_%s.db" % (slug, kind)
@@ -1484,11 +1488,29 @@ Rhino 플러그인 Gorani가 대상지 주변만 받아 쓰는 지역 단위 SQL
 """
 
 
-def upload():
-    # type: () -> str
+def _get_remote_manifest():
+    # type: () -> dict
+    """Hugging Face에 지금 올라가 있는 한국 매니페스트. 처음이라 없으면 None."""
+    import urllib.error
+    import urllib.request
+    try:
+        with urllib.request.urlopen(constants.DATA_MANIFEST_URL, timeout=constants.DATA_TIMEOUT_SECONDS) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            return None
+        raise
+
+
+def upload(site_only=False):
+    # type: (bool) -> str
     """build/packs/의 시군구 팩을 올린다. 필지 팩 + 공개 매니페스트 + 설명은 Hugging Face 데이터셋(constants.DATA_REPO_ID, 공개),
     컨텍스트·등고선 팩은 국내 버킷(constants.DATA_DOMESTIC_BUCKET_URL)에 올리고 매니페스트에는 받기 주소(DATA_DOMESTIC_BASE_URL —
     문지기 서버 또는 버킷)로 적는다.
+
+    매니페스트의 update·notices·countries·services와 config.json은 지금 올라가 있는 것을 그대로 둔다 — 팩만 다시 올려도 아직 안 낸 판의
+    업데이트 안내·번역이 나가지 않게(그것들은 notices가 올린다, 2026-11-08). 처음 올릴 때만 docs/에서 넣는다.
+    site_only면 필지 팩만(토지이용계획·토지특성 갱신) — 국내 버킷은 건드리지 않고, 매니페스트의 컨텍스트·등고선 항목도 올라가 있는 것 그대로.
 
     `hf auth login`(쓰기 토큰)과 OCI CLI(`brew install oci-cli`, ~/.oci/config API 키)가 먼저 필요하다.
     둘 다 끊겨도 다시 실행하면 이어 올린다(upload_large_folder, oci sync는 크기가 다르거나 로컬이 더 새 파일만 올린다).
@@ -1497,30 +1519,39 @@ def upload():
     pack_dir = os.path.join(BUILD_DIR, "packs")
     with open(os.path.join(pack_dir, "manifest.json"), encoding="utf-8") as f:
         manifest = json.load(f)
+    remote = _get_remote_manifest()
+    if site_only and not remote:
+        raise ValueError("올라가 있는 매니페스트가 없습니다 — 처음에는 site_only 없이 올린다")
     public = []
     for pack in manifest["packs"]:
         if not pack["name"][:5].isdigit():   # 옛 시도 팩
             continue
         if not pack["name"].endswith("_site.db"):
+            if site_only:
+                continue
             pack = dict(pack, url=constants.DATA_DOMESTIC_BASE_URL + pack["url"])
         public.append(pack)
-    # 주소 꼴: https://objectstorage.<리전>.oraclecloud.com/n/<namespace>/b/<bucket>/o/
-    parts = constants.DATA_DOMESTIC_BUCKET_URL.rstrip("/").split("/")
-    subprocess.run(["oci", "os", "object", "sync", "-ns", parts[-4], "-bn", parts[-2], "--src-dir", ".",
-                    "--include", "[0-9]*_context.db.xz", "--include", "[0-9]*_terrain.db.xz"],
-                   check=True, cwd=pack_dir, env=dict(os.environ, SUPPRESS_LABEL_WARNING="True"))   # --include는 현재 폴더 기준
+    if site_only:
+        public += [pack for pack in remote["packs"] if not pack["name"].endswith("_site.db")]
+    else:
+        # 주소 꼴: https://objectstorage.<리전>.oraclecloud.com/n/<namespace>/b/<bucket>/o/
+        parts = constants.DATA_DOMESTIC_BUCKET_URL.rstrip("/").split("/")
+        subprocess.run(["oci", "os", "object", "sync", "-ns", parts[-4], "-bn", parts[-2], "--src-dir", ".",
+                        "--include", "[0-9]*_context.db.xz", "--include", "[0-9]*_terrain.db.xz"],
+                       check=True, cwd=pack_dir, env=dict(os.environ, SUPPRESS_LABEL_WARNING="True"))   # --include는 현재 폴더 기준
+    header = {key: remote[key] for key in ("update", "notices", "countries", "services") if key in remote} if remote else _read_notices()
     stage = os.path.join(BUILD_DIR, "hf_stage")
     os.makedirs(stage, exist_ok=True)
     with open(os.path.join(stage, "manifest.json"), "w", encoding="utf-8") as f:
-        json.dump(dict(_read_notices(), version=manifest["version"], packs=public), f, ensure_ascii=False, indent=1)
+        json.dump(dict(header, version=manifest["version"], packs=sorted(public, key=lambda p: p["name"])), f, ensure_ascii=False, indent=1)
     with open(os.path.join(stage, "README.md"), "w", encoding="utf-8") as f:
         f.write(DATASET_CARD)
-    build_config(os.path.join(stage, remote_config.CONFIG_FILE_NAME))   # 원격 설정도 같이(매니페스트 옆)
     api = HfApi()
     api.create_repo(constants.DATA_REPO_ID, repo_type="dataset", private=False, exist_ok=True)
     api.upload_large_folder(repo_id=constants.DATA_REPO_ID, repo_type="dataset", folder_path=pack_dir,
                             allow_patterns=["[0-9][0-9][0-9][0-9][0-9]_site.db.xz"])
-    api.upload_folder(repo_id=constants.DATA_REPO_ID, repo_type="dataset", folder_path=stage, commit_message="manifest·README")
+    api.upload_folder(repo_id=constants.DATA_REPO_ID, repo_type="dataset", folder_path=stage, allow_patterns=["manifest.json", "README.md"],
+                      commit_message="manifest·README")
     print("  올림: 팩 %d개 → https://huggingface.co/datasets/%s + %s" % (len(public), constants.DATA_REPO_ID,
                                                                         constants.DATA_DOMESTIC_BASE_URL), flush=True)
     return constants.DATA_MANIFEST_URL
@@ -1562,10 +1593,8 @@ def build_config(path=None):
 def upload_notices():
     # type: () -> str
     """Hugging Face의 지금 매니페스트를 받아 update·notices(docs/notices.json)·countries(docs/countries.json)만 바꿔 다시 올린다(팩·팩 목록은 그대로)."""
-    import urllib.request
     from huggingface_hub import HfApi
-    with urllib.request.urlopen(constants.DATA_MANIFEST_URL, timeout=constants.DATA_TIMEOUT_SECONDS) as response:
-        manifest = json.loads(response.read().decode("utf-8"))
+    manifest = _get_remote_manifest()
     manifest.update(_read_notices())
     stage = os.path.join(BUILD_DIR, "hf_stage")
     os.makedirs(stage, exist_ok=True)
@@ -1785,6 +1814,7 @@ def main():
     parser.add_argument("what", nargs="?", default="all", choices=("all", "smoke", "yak", "blender", "sketchup", "rhino7", "web", "packs", "repack", "upload", "notices", "config", "rebounds", "mirror"))
     parser.add_argument("--sido", help="packs: 쉼표로 구분한 시도 코드만 (기본 data/에 있는 전부)")
     parser.add_argument("--drop", action="store_true", help="packs: 압축 뒤 원본 시도 DB를 지운다(서울 제외)")
+    parser.add_argument("--site-only", action="store_true", help="packs·upload: 필지 팩만(토지이용계획·토지특성 갱신 — 컨텍스트·등고선 팩과 국내 버킷은 그대로)")
     parser.add_argument("--dirs", help="mirror: 쉼표로 구분한 데이터셋 폴더만(맨 위 = 빈 이름, 예: ',jp') — 기본 전부")
     args = parser.parse_args()
     if args.what in ("all", "yak") and sys.version_info[:2] != (3, 9):
@@ -1812,7 +1842,7 @@ def main():
         print("  로컬 시험: python3 -m http.server -d build/web 8766 → http://127.0.0.1:8766/ (팩 주소는 ?manifest=)")
         return
     if args.what == "upload":
-        print("manifest: %s" % upload())
+        print("manifest: %s" % upload(args.site_only))
         return
     if args.what == "config":
         print("만듦 →", build_config())
@@ -1833,7 +1863,7 @@ def main():
         print("yak: %s" % build_yak())
         print("  Rhino 7판(dev_deploy.py rhino7)도 같은 버전으로 같이 올린다 — 한쪽만 올리면 다른 쪽 사용자는 업데이트 안내만 받고 받을 판이 없다")
     if args.what in ("all", "packs"):
-        manifest_path = build_packs(args.sido.split(",") if args.sido else None, args.drop)
+        manifest_path = build_packs(args.sido.split(",") if args.sido else None, args.drop, args.site_only)
         print("packs: %s" % manifest_path)
         print("  올리기: python3 scripts/dev_deploy.py upload (필지 → Hugging Face, 컨텍스트·등고선 → 국내 버킷)")
 
