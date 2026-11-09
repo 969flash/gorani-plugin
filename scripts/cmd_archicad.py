@@ -117,6 +117,13 @@ class _ArchicadController(cmd_site._SiteController):
     def _get_host_stats(self):
         return {"host": "archicad %s" % self.version}
 
+    def _has_lot(self, lot_key):
+        """지난 결과를 열 때 이 대상지 3D가 프로젝트에 있으면 [불러오기]를 숨긴다(Rhino 8판과 같게). 모르면 False."""
+        try:
+            return bool(lot_key) and loader.load("archicad_baker").has_lot(self.host, lot_key)
+        except Exception:   # noqa: BLE001 — Archicad 응답 없음 등
+            return False
+
     def _pick_curve(self, msg):
         """Archicad에서 고른 요소 하나(폴리선·채우기·슬래브·영역·메시)의 바깥 고리 → curve_shape. 좌표는 프로젝트 원점 기준 m."""
         non_rhino_utils = loader.load("non_rhino_utils")

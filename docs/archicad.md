@@ -31,7 +31,10 @@ Click **Gorani > Gorani Site Context…** in the menu bar at the top of the scre
 What you get in Archicad / Archicad에 들어가는 것:
 
 - Layers `CTX::Buildings`, `CTX::Terrain`, `CTX::Roads` … (same names as the Rhino, SketchUp and Blender versions)
-- Buildings: one Morph per building. Terrain: one Mesh. Roads, green, water: thin Morph surfaces just above the terrain. Parcels and the site: plan polylines.
+- Buildings: one Morph per building. Terrain, roads, green, water: Morph surfaces that follow the terrain exactly (as in the other versions). An Archicad Mesh of the terrain for site tools sits on the hidden layer `CTX::Terrain::mesh`. Parcels and the site: plan polylines.
+  건물은 동마다 Morph, 지형·도로·녹지·수면은 지형을 그대로 따르는 Morph 면입니다. 지형 도구용 Archicad Mesh는 꺼 둔 레이어 `CTX::Terrain::mesh`에 있습니다.
+- Everything shows on the Ground Floor plan. Making the same site again replaces the earlier one.
+  모두 0층 평면에 보입니다. 같은 대상지를 다시 만들면 이전 것을 바꿉니다.
 - Classification **Gorani > Site context** and the property group **Gorani** (height, floors, use, approval date, height source …) on every element.
 - Heights are real elevations above sea level (Korea: Incheon mean sea level).
 - Basemap (.ai), analysis maps (SVG) and tables (CSV) go to the result folder, as in the other versions.

@@ -78,6 +78,9 @@ class HelperTest(unittest.TestCase):
         self.assertRegex(text, r"Bridge\(_ArchicadController\([^)]*\), threaded=True\)")
 
 
+FLAT_TYPES = ("PolyLine", "Hotspot", "Text")   # Archicad 2D 요소 — 분류·속성을 못 받는다
+
+
 class FakeArchicad(object):
     """Archicad JSON 서버 흉내 — API.IsAlive·API.ExecuteAddOnCommand(GoraniCommand)에 답하고 요소·레이어·속성·프로젝트 정보를 기억한다."""
 
@@ -92,6 +95,8 @@ class FakeArchicad(object):
         self.classified = set()
         self.calls = []
         self.surfaces = {}    # 이름 → CreateSurfaces 항목
+        self.hidden = set()   # 꺼 둔 채 만든 레이어
+        self.morphs = []      # CreateMorphs 입력
         self.window = "3DModel"   # 사용자가 3D 창을 보던 중 — 모듈 저장은 평면도에서만 된다
         fake = self
 
@@ -139,9 +144,11 @@ class FakeArchicad(object):
     def a_GetAllClassificationsInSystem(self, p):
         return {"classificationItems": [{"classificationItem": {"classificationItemId": {"guid": "CTX"}, "id": "CTX"}}]}
 
-    def a_SetClassificationsOfElements(self, p):
-        self.classified.update(row["elementId"]["guid"] for row in p["elementClassifications"])
-        return {"executionResults": []}
+    def a_SetClassificationsOfElements(self, p):   # 2D 요소는 Archicad처럼 거부한다('Element not supported')
+        rows = p["elementClassifications"]
+        ok = [self.elements.get(row["elementId"]["guid"], {}).get("type") not in FLAT_TYPES for row in rows]
+        self.classified.update(row["elementId"]["guid"] for row, good in zip(rows, ok) if good)
+        return {"executionResults": [{"success": True} if good else {"success": False, "error": {"code": 7203, "message": "Element not supported"}} for good in ok]}
 
     def a_GetElementsByClassification(self, p):
         return {"elements": [{"elementId": {"guid": g}} for g in self.elements if g in self.classified]}
@@ -178,6 +185,8 @@ class FakeArchicad(object):
     def c_CreateLayers(self, p):
         for layer in p["layerDataArray"]:
             self.layers.setdefault(layer["name"], len(self.layers) + 1)
+            if layer.get("isHidden"):
+                self.hidden.add(layer["name"])
         return {"attributeIds": [{"attributeId": {"guid": "L%d" % self.layers[l["name"]]}} for l in p["layerDataArray"]]}
 
     def c_CreateSurfaces(self, p):
@@ -218,7 +227,13 @@ class FakeArchicad(object):
         return {"executionResults": []}
 
     def c_CreateMorphs(self, p):
+        self.morphs += p["morphsData"]
         return self._new("Morph", len(p["morphsData"]))
+
+    def c_SetDetailsOfElements(self, p):
+        for row in p["elementsWithDetails"]:
+            self.elements[row["elementId"]["guid"]]["layer"] = row["details"]["layerIndex"]
+        return {"executionResults": [{"success": True}] * len(p["elementsWithDetails"])}
 
     def c_CreateMeshes(self, p):
         self.mesh = p["meshesData"][0]
@@ -232,6 +247,10 @@ class FakeArchicad(object):
 
     def c_CreateTexts(self, p):
         return self._new("Text", len(p["textsData"]))
+
+    def c_FitInWindow(self, p):
+        self.fitted = [e["elementId"]["guid"] for e in p.get("elements") or []]
+        return {"success": True}
 
     def c_GetCurrentWindowType(self, p):
         return {"currentWindowType": self.window}
@@ -276,11 +295,14 @@ class SidecarRunTest(unittest.TestCase):
         loader = cmd_archicad.loader
         cls.fake = FakeArchicad()
         cls.tmp = tempfile.TemporaryDirectory()
+        constants = loader.load("constants")
+        cls._old_home, constants.HOME_DIR = constants.HOME_DIR, cls.tmp.name   # 2D id 목록(archicad_2d.json)을 사용자 ~/Gorani에 쓰지 않게
         cls.host = cmd_archicad.ArchicadHost(cls.fake.port)
         cls.response = loader.load("context_builder").run(_request(cls.tmp.name), lambda *a: True, cls.host)
 
     @classmethod
     def tearDownClass(cls):
+        loader.load("constants").HOME_DIR = cls._old_home
         cls.fake.close()
         cls.tmp.cleanup()
         if cls._old_host is None:
@@ -302,14 +324,33 @@ class SidecarRunTest(unittest.TestCase):
         self.assertEqual(kinds.count("Mesh"), 1)
         self.assertGreater(len(self.fake.mesh["polygonCoordinates"]), 4)
         self.assertEqual(self.fake.mesh["buildingMaterialId"], {"guid": "BGorani CTX::Terrain"})   # 지형 색 — 없으면 Mesh 기본 잔디
+        # 보이는 지형은 TIN 그대로의 Morph 면, Archicad Mesh는 꺼 둔 레이어(다시 삼각분할해 도로 위로 솟았다 — 2026-11-09)
+        mesh_layer = [e["layer"] for e in self.fake.elements.values() if e["type"] == "Mesh"]
+        self.assertEqual(mesh_layer, [self.fake.layers["CTX::Terrain::mesh"]])
+        self.assertIn("CTX::Terrain::mesh", self.fake.hidden)
+        terrain = self.fake.layers["CTX::Terrain"]
+        self.assertTrue(any(e["type"] == "Morph" and e.get("layer") == terrain for e in self.fake.elements.values()))
         self.assertIn("CTX::Buildings", self.fake.layers)
         surface = self.fake.surfaces["Gorani CTX::Buildings"]   # 애드온은 red·green·blue 키만 읽는다 — r·g·b로 보내면 검정(2026-11-09)
         self.assertEqual(sorted(surface["surfaceColor"]), ["blue", "green", "red"])
         self.assertGreater(surface["diffuseReflection"], 0)
         lot_prop = self.fake.properties["GORANI_LOT_KEY"]
-        self.assertTrue(all(lot_prop in e["props"] for e in self.fake.elements.values()))
-        self.assertEqual(self.fake.classified, set(self.fake.elements))   # 속성은 분류에 매인다 — 전부 분류
+        self.assertTrue(all(lot_prop in e["props"] for e in self.fake.elements.values() if e["type"] not in FLAT_TYPES))
+        self.assertEqual(self.fake.classified, {g for g, e in self.fake.elements.items() if e["type"] not in FLAT_TYPES})   # 속성은 분류에 매인다 — 2D 빼고 전부
+        self.assertTrue(any(e["type"] == "PolyLine" for e in self.fake.elements.values()))
         self.assertTrue(any("PBLD_ID" in e["props"] for e in self.fake.elements.values()))
+
+    def test_fit_skips_2d(self):   # 도엽 경계(수 km 폴리선)까지 맞추면 대상지가 점만 했다
+        loader.load("archicad_baker").zoom_to_site(self.host, self.response["dir"])
+        types = {self.fake.elements[g]["type"] for g in self.fake.fitted}
+        self.assertIn("Morph", types)
+        self.assertFalse(types & set(FLAT_TYPES))
+
+    def test_has_lot(self):
+        baker = loader.load("archicad_baker")
+        lot_key = loader.load("context_baker").read_meta(self.response["dir"])["lot_key"]
+        self.assertTrue(baker.has_lot(self.host, lot_key))
+        self.assertFalse(baker.has_lot(self.host, "nope"))
 
     def test_origin_written(self):
         self.assertEqual(self.fake.info["GORANI_ORIGIN_E"][1], "%.3f" % self.response["context"]["origin"][0])

@@ -1,8 +1,9 @@
 """Archicad 모델 베이커(사이드카 쪽) — sketchup_baker와 같은 함수 이름을 Archicad JSON 명령(host.call)으로 바꾼다. context_baker의 Archicad판.
 
 host = cmd_archicad.ArchicadHost(api·call). 명령은 Gorani 애드온(archicad/ — Tapir에서 가져옴)의 GoraniCommand.
-Archicad 쪽 모양: 레이어(CTX::Buildings …)마다 요소. 건물 = 동마다 Morph(구멍 있는 각기둥), 지형 = Mesh 하나(지형 도구 — 바깥 고리 +
-분류 경계·TIN 점을 높이 선으로), 도로·녹지·수면·대상지 바닥 = 지형 위로 살짝 띄운 Morph 면, 필지·대상지·범위·도로 중심선 = 평면 폴리선.
+Archicad 쪽 모양: 레이어(CTX::Buildings …)마다 요소. 건물 = 동마다 Morph(구멍 있는 각기둥), 지형·도로·녹지·수면·대상지 바닥 = 분류마다
+TIN 그대로의 Morph 면(같은 TIN을 나눠 가져 겹치지 않는다 — 다른 판과 같은 모양), 지형 도구용 Archicad Mesh 하나는 꺼 둔 레이어
+CTX::Terrain::mesh(바깥 고리 + TIN 점 — Archicad가 다시 삼각분할해 면과 어긋나므로 보이지 않게), 필지·대상지·범위·도로 중심선 = 평면 폴리선.
 요소마다 분류 'Gorani > Site context'와 속성 그룹 'Gorani'(GORANI_LOT_KEY + 건물 속성 14키)를 붙인다 — Archicad 사용자 속성은
 분류에 매여야 값이 들어간다(분류 없는 요소는 'Not available'). 지우기는 이 분류로 찾고 GORANI_LOT_KEY로 대상지를 가린다.
 좌표는 로컬 m(Archicad JSON도 m) — 실제 좌표 방식은 요소를 계산 원점만큼 옮긴다. 문서 원점은 프로젝트 정보 필드(constants.DOC_ORIGIN_KEYS),
@@ -11,9 +12,11 @@ Archicad 쪽 모양: 레이어(CTX::Buildings …)마다 요소. 건물 = 동마
     bake(host, items, prepared, lot_key) → [id]         write_ref_and_origin(host, prepared, lot_key) → [id, id]
     save_copy(host, path, ids, timing) → context.mod    import_mod(host, result_dir) → {ok, layers, objects, replaced, text}
     clear_previous(host, lot_key) → (objects, layers)   zoom_to_site(host, result_dir, center_lng_lat) → bool
+    has_lot(host, lot_key) → bool
     get_doc_origin(host) → (E, N)                       get_selected_ring(host) → ([(x, y)], 안내 글)
 """
 
+import json
 import math
 import os
 import sys
@@ -27,6 +30,7 @@ from i18n import tr
 PROPERTY_GROUP = "Gorani"
 CLASSIFICATION = ("Gorani", "CTX", "Site context")   # (분류 체계, 항목 id, 항목 이름)
 GROUND_CLASSES = ("CTX::Terrain", "CTX::Roads", "CTX::Green", "CTX::Water", "CTX::Rail", "CTX::Site::ground", "CTX::Terrain::site_flat")
+MESH_LAYER = constants.CTX_ROOT_LAYER + "::" + constants.ARCHICAD_MESH_LAYER   # 지형 도구용 Mesh — 처음엔 꺼 둔다(CTX_HIDDEN_LAYERS)
 
 
 # ── 문서 원점(프로젝트 정보 필드) ─────────────────────────────
@@ -250,9 +254,9 @@ def get_prism_body(parts, base_z, height):
     return {"vertices": vertices, "polygons": polygons, "edgeDefault": "HardHidden"}   # Soft면 꺾인 벽 모서리까지 이어 칠해 옆면에 세로 줄무늬(파리 시청 R250, Archicad 30 2026-11-09)
 
 
-def get_surface_body(verts, faces, lift):
-    # type: (list, list, float) -> dict
-    """삼각형·사각형 면 → 열린 MorphBody(면 방향 위). lift만큼 띄운다(지형 Mesh와 겹쳐 깜박이지 않게).
+def get_surface_body(verts, faces, hard=False):
+    # type: (list, list, bool) -> dict
+    """삼각형·사각형 면 → 열린 MorphBody(면 방향 위). 모서리는 부드럽게(지형), hard면 각지게(덩어리 옆면·옹벽 — 꺾인 모서리가 둥글게 칠해졌다).
     사각형은 삼각형 둘로 나누고 넓이 0인 삼각형은 뺀다 — 높이 0 옹벽 사각형이 섞이면 Archicad가 Morph를 통째로 거부했다
     (성수 333-139 R=500 CTX::Terrain::site_wall, 2026-10-22)."""
     tris = []
@@ -263,8 +267,8 @@ def get_surface_body(verts, faces, lift):
                      (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]))
             if sum(v * v for v in cross) > 1e-10:
                 tris.append(list(tri))
-    return {"bodyType": "Surface", "edgeDefault": "SoftHidden",
-            "vertices": [_xyz(x, y, z + lift) for x, y, z in verts], "polygons": [{"vertexIds": tri} for tri in tris]}
+    return {"bodyType": "Surface", "edgeDefault": "HardHidden" if hard else "SoftHidden",
+            "vertices": [_xyz(x, y, z) for x, y, z in verts], "polygons": [{"vertexIds": tri} for tri in tris]}
 
 
 def get_polyline_coords(pts, closed, shift):
@@ -313,6 +317,55 @@ def get_ground_mesh(items, outer):
 
 # ── 지우기·베이크 ────────────────────────────────────────────
 
+def _read_2d():
+    # type: () -> dict
+    try:
+        with open(os.path.join(constants.HOME_DIR, constants.ARCHICAD_2D_FILE_NAME), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def _write_2d(data):
+    # type: (dict) -> None
+    path = os.path.join(constants.HOME_DIR, constants.ARCHICAD_2D_FILE_NAME)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+
+
+def _remember_2d(lot_key, guids):
+    # type: (str, list) -> None
+    """2D 요소(폴리선·핫스팟·글자) id를 대상지별로 적어 둔다. Archicad는 2D 요소에 분류를 못 붙여('Element not supported') 속성
+    GORANI_LOT_KEY가 없다 — 적어 두지 않으면 다시 만들 때마다 필지선·범위가 쌓였다(Archicad 30, 6번 만들어 폴리선 12,608개, 2026-11-09)."""
+    guids = [g for g in guids if g]
+    if guids:
+        data = _read_2d()
+        data[lot_key] = sorted(set(data.get(lot_key) or []) | set(guids))
+        _write_2d(data)
+
+
+def _find_lot_2d(host, lot_key):
+    # type: (object, str) -> list
+    """적어 둔 2D 요소 중 지금 프로젝트에 있는 것(lot_key None이면 전부) id. 다른 프로젝트 것은 목록에 남긴다."""
+    data = _read_2d()
+    wanted = set(data.get(lot_key) or []) if lot_key else {g for ids in data.values() for g in ids}
+    if not wanted:
+        return []
+    found = set()
+    for kind in ("PolyLine", "Hotspot", "Text"):
+        found.update(e["elementId"]["guid"] for e in host.call("GetElementsByType", elementType=kind).get("elements") or [])
+    return sorted(wanted & found)
+
+
+def _forget_2d(guids):
+    # type: (list) -> None
+    gone = set(guids)
+    if gone:
+        data = _read_2d()
+        _write_2d({key: [g for g in ids if g not in gone] for key, ids in data.items() if set(ids) - gone})
+
+
 def _find_lot_elements(host, lot_key):
     # type: (object, str) -> list
     """분류 'Gorani > Site context' 요소 중 속성 GORANI_LOT_KEY가 lot_key인 것(lot_key None이면 전부) id."""
@@ -334,11 +387,18 @@ def _find_lot_elements(host, lot_key):
     return matched
 
 
+def has_lot(host, lot_key):
+    # type: (object, str) -> bool
+    """이 대상지(GORANI_LOT_KEY)로 구운 요소가 지금 프로젝트에 있나 — 지난 결과를 열 때 [불러오기]를 보일지(context_baker.has_lot와 같은 뜻)."""
+    return bool(lot_key) and bool(_find_lot_elements(host, lot_key))
+
+
 def clear_previous(host, lot_key=None):
     # type: (object, str) -> tuple
     """이 도구가 만든 요소(lot_key를 주면 그 대상지만) 삭제. 숨기거나 잠근 CTX 레이어는 잠깐 열었다가 되돌린다.
     출력 (지운 요소 수, 0) — 레이어는 사용자 것과 섞여 지우지 않는다."""
-    guids = _find_lot_elements(host, lot_key)
+    flat = _find_lot_2d(host, lot_key)
+    guids = _find_lot_elements(host, lot_key) + flat
     if guids:
         closed = _get_closed_layers(host)
         _open_layers(host, dict.fromkeys(closed))
@@ -347,6 +407,7 @@ def clear_previous(host, lot_key=None):
                 host.call("DeleteElements", elements=[{"elementId": {"guid": g}} for g in guids[start:start + constants.ARCHICAD_BATCH * 10]])
         finally:
             _open_layers(host, closed)
+        _forget_2d(flat)
     if lot_key:
         host.baked.pop(lot_key, None)
     return (len(guids), 0)
@@ -365,20 +426,21 @@ def _create_morphs(host, morphs):
     """[(MorphBody, 표면 guid)] → 요소 id(실패는 None). ARCHICAD_BATCH 개씩."""
     ids = []
     for start in range(0, len(morphs), constants.ARCHICAD_BATCH):
-        data = [dict({"basePoint": _xyz(0, 0, 0), "body": _with_surface(body, surface), "floorIndex": 0}, **({"surfaceId": {"guid": surface}} if surface else {}))
+        data = [dict({"basePoint": _xyz(0, 0, 0), "body": _with_surface(body, surface), "floorIndex": 0}, **constants.ARCHICAD_MORPH_PLAN,
+                     **({"surfaceId": {"guid": surface}} if surface else {}))
                 for body, surface in morphs[start:start + constants.ARCHICAD_BATCH]]
         ids += _get_ids(host.call("CreateMorphs", morphsData=data))
     return ids
 
 
-def _create_surface(host, verts, faces, lift, surface):
-    # type: (object, list, list, float, str) -> list
+def _create_surface(host, verts, faces, surface, hard=False):
+    # type: (object, list, list, str, bool) -> list
     """면 메시 → Morph 하나. Archicad가 거부하면(한 변을 세 면이 나눠 갖는 옹벽 메시 — 성수 333-139 R=500 site_wall, 2026-10-22)
     면마다 Morph로 나눈다(ARCHICAD_SPLIT_MAX 면까지 — 지형 분류 면은 한 덩어리로 들어간다)."""
-    guids = _create_morphs(host, [(get_surface_body(verts, faces, lift), surface)])
+    guids = _create_morphs(host, [(get_surface_body(verts, faces, hard), surface)])
     if guids and guids[0] or len(faces) > constants.ARCHICAD_SPLIT_MAX:
         return guids
-    bodies = [get_surface_body(verts, [face], lift) for face in faces]
+    bodies = [get_surface_body(verts, [face], hard) for face in faces]
     return _create_morphs(host, [(body, surface) for body in bodies if body["polygons"]])   # 넓이 0 면은 뺀다
 
 
@@ -393,13 +455,13 @@ def bake(host, items, prepared, lot_key=None):
     lot_key = _get_lot_key(prepared, lot_key)
     shift = _get_shift(prepared)
     layers = sorted({item.layer for item in items})
-    layer_index = _ensure_layers(host, layers)
+    ground = [item for item in items if item.layer in GROUND_CLASSES and item.faces]
+    layer_index = _ensure_layers(host, layers + ([MESH_LAYER] if ground else []))
     surfaces = _ensure_surfaces(host, [layer for layer in layers if any(i.layer == layer and (i.faces or i.prisms) for i in items)])
     classification = _ensure_classification(host)
     baked = host.baked.setdefault(lot_key, [])
     host.last_lot = lot_key
     out, rows, moves = [], [], []
-    ground = [item for item in items if item.layer in GROUND_CLASSES and item.faces]
     for item in items:
         guids = []
         moved = [(x + shift[0], y + shift[1], z) for x, y, z in item.verts]
@@ -411,12 +473,8 @@ def bake(host, items, prepared, lot_key=None):
                 attrs.append(building_attrs)
             guids = _create_morphs(host, morphs)
             rows += [(guid, dict(a, **{constants.UDT_LOT_KEY: lot_key})) for guid, a in zip(guids, attrs)]
-        elif item.faces and item in ground:
-            lift = 0.0 if item.layer == "CTX::Terrain" else constants.ARCHICAD_SURFACE_LIFT
-            if item.layer != "CTX::Terrain":   # 지형은 아래 Mesh 하나 — 나머지 분류는 색 면으로 덮는다
-                guids = _create_surface(host, moved, item.faces, lift, surfaces.get(item.layer))
-        elif item.faces:   # 대상지 옹벽·원지형 등 지면 밖 메시
-            guids = _create_surface(host, moved, item.faces, 0.0, surfaces.get(item.layer))
+        elif item.faces:   # 지면 분류·수면·덩어리·옹벽 — 분류 메시는 같은 TIN을 나눠 가져 띄우지 않는다
+            guids = _create_surface(host, moved, item.faces, surfaces.get(item.layer), item.layer in constants.ARCHICAD_HARD_EDGE_LAYERS)
         elif item.polylines:
             data = [{"coordinates": coords, "layerIndex": layer_index.get(item.layer), "floorInd": 0}
                     for coords in (get_polyline_coords(pts, closed, shift) for pts, closed in item.polylines) if coords]
@@ -424,7 +482,9 @@ def bake(host, items, prepared, lot_key=None):
                 guids += _get_ids(host.call("CreatePolylines", polylinesData=data[start:start + constants.ARCHICAD_BATCH * 10]))
         if item.faces or item.prisms:   # 레이어는 분류·속성을 넣은 뒤에 옮긴다(숨긴 레이어 요소는 고칠 수 없다)
             moves.append((guids, layer_index.get(item.layer)))
-        if not item.prisms:
+        if item.polylines:   # 2D는 분류·속성을 못 붙인다 — 대상지별 id 목록으로
+            _remember_2d(lot_key, guids)
+        elif not item.prisms:
             rows += [(guid, dict(item.attrs or {}, NAME=item.name, **{constants.UDT_LOT_KEY: lot_key})) for guid in guids]
         good = [g for g in guids if g]
         baked += good
@@ -433,11 +493,10 @@ def bake(host, items, prepared, lot_key=None):
     if ground:
         extent = next((pts for item in items if item.layer == "CTX::Ref" and item.name == "extent" for pts, _closed in item.polylines), [])
         mesh_id = _create_ground_mesh(host, ground, extent, shift, surfaces.get("CTX::Terrain"))
-        if mesh_id:   # 지형 항목의 몫(지형 항목은 위 반복에서 요소를 만들지 않는다)
+        if mesh_id:   # 대표 id는 세지 않는다(항목이 아니다) — 지우기·사본에는 들어간다
             baked.append(mesh_id)
-            rows.append((mesh_id, {constants.UDT_LOT_KEY: lot_key, "NAME": "terrain"}))
-            moves.append(([mesh_id], layer_index.get("CTX::Terrain")))
-            out.append(mesh_id)
+            rows.append((mesh_id, {constants.UDT_LOT_KEY: lot_key, "NAME": "terrain_mesh"}))
+            moves.append(([mesh_id], layer_index.get(MESH_LAYER)))
     _set_properties(host, rows, classification)
     for guids, index in moves:
         if index is not None:
@@ -490,7 +549,7 @@ def write_ref_and_origin(host, prepared, lot_key=None):
     text = _get_ids(host.call("CreateTexts", textsData=[{"coordinate": _xyz(shift[0], shift[1], 0.0), "layerIndex": index, "floorIndex": 0,
                                                          "text": "ORIGIN E %.0f N %.0f" % tuple(prepared.origin), "height": 2.0}]))
     ids = [g for g in spot + text if g]
-    _set_properties(host, [(g, dict(get_ref_attrs(prepared), **{constants.UDT_LOT_KEY: lot_key})) for g in ids], _ensure_classification(host))
+    _remember_2d(lot_key, ids)   # 핫스팟·글자도 2D — 분류·속성 대신 id 목록(Ref 속성은 프로젝트 정보 필드와 context.json에 있다)
     host.baked.setdefault(lot_key, []).extend(ids)
     if not prepared.origin_reused:
         _set_doc_origin(host, getattr(prepared, "doc_origin", None) or prepared.origin)
@@ -563,7 +622,8 @@ def zoom_to_site(host, result_dir, center_lng_lat=None):
     # type: (object, str, list) -> bool
     """이번 결과의 요소(없으면 전체)가 화면에 들어오게 한다. Archicad는 범위 지정 줌이 없어 요소 맞춤으로 대신한다."""
     meta = read_meta(result_dir) if result_dir else {}
-    guids = host.baked.get(meta.get("lot_key") or "", []) if not center_lng_lat else []
+    flat = set(_read_2d().get(meta.get("lot_key") or "") or [])   # 2D는 빼고 — 도엽 경계(CTX::Ref, 수 km)까지 맞추면 대상지가 점만 했다
+    guids = [g for g in host.baked.get(meta.get("lot_key") or "", []) if g not in flat] if not center_lng_lat else []
     host.call("FitInWindow", **({"elements": [{"elementId": {"guid": g}} for g in guids]} if guids else {}))
     return True
 
