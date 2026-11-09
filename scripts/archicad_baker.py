@@ -618,12 +618,34 @@ def import_mod(host, result_dir):
     return result
 
 
+def _look_at(host, guids):
+    # type: (object, list) -> None
+    """요소들의 3D 상자를 남남서쪽 위에서 내려다보는 투시 카메라(constants.ARCHICAD_VIEW)."""
+    boxes = [b.get("boundingBox3D") for b in host.api("API.Get3DBoundingBoxes", {"elements": [{"elementId": {"guid": g}} for g in guids]}).get("boundingBoxes3D") or []]
+    boxes = [b for b in boxes if b]
+    if not boxes:
+        return
+    lo = [min(b[k + "Min"] for b in boxes) for k in "xyz"]
+    hi = [max(b[k + "Max"] for b in boxes) for k in "xyz"]
+    span = max(hi[0] - lo[0], hi[1] - lo[1])
+    side, back, up, cone = constants.ARCHICAD_VIEW
+    target = ((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, lo[2] + (hi[2] - lo[2]) * 0.3)
+    camera = (target[0] + side * span, target[1] - back * span, hi[2] + up * span)
+    host.call("Set3DProjectionSettings", perspective={
+        "cameraPosition": _xyz(*camera), "targetPosition": _xyz(*target), "distance": math.hypot(target[0] - camera[0], target[1] - camera[1]),
+        "azimuth": math.degrees(math.atan2(target[1] - camera[1], target[0] - camera[0])) % 360, "viewCone": cone, "rollAngle": 0, "isTwoPointPersp": False})
+    host.call("RebuildView")   # 카메라만 바꾸면 3D 창이 그대로였다
+
+
 def zoom_to_site(host, result_dir, center_lng_lat=None):
     # type: (object, str, list) -> bool
     """이번 결과의 요소(없으면 전체)가 화면에 들어오게 한다. Archicad는 범위 지정 줌이 없어 요소 맞춤으로 대신한다."""
     meta = read_meta(result_dir) if result_dir else {}
     flat = set(_read_2d().get(meta.get("lot_key") or "") or [])   # 2D는 빼고 — 도엽 경계(CTX::Ref, 수 km)까지 맞추면 대상지가 점만 했다
     guids = [g for g in host.baked.get(meta.get("lot_key") or "", []) if g not in flat] if not center_lng_lat else []
+    if guids and (host.call("GetCurrentWindowType") or {}).get("currentWindowType") == "3DModel":
+        _look_at(host, guids)   # 3D 창 요소 맞춤은 대상지 가운데로 바짝 다가갔고, 전체 맞춤은 점만 했다
+        return True
     host.call("FitInWindow", **({"elements": [{"elementId": {"guid": g}} for g in guids]} if guids else {}))
     return True
 

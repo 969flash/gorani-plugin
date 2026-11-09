@@ -907,6 +907,7 @@ ARCHICAD_SPLIT_MAX = 2000      # 면 메시 Morph가 거부되면 면마다 나�
 ARCHICAD_MESH_LAYER = "Terrain::mesh"   # 지형 도구용 Archicad Mesh 레이어(꺼 둔다) — 보이는 지형은 TIN 그대로의 Morph 면. Mesh는 Archicad가 다시 삼각분할해
                                       # 강변 축대처럼 높이 차가 큰 곳에서 도로 위로 솟았다(파리 시청 R250, Archicad 30 2026-11-09)
 ARCHICAD_HARD_EDGE_LAYERS = ("CTX::Terrain::block", "CTX::Terrain::site_wall")   # 모서리를 각지게 칠할 면 — 지형은 부드럽게(Morph 모서리는 요소 하나에 한 종류)
+ARCHICAD_VIEW = (-0.35, 1.25, 0.9, 50)   # 3D 창에서 만든 뒤 카메라: (옆, 뒤, 위) × 대상지 폭, 시야각° — 남남서쪽 위에서 내려다본다
 ARCHICAD_2D_FILE_NAME = "archicad_2d.json"   # HOME_DIR — 대상지(lot_key)별 2D 요소 id. Archicad 2D 요소는 분류·속성을 못 받아 이것으로 지운다
 _ARCHICAD_ON_HOME = {"showOnHome": True, "showAllAbove": False, "showAllBelow": False, "showRelAbove": 0, "showRelBelow": 0}
 ARCHICAD_MORPH_PLAN = {"isAutoOnStoryVisibility": False, "showContour": _ARCHICAD_ON_HOME, "showFill": _ARCHICAD_ON_HOME}   # Morph를 0층 평면에 늘 보인다 —

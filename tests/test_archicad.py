@@ -248,6 +248,13 @@ class FakeArchicad(object):
     def c_CreateTexts(self, p):
         return self._new("Text", len(p["textsData"]))
 
+    def a_Get3DBoundingBoxes(self, p):
+        return {"boundingBoxes3D": [{"boundingBox3D": {"xMin": -100, "yMin": -100, "zMin": 10, "xMax": 100, "yMax": 100, "zMax": 60}} for _ in p["elements"]]}
+
+    def c_Set3DProjectionSettings(self, p):
+        self.camera = p["perspective"]
+        return {"success": True}
+
     def c_FitInWindow(self, p):
         self.fitted = [e["elementId"]["guid"] for e in p.get("elements") or []]
         return {"success": True}
@@ -341,10 +348,19 @@ class SidecarRunTest(unittest.TestCase):
         self.assertTrue(any("PBLD_ID" in e["props"] for e in self.fake.elements.values()))
 
     def test_fit_skips_2d(self):   # 도엽 경계(수 km 폴리선)까지 맞추면 대상지가 점만 했다
-        loader.load("archicad_baker").zoom_to_site(self.host, self.response["dir"])
+        baker = loader.load("archicad_baker")
+        self.fake.window = "FloorPlan"
+        baker.zoom_to_site(self.host, self.response["dir"])
         types = {self.fake.elements[g]["type"] for g in self.fake.fitted}
         self.assertIn("Morph", types)
         self.assertFalse(types & set(FLAT_TYPES))
+        self.fake.window = "3DModel"   # 3D 창은 대상지를 내려다보는 카메라
+        self.fake.fitted = None
+        baker.zoom_to_site(self.host, self.response["dir"])
+        self.assertIsNone(self.fake.fitted)
+        cam = self.fake.camera
+        self.assertLess(cam["cameraPosition"]["y"], cam["targetPosition"]["y"])
+        self.assertGreater(cam["cameraPosition"]["z"], cam["targetPosition"]["z"])
 
     def test_has_lot(self):
         baker = loader.load("archicad_baker")
