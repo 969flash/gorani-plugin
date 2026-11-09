@@ -23,8 +23,8 @@ Archicad 27, 28, 29, 30 · macOS · Windows
 
 ## Use / 사용
 
-Click **Gorani > Gorani Site Context…** in the menu bar. The Gorani panel opens as an Archicad palette. Pick a site on the map and click **Create 3D model**.
-메뉴 막대의 **Gorani > Gorani Site Context…**를 누르면 Archicad 안에 Gorani 패널이 열립니다. 지도에서 대상지를 고르고 **3D 모델 만들기**를 누릅니다.
+Click **Gorani > Gorani Site Context…** in the menu bar at the top of the screen (between Window and Help). The Gorani panel opens as an Archicad palette. Pick a site on the map and click **Create 3D model**.
+화면 맨 위 메뉴 막대의 **Gorani > Gorani Site Context…**를 누릅니다(Window와 Help 사이). Archicad 안에 Gorani 패널이 열립니다. 지도에서 대상지를 고르고 **3D 모델 만들기**를 누릅니다.
 
 What you get in Archicad / Archicad에 들어가는 것:
 
