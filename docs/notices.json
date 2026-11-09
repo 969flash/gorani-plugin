@@ -4,41 +4,172 @@
   "date": "2026-11-08",
   "items": {
    "ko": [
-    "계단 지형의 단 테두리가 원본 등고선을 따라갑니다(격자 톱니·메워진 골짜기 고침). 매끈한 지형도 더 부드럽습니다",
-    "Rhino 8 Brep: 지형의 단 하나가 평면 면 하나로 나오고, 만드는 시간이 크게 줄었습니다",
-    "수면: 호수·저수지는 평평하게, 흐르는 물은 물가를 따라 기울게 만듭니다",
-    "Rhino 8·7: 업데이트 안내에서 [지금 업데이트]로 바로 설치합니다",
-    "최근 결과를 다시 열 수 있고, 구역을 여러 개 그려 하나로 합칠 수 있습니다"
+    "대상지 구역을 여러 개 그릴 수 있고, 선을 합칠 수 있습니다.",
+    "지난 생성 결과를 다시 열어 작업할 수 있습니다.",
+    "Rhino에서 업데이트 안내의 [지금 업데이트]를 눌러 바로 설치할 수 있습니다.",
+    "지형: 계단 지형이 원본 등고선을 따라 더 정확하고 매끈해졌습니다.",
+    "수면: 호수는 평평하게, 강은 물가를 따라 흐르게 만듭니다.",
+    "Rhino 8 Brep으로 만드는 시간이 크게 줄었습니다.",
+    "해외 대상지도 위경도 대신 주소로 볼 수 있습니다.",
+    "공공데이터: 토지이용계획 2026-10-09판, 서울 UPIS 2026-09판으로 갱신했습니다.",
+    "지형 면 분할 실패 등 여러 문제를 고쳤습니다."
    ],
    "en": [
-    "Stepped terrain now follows the source contours (fixed grid-shaped teeth and filled-in valleys). Smooth terrain is smoother too",
-    "Rhino 8 Brep: each terrain step comes out as a single planar face, and it builds much faster",
-    "Water: lakes and reservoirs are flat, and flowing water slopes along its banks",
-    "Rhino 8 and 7: install right away with [Update now] in the update notice",
-    "You can reopen recent results, and draw several areas that merge into one"
+    "You can draw several areas for a site and merge their outlines.",
+    "You can reopen a previous result and keep working on it.",
+    "In Rhino, press [Update now] in the update notice to install right away.",
+    "Terrain: stepped terrain now follows the original contours more accurately and smoothly.",
+    "Water: lakes are flat and rivers slope along the shore.",
+    "Rhino 8: building Brep output is much faster.",
+    "Sites outside Korea show an address instead of latitude and longitude.",
+    "Public data: land use plan updated to the 2026-10-09 edition and Seoul UPIS to 2026-09.",
+    "Fixed several issues, including failures when splitting terrain faces."
    ],
    "es": [
-    "El terreno escalonado ahora sigue las curvas de nivel originales (se corrigieron los dientes de la malla y los valles rellenados). El terreno suave también es más suave",
-    "Rhino 8 Brep: cada escalón del terreno sale como una sola cara plana y se genera mucho más rápido",
-    "Agua: lagos y embalses quedan planos, y el agua que fluye se inclina a lo largo de sus orillas",
-    "Rhino 8 y 7: instale de inmediato con [Actualizar ahora] en el aviso de actualización",
-    "Puede volver a abrir resultados recientes y dibujar varias áreas que se unen en una"
+    "Puedes dibujar varias áreas para un sitio y unir sus contornos.",
+    "Puedes volver a abrir un resultado anterior y seguir trabajando.",
+    "En Rhino, pulsa [Actualizar ahora] en el aviso de actualización para instalar al instante.",
+    "Terreno: el terreno escalonado sigue las curvas de nivel originales con más precisión y suavidad.",
+    "Agua: los lagos quedan planos y los ríos descienden siguiendo la orilla.",
+    "Rhino 8: generar la salida Brep es mucho más rápido.",
+    "Los sitios fuera de Corea muestran una dirección en lugar de latitud y longitud.",
+    "Datos públicos: plan de uso del suelo actualizado a la edición 2026-10-09 y UPIS de Seúl a 2026-09.",
+    "Se corrigieron varios problemas, como fallos al dividir las caras del terreno."
    ],
    "ja": [
-    "段々の地形の段の縁が元の等高線に沿うようになりました（格子状のギザギザと埋まった谷を修正）。なめらかな地形もより滑らかです",
-    "Rhino 8 Brep: 地形の段ひとつが平面ひとつで出て、作成時間が大きく短くなりました",
-    "水面: 湖・貯水池は平らに、流れる水は岸に沿って傾けて作ります",
-    "Rhino 8・7: 更新のお知らせの［今すぐ更新］ですぐにインストールできます",
-    "最近の結果を開き直せます。区域を複数描いて一つにまとめられます"
+    "対象地の区域を複数描くことができ、線を結合できます。",
+    "以前の生成結果を開き直して作業を続けられます。",
+    "Rhinoでは、更新のお知らせの［今すぐ更新］を押してそのままインストールできます。",
+    "地形: 階段状の地形が元の等高線に沿って、より正確で滑らかになりました。",
+    "水面: 湖は平らに、川は水辺に沿って流れるように作ります。",
+    "Rhino 8: Brepで出力する時間が大きく短くなりました。",
+    "海外の対象地も、緯度経度の代わりに住所で表示されます。",
+    "公共データ: 土地利用計画を2026-10-09版、ソウルUPISを2026-09版に更新しました。",
+    "地形の面分割に失敗する問題など、いくつかの不具合を直しました。"
    ],
    "zh": [
-    "阶梯地形的台阶边缘现在沿原始等高线（修复了网格锯齿和被填平的山谷）。平滑地形也更平滑",
-    "Rhino 8 Brep：地形每一级台阶输出为一个平面，生成时间大幅缩短",
-    "水面：湖泊和水库保持平坦，流动的水沿岸边倾斜",
-    "Rhino 8 和 7：在更新提示中点击［立即更新］即可直接安装",
-    "可以重新打开最近的结果，也可以绘制多个区域并合并为一个"
+    "可以为场地绘制多个区域，并合并它们的轮廓线。",
+    "可以重新打开以前生成的结果继续工作。",
+    "在 Rhino 中，点击更新提示里的[立即更新]即可直接安装。",
+    "地形：阶梯地形更精确、更平滑地贴合原始等高线。",
+    "水面：湖泊保持水平，河流沿岸边向下游倾斜。",
+    "Rhino 8：生成 Brep 的时间大幅缩短。",
+    "海外场地也显示地址，而不是经纬度。",
+    "公共数据：土地利用规划更新为2026-10-09版，首尔 UPIS 更新为2026-09版。",
+    "修复了地形面分割失败等多个问题。"
    ]
-  }
+  },
+  "groups": [
+   {
+    "type": "new",
+    "items": {
+     "ko": [
+      "대상지 구역을 여러 개 그릴 수 있고, 선을 합칠 수 있습니다.",
+      "지난 생성 결과를 다시 열어 작업할 수 있습니다.",
+      "Rhino에서 업데이트 안내의 [지금 업데이트]를 눌러 바로 설치할 수 있습니다."
+     ],
+     "en": [
+      "You can draw several areas for a site and merge their outlines.",
+      "You can reopen a previous result and keep working on it.",
+      "In Rhino, press [Update now] in the update notice to install right away."
+     ],
+     "ja": [
+      "対象地の区域を複数描くことができ、線を結合できます。",
+      "以前の生成結果を開き直して作業を続けられます。",
+      "Rhinoでは、更新のお知らせの［今すぐ更新］を押してそのままインストールできます。"
+     ],
+     "zh": [
+      "可以为场地绘制多个区域，并合并它们的轮廓线。",
+      "可以重新打开以前生成的结果继续工作。",
+      "在 Rhino 中，点击更新提示里的[立即更新]即可直接安装。"
+     ],
+     "es": [
+      "Puedes dibujar varias áreas para un sitio y unir sus contornos.",
+      "Puedes volver a abrir un resultado anterior y seguir trabajando.",
+      "En Rhino, pulsa [Actualizar ahora] en el aviso de actualización para instalar al instante."
+     ]
+    },
+    "hosts": [
+     null,
+     null,
+     [
+      "rhino"
+     ]
+    ]
+   },
+   {
+    "type": "improved",
+    "items": {
+     "ko": [
+      "지형: 계단 지형이 원본 등고선을 따라 더 정확하고 매끈해졌습니다.",
+      "수면: 호수는 평평하게, 강은 물가를 따라 흐르게 만듭니다.",
+      "Rhino 8 Brep으로 만드는 시간이 크게 줄었습니다.",
+      "해외 대상지도 위경도 대신 주소로 볼 수 있습니다.",
+      "공공데이터: 토지이용계획 2026-10-09판, 서울 UPIS 2026-09판으로 갱신했습니다."
+     ],
+     "en": [
+      "Terrain: stepped terrain now follows the original contours more accurately and smoothly.",
+      "Water: lakes are flat and rivers slope along the shore.",
+      "Rhino 8: building Brep output is much faster.",
+      "Sites outside Korea show an address instead of latitude and longitude.",
+      "Public data: land use plan updated to the 2026-10-09 edition and Seoul UPIS to 2026-09."
+     ],
+     "ja": [
+      "地形: 階段状の地形が元の等高線に沿って、より正確で滑らかになりました。",
+      "水面: 湖は平らに、川は水辺に沿って流れるように作ります。",
+      "Rhino 8: Brepで出力する時間が大きく短くなりました。",
+      "海外の対象地も、緯度経度の代わりに住所で表示されます。",
+      "公共データ: 土地利用計画を2026-10-09版、ソウルUPISを2026-09版に更新しました。"
+     ],
+     "zh": [
+      "地形：阶梯地形更精确、更平滑地贴合原始等高线。",
+      "水面：湖泊保持水平，河流沿岸边向下游倾斜。",
+      "Rhino 8：生成 Brep 的时间大幅缩短。",
+      "海外场地也显示地址，而不是经纬度。",
+      "公共数据：土地利用规划更新为2026-10-09版，首尔 UPIS 更新为2026-09版。"
+     ],
+     "es": [
+      "Terreno: el terreno escalonado sigue las curvas de nivel originales con más precisión y suavidad.",
+      "Agua: los lagos quedan planos y los ríos descienden siguiendo la orilla.",
+      "Rhino 8: generar la salida Brep es mucho más rápido.",
+      "Los sitios fuera de Corea muestran una dirección en lugar de latitud y longitud.",
+      "Datos públicos: plan de uso del suelo actualizado a la edición 2026-10-09 y UPIS de Seúl a 2026-09."
+     ]
+    },
+    "hosts": [
+     null,
+     null,
+     [
+      "rhino"
+     ],
+     null,
+     null
+    ]
+   },
+   {
+    "type": "stable",
+    "items": {
+     "ko": [
+      "지형 면 분할 실패 등 여러 문제를 고쳤습니다."
+     ],
+     "en": [
+      "Fixed several issues, including failures when splitting terrain faces."
+     ],
+     "ja": [
+      "地形の面分割に失敗する問題など、いくつかの不具合を直しました。"
+     ],
+     "zh": [
+      "修复了地形面分割失败等多个问题。"
+     ],
+     "es": [
+      "Se corrigieron varios problemas, como fallos al dividir las caras del terreno."
+     ]
+    },
+    "hosts": [
+     null
+    ]
+   }
+  ]
  },
  "notices": []
 }

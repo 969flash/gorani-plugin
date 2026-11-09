@@ -272,9 +272,10 @@ Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드�
  "notices": [{"id": "2026-11-maint", "level": "info", "date": "2026-10-28", "text": "11월 3일 02~06시 서버 점검으로 DB 받기가 멈춥니다", "url": "https://…"}]}
 ```
 
+- **버전 안내 문구는 한 곳에서 쓴다**(2026-11-08): `update.groups` = `[{"type": "new"|"improved"|"stable", "items": {"ko": [..], "en": [..], …}, "hosts": [null, ["rhino"], …]}]`(새 기능·개선·안정성). `hosts`(선택)는 항목과 같은 순서·개수로, 그 항목이 보일 프로그램(`rhino`·`sketchup`·`blender`·`autocad`, `null` = 모두) — 예: [지금 업데이트]는 Rhino만 쓰므로 그 항목은 `["rhino"]`. 패널은 지금 열린 프로그램(`HOST.id`)에 맞는 항목만 보여 준다(`items` 한 줄 목록은 모두 담는다 — hosts를 모르는 옛 패널용). 관리자 페이지 검사가 hosts의 개수·이름을 본다. `update.items`(언어별 한 줄 목록)는 groups를 이어 붙인 값 — 패널 모달은 items만 읽고(코드는 그대로), 웹페이지 버전 기록은 같은 매니페스트의 groups를 읽는다. 그래서 사용자 창의 문구와 웹페이지 문구가 같다. `dev_deploy.get_update_items`가 올릴 때 groups에서 items를 만들고, 관리자 페이지 검사(`get_notice_errors`)는 둘이 다르면 게시를 막는다. 문구는 사용자 관점으로, 한 줄에 한 가지, "~할 수 있습니다" 꼴. 서버·내부 수정은 '안정성' 한 줄로 묶는다. 웹페이지(969flash/gorani)는 새 판을 `assets/changelog.json`에 옮겨 적어 지난 기록으로 남긴다.
 - 패널을 열 때(`init`) 매니페스트를 `NOTICE_TIMEOUT_SECONDS`(3 s)까지 기다린다. 못 받으면 아무것도 띄우지 않는다 — 사용자를 막지 않는다.
 - `version < update.min` → 강제 모달(닫기 없음, [다시 확인]·[결과 폴더]·[웹페이지]). 지원을 끊을 때만 올린다.
-- `version < update.latest` → 권장 모달(하루 한 번 — [나중에] = `options.update_later_date`) + 주황 띠(닫기 없음, 업데이트할 때까지).
+- `version < update.latest` → 권장 팝업 — 패널을 **열 때마다** 뜬다. 오른쪽 위 X(또는 Esc)로 닫으면 그 세션만 쉬고(다음에 열면 또 뜬다), 아래 [ ] 오늘 그만 보기를 체크하고 닫으면 그날(`options.update_later_date`에 날짜를 적는다)은 다시 뜨지 않는다. 아래 한 줄에 왼쪽 [ ] 오늘 그만 보기, 오른쪽 주 버튼 [지금 업데이트]. 위쪽 주황 띠는 없다 — 업데이트 안내는 팝업과 더보기 메뉴 '공지' 목록에만 있고 패널 위쪽 자리를 차지하지 않는다. 설치 중·결과(깔았음·실패)도 팝업으로 보이고, 닫았어도 결과가 오면 다시 열린다(결과 화면에는 체크박스가 없다). `update.groups`가 있으면 새 기능·개선·안정성 제목으로 나눠 보인다(없으면 `items` 한 줄 목록). 글씨는 본문 12 px·제목 13 px.
 - 모달·띠의 주 버튼: Rhino 8·7(`host.self_update`)은 [지금 업데이트](`install_update` — 깔면 '다시 시작하면 열립니다'), 그 밖(SketchUp·Blender·yak 없음·설치 실패)은 순서 안내 + [업데이트 방법]. 목 패널 `&selfupd=0`은 수동 안내, `&updfail=1`은 실패 화면.
 - 공지 → 위쪽 띠는 한 번에 하나(업데이트 > 공지 순서), 나머지는 띠의 `+N` → 더보기 메뉴 '공지' 목록. 띠 [×]는 `options.closed_notices`에 id를 넣고, 메뉴에서는 계속 보인다(흐리게 '닫음'). `level`: `warn` = 주황(꼭 알아야 할 것), `info` = 파랑. 빨강은 오류에만.
 - 공지 `id`는 바꾸지 않는다 — 바꾸면 닫은 사람에게 다시 뜬다. 목 패널: `site_ui.html?mock=1&step=1&update=soft|hard`(공지 견본 셋 포함), `&notice=1`은 공지만.

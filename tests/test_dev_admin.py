@@ -13,6 +13,37 @@ NOTICE = {"id": "2026-10-21-1", "level": "info", "date": "2026-10-21", "text": "
 
 
 class NoticeErrorsTest(unittest.TestCase):
+    def test_groups_items_must_match(self):
+        groups = [{"type": "new", "items": {"ko": ["가"], "en": ["a"]}}, {"type": "stable", "items": {"ko": ["나", "다"], "en": ["b", "c"]}}]
+        update = {"latest": dev_admin.constants.PANEL_VERSION, "groups": groups}
+        flat = {"ko": ["가", "나", "다"], "en": ["a", "b", "c"]}
+        self.assertEqual(dev_admin.dev_deploy.get_update_items(update), flat)
+        self.assertEqual(dev_admin.get_notice_errors({"update": dict(update, items=flat), "notices": []}), [])
+        errors = dev_admin.get_notice_errors({"update": dict(update, items={"ko": ["가"], "en": ["a"]}), "notices": []})
+        self.assertEqual(len(errors), 1)
+        self.assertIn("groups", errors[0])
+        self.assertEqual(dev_admin.get_notice_errors({"update": {"latest": dev_admin.constants.PANEL_VERSION, "items": {"ko": ["아무거나"]}}, "notices": []}), [])
+
+    def test_groups_hosts(self):
+        base = {"latest": dev_admin.constants.PANEL_VERSION}
+        rows = {"ko": ["가", "나"], "en": ["a", "b"]}
+        def errors(hosts):
+            groups = [{"type": "new", "items": rows, "hosts": hosts}]
+            flat = dev_admin.dev_deploy.get_update_items({"groups": groups})
+            return dev_admin.get_notice_errors({"update": dict(base, groups=groups, items=flat), "notices": []})
+        self.assertEqual(errors([None, ["rhino"]]), [])
+        self.assertEqual(errors([["rhino", "sketchup"], None]), [])
+        self.assertEqual(len(errors([None])), 1)              # 항목 수와 다름
+        self.assertEqual(len(errors([None, ["photoshop"]])), 1)   # 모르는 프로그램
+        self.assertEqual(len(errors([None, []])), 1)          # 빈 목록 = 아무에게도 안 보임
+
+    def test_repo_notices_consistent(self):
+        import json
+        data = json.loads((Path(__file__).resolve().parents[1] / "docs" / "notices.json").read_text(encoding="utf-8"))
+        self.assertEqual(dev_admin.get_notice_errors(data) if data["update"]["latest"] <= dev_admin.constants.PANEL_VERSION else [], [])
+        if data["update"].get("groups"):
+            self.assertEqual(data["update"]["items"], dev_admin.dev_deploy.get_update_items(data["update"]))
+
     def test_valid(self):
         data = {"update": {"latest": dev_admin.constants.PANEL_VERSION, "min": "0.0.1"}, "notices": [NOTICE]}
         self.assertEqual(dev_admin.get_notice_errors(data), [])
