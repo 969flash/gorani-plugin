@@ -203,7 +203,8 @@ def _ensure_surfaces(host, layers):
     """레이어 색으로 표면(재질) 'Gorani <레이어>'를 만들거나 고친다. 레이어 → 표면 guid."""
     names = ["Gorani " + layer for layer in layers]
     made = host.call("CreateSurfaces", overwriteExisting=True, surfaceDataArray=[
-        {"name": name, "materialType": "General", "surfaceColor": dict(zip("rgb", (c / 255.0 for c in get_layer_rgb(layer))))}
+        {"name": name, "materialType": "General", "surfaceColor": dict(zip(("red", "green", "blue"), (c / 255.0 for c in get_layer_rgb(layer)))),
+         "ambientReflection": constants.ARCHICAD_SURFACE_REFLECTION[0], "diffuseReflection": constants.ARCHICAD_SURFACE_REFLECTION[1]}
         for name, layer in zip(names, layers)])
     ids = [(item.get("attributeId") or {}).get("guid") for item in made.get("attributeIds") or []]
     return {layer: guid for layer, guid in zip(layers, ids) if guid}
@@ -246,7 +247,7 @@ def get_prism_body(parts, base_z, height):
         for loop in loops:
             for a, b in zip(loop, loop[1:] + loop[:1]):
                 polygons.append({"vertexIds": [a, b, b + count, a + count]})
-    return {"vertices": vertices, "polygons": polygons, "edgeDefault": "SoftHidden"}
+    return {"vertices": vertices, "polygons": polygons, "edgeDefault": "HardHidden"}   # Soft면 꺾인 벽 모서리까지 이어 칠해 옆면에 세로 줄무늬(파리 시청 R250, Archicad 30 2026-11-09)
 
 
 def get_surface_body(verts, faces, lift):
@@ -351,12 +352,20 @@ def clear_previous(host, lot_key=None):
     return (len(guids), 0)
 
 
+def _with_surface(body, surface):
+    # type: (dict, str) -> dict
+    """면마다 표면을 건다 — 요소의 surfaceId만으로는 면이 건축 재료 회색으로 칠해졌다(Archicad 30, 파리 시청 R250, 2026-11-09)."""
+    if not surface:
+        return body
+    return dict(body, polygons=[dict(polygon, surfaceId={"guid": surface}) for polygon in body["polygons"]])
+
+
 def _create_morphs(host, morphs):
     # type: (object, list) -> list
     """[(MorphBody, 표면 guid)] → 요소 id(실패는 None). ARCHICAD_BATCH 개씩."""
     ids = []
     for start in range(0, len(morphs), constants.ARCHICAD_BATCH):
-        data = [dict({"basePoint": _xyz(0, 0, 0), "body": body, "floorIndex": 0}, **({"surfaceId": {"guid": surface}} if surface else {}))
+        data = [dict({"basePoint": _xyz(0, 0, 0), "body": _with_surface(body, surface), "floorIndex": 0}, **({"surfaceId": {"guid": surface}} if surface else {}))
                 for body, surface in morphs[start:start + constants.ARCHICAD_BATCH]]
         ids += _get_ids(host.call("CreateMorphs", morphsData=data))
     return ids
@@ -423,7 +432,7 @@ def bake(host, items, prepared, lot_key=None):
             out.append(good[0])
     if ground:
         extent = next((pts for item in items if item.layer == "CTX::Ref" and item.name == "extent" for pts, _closed in item.polylines), [])
-        mesh_id = _create_ground_mesh(host, ground, extent, shift)
+        mesh_id = _create_ground_mesh(host, ground, extent, shift, surfaces.get("CTX::Terrain"))
         if mesh_id:   # 지형 항목의 몫(지형 항목은 위 반복에서 요소를 만들지 않는다)
             baked.append(mesh_id)
             rows.append((mesh_id, {constants.UDT_LOT_KEY: lot_key, "NAME": "terrain"}))
@@ -436,9 +445,22 @@ def bake(host, items, prepared, lot_key=None):
     return out
 
 
-def _create_ground_mesh(host, ground, extent, shift):
-    # type: (object, list, list, tuple) -> str
-    """지면 분류 메시들 → Archicad Mesh 하나(get_ground_mesh). 실패하면 None — 분류 면 Morph는 남는다."""
+def _ensure_ground_material(host, surface):
+    # type: (object, str) -> str
+    """지형 Mesh용 건축 재료 'Gorani CTX::Terrain'(재료 표면 = 지형 표면) guid. Mesh는 표면을 직접 못 받아(애드온 CreateMeshes) 재료로 칠한다 —
+    안 주면 Mesh 도구 기본값(잔디)이라 맨땅이 녹지보다 더 푸르게 보였다(Archicad 30, 파리 시청 R250, 2026-11-09)."""
+    found = host.call("GetAttributesByType", attributeType="Surface").get("attributes") or []
+    index = next((a["index"] for a in found if (a.get("attributeId") or {}).get("guid") == surface), None) if surface else None
+    if index is None:
+        return None
+    made = host.call("CreateBuildingMaterials", overwriteExisting=True,
+                     buildingMaterialDataArray=[{"name": "Gorani CTX::Terrain", "cutSurfaceIndex": int(index)}])
+    return (((made.get("attributeIds") or [{}])[0]).get("attributeId") or {}).get("guid")
+
+
+def _create_ground_mesh(host, ground, extent, shift, surface=None):
+    # type: (object, list, list, tuple, str) -> str
+    """지면 분류 메시들 → Archicad Mesh 하나(get_ground_mesh). 실패하면 None — 분류 면 Morph는 남는다. surface = 지형 표면 guid."""
     mesh = get_ground_mesh(ground, extent)
     if not mesh:
         return None
@@ -446,6 +468,9 @@ def _create_ground_mesh(host, ground, extent, shift):
         return [_xyz(x + shift[0], y + shift[1], z) for x, y, z in points]
     data = {"polygonCoordinates": coords(mesh["outer"]), "level": 0.0, "floorIndex": 0, "skirtType": "SurfaceOnlyWithoutSkirt",
             "ridges": "AllSmooth", "showLines": False}
+    material = _ensure_ground_material(host, surface)
+    if material:
+        data["buildingMaterialId"] = {"guid": material}
     if mesh["holes"]:
         data["holes"] = [{"polygonCoordinates": coords(loop)} for loop in mesh["holes"]]
     if mesh["sublines"]:
@@ -480,7 +505,17 @@ def save_copy(host, path, names=None, timing=None):
     timing = timing if timing is not None else {}
     guids = host.baked.get(host.last_lot, [])
     t = time.time()
-    host.call("SaveAsModuleFile", moduleFilePath=path, elements=[{"elementId": {"guid": g}} for g in guids])
+    window = (host.call("GetCurrentWindowType") or {}).get("currentWindowType")
+    if window != "FloorPlan":   # 모듈 저장은 평면도에서만 — 3D 창이 앞이면 'not a model window'로 생성 전체가 실패했다(Archicad 30, 2026-11-09)
+        host.call("ChangeWindow", windowType="FloorPlan")
+    try:
+        host.call("SaveAsModuleFile", moduleFilePath=path, elements=[{"elementId": {"guid": g}} for g in guids])
+    finally:
+        if window and window != "FloorPlan":
+            try:
+                host.call("ChangeWindow", windowType=window)   # 보던 창으로 — 도면·레이아웃처럼 창 종류만으로 못 여는 창은 평면도에 남는다
+            except RuntimeError:   # cmd_archicad.HostError
+                pass
     timing.update(select_s=0.0, write_s=round(time.time() - t, 2), objects=len(guids), bytes=os.path.getsize(path) if os.path.exists(path) else 0)
     return path
 

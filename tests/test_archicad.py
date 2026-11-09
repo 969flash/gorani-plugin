@@ -72,6 +72,11 @@ class HelperTest(unittest.TestCase):
         text = (ROOT_DIR / "archicad" / "Sources" / "AddOnVersion.hpp").read_text(encoding="utf-8")
         self.assertEqual(re.search(r'ADDON_VERSION "([^"]+)"', text).group(1), constants.PANEL_VERSION)
 
+    def test_panel_bridge_threaded(self):
+        # 사이드카 메인 루프가 bridge.inbox.get()(스레드판 큐)을 기다린다 — threaded 없이 만들면 서버가 안 돌아 팔레트가 빈 화면(2026-11-09 Archicad 30 실기)
+        text = (SCRIPTS_DIR / "cmd_archicad.py").read_text(encoding="utf-8")
+        self.assertRegex(text, r"Bridge\(_ArchicadController\([^)]*\), threaded=True\)")
+
 
 class FakeArchicad(object):
     """Archicad JSON 서버 흉내 — API.IsAlive·API.ExecuteAddOnCommand(GoraniCommand)에 답하고 요소·레이어·속성·프로젝트 정보를 기억한다."""
@@ -86,6 +91,8 @@ class FakeArchicad(object):
         self.systems = []     # 분류 체계 이름
         self.classified = set()
         self.calls = []
+        self.surfaces = {}    # 이름 → CreateSurfaces 항목
+        self.window = "3DModel"   # 사용자가 3D 창을 보던 중 — 모듈 저장은 평면도에서만 된다
         fake = self
 
         class Handler(http.server.BaseHTTPRequestHandler):
@@ -161,7 +168,12 @@ class FakeArchicad(object):
         return {}
 
     def c_GetAttributesByType(self, p):
+        if p["attributeType"] == "Surface":
+            return {"attributes": [{"attributeId": {"guid": "S" + n}, "index": i, "name": n} for i, n in enumerate(self.surfaces, 1)]}
         return {"attributes": [{"attributeId": {"guid": "L%d" % i}, "index": i, "name": n} for n, i in self.layers.items()]}
+
+    def c_CreateBuildingMaterials(self, p):
+        return {"attributeIds": [{"attributeId": {"guid": "B" + m["name"]}} for m in p["buildingMaterialDataArray"]]}
 
     def c_CreateLayers(self, p):
         for layer in p["layerDataArray"]:
@@ -169,6 +181,7 @@ class FakeArchicad(object):
         return {"attributeIds": [{"attributeId": {"guid": "L%d" % self.layers[l["name"]]}} for l in p["layerDataArray"]]}
 
     def c_CreateSurfaces(self, p):
+        self.surfaces.update((s["name"], s) for s in p["surfaceDataArray"])
         return {"attributeIds": [{"attributeId": {"guid": "S" + s["name"]}} for s in p["surfaceDataArray"]]}
 
     def c_GetAllProperties(self, p):
@@ -220,7 +233,16 @@ class FakeArchicad(object):
     def c_CreateTexts(self, p):
         return self._new("Text", len(p["textsData"]))
 
+    def c_GetCurrentWindowType(self, p):
+        return {"currentWindowType": self.window}
+
+    def c_ChangeWindow(self, p):
+        self.window = p["windowType"]
+        return {"success": True}
+
     def c_SaveAsModuleFile(self, p):
+        if self.window != "FloorPlan":
+            return {"success": False, "error": {"code": -2130312312, "message": "the current window is not a model window"}}
         with open(p["moduleFilePath"], "wb") as f:
             f.write(b"mod")
         return {"success": True}
@@ -271,14 +293,19 @@ class SidecarRunTest(unittest.TestCase):
         self.assertTrue(r["ok"], r["error"])
         self.assertTrue(r["context"]["path"].endswith("context.mod"))
         self.assertTrue(os.path.exists(r["context"]["path"]))
-        self.assertFalse([w for w in r["warnings"] if w["code"] == "skipped" and "베이크" in w["text"]], r["warnings"])
+        self.assertEqual(self.fake.window, "3DModel")   # 저장하려고 평면도로 갔다가 보던 창으로
+        self.assertFalse([w for w in r["warnings"] if w["code"] == "skipped"], r["warnings"])
 
     def test_elements(self):
         kinds = [e["type"] for e in self.fake.elements.values()]
         self.assertGreater(kinds.count("Morph"), 2500)   # 건물 동마다 + 분류 면 — 범위 링으로 늘 자른다(53659d6), 성수 R500 2,743개
         self.assertEqual(kinds.count("Mesh"), 1)
         self.assertGreater(len(self.fake.mesh["polygonCoordinates"]), 4)
+        self.assertEqual(self.fake.mesh["buildingMaterialId"], {"guid": "BGorani CTX::Terrain"})   # 지형 색 — 없으면 Mesh 기본 잔디
         self.assertIn("CTX::Buildings", self.fake.layers)
+        surface = self.fake.surfaces["Gorani CTX::Buildings"]   # 애드온은 red·green·blue 키만 읽는다 — r·g·b로 보내면 검정(2026-11-09)
+        self.assertEqual(sorted(surface["surfaceColor"]), ["blue", "green", "red"])
+        self.assertGreater(surface["diffuseReflection"], 0)
         lot_prop = self.fake.properties["GORANI_LOT_KEY"]
         self.assertTrue(all(lot_prop in e["props"] for e in self.fake.elements.values()))
         self.assertEqual(self.fake.classified, set(self.fake.elements))   # 속성은 분류에 매인다 — 전부 분류

@@ -905,6 +905,7 @@ ARCHICAD_PANEL_SIZE = (440, 860)   # px — Archicad 안 패널 팔레트(ShowSc
 ARCHICAD_BATCH = 200            # 요소 만들기 명령 하나에 보내는 Morph 수(속성·레이어 지정은 ×10)
 ARCHICAD_SPLIT_MAX = 2000      # 면 메시 Morph가 거부되면 면마다 나눠 만드는 상한(옹벽 수백 면). 넘으면 그 항목은 빠지고 경고
 ARCHICAD_SURFACE_LIFT = 0.03    # m — 도로·녹지·수면 색 면을 지형 Mesh 위로 띄우는 높이(같은 면이면 깜박인다)
+ARCHICAD_SURFACE_REFLECTION = (60, 80)   # % (주변광, 확산) — 표면 'Gorani <레이어>'. 안 주면 0이라 레이어 색이 안 보이고 회색·검정으로 칠해졌다(Archicad 30, 2026-11-09)
 # 웹판(cmd_web — 브라우저 Pyodide 워커 web_worker.js + 페이지 web_app.html). Pyodide·three.js 주소는 JS 파일 맨 위 상수
 # 반경 상한 — 2026-10-19 실측(Chrome·Apple M5, 성수 333-139): 500 m 5 s·탭 0.8 GB, 1 km 11 s·0.9 GB, 2 km 39 s·1.8 GB(시군구 팩 6곳 681 MB 포함).
 # CPU 4배 감속(오래된 보급형 노트북 가정)이면 500 m 20 s·1 km 45 s. 3 km는 팩만 1.8 GB(10곳)라 탭 메모리에 못 든다

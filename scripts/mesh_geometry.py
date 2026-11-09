@@ -692,7 +692,8 @@ def build_curves(prepared):
         for layer, _overlay, ring in get_zoning_rings(prepared):
             zoning.setdefault(layer, []).extend(closed(cut) for cut in get_clipped_curves([ring], [], clip)[0])
         for layer, rings in zoning.items():
-            items.append(BakeItem(_layer(layer), layer.rpartition("::")[2], polylines=rings))
+            if rings:   # 범위 bbox엔 걸렸지만 범위 링 밖이면 빈 항목 — 호스트가 '베이크 실패'로 센다(성수 333-139 R500 주차장·공간시설·유원지, 2026-11-09)
+                items.append(BakeItem(_layer(layer), layer.rpartition("::")[2], polylines=rings))
     return items
 
 

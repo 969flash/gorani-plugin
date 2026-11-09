@@ -203,7 +203,7 @@ def main():
     if url:
         open_panel(host, url)
         return
-    bridge = loader.load("panel_server").Bridge(_ArchicadController(host, args.version))
+    bridge = loader.load("panel_server").Bridge(_ArchicadController(host, args.version), threaded=True)   # 서버 스레드 + inbox 큐(아래 inbox.get) — 빼면 팔레트가 빈 화면(0.3.7 병합, 2026-11-09)
     lock_path = _get_lock_path(args.port)
     os.makedirs(os.path.dirname(lock_path), exist_ok=True)
     with open(lock_path, "w", encoding="utf-8") as f:
