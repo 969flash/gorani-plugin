@@ -221,10 +221,16 @@ class FakeArchicad(object):
     def c_GetElementsByType(self, p):
         return {"elements": [{"elementId": {"guid": g}} for g, e in self.elements.items() if e["type"] == p["elementType"]]}
 
-    def c_DeleteElements(self, p):
+    def c_DeleteElements(self, p):   # Archicad처럼 2D 요소는 평면도에서만 지워진다(3D 창이면 'Failed to delete the element')
+        out = []
         for e in p["elements"]:
-            self.elements.pop(e["elementId"]["guid"], None)
-        return {"executionResults": []}
+            guid = e["elementId"]["guid"]
+            if self.elements.get(guid, {}).get("type") in FLAT_TYPES and self.window != "FloorPlan":
+                out.append({"success": False, "error": {"code": -2130313215, "message": "Failed to delete the element."}})
+                continue
+            self.elements.pop(guid, None)
+            out.append({"success": True})
+        return {"executionResults": out}
 
     def c_CreateMorphs(self, p):
         self.morphs += p["morphsData"]

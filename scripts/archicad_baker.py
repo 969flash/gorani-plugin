@@ -16,6 +16,7 @@ CTX::Terrain::mesh(바깥 고리 + TIN 점 — Archicad가 다시 삼각분할�
     get_doc_origin(host) → (E, N)                       get_selected_ring(host) → ([(x, y)], 안내 글)
 """
 
+import contextlib
 import json
 import math
 import os
@@ -403,8 +404,9 @@ def clear_previous(host, lot_key=None):
         closed = _get_closed_layers(host)
         _open_layers(host, dict.fromkeys(closed))
         try:
-            for start in range(0, len(guids), constants.ARCHICAD_BATCH * 10):
-                host.call("DeleteElements", elements=[{"elementId": {"guid": g}} for g in guids[start:start + constants.ARCHICAD_BATCH * 10]])
+            with _on_floor_plan(host):   # 3D 창에서는 2D 요소 삭제가 'Failed to delete the element'였다 — 다시 만들 때마다 필지선이 쌓였다
+                for start in range(0, len(guids), constants.ARCHICAD_BATCH * 10):
+                    host.call("DeleteElements", elements=[{"elementId": {"guid": g}} for g in guids[start:start + constants.ARCHICAD_BATCH * 10]])
         finally:
             _open_layers(host, closed)
         _forget_2d(flat)
@@ -556,6 +558,22 @@ def write_ref_and_origin(host, prepared, lot_key=None):
     return ids
 
 
+@contextlib.contextmanager
+def _on_floor_plan(host):
+    """평면도 창에서 한다(모듈 저장·2D 삭제는 평면도에서만 된다). 끝나면 보던 창으로 — 도면·레이아웃처럼 창 종류만으로 못 여는 창은 평면도에 남는다."""
+    window = (host.call("GetCurrentWindowType") or {}).get("currentWindowType")
+    if window != "FloorPlan":
+        host.call("ChangeWindow", windowType="FloorPlan")
+    try:
+        yield
+    finally:
+        if window and window != "FloorPlan":
+            try:
+                host.call("ChangeWindow", windowType=window)
+            except RuntimeError:   # cmd_archicad.HostError
+                pass
+
+
 def save_copy(host, path, names=None, timing=None):
     # type: (object, str, list, dict) -> str
     """마지막으로 구운 대상지 요소를 모듈 사본 context.mod로 쓴다(path의 파일 이름은 무시하고 같은 폴더). 원점은 context.json."""
@@ -564,17 +582,8 @@ def save_copy(host, path, names=None, timing=None):
     timing = timing if timing is not None else {}
     guids = host.baked.get(host.last_lot, [])
     t = time.time()
-    window = (host.call("GetCurrentWindowType") or {}).get("currentWindowType")
-    if window != "FloorPlan":   # 모듈 저장은 평면도에서만 — 3D 창이 앞이면 'not a model window'로 생성 전체가 실패했다(Archicad 30, 2026-11-09)
-        host.call("ChangeWindow", windowType="FloorPlan")
-    try:
+    with _on_floor_plan(host):   # 3D 창이 앞이면 'not a model window'로 생성 전체가 실패했다(Archicad 30, 2026-11-09)
         host.call("SaveAsModuleFile", moduleFilePath=path, elements=[{"elementId": {"guid": g}} for g in guids])
-    finally:
-        if window and window != "FloorPlan":
-            try:
-                host.call("ChangeWindow", windowType=window)   # 보던 창으로 — 도면·레이아웃처럼 창 종류만으로 못 여는 창은 평면도에 남는다
-            except RuntimeError:   # cmd_archicad.HostError
-                pass
     timing.update(select_s=0.0, write_s=round(time.time() - t, 2), objects=len(guids), bytes=os.path.getsize(path) if os.path.exists(path) else 0)
     return path
 
