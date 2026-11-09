@@ -7,19 +7,21 @@ Archicad 27, 28, 29, 30 · macOS · Windows
 
 ## Install / 설치
 
-1. Download the zip for your Archicad version and OS, and unzip it. You get a `Gorani` folder.
-   Archicad 버전·운영체제에 맞는 zip을 받아 풉니다. `Gorani` 폴더가 나옵니다.
-2. Move the `Gorani` folder somewhere it can stay, such as Documents. Keep the files inside it together.
-   `Gorani` 폴더를 문서 폴더처럼 계속 둘 곳으로 옮깁니다. 안의 파일은 흩지 않습니다.
+1. Download the zip for your Archicad version and OS. Windows: in the zip file's Properties tick Unblock, then extract it. You get a `Gorani` folder.
+   Archicad 버전·운영체제에 맞는 zip을 받습니다. Windows는 zip 속성에서 차단 해제를 체크한 뒤 풉니다. `Gorani` 폴더가 나옵니다.
+2. Move the `Gorani` folder into the `Add-Ons` folder of your Archicad (change `30` to your version). Keep the files inside it together.
+   `Gorani` 폴더를 Archicad의 `Add-Ons` 폴더로 옮깁니다(`30`은 쓰는 버전으로). 안의 파일은 흩지 않습니다.
+   - Windows: `C:\Program Files\Graphisoft\Archicad 30\Add-Ons` (Windows asks for administrator permission / 관리자 권한을 물으면 계속)
+   - macOS: `/Applications/Graphisoft/Archicad 30/Add-Ons`
 3. macOS only: the add-on is not signed, so allow it once. Open Terminal and run:
    macOS만: 서명하지 않은 애드온이라 한 번 허용합니다. 터미널에서 실행합니다.
 
    ```
-   xattr -dr com.apple.quarantine ~/Documents/Gorani
+   xattr -dr com.apple.quarantine /Applications/Graphisoft/Archicad\ 30/Add-Ons/Gorani
    ```
 
-4. In Archicad, open **Options > Add-On Manager > Edit List of Available Add-Ons > Add**, pick `Gorani_AC<version>_Mac.bundle` (macOS) or `Gorani_AC<version>_Win.apx` (Windows) in the folder, and click **OK**.
-   Archicad **옵션 > 애드온 관리자 > 사용 가능한 애드온 목록 편집 > 추가**에서 폴더 안 애드온 파일을 고르고 **확인**을 누릅니다.
+4. Restart Archicad. Another way: keep the folder anywhere and add `Gorani_AC<version>_Mac.bundle` or `Gorani_AC<version>_Win.apx` in **Options > Add-On Manager**.
+   Archicad를 다시 시작합니다. 폴더를 다른 곳에 두고 **옵션 > 애드온 관리자**에서 애드온 파일을 추가해도 됩니다.
 
 ## Use / 사용
 
@@ -36,8 +38,8 @@ What you get in Archicad / Archicad에 들어가는 것:
 
 ## Uninstall / 지우기
 
-Remove Gorani in **Add-On Manager**, restart Archicad, then delete the `Gorani` folder. Settings and downloaded data stay in `~/Gorani`.
-애드온 관리자에서 Gorani를 빼고 Archicad를 다시 시작한 뒤 `Gorani` 폴더를 지웁니다. 설정·받은 데이터는 `~/Gorani`에 남습니다.
+Quit Archicad and delete the `Gorani` folder (if you added it in **Add-On Manager**, remove it there first). Settings and downloaded data stay in `~/Gorani`.
+Archicad를 끄고 `Gorani` 폴더를 지웁니다(애드온 관리자로 넣었다면 거기서 먼저 뺍니다). 설정·받은 데이터는 `~/Gorani`에 남습니다.
 
 ## How it works / 구성
 
