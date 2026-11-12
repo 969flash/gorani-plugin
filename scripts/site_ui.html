@@ -596,6 +596,9 @@ function setLang(lang) {   // 헤더 언어 고르기 — 저장하고 지금 �
   closeViewer(); hideToast(); applyStaticText();
   if (state.styleOpen) resultSection().innerHTML = "";   // 스타일 화면 머리는 처음 한 번만 그린다
   render(); renderMenu(); renderBlocker(); renderStatsBand(); renderNoticeBands(); renderUpdate();
+  // 해외 대상지 주소(Nominatim)는 패널 언어로 받는다 — 바꾼 언어로 다시
+  if (state.mode === "point" && state.point && state.point.address) send({ cmd: "set_point", center: state.point.center });
+  else if (state.mode === "area" && state.area && state.area.address) send({ cmd: "set_area", rings_lnglat: state.area.rings_lnglat });
 }
 
 // ── 상수 (constants.py와 같은 값) ──
@@ -728,8 +731,9 @@ function sheetCatalog() {   // 이 모드에서 만들 수 있는 도면 — Glo
   var glob = state.result ? (state.result.options || {}).region === "global" || isAbroad(targetCenter()) : isGlobal();
   return ((state.init && state.init.sheet_catalog) || []).filter(function (c) { return !(glob && c.korea_only); });
 }
-// 결과물(폴더·파일 이름) 언어 첫 값 — 시스템 언어가 지원 목록에 있으면 그것, 아니면 영어(한국어 시스템 = ko)
+// 결과물(폴더·파일 이름) 언어 첫 값 — 사용자 IP 나라(init_state.output_lang_guess, 한국 = ko). 모르면 시스템 언어가 지원 목록에 있으면 그것, 아니면 영어
 function detectOutputLang() {
+  if (state.init && state.init.output_lang_guess) return state.init.output_lang_guess;
   var have = ((state.init && state.init.output_langs) || [["ko"], ["en"]]).map(function (x) { return x[0]; });
   var langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""];
   for (var i = 0; i < langs.length; i++) { var c = String(langs[i]).slice(0, 2).toLowerCase(); if (have.indexOf(c) >= 0) return c; }

@@ -166,26 +166,31 @@ class _ProxyServer(http.server.ThreadingHTTPServer):
 # [/blender-cut]
 
 
-def get_ip_center():
-    # type: () -> list
-    """사용자 IP로 지도 첫 위치를 짐작한다(패널 첫 init에 한 번).
+def get_ip_location():
+    # type: () -> tuple
+    """사용자 IP로 지도 첫 위치와 나라를 짐작한다(패널 첫 init에 한 번).
 
     입력:
         없음.
     처리:
-        IP 위치 서비스 응답의 loc("위도,경도")을 읽는다. 오프라인·서비스 장애·이상한 응답이면 짐작하지 않는다.
+        IP 위치 서비스 응답의 loc("위도,경도")·country(ISO 2글자)를 읽는다. 오프라인·서비스 장애·이상한 응답이면 짐작하지 않는다.
     출력:
-        ``[lng, lat]`` 또는 None(서울시청으로 연다).
+        (``[lng, lat]`` 또는 None(서울시청으로 연다), 나라 코드 'KR' 또는 '').
     """
     import context_builder   # 호스트 판정 — 모듈 수준 import는 순환
     if not constants.HOST_LABELS[context_builder.get_host()].get("ip_center", True):   # Blender — 확장 약관: 사용자가 하지 않은 제3자 전송 금지
-        return None
+        return None, ""
     try:
         with urllib.request.urlopen(IP_LOCATE_URL, timeout=IP_LOCATE_TIMEOUT_SECONDS) as response:
-            lat, lng = (float(value) for value in json.loads(response.read().decode("utf-8"))["loc"].split(","))
+            data = json.loads(response.read().decode("utf-8"))
     except Exception:   # 패널 열기를 막지 않는다
-        return None
-    return [lng, lat] if -90 <= lat <= 90 and -180 <= lng <= 180 else None   # nan은 JSON으로 못 보낸다
+        return None, ""
+    country = str(data.get("country") or "").upper() if isinstance(data, dict) else ""
+    try:
+        lat, lng = (float(value) for value in data["loc"].split(","))
+    except Exception:
+        return None, country
+    return ([lng, lat] if -90 <= lat <= 90 and -180 <= lng <= 180 else None), country   # nan은 JSON으로 못 보낸다
 
 
 def get_map_init(center=None):

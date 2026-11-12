@@ -8,7 +8,7 @@ panel_host.PanelHost(Eto WebView)와 로직 모듈을 잇는다. JS 명령(dict)
 동기 호출하고, 진행률은 콜백 안에서 push + _pump(Rhino.RhinoApp.Wait)로 펌핑한다(서브프로세스 없음).
 
 명령 → 로직 (22개)
-    init            → get_init_state (DB 존재·원천 상태·타일·지도·prefs·recent·시트 카탈로그). 첫 init만 review_map.get_ip_center(지도 첫 위치). preflight 메모이즈 비움
+    init            → get_init_state (DB 존재·원천 상태·타일·지도·prefs·recent·시트 카탈로그). 첫 init만 review_map.get_ip_location(지도 첫 위치·결과 언어 첫 값). preflight 메모이즈 비움
     search          → get_search_result (pnu_loader.resolve_addresses + review_map.get_parcel_centers)
     map_lots        → review_map.get_parcels_in_bbox (seq 에코)
     select_lots     → get_lot_state (review_map.get_parcels_geojson + 대상 합집합 role target)
@@ -95,12 +95,12 @@ def _jibun(address):
     return parts[-1] if parts else ""
 
 
-def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map_center=None):
+def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map_center=None, ip_country=""):
     # type: (str, str, datetime.date, dict, list) -> dict
     """init_state 페이로드(panel_ui.md).
 
     입력: DB 경로 override 2개(테스트가 fixture를 꽂는다. None = constants 경로), today(테스트용), manifest(테스트용. None = 이번 세션에 받은 것).
-          map_center(지도 첫 위치 [lng, lat] — _init이 IP로 짐작. None = 서울시청).
+          map_center(지도 첫 위치 [lng, lat] — _init이 IP로 짐작. None = 서울시청), ip_country(같은 응답의 나라 코드, '' = 모름).
     처리: 필지 DB 존재 → blocked, context_builder.get_sources/get_source_warnings, review_map 타일·지도, site_prefs 옵션·recent,
           SHEET_CATALOG, 매니페스트 업데이트·공지(data_pack.get_notice_state). 네트워크 접근 없음 — 매니페스트는 _init이 먼저 받아 둔다.
           generator는 항상 ok(서브프로세스 없음 — UI 호환 키).
@@ -136,7 +136,8 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
         "stats_consent": site_prefs.get_stats_consent(),
         # [/blender-cut]
         "links": dict(constants.PANEL_LINKS),
-        "output_langs": [list(x) for x in constants.OUTPUT_LANGS],   # 메뉴 '결과물 언어' 칸 — [코드, 이름]   # 메뉴가 주소를 그대로 보여 준다. 여는 건 open_url{key}
+        "output_langs": [list(x) for x in constants.OUTPUT_LANGS],
+        "output_lang_guess": get_output_lang_guess(ip_country),   # 결과 언어 첫 값(첫 실행) — IP 나라. None이면 패널이 시스템 언어로   # 메뉴 '결과물 언어' 칸 — [코드, 이름]   # 메뉴가 주소를 그대로 보여 준다. 여는 건 open_url{key}
         "can_download": bool(constants.DATA_MANIFEST_URL),
         "sources": sources,
         "warnings": context_builder.get_source_warnings(sources),
@@ -153,6 +154,16 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
         "style_ramps": {key: list(ramp) for key, ramp in constants.STYLE_RAMPS.items()},
         "styles": site_prefs.list_styles(),
     }, **notice)
+
+
+def get_output_lang_guess(country):
+    # type: (str) -> str
+    """나라 코드 → 결과 언어 첫 값. 그 나라 언어가 OUTPUT_LANGS에 없으면 영어, 나라를 모르면 None(패널이 시스템 언어로 고른다)."""
+    constants = loader.load("constants")
+    if not country:
+        return None
+    lang = constants.COUNTRY_OUTPUT_LANGS.get(country.upper(), "en")
+    return lang if lang in dict(constants.OUTPUT_LANGS) else "en"
 
 
 def get_search_result(query, site_db=None, region=None):
@@ -258,10 +269,13 @@ def _get_name_options(msg):
 
 def _get_abroad_address(lnglat, msg):
     # type: (list, dict) -> str
-    """해외 대상지(지역 TM)면 패널 '대상지' 줄에 위경도 대신 보일 주소(Nominatim reverse), 국내·못 받으면 ''. 결과 폴더 이름(lot_name)도 같은 주소다(context_builder._get_place_label)."""
+    """해외 대상지(지역 TM)면 패널 '대상지' 줄에 위경도 대신 보일 주소(Nominatim reverse), 국내·못 받으면 ''.
+    패널 언어로 받는다 — 결과물 언어로 받아 English 패널에 '시부야2초메, 시부야구'가 섞였다(2026-11-12).
+    결과 폴더 이름(lot_name)은 결과물 언어 그대로(context_builder._get_place_label)."""
     if not loader.load("non_rhino_utils").is_local_projection():
         return ""
-    return loader.load("osm_context").get_place_address(float(lnglat[0]), float(lnglat[1]), _get_name_options(msg).get("output_lang") or "en")
+    lang = msg.get("lang") or loader.load("site_prefs").get_options().get("lang") or "en"
+    return loader.load("osm_context").get_place_address(float(lnglat[0]), float(lnglat[1]), lang)
 
 
 def _get_area_input_rings(msg):
@@ -538,6 +552,7 @@ class _SiteController:
         self._opened = False
         self._keep = {}                # 마지막 결과의 시트 데이터(지형 삼각형 포함) — 도면 스타일 미리보기·적용이 다시 쓴다
         self._map_center = None        # 첫 init에 IP로 짐작한 지도 첫 위치 [lng, lat] — 못 받으면 None(서울시청)
+        self._ip_country = ""          # 같은 응답의 나라 코드 — 결과 언어 첫 값(output_lang_guess)
         try:   # 원격 설정(도면 색·범례·구간·번역) — 캐시를 먼저 덮는다(패널 HTML의 번역 사전이 호스트 생성 때 심기므로 init보다 앞서야 한다). 새 것은 _init이 받는다
             loader.load("remote_config").apply(loader.load("remote_config").load_cached())
         except Exception:
@@ -645,8 +660,8 @@ class _SiteController:
         except Exception:
             pass
         if not self._opened:   # 지도는 첫 init_state로만 만든다(JS initMap)
-            self._map_center = loader.load("review_map").get_ip_center()
-        state = get_init_state(map_center=self._map_center)
+            self._map_center, self._ip_country = loader.load("review_map").get_ip_location()
+        state = get_init_state(map_center=self._map_center, ip_country=self._ip_country)
         self.push(state)
         if not self._opened:   # init은 배지 [다시 확인]에도 온다 — 패널 열기는 한 번만
             self._opened = True
