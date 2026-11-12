@@ -37,7 +37,7 @@ PAGE_URL = "https://www.pdok.nl/introductie/-/article/3d-basisvoorziening"
 COLUMN_ALIASES = {"id": ("identificatie",), "status": ("status", "pandstatus"), "year": ("oorspronkelijkbouwjaar", "bouwjaar"),
                   "ground": ("rf_h_ground", "h_maaiveld"), "roof_50p": ("rf_h_roof_50p", "dd_h_dak_50p"), "roof_70p": ("rf_h_roof_70p", "dd_h_dak_70p"),
                   "roof_max": ("rf_h_roof_max", "dd_h_dak_max"), "roof_type": ("rf_roof_type", "dak_type")}
-USER_AGENT = "Gorani dev_nl (https://969flash.github.io/gorani/)"
+USER_AGENT = "Gorani dev_nl (https://gorani.site/)"
 
 
 def _download(url, retries=12):

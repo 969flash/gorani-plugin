@@ -77,7 +77,7 @@ PLUGIN_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a10"         # 바꾸지 말 것 �
 COMMAND_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a11"
 COMMAND_NAME = "Gorani"
 PUBLISHER = {"name": "sanghoon", "email": "bsh969flash@gmail.com"}
-WEBSITE_URL = "https://969flash.github.io/gorani/en/"   # PackageManager 링크 — 영어 페이지(한국어 페이지는 거기서 링크, food4Rhino 심사 2026-10-21)
+WEBSITE_URL = "https://gorani.site/en/"   # PackageManager 링크 — 영어 페이지(한국어 페이지는 거기서 링크, food4Rhino 심사 2026-10-21)
 # yak manifest — rhinocode가 쓰는 manifest.yml은 url·검색어가 비고 버전에 +빌드번호가 붙는다. PackageManager 목록·검색에 보일 내용으로 갈아 쓴다.
 # 설명은 영어를 먼저 쓴다(food4Rhino 심사 2026-10-21 — 영어가 없으면 올릴 수 없다).
 # Rhino 8판(build_yak)·Rhino 7판(build_rhino7)이 같이 쓴다 — yak 서버는 버전마다 설명이 하나다. Rhino 7판에 없는 것은 '(Rhino 8)'을 붙인다.
@@ -256,7 +256,7 @@ BLENDER_CONSTANT_PATCHES = {
     "constants.py": {
         "DATA_MANIFEST_URL": "DATA_GITHUB_MANIFEST_URL", "DATA_REPO_ID": '""', "DATA_DOMESTIC_BUCKET_URL": '""',
         "VWORLD_API_KEY_ENV": '""', "VWORLD_SEARCH_URL": '""',
-        "OSM_USER_AGENT": '"Gorani/0.3 (Blender add-on; https://969flash.github.io/gorani/)"',
+        "OSM_USER_AGENT": '"Gorani/0.3 (Blender add-on; https://gorani.site/)"',
         "PDOK_ITEMS_URL": '""', "BDTOPO_FEED_URL": '""', "SWISS_STAC_ITEMS_URL": '""', "PLATEAU_CKAN_URL": '""', "CENSUS_COUNTY_URL": '""', "OVERTURE_S3_URL": '""',
     },
     "review_map.py": {"VWORLD_TILE_URL_TEMPLATE": '""', "VWORLD_AERIAL_URL_TEMPLATE": '""', "ESRI_AERIAL_URL": '""', "IP_LOCATE_URL": '""'},
@@ -269,14 +269,14 @@ BLENDER_ALLOWED_HOSTS = (
     "s3.amazonaws.com", "cyberjapandata.gsi.go.jp",                    # 지형 타일 — AWS Open Data Terrain Tiles, 일본 국토지리원
     "raw.githubusercontent.com", "github.com",                         # 데이터 팩 매니페스트·팩(GitHub 사본 constants.DATA_GITHUB_REPO)
     "150.230.249.1",                                                   # 한국 건물·도로·등고선 팩(국내 서버 — 공간정보관리법 제16조, constants.DATA_DOMESTIC_BASE_URL)
-    "969flash.github.io", "extensions.blender.org", "www.eum.go.kr", "www.openstreetmap.org", "wiki.openstreetmap.org", "registry.opendata.aws",
+    "gorani.site", "extensions.blender.org", "www.eum.go.kr", "www.openstreetmap.org", "wiki.openstreetmap.org", "registry.opendata.aws",
     "maps.gsi.go.jp", "www.mlit.go.jp", "overturemaps.org", "creativecommons.org", "www.w3.org", "leafletjs.com", "bugs.chromium.org",
     "bugzilla.mozilla.org", "fsf.org", "www.gnu.org",
 )
 # `if __package__:` … `else:` 진입 분기(cmd_site·cmd_blender) — 패키지에서는 앞쪽만 남긴다(뒤쪽은 Rhino·저장소 시험용 sys.modules 넣기)
 PACKAGE_BRANCH = re.compile(r"^if __package__:[^\n]*\n((?:    [^\n]*\n)+)else:[^\n]*\n(?:    [^\n]*\n)+", re.M)
 # 확장 매니페스트 — 칸 규칙은 Blender 매뉴얼 Extensions > Getting started(tagline·permissions 사유 64자 이하, 끝 마침표 없음).
-# 태그: 심사가 '3D View'·'Scene'을 빼라고 했다(2026-10-28 — 장면 도구가 아니다). support = 스토어 'Report Issues' 칸(공개 이슈 트래커). Leaflet(BSD-2-Clause)을 넣어 라이선스·저작권에 적는다
+# 태그: 심사가 '3D View'·'Scene'을 빼라고 했다(2026-10-28 — 장면 도구가 아니다). support = 스토어 'Report Issues' 칸(공개 이슈 트래커), website = 스토어 'Website' 칸(영어 페이지 — 해외 사용자, yak WEBSITE_URL과 같다). Leaflet(BSD-2-Clause)을 넣어 라이선스·저작권에 적는다
 BLENDER_MANIFEST = '''schema_version = "1.0.0"
 id = "%(id)s"
 version = "%(version)s"
@@ -284,7 +284,7 @@ name = "%(name)s"
 tagline = "Site context for urban design: buildings, roads, terrain"
 maintainer = "%(maintainer)s"
 type = "add-on"
-website = "https://969flash.github.io/gorani/"
+website = "https://gorani.site/en/"
 support = "https://github.com/969flash/gorani-plugin/issues"
 tags = ["Import-Export"]
 blender_version_min = "4.2.0"
