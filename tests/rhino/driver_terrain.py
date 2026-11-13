@@ -47,7 +47,7 @@ terrain = meshes["terrain"]
 result["mesh"] = {"faces": terrain.Faces.Count, "quads": terrain.Faces.QuadCount, "edge": counts["mesh_edge"], "regions": counts["regions"],
                   "split_s": counts["split_s"], "drape_s": counts["drape_s"]}
 assert terrain.Faces.QuadCount >= 0.5 * terrain.Faces.Count, "쿼드 비율 %s" % result["mesh"]
-plan_area = sum(rg.AreaMassProperties.Compute(m).Area for k, m in meshes.items() if k in ("terrain", "road", "green", "rail", "water"))
+plan_area = sum(rg.AreaMassProperties.Compute(m).Area for k, m in meshes.items() if k in ("terrain", "sidewalk", "road", "green", "rail", "water", "site_ground"))
 ring_area = non_rhino_utils.get_ring_area(prepared.extent_ring)
 result["mesh"]["area_ratio"] = round(plan_area / ring_area, 4)
 assert 0.999 < plan_area / ring_area < 1.01, "범위 면적 비 %.4f(경사로 약간 큼)" % (plan_area / ring_area)

@@ -788,12 +788,13 @@ def _get_rounded_buffer(hull, radius):
     return ring
 
 
-def get_buffered_line_ring(line, width, arc_segments=3):
-    # type: (list, float, int) -> list
+def get_buffered_line_ring(line, width, arc_segments=3, caps=True):
+    # type: (list, float, int, bool) -> list
     """선 ``[(x, y)]``를 폭 width(m)로 두껍게 한 닫힌 링 — OSM 도로 중심선 → 도로면.
 
     입력:
         line: 2점 이상(연속 중복점은 뺀다). width: 전체 폭 m. arc_segments: 호 90°당 분할 수.
+        caps: False면 끝을 반원 대신 직각으로 자른다(교량 상판 — 반원 끝에 난간이 고리로 섰다, 도쿄 니혼바시).
     처리:
         왼쪽 오프셋을 앞으로, 끝 반원, 오른쪽 오프셋(뒤집은 선의 왼쪽)을 뒤로, 시작 반원. 바깥 꺾임은 호, 안쪽 꺾임은 두 오프셋 선의 교점
         (교점이 폭의 OSM_ROAD_MITER_LIMIT배보다 멀면 두 점 그대로). 짧은 변에서 안쪽 오프셋이 서로 넘어가 작은 고리가 생길 수 있다 —
@@ -844,7 +845,7 @@ def get_buffered_line_ring(line, width, arc_segments=3):
     backward, _n0, _n1 = left_chain(pts[::-1])
     a_end = math.atan2(n_end[1], n_end[0])
     a_start = math.atan2(-n_start[1], -n_start[0])
-    ring = forward + arc(pts[-1], a_end, a_end - math.pi) + backward + arc(pts[0], a_start, a_start - math.pi)
+    ring = forward + arc(pts[-1], a_end, a_end - math.pi) + backward + arc(pts[0], a_start, a_start - math.pi) if caps else forward + backward
     if is_ring_self_intersecting(ring):   # 급한 꺾임·짧은 변 — 변마다 캡슐을 만들어 합친다(느리지만 자기교차 없음)
         capsules = [[get_buffered_line_ring([a, b], width, arc_segments)[:-1]] for a, b in zip(pts, pts[1:])]
         outers, _holes = get_merged_rings(capsules, min(width, 1.0) * 0.01)
@@ -2175,6 +2176,812 @@ def get_water_walls(water, neighbors, tol=1e-3):
     return verts, faces
 
 
+
+def get_welded_mesh(verts, faces, tol):
+    # type: (list, list, float) -> tuple
+    """tol(m) 안의 정점을 하나로 붙인 메시 — 수면 조각(하천경계·실폭하천·필지·도엽)이 맞닿는 이음매에서 양쪽 정점이 0.1~5 mm 어긋나
+    따로 남아, SketchUp(0.0254 mm 안만 붙인다)이 이음매를 테두리 선으로 그렸다(성수 구거 166쌍, 중랑천·한강 260쌍, 2026-11-08).
+    입력: (verts [(x, y, z)], faces [3·4각형]) 로컬 m. 처리: 격자 색인으로 앞서 나온 정점 중 tol 안(3차원)이면 그 정점으로 —
+    면 안 같은 정점이 겹치면 빼고, 남은 정점이 3개 미만인 면(이음매의 납작한 틈)은 버린다.
+    출력: 새 (verts, faces). 입력은 바꾸지 않는다."""
+    cell, grid, out_verts, remap = float(tol), {}, [], []
+    for x, y, z in verts:
+        i, j = int(math.floor(x / cell)), int(math.floor(y / cell))
+        hit = None
+        for key in ((i + di, j + dj) for di in (-1, 0, 1) for dj in (-1, 0, 1)):
+            for k in grid.get(key, ()):
+                vx, vy, vz = out_verts[k]
+                if (x - vx) ** 2 + (y - vy) ** 2 + (z - vz) ** 2 <= tol * tol:
+                    hit = k
+                    break
+            if hit is not None:
+                break
+        if hit is None:
+            hit = len(out_verts)
+            out_verts.append((x, y, z))
+            grid.setdefault((i, j), []).append(hit)
+        remap.append(hit)
+    out_faces = []
+    for face in faces:
+        ids = []
+        for v in face:
+            k = remap[v]
+            if not ids or ids[-1] != k:
+                ids.append(k)
+        if len(ids) > 1 and ids[0] == ids[-1]:
+            ids.pop()
+        if len(ids) >= 3:
+            out_faces.append(tuple(ids))
+    return out_verts, out_faces
+
+def get_curb(road, ring, height, tol=1e-3):
+    # type: (tuple, list, float, float) -> tuple
+    """차도를 연석 높이만큼 내린 메시 + 연석 옆면 — 블록·인도·교통섬이 차도보다 올라와 보인다(대지와 인도 사이에는 단차가 생기지 않는다).
+
+    입력: road = 차도 메시 (verts, faces) 로컬 m, 면이 위를 본다. ring = 범위 링(로컬) — 이 위 경계 변에는 옆면을 세우지 않는다(지형 옆면이 막는다).
+          height = 연석 높이 m.
+    처리: 정점 Z − height. 차도 경계 변(한 면에만 속한 변 — 인도·블록·물가와 맞닿은 선)마다 원래 높이 ↔ 내린 높이 세로 사각형, 차도 쪽을 본다.
+    출력: ``((verts, faces), (wall_verts, wall_faces))``. height ≤ 0이거나 면이 없으면 ``(road, ([], []))``. 입력은 바꾸지 않는다.
+    """
+    verts, faces = road
+    if height <= 0 or not faces:
+        return road, ([], [])
+    # 차도 안 실금 — 겹친 도로면 경계에서 삼각분할이 정점을 두 벌 두거나 한쪽 변만 쪼갠다(T자). 양쪽 다 차도라 연석을 세우면
+    # 차도 한가운데 지느러미가 선다(성수 R=220: 4,846개 중 193개) — 변 바깥 2 cm가 여전히 차도면 세우지 않는다
+    surface = TriangleZ([(verts[f[0]], verts[f[k]], verts[f[k + 1]]) for f in faces for k in range(1, len(f) - 1)], cell=5.0)
+    wall_verts, wall_faces = [], []
+    for p, q in _get_boundary_edges(verts, faces):   # 면 안쪽이 왼쪽 — p 위 → q 위 → q 아래 → p 아래 순이면 법선이 왼쪽(차도 쪽)
+        mx, my = (p[0] + q[0]) * 0.5, (p[1] + q[1]) * 0.5
+        length = math.hypot(q[0] - p[0], q[1] - p[1])
+        if length < 1e-3 or _is_on_ring(mx, my, ring, tol) or surface.hit_z(mx + (q[1] - p[1]) / length * 0.02, my - (q[0] - p[0]) / length * 0.02) is not None:
+            continue
+        k = len(wall_verts)
+        wall_verts += [p, q, (q[0], q[1], q[2] - height), (p[0], p[1], p[2] - height)]
+        wall_faces.append((k, k + 1, k + 2, k + 3))
+    return ([(x, y, z - height) for x, y, z in verts], faces), (wall_verts, wall_faces)
+
+
+def get_inset_ring(ring, distance):
+    # type: (list, float) -> list
+    """링을 반시계로 돌려 안쪽으로 distance(m)만큼 들인 링(꼭짓점마다 두 변 법선의 연귀). 아주 작은 값 전용 —
+    Rhino 면 분할에 넣는 인도 테두리가 도로경계·이웃 인도와 정확히 겹치면 BrepFace.Split이 실패해(성수 R=500: 분할 1.1 → 7.4 s, 쿼드 0) 겹침만 피한다.
+    출력: 새 링 ``[(x, y)]``(닫힘 점 없음). 점이 3개 미만이면 입력 그대로."""
+    pts = [(float(p[0]), float(p[1])) for p in ring]
+    if len(pts) > 1 and pts[0] == pts[-1]:
+        pts.pop()
+    if len(pts) < 3:
+        return pts
+    if get_ring_orientation(pts) < 0:
+        pts.reverse()
+    normals = []
+    for (ax, ay), (bx, by) in zip(pts, pts[1:] + pts[:1]):
+        length = math.hypot(bx - ax, by - ay) or 1.0
+        normals.append((-(by - ay) / length, (bx - ax) / length))   # 반시계 링의 왼쪽 = 안쪽
+    out = []
+    for i, (x, y) in enumerate(pts):
+        (n0x, n0y), (n1x, n1y) = normals[i - 1], normals[i]
+        k = distance / max(0.2, 1.0 + n0x * n1x + n0y * n1y)   # 연귀 길이 — 거의 되꺾인 꼭짓점은 5배까지
+        out.append((x + (n0x + n1x) * k, y + (n0y + n1y) * k))
+    return out
+
+def get_line_runs(line, inside, step):
+    # type: (list, object, float) -> list
+    """선을 step 간격으로 조밀화해 inside(x, y)가 거짓인 구간만 이어 낸 선 목록 — 터널·교량 면 안 선로를 뺀다(경계 오차 ≤ step)."""
+    runs, run = [], []
+    for p in get_resampled_ring(line, step, closed=False):
+        if inside(p[0], p[1]):
+            if len(run) >= 2:
+                runs.append(run)
+            run = []
+        else:
+            run.append((p[0], p[1]))
+    if len(run) >= 2:
+        runs.append(run)
+    return runs
+
+
+def _add_sweep(verts, faces, stations, profile):
+    # type: (list, list, list, list) -> None
+    """단면 profile ``[(왼쪽 오프셋 m, 높이 m)]``(왼쪽 아래 → 위 → 오른쪽 아래)을 stations ``[(x, y, z, nx, ny)]``(n = 왼쪽 단위 법선 × 꺾임 보정)를 따라
+    끌어 붙인다 — 단면 변마다 사각형(바깥을 본다) + 양 끝 마개. 바닥은 막지 않는다."""
+    m, start = len(profile), len(verts)
+    for x, y, z, nx, ny in stations:
+        verts.extend((x + nx * off, y + ny * off, z + dz) for off, dz in profile)
+    for i in range(len(stations) - 1):
+        a, b = start + i * m, start + (i + 1) * m
+        faces.extend((a + k, a + k + 1, b + k + 1, b + k) for k in range(m - 1))
+    last = start + (len(stations) - 1) * m
+    faces.append(tuple(start + k for k in reversed(range(m))))   # 시작 마개 — 뒤를 본다
+    faces.append(tuple(last + k for k in range(m)))              # 끝 마개 — 앞을 본다
+
+
+def get_track_meshes(lines, z_of, dims, step, smooth):
+    # type: (list, object, dict, float, float) -> dict
+    """선로 중심선 → 자갈 도상·레일 두 줄·침목 메시(로컬 m).
+
+    입력: lines = ``[(선 [(x, y)], 궤간 m)]`` 로컬. z_of(x, y) = 지반 높이. dims = constants.RAIL_TRACK. step = 단면 간격 m. smooth = 높이 평활 거리 m.
+    처리: 선을 step으로 조밀화 → 지반 높이를 앞뒤 smooth/2 안 평균으로 편다 → 꼭짓점마다 왼쪽 법선(앞뒤 변 법선의 평균, 꺾임만큼 늘린다)
+          → 도상 사다리꼴(아래는 지반 5 cm 밑으로 묻는다)·레일 직사각형(침목 위)을 끌어 붙이고 침목은 sleeper_spacing마다 상자(윗면·옆면 넷).
+    출력: ``{"ballast": (verts, faces), "rails": (verts, faces), "sleepers": (verts, faces)}`` — 빈 것은 ([], []).
+    """
+    out = {key: ([], []) for key in ("ballast", "rails", "sleepers")}
+    top, bottom, height = dims["ballast_top"] / 2.0, dims["ballast_bottom"] / 2.0, dims["ballast_height"]
+    rail_w, rail_h, rise = dims["rail_width"], dims["rail_height"], dims["sleeper_rise"]
+    ballast = [(bottom, -0.05), (top, height), (-top, height), (-bottom, -0.05)]
+    for line, gauge in lines:
+        raw = get_resampled_ring(line, step, closed=False)
+        pts = [p for k, p in enumerate(raw) if k == 0 or math.hypot(p[0] - raw[k - 1][0], p[1] - raw[k - 1][1]) > 1e-6]
+        if len(pts) < 2:
+            continue
+        dist = [0.0]
+        for a, b in zip(pts, pts[1:]):
+            dist.append(dist[-1] + math.hypot(b[0] - a[0], b[1] - a[1]))
+        ground = [z_of(p[0], p[1]) for p in pts]
+        zs, lo, hi, total = [], 0, 0, 0.0
+        for i, d in enumerate(dist):   # 앞뒤 smooth/2 안 평균 — 두 포인터로 한 번에
+            while hi < len(dist) and dist[hi] <= d + smooth / 2.0:
+                total += ground[hi]
+                hi += 1
+            while dist[lo] < d - smooth / 2.0:
+                total -= ground[lo]
+                lo += 1
+            zs.append(total / (hi - lo))
+        dirs = []
+        for a, b in zip(pts, pts[1:]):
+            length = math.hypot(b[0] - a[0], b[1] - a[1])
+            dirs.append(((b[0] - a[0]) / length, (b[1] - a[1]) / length))
+        stations = []
+        for i, p in enumerate(pts):
+            d0, d1 = dirs[max(0, i - 1)], dirs[min(len(dirs) - 1, i)]
+            tx, ty = d0[0] + d1[0], d0[1] + d1[1]
+            length = math.hypot(tx, ty) or 1.0
+            tx, ty = tx / length, ty / length
+            scale = 1.0 / max(0.5, tx * d1[0] + ty * d1[1])   # 꺾인 곳은 단면이 비스듬히 잘리므로 폭을 늘린다(120° 이상 꺾임은 2배까지)
+            stations.append((p[0], p[1], zs[i], -ty * scale, tx * scale))
+        _add_sweep(*out["ballast"], stations=stations, profile=ballast)
+        base = height + rise
+        for side in (1.0, -1.0):
+            c = side * (gauge + rail_w) / 2.0
+            _add_sweep(*out["rails"], stations=stations,
+                       profile=[(c + rail_w / 2.0, base), (c + rail_w / 2.0, base + rail_h), (c - rail_w / 2.0, base + rail_h), (c - rail_w / 2.0, base)])
+        verts, faces = out["sleepers"]
+        half_l, half_w = dims["sleeper_length"] / 2.0, dims["sleeper_width"] / 2.0
+        s, i = dims["sleeper_spacing"] / 2.0, 0
+        while s < dist[-1]:
+            while dist[i + 1] < s:
+                i += 1
+            t = (s - dist[i]) / ((dist[i + 1] - dist[i]) or 1.0)
+            x, y = pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t
+            z = zs[i] + (zs[i + 1] - zs[i]) * t + height
+            dx, dy = dirs[i]
+            corners = [(x + sx * dx * half_w - sy * dy * half_l, y + sx * dy * half_w + sy * dx * half_l) for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+            k = len(verts)
+            verts.extend((cx, cy, z - 0.02) for cx, cy in corners)
+            verts.extend((cx, cy, z + rise) for cx, cy in corners)
+            faces.append((k + 4, k + 5, k + 6, k + 7))   # 윗면(반시계)
+            faces.extend((k + j, k + (j + 1) % 4, k + 4 + (j + 1) % 4, k + 4 + j) for j in range(4))
+            s += dims["sleeper_spacing"]
+    return out
+
+
+def _add_flat_quad(verts, faces, corners, z_of, lift):
+    # type: (list, list, list, object, float) -> None
+    """평면 다각형(3각형 이상, 볼록) → 지반 높이 + lift 정점과 면. 겹친 꼭짓점(껍질로 자른 줄무늬)은 뺀다 — Rhino가 무효 메시로 거절한다."""
+    corners = [p for i, p in enumerate(corners) if math.hypot(p[0] - corners[i - 1][0], p[1] - corners[i - 1][1]) > 1e-6]
+    if len(corners) < 3:
+        return
+    zs = [z_of(x, y) for x, y in corners]
+    sag = z_of(sum(p[0] for p in corners) / len(corners), sum(p[1] for p in corners) / len(corners)) - sum(zs) / len(zs)
+    if sag > 0:   # 꺾인 차도(TIN이 등고선 높이에서 계단진 곳) — 면 가운데가 차도 속으로 처지면 그만큼 올린다(강남 1 m 조각에서 −0.26 m)
+        zs = [z + sag for z in zs]
+    k = len(verts)
+    verts.extend((x, y, z + lift) for (x, y), z in zip(corners, zs))
+    # 늘 삼각형(부채꼴) — 꼭짓점마다 차도 높이를 받아 사각형이 평평하지 않으면 SketchUp이 그 면을 만들지 못해 횡단보도가 끊겼다(2026-11-08 Windows SketchUp 2027)
+    faces.extend((k, k + i, k + i + 1) for i in range(1, len(corners) - 1))
+
+
+def _get_min_rect(hull):
+    # type: (list) -> tuple
+    """볼록껍질(반시계, 3점 이상)의 최소 넓이 직사각형 — ``((ux, uy), (u0, u1), (v0, v1))``, u = 긴 축 단위 방향, v = 왼쪽 법선. 점 (x, y) = u·ux − v·uy, u·uy + v·ux."""
+    best = None   # 껍질 변 방향마다 투영 폭
+    for (ax, ay), (bx, by) in zip(hull, hull[1:] + hull[:1]):
+        length = math.hypot(bx - ax, by - ay)
+        if length < 1e-6:
+            continue
+        ux, uy = (bx - ax) / length, (by - ay) / length
+        us = [x * ux + y * uy for x, y in hull]
+        vs = [-x * uy + y * ux for x, y in hull]
+        box = (max(us) - min(us), max(vs) - min(vs))
+        if best is None or box[0] * box[1] < best[0]:
+            best = (box[0] * box[1], (ux, uy), (min(us), max(us)), (min(vs), max(vs)))
+    _area, (ux, uy), (u0, u1), (v0, v1) = best
+    if u1 - u0 < v1 - v0:
+        ux, uy, (u0, u1), (v0, v1) = -uy, ux, (v0, v1), (-u1, -u0)
+    return (ux, uy), (u0, u1), (v0, v1)
+
+
+def get_long_axis(ring):
+    # type: (list) -> list
+    """링의 최소 넓이 직사각형 긴 축 가운데 선 ``[(x, y), (x, y)]`` — 중심선이 없는 육교의 교각 축. 점이 3개 미만이면 []."""
+    hull = _get_convex_hull([p[:2] for p in ring])
+    if len(hull) < 3:
+        return []
+    (ux, uy), (u0, u1), (v0, v1) = _get_min_rect(hull)
+    v = (v0 + v1) / 2.0
+    return [(u * ux - v * uy, u * uy + v * ux) for u in (u0, u1)]
+
+
+def get_marking_meshes(lines, crosswalks, z_of, style):
+    # type: (list, list, object, dict) -> dict
+    """노면표시 → 색별 얇은 면 메시(로컬 m). 지반 위 lift만큼 띄운다 — 차도를 연석 높이만큼 내린 뒤의 지반을 z_of로 준다.
+
+    입력: lines = ``[(선 [(x, y)], type, color, pattern)]`` — pattern solid·dashed·double·double_dashed·solid_dashed·dashed_solid(진행 방향 왼쪽이 앞 글자).
+          crosswalks = ``[링 [(x, y)]]`` 횡단보도 면. z_of(x, y) = 지반 높이.
+          style = {"widths": {type: m}, "dash": (칠, 빈칸), "gap": 복선 사이, "bar": (줄무늬 폭, 간격), "lift": m, "step": m}.
+    처리: 선은 변마다 칠 구간(점선이면 칠·빈칸 반복, 선 시작부터 잰다)을 step 이하 조각으로 나눠 폭만큼 사각형.
+          횡단보도는 볼록껍질의 최소 넓이 직사각형 긴 축(도로를 건너는 방향)을 따라 줄무늬 — 줄무늬 하나 = 짧은 축 길이, 껍질로 자른다.
+    출력: ``{color: (verts, faces)}`` — 횡단보도는 white. 면은 위를 본다.
+    """
+    out = {}
+    step = style["step"]
+    for line, kind, color, pattern in lines:
+        verts, faces = out.setdefault(color, ([], []))
+        lift = style["lift"].get(color, style["lift"]["white"])
+        width = style["widths"].get(kind, 0.15)
+        o = (width + style["gap"]) / 2.0
+        strokes = {"solid": [(0.0, False)], "dashed": [(0.0, True)], "double": [(o, False), (-o, False)], "double_dashed": [(o, True), (-o, True)],
+                   "solid_dashed": [(o, False), (-o, True)], "dashed_solid": [(o, True), (-o, False)]}.get(pattern, [(0.0, False)])
+        paint, blank = style["dash"]
+        for offset, dashed in strokes:
+            s0 = 0.0
+            for a, b in zip(line, line[1:]):
+                length = math.hypot(b[0] - a[0], b[1] - a[1])
+                if length < 1e-6:
+                    continue
+                dx, dy = (b[0] - a[0]) / length, (b[1] - a[1]) / length
+                nx, ny = -dy, dx
+                spans = [(0.0, length)]
+                if dashed:   # 이 변 안 칠 구간 — 선 시작부터 칠·빈칸 반복
+                    spans, period = [], paint + blank
+                    t = -(s0 % period)
+                    while t < length:
+                        lo, hi = max(t, 0.0), min(t + paint, length)
+                        if hi > lo:
+                            spans.append((lo, hi))
+                        t += period
+                for lo, hi in spans:
+                    n = max(1, int(math.ceil((hi - lo) / step)))
+                    for i in range(n):
+                        t0, t1 = lo + (hi - lo) * i / n, lo + (hi - lo) * (i + 1) / n
+                        p0 = (a[0] + dx * t0 + nx * offset, a[1] + dy * t0 + ny * offset)
+                        p1 = (a[0] + dx * t1 + nx * offset, a[1] + dy * t1 + ny * offset)
+                        h = width / 2.0
+                        _add_flat_quad(verts, faces, [(p0[0] - nx * h, p0[1] - ny * h), (p1[0] - nx * h, p1[1] - ny * h),
+                                                      (p1[0] + nx * h, p1[1] + ny * h), (p0[0] + nx * h, p0[1] + ny * h)], z_of, lift)
+                s0 += length
+    bar, bar_gap = style["bar"]
+    for ring in crosswalks:
+        hull = _get_convex_hull(ring)
+        if len(hull) < 3:
+            continue
+        (ux, uy), (u0, u1), (v0, v1) = _get_min_rect(hull)   # 긴 축 = u(도로를 건너는 방향)
+        count = int((u1 - u0 + bar_gap) // (bar + bar_gap))
+        if count < 1:
+            continue
+        start = u0 + (u1 - u0 - (count * bar + (count - 1) * bar_gap)) / 2.0
+        verts, faces = out.setdefault("white", ([], []))
+        lift = style["lift"]["white"]
+        pieces = max(1, int(math.ceil((v1 - v0) / step)))   # 줄무늬를 길이 방향으로 나눠 차도 굴곡을 따른다
+        for i in range(count):
+            a = start + i * (bar + bar_gap)
+            for k in range(pieces):
+                b0, b1 = v0 + (v1 - v0) * k / pieces, v0 + (v1 - v0) * (k + 1) / pieces
+                rect = [(u * ux - v * uy, u * uy + v * ux) for u, v in ((a, b0), (a + bar, b0), (a + bar, b1), (a, b1))]
+                piece = get_convex_clipped_ring(rect, hull)
+                if len(piece) >= 3:
+                    _add_flat_quad(verts, faces, piece, z_of, lift)
+    return out
+
+# ── 교량·고가 상판 ─────────────────────────────────────────
+
+class _EdgeGrid(object):
+    """링 변의 격자 색인 — 점에서 가장 가까운 변의 거리·방향(교량 면 안 선이 상판 위를 따라가는지 가린다)."""
+
+    def __init__(self, rings, cell=10.0):
+        # type: (list, float) -> None
+        self.cell, self.grid = float(cell), {}
+        for ring in rings:
+            for k in range(len(ring)):
+                (x1, y1), (x2, y2) = ring[k][:2], ring[(k + 1) % len(ring)][:2]
+                if abs(x2 - x1) + abs(y2 - y1) < 1e-9:
+                    continue
+                for i in range(int(math.floor(min(x1, x2) / self.cell)), int(math.floor(max(x1, x2) / self.cell)) + 1):
+                    for j in range(int(math.floor(min(y1, y2) / self.cell)), int(math.floor(max(y1, y2) / self.cell)) + 1):
+                        self.grid.setdefault((i, j), []).append((x1, y1, x2 - x1, y2 - y1))
+
+    def nearest(self, x, y, reach=8):
+        # type: (float, float, int) -> tuple
+        """(거리, 단위 방향 dx, dy) — 칸을 고리로 넓혀 가며(최대 reach 칸) 찾는다. 없으면 None."""
+        i0, j0, best = int(math.floor(x / self.cell)), int(math.floor(y / self.cell)), None
+        for r in range(reach + 1):
+            for i in range(i0 - r, i0 + r + 1):
+                for j in range(j0 - r, j0 + r + 1):
+                    if max(abs(i - i0), abs(j - j0)) != r:
+                        continue
+                    for ax, ay, dx, dy in self.grid.get((i, j), ()):
+                        t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)))
+                        d = math.hypot(x - ax - dx * t, y - ay - dy * t)
+                        if best is None or d < best[0]:
+                            best = (d, dx, dy)
+            if best is not None and best[0] <= r * self.cell:
+                break
+        if best is None:
+            return None
+        length = math.hypot(best[1], best[2])
+        return best[0], best[1] / length, best[2] / length
+
+    def is_along(self, x, y, ux, uy):
+        # type: (float, float, float, float) -> bool
+        """방향 (ux, uy)가 가장 가까운 변과 BRIDGE_ALONG_COS 이상 나란한지."""
+        hit = self.nearest(x, y)
+        return hit is not None and abs(ux * hit[1] + uy * hit[2]) >= constants.BRIDGE_ALONG_COS
+
+
+def get_bridge_axes(parts, lines, ext_ring, step, end_near, along_only=True):
+    # type: (list, list, list, float, float, bool) -> tuple
+    """교량 면 위를 따라가는 선(축)과 땅에 닿는 끝점.
+
+    입력: parts = 교량 묶음 면 ``[[외곽, 구멍…]]``, lines = 도로중심선·선로 ``[[(x, y)…]]``, ext_ring = 범위 링, step = 조밀화 m, end_near = 끝점 거리 m,
+          along_only = 테두리와 나란한 구간만 축으로(도로 — 밑을 건너는 길을 뺀다). 선로는 False.
+    처리: 선마다 면 안 구간(get_line_runs) → 구간 변마다 가장 가까운 테두리 변과 나란하면(BRIDGE_ALONG_COS) 그 길이를 센다 — 반 넘게 나란하면 축.
+          교량 밑을 건너는 길은 테두리와 직각이라 빠진다. 축 끝이 테두리 end_near 안이고, 그 방향으로 end_near + step 더 나간 점이 면 밖이고,
+          범위 링에서 end_near보다 멀면 끝점(상판이 땅에 닿는다) — 면 안에서 끊긴 선 조각(성수 2호선 선로)의 끝은 빠진다.
+    출력: (axes [[(x, y)…]], ends [(x, y)]).
+    """
+    index, edges = PolygonIndex(parts), _EdgeGrid([ring for part in parts for ring in part])
+    ext = PolygonIndex([[ext_ring]])
+    axes, ends = [], []
+    for line in lines:
+        for run in get_line_runs(line, lambda x, y: not index.contains(x, y), step):
+            total = along = 0.0
+            for a, b in zip(run, run[1:]):
+                length = math.hypot(b[0] - a[0], b[1] - a[1])
+                if length < 1e-6:
+                    continue
+                total += length
+                if edges.is_along((a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0, (b[0] - a[0]) / length, (b[1] - a[1]) / length):
+                    along += length
+            if total < step or (along_only and along < total / 2.0):   # 철교의 선로는 다 상판 위(넓은 역 상판은 가까운 테두리가 계단 변이다 — 천안아산역)
+                continue
+            axes.append(run)
+            for (x, y), (px, py) in ((run[0], run[1]), (run[-1], run[-2])):   # 끝점과 그 안쪽 이웃 — 앞으로 나가 면 밖이면 땅에 닿는 끝
+                length = math.hypot(x - px, y - py) or 1.0
+                fx, fy = x + (x - px) / length * (end_near + step), y + (y - py) / length * (end_near + step)
+                hit = edges.nearest(x, y)
+                if hit is not None and hit[0] <= end_near + step and not index.contains(fx, fy) and not ext.is_near(x, y, end_near):
+                    ends.append((x, y))
+    return axes, ends
+
+
+class BridgeDeck(object):
+    """교량 묶음 하나(로컬 m) — 상판 윗면 높이·안팎·방향. get_bridge_meshes·노면표시·선로가 같이 쓴다.
+
+    입력: parts·axes·ends 로컬, spots = 상판 표고점 ``[(x, y, 표고)]``, height = 지반에서 상판 윗면까지(통과높이 + 두께, 추정일 때),
+          thickness, ground_z(x, y) = 최종 지반 높이, kind(road·rail·foot), names.
+    높이: 상판 표고점(지반보다 BRIDGE_SPOT_MIN 위)이 있으면 표고점 + 끝점(지반)의 역거리 가중(가까운 BRIDGE_IDW_K개, src = spot),
+          없으면 max(끝점 역거리 가중, 둘레 평균 지반 + min(height, 끝점 거리 × BRIDGE_GRADE))(src = rule).
+          어느 쪽이든 둘레 평균 지반 + min(두께 + 0.3, 끝점 거리 × BRIDGE_GRADE) + BRIDGE_LIFT 밑으로는 내려가지 않는다(상판이 땅에 묻히지 않게).
+    """
+
+    def __init__(self, parts, axes, ends, spots, height, thickness, ground_z, kind="road", names=(), kinds=None):
+        # type: (list, list, list, list, float, float, object, str, tuple, set) -> None
+        self.parts, self.axes, self.kind, self.names = parts, axes, kind, tuple(names)
+        self.kinds = set(kinds or [kind])   # 묶음 안 상판 종류 — 선로는 rail, 차선은 road·foot 상판에만 올린다
+        self.height, self.thickness, self.ground_z = float(height), float(thickness), ground_z
+        self.index, self.edges = PolygonIndex(parts), _EdgeGrid([ring for part in parts for ring in part])
+        self.bbox = get_bbox([p for part in parts for p in part[0]])
+        self.ends = [(x, y, self.get_ground(x, y)) for x, y in ends]
+        self.spots, self.src = [], "rule"
+        for spot in spots:
+            self.add_spot(*spot)
+
+    def add_spot(self, x, y, z):
+        # type: (float, float, float) -> None
+        """상판 표고점을 더한다 — 지반보다 BRIDGE_SPOT_MIN 이상 높은 것만."""
+        if z - self.get_ground(x, y) >= constants.BRIDGE_SPOT_MIN:
+            self.spots.append((x, y, z))
+        self.src = "spot" if self.spots else "rule"
+
+    def get_ground(self, x, y):
+        # type: (float, float) -> float
+        r, g = constants.BRIDGE_GROUND_RADIUS, self.ground_z
+        return (g(x, y) + g(x + r, y) + g(x - r, y) + g(x, y + r) + g(x, y - r)) / 5.0
+
+    def contains(self, x, y):
+        # type: (float, float) -> bool
+        return self.index.contains(x, y)
+
+    def _get_idw(self, x, y, anchors):
+        # type: (float, float, list) -> float
+        near = sorted(((x - ax) ** 2 + (y - ay) ** 2, az) for ax, ay, az in anchors)[:constants.BRIDGE_IDW_K]
+        if near[0][0] < 1e-6:
+            return near[0][1]
+        weights = [1.0 / d2 for d2, _z in near]
+        return sum(w * z for w, (_d2, z) in zip(weights, near)) / sum(weights)
+
+    def top_z(self, x, y):
+        # type: (float, float) -> float
+        """상판 윗면 높이."""
+        ground = self.get_ground(x, y)
+        dist = min((math.hypot(x - ex, y - ey) for ex, ey, _z in self.ends), default=float("inf"))
+        floor = ground + min(self.thickness + 0.3, dist * constants.BRIDGE_GRADE) + constants.BRIDGE_LIFT
+        if self.spots:
+            return max(self._get_idw(x, y, self.spots + self.ends), floor)
+        z = ground + min(self.height, dist * constants.BRIDGE_GRADE) + constants.BRIDGE_LIFT
+        if self.ends:
+            z = max(z, self._get_idw(x, y, self.ends))
+        return max(z, floor)
+
+    def is_on(self, x, y, ux, uy, kind="road"):
+        # type: (float, float, float, float, str) -> bool
+        """(x, y)를 방향 (ux, uy)로 지나는 선이 이 상판 위인지. 선로(kind rail)는 철교 면 안이면, 차선은 도로·보도 상판 면 안이고 테두리와 나란하면 —
+        철교 밑 도로 차선(성수 2호선 아래)·도로교 밑 선로는 땅에 둔다."""
+        if kind == "rail":
+            return "rail" in self.kinds and self.index.contains(x, y)
+        return bool(self.kinds & {"road", "foot"}) and self.index.contains(x, y) and self.edges.is_along(x, y, ux, uy)
+
+
+def merge_meshes(out, part):
+    # type: (dict, dict) -> dict
+    """``{key: (verts, faces)}`` part를 out에 이어 붙인다(면 번호를 옮긴다). out을 고쳐 돌려준다."""
+    for key, (verts, faces) in part.items():
+        dst_verts, dst_faces = out.setdefault(key, ([], []))
+        k = len(dst_verts)
+        dst_verts.extend(verts)
+        dst_faces.extend(tuple(i + k for i in face) for face in faces)
+    return out
+
+
+def get_deck_runs(line, decks, step, kind="road"):
+    # type: (list, list, float, str) -> list
+    """선 → ``[(구간 [(x, y)…], 상판 또는 None)]`` — 상판 위를 따라가는 구간(BridgeDeck.is_on, kind = road·rail)과 땅 위 구간으로 나눈다. 이음매 점은 양쪽 구간에 다 든다."""
+    if len(line) < 2:
+        return []
+    x0, y0, x1, y1 = get_bbox(line)
+    decks = [d for d in decks if d.bbox[0] <= x1 and d.bbox[2] >= x0 and d.bbox[1] <= y1 and d.bbox[3] >= y0]
+    if not decks:
+        return [(line, None)]
+    pts = get_resampled_ring(line, step, closed=False)
+    pts = [p for k, p in enumerate(pts) if k == 0 or math.hypot(p[0] - pts[k - 1][0], p[1] - pts[k - 1][1]) > 1e-6]
+    if len(pts) < 2:
+        return []
+    owners = []
+    for k in range(len(pts) - 1):
+        (ax, ay), (bx, by) = pts[k][:2], pts[k + 1][:2]
+        length = math.hypot(bx - ax, by - ay)
+        mx, my, ux, uy = (ax + bx) / 2.0, (ay + by) / 2.0, (bx - ax) / length, (by - ay) / length
+        owners.append(next((deck for deck in decks if deck.is_on(mx, my, ux, uy, kind)), None))
+    runs, start = [], 0
+    for k in range(1, len(owners) + 1):
+        if k == len(owners) or owners[k] is not owners[start]:
+            runs.append(([tuple(p[:2]) for p in pts[start:k + 1]], owners[start]))
+            start = k
+    return runs
+
+
+def get_bridge_meshes(decks, triangulate, ext_ring, step, pier_ok=None):
+    # type: (list, object, list, float, object) -> dict
+    """상판(윗면·밑면·옆면 닫힌 판)·난간·교각 메시(로컬 m).
+
+    입력: decks = BridgeDeck 목록, triangulate(rings, loose_pts) → (xy [(x, y)], tris [(a, b, c)]) 호스트 CDT(링 안팎 구분 없이 덮는다),
+          ext_ring = 범위 링(잘린 면에는 난간을 두지 않는다), step = 테두리 조밀화·안쪽 격자 m.
+    처리: 묶음마다 링을 step으로 조밀화 + 안쪽 격자점 → CDT → 무게중심이 면 안인 삼각형만(겹친 교량 면은 합쳐진다) → 윗면 = top_z, 밑면 = − 두께.
+          한 번만 쓰인 변(테두리)에 옆면, 상판이 지반보다 min_rise 높은 테두리에 난간 상자(안쪽으로 width). 교각은 축을 따라 spacing마다(양 끝 inset 안쪽),
+          상판 밑이 지반보다 min_height 이상이고 pier_ok(x, y, 상판 밑 높이)가 참인 곳에 축 방향 정사각 기둥(가까운 기둥 spacing/3 안이면 뺀다).
+    출력: ``{"deck": (verts, faces), "parapet": …, "pier": …}`` — 빈 것은 ([], []).
+    """
+    out = {key: ([], []) for key in ("deck", "parapet", "pier")}
+    ext = PolygonIndex([[ext_ring]])
+    parapet, pier = constants.BRIDGE_PARAPET, constants.BRIDGE_PIER
+    for deck in decks:
+        rings = [[tuple(p[:2]) for p in get_resampled_ring(ring, step)] for part in deck.parts for ring in part]
+        rings = [ring for ring in rings if len(ring) >= 3]
+        if not rings:
+            continue
+        x0, y0, x1, y1 = get_bbox([p for ring in rings for p in ring])
+        loose = [(x0 + (i + 0.5) * step, y0 + (j + 0.5) * step) for i in range(int((x1 - x0) / step) + 1) for j in range(int((y1 - y0) / step) + 1)]
+        loose = [p for p in loose if deck.contains(*p) and not deck.index.is_near(p[0], p[1], 0.4 * step)]
+        xy, tris = triangulate(rings, loose)
+        tris = [t for t in tris if deck.contains(sum(xy[i][0] for i in t) / 3.0, sum(xy[i][1] for i in t) / 3.0)]
+        top, rise = {}, {}
+        for i in {i for t in tris for i in t}:
+            top[i] = deck.top_z(*xy[i])
+            rise[i] = top[i] - deck.get_ground(*xy[i])
+        tris = [t for t in tris if max(rise[i] for i in t) >= constants.BRIDGE_MIN_RISE]   # 땅에 붙은 끝(요금소 광장 — 광안대교)은 도로면이 이미 있다
+        if not tris:
+            continue
+        used = sorted({i for t in tris for i in t})
+        verts, faces = out["deck"]
+        n, start = len(used), len(verts)
+        slot = {i: k for k, i in enumerate(used)}
+        verts.extend((xy[i][0], xy[i][1], top[i]) for i in used)
+        verts.extend((xy[i][0], xy[i][1], top[i] - deck.thickness) for i in used)
+        uses, directed = {}, []
+        for a, b, c in tris:
+            if (xy[b][0] - xy[a][0]) * (xy[c][1] - xy[a][1]) - (xy[b][1] - xy[a][1]) * (xy[c][0] - xy[a][0]) < 0:
+                b, c = c, b
+            faces.append((start + slot[a], start + slot[b], start + slot[c]))           # 윗면 — 위를 본다
+            faces.append((start + n + slot[a], start + n + slot[c], start + n + slot[b]))   # 밑면
+            for u, v in ((a, b), (b, c), (c, a)):
+                uses[(min(u, v), max(u, v))] = uses.get((min(u, v), max(u, v)), 0) + 1
+                directed.append((u, v))
+        p_verts, p_faces = out["parapet"]
+        for a, b in directed:
+            if uses[(min(a, b), max(a, b))] != 1:   # 테두리 = 한 삼각형만 쓰는 변
+                continue
+            ia, ib = start + slot[a], start + slot[b]
+            faces.append((ia + n, ib + n, ib, ia))   # 옆면 — 반시계 삼각형의 변 a→b 오른쪽(바깥)을 본다
+            (ax, ay), (bx, by) = xy[a], xy[b]
+            mx, my = (ax + bx) / 2.0, (ay + by) / 2.0
+            if ext.is_near(mx, my, 0.05) or min(rise[a], rise[b]) < parapet["min_rise"]:
+                continue
+            length = math.hypot(bx - ax, by - ay)
+            nx, ny = (by - ay) / length * parapet["width"], -(bx - ax) / length * parapet["width"]   # 바깥 법선 × 두께 — 상자는 안쪽(−n)으로
+            k, h = len(p_verts), parapet["height"]
+            for (x, y), z in (((ax, ay), top[a]), ((bx, by), top[b])):
+                p_verts.extend([(x, y, z), (x, y, z + h), (x - nx, y - ny, z + h), (x - nx, y - ny, z)])
+            p_faces.extend([(k, k + 4, k + 5, k + 1), (k + 1, k + 5, k + 6, k + 2), (k + 2, k + 6, k + 7, k + 3)])   # 바깥·위·안
+        piers = []
+        v_verts, v_faces = out["pier"]
+        half = pier["size"] / 2.0
+        for axis in deck.axes:
+            pts = get_resampled_ring(axis, 1.0, closed=False)
+            dist = [0.0]
+            for p, q in zip(pts, pts[1:]):
+                dist.append(dist[-1] + math.hypot(q[0] - p[0], q[1] - p[1]))
+            if dist[-1] < 2 * pier["inset"]:
+                continue
+            stations = [pier["inset"], dist[-1] - pier["inset"]]
+            s = pier["spacing"] / 2.0
+            while s < dist[-1] - pier["inset"]:
+                stations.append(s)
+                s += pier["spacing"]
+            for s in sorted(stations):
+                k = min(max(bisect.bisect_left(dist, s), 1), len(dist) - 1)
+                p, q = pts[k - 1], pts[k]
+                t = (s - dist[k - 1]) / ((dist[k] - dist[k - 1]) or 1.0)
+                x, y = p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t
+                if not deck.contains(x, y) or any(math.hypot(x - px, y - py) < pier["spacing"] / 3.0 for px, py in piers):
+                    continue
+                bottom, ground = deck.top_z(x, y) - deck.thickness, deck.ground_z(x, y)
+                if bottom - ground < pier["min_height"] or (pier_ok is not None and not pier_ok(x, y, bottom)):
+                    continue
+                piers.append((x, y))
+                length = math.hypot(q[0] - p[0], q[1] - p[1]) or 1.0
+                ux, uy = (q[0] - p[0]) / length * half, (q[1] - p[1]) / length * half
+                corners = [(x - ux + uy, y - uy - ux), (x + ux + uy, y + uy - ux), (x + ux - uy, y + uy + ux), (x - ux - uy, y - uy + ux)]   # 반시계
+                k = len(v_verts)
+                v_verts.extend((cx, cy, ground - 0.5) for cx, cy in corners)
+                v_verts.extend((cx, cy, bottom) for cx, cy in corners)
+                v_faces.extend((k + j, k + (j + 1) % 4, k + 4 + (j + 1) % 4, k + 4 + j) for j in range(4))
+    return out
+
+
+# ── 건물·옹벽·담장·가로수 디테일 (2026-11-13) ─────────────────
+
+def _get_open_pts(ring):
+    # type: (list) -> list
+    """링 → 닫힘 점·연속 중복점 없는 [(x, y)]."""
+    pts = []
+    for p in ring:
+        q = (float(p[0]), float(p[1]))
+        if not pts or abs(q[0] - pts[-1][0]) > 1e-6 or abs(q[1] - pts[-1][1]) > 1e-6:
+            pts.append(q)
+    if len(pts) > 1 and abs(pts[0][0] - pts[-1][0]) < 1e-6 and abs(pts[0][1] - pts[-1][1]) < 1e-6:
+        pts.pop()
+    return pts
+
+
+def _get_left_offset(pts, distance):
+    # type: (list, float) -> list
+    """닫힌 점 목록을 진행 방향 왼쪽으로 distance만큼(꼭짓점마다 연귀, 거의 되꺾인 곳은 5배까지). 방향은 그대로 둔다."""
+    normals = []
+    for (ax, ay), (bx, by) in zip(pts, pts[1:] + pts[:1]):
+        length = math.hypot(bx - ax, by - ay) or 1.0
+        normals.append((-(by - ay) / length, (bx - ax) / length))
+    out = []
+    for i, (x, y) in enumerate(pts):
+        (n0x, n0y), (n1x, n1y) = normals[i - 1], normals[i]
+        k = distance / max(0.2, 1.0 + n0x * n1x + n0y * n1y)
+        out.append((x + (n0x + n1x) * k, y + (n0y + n1y) * k))
+    return out
+
+
+def get_parapet_mesh(buildings, spec):
+    # type: (list, dict) -> tuple
+    """옥상 파라펫(난간벽) 메시 — 지붕 테두리를 따라 spec height 높이, width 두께(로컬 m).
+
+    입력: buildings = ``[(parts [[외곽, 구멍…]], 지붕 Z)]``, spec = constants.PARAPET.
+    처리: 파트 외곽 넓이 min_area 미만은 뺀다. 외곽은 반시계·구멍은 시계로 돌려 왼쪽(지붕 쪽)으로 width 들인 안쪽 링 →
+          변마다 바깥 면(건물 벽을 위로 잇는다)·윗면·안쪽 면 사각형. 바닥은 지붕에 붙어 막지 않는다. 면은 전부 평면 사각형(SketchUp).
+    출력: (verts, faces).
+    """
+    verts, faces = [], []
+    h, w = spec["height"], spec["width"]
+    for parts, top in buildings:
+        for part in parts:
+            if not part or abs(get_ring_area(part[0])) < spec["min_area"]:
+                continue
+            for k, ring in enumerate(part):
+                pts = _get_open_pts(ring)
+                if len(pts) < 3:
+                    continue
+                if (get_ring_orientation(pts) > 0) != (k == 0):   # 외곽 반시계, 구멍 시계 — 왼쪽이 지붕
+                    pts.reverse()
+                inner = _get_left_offset(pts, w)
+                n, base = len(pts), len(verts)
+                for x, y in pts + inner:
+                    verts.extend([(x, y, top), (x, y, top + h)])
+                o = lambda i, up: base + 2 * i + up
+                q = lambda i, up: base + 2 * (n + i) + up
+                for i in range(n):
+                    j = (i + 1) % n
+                    faces.append((o(i, 0), o(j, 0), o(j, 1), o(i, 1)))   # 바깥 — 진행 방향 오른쪽(건물 밖)
+                    faces.append((o(i, 1), o(j, 1), q(j, 1), q(i, 1)))   # 위
+                    faces.append((q(j, 0), q(i, 0), q(i, 1), q(j, 1)))   # 안 — 지붕 쪽
+    return verts, faces
+
+
+def get_floor_rings(buildings, min_floors):
+    # type: (list, int) -> list
+    """층 구분선 — ``[(parts, 바닥 Z, 높이, 지상층수)]`` → ``[([(x, y, z)…], True)]``. 층고 = 높이 ÷ 층수, 1층 위부터 지붕 아래 층까지."""
+    out = []
+    for parts, base, height, floors in buildings:
+        floors = int(floors or 0)
+        if floors < min_floors or height <= 0:
+            continue
+        step = float(height) / floors
+        for part in parts:
+            for ring in part:
+                pts = _get_open_pts(ring)
+                if len(pts) < 3:
+                    continue
+                out.extend(([(x, y, base + step * k) for x, y in pts], True) for k in range(1, floors))
+    return out
+
+
+def _get_wall_stations(line, step):
+    # type: (list, float) -> list
+    """선 → step 간격 ``[(x, y, nx, ny)]`` — n = 왼쪽 단위 법선 × 꺾임 보정(연귀, 최대 2배)."""
+    raw = get_resampled_ring([p[:2] for p in line], step, closed=False)
+    pts = [p for k, p in enumerate(raw) if k == 0 or math.hypot(p[0] - raw[k - 1][0], p[1] - raw[k - 1][1]) > 1e-6]
+    if len(pts) < 2:
+        return []
+    dirs = []
+    for a, b in zip(pts, pts[1:]):
+        length = math.hypot(b[0] - a[0], b[1] - a[1])
+        dirs.append(((b[0] - a[0]) / length, (b[1] - a[1]) / length))
+    out = []
+    for i, p in enumerate(pts):
+        d0, d1 = dirs[max(0, i - 1)], dirs[min(len(dirs) - 1, i)]
+        tx, ty = d0[0] + d1[0], d0[1] + d1[1]
+        length = math.hypot(tx, ty) or 1.0
+        tx, ty = tx / length, ty / length
+        scale = 1.0 / max(0.5, tx * d1[0] + ty * d1[1])
+        out.append((p[0], p[1], -ty * scale, tx * scale))
+    return out
+
+
+def _add_wall_run(verts, faces, run, half):
+    # type: (list, list, list, float) -> None
+    """``[(x, y, nx, ny, 밑 Z, 위 Z)]`` → 두께 2·half 벽(양 옆면·윗면 삼각형 둘·양 끝 마개). 옆면·마개는 평면 사각형."""
+    k0 = len(verts)
+    for x, y, nx, ny, bottom, top in run:
+        verts.extend([(x + nx * half, y + ny * half, bottom), (x + nx * half, y + ny * half, top),
+                      (x - nx * half, y - ny * half, top), (x - nx * half, y - ny * half, bottom)])   # 왼쪽 밑·위, 오른쪽 위·밑
+    for i in range(len(run) - 1):
+        a, b = k0 + 4 * i, k0 + 4 * (i + 1)
+        faces.append((a + 3, b + 3, b + 2, a + 2))   # 오른쪽 면
+        faces.append((b, a, a + 1, b + 1))           # 왼쪽 면
+        faces.extend([(a + 1, a + 2, b + 2), (a + 1, b + 2, b + 1)])   # 윗면 — 연귀로 비틀릴 수 있어 삼각형
+    last = k0 + 4 * (len(run) - 1)
+    faces.append((k0, k0 + 3, k0 + 2, k0 + 1))           # 시작 마개
+    faces.append((last + 3, last, last + 1, last + 2))   # 끝 마개
+
+
+def get_retaining_wall_mesh(lines, z_of, spec):
+    # type: (list, object, dict) -> tuple
+    """옹벽·석축 선 → 세로 벽 메시(로컬 m). 높이 속성이 없어 선 양쪽 지반으로 정한다.
+
+    입력: lines = ``[[(x, y)…]]``, z_of(x, y) = 최종 지반, spec = constants.WALL.
+    처리: sample 간격 스테이션마다 왼쪽·오른쪽 probe m 지반 → 고저차가 min_rise 이상인 연속 구간만(지형이 단을 못 잡은 곳은 빼서 땅 위에 벽이 서지 않게),
+          벽 위 = 높은 쪽 + coping(고저차는 max_rise까지), 밑 = 낮은 쪽 − embed, 두께 width.
+    출력: (verts, faces).
+    """
+    verts, faces = [], []
+    probe = spec["probe"]
+    for line in lines:
+        run = []
+        for x, y, nx, ny in _get_wall_stations(line, spec["sample"]):
+            length = math.hypot(nx, ny) or 1.0
+            ux, uy = nx / length, ny / length
+            za, zb = z_of(x + ux * probe, y + uy * probe), z_of(x - ux * probe, y - uy * probe)
+            low, high = min(za, zb), max(za, zb)
+            if high - low >= spec["min_rise"]:
+                run.append((x, y, nx, ny, low - spec["embed"], min(high, low + spec["max_rise"]) + spec["coping"]))
+                continue
+            if len(run) >= 2:
+                _add_wall_run(verts, faces, run, spec["width"] / 2.0)
+            run = []
+        if len(run) >= 2:
+            _add_wall_run(verts, faces, run, spec["width"] / 2.0)
+    return verts, faces
+
+
+def get_fence_mesh(lines, z_of, spec):
+    # type: (list, object, dict) -> tuple
+    """담장 선 → 지반을 따라가는 height 높이·width 두께 벽(로컬 m). 밑은 지반 0.2 m 아래로 묻는다."""
+    verts, faces = [], []
+    for line in lines:
+        run = [(x, y, nx, ny, z_of(x, y) - 0.2, z_of(x, y) + spec["height"]) for x, y, nx, ny in _get_wall_stations(line, spec["sample"])]
+        if len(run) >= 2:
+            _add_wall_run(verts, faces, run, spec["width"] / 2.0)
+    return verts, faces
+
+
+_ICO = None
+
+
+def _get_icosahedron():
+    # type: () -> tuple
+    """정이십면체 (정점 12 — 축마다 ±1까지, 반시계 면 20)."""
+    global _ICO
+    if _ICO is None:
+        t = (1.0 + 5 ** 0.5) / 2.0
+        raw = [(-1, t, 0), (1, t, 0), (-1, -t, 0), (1, -t, 0), (0, -1, t), (0, 1, t), (0, -1, -t), (0, 1, -t),
+               (t, 0, -1), (t, 0, 1), (-t, 0, -1), (-t, 0, 1)]
+        _ICO = ([(x / t, y / t, z / t) for x, y, z in raw],   # 축마다 ±1에 닿게(수관 지름·높이가 표 값 그대로)
+                [(0, 11, 5), (0, 5, 1), (0, 1, 7), (0, 7, 10), (0, 10, 11), (1, 5, 9), (5, 11, 4), (11, 10, 2), (10, 7, 6), (7, 1, 8),
+                 (3, 9, 4), (3, 4, 2), (3, 2, 6), (3, 6, 8), (3, 8, 9), (4, 9, 5), (2, 4, 11), (6, 2, 10), (8, 6, 7), (9, 8, 1)])
+    return _ICO
+
+
+def get_tree_mesh(trees, z_of, species, trunk):
+    # type: (list, object, dict, dict) -> tuple
+    """가로수 → 줄기(각기둥)·수관(정이십면체 구 또는 원뿔) 한 메시(로컬 m).
+
+    입력: trees = ``[(x, y, 수종, 높이 또는 None, 수관 지름 또는 None)]``, z_of = 지반, species = constants.TREES, trunk = constants.TREE_TRUNK.
+    처리: 수종 표(없으면 default)의 높이·지름·모양, 데이터에 높이·지름이 있으면 그 값. 줄기 = 지반 − 0.2 ~ 높이 × ratio, 수관 = 그 위 ~ 높이.
+    출력: (verts, faces) — 면은 바깥을 본다.
+    """
+    verts, faces = [], []
+    ico_v, ico_f = _get_icosahedron()
+    sides, r = trunk["sides"], trunk["radius"]
+    for x, y, kind, height, crown in trees:
+        h0, d0, shape = species.get(kind) or next((v for k, v in species.items() if kind and kind.startswith(k)), species["default"])
+        height, crown = float(height or h0), float(crown or d0)
+        z = z_of(x, y)
+        bottom = z + height * trunk["ratio"]
+        k = len(verts)
+        ring = [(x + r * math.cos(2 * math.pi * i / sides), y + r * math.sin(2 * math.pi * i / sides)) for i in range(sides)]
+        verts.extend((px, py, z - 0.2) for px, py in ring)
+        verts.extend((px, py, bottom + 0.3) for px, py in ring)   # 수관 속으로 조금 넣는다
+        faces.extend((k + i, k + (i + 1) % sides, k + sides + (i + 1) % sides, k + sides + i) for i in range(sides))
+        k = len(verts)
+        if shape == "cone":
+            n = 8
+            verts.extend((x + crown / 2.0 * math.cos(2 * math.pi * i / n), y + crown / 2.0 * math.sin(2 * math.pi * i / n), bottom) for i in range(n))
+            verts.append((x, y, z + height))
+            faces.extend((k + i, k + (i + 1) % n, k + n) for i in range(n))
+            faces.extend((k, k + i + 1, k + i) for i in range(1, n - 1))   # 밑면 — 아래를 본다. 삼각형(Rhino MeshFace는 3·4각형만 — 동호대교 은행나무)
+        else:
+            rz = (z + height - bottom) / 2.0
+            cz = bottom + rz
+            verts.extend((x + vx * crown / 2.0, y + vy * crown / 2.0, cz + vz * rz) for vx, vy, vz in ico_v)
+            faces.extend((k + a, k + b, k + c) for a, b, c in ico_f)
+    return verts, faces
+
+
 class TriangleZ(object):
     """세계좌표 삼각형 ``[((x,y,z)×3, …)]``의 높이 조회 — 격자 칸에 걸친 삼각형의 무게중심 보간(겹치면 높은 면). 입체 매스도 지형이 쓴다."""
 
@@ -2196,6 +3003,12 @@ class TriangleZ(object):
     def get_z(self, x, y):
         # type: (float, float) -> float
         """수직 투영 Z. 빗나가면(삼각형 밖) 전체 최저 Z — TIN이 범위보다 넓어 범위 안에서는 거의 없다."""
+        best = self.hit_z(x, y)
+        return self.min_z if best is None else best
+
+    def hit_z(self, x, y):
+        # type: (float, float) -> object
+        """수직 투영 Z, 빗나가면 None."""
         best = None
         for x0, y0, z0, e1x, e1y, e2x, e2y, inv, dz1, dz2 in self.cells.get((int(math.floor(x / self.cell)), int(math.floor(y / self.cell))), ()):
             dx, dy = x - x0, y - y0
@@ -2205,7 +3018,7 @@ class TriangleZ(object):
                 z = z0 + u * dz1 + v * dz2
                 if best is None or z > best:
                     best = z
-        return self.min_z if best is None else best
+        return best
 
 
 def get_contour_segments(tris, step):

@@ -418,7 +418,7 @@ def _is_inside(x, y, geometry):
 
 def get_feature_kind(tags, is_area):
     # type: (dict, bool) -> tuple
-    """OSM 태그 → (theme, kind). 해당 없으면 None. 면은 수면·학교 부지·광장·녹지, 선은 도로·철도·하천."""
+    """OSM 태그 → (theme, kind). 해당 없으면 None. 면은 수면·학교 부지·광장·녹지, 선은 도로·철도·하천·담·옹벽·가로수 줄."""
     if is_area:
         if tags.get("waterway") == "riverbank" or (tags.get("natural") == "water" and tags.get("water") in constants.OSM_FLOWING_WATER):
             return "water", "river"
@@ -428,6 +428,8 @@ def get_feature_kind(tags, is_area):
             return "public", "school_lot"   # 공공시설 도면 '학교 부지'(국내 지목 학교용지)
         if tags.get("place") == "square":
             return "public", "plaza"
+        if tags.get("railway") == "platform":
+            return "rail", "platform"   # 승강장 면 — 선로 옆 각기둥(context_geometry.get_rail_detail). 선으로 그린 승강장은 쓰지 않는다
         if tags.get("area:highway") or tags.get("amenity") == "parking" or (tags.get("highway") in constants.OSM_ROAD_WIDTHS and tags.get("area") == "yes"):
             return "road", "surface"   # 포장면 — 도로면 폴리곤(드묾)·보행자 광장·주차장. 국내 도로경계 면과 같은 자리
         for key, values in constants.OSM_GREEN_TAGS.items():
@@ -440,6 +442,10 @@ def get_feature_kind(tags, is_area):
         return "rail", "centerline"
     if tags.get("waterway") in ("river", "stream", "canal", "drain"):
         return "water", "centerline"
+    if tags.get("barrier") in ("wall", "retaining_wall", "fence"):   # 옹벽은 지반 고저차로 세로 벽, 담·울타리는 일정 높이(context_geometry.get_structure_lines)
+        return "structure", "wall" if tags["barrier"] == "retaining_wall" else "fence"
+    if tags.get("natural") == "tree_row":
+        return "tree", "row"
     return None
 
 
@@ -459,10 +465,11 @@ def _get_feature_geometry(element, tags):
     # type: (dict, dict) -> tuple
     """요소 하나 → (geometry, (theme, kind)), 해당 없으면 (None, None). 점 = 이름 있는 역(역세권·보행권 도면), 닫힌 길·관계 = 면, 그 외 길 = 선."""
     if element["type"] == "node":
-        if tags.get("railway") != "station" or not tags.get("name"):
+        target = ("tree", "tree") if tags.get("natural") == "tree" else ("transit", "station") if tags.get("railway") == "station" and tags.get("name") else None
+        if target is None:
             return None, None
         x, y = non_rhino_utils.get_tm_from_wgs84(float(element["lon"]), float(element["lat"]))
-        return {"type": "Point", "coordinates": [round(x, 3), round(y, 3)]}, ("transit", "station")
+        return {"type": "Point", "coordinates": [round(x, 3), round(y, 3)]}, target
     if element["type"] == "relation" or (element.get("geometry") and element["geometry"][0] == element["geometry"][-1] and get_feature_kind(tags, True)):
         target = get_feature_kind(tags, True)
         geometry = _get_polygon(element) if target else None
@@ -486,9 +493,14 @@ def _get_features(elements, reference_date):
         theme, kind = target
         min_x, max_x, min_y, max_y = _get_bounds(geometry)
         value = get_road_width(tags) if theme == "road" else None
+        attrs = {"osm": "%s/%d" % (element["type"], element["id"])}
+        if theme in ("rail", "road"):   # 지하·교량·층 정보와 궤간 — 지상 선로·승강장만 3D로, 교량은 상판(context_geometry.get_rail_detail·get_bridges)
+            attrs.update((key, tags[key]) for key in ("tunnel", "bridge", "layer", "level", "gauge") if key in tags)
+        elif theme in ("tree", "structure"):   # 나무 높이·수관 지름·수종, 담 높이(context_geometry.get_trees·get_structure_lines)
+            attrs.update((key, tags[key]) for key in ("height", "diameter_crown", "species", "genus", "leaf_type", "barrier") if key in tags)
         features.append(FeatureInfo(
             feature_id=len(features) + 1, theme=theme, kind=kind, code=tags.get("highway") or tags.get("railway") or tags.get("waterway") or tags.get("area:highway") or tags.get("amenity") or "",
-            name=tags.get("name", ""), value=value, attrs={"osm": "%s/%d" % (element["type"], element["id"])}, sheet="",
+            name=tags.get("name", ""), value=value, attrs=attrs, sheet="",
             geometry=geometry, source_id="osm", reference_date=reference_date, min_x=min_x, max_x=max_x, min_y=min_y, max_y=max_y,
         ))
         surface = get_road_surface(geometry, tags, value) if theme == "road" and kind == "centerline" else None
@@ -499,7 +511,53 @@ def _get_features(elements, reference_date):
                        "mid": list(geometry["coordinates"][len(geometry["coordinates"]) // 2])}, sheet="",   # 중심선 가운데 꼭짓점 — get_surfaces_apart가 쓴다
                 geometry=surface, source_id="osm", reference_date=reference_date, min_x=min_x - value, max_x=max_x + value, min_y=min_y - value, max_y=max_y + value,
             ))
+    for ring, osm_id in get_crosswalk_rings(elements):
+        min_x, max_x, min_y, max_y = _get_bounds({"type": "Polygon", "coordinates": [ring]})
+        features.append(FeatureInfo(
+            feature_id=len(features) + 1, theme="marking", kind="crosswalk", code="", name="", value=None, attrs={"osm": "node/%d" % osm_id}, sheet="",
+            geometry={"type": "Polygon", "coordinates": [ring]}, source_id="osm", reference_date=reference_date, min_x=min_x, max_x=max_x, min_y=min_y, max_y=max_y,
+        ))
     return features
+
+
+def is_marked_crossing(tags):
+    # type: (dict) -> bool
+    """highway=crossing 점이 칠한 횡단보도인지 — crossing:markings(no 빼고), 없으면 옛 crossing 값(OSM_CROSSWALK_MARKED)."""
+    if tags.get("highway") != "crossing":
+        return False
+    markings = tags.get("crossing:markings")
+    if markings:
+        return markings != "no"
+    return tags.get("crossing") in constants.OSM_CROSSWALK_MARKED or tags.get("crossing_ref") == "zebra"
+
+
+def get_crosswalk_rings(elements):
+    # type: (list) -> list
+    """칠한 횡단보도 점 → 그 점을 지나는 차도(보행로 빼고) 방향의 직사각형 ``[(링 [[x, y]…], 노드 id)]`` (TM).
+    길이 = 그 도로 폭(get_road_width), 폭 = OSM_CROSSWALK_WIDTH. 점 하나는 처음 만난 도로 하나에만."""
+    crossings = {}
+    for element in elements:
+        if element["type"] == "node" and is_marked_crossing(element.get("tags") or {}):
+            crossings[element["id"]] = non_rhino_utils.get_tm_from_wgs84(float(element["lon"]), float(element["lat"]))
+    out = []
+    for element in elements if crossings else []:
+        tags = element.get("tags") or {}
+        ids, geom = element.get("nodes") or [], element.get("geometry") or []
+        if element["type"] != "way" or tags.get("highway") not in constants.OSM_ROAD_WIDTHS or tags.get("highway") in constants.OSM_PATH_HIGHWAYS \
+                or len(ids) != len(geom) or len(ids) < 2:
+            continue
+        for k, node_id in enumerate(ids):
+            if node_id not in crossings:
+                continue
+            (ax, ay), (bx, by) = (non_rhino_utils.get_tm_from_wgs84(geom[i]["lon"], geom[i]["lat"]) for i in (max(0, k - 1), min(len(ids) - 1, k + 1)))
+            length = math.hypot(bx - ax, by - ay)
+            if length < 1e-6:
+                continue
+            (cx, cy), dx, dy = crossings.pop(node_id), (bx - ax) / length, (by - ay) / length
+            along, across = constants.OSM_CROSSWALK_WIDTH / 2.0, get_road_width(tags) / 2.0
+            ring = [[round(cx + dx * sa * along - dy * sb * across, 3), round(cy + dy * sa * along + dx * sb * across, 3)] for sa, sb in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+            out.append((ring + [ring[0]], node_id))
+    return out
 
 
 def get_road_surface(geometry, tags, width):

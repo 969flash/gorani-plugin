@@ -36,13 +36,14 @@ from context_builder import DomainError
 from i18n import tr
 
 TOPO_SOURCE_ID = "ngii_topo_5000"
-CLASS_LAYERS = {"terrain": "Terrain", "water": "Water", "road": "Roads", "green": "Green", "rail": "Rail", "block": "Terrain::block"}
+CLASS_LAYERS = {"terrain": "Terrain", "water": "Water", "road": "Roads", "green": "Green", "rail": "Rail", "block": "Terrain::block",
+                "sidewalk": "Roads::sidewalk", "curb": "Roads::curb"}
 SITE_LAYERS = {"site_wall": "Terrain::site_wall", "site_original": "Terrain::site_original",
                "site_natural_terrain": "Site::original::Terrain", "site_natural_green": "Site::original::Green"}   # site_ground는 옵션 따라(_get_terrain_items)
 # 대상지 면 출력(평평하게 끔) — 대상지 안 지형·녹지만 대상지 면으로 바꾼다. 도로·철도·수면은 그대로(2026-11-08 사용자 — 대상지를 지나는 기반시설은 덮지 않는다)
 SITE_CUT_CLASSES = {"terrain": "site_terrain", "green": "site_green"}
 SITE_ORIGINAL_CLASSES = {"site_terrain": "site_natural_terrain", "site_green": "site_natural_green"}   # 대상지 면과 같은 모양의 원래 지형·녹지 — 꺼 둔 CTX::Site::original 하나만 켜면 보인다
-GROUND_CLASSES = ("terrain", "road", "green", "rail", "site_terrain", "site_green")   # 물가 비탈·계단을 같이 거치는 지반
+GROUND_CLASSES = ("terrain", "sidewalk", "road", "green", "rail", "site_terrain", "site_green")   # 물가 비탈·계단을 같이 거치는 지반
 
 
 # [blender-cut] Rhino판 베이크 항목(mesh_geometry.BakeItem이 메시판)
@@ -317,8 +318,9 @@ class NearestXYZ(object):
 
 def get_class_polygons(prepared):
     # type: (object) -> list
-    """면 분류 폴리곤 ``[(class, name, parts, still)]``. water = features 하천·실폭하천·호수(없으면 지목 하천·구거·유지),
-    rail = 철도부지선(면), road = 도로경계(면), green = 경지계 ∪ 지목 공원·임야·체육용지·유원지.
+    """면 분류 폴리곤 ``[(class, name, parts, still)]``. water = features 하천·실폭하천·호수(없으면 lot_water = 지목 하천·구거·유지 — 도로·철도 뒤),
+    rail = 철도부지선(면), sidewalk = 인도·도로분리대·교통섬(도로경계 안 — 차도보다 우선), road = 도로경계(면),
+    path = OSM 보행로 버퍼(차도 뒤 — 겹친 곳은 차도), green = 경지계 ∪ 지목 공원·임야·체육용지·유원지.
     still = 고인 물(호수·저수지·연못, 지목 유지 — 평평한 수면). 나머지 수면은 흐르는 물(물가를 따라 기운다)."""
     polys = []
     for f in prepared.features:
@@ -327,8 +329,10 @@ def get_class_polygons(prepared):
             cls = "water"
         elif f.theme == "rail" and f.kind == "surface":
             cls = "rail"
+        elif f.theme == "road" and (f.kind in constants.SIDEWALK_KINDS or (f.kind == "safety_zone" and (f.attrs or {}).get("구조") == constants.SAFETY_ISLAND)):
+            cls = "sidewalk"
         elif f.theme == "road" and f.kind == "surface":
-            cls = "road"
+            cls = "path" if f.code in constants.OSM_PATH_HIGHWAYS else "road"
         elif f.theme == "green":
             cls = "green"
         if cls:
@@ -339,10 +343,404 @@ def get_class_polygons(prepared):
     for lot in list(prepared.target_lots) + list(prepared.near_lots):
         if lot.land_category in constants.LAND_CATEGORIES_WATER:
             if not has_water:
-                polys.append(("water", lot.land_category, get_parts(lot.geometry), lot.land_category in constants.LAND_CATEGORIES_STILL_WATER))
+                polys.append(("lot_water", lot.land_category, get_parts(lot.geometry), lot.land_category in constants.LAND_CATEGORIES_STILL_WATER))
         elif constants.SHEET_LAND_CATEGORY_KEYS.get(lot.land_category) in ("park", "forest"):
             polys.append(("green", lot.land_category, get_parts(lot.geometry), False))
     return polys
+
+
+def get_detail(prepared, key):
+    # type: (object, str) -> bool
+    """디테일 켜기 — options.<key>(패널 3D 설정 '디테일'), 없으면 constants.DETAIL_OPTIONS 기본값."""
+    value = (prepared.request.get("options") or {}).get(key)
+    return constants.DETAIL_OPTIONS.get(key, True) if value is None else bool(value)
+
+
+def _get_float(value):
+    # type: (object) -> float
+    """'12', '12 m' → 12.0, 못 읽으면 None(OSM height·diameter_crown 태그)."""
+    try:
+        return float(str(value).replace("m", "").strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def get_structure_lines(prepared, kind):
+    # type: (object, str) -> list
+    """옹벽(kind wall — 수치지형도 옹벽·석축, OSM barrier=retaining_wall)·담장(kind fence — 수치지형도 '담'(문주는 뺀다), OSM barrier=wall|fence)
+    선 ``[[(x, y)…]]``(세계좌표) — 범위 링으로 자른다."""
+    x0, y0, x1, y1 = non_rhino_utils.get_bbox(prepared.extent_ring)
+    lines = []
+    for f in prepared.features:
+        if f.theme != "structure" or f.kind != kind or f.max_x < x0 or f.min_x > x1 or f.max_y < y0 or f.min_y > y1:
+            continue
+        if (f.attrs or {}).get("구분") == "문주" or f.geometry.get("type") not in ("LineString", "MultiLineString"):
+            continue
+        coords = f.geometry["coordinates"]
+        lines += [[tuple(p[:2]) for p in line] for line in (coords if f.geometry["type"] == "MultiLineString" else [coords])]
+    return [[tuple(p[:2]) for p in piece] for piece in get_clipped_curves([], lines, get_clip_ring(prepared))[1]]
+
+
+def get_trees(prepared):
+    # type: (object) -> list
+    """가로수(세계좌표) ``[(x, y, 수종, 높이 또는 None, 수관 지름 또는 None)]`` — theme tree 점(서울 가로수 위치정보·OSM natural=tree)은 범위 링 안만,
+    OSM natural=tree_row 선은 OSM_TREE_ROW_SPACING마다. OSM 침엽수(leaf_type needleleaved)는 표의 'needleleaved'(원뿔)."""
+    ext = prepared.extent_ring
+    x0, y0, x1, y1 = non_rhino_utils.get_bbox(ext)
+    out = []
+    for f in prepared.features:
+        if f.theme != "tree" or f.max_x < x0 or f.min_x > x1 or f.max_y < y0 or f.min_y > y1:
+            continue
+        attrs = f.attrs or {}
+        kind = attrs.get("수종") or ("needleleaved" if attrs.get("leaf_type") == "needleleaved" else attrs.get("species") or attrs.get("genus") or "")
+        height, crown = _get_float(attrs.get("height")), _get_float(attrs.get("diameter_crown"))
+        if f.geometry.get("type") == "Point":
+            pts = [f.geometry["coordinates"]]
+        elif f.geometry.get("type") == "LineString":
+            pts = non_rhino_utils.get_resampled_ring(f.geometry["coordinates"], constants.OSM_TREE_ROW_SPACING, closed=False)
+        else:
+            continue
+        out += [(float(x), float(y), kind, height, crown) for x, y in (p[:2] for p in pts) if non_rhino_utils.is_point_in_ring(x, y, ext)]
+    return out
+
+
+def get_detail_meshes(prepared, to_local, z_of):
+    # type: (object, object, object) -> tuple
+    """옹벽·담장·가로수(디테일 옵션마다) → (``{레이어: (verts, faces)}``, counts) 로컬. to_local(선) → [(x, y)], z_of = 최종 지반."""
+    meshes, counts = {}, {}
+    if get_detail(prepared, "detail_walls"):
+        lines = get_structure_lines(prepared, "wall")
+        meshes["Walls::retaining"] = non_rhino_utils.get_retaining_wall_mesh([to_local(line) for line in lines], z_of, constants.WALL)
+        counts["wall_lines"] = len(lines)
+    if get_detail(prepared, "detail_fences"):
+        lines = get_structure_lines(prepared, "fence")
+        meshes["Walls::fence"] = non_rhino_utils.get_fence_mesh([to_local(line) for line in lines], z_of, constants.FENCE)
+        counts["fence_lines"] = len(lines)
+    if get_detail(prepared, "detail_trees"):
+        trees = get_trees(prepared)
+        points = to_local([t[:2] for t in trees]) if trees else []
+        meshes["Trees"] = non_rhino_utils.get_tree_mesh([(x, y) + t[2:] for (x, y), t in zip(points, trees)], z_of, constants.TREES, constants.TREE_TRUNK)
+        counts["trees"] = len(trees)
+    return {k: v for k, v in meshes.items() if v[1]}, counts
+
+
+def get_roof_details(prepared, roofs):
+    # type: (object, list) -> tuple
+    """건물 옥상 파라펫·층 구분선(디테일 옵션) — roofs = ``[(로컬 파트 [[외곽, 구멍…]], 바닥 Z, 높이, 지상층수)]``.
+    출력: (파라펫 (verts, faces) 또는 None, 층선 [([(x, y, z)…], True)])."""
+    parapet = non_rhino_utils.get_parapet_mesh([(parts, base + height) for parts, base, height, _f in roofs], constants.PARAPET) \
+        if get_detail(prepared, "building_parapet") else None
+    floors = non_rhino_utils.get_floor_rings(roofs, constants.FLOOR_LINE_MIN_FLOORS) if get_detail(prepared, "building_floors") else []
+    return (parapet if parapet and parapet[1] else None), floors
+
+
+def _is_osm_level(f, bridge=False):
+    # type: (object, bool) -> bool
+    """OSM 피처가 지상인지 — tunnel·bridge 태그가 없고 layer·level이 0(없음 포함).
+    bridge면 교량(bridge=*, layer 0 이상)도 — 교량 위 선로는 상판 높이로 올린다(get_bridges)."""
+    attrs = f.attrs or {}
+    if attrs.get("tunnel", "no") not in ("", "no"):
+        return False
+    if attrs.get("bridge", "no") not in ("", "no"):
+        return bridge and _get_osm_layer(f) >= 0
+    return all(str(attrs.get(key) or "0").strip() in ("0", "") for key in ("layer", "level"))
+
+
+def _get_osm_layer(f):
+    # type: (object) -> int
+    """OSM layer 태그(없거나 못 읽으면 교량은 1, 아니면 0)."""
+    attrs = f.attrs or {}
+    try:
+        return int(float(str(attrs.get("layer")).split(";")[0]))
+    except ValueError:
+        return 1 if attrs.get("bridge", "no") not in ("", "no") else 0
+
+
+def get_bridges(prepared):
+    # type: (object) -> list
+    """교량 묶음(세계좌표) ``[{"parts", "kind", "height", "thickness", "axes", "ends", "spots", "names"}]`` — non_rhino_utils.BridgeDeck 입력.
+
+    교량 면 = 수치지형도 theme bridge(BRIDGE_KINDS — 도로교·고가차도·철교·보도교·육교, 인터체인지·지하차도 빼고),
+              OSM bridge=* 도로 중심선(도로폭 버퍼)·선로(OSM_BRIDGE_RAIL_WIDTH 버퍼). 범위 링으로 자른다.
+    서로 닿는 면(OSM은 layer가 같은 것만)을 한 묶음으로 — 이음매에서 높이가 이어진다. 겹친 면(동호대교 도로교 둘 + 철교)도 하나로 덮인다.
+    축·끝점: 국내는 non_rhino_utils.get_bridge_axes(도로 상판은 도로중심선, 철교는 선로 중 면 테두리와 나란한 것), OSM은 그 길 자체 — 끝점 = 다른 교량 면 밖 길 끝.
+    중심선이 없으면(육교) 최소 넓이 직사각형 긴 축. 상판 표고점 = 묶음 면 안 terrain spot_struct.
+    kind = rail(철교가 있으면 — 승강장을 올린다) > road > foot, 두께 = 가장 두꺼운 것, height = 가장 큰 통과높이 + 두께(OSM은 layer 단마다 BRIDGE_LEVEL)."""
+    ext = prepared.extent_ring
+    x0, y0, x1, y1 = non_rhino_utils.get_bbox(ext)
+    clip = get_clip_ring(prepared)
+    near = lambda f: f.max_x >= x0 and f.min_x <= x1 and f.max_y >= y0 and f.min_y <= y1
+    members = []   # (parts, kind, clearance, layer, OSM 중심선 또는 None, 이름)
+    for f in prepared.features:
+        if not near(f) or not f.geometry:
+            continue
+        attrs = f.attrs or {}
+        line, layer = None, 0
+        if f.theme == "bridge" and f.geometry.get("type") in ("Polygon", "MultiPolygon"):
+            sub = attrs.get("종류") or attrs.get("구분")
+            kind = constants.BRIDGE_KINDS.get((f.kind, sub)) or constants.BRIDGE_KINDS.get((f.kind, None))   # 지하차도·인터체인지는 표에 없다
+            if not kind:
+                continue
+            parts = [part for part in get_parts(f.geometry) if part]
+            try:
+                clearance = float(attrs.get("높이") or 0)
+            except ValueError:
+                clearance = 0.0
+            clearance = clearance or constants.BRIDGE_DECK[kind]["clearance"]
+        elif f.source_id == "osm" and f.geometry.get("type") == "LineString" and _is_osm_level(f, True) and attrs.get("bridge", "no") not in ("", "no"):
+            if f.theme == "road" and f.kind == "centerline" and (f.value or 0) > 0:
+                kind, width = ("foot" if f.code in constants.OSM_PATH_HIGHWAYS else "road"), float(f.value)
+            elif f.theme == "rail" and f.kind == "centerline" and f.code in constants.RAIL_3D_TYPES:
+                kind, width = "rail", constants.OSM_BRIDGE_RAIL_WIDTH
+            else:
+                continue
+            line = [tuple(p[:2]) for p in f.geometry["coordinates"]]
+            ring = non_rhino_utils.get_buffered_line_ring(line, width, constants.OSM_ROAD_ARC_SEGMENTS, caps=False)
+            if ring is None:
+                continue
+            parts, layer = [[ring]], _get_osm_layer(f)
+            clearance = constants.BRIDGE_DECK[kind]["clearance"] + max(0, layer - 1) * constants.BRIDGE_LEVEL
+        else:
+            continue
+        full = parts
+        parts = non_rhino_utils.get_clipped_parts(parts, clip) if clip is not None else parts
+        if parts:
+            members.append((parts, kind, clearance, layer, line, f.name or "", full))
+    if not members:
+        return []
+    index = [non_rhino_utils.PolygonIndex(m[0]) for m in members]
+    boxes = [non_rhino_utils.get_bbox([p for part in m[0] for p in part[0]]) for m in members]
+    samples = [[p for part in m[0] for p in non_rhino_utils.get_resampled_ring(part[0], 5.0)] for m in members]
+    parent = list(range(len(members)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    for i in range(len(members)):
+        for j in range(i + 1, len(members)):
+            a, b = boxes[i], boxes[j]
+            if members[i][3] != members[j][3] or a[2] < b[0] - 1 or b[2] < a[0] - 1 or a[3] < b[1] - 1 or b[3] < a[1] - 1:
+                continue
+            if not (any(index[j].contains(x, y) or index[j].is_near(x, y, 1.0) for x, y in samples[i][::2]) or
+                    any(index[i].contains(x, y) or index[i].is_near(x, y, 1.0) for x, y in samples[j][::2])):
+                continue
+            deep = [sum(1 for x, y in samples[a] if index[b].contains(x, y) and not index[b].is_near(x, y, 1.0)) / float(len(samples[a]) or 1)
+                    for a, b in ((i, j), (j, i))]
+            if max(deep) == 0 or max(deep) > 0.5:   # 끝끼리 이어진 것·거의 겹친 것(동호대교 도로교 둘)만 — 가로지르는 것(문현 교차로)은 높이가 다르다
+                parent[find(i)] = find(j)
+    groups = {}
+    for i in range(len(members)):
+        groups.setdefault(find(i), []).append(i)
+    lines = {"road": [], "rail": [], "foot": []}   # 상판 종류마다 축 후보 — 철교 밑을 나란히 지나는 도로(성수 2호선 아래 성수이로)가 철교 축이 되지 않게
+    for f in prepared.features:
+        if near(f) and f.source_id != "osm" and f.geometry.get("type") == "LineString" and (f.theme, f.kind) in (("road", "centerline"), ("rail", "line")):
+            lines[f.theme].append([tuple(p[:2]) for p in f.geometry["coordinates"]])
+    spots = [(float(f.geometry["coordinates"][0]), float(f.geometry["coordinates"][1]), float(f.value))   # 읽어 온 것 전부 — 범위 밖 표고점도 잘리기 전 교량 면 안이면 쓴다
+             for f in prepared.context.get_features("terrain", "spot_struct") if f.value is not None]   # (성수 2호선: 범위 200 m면 범위 안 표고점이 없어 추정 높이 17 m, 250 m면 실측 21 m였다)
+    ext_index = non_rhino_utils.PolygonIndex([[ext]])
+    out = []
+    for ids in groups.values():
+        parts = [part for i in ids for part in members[i][0]]
+        kinds = {members[i][1] for i in ids}
+        kind = "rail" if "rail" in kinds else ("road" if "road" in kinds else "foot")
+        osm = [(i, members[i][4]) for i in ids if members[i][4] is not None]
+        if osm:
+            axes = [[tuple(p[:2]) for p in run] for run in get_clipped_curves([], [line for _i, line in osm], clip)[1]]
+            ends = [(x, y) for i, line in osm for x, y in (line[0], line[-1])   # 길 끝이 다른 교량 면(층이 달라도) 안이면 이음매
+                    if not any(k != i and index[k].contains(x, y) for k in range(len(members)))
+                    and non_rhino_utils.is_point_in_ring(x, y, ext) and not ext_index.is_near(x, y, constants.BRIDGE_END_NEAR)]
+        else:
+            axes, ends = [], []
+            for k in sorted(kinds):
+                k_axes, k_ends = non_rhino_utils.get_bridge_axes(parts, lines[k], ext, constants.BRIDGE_STEP, constants.BRIDGE_END_NEAR, k != "rail")
+                axes += k_axes
+                ends += k_ends
+        if not axes:
+            axes = [axis for part in parts for axis in [non_rhino_utils.get_long_axis(part[0])] if axis]
+        group_index = non_rhino_utils.PolygonIndex([part for i in ids for part in members[i][6]])
+        out.append({"parts": parts, "kind": kind, "kinds": kinds, "axes": axes, "ends": ends, "names": sorted({members[i][5] for i in ids if members[i][5]}),
+                    "thickness": max(constants.BRIDGE_DECK[members[i][1]]["thickness"] for i in ids),
+                    "height": max(members[i][2] + constants.BRIDGE_DECK[members[i][1]]["thickness"] for i in ids),
+                    "spots": [p for p in spots if group_index.contains(p[0], p[1])]})
+    return out
+
+
+def get_bridge_decks(prepared, to_local, ground_z):
+    # type: (object, object, object) -> list
+    """get_bridges → 로컬 non_rhino_utils.BridgeDeck 목록. to_local(링) → [(x, y)] 로컬, ground_z(x, y) = 로컬 최종 지반 높이.
+    두 묶음 면에 다 든 표고점(가로지르는 고가 — 문현 교차로)은 그 자리에서 더 높은 상판의 것으로 — 항공측량 표고점은 위 상판 윗면이다."""
+    groups = get_bridges(prepared)
+    seen = {}
+    for g in groups:
+        for spot in g["spots"]:
+            seen[spot] = seen.get(spot, 0) + 1
+    decks, shared = [], {}
+    for k, g in enumerate(groups):
+        parts = [[to_local(ring) for ring in part] for part in g["parts"]]
+        local = lambda pts: [(x, y, z) for (x, y), (_wx, _wy, z) in zip(to_local([p[:2] for p in pts]), pts)] if pts else []
+        decks.append(non_rhino_utils.BridgeDeck(parts, [to_local(axis) for axis in g["axes"]], to_local(g["ends"]) if g["ends"] else [],
+                                                local([p for p in g["spots"] if seen[p] == 1]), g["height"], g["thickness"], ground_z, g["kind"],
+                                                g["names"], g["kinds"]))
+        for p in local([p for p in g["spots"] if seen[p] > 1]):
+            shared.setdefault(p, []).append(k)
+    for (x, y, z), owners in shared.items():
+        best = max(owners, key=lambda k: decks[k].top_z(x, y))
+        decks[best].add_spot(x, y, z)
+    return decks
+
+
+def get_deck_z(decks, ground_z, kind=None):
+    # type: (list, object, str) -> object
+    """(x, y) → 상판 윗면(그 자리 상판이 있으면 — kind를 주면 그 종류만) 또는 지반 높이. 승강장이 쓴다."""
+    def get_z(x, y):
+        for deck in decks:
+            if (kind is None or kind in deck.kinds) and deck.contains(x, y):
+                return deck.top_z(x, y)
+        return ground_z(x, y)
+    return get_z
+
+
+def get_pier_check(deck, decks, on_road):
+    # type: (object, list, object) -> object
+    """교각을 세워도 되는지 (x, y, 상판 밑 높이) → bool — 차도 위(on_road)와 더 낮은 다른 상판 위는 뺀다.
+    교각 위치는 데이터가 없는 추정이라, 차로 한가운데·밑 고가를 뚫고 서면 바로 어색해 보인다(2026-11-13 사용자). 인도·녹지·물·철도 위는 둔다."""
+    def is_ok(x, y, bottom):
+        if on_road is not None and on_road(x, y):
+            return False
+        return not any(other is not deck and other.contains(x, y) and other.top_z(x, y) < bottom for other in decks)
+    return is_ok
+
+
+def get_deck_attrs(deck):
+    # type: (object) -> dict
+    """상판 객체 속성 — 종류·이름·높이 출처(spot = 수치지형도 상판 표고점, rule = 끝점 경사·통과높이 추정)."""
+    return {"KIND": deck.kind, "NAME": ", ".join(deck.names), "DECK_Z_SRC": deck.src, "SPOTS": str(len(deck.spots)), "ENDS": str(len(deck.ends)),
+            "THICKNESS_M": "%g" % deck.thickness}
+
+
+def split_on_decks(lines, decks, step, kind="road"):
+    # type: (list, list, float, str) -> tuple
+    """로컬 선 ``[(선, *나머지)]`` → (땅 위 [(구간, *나머지)], {상판 번호: [(구간, *나머지)]}) — non_rhino_utils.get_deck_runs(kind = road 차선·rail 선로)."""
+    ground, on_deck = [], {}
+    for line, *rest in lines:
+        for run, deck in non_rhino_utils.get_deck_runs(line, decks, step, kind):
+            (ground if deck is None else on_deck.setdefault(decks.index(deck), [])).append((run, *rest))
+    return ground, on_deck
+
+
+def get_rail_detail(prepared):
+    # type: (object) -> tuple
+    """철도 디테일 입력(세계좌표) — ``(선로 [(선 [(x, y)], 궤간 m)], 승강장 [(kind, 파트 [외곽, 구멍…], 이름)])``.
+    선로 = 수치지형도 철도(A0150000, 선로마다 한 줄 — 지하 구간은 적재 안 함) 또는 OSM railway(RAIL_3D_TYPES). 철도중심선(A0171119)은 노선 축이라 쓰지 않는다.
+    철교·터널 면(RAIL_EXCLUDE) 안 구간과 범위 밖은 뺀다 — 고가 높이를 모른다(성수 2호선은 전부 교량 '철교' 안). OSM은 tunnel·bridge·layer로 거른다.
+    승강장 = 수치지형도 플랫폼·플랫폼 지붕 면, OSM railway=platform 면(지상만). 범위 링으로 자르고, 꼭짓점 하나라도 제외 면 안이면 뺀다.
+    지붕은 남은 승강장과 겹칠 때만."""
+    bridges = get_detail(prepared, "detail_bridges")   # 교량을 끄면 철교 위 선로·승강장은 예전처럼 뺀다(땅에 깔리면 안 된다)
+    rules = constants.RAIL_EXCLUDE + (() if bridges else (("bridge", "bridge", "종류", "철교"),))
+    exclude = non_rhino_utils.PolygonIndex([part for f in prepared.features for theme, kind, key, value in rules
+                                            if f.theme == theme and f.kind == kind and (key is None or (f.attrs or {}).get(key) == value)
+                                            for part in get_parts(f.geometry) if part])
+    ext = prepared.extent_ring
+    clip = get_clip_ring(prepared)
+    is_cut = lambda x, y: exclude.contains(x, y) or not non_rhino_utils.is_point_in_ring(x, y, ext)   # 범위 밖도 뺀다(bbox로 읽어 범위를 넘는다)
+    lines, platforms = [], []
+    for f in prepared.features:
+        if f.theme != "rail" or f.geometry.get("type") not in ("LineString", "MultiLineString", "Polygon", "MultiPolygon"):
+            continue
+        osm = f.source_id == "osm"
+        if f.kind in ("platform", "platform_roof") and f.geometry["type"] in ("Polygon", "MultiPolygon"):
+            if osm and not _is_osm_level(f):
+                continue
+            parts = [part for part in get_parts(f.geometry) if part]
+            for part in non_rhino_utils.get_clipped_parts(parts, clip) if clip is not None else parts:   # 건물처럼 범위 링으로 자른다
+                if not any(exclude.contains(x, y) for x, y in part[0]):   # 꼭짓점 하나라도 교량 안이면 고가 역(성수역 지붕은 중심이 교량 밖이었다)
+                    platforms.append(("roof" if f.kind == "platform_roof" else "platform", part, f.name or ""))
+            continue
+        if not (f.kind == "line" or (osm and f.kind == "centerline" and f.code in constants.RAIL_3D_TYPES and _is_osm_level(f, bridges))):
+            continue
+        gauge = constants.RAIL_GAUGE
+        try:
+            gauge = float(str((f.attrs or {}).get("gauge") or "").split(";")[0]) / 1000.0 or gauge
+        except ValueError:
+            pass
+        coords = f.geometry["coordinates"]
+        for line in (coords if f.geometry["type"] == "MultiLineString" else [coords]):
+            lines += [(run, gauge) for run in non_rhino_utils.get_line_runs(line, is_cut, constants.RAIL_STEP / 2.0)]
+    decks = [non_rhino_utils.get_bbox(part[0]) for kind, part, _name in platforms if kind == "platform"]   # 지붕은 남은 승강장에 걸칠 때만
+    platforms = [p for p in platforms if p[0] == "platform" or any(
+        b[0] <= d[2] and b[2] >= d[0] and b[1] <= d[3] and b[3] >= d[1] for b in [non_rhino_utils.get_bbox(p[1][0])] for d in decks)]
+    return lines, platforms
+
+
+def get_markings(prepared):
+    # type: (object) -> tuple
+    """노면표시 입력(세계좌표) — ``(선 [(선 [(x, y)], type, color, pattern)], 횡단보도 [외곽 링])``. features theme 'marking'(서울 교통안전시설물).
+    선은 범위 링으로 자르고(오목한 범위면 bbox 겹침 그대로), 횡단보도는 중심이 범위 안인 것만.
+    도로면(road/surface) 안이거나 경계에서 MARKING_ROAD_NEAR 안인 구간만 남긴다 — 표시 데이터(2021-08)가 도로면보다 오래돼
+    광장·보도로 바뀐 옛 차로(광화문광장) 위에 차선이 떴다."""
+    ext = prepared.extent_ring
+    x0, y0, x1, y1 = non_rhino_utils.get_bbox(ext)
+    clip = get_clip_ring(prepared)
+    road = non_rhino_utils.PolygonIndex([part for f in prepared.features if f.theme == "road" and f.kind == "surface"
+                                         and f.max_x >= x0 and f.min_x <= x1 and f.max_y >= y0 and f.min_y <= y1
+                                         for part in get_parts(f.geometry) if part])
+    near = constants.MARKING_ROAD_NEAR
+    off_road = lambda x, y: not road.contains(x, y) and not road.is_near(x, y, near)
+    lines, crosswalks = [], []
+    for f in prepared.features:
+        if f.theme != "marking" or f.max_x < x0 or f.min_x > x1 or f.max_y < y0 or f.min_y > y1:
+            continue
+        if f.kind == "crosswalk":
+            for part in (part for part in get_parts(f.geometry) if part):
+                bx0, by0, bx1, by1 = non_rhino_utils.get_bbox(part[0])
+                cx, cy = (bx0 + bx1) * 0.5, (by0 + by1) * 0.5
+                if non_rhino_utils.is_point_in_ring(cx, cy, ext) and not off_road(cx, cy):
+                    crosswalks.append(part[0])
+        elif f.kind == "line" and f.geometry.get("type") in ("LineString", "MultiLineString"):
+            attrs = f.attrs or {}
+            coords = f.geometry["coordinates"]
+            pieces = coords if f.geometry["type"] == "MultiLineString" else [coords]
+            for piece in get_clipped_curves([], pieces, clip)[1]:
+                for run in non_rhino_utils.get_line_runs([tuple(p[:2]) for p in piece], off_road, constants.MARKING_STEP):
+                    lines.append((run, attrs.get("type", ""), attrs.get("color", "white"), attrs.get("pattern", "solid")))
+    return lines, crosswalks
+
+
+def get_marking_z(road, road_verts, ground):
+    # type: (object, list, object) -> object
+    """노면표시 높이 (x, y) → z — 차도 면(내린 높이), 차도 밖이면 가장 가까운 차도 정점, 차도가 없으면 지반.
+    횡단보도 끝은 인도 위로 꺾여 오르지 않고 연석 밑으로 숨고, 성토 도로 가장자리 표시가 낮은 둘레 지반으로 처지지 않는다(서울역 −1.7 m).
+    road·ground는 hit_z·get_z가 있는 높이 조회(TriangleZ·mesh_geometry._Ground), road_verts는 차도 정점(로컬)."""
+    nearest = NearestXYZ(road_verts, constants.CLASSIFY_GRID) if road is not None and road_verts else None
+
+    def get_z(x, y):
+        z = road.hit_z(x, y) if road is not None else None
+        if z is None and nearest is not None:
+            z = nearest.nearest_z(x, y)
+        return ground.get_z(x, y) if z is None else z
+    return get_z
+
+
+def get_marking_style():
+    # type: () -> dict
+    """non_rhino_utils.get_marking_meshes의 style — constants에서(원격 설정이 덮을 수 있게 부를 때마다 읽는다)."""
+    return {"widths": constants.MARKING_WIDTHS, "dash": constants.MARKING_DASH, "gap": constants.MARKING_DOUBLE_GAP,
+            "bar": constants.MARKING_CROSSWALK_BAR, "lift": constants.MARKING_LIFT, "step": constants.MARKING_STEP}
+
+
+def get_platform_levels(part, z_of, kind):
+    # type: (list, object, str) -> tuple
+    """승강장·지붕 각기둥의 (바닥 Z, 높이) — 외곽 정점 지반 Z의 가운데값 + 레일면 + 승강장 높이(지붕은 + 지붕 밑 높이). 바닥은 최저 지반 − 0.1 m.
+    z_of는 외곽 링 좌표계(로컬)의 지반 높이."""
+    zs = sorted(z_of(x, y) for x, y in part[0])
+    rail_top = constants.RAIL_TRACK["ballast_height"] + constants.RAIL_TRACK["sleeper_rise"] + constants.RAIL_TRACK["rail_height"]
+    deck = zs[len(zs) // 2] + rail_top + constants.RAIL_PLATFORM_HEIGHT
+    if kind == "roof":
+        return deck + constants.RAIL_ROOF_CLEARANCE, constants.RAIL_ROOF_THICKNESS
+    base = zs[0] - 0.1
+    return base, deck - base
 
 
 def get_tin_points(prepared):
@@ -386,7 +784,7 @@ def get_tin_points(prepared):
     # 해외 지형 타일의 호수 바닥 수심(취리히 호수 물가 중앙값 400 m, 실제 수위 약 406 m)이 물가를 끌어내려 둑이 협곡처럼 깎였다.
     # 격자 지형(AWS terrarium, 원천 약 30 m)은 물가 바깥 한 칸도 수심과 섞여 있어 경계에서 WATER_BLEND_BUFFER 안 점도 뺀다(국내 등고선은 물가 등고선이 진짜라 그대로)
     polys = get_class_polygons(prepared)
-    water_polys = [p for p in polys if p[0] == "water"]
+    water_polys = [p for p in polys if constants.TERRAIN_CLASS_MESH.get(p[0], p[0]) == "water"]
     if water_polys:
         inside = non_rhino_utils.PolygonIndex([part for _cls, _name, parts, _still in water_polys for part in parts])
         before = len(pts)
@@ -407,7 +805,7 @@ def get_tin_points(prepared):
     # ponytail: 그래도 점 수 ∝ R. 1 km 분류가 거슬리면 step ∝ R² 또는 범위 링 안(is_point_in_ring)만 넣기
     step_factor = max(1.0, float(prepared.radius) / constants.CONTEXT_RADIUS)
     for cls, _name, parts, _still in polys:
-        if cls != "water":   # 도로·철도·녹지 경계 점은 넣지 않는다 — Z = 최근접 등고선 점이라 도로 옆 지형이 계단처럼 울퉁불퉁했다(2026-11-08 사용자, 죽림리 301-3 구역 계단 테두리).
+        if constants.TERRAIN_CLASS_MESH.get(cls, cls) != "water":   # 도로·철도·녹지 경계 점은 넣지 않는다 — Z = 최근접 등고선 점이라 도로 옆 지형이 계단처럼 울퉁불퉁했다(2026-11-08 사용자, 죽림리 301-3 구역 계단 테두리).
             continue         # 출력 메시는 3 m 격자를 따로 만들고 TIN은 높이만 읽으므로(2026-10-10 쿼드 메싱) 분류용 점이 필요 없다
         step = constants.WATER_EDGE_STEP * step_factor
         for part in parts:
@@ -455,9 +853,10 @@ def _get_union_rings(rings, tol, counts):
     return out or rings
 
 
-def _get_region_meshes(ext_ring, cut_rings, edge, counts):
-    # type: (list, list, float, dict) -> list
+def _get_region_meshes(ext_ring, cut_rings, edge, counts, sub_rings=()):
+    # type: (list, list, float, dict, list) -> list
     """범위 평면 Brep 하나를 경계 커브(분류 폴리곤·대상지)로 면 분할 → Rhino 메싱(평면도 격자 — 안쪽 쿼드, 경계만 삼각형).
+    sub_rings(인도 — 도로면 안)는 두 번째로, 첫 꼭짓점을 품은 면만 그 링들로 다시 나눈다 — 한 번에 넣으면 성수 R=1000 분할 12 → 33 s(2026-11-08).
     면끼리 모서리를 공유하므로 이웃 영역 경계 정점이 같다(용접하면 이음매 없음). 입력은 로컬 m. 출력은 Brep 면 순서의 Mesh 목록(Z=0).
     2026-10-10: 격자를 경계로 자르면 계단(분류) 또는 243 s(SplitWithProjectedPolylines 643 링) — 이 방법은 반경 500 m 2.6 s."""
     tol = constants.GEOMETRY_TOLERANCE
@@ -469,10 +868,27 @@ def _get_region_meshes(ext_ring, cut_rings, edge, counts):
     split = brep.Faces[0].Split(List[rg.Curve]([_get_closed_crv(r) for r in cut_rings]), tol) if cut_rings else None
     if split is None and cut_rings:   # 겹친·걸친 분류 경계에서 실패한다 — 노딩한 선분으로 제약 삼각분할(서울 팩 청계천·창릉천 R=500: 범위 전체가 한 분류였다)
         counts["region_split_failed"] = True
-        regions = _get_cdt_region_meshes(ext_ring, cut_rings, edge, counts)
+        regions = _get_cdt_region_meshes(ext_ring, list(cut_rings) + list(sub_rings), edge, counts)
         counts["split_s"] = round(time.time() - t, 3)
         return regions
     brep = split or brep
+    if sub_rings:
+        hits = {}
+        boxes = [brep.Faces[i].GetBoundingBox(True) for i in range(brep.Faces.Count)]
+        for ring in sub_rings:
+            x, y = ring[0]
+            for i, box in enumerate(boxes):
+                if box.Min.X <= x <= box.Max.X and box.Min.Y <= y <= box.Max.Y:
+                    ok, u, v = brep.Faces[i].ClosestPoint(rg.Point3d(x, y, 0.0))
+                    if ok and brep.Faces[i].IsPointOnFace(u, v) == rg.PointFaceRelation.Interior:
+                        hits.setdefault(i, []).append(_get_closed_crv(ring))
+                        break
+        for i in sorted(hits, reverse=True):   # 뒤 면부터 — 나눈 조각이 앞 면 번호를 밀지 않게
+            piece = brep.Faces[i].Split(List[rg.Curve](hits[i]), tol)
+            if piece is None:
+                counts["sub_split_failed"] = counts.get("sub_split_failed", 0) + 1
+            else:
+                brep = piece
     counts["regions"] = brep.Faces.Count
     counts["split_s"] = round(time.time() - t, 3)
     mp = rg.MeshingParameters()
@@ -750,7 +1166,7 @@ def build_terrain(prepared):
     # 경계 커브 — 범위와 겹치는 분류 폴리곤 링 전부 + 대상지 링
     polys = get_class_polygons(prepared)
     index_grid = non_rhino_utils.GridIndex(constants.CLASSIFY_GRID)
-    cut_rings, class_rings = [], {}
+    cut_rings, class_rings, sub_rings = [], {}, []
     for index, (cls, _name, parts, _still) in enumerate(polys):
         prio = constants.TERRAIN_CLASS_PRIORITY.index(cls)
         for part in parts:
@@ -762,6 +1178,9 @@ def build_terrain(prepared):
                 if r1 >= wx0 and r0 <= wx1 and s1 >= wy0 and s0 <= wy1:
                     class_rings.setdefault(cls, []).append([(x - ox, y - oy) for x, y in ring])
     for cls, rings in class_rings.items():   # OSM 도로면 버퍼는 서로 겹쳐 그대로 넣으면 면 분할이 실패한다(파리 R=300 583링 16 s 뒤 실패, 2026-10-22) — 합집합 외곽으로
+        if cls == "sidewalk":   # 인도 테두리는 도로경계·이웃 인도와 겹친다 — 조금 들여 겹침만 피하고(분류는 원래 면 PIP) 도로면만 두 번째로 나눈다
+            sub_rings = [non_rhino_utils.get_inset_ring(ring, constants.SIDEWALK_SPLIT_INSET) for ring in rings]
+            continue
         cut_rings += _get_union_rings(rings, constants.GEOMETRY_TOLERANCE, counts) if cls in constants.TERRAIN_UNION_CLASSES else rings
     mode = getattr(prepared, "mode", "lots")
     site_world = getattr(prepared, "site_rings", None) or []
@@ -775,7 +1194,7 @@ def build_terrain(prepared):
     t = time.time()
     edge = max(constants.TERRAIN_GRID, math.sqrt((wx1 - wx0) * (wy1 - wy0) / float(constants.TERRAIN_GRID_MAX_FACES)))
     counts["mesh_edge"] = round(edge, 2)
-    regions = _get_region_meshes([(x - ox, y - oy) for x, y in ext_ring], cut_rings, edge, counts)
+    regions = _get_region_meshes([(x - ox, y - oy) for x, y in ext_ring], cut_rings, edge, counts, sub_rings)
     counts["mesh_s"] = round(time.time() - t - counts["split_s"], 3)
 
     # 영역 분류 — 영역 안쪽 한 점(첫 면 중심)
@@ -797,6 +1216,7 @@ def build_terrain(prepared):
                 if prio == 0:
                     break
         cls = constants.TERRAIN_CLASS_PRIORITY[best[0]] if best else "terrain"
+        cls = constants.TERRAIN_CLASS_MESH.get(cls, cls)
         if site_cut and cls in SITE_CUT_CLASSES and any(non_rhino_utils.is_point_in_ring(c.X, c.Y, ring) for ring in site_local):
             cls = SITE_CUT_CLASSES[cls]   # 대상지 안 지형·녹지 — 물가 비탈·계단은 원래 분류와 똑같이 거친 뒤 대상지 면이 된다
         buckets.setdefault(cls, []).append(mesh)
@@ -827,7 +1247,7 @@ def build_terrain(prepared):
         for mesh, verts in zip(raw, surfaces):   # 높이를 먼저 맞춘 뒤 잇는다 — 도엽 이음매 정점이 같은 높이라야 용접된다
             for k, (x, y, z) in enumerate(verts):
                 mesh.Vertices.SetVertex(k, x, y, z + constants.WATER_LIFT)
-        meshes["water"] = _join(raw)
+        meshes["water"] = _get_rhino_mesh(*non_rhino_utils.get_welded_mesh(*_get_mesh_faces(_join(raw)), tol=constants.MESH_WELD))   # 조각 이음매를 한 정점으로
         water_bodies = [{"name": polys[i][1], "still": polys[i][3], "level": round(low, 2), "level_max": round(high, 2), "faces": m.Faces.Count}
                         for i, m, (low, high) in zip(order, raw, levels)]
         shore = non_rhino_utils.WaterShore(_get_mesh_faces(meshes["water"]))   # 물가선 = 수위 — 지형·도로가 물가에서 비탈로 오른다
@@ -850,6 +1270,12 @@ def build_terrain(prepared):
             if cls in meshes:   # 수면은 TIN과 따로 정한 높이 — 정점 보간
                 meshes[cls] = _get_stepped(meshes[cls], step, None if cls == "water" else profile)
         counts.update(terrain_step=step, step_s=round(time.time() - t, 3))
+    elif "road" in meshes and constants.CURB_HEIGHT > 0 and get_detail(prepared, "detail_curb"):   # 차도를 연석 높이만큼 내리고 옆면 — ponytail: 계단 지형은 단 벽이 메시 안 경계라 연석을 세우지 않는다
+        road, walls = non_rhino_utils.get_curb(_get_mesh_faces(meshes["road"]), [(x - ox, y - oy) for x, y in ext_ring], constants.CURB_HEIGHT)
+        meshes["road"] = _get_rhino_mesh(*road)
+        if walls[1]:
+            meshes["curb"] = _get_rhino_mesh(*walls)
+        counts.update(curb_height=constants.CURB_HEIGHT, curb_faces=len(walls[1]))
 
     # 대상지 — 면 출력: 대상지 안 지형·녹지 = 대상지 면(Site::ground), 같은 모양의 원래 지형·녹지는 꺼 둔 레이어(Site::original 몫)에 — 겹치지 않는다 /
     # 평평하게: 평탄면 + 벽 + 원지형 사본(숨김)
@@ -859,7 +1285,7 @@ def build_terrain(prepared):
             meshes["site_ground"] = _join([m.DuplicateMesh() for m in originals.values()])
             meshes.update(originals)   # 원래 지형·녹지 — 꺼 둔 Site::original
             counts["site_output"] = "mesh"
-    ground_parts = [meshes[cls] for cls in ("terrain", "road", "green", "rail") if cls in meshes]
+    ground_parts = [meshes[cls] for cls in ("terrain", "sidewalk", "road", "green", "rail") if cls in meshes]
     if site_cut and "site_ground" in meshes:
         ground_parts.append(meshes["site_ground"])
     if buckets.get("site"):
@@ -881,7 +1307,7 @@ def build_terrain(prepared):
     clip = get_clip_ring(prepared) if options.get("terrain_block") else None
     if clip is not None:   # 지형을 바닥까지 채우기 — 윗면(분류별 + 수면 + 대상지) 범위 경계에서 바닥까지 옆면·바닥면
         t = time.time()
-        tops = [_get_mesh_faces(meshes[k]) for k in ("terrain", "road", "green", "rail", "water", "site_ground") if k in meshes]
+        tops = [_get_mesh_faces(meshes[k]) for k in GROUND_CLASSES + ("water", "site_ground") if k in meshes]
         base = non_rhino_utils.get_block_base(min(v[2] for verts_, _f in tops for v in verts_), clip)
         block = non_rhino_utils.get_block_skirt(tops, [(x - ox, y - oy) for x, y in clip], base)
         if block[1]:
@@ -889,7 +1315,7 @@ def build_terrain(prepared):
         counts.update(block_base=base, block_s=round(time.time() - t, 3))
     if "water" in meshes:   # 남은 수면 단차(보·댐·평탄화 대상지)를 세로 벽으로 막아 지형에 붙인다 — 용접하지 않는다(모서리 음영이 뭉개진다)
         walls = non_rhino_utils.get_water_walls(_get_mesh_faces(meshes["water"]),
-                                                [_get_mesh_faces(meshes[k]) for k in ("terrain", "road", "green", "rail", "site_ground") if k in meshes])
+                                                [_get_mesh_faces(meshes[k]) for k in GROUND_CLASSES + ("site_ground",) if k in meshes])
         if walls[1]:
             wall_mesh = _get_rhino_mesh(*walls)
             if "terrain" in meshes:
@@ -898,8 +1324,8 @@ def build_terrain(prepared):
             else:
                 meshes["terrain"] = wall_mesh
         counts["water_walls"] = len(walls[1])
-    counts["faces"] = sum(m.Faces.Count for k, m in meshes.items() if k in ("terrain", "road", "green", "rail", "site_ground"))
-    counts["quads"] = sum(m.Faces.QuadCount for k, m in meshes.items() if k in ("terrain", "road", "green", "rail", "site_ground"))
+    counts["faces"] = sum(m.Faces.Count for k, m in meshes.items() if k in GROUND_CLASSES + ("site_ground",))
+    counts["quads"] = sum(m.Faces.QuadCount for k, m in meshes.items() if k in GROUND_CLASSES + ("site_ground",))
     counts["faces_by_class"] = {k: m.Faces.Count for k, m in meshes.items() if k != "all"}
     return meshes, tris, counts
 
@@ -924,6 +1350,8 @@ def _get_terrain_items(prepared, meshes, counts):
             attrs = {"KIND": "field|park|forest"}
         elif cls == "rail":
             attrs = {"KIND": "surface", "SRC": TOPO_SOURCE_ID}
+        elif cls == "curb":
+            attrs = {"KIND": "curb", "HEIGHT_M": "%g" % counts["curb_height"]}
         elif cls == "block":
             attrs = {"KIND": "block", "BASE_M": "%g" % counts["block_base"]}
         elif cls.startswith("site_"):
@@ -1015,7 +1443,7 @@ def build_buildings(prepared, tin_mesh):
               "project_s": round(time.time() - t, 3), "fallback_nearest": 0, "fallback_skipped": 0, "extrude_failed": 0, "parts": 0,
               "clipped": clipped}
     nearest = None
-    items, skipped = [], []
+    items, skipped, roofs = [], [], []
     t = time.time()
     for bi, b in enumerate(buildings):
         parts = parts_by_building[bi]
@@ -1049,6 +1477,7 @@ def build_buildings(prepared, tin_mesh):
             made += 1
         if made:
             items.append(BakeItem(_layer("Buildings"), building_geo, attrs, b.bld_nm))
+            roofs.append(([[[(p.X, p.Y) for p in get_local_pts(ring, origin)] for ring in part] for part in parts], base_z, float(b.height_m), b.grnd_flr))
         counts["parts"] += made
         if not made:
             # 자기교차 발자국 → 캡·Extrusion 모두 실패 (벤치 8,517동 중 2) — 건너뛰고 기록
@@ -1056,10 +1485,104 @@ def build_buildings(prepared, tin_mesh):
             counts["extrude_failed"] += 1
     counts["extrude_s"] = round(time.time() - t, 3)
     counts["buildings"] = len(buildings) - counts["fallback_skipped"] - counts["extrude_failed"]
+    parapet, floors = get_roof_details(prepared, roofs)   # 옥상 파라펫·층 구분선(디테일 옵션)
+    if parapet:
+        items.append(BakeItem(_layer("Buildings::parapet"), _get_rhino_mesh(*parapet), {"KIND": "parapet", "HEIGHT_M": "%g" % constants.PARAPET["height"]}, "parapet"))
+    items += [BakeItem(_layer("Buildings::floors"), rg.PolylineCurve(List[rg.Point3d]([rg.Point3d(*p) for p in pts + pts[:1]])), {"KIND": "floor_line"})
+              for pts, _closed in floors]
+    counts.update(parapet_faces=len(parapet[1]) if parapet else 0, floor_lines=len(floors))
     warnings = []
     if skipped:
         warnings.append(_warning("warn", "skipped", tr("건물 {0}동 건너뜀 — 투영·압출 실패", len(skipped)), ", ".join(skipped[:20])))
     return items, counts, skipped, warnings
+
+
+def _get_cdt_tris(rings, loose):
+    # type: (list, list) -> tuple
+    """로컬 링 + 안쪽 점 → (xy, 삼각형) — 링 변을 노딩해 제약선으로 Mesh.CreateFromTessellation(교량 상판. 면 밖 삼각형은 부르는 쪽이 거른다)."""
+    segments = non_rhino_utils.get_noded_segments(rings, constants.GEOMETRY_TOLERANCE)
+    ends = {}
+    for a, b in segments:
+        ends[a] = ends[b] = True
+    pts = List[rg.Point3d]([rg.Point3d(x, y, 0.0) for x, y in list(ends) + list(loose)])
+    lines = List[List[rg.Point3d]]([List[rg.Point3d]([rg.Point3d(a[0], a[1], 0.0), rg.Point3d(b[0], b[1], 0.0)]) for a, b in segments])
+    mesh = rg.Mesh.CreateFromTessellation(pts, lines, rg.Plane.WorldXY, False)
+    if mesh is None or mesh.Faces.Count == 0:
+        return [], []
+    verts, faces = _get_mesh_faces(mesh)
+    return [(v[0], v[1]) for v in verts], [f[:3] for f in faces] + [(f[0], f[2], f[3]) for f in faces if len(f) == 4]
+
+
+def build_bridges(prepared, ground_z, on_road=None):
+    # type: (object, object, object) -> tuple
+    """교량·고가 상판(닫힌 판)·난간·교각 → ``(items, decks, counts)`` — 상판마다 'CTX::Bridges::deck' 객체(NAME·DECK_Z_SRC), 난간·교각은 레이어마다 하나.
+    decks = 로컬 BridgeDeck(선로·노면표시·승강장이 상판 높이를 쓴다). ground_z = 로컬 최종 지반 높이, on_road(x, y) = 차도 위인지(교각을 뺀다 — get_pier_check)."""
+    to_local = lambda ring: [(p.X, p.Y) for p in get_local_pts(ring, prepared.origin)]
+    decks = get_bridge_decks(prepared, to_local, ground_z)
+    if not decks:
+        return [], [], {}
+    ext = to_local(prepared.extent_ring)
+    items, rest = [], {}
+    for deck in decks:
+        meshes = non_rhino_utils.get_bridge_meshes([deck], _get_cdt_tris, ext, constants.BRIDGE_STEP, get_pier_check(deck, decks, on_road))
+        if meshes["deck"][1]:
+            items.append(BakeItem(_layer("Bridges::deck"), _get_rhino_mesh(*meshes["deck"]), get_deck_attrs(deck), ", ".join(deck.names) or deck.kind))
+        non_rhino_utils.merge_meshes(rest, {key: meshes[key] for key in ("parapet", "pier")})
+    items += [BakeItem(_layer("Bridges::" + key), _get_rhino_mesh(*mesh), {"KIND": key}, key) for key, mesh in sorted(rest.items()) if mesh[1]]
+    return items, decks, {"bridge_decks": len(decks), "bridge_spot_decks": sum(d.src == "spot" for d in decks), "bridge_piers": len(rest.get("pier", ([], []))[1]) // 4}
+
+
+def build_rail(prepared, z_of, decks=()):
+    # type: (object, object, list) -> tuple
+    """선로(자갈 도상·레일·침목 — 레이어마다 메시 하나)·승강장·승강장 지붕(각기둥, 면마다 객체) → ``(items, counts)``.
+    z_of(x, y) = 로컬 최종 지반 높이(_get_surface(...).get_z). 입력은 get_rail_detail(지하 구간 제외), 높이는 get_platform_levels.
+    상판 위를 따라가는 구간(split_on_decks)은 상판 윗면에, 철교 상판 안 승강장은 상판 높이로(get_deck_z)."""
+    lines, platforms = get_rail_detail(prepared)
+    if not lines and not platforms:
+        return [], {}
+    origin = prepared.origin
+    local = [([(p.X, p.Y) for p in get_local_pts(line, origin)], gauge) for line, gauge in lines]
+    ground, on_deck = split_on_decks(local, list(decks), constants.RAIL_STEP, "rail")
+    tracks = non_rhino_utils.get_track_meshes(ground, z_of, constants.RAIL_TRACK, constants.RAIL_STEP, constants.RAIL_SMOOTH)
+    for k, runs in on_deck.items():
+        non_rhino_utils.merge_meshes(tracks, non_rhino_utils.get_track_meshes(runs, decks[k].top_z, constants.RAIL_TRACK, constants.RAIL_STEP, constants.RAIL_SMOOTH))
+    items = [BakeItem(_layer("Rail::" + key), _get_rhino_mesh(*mesh), {"KIND": key, "TRACKS": str(len(local))}, key)
+             for key, mesh in tracks.items() if mesh[1]]
+    make_part = _get_prism_brep if (prepared.request.get("options") or {}).get("geometry_type") == "brep" else _get_prism_mesh
+    plat_z = get_deck_z(list(decks), z_of, "rail")
+    for kind, part, name in platforms:
+        base, height = get_platform_levels([[(p.X, p.Y) for p in get_local_pts(ring, origin)] for ring in part], plat_z, kind)
+        geo = make_part(part, origin, base, height)
+        if geo is not None:
+            items.append(BakeItem(_layer("Rail::" + kind), geo, {"KIND": kind, "NAME": name, "TOP_M": "%.2f" % (base + height)}, name))
+    track_m = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for line, _g in local for a, b in zip(line, line[1:]))
+    return items, {"rail_tracks": len(local), "rail_track_m": round(track_m), "rail_platforms": len(platforms)}
+
+
+def _get_surface(mesh):
+    # type: (rg.Mesh) -> non_rhino_utils.TriangleZ
+    """로컬 Mesh → 높이 조회(get_z·hit_z)."""
+    verts, faces = _get_mesh_faces(mesh)
+    return non_rhino_utils.TriangleZ([(verts[f[0]], verts[f[k]], verts[f[k + 1]]) for f in faces for k in range(1, len(f) - 1)])
+
+
+def build_markings(prepared, z_of, counts, decks=()):
+    # type: (object, object, dict, list) -> list
+    """노면표시(차선·정지선·횡단보도) → 색마다 Mesh 하나 'CTX::Roads::marking_<색>'. z_of = 최종 지반 높이(차도는 연석 높이만큼 내린 뒤). counts에 수를 더한다.
+    상판 위를 따라가는 차선은 상판 윗면에(split_on_decks — 교량 밑을 건너는 차선·횡단보도는 땅에)."""
+    lines, crosswalks = get_markings(prepared)
+    if not lines and not crosswalks:
+        return []
+    origin = prepared.origin
+    to_local = lambda ring: [(p.X, p.Y) for p in get_local_pts(ring, origin)]
+    style = get_marking_style()
+    ground, on_deck = split_on_decks([(to_local(line), kind, color, pattern) for line, kind, color, pattern in lines], list(decks), style["step"])
+    meshes = non_rhino_utils.get_marking_meshes(ground, [to_local(ring) for ring in crosswalks], z_of, style)
+    for k, runs in on_deck.items():
+        non_rhino_utils.merge_meshes(meshes, non_rhino_utils.get_marking_meshes(runs, [], decks[k].top_z, style))
+    counts.update(marking_lines=len(lines), crosswalks=len(crosswalks))
+    return [BakeItem(_layer("Roads::marking_" + color), _get_rhino_mesh(*mesh), {"KIND": "marking", "COLOR": color, "SRC": "seoul_traffic_safety"}, color)
+            for color, mesh in sorted(meshes.items()) if mesh[1]]
 
 
 # ── 커브 ───────────────────────────────────────────────────
@@ -1196,6 +1719,21 @@ def build(prepared):
     items = _get_terrain_items(prepared, meshes, counts)
     b_items, b_counts, skipped, warnings = build_buildings(prepared, meshes["all"])
     items += b_items
+    ground = _get_surface(meshes["all"])   # 선로가 쓰는 최종 지반 높이(차도는 내린 뒤)
+    road = meshes.get("road")
+    road_surface = _get_surface(road) if road else None
+    on_road = (lambda x, y: road_surface.hit_z(x, y) is not None) if road_surface else None
+    d_items, decks, d_counts = build_bridges(prepared, ground.get_z, on_road) if get_detail(prepared, "detail_bridges") else ([], [], {})
+    r_items, r_counts = build_rail(prepared, ground.get_z, decks) if get_detail(prepared, "detail_rail") else ([], {})
+    to_local = lambda line: [(p.X, p.Y) for p in get_local_pts(line, prepared.origin)]
+    detail, t_counts = get_detail_meshes(prepared, to_local, ground.get_z)   # 옹벽·담장·가로수
+    items += [BakeItem(_layer(layer), _get_rhino_mesh(*mesh), {"KIND": layer.rpartition("::")[2].lower()}, layer.rpartition("::")[2].lower())
+              for layer, mesh in sorted(detail.items())]
+    counts.update(t_counts)
+    items += d_items + r_items + (build_markings(prepared, get_marking_z(road_surface, _get_mesh_faces(road)[0] if road else [], ground), r_counts, decks)
+                                  if get_detail(prepared, "detail_markings") else [])
+    counts.update(r_counts)
+    counts.update(d_counts)
     curve_items = build_curves(prepared)
     items += curve_items
     options = prepared.request.get("options") or {}

@@ -68,16 +68,18 @@ def _assert_block_closed(test, prepared, meshes, counts):
         return False
 
     edges = {}
-    for key in ("terrain", "road", "green", "rail", "water", "site_ground", "block"):
+    for key in ("terrain", "sidewalk", "road", "green", "rail", "water", "site_ground", "block"):
         verts, faces = meshes.get(key, ([], []))
         for face in faces:
             for k in range(len(face)):
                 p, q = verts[face[k]], verts[face[(k + 1) % len(face)]]
-                if math.hypot(q[0] - p[0], q[1] - p[1]) > 1e-6 and on_ring(p) and on_ring(q) and on_ring(((p[0] + q[0]) / 2, (p[1] + q[1]) / 2)):
-                    edge = frozenset((tuple(round(c, 4) for c in p), tuple(round(c, 4) for c in q)))
+                if math.hypot(q[0] - p[0], q[1] - p[1]) > 1e-6 and on_ring(p) and on_ring(q) and on_ring(((p[0] + q[0]) / 2, (p[1] + q[1]) / 2)) \
+                        and p[2] > counts["block_base"] and q[2] > counts["block_base"]:
+                    # 평면 좌표로 묶는다 — 범위 링을 따라 붙은 mm 길이의 지형·차도 경계 변은 차도를 연석 높이만큼 내려 Z가 갈라진다(옆면은 두 메시 공유 변으로 보고 세우지 않는다)
+                    edge = frozenset(((round(p[0], 4), round(p[1], 4)), (round(q[0], 4), round(q[1], 4))))
                     edges[edge] = edges.get(edge, 0) + 1
     test.assertTrue(edges)
-    test.assertEqual({n for e, n in edges.items() if all(v[2] > counts["block_base"] for v in e)}, {2})
+    test.assertEqual(set(edges.values()), {2})
     test.assertEqual(min(v[2] for v in meshes["block"][0]), counts["block_base"])
 
 
@@ -172,7 +174,7 @@ class MeshGeometryTest(unittest.TestCase):
             return sum(((verts[b][0] - verts[a][0]) * (verts[c][1] - verts[a][1]) - (verts[b][1] - verts[a][1]) * (verts[c][0] - verts[a][0])) / 2
                        for a, b, c in faces)
 
-        total = sum(area(meshes[k]) for k in ("terrain", "road", "green", "rail", "water", "site_ground") if k in meshes)
+        total = sum(area(meshes[k]) for k in ("terrain", "sidewalk", "road", "green", "rail", "water", "site_ground") if k in meshes)
         self.assertAlmostEqual(total, non_rhino_utils.get_ring_area(prepared.extent_ring), delta=1.0)
         self.assertAlmostEqual(area(meshes["site_ground"]), sum(non_rhino_utils.get_ring_area(r) for r in prepared.site_rings), delta=0.5)
         self.assertEqual(counts["drape_missing"], 0)
