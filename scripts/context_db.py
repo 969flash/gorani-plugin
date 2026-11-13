@@ -89,6 +89,7 @@ class ContextData:
     buildings: list = field(default_factory=list)
     features: list = field(default_factory=list)
     sources: list = field(default_factory=list)
+    notes: list = field(default_factory=list)   # 조회 중 알릴 것(osm_context — 'osm_detail_missing')
 
     def get_features(self, theme=None, kind=None):
         # type: (str, str) -> list

@@ -719,10 +719,11 @@ _ADDRESS_CACHE = {}   # 같은 자리를 다시 찍어도 묻지 않는다(Nomin
 
 # ── 묶기 ────────────────────────────────────────────────
 
-def load(bounds, today, on_wait=None):
-    # type: (tuple, str, object) -> ContextData
+def load(bounds, today, on_wait=None, details=()):
+    # type: (tuple, str, object, tuple) -> ContextData
     """bounds(TM m) 안 OSM 건물·피처 + 지형 표고점 → ContextData. 받는 날짜를 OSM·지형 기준일로 적는다.
-    일본: 받아 둔 PLATEAU 팩 건물을 먼저 쓰고 OSM 건물은 그와 겹치지 않는 것만, 지형은 지리원 5 m 타일. 출처는 실제로 쓴 것만(역할은 뒤의 것이 차지)."""
+    일본: 받아 둔 PLATEAU 팩 건물을 먼저 쓰고 OSM 건물은 그와 겹치지 않는 것만, 지형은 지리원 5 m 타일. 출처는 실제로 쓴 것만(역할은 뒤의 것이 차지).
+    details = 켠 디테일 옵션 키 — OSM_OVERPASS_DETAIL_PARTS의 줄만 따로 묻는다(못 받으면 notes에 osm_detail_missing, 나머지는 그대로)."""
     plateau, plateau_sources = load_plateau_buildings(get_lnglat_bounds(bounds))   # 나라별 팩 건물(일본 PLATEAU·네덜란드 PDOK)
     if plateau:   # 팩이 있는 곳 — 도로·수계·녹지 먼저(건물 줄 뺀 질의), OSM 건물은 따로 첫 미러에만(constants.OSM_OVERPASS_BUILDING_QUERY 주석)
         try:
@@ -738,6 +739,13 @@ def load(bounds, today, on_wait=None):
         osm_buildings = _get_buildings(elements, today)
     buildings = plateau + get_buildings_apart(osm_buildings, plateau)
     _apply_public_use(buildings, elements)
+    parts = [constants.OSM_OVERPASS_DETAIL_PARTS[key] for key in sorted(details) if key in constants.OSM_OVERPASS_DETAIL_PARTS]
+    notes = []
+    if parts and osm_ok:   # 디테일 — 따로, 첫 미러에만(붐비면 디테일만 빠진다)
+        try:
+            elements = elements + get_overpass_elements(bounds, constants.OSM_OVERPASS_DETAIL_QUERY % " ".join(parts), constants.OSM_OVERPASS_URLS[:1], on_wait)
+        except RuntimeError:
+            notes.append("osm_detail_missing")
     spots, terrain_ids = get_terrain_spots(bounds, today)
     crs = non_rhino_utils.get_crs_label()
     sources = [DataSource("osm", "OpenStreetMap (Overpass API)", "https://www.openstreetmap.org/copyright", today, today, crs,
@@ -752,7 +760,7 @@ def load(bounds, today, on_wait=None):
                                   tr("표고 타일을 가공해 만듦. 5 m 격자, 표고 기준 T.P.(도쿄만 평균해면)")))
     roads = load_plateau_roads(get_lnglat_bounds(bounds)) if plateau else []   # 팩에 도로면이 있으면(2026-10-22 roads 단계) 그것을 쓰고 OSM 버퍼는 빈 곳만
     features = roads + get_surfaces_apart(_get_features(elements, today), roads) + spots
-    return ContextData(bounds=tuple(bounds), buildings=buildings, features=features, sources=sources)
+    return ContextData(bounds=tuple(bounds), buildings=buildings, features=features, sources=sources, notes=notes)
 
 
 def _apply_public_use(buildings, elements):

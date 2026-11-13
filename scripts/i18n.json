@@ -5956,5 +5956,17 @@
   "es": "Altura de planta = altura ÷ plantas",
   "ja": "階高 = 高さ ÷ 地上階数",
   "zh": "层高 = 高度 ÷ 地上层数"
+ },
+ "OSM 서버가 붐벼 가로수·담·횡단보도를 빼고 만들었습니다": {
+  "en": "The OSM server was busy, so street trees, walls and crosswalks were left out",
+  "es": "El servidor OSM estaba ocupado; se omitieron árboles, muros y pasos de peatones",
+  "ja": "OSMサーバーが混雑していたため、街路樹・塀・横断歩道を除いて作りました",
+  "zh": "OSM 服务器繁忙，已省略行道树、围墙和人行横道"
+ },
+ "잠시 뒤 다시 만들면 들어갑니다. 3D 설정에서 끄면 묻지 않습니다.": {
+  "en": "Generate again later to include them. Turn them off in 3D settings to skip the request.",
+  "es": "Vuelva a generar más tarde para incluirlos. Desactívelos en los ajustes 3D para no solicitarlos.",
+  "ja": "しばらくして作り直すと入ります。3D設定でオフにすると問い合わせません。",
+  "zh": "稍后重新生成即可包含。在 3D 设置中关闭则不再请求。"
  }
 }

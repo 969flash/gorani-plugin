@@ -335,6 +335,29 @@ class JapanTest(unittest.TestCase):
             finally:
                 osm_context.get_overpass_elements, osm_context.get_terrain_spots, osm_context.data_pack.get_data_dir = saved
 
+    def test_detail_query_apart(self):
+        """디테일(가로수 등)은 켠 것만 본 질의와 따로 — 본 질의는 그대로, 디테일 질의만 실패하면 notes에 osm_detail_missing(2026-11-13)."""
+        queries = []
+
+        def fetch(bounds, query=None, endpoints=None, on_wait=None):
+            queries.append(query)
+            if query and "natural" in query and "tree" in query:
+                raise RuntimeError("busy")
+            return []
+        saved = osm_context.get_overpass_elements, osm_context.get_terrain_spots
+        osm_context.get_overpass_elements, osm_context.get_terrain_spots = fetch, lambda bounds, today: ([], set())
+        try:
+            context = osm_context.load((0, 0, 100, 100), "2026-11-13", details=["detail_trees", "detail_markings"])
+            self.assertEqual(context.notes, ["osm_detail_missing"])
+            self.assertEqual(queries[0], None)   # 본 질의 = constants.OSM_OVERPASS_QUERY 그대로
+            self.assertNotIn("tree", constants.OSM_OVERPASS_QUERY)
+            self.assertIn('node["highway"="crossing"]', queries[1])
+            queries.clear()
+            self.assertEqual(osm_context.load((0, 0, 100, 100), "2026-11-13").notes, [])
+            self.assertEqual(queries, [None])   # 디테일을 다 끄면 묻지 않는다
+        finally:
+            osm_context.get_overpass_elements, osm_context.get_terrain_spots = saved
+
     def test_osm_fills_gaps(self):
         def building(ring, key):
             geometry = {"type": "Polygon", "coordinates": [[list(non_rhino_utils.get_tm_from_wgs84(*p)) for p in ring]]}

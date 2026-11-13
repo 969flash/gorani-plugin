@@ -255,8 +255,7 @@ OSM_OVERPASS_QUERY = """[out:json][timeout:55][bbox:{bbox}];
   way["highway"]; way["railway"];
   way["waterway"]; way["natural"="water"]; relation["natural"="water"]; way["landuse"~"^(reservoir|basin|grass|forest|meadow|recreation_ground|village_green|cemetery)$"];
   way["leisure"~"^(park|garden|pitch|playground)$"]; relation["leisure"="park"]; way["natural"~"^(wood|scrub|grassland)$"];
-  node["railway"="station"]; node["highway"="crossing"]; node["natural"="tree"]; way["natural"="tree_row"];
-  way["barrier"~"^(wall|retaining_wall|fence)$"];
+  node["railway"="station"];
   way["amenity"~"^(school|kindergarten|college|university|library|hospital|clinic|nursing_home|social_facility|childcare|community_centre|arts_centre|theatre)$"];
   relation["amenity"~"^(school|college|university|hospital)$"]["type"="multipolygon"];
   way["leisure"="sports_centre"]; way["place"="square"];
@@ -266,6 +265,19 @@ out geom;"""   # 역·시설 줄은 OSM_PUBLIC_USE와 맞춘다(tests/test_osm_c
 # 일본(PLATEAU 팩이 있는 곳)은 건물 줄을 빼고 도로·수계·녹지를 먼저 묻고, OSM 건물(PLATEAU 빈 곳 메우기)은 따로 첫 미러에만 묻는다.
 # 도심은 OSM 건물이 많아 한 질의가 통째로 시간 초과됐다(2026-10-22 Rhino 시험: 도쿄타워·시부야·후쿠오카 덴진 — 7곳 중 3곳 도로 없음)
 OSM_OVERPASS_BUILDINGS = 'way["building"]; relation["building"]["type"="multipolygon"];'
+# 디테일(켠 옵션만) — 본 질의와 따로 첫 미러에만 묻고, 못 받으면 디테일만 빼고 만든다(osm_context.load). 본 질의를 키우면 붐빌 때 도로·건물까지 통째로 시간 초과된다.
+# 파리 2 km 사각형 3.1 MB(나무 9,059개가 70 %), 500 m 0.37 MB, 뉴욕 500 m 0.05 MB(2026-11-13 실측 — 같은 시각 overpass-api.de 502 여러 번)
+OSM_OVERPASS_DETAIL_PARTS = {
+    "detail_markings": 'node["highway"="crossing"];',
+    "detail_trees": 'node["natural"="tree"]; way["natural"="tree_row"];',
+    "detail_walls": 'way["barrier"="retaining_wall"];',
+    "detail_fences": 'way["barrier"~"^(wall|fence)$"];',
+}
+OSM_OVERPASS_DETAIL_QUERY = """[out:json][timeout:25][bbox:{bbox}];
+(
+  %s
+);
+out geom;"""
 OSM_OVERPASS_BUILDING_QUERY = """[out:json][timeout:25][bbox:{bbox}];
 (
   %s
