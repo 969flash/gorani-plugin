@@ -56,17 +56,17 @@
 ## 사용자 흐름 — 플러그인
 
 로그인은 **늘 시스템 브라우저에서** 한다. 구글은 앱 안 웹뷰(Rhino Eto WebView, SketchUp HtmlDialog, Archicad 팔레트)의 구글 로그인을 막는다(`disallowed_useragent` — [구글 공지](https://developers.googleblog.com/en/upcoming-security-changes-to-googles-oauth-20-authorization-endpoint-in-embedded-webviews/)).
-플러그인은 구글과 직접 말하지 않는다. 로그인은 gorani.site가 하고, 플러그인은 '연결 코드'로 결과만 받는다. 그래서 플러그인에 구글 클라이언트 비밀값이 없고, 호스트 다섯 개가 같은 코드를 쓴다.
+플러그인은 구글과 직접 말하지 않는다. 로그인은 gorani.site가 하고, 끝나면 브라우저가 내 PC의 플러그인(127.0.0.1)으로 결과를 돌려준다 — 데스크톱 앱 로그인의 흔한 방식이다(GitHub CLI·VS Code와 같다). 사용자는 코드를 보거나 고르지 않는다. 플러그인에 구글 클라이언트 비밀값이 없고, 호스트 넷(Rhino 8·7, SketchUp, Archicad)이 같은 코드를 쓴다. 2026-11-14 — 처음 안의 '연결 코드' 확인 단계를 사용자 요청으로 뺐다.
 
 1. **처음 열 때 묻지 않는다.** 로그인 팝업·띠 없음 — 버튼 하나로 결과까지 간다는 원칙(PRODUCT.md)을 지킨다.
 2. **3D 설정 '디테일' 줄** — 손님에게도 보인다(숨기면 회원 기능이 있는지 모른다). 맛보기 동안은 그대로 쓰고, 다 쓰면 흐리게 잠긴다(위 '손님에게 여는 것'). 요약 줄(`s3d_sum`)에는 잠긴 디테일을 쓰지 않는다.
 3. **더보기 메뉴 '설정' 맨 위 '계정' 줄** — 손님 `로그인 안 함 [구글로 로그인]`, 회원 `name@gmail.com [로그아웃]`.
-4. **[구글로 로그인]** → 브라우저에 `https://gorani.site/link/?c=<코드>&h=rhino` 열림 → 패널: `브라우저에서 로그인을 마쳐 주세요 · 확인 코드 K7Q2 [주소 복사] [취소]`.
-5. 웹에서 로그인(처음이면 동의) → `Rhino를 name@gmail.com으로 연결합니다. 패널의 코드가 K7Q2인가요? [연결]` → 패널이 저절로 바뀌고 토스트 `로그인했습니다 — 디테일을 쓸 수 있습니다`. 디테일 체크는 그 사람이 저장해 둔 값(없으면 기본값)으로 돌아온다.
+4. **[구글로 로그인]** → 브라우저에 `https://gorani.site/login/` 열림 → 패널: `브라우저에서 로그인을 마쳐 주세요 [취소]`.
+5. 브라우저에서 구글 계정 고르기 → 끝. 처음이면 그 자리에서 가입된다(동의 화면 없음 — 아래 '처음 로그인'). 브라우저는 `로그인했습니다. Rhino로 돌아가세요`, 패널은 저절로 바뀌고 토스트 `로그인했습니다 — 디테일을 쓸 수 있습니다`. 디테일 체크는 그 사람이 저장해 둔 값(없으면 기본값)으로 돌아온다. 그 PC 브라우저가 gorani.site에 이미 로그인돼 있으면 고르기도 없이 바로 돌아온다.
 6. **오프라인** — 회원 확인 때문에 못 쓰게 되는 기능은 없다. 기본 기능과 맛보기 세기는 인터넷 없이 돈다(맛보기는 PC에서 센다). 회원은 마지막 확인 뒤 30일(`ACCOUNT_OFFLINE_DAYS`)까지 그대로 회원이다. 그 뒤에는 디테일만 잠기고 디테일 줄에 `로그인을 다시 확인하지 못해 디테일이 꺼졌습니다 [다시 확인]`. 오류로 만들지 않는다. 연결 열쇠(`token`)는 지우지 않으니 인터넷이 다시 되면 다음 확인 때 저절로 풀린다 — 다시 로그인하지 않는다.
    인터넷이 원래 필요한 곳은 회원과 상관없이 지금과 같다: 해외·OSM 모드(Overpass), 한국 새 지역의 팩 받기, 처음 보는 지역의 지도 바탕(본 타일은 웹뷰가 7일 캐시). 처음 로그인할 때만 인터넷이 꼭 있어야 한다.
 7. **회원 API가 죽었을 때** — 손님으로 계속 쓴다. 사용자를 막지 않는다(공지·매니페스트와 같은 원칙).
-8. 10분 안에 연결하지 않으면 코드가 끝나고 `시간이 지났습니다 [다시 시도]`.
+8. 5분 안에 돌아오지 않으면 기다리기를 멈추고 `로그인이 끝나지 않았습니다 [다시 시도]`.
 
 ## 사용자 흐름 — 웹페이지(gorani.site)
 
@@ -74,14 +74,15 @@
 |---|---|
 | 머리줄 오른쪽 | 작은 `로그인`(로그인하면 메일 첫 글자 동그라미 → 계정 페이지). 주 버튼은 여전히 '받기'다 |
 | `/join/` | 인스타에서 오는 휴대폰용 가입 화면(아래 '가입 늘리기'). ko·en·ja 먼저(릴스 언어) |
-| 처음 로그인(가입) | 한 화면: 필수 [이용약관 동의] [개인정보 수집·이용 동의] [만 14세 이상입니다], 선택 [업데이트 소식 메일 받기]. 동의한 판(`terms_v`·`privacy_v`)을 적어 두고, 판이 오르면 다음 로그인 때 다시 묻는다 |
-| `/link/` | 플러그인이 여는 연결 화면 — 로그인 → 코드 확인 → [연결]. 연결한 뒤 `이제 Rhino로 돌아가세요` |
+| 처음 로그인(가입) | 따로 화면이 없다 — 구글 버튼 아래 한 줄 `계속하면 이용약관과 개인정보처리방침에 동의합니다. 만 14세 이상만 가입할 수 있습니다.` 회원 확인에 꼭 필요한 정보(구글 고유번호·이메일)는 계약 이행 근거라 체크박스 동의 없이 처리방침 공개로 갈음한다고 본다(확인 필요). 본 판(`terms_v`·`privacy_v`)은 적어 두고, 크게 바뀌면 다음 로그인 때 알린다. 소식 메일(광고성)은 따로 동의가 필요해 가입 화면에 넣지 않고 가입 뒤 토스트·계정 페이지에서 고른다 |
+| `/login/` | 플러그인이 여는 로그인 화면(`?port=&state=&h=rhino`) — 로그인되면 곧바로 플러그인으로 넘긴다 |
+| `/login/done/` | `로그인했습니다. Rhino로 돌아가세요 — 이 창은 닫아도 됩니다`. 실패하면 `[다시 시도]` |
 | `/account/` | 등급, 가입일, 연결된 프로그램(Rhino·SketchUp·Archicad — 판·마지막 확인일) + 프로그램마다 [연결 끊기], [소식 메일 받기] 끄고 켜기, [탈퇴](시트에서 줄을 지운다) |
 | `/privacy/`·`/terms/` | 처리방침·약관. 바닥글·가입 화면·패널 메뉴에서 링크한다 |
 | 설치 칸·FAQ | `디테일 옵션은 무료 회원 기능입니다` 한 줄 + FAQ '왜 로그인하나요? 무엇을 저장하나요?' |
 
 다국어: 웹은 다섯 언어지만 계정·처리방침은 한국어·영어를 먼저 쓰고, es·ja·zh는 영어판으로 보낸다(법적 문서를 다섯 벌 관리하지 않는다. 영어판에 '한국어판이 우선한다').
-웹 GA에는 `sign_up`·`login`·`link_device` 이벤트만 더한다(메일·id는 보내지 않는다).
+웹 GA에는 `sign_up`·`login`·`plugin_login` 이벤트만 더한다(메일·id는 보내지 않는다).
 
 ## 가입 늘리기 — 인스타그램 연계
 
@@ -135,9 +136,25 @@
 
 ```
 gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID 토큰 ──┐
-플러그인(Rhino 8·7, SketchUp, Archicad) ── link_poll·me (3 s·하루 1회) ─┼─▶ 앱스 스크립트 웹 앱 '회원 API' ──▶ 구글 시트 '회원함'
+플러그인(Rhino 8·7, SketchUp, Archicad) ── claim·me (로그인 때·하루 1회) ┼─▶ 앱스 스크립트 웹 앱 '회원 API' ──▶ 구글 시트 '회원함'
 관리자 페이지(dev_admin, 이 Mac) ── Sheets API(서비스 계정, 읽기) ─────┘        └ ID 토큰 확인: oauth2.googleapis.com/tokeninfo
 ```
+
+플러그인 로그인 한 번의 순서:
+
+```
+패널 [구글로 로그인]
+ → account.py가 127.0.0.1의 빈 포트에 잠깐 쓸 받는 곳을 열고, 무작위 state를 만든다
+ → 브라우저: gorani.site/login/?port=51234&state=…&h=rhino
+ → 구글 로그인(처음이면 그 자리에서 가입) → 웹이 회원 API `grant`로 일회용 교환권을 받는다
+ → 브라우저를 http://127.0.0.1:51234/gorani-login?state=…&grant=… 로 보낸다
+ → 플러그인: state가 맞는지 보고 `claim`(교환권 → 연결 열쇠) → account.json 저장
+ → 브라우저를 gorani.site/login/done/ 으로 넘기고 받는 곳을 닫는다 → 패널 account_state{member}
+```
+
+- 열쇠가 아니라 일회용 교환권(5분, 한 번 쓰면 끝)이 주소에 실린다 — 브라우저 기록에 남아도 쓸 수 없다.
+- 받는 곳은 127.0.0.1에만 열려 그 브라우저가 있는 PC로만 돌아온다. 남의 링크를 눌러도 남의 플러그인이 로그인되지 않는다(코드 확인 단계를 빼도 되는 까닭).
+- 웹은 `port`가 숫자이고 주소가 `http://127.0.0.1:<port>/gorani-login`일 때만 넘긴다(아무 곳으로나 보내는 통로가 되지 않게). 넘기기는 페이지 이동(`location`)으로 한다 — 웹페이지가 로컬 주소로 `fetch`하면 크롬의 로컬 네트워크 접근 허락 창이 뜬다.
 
 - 구글 클라우드 프로젝트 하나(기존 `gorani-stats`를 써도 된다)에 OAuth 클라이언트 '웹 애플리케이션' 하나, 승인된 출처 `https://gorani.site`. 범위는 `openid email`만 — 이 범위만 쓰면 앱 심사가 필요 없고, 동의 화면에 이름·로고를 보이려면 가벼운 브랜드 인증만 받는다([구글 도움말](https://support.google.com/cloud/answer/10311615)). 브랜드 인증에는 Search Console에서 gorani.site 도메인 인증과 처리방침 주소가 필요하다.
 - 요청은 문의 폼처럼 `text/plain` POST(JSON 본문) — 미리 보내기(preflight)가 없어 CORS 설정이 필요 없다.
@@ -146,25 +163,25 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 
 | action | 부르는 곳 | 보냄 | 받음 |
 |---|---|---|---|
-| `login` | 웹 | `id_token`, 처음이면 `consent{terms_v, privacy_v, age14, news}`·`source{utm_source, utm_medium, utm_campaign, ref}`, `lang` | `session`(웹용), `user{email, tier, created}` / `need_consent` |
+| `login` | 웹 | `id_token`, 처음이면 `source{utm_source, utm_medium, utm_campaign, ref}`, `terms_v`·`privacy_v`(본 판), `lang` | `session`(웹용), `user{email, tier, created, new}` — 처음이면 그 자리에서 회원 줄을 만든다 |
 | `send_install_mail` | 웹(휴대폰 가입 뒤) | `session`, `lang` | `ok` — 사람마다 하루 한 통, 설치 안내 링크만 |
-| `link_approve` | 웹 `/link/` | `session`, `code`, `host` | `ok` |
-| `link_poll` | 플러그인 | `code`, `host`, `version` | `pending` / `{token, email, tier}` |
+| `grant` | 웹 `/login/` | `session`, `host` | `grant`(일회용 교환권, 5분) |
+| `claim` | 플러그인 | `grant`, `host`, `version` | `{token, email, tier}` / `invalid` |
 | `me` | 플러그인·웹 | `token` 또는 `session` | `{email, tier}` / `invalid` |
 | `logout` | 플러그인·웹 | `token`(그 연결만) 또는 `session`+`token_id` | `ok` |
 | `delete` | 웹 | `session` | `ok` — 회원 줄과 연결 전부 지움 |
 | `set_news` | 웹 | `session`, `on` | `ok` |
 
 - ID 토큰은 tokeninfo로 확인한다 — `aud` = 우리 클라이언트 ID, `email_verified`, `exp`. 앱스 스크립트에는 RSA 서명 확인이 없어 이 길을 쓴다.
-- 연결 코드는 플러그인이 만든다(헷갈리는 글자를 뺀 8자, 40비트). 서버는 `link_approve` 때 CacheService에 10분 둔다. 한 번 받으면 지운다. 화면 두 곳에 같은 코드를 보여 '남의 코드를 승인하게 만드는' 장난을 막는다.
+- 교환권은 CacheService에 5분 두고 `claim` 한 번에 지운다.
 - `token`·`session`은 32바이트 무작위 값이다. 시트에는 SHA-256만 적는다(시트가 새도 토큰은 새지 않는다).
-- 한도는 문의 폼처럼 CacheService로 건다 — 코드 하나당 `link_poll` 분당 30회, IP·메일당 `login` 분당 10회.
+- 한도는 문의 폼처럼 CacheService로 건다 — 메일당 `login`·`grant` 분당 10회.
 
 ### 시트 '회원함'
 
 | 탭 | 칸 |
 |---|---|
-| 회원 | `user_id`(무작위), `google_sub`, `email`, `tier`, 가입일, `terms_v`, `privacy_v`, 소식 메일(Y/N), 가입 경로(source·medium·campaign·ref), 마지막 확인, 메모(사람) |
+| 회원 | `user_id`(무작위), `google_sub`, `email`, `tier`, 가입일, `terms_v`·`privacy_v`(가입 때 본 판), 소식 메일(Y/N·고른 날), 가입 경로(source·medium·campaign·ref), 마지막 확인, 메모(사람) |
 | 연결 | `token_hash`, `user_id`, `host`(web·rhino·sketchup·archicad), 판, 만든 날, 마지막 확인 |
 | 기록 | 날짜, 사건(가입·탈퇴·등급 변경·연결), `host` — 메일 없이 숫자 세기용 |
 
@@ -184,17 +201,17 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 
 | 파일 | 할 일 |
 |---|---|
-| `scripts/account.py`(새 로직 모듈, 표준 라이브러리) | `~/.gorani/account.json`(`token`·`email`·`tier`·`checked_at`·`trial_used`) 읽기·쓰기, `get_link_url(code, host)`, `poll_link(code)`, `refresh()`(하루 1회 `me`), `logout()`(토큰만 지우고 `trial_used`는 남긴다), `is_member(account)`, `get_trial_left(account)`, `get_allowed_options(options, account, host_label)` — 회원도 맛보기도 아니면 `MEMBER_OPTIONS`를 끈 사본, `add_trial(account, options)`. prefs.json에 넣지 않는다 |
-| `scripts/constants.py` | `ACCOUNT_ENABLED`, `ACCOUNT_API_URL`, `ACCOUNT_LINK_URL`, `MEMBER_OPTIONS`(디테일 7종 — `detail_curb`·`detail_bridges` 뺌), `GUEST_TRIAL_BUILDS = 3`, `ACCOUNT_OFFLINE_DAYS = 30`, `ACCOUNT_POLL_SECONDS = 3`, `ACCOUNT_LINK_MINUTES = 10`. `HOST_LABELS`에 `account`(blender만 False) |
+| `scripts/account.py`(새 로직 모듈, 표준 라이브러리) | `~/.gorani/account.json`(`token`·`email`·`tier`·`checked_at`·`trial_used`) 읽기·쓰기, `start_login(host, on_done)`(받는 곳 열기 + 로그인 주소 — 아래 '받는 곳'), `claim(grant)`, `refresh()`(하루 1회 `me`), `logout()`(토큰만 지우고 `trial_used`는 남긴다), `is_member(account)`, `get_trial_left(account)`, `get_allowed_options(options, account, host_label)` — 회원도 맛보기도 아니면 `MEMBER_OPTIONS`를 끈 사본, `add_trial(account, options)`. prefs.json에 넣지 않는다 |
+| `scripts/constants.py` | `ACCOUNT_ENABLED`, `ACCOUNT_API_URL`, `ACCOUNT_LINK_URL`, `MEMBER_OPTIONS`(디테일 7종 — `detail_curb`·`detail_bridges` 뺌), `GUEST_TRIAL_BUILDS = 3`, `ACCOUNT_OFFLINE_DAYS = 30`, `ACCOUNT_LOGIN_MINUTES = 5`(브라우저에서 돌아오기를 기다리는 시간). `HOST_LABELS`에 `account`(blender만 False) |
 | `scripts/remote_config.py` | `REMOTE_KEYS`에 `ACCOUNT_ENABLED`·`ACCOUNT_API_URL`·`MEMBER_OPTIONS`·`GUEST_TRIAL_BUILDS`·`ACCOUNT_OFFLINE_DAYS`(회원 API가 오래 멈추면 늘린다). 새 키 추가라 `COMPAT_MIN`은 그대로 |
-| `scripts/cmd_site.py` | 명령 `account_login`·`account_cancel`·`account_logout`, 푸시 `account_state{state: guest\|linking\|member\|expired, email, code, trial_left}`, `init_state.account`. `generate` 직전에 `account.get_allowed_options`, 성공 뒤 손님이면 `account.add_trial` — 엔진(`context_builder`·`get_detail`)은 등급을 모른다. 저장한 prefs는 그대로 두고 생성 요청만 끈다. `context.json.options`에는 실제로 쓴 값이 남는다 |
-| 폴링·확인 | 데몬 스레드(`usage_stats`와 같은 방식)가 3초마다 `link_poll`. 결과 푸시는 Rhino 8은 `AsyncInvoke`로 UI 스레드에서(`panel_host`와 같다), 사이드카는 기존 푸시 줄. `init`은 캐시로 바로 그리고, 마지막 확인이 하루를 넘었으면 같은 스레드로 `me` → 바뀌면 `account_state` |
-| `scripts/site_ui.html` | 디테일 줄 맛보기 표시·잠금·전후 그림(작은 webp 인라인), 결과 화면 가입 권유, 메뉴 '계정' 줄, 연결 중 띠(코드·주소 복사·취소), 목 모드 `&account=guest\|trial\|linking\|member\|expired` |
+| `scripts/cmd_site.py` | 명령 `account_login`·`account_cancel`·`account_logout`, 푸시 `account_state{state: guest\|waiting\|member\|expired, email, trial_left}`, `init_state.account`. `generate` 직전에 `account.get_allowed_options`, 성공 뒤 손님이면 `account.add_trial` — 엔진(`context_builder`·`get_detail`)은 등급을 모른다. 저장한 prefs는 그대로 두고 생성 요청만 끈다. `context.json.options`에는 실제로 쓴 값이 남는다 |
+| 받는 곳·확인 | `account.start_login`이 `http.server`를 127.0.0.1의 빈 포트(0번 = OS가 고름)에 데몬 스레드로 연다 — Rhino 8 타일 중계(`review_map`)와 같은 방식이고, 127.0.0.1만 열면 Windows 방화벽 창이 뜨지 않는다. 경로는 `/gorani-login` 하나, state가 틀리면 400. 돌아오거나 5분이 지나면 닫는다. 결과 푸시는 Rhino 8은 `AsyncInvoke`로 UI 스레드에서(`panel_host`와 같다), 사이드카는 기존 푸시 줄. `init`은 캐시로 바로 그리고, 마지막 확인이 하루를 넘었으면 데몬 스레드로 `me` → 바뀌면 `account_state` |
+| `scripts/site_ui.html` | 디테일 줄 맛보기 표시·잠금·전후 그림(작은 webp 인라인), 결과 화면 가입 권유, 메뉴 '계정' 줄, 기다리는 띠(`브라우저에서 로그인을 마쳐 주세요 [취소]`), 목 모드 `&account=guest\|trial\|waiting\|member\|expired` |
 | `scripts/i18n.json` | 새 문구 네 언어(`tests/test_i18n.py`) |
 | `scripts/usage_stats.py` | `panel_open`·`build`에 `member`(0/1)·`trial`(맛보기로 만든 것 0/1)만. `get_options3d`에 켠 디테일. 계정 id·메일은 보내지 않는다. `dev_stats`에 맞춤 측정기준 등록 |
 | 다음 판(0.4.x) | 결과 화면 [인스타용 이미지] — 도면 SVG → 패널 캔버스 4:5 PNG + 작은 `made with Gorani`, 파이썬은 파일 쓰기만(위 '공유 고리') |
 | Blender 빌드 | `account` 네트워크 구간을 `# [blender-cut]`으로 감싼다. 회원 API 주소는 `BLENDER_ALLOWED_HOSTS`에 넣지 않는다(남으면 빌드가 멈춰서 실수를 잡는다) |
-| `tests/test_account.py` | 가짜 회원 API(`http.server`)로 연결·폴링·만료·오프라인 30일·로그아웃·맛보기 세기(실패·취소는 안 셈)·맛보기 끝난 손님 옵션 끄기·`ACCOUNT_ENABLED` 꺼짐 |
+| `tests/test_account.py` | 가짜 회원 API(`http.server`)와 가짜 브라우저(받는 곳 주소를 바로 부른다)로 로그인·state 틀림·교환권 재사용·5분 넘김·오프라인 30일·로그아웃·맛보기 세기(실패·취소는 안 셈)·맛보기 끝난 손님 옵션 끄기·`ACCOUNT_ENABLED` 꺼짐 |
 | `scripts/dev_personas.py` | 지금 18명은 빈 HOME이라 맛보기 손님이다. 맛보기를 다 쓴 손님 1명(`trial_used = 3` — 디테일이 꺼진 결과로 문제 0건)과 회원 1명(가짜 `account.json` + 가짜 API)을 더한다 |
 
 함께 고칠 문서: `docs/panel_ui.md`(명령·푸시·옵션 키·'계정' 절), `docs/code_map.md`, `CLAUDE.md`(Rhino 실행 중 외부 접속 예외 여섯 → 일곱: ⑦ 회원 확인), `docs/install.md`(보내는 것), `docs/food4rhino.md`(지금 "You don't need … an account" → "Detail options need a free Google sign-in"), `docs/sketchup_store.md` Privacy 줄.
@@ -203,7 +220,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 
 - `tools/account/`(새로): `Code.gs`·`README.md` — 문의함과 같은 꼴(`setup` 실행 → 웹 앱 배포 → 주소를 `assets/site.js`와 `constants.ACCOUNT_API_URL`에). 설정값(클라이언트 ID)은 스크립트 속성에.
 - `assets/site.js`: GIS 로그인 버튼, 세션(localStorage, 30일), 머리줄 계정 표시.
-- `link/`·`account/`·`privacy/`·`terms/` 페이지(ko·en), `sitemap.xml`·`robots.txt`(계정·연결 페이지는 색인하지 않음), 바닥글 링크, FAQ·설치 칸 한 줄.
+- `login/`·`login/done/`·`account/`·`privacy/`·`terms/` 페이지(ko·en), `sitemap.xml`·`robots.txt`(계정·로그인 페이지는 색인하지 않음), 바닥글 링크, FAQ·설치 칸 한 줄.
 - `join/`(ko·en·ja, 휴대폰 먼저): 앱 안 브라우저 알아보기·밖으로 열기 안내, UTM·`ref` 저장, 가입 뒤 [설치 링크를 메일로 받기]·[링크 복사]. 디테일 전후 짧은 영상은 `gorani-sns` 원본에서 자른다.
 - 홈 화면 문구: '무료, 가입 없음' → 두 단계 문구(위 '가입 늘리기'), 다섯 언어·`llms.txt`·JSON-LD 함께.
 - 웹은 판 묶음 규칙이 없다 — 플러그인 0.4.0보다 먼저 올려 둔다.
@@ -215,8 +232,9 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 | 할 일 | 근거 |
 |---|---|
 | 처리방침 공개 — 웹 `/privacy/`, 패널 메뉴·스토어 설명에서 링크 | 개인정보보호법 제30조. 초안은 개인정보위 개인정보 포털의 '처리방침 만들기' 도구로 쓴다 |
-| 수집 동의 — 항목(구글 계정 고유번호·이메일), 목적(회원 확인·디테일 제공·선택 시 소식 메일), 보유(탈퇴하면 바로 지움), 거부할 권리와 불이익(디테일을 못 씀) | 제15조 제2항 |
-| 만 14세 미만은 가입 불가 — 가입 화면 확인란 | 법정대리인 동의(제22조의2)를 받지 않으려고 |
+| 가입 = 로그인 한 번. 회원 확인에 꼭 필요한 정보(구글 계정 고유번호·이메일)는 계약 이행 근거로 처리하고, 처리방침에 항목·목적(회원 확인·디테일 제공)·보유(탈퇴하면 바로 지움)를 적는다. 구글 버튼 아래 한 줄로 약관·처리방침 링크 | 제15조 제1항 제4호(2023 개정 — 계약 이행에 필요한 처리는 동의 없이, 확인 필요) |
+| 소식 메일만 따로 고르게 한다(가입 뒤 토스트·계정 페이지, 고른 날 기록) | 광고성 정보는 별도 수신 동의 |
+| 만 14세 미만은 가입 불가 — 구글 버튼 아래 한 줄로 알린다 | 법정대리인 동의(제22조의2)가 필요한 경우를 피하려고. 학생 대부분이 대학생이라 확인란 대신 안내로 둔다(확인 필요) |
 | 구글(미국) 서버 보관을 처리방침에 적는다 — 이전받는 자 Google LLC, 국가, 항목, 목적, 보유기간 | 국외 이전(제28조의8, 계약 이행에 필요한 보관은 공개로 갈음 — 확인 필요) |
 | 소식 메일은 선택 동의자에게만, 드물게 | 광고성 정보 전송 규정(정보통신망법 제50조 — 확인 필요). 큰 소식은 패널 공지(`notices`)로 한다. 무료 Gmail 하루 약 100통 한도 |
 | 영어판에 EU 사용자 권리(열람·삭제 = [탈퇴]) | 네덜란드·프랑스·스위스 팩 사용자 — GDPR(확인 필요) |
@@ -242,7 +260,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 | 처리방침 개정 | `privacy_v`를 올린다 — 다음 로그인 때 다시 동의받는다. 웹에 바뀐 날짜를 남긴다 |
 | 백업 | 시트 판 기록에 맡긴다. 개인정보라 로컬 사본(CSV)을 만들지 않는다 |
 | 관리자 페이지 '회원' 카드 | 시트를 서비스 계정(기존 GA 키)에 '보기'로 공유하고 시트 ID만 `~/.config/gorani/`에. 누적 회원, 이번 주 가입, 프로그램별 연결, 30일 안 확인한 회원, 탈퇴 수 — 숫자만, 메일은 띄우지 않는다 |
-| 볼 지표 | 위 '깔때기'. 북극성 = 주간 신규 연결 회원. 그 밖에 연결 완료율(플러그인에서 링크를 연 수 대비 연결 수 — 낮으면 로그인 흐름이 막힌 것), 맛보기를 다 쓴 손님 중 가입 비율 |
+| 볼 지표 | 위 '깔때기'. 북극성 = 주간 신규 연결 회원. 그 밖에 로그인 완료율(패널 [구글로 로그인]을 누른 수 대비 돌아온 수 — 낮으면 로그인 흐름이 막힌 것. GA `ui` 이벤트 `account_login`·`account_done`), 맛보기를 다 쓴 손님 중 가입 비율 |
 | 맛보기·잠금 조정 | `GUEST_TRIAL_BUILDS`·`MEMBER_OPTIONS`를 고치고 `dev_deploy.py notices` — 이벤트 기간에만 늘렸다면 끝나는 날 되돌린다 |
 
 ## 일정
@@ -252,9 +270,9 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 | 단계 | 기간(안) | 내용 |
 |---|---|---|
 | 0. 결정 | 11/14~11/16 | 남은 결정(Blender판, 맛보기 횟수, 백엔드) 확정. Search Console 도메인 인증과 구글 브랜드 인증 신청(며칠 걸려 가장 먼저 한다) |
-| 1. 웹·회원 API | 11/17~11/23 | OAuth 클라이언트·동의 화면, `tools/account` 앱스 스크립트·시트, `/privacy`·`/terms`·`/link`·`/account`(ko·en)·`/join`(ko·en·ja), 머리줄 로그인, 앱 안 브라우저 처리. 인스타 바이오 링크를 `/join/`으로. 이 단계만으로도 휴대폰 가입은 된다 — 플러그인이 나오기 전 가입자는 0.4.0 공지 메일 대상(소식 메일 동의자만) |
+| 1. 웹·회원 API | 11/17~11/23 | OAuth 클라이언트·동의 화면, `tools/account` 앱스 스크립트·시트, `/privacy`·`/terms`·`/login`·`/account`(ko·en)·`/join`(ko·en·ja), 머리줄 로그인, 앱 안 브라우저 처리. 인스타 바이오 링크를 `/join/`으로. 이 단계만으로도 휴대폰 가입은 된다 — 플러그인이 나오기 전 가입자는 0.4.0 공지 메일 대상(소식 메일 동의자만) |
 | 2. 플러그인 0.4.0 | 11/24~12/04 | 위 표. 배포 전 점검 셋(check_tiles, 키 없는 실제 설치 화면, personas 문제 0건) + 로그인 실기 — Rhino 8 Mac·Windows, Rhino 7, SketchUp, Archicad에서 한 번씩 맛보기 → 로그인 → 생성 → 로그아웃. Rhino 세 파일을 같은 버전으로. 그사이 `gorani-sns`: 문구 수정, 디테일 전후 릴스·캐러셀 |
-| 3. 배포 뒤 | 12/05~12/31 | 매니페스트 업데이트 안내 문구(`groups` 새 기능에 '디테일 — 무료 회원'), 디테일 콘텐츠 게시 시작, 깔때기에서 막힌 곳 고치기(앱 안 브라우저 이탈·연결 완료율), 관리자 카드, food4Rhino·EW 문구, 웹 es·zh 안내. 다음 묶음 판에 [인스타용 이미지] |
+| 3. 배포 뒤 | 12/05~12/31 | 매니페스트 업데이트 안내 문구(`groups` 새 기능에 '디테일 — 무료 회원'), 디테일 콘텐츠 게시 시작, 깔때기에서 막힌 곳 고치기(앱 안 브라우저 이탈·로그인 완료율), 관리자 카드, food4Rhino·EW 문구, 웹 es·zh 안내. 다음 묶음 판에 [인스타용 이미지] |
 | 4. 큰 홍보 | 2월 말~3월 | 국내 개강 대지분석 시즌 + 공모전 마감 6주 전. 필요하면 맛보기 횟수를 원격으로 늘려 이벤트 |
 
 ## 하지 않는 것
@@ -279,6 +297,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 
 - 앱스 스크립트 무료 한도(외부 요청 하루 약 2만 회, 동시 실행 30) — 실제 값.
 - tokeninfo 엔드포인트 — 구글은 디버깅용이라고 한다. 적은 양에서는 괜찮다고 보지만 막히면 GIS의 서명 확인을 웹에서 하고 서버는 다시 확인하는 식으로 바꾼다.
+- 브라우저가 https 페이지에서 `http://127.0.0.1:<port>`로 넘어가는 것 — 크롬·엣지·사파리·파이어폭스에서 막히거나 경고가 뜨지 않는지(크롬 로컬 네트워크 접근 제한은 `fetch` 쪽으로 알고 있다). 회사 PC 보안 프로그램이 로컬 포트를 막는 경우가 있는지.
 - 앱스 스크립트 POST는 302로 googleusercontent에 넘어간다. 브라우저(문의 폼)는 문제가 없었다 — Rhino 8 CPython·번들 파이썬 3.12·Pyodide의 urllib에서 시험한다.
 - SketchUp EW·food4Rhino가 외부 계정 연결을 어떻게 보는지 — 다음 제출 때 문의.
 - 처리방침·동의 문구 — 초안을 만든 뒤 가능하면 한 번 검토받는다.
