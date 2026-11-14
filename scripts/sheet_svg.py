@@ -1856,7 +1856,7 @@ def get_sky_mask(data):
     others = [(r, top) for r, top, on_site, _c in scene["buildings"] if not on_site and not is_point_in_ring(ox, oy, r[0])]
     building_alts = solar.get_building_horizon((ox, oy, oz), others)
     terrain = scene["terrain"]
-    far = _get_far_height(data, lat, lng)
+    far = _get_far_height(data, lat, lng) if terrain is not None else None   # 지형이 없으면(평지 0 m) 먼 산 절대 표고와 섞지 않는다
     local_reach = 0.0
     if terrain is not None:
         tb = _get_ring_bounds([p for tri in data.terrain_tris for p in tri[:3]])
@@ -1870,7 +1870,7 @@ def get_sky_mask(data):
 
     max_dist = constants.SUN_MASK_FAR_RADIUS if far is not None else local_reach
     terrain_alts = solar.get_terrain_horizon((ox, oy, oz), height_at, max_dist) if (terrain is not None or far is not None) else [0.0] * len(building_alts)
-    mask = {"observer": (ox, oy, oz), "terrain": terrain_alts, "building": building_alts, "far": far is not None, "buildings": len(others),
+    mask = {"observer": (ox, oy, oz), "terrain": terrain_alts, "building": building_alts, "far": far is not None, "buildings": len(others), "has_terrain": terrain is not None,
             "excluded": sum(1 for _r, _t, on_site, _c in scene["buildings"] if on_site)}
     data.cache["sky_mask"] = mask
     return mask
@@ -2423,7 +2423,8 @@ def _get_card_lines(key, data, items, counts, measures, ctx=None):
             lines.append(tr("{0} — 낮 {1} · 해 보임 {2} · 남중 {3:.1f}°", _get_season_label(season, sun), solar.get_format_minutes(sun["daylight"][1] - sun["daylight"][0]),
                             solar.get_format_minutes(visible), solar.get_sun_position(ctx["sun_lat"], sun["decl"], 720.0)[1]))
         lines.append(tr("가림: 건물 {0}동(대상지 안 {1}동 제외) · 지형 {2}", fmt0(mask["buildings"]), fmt0(mask["excluded"]),
-                        tr("분석 범위 + 먼 산 {0:g} km", constants.SUN_MASK_FAR_RADIUS / 1000.0) if mask["far"] else tr("분석 범위")))
+                        tr("분석 범위 + 먼 산 {0:g} km", constants.SUN_MASK_FAR_RADIUS / 1000.0) if mask["far"] else
+                        tr("분석 범위") if mask.get("has_terrain") else tr("지형 없음(평지로 계산)")))
     elif key == "wind":
         roses = ctx.get("wind_roses")
         if roses:

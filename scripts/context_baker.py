@@ -589,7 +589,7 @@ def set_sun(doc, state):
     sun.ManualControlOn = True
     sun.Azimuth = float(state["azimuth"])
     sun.Altitude = float(state["altitude"])
-    rendered = Rhino.Display.DisplayModeDescription.FindByName("Rendered")
+    rendered = Rhino.Display.DisplayModeDescription.GetDisplayMode(Rhino.Display.DisplayModeDescription.RenderedId)   # 이름은 Rhino 언어마다 다르다
     if view is not None and rendered is not None and view.ActiveViewport.DisplayMode.Id != rendered.Id:
         if not doc.Strings.GetValue(constants.SUN_MODE_KEY):
             doc.Strings.SetString(constants.SUN_MODE_KEY, str(view.ActiveViewport.DisplayMode.Id))

@@ -665,7 +665,7 @@ namespace Gorani
             sun.North = 90.0;
             sun.ManualControl = true;
             sun.SetPosition(D(args["azimuth"]), D(args["altitude"]));   // RhinoCommon 7은 위경도·방위·고도 속성이 읽기 전용이다
-            var rendered = Rhino.Display.DisplayModeDescription.FindByName("Rendered");
+            var rendered = Rhino.Display.DisplayModeDescription.GetDisplayMode(Rhino.Display.DisplayModeDescription.RenderedId);   // 이름은 Rhino 언어마다 다르다
             if (view != null && rendered != null && view.ActiveViewport.DisplayMode.Id != rendered.Id)
             {
                 if (string.IsNullOrEmpty(doc.Strings.GetValue(SunModeKey)))

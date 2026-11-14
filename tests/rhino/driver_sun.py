@@ -42,7 +42,7 @@ meta = json.load(open(os.path.join(response["dir"], "context.json"), encoding="u
 cx, cy = meta["center"][0] - meta["origin"][0], meta["center"][1] - meta["origin"][1]
 if view is not None:
     vp = view.ActiveViewport
-    vp.DisplayMode = Rhino.Display.DisplayModeDescription.FindByName("Rendered")
+    vp.DisplayMode = Rhino.Display.DisplayModeDescription.GetDisplayMode(Rhino.Display.DisplayModeDescription.RenderedId)
     target = Rhino.Geometry.Point3d(cx, cy, 45.0)
     vp.SetCameraLocations(target, Rhino.Geometry.Point3d(cx - 260.0, cy - 520.0, 420.0))
     vp.Camera35mmLensLength = 40.0
