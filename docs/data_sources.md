@@ -283,6 +283,24 @@ CREATE TABLE IF NOT EXISTS source_files (
 - 2020년도판 일부(豊中市 등)는 용도 코드가 없다. 건축 연도는 비어 있어 노후도 도면을 만들 수 없다.
 - 갱신: PLATEAU 새 연도판이 나오면 `dev_plateau.py catalog` → `build`(바뀐 도시만) → `roads`(그 도시) → `upload`. `build`는 건물만 다시 만들므로 `roads`를 꼭 이어서 돌린다.
 
+### OSM 받기 보험 — OpenFreeMap 벡터 타일 (런타임, 2026-11-14)
+
+Overpass(모든 미러·다시 묻기)가 다 실패할 때만 같은 범위를 OpenFreeMap 벡터 타일로 받는다(`osm_context.get_elements` → `get_tile_elements`). 먼저 부르지 않는다 — 결과가 거칠다. 2026-11-04 GA 기준 해외 생성의 26 %(10/39)가 `osm_failed`였다. 일본·나라별 팩 지역도 같다(팩 건물 + 타일 도로·수계·녹지, 건물 메우기 질의가 막히면 타일 건물).
+
+| 항목 | 내용 |
+|---|---|
+| 주소 | TileJSON `https://tiles.openfreemap.org/planet` → `tiles[0]`(주간 판 폴더, 2026-11-14: `planet/20261101_080013_pt/{z}/{x}/{y}.pbf`). 매니페스트 `services.osm_fallback`이 덮을 수 있다 |
+| 형식 | MVT(protobuf, OpenMapTiles 스키마 3.16 그대로), z14(최대), extent 4096·버퍼 64. 표준 라이브러리로 푼다(`osm_context.decode_mvt`) |
+| 기준일 | 판 폴더 날짜(OSM 주간 사본) — 출처 `openfreemap`의 `reference_date` |
+| 대응 | `building`(render_height → 높이 C, 기본값 5면 우리 기본 높이 D, hide_3d 외곽·render_min_height > 0 부분은 뺀다, 층수·용도 없음) · `transportation`(class → highway `OSM_FALLBACK_ROAD_CLASSES`, path는 subclass, rail·transit는 subclass, brunnel → bridge·tunnel, 폭은 등급 기본값 `OSM_ROAD_WIDTHS`, 승강장 면은 버스·철도를 가를 수 없어 뺀다) · `water`(ocean·수영장 빼고) · `waterway` · `landcover`·`landuse`·`park`(원래 OSM 값을 `OSM_GREEN_TAGS`·`OSM_PUBLIC_USE`에서 찾는다) · `poi` railway station·subway(역) |
+| 빠지는 것 | 도로 폭·차로 수, 층수, 건물 용도·이름, 광장(place=square), 가로수·담·횡단보도(디테일 — `osm_detail_missing`). z14 건물은 같은 높이끼리 붙은 것이 한 면으로 합쳐져 있다(파리 타일 162개 피처에 5,938링) |
+| 타일 경계 | 타일마다 도형을 타일 경계로 잘라 버퍼 겹침을 없애고, 경계에 닿은 면은 같은 레이어·태그끼리 정점 붙이기(`OSM_FALLBACK_SEAM_TOLERANCE` 2 단위 ≈ 0.4 m) + 공유 변 지우기(`get_merged_rings`)로 잇는다. Innsbruck 1 km에서 4,034면 중 13변이 경계에 남았다(이웃 타일 단순화 차이) |
+
+- 이용 조건(https://openfreemap.org/tos/ 2026-10-14판): 키·가입 없음, 상업 이용 가능. 앱의 지역 받기는 한 번에 3,000타일·50 MB 이하, 동시 요청 4개 이하, 앱을 밝힌 User-Agent(`OSM_USER_AGENT`) — 타일을 하나씩 차례로 받고 50 MB를 넘으면 멈춘다(`OSM_FALLBACK_MAX_BYTES`). 반경 2 km 상한이면 16장 안팎이다.
+- 라이선스·출처 표기: 데이터는 OSM(ODbL 1.0), 스키마는 OpenMapTiles(CC BY 4.0). 표기는 TileJSON attribution 그대로 "OpenFreeMap © OpenMapTiles · Data from OpenStreetMap (© OpenStreetMap contributors, ODbL 1.0)"(`OSM_FALLBACK_CREDIT`) — 도면 자료기준 줄 "OpenFreeMap <판 날짜>"와 출처 줄(`context_report._get_abroad_meta_lines`). 인쇄물에도 표기 필수.
+- 화면: 경고 `osm_fallback`("OSM 서버가 붐벼 간이 데이터(OpenFreeMap 주간 사본)로 만들었습니다"). 높이 출처 `openfreemap_height`.
+- 재현: 환경변수 `GORANI_FORCE_OSM_FALLBACK=1`이면 Overpass를 부르지 않고 붐빔으로 본다(`constants.OSM_FALLBACK_FORCE_ENV`, `tests/test_osm_fallback.py`).
+
 ### 네덜란드 — Kadaster 3D Basisvoorziening 건물 팩 (`nl/`, 경위도, 2026-10-22)
 
 | 항목 | 원천 | 팩 | 비고 |
