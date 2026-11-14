@@ -871,7 +871,9 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
     """prepare의 해외 갈래 — 필지·계획 없이 OSM 건물·피처 + 지형 타일 표고점(osm_context). 인터넷이 안 되면 DomainError(osm_failed)."""
     _report(progress, "query", 0.3, tr("OpenStreetMap·지형 타일 받는 중"))
     try:
-        context = osm_context.load(bounds, today.isoformat(), on_wait=lambda text: _report(progress, "query", 0.3, text))   # 붐빈 서버를 기다리는 동안 진행 줄·취소
+        details = [key for key in constants.OSM_OVERPASS_DETAIL_PARTS
+                   if (options.get(key) if options.get(key) is not None else constants.DETAIL_OPTIONS.get(key))]   # 켠 디테일만 따로 묻는다
+        context = osm_context.load(bounds, today.isoformat(), on_wait=lambda text: _report(progress, "query", 0.3, text), details=details)   # 붐빈 서버를 기다리는 동안 진행 줄·취소
     except (RuntimeError, OSError) as exc:   # 지형 타일 URLError·시간 초과는 OSError — '예상 밖 오류'로 새지 않게(2026-10-23 감사)
         raise DomainError("osm_failed", str(exc))
     # OSM에는 국내 '무벽·가건물' 구분이 없다 — include_minor_buildings와 무관하게 전부 넣는다
@@ -890,6 +892,9 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
                       "buildings": height["n"], "lots": 0, "sheets": [], "sheets_needed": [], "align": _get_align_stats([]), "mismatch_count": 0}
     source_ids = {s.source_id for s in context.sources}
     pack_label = "·".join(data_pack.get_pack_label(i) for i in sorted(source_ids & set(data_pack.get_pack_source_ids())))   # PLATEAU 등
+    if "osm_detail_missing" in getattr(context, "notes", []):   # 디테일 질의만 실패 — 본 모델은 그대로
+        warnings.append(_warning("info", "osm_detail_missing", tr("OSM 서버가 붐벼 가로수·담·횡단보도를 빼고 만들었습니다"),
+                                 tr("잠시 뒤 다시 만들면 들어갑니다. 3D 설정에서 끄면 묻지 않습니다.")))
     if "osm" not in source_ids:   # Overpass가 막혔다 — 팩 건물·지형만(osm_context.load)
         warnings.append(_warning("warn", "osm_missing", tr("OpenStreetMap을 받지 못해 도로·수계·녹지 없이 만들었습니다"),
                                  tr("{0} 건물과 지형만 들어 있습니다. 잠시 뒤 다시 만들면 도로·수계·녹지가 들어갑니다.", pack_label)))

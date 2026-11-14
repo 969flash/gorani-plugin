@@ -275,6 +275,7 @@ label.chk:has(input:disabled):hover input[type="checkbox"] { border-color: var(-
 .trow .tval { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trow .total { font-size: 14px; line-height: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .trow .end { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.trow .chks { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 0 14px; }   /* 디테일 체크 — 줄 이름 옆에 감아 넣는다 */
 .tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 4px calc(var(--lbl) + var(--lbl-gap)); }
 .tname { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; height: 28px; margin-left: -8px; padding: 0 8px; border: 0; border-radius: 8px; background: none; color: var(--ink); }
 .tname:hover { background: var(--hover); }
@@ -625,7 +626,14 @@ var DEFAULTS = { lang: "en", output_lang: null, region: null, mode: "lots", plac
   make_basemap: false, paper: "A3", paper_mm: [420, 297], scales: [5000], basemap_layers_on: [], basemap_preset: "a3",
   make_sheets: false, sheet_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24], floor_breaks: [12, 20], elev_preset: "20m",
   make_tables: false, include_minor_buildings: false,
-  include_zoning: true, terrain_vertex_color: false, terrain_step: 0, terrain_block: true, geometry_type: "mesh", make_dwg: false, zoom_after_import: true, style: { preset: "std" }, update_later_date: "", closed_notices: [] };
+  include_zoning: true, terrain_vertex_color: false, terrain_step: 0, terrain_block: true, geometry_type: "mesh", make_dwg: false, zoom_after_import: true, style: { preset: "std" }, update_later_date: "", closed_notices: [],
+  detail_curb: true, detail_markings: true, detail_rail: true, detail_bridges: true, detail_walls: true, detail_fences: false, detail_trees: true, building_parapet: false, building_floors: false };
+// 디테일 켜고 끄기 — [줄 이름, [키, 이름, 설명]] (constants.DETAIL_OPTIONS). 공공데이터 기준일·정합이 제각각이라 끌 수 있게(2026-11-13 사용자)
+var DETAIL_ROWS = [["가로", [["detail_curb", "연석", "차도를 15 cm 내려 인도와 단차를 둡니다"], ["detail_markings", "노면표시", "서울은 2021년 자료라 바뀐 곳이 있을 수 있습니다"],
+    ["detail_trees", "가로수", "서울 가로수 위치정보, 해외는 OSM"]]],
+  ["구조물", [["detail_bridges", "교량·고가", "교량 위 표고점이 없으면 높이를 추정합니다"], ["detail_rail", "선로", ""], ["detail_walls", "옹벽", "수치지형도 옹벽 — 높이는 양쪽 지형 차로 정합니다"],
+    ["detail_fences", "담장", "주거지는 객체가 많아집니다"]]],
+  ["건물", [["building_parapet", "파라펫", ""], ["building_floors", "층 구분선", "층고는 높이 ÷ 지상층수"]]]];
 // 3D 생성(generate)에 늘 덮어 보내는 값 — 화면에 없는 옵션이 옛 prefs로 몰래 켜지지 않게(docs/ui_spec.md §3.4). 2D는 결과 화면 make_2d가 만든다
 var FIXED_3D = { make_basemap: false, make_sheets: false, make_tables: false, make_dwg: false, import_after: true, zoom_after_import: true, include_minor_buildings: false, include_zoning: true, site_output: "mesh" };
 var KEYS_2D = ["output_lang", "make_basemap", "paper", "paper_mm", "scales", "basemap_layers_on", "make_dwg", "make_sheets", "sheet_ids", "floor_breaks", "elev_preset", "make_tables", "style"];
@@ -947,6 +955,12 @@ function settingsHtml(open) {
     (canSite ? row("", '<label class="chk"><input type="checkbox" name="flatten_site"' + (o.flatten_site ? " checked" : "") + ">" + tr("대상지 땅 평평하게") + "</label>" +   // 지형 옵션 — 대상지 경계 안의 땅을 한 높이로(필지·구역만)
         '<select class="sm" name="flatten_level" id="flatten_level" aria-label="' + tr("평평하게 할 높이") + '"' + (o.flatten_site ? "" : " hidden") + ">" +
         [["mean", "경계 평균 높이"], ["min", "경계 최저 높이"], ["max", "경계 최고 높이"]].map(function (x) { return '<option value="' + x[0] + '"' + (o.flatten_level === x[0] ? " selected" : "") + ">" + tr(x[1]) + "</option>"; }).join("") + "</select>") : "") +
+    DETAIL_ROWS.map(function (r) {
+      return row(tr(r[0]), '<div class="chks">' + r[1].map(function (d) {
+        var on = o[d[0]] === undefined ? DEFAULTS[d[0]] : !!o[d[0]];
+        return '<label class="chk"' + (d[2] ? ' title="' + tr(d[2]) + '"' : "") + '><input type="checkbox" name="' + d[0] + '"' + (on ? " checked" : "") + ">" + tr(d[1]) + "</label>";
+      }).join("") + "</div>");
+    }).join("") +
     (HOST.brep ? row(tr("형상"), '<div class="seg" role="radiogroup" aria-label="' + tr("3D 형상") + '">' +
       SEG("geometry_type", "mesh", "Mesh", (o.geometry_type !== "brep" ? " checked" : "") + ' title="' + tr("가볍고 빠릅니다") + '"') +
       SEG("geometry_type", "brep", "Brep", (o.geometry_type === "brep" ? " checked" : "") + ' title="' + tr("건물은 닫힌 폴리서피스로 냅니다. 파일이 무겁고 오래 걸립니다") + '"') + "</div>") : "") +
@@ -961,6 +975,10 @@ function updateSummaries() {
     if (o.terrain_block === false) p.push(tr("지형 표면만"));   // 기본(채움)은 요약에 쓰지 않는다
     if (HOST.brep && o.geometry_type === "brep") p.push("Brep");   // 기본(Mesh)은 요약에 쓰지 않는다
     if ((state.mode === "lots" || state.mode === "area") && o.flatten_site) p.push(tr("대상지 땅 평평하게"));
+    DETAIL_ROWS.forEach(function (r) { r[1].forEach(function (d) {   // 기본값과 다른 디테일만 — 켠 것은 이름, 끈 것은 '… 끔'
+      var on = o[d[0]] === undefined ? DEFAULTS[d[0]] : !!o[d[0]];
+      if (on !== DEFAULTS[d[0]]) p.push(on ? tr(d[1]) : tr("{0} 끔", tr(d[1])));
+    }); });
     s.textContent = p.join(", ");
   }
   var rh = $("radius_hint"); if (rh) rh.hidden = !(sizeOf(o) > 1000);

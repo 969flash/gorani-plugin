@@ -33,8 +33,10 @@ if geometry is None:
 import constants
 import context_report
 import non_rhino_utils
-from context_geometry import (CLASS_LAYERS, GROUND_CLASSES, SITE_CUT_CLASSES, SITE_LAYERS, SITE_ORIGINAL_CLASSES, TOPO_SOURCE_ID, ContextGeo, NearestXYZ, get_building_attrs, get_building_parts, get_class_polygons,
-                              get_clip_ring, get_clipped_curves, get_parts, get_tin_points, get_zoning_rings)
+from context_geometry import (CLASS_LAYERS, GROUND_CLASSES, SITE_CUT_CLASSES, SITE_LAYERS, SITE_ORIGINAL_CLASSES, TOPO_SOURCE_ID, ContextGeo, NearestXYZ,
+                              get_bridge_decks, get_building_attrs, get_building_parts, get_class_polygons, get_clip_ring, get_clipped_curves, get_deck_attrs,
+                              get_deck_z, get_detail, get_detail_meshes, get_pier_check, get_roof_details, get_structure_lines, get_trees, get_marking_style, get_marking_z, get_markings, get_parts, get_platform_levels, get_rail_detail, get_tin_points,
+                              get_zoning_rings, split_on_decks)
 from i18n import tr
 
 _DOWN = Vector((0.0, 0.0, -1.0)) if geometry is not None else None
@@ -407,6 +409,7 @@ def build_terrain(prepared):
                 state[1 if outer else 2] = True
         best = min(((prio, index) for (index, _p), (prio, outer, hole) in parts.items() if outer and not hole), default=None)
         cls = constants.TERRAIN_CLASS_PRIORITY[best[0]] if best else "terrain"
+        cls = constants.TERRAIN_CLASS_MESH.get(cls, cls)
         if site_cut and cls in SITE_CUT_CLASSES and any(i >= site_start for i in inside):
             cls = SITE_CUT_CLASSES[cls]
         buckets.setdefault(cls, []).append(tri)
@@ -422,8 +425,8 @@ def build_terrain(prepared):
 
     meshes = {}
     for cls in GROUND_CLASSES:
-        if buckets.get(cls):
-            meshes[cls] = _get_mesh(buckets[cls], xy, zs)
+        if buckets.get(cls):   # 조각 이음매의 mm 어긋난 정점을 하나로 — SketchUp이 차도·철도부지 안에 선을 그렸다
+            meshes[cls] = non_rhino_utils.get_welded_mesh(*_get_mesh(buckets[cls], xy, zs), tol=constants.MESH_WELD)
     # 수면 — 고인 물은 평평하게, 흐르는 물은 물가를 따라 기울게(non_rhino_utils.get_water_surface) + WATER_LIFT, 물가 정점 = 수위
     order = sorted(water_regions)
     water_bodies = []
@@ -433,7 +436,8 @@ def build_terrain(prepared):
             draped, [polys[i][3] for i in order], _get_local_ring(ext_ring, origin),
             constants.WATER_SHORE_WINDOW, constants.WATER_MAX_GRADE, constants.WATER_SURFACE_CELL)
         lift = constants.WATER_LIFT
-        meshes["water"] = _join([([(x, y, z + lift) for x, y, z in verts], body[1]) for verts, body in zip(surfaces, draped)])
+        meshes["water"] = non_rhino_utils.get_welded_mesh(*_join([([(x, y, z + lift) for x, y, z in verts], body[1]) for verts, body in zip(surfaces, draped)]),
+                                                          tol=constants.MESH_WELD)   # 조각 이음매를 한 정점으로 — SketchUp이 이음매를 선으로 그렸다
         water_bodies = [{"name": polys[i][1], "still": polys[i][3], "level": round(low, 2), "level_max": round(high, 2), "faces": len(body[1])}
                         for i, body, (low, high) in zip(order, draped, levels)]
         shore = non_rhino_utils.WaterShore(meshes["water"])   # 물가선 = 수위 — 지형·도로가 물가에서 비탈로 오른다
@@ -448,6 +452,11 @@ def build_terrain(prepared):
             if cls in meshes:
                 meshes[cls] = non_rhino_utils.get_stepped_mesh(*meshes[cls], step=step)
         counts.update(terrain_step=step, step_s=round(time.time() - t, 3))
+    elif "road" in meshes and constants.CURB_HEIGHT > 0 and get_detail(prepared, "detail_curb"):   # 차도를 연석 높이만큼 내리고 옆면(context_geometry.build_terrain과 같다)
+        meshes["road"], walls = non_rhino_utils.get_curb(meshes["road"], _get_local_ring(ext_ring, origin), constants.CURB_HEIGHT)
+        if walls[1]:
+            meshes["curb"] = walls
+        counts.update(curb_height=constants.CURB_HEIGHT, curb_faces=len(walls[1]))
 
     # 대상지 — 면 출력: 대상지 안 지형·녹지 = 대상지 면(Site::ground), 같은 모양 원래 지형·녹지는 꺼 둔 Site::original / 평평하게: 평탄면 + 벽 + 원지형 사본(숨김 컬렉션)
     if site_cut:
@@ -456,7 +465,7 @@ def build_terrain(prepared):
             meshes["site_ground"] = _join(list(originals.values()))
             meshes.update(originals)
             counts["site_output"] = "mesh"
-    ground_parts = [meshes[cls] for cls in ("terrain", "road", "green", "rail") if cls in meshes]
+    ground_parts = [meshes[cls] for cls in ("terrain", "sidewalk", "road", "green", "rail") if cls in meshes]
     if site_cut and "site_ground" in meshes:
         ground_parts.append(meshes["site_ground"])
     if buckets.get("site"):
@@ -482,18 +491,18 @@ def build_terrain(prepared):
         raise RuntimeError(tr("범위 안 지형 면이 없습니다"))
     clip = get_clip_ring(prepared) if (prepared.request.get("options") or {}).get("terrain_block") else None
     if clip is not None:   # 지형을 바닥까지 채우기 — 윗면 범위 경계에서 바닥까지 옆면·바닥면(context_geometry.build_terrain과 같은 규칙)
-        tops = [meshes[k] for k in ("terrain", "road", "green", "rail", "water", "site_ground") if k in meshes]
+        tops = [meshes[k] for k in GROUND_CLASSES + ("water", "site_ground") if k in meshes]
         base = non_rhino_utils.get_block_base(min(v[2] for verts, _faces in tops for v in verts), clip)
         block = non_rhino_utils.get_block_skirt(tops, [(x - ox, y - oy) for x, y in clip], base)
         if block[1]:
             meshes["block"] = block
         counts["block_base"] = base
     if "water" in meshes:   # 남은 수면 단차(보·댐·평탄화 대상지)를 세로 벽으로 막아 지형에 붙인다(non_rhino_utils.get_water_walls)
-        walls = non_rhino_utils.get_water_walls(meshes["water"], [meshes[k] for k in ("terrain", "road", "green", "rail", "site_ground") if k in meshes])
+        walls = non_rhino_utils.get_water_walls(meshes["water"], [meshes[k] for k in GROUND_CLASSES + ("site_ground",) if k in meshes])
         if walls[1]:
             meshes["terrain"] = _join([meshes.get("terrain", ([], [])), walls])
         counts["water_walls"] = len(walls[1])
-    surfaces = ("terrain", "road", "green", "rail", "site_ground")
+    surfaces = GROUND_CLASSES + ("site_ground",)
     counts["faces"] = sum(len(m[1]) for k, m in meshes.items() if k in surfaces)
     counts["quads"] = 0
     counts["faces_by_class"] = {k: len(m[1]) for k, m in meshes.items() if k != "all"}
@@ -511,6 +520,8 @@ def _get_terrain_items(meshes, counts):
             attrs = {"SRC": TOPO_SOURCE_ID, "RESAMPLE_M": "%g" % constants.TERRAIN_RESAMPLE, "N_POINTS": str(counts["tin_points"])}
         elif cls == "block":
             attrs = {"KIND": "block", "BASE_M": "%g" % counts["block_base"]}
+        elif cls == "curb":
+            attrs = {"KIND": "curb", "HEIGHT_M": "%g" % counts["curb_height"]}
         elif cls == "water":
             bodies = counts["water_bodies"]
             attrs = {"NAME": "; ".join(b["name"] for b in bodies),
@@ -577,7 +588,7 @@ def build_buildings(prepared, ground):
     surface = _Ground(*ground)
     counts = {"buildings_in_extent": len(buildings), "fallback_nearest": 0, "fallback_skipped": 0, "extrude_failed": 0, "parts": 0, "slope_flagged": 0,
               "clipped": clipped}
-    verts, faces, ids, heights, floors = [], [], [], [], []
+    verts, faces, ids, heights, floors, roofs = [], [], [], [], [], []
     # [blender-cut]
     prisms = []
     # [/blender-cut]
@@ -599,6 +610,7 @@ def build_buildings(prepared, ground):
             counts["fallback_nearest"] += 1
         slope = top - base_z > constants.BUILDING_SLOPE_FLAG
         counts["slope_flagged"] += slope
+        roofs.append((parts, base_z, float(b.height_m), b.grnd_flr))   # 옥상 파라펫·층 구분선(디테일 옵션)
         # [blender-cut] SketchUp(면 채우기 없음)은 동마다 각기둥 하나(prisms)로 넘긴다 — 구멍 있는 면·옆면은 SketchUp이 만든다
         if geometry is None:
             prisms.append((parts, base_z, float(b.height_m), get_building_attrs(b, b.height_src + ("~slope" if slope else "")), b.bld_nm))
@@ -628,11 +640,95 @@ def build_buildings(prepared, ground):
         items.append(BakeItem(_layer("Buildings"), "buildings", verts=verts, faces=faces,
                               attrs={"COUNT": str(counts["buildings"]), "HEIGHT_SRC": "see tables/buildings.csv"},
                               face_attrs={"building_id": ids, "height": heights, "floors": floors}))
+    parapet, floor_rings = get_roof_details(prepared, roofs)
+    if parapet:
+        items.append(BakeItem(_layer("Buildings::parapet"), "parapet", verts=parapet[0], faces=parapet[1],
+                              attrs={"KIND": "parapet", "HEIGHT_M": "%g" % constants.PARAPET["height"]}))
+    if floor_rings:
+        items.append(BakeItem(_layer("Buildings::floors"), "floor_lines", polylines=floor_rings, attrs={"KIND": "floor_line"}))
+    counts.update(parapet_faces=len(parapet[1]) if parapet else 0, floor_lines=len(floor_rings))
     warnings = []
     if skipped:
         warnings.append({"level": "warn", "code": "skipped", "text": tr("건물 {0}동 건너뜀 — 투영·압출 실패", len(skipped)),
                          "detail": ", ".join(skipped[:20]), "action": None, "center": None})
     return items, counts, skipped, warnings
+
+
+def build_bridges(prepared, ground_z, on_road=None):
+    # type: (object, object, object) -> tuple
+    """교량·고가 상판·난간·교각 → ``(items, decks, counts)`` (context_geometry.build_bridges와 같은 규칙·레이어 — 상판마다 객체, 난간·교각은 레이어마다 하나)."""
+    to_local = lambda ring: [(x, y) for x, y, _z in get_local_pts(ring, prepared.origin)]
+    decks = get_bridge_decks(prepared, to_local, ground_z)
+    if not decks:
+        return [], [], {}
+    ext = to_local(prepared.extent_ring)
+    triangulate = lambda rings, loose: _get_cdt(rings, loose, constants.CDT_EPSILON)[:2]
+    items, rest = [], {}
+    for deck in decks:
+        meshes = non_rhino_utils.get_bridge_meshes([deck], triangulate, ext, constants.BRIDGE_STEP, get_pier_check(deck, decks, on_road))
+        if meshes["deck"][1]:
+            items.append(BakeItem(_layer("Bridges::deck"), ", ".join(deck.names) or deck.kind, verts=meshes["deck"][0], faces=meshes["deck"][1], attrs=get_deck_attrs(deck)))
+        non_rhino_utils.merge_meshes(rest, {key: meshes[key] for key in ("parapet", "pier")})
+    items += [BakeItem(_layer("Bridges::" + key), key, verts=mesh[0], faces=mesh[1], attrs={"KIND": key}) for key, mesh in sorted(rest.items()) if mesh[1]]
+    return items, decks, {"bridge_decks": len(decks), "bridge_spot_decks": sum(d.src == "spot" for d in decks), "bridge_piers": len(rest.get("pier", ([], []))[1]) // 4}
+
+
+def build_rail(prepared, z_of, decks=()):
+    # type: (object, tuple, list) -> tuple
+    """선로(자갈 도상·레일·침목)·승강장·승강장 지붕 → ``(items, counts)`` (context_geometry.build_rail과 같은 규칙·레이어 — 상판 위 구간은 상판 윗면에).
+    승강장은 Blender면 종류마다 메시 하나, SketchUp이면 각기둥(prisms)."""
+    lines, platforms = get_rail_detail(prepared)
+    if not lines and not platforms:
+        return [], {}
+    origin = prepared.origin
+    local = [([(x, y) for x, y, _z in get_local_pts(line, origin)], gauge) for line, gauge in lines]
+    ground, on_deck = split_on_decks(local, list(decks), constants.RAIL_STEP, "rail")
+    tracks = non_rhino_utils.get_track_meshes(ground, z_of, constants.RAIL_TRACK, constants.RAIL_STEP, constants.RAIL_SMOOTH)
+    for k, runs in on_deck.items():
+        non_rhino_utils.merge_meshes(tracks, non_rhino_utils.get_track_meshes(runs, decks[k].top_z, constants.RAIL_TRACK, constants.RAIL_STEP, constants.RAIL_SMOOTH))
+    plat_z = get_deck_z(list(decks), z_of, "rail")
+    items = [BakeItem(_layer("Rail::" + key), key, verts=mesh[0], faces=mesh[1], attrs={"KIND": key, "TRACKS": str(len(local))})
+             for key, mesh in tracks.items() if mesh[1]]
+    for kind in ("platform", "roof"):
+        verts, faces = [], []
+        # [blender-cut]
+        prisms = []
+        # [/blender-cut]
+        for _kind, part, name in (p for p in platforms if p[0] == kind):
+            rings = [_get_local_ring(ring, origin) for ring in part]
+            base, height = get_platform_levels(rings, plat_z, kind)
+            # [blender-cut]
+            if geometry is None:
+                prisms.append(([rings], base, height, {"KIND": kind, "NAME": name, "TOP_M": "%.2f" % (base + height)}, name))
+                continue
+            # [/blender-cut]
+            _add_prism(verts, faces, rings, base, height)
+        # [blender-cut]
+        if prisms:
+            items.append(BakeItem(_layer("Rail::" + kind), kind, prisms=prisms, attrs={"KIND": kind}))
+        # [/blender-cut]
+        if faces:
+            items.append(BakeItem(_layer("Rail::" + kind), kind, verts=verts, faces=faces, attrs={"KIND": kind}))
+    track_m = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for line, _g in local for a, b in zip(line, line[1:]))
+    return items, {"rail_tracks": len(local), "rail_track_m": round(track_m), "rail_platforms": len(platforms)}
+
+
+def build_markings(prepared, z_of, counts, decks=()):
+    # type: (object, tuple, dict, list) -> list
+    """노면표시 → 색마다 메시 하나 'CTX::Roads::marking_<색>' (context_geometry.build_markings와 같다 — 상판 위 차선은 상판 윗면에)."""
+    lines, crosswalks = get_markings(prepared)
+    if not lines and not crosswalks:
+        return []
+    origin = prepared.origin
+    to_local = lambda ring: [(x, y) for x, y, _z in get_local_pts(ring, origin)]
+    style = get_marking_style()
+    ground, on_deck = split_on_decks([(to_local(line), kind, color, pattern) for line, kind, color, pattern in lines], list(decks), style["step"])
+    meshes = non_rhino_utils.get_marking_meshes(ground, [to_local(ring) for ring in crosswalks], z_of, style)
+    for k, runs in on_deck.items():
+        non_rhino_utils.merge_meshes(meshes, non_rhino_utils.get_marking_meshes(runs, [], decks[k].top_z, style))
+    counts.update(marking_lines=len(lines), crosswalks=len(crosswalks))
+    return [BakeItem(_layer("Roads::marking_" + color), "marking_" + color, verts=mesh[0], faces=mesh[1],
+                     attrs={"KIND": "marking", "COLOR": color, "SRC": "seoul_traffic_safety"}) for color, mesh in sorted(meshes.items()) if mesh[1]]
 
 
 # ── 커브 ───────────────────────────────────────────────────
@@ -706,6 +802,21 @@ def build(prepared):
     items = _get_terrain_items(meshes, counts)
     b_items, b_counts, skipped, warnings = build_buildings(prepared, meshes["all"])
     items += b_items
+    ground = _Ground(*meshes["all"])   # 선로가 쓰는 최종 지반 높이(차도는 내린 뒤)
+    road = meshes.get("road")
+    road_surface = _Ground(*road) if road and road[1] else None
+    on_road = (lambda x, y: road_surface.hit_z(x, y) is not None) if road_surface else None
+    d_items, decks, d_counts = build_bridges(prepared, ground.get_z, on_road) if get_detail(prepared, "detail_bridges") else ([], [], {})
+    r_items, r_counts = build_rail(prepared, ground.get_z, decks) if get_detail(prepared, "detail_rail") else ([], {})
+    to_local = lambda line: [(x, y) for x, y, _z in get_local_pts(line, prepared.origin)]
+    detail, t_counts = get_detail_meshes(prepared, to_local, ground.get_z)   # 옹벽·담장·가로수
+    items += [BakeItem(_layer(layer), layer.rpartition("::")[2].lower(), verts=mesh[0], faces=mesh[1], attrs={"KIND": layer.rpartition("::")[2].lower()})
+              for layer, mesh in sorted(detail.items())]
+    counts.update(t_counts)
+    items += d_items + r_items + (build_markings(prepared, get_marking_z(road_surface, road[0] if road else [], ground), r_counts, decks)
+                                  if get_detail(prepared, "detail_markings") else [])
+    counts.update(r_counts)
+    counts.update(d_counts)
     curve_items = build_curves(prepared)
     items += curve_items
     counts.update(b_counts)

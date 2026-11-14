@@ -367,6 +367,8 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
  "terrain_vertex_color":false,
  "terrain_step":0,                                     // 지형 표현(③ 지형): 0 = 매끈, 1|2|5 = 계단형(등고 모형) 단 간격 m. 지반·수면 메시를 단마다 수평면 + 수직 벽으로, 건물 바닥도 계단 지반 기준
  "terrain_block":true,                                 // 지형을 바닥까지 채우기: 지형 옆면·바닥(CTX::Terrain::block, BASE_M). 건물·필지·도로중심선·용도지역은 이 값과 상관없이 늘 범위 링으로 자른다(원·사각형 범위만). 끄면 3D 설정 요약에 '지형 표면만'. 입체 매스도는 style.axo_ground
+ "detail_curb":true,"detail_markings":true,"detail_rail":true,"detail_bridges":true,"detail_walls":true,"detail_fences":false,"detail_trees":true,   // 디테일(3D 설정 '가로·구조물·건물' 체크, constants.DETAIL_OPTIONS — 2026-11-13). 기본과 다르면 요약에 이름 또는 '… 끔'
+ "building_parapet":false,"building_floors":false,     // 옥상 파라펫·층 구분선
  "geometry_type":"mesh",                               // 3D 형상(Rhino 8만 — host.brep): mesh = 동별·분류별 Mesh(기본), brep = 건물은 닫힌 폴리서피스(Extrusion.ToBrep), 지형·수면·대상지 바닥·덩어리는 같은 평면인 메시 면을 평면 면 하나로 묶고 나머지는 메시 면 하나 = Brep 면 하나(context_geometry.get_mesh_brep — 모양·면적은 메시와 같다). 변환 실패한 분류는 메시로 남기고 warn brep_failed. Brep이면 3D 설정 요약에 'Brep'
  "make_dwg":false,                                     // 3dm 2D 도면(BM::)만 basemap_<축척>.dwg로도 저장(고급 > 3dm). 결과 경로는 done.context.dwg
  "zoom_after_import":true,
@@ -378,7 +380,7 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
 
 2026-10-19: `make_basemap`·`make_sheets`·`make_tables` 기본 false(3D 먼저). 패널은 `generate`에 이 셋과 `make_dwg`를 false로(DWG는 2D 카드의 베이스맵 'DWG로도 저장' → `make_2d`), `import_after`·`zoom_after_import`를 true로, `include_minor_buildings`를 false로 고정해 보낸다 — prefs의 `make_*`는 결과 화면 2D 카드 체크의 마지막 값이고 `make_2d`가 쓴다. `shape`가 circle·rect가 아니면(옛 prefs) 패널이 circle로 바꾼다.
 
-28개. 모르는 키는 Python이 무시하고 빠진 키는 기본값(constants)으로 채운다. `generate`는 `pnus`를 옵션 밖 별도 키로 받는다(옵션은 대상지와 독립이어야 prefs로 재사용된다). **`scales`는 `generate`에도 포함한다**(code_map §3: 가장 큰 프레임이 질의 범위) — dirty 판정에서는 여전히 제외.
+37개(디테일 9개 포함). 모르는 키는 Python이 무시하고 빠진 키는 기본값(constants)으로 채운다. `generate`는 `pnus`를 옵션 밖 별도 키로 받는다(옵션은 대상지와 독립이어야 prefs로 재사용된다). **`scales`는 `generate`에도 포함한다**(code_map §3: 가장 큰 프레임이 질의 범위) — dirty 판정에서는 여전히 제외.
 
 ## 상태 머신
 

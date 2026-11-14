@@ -24,6 +24,11 @@ module BSH
     DEBUG = false                           # true면 실패를 Ruby 콘솔에도(EW 요건 'Printing to the Console' — 평소에는 패널·사이드카 로그로만)
     RPC = %w[get_model_attrs set_model_attrs clear bake ref save zoom import pick_curve].freeze
     TERRAIN_SMOOTH = Geom::PolygonMesh::AUTO_SOFTEN | Geom::PolygonMesh::SMOOTH_SOFT_EDGES
+    HIDDEN_EDGE_LAYER = "CTX::Roads::marking_"   # 테두리 선을 숨기는 레이어(태그) 앞부분
+    # 모서리를 살리는 레이어 — 지형처럼 다 부드럽게 하면 교각·난간·옹벽 상자가 둥글게 뭉개졌다(Windows SketchUp 2027, 2026-11-13).
+    # 이 레이어는 거의 평평한 이음매(CRISP_ANGLE 미만 — 상판 윗면 삼각형)만 부드럽게 한다
+    CRISP_LAYERS = %w[CTX::Bridges CTX::Buildings::parapet CTX::Walls CTX::Rail::platform CTX::Rail::roof CTX::Roads::curb].freeze
+    CRISP_ANGLE = 20.degrees
     LOG_DIR = File.join(Dir.home, "Gorani")   # 사이드카 constants.HOME_DIR과 같은 자리
     SIDECAR_START_SECONDS = 90   # 사이드카가 주소를 줄 때까지 기다리는 상한(타이머로 — SketchUp을 막지 않는다). 첫 실행은 백신 검사·.pyc 읽기로 느리다
     # 사이드카가 주소를 주기 전 창에 보이는 화면 — 패널(DESIGN.md)과 같은 색·글꼴. Ruby 문구는 영어 하나(번역 사전은 사이드카 몫)
@@ -262,14 +267,24 @@ module BSH
       Geom::Point3d.new(x * M, y * M, z * M)
     end
 
-    def self.add_mesh(entities, verts, faces)
+    def self.add_mesh(entities, verts, faces, hide_edges = false, crisp = false)
       mesh = Geom::PolygonMesh.new(verts.size, faces.size)
       index = verts.map { |x, y, z| mesh.add_point(point(x, y, z)) }   # 같은 자리 점은 앞 번호를 돌려준다
       faces.each do |face|
         ids = face.map { |i| index[i] }
         mesh.add_polygon(*ids) if ids.uniq.size >= 3
       end
-      entities.fill_from_mesh(mesh, true, TERRAIN_SMOOTH)
+      entities.fill_from_mesh(mesh, true, crisp ? 0 : TERRAIN_SMOOTH)
+      if crisp
+        entities.grep(Sketchup::Edge).each do |edge|
+          pair = edge.faces
+          next unless pair.size == 2 && pair[0].normal.angle_between(pair[1].normal) < CRISP_ANGLE
+          edge.soft = true
+          edge.smooth = true
+        end
+      end
+      # 노면표시 — 15 cm 띠의 테두리 선이 면보다 굵게 그려져 차선이 검은 점선으로 보였다(Windows SketchUp 2027, 2026-11-08)
+      entities.grep(Sketchup::Edge).each { |edge| edge.hidden = true } if hide_edges
     end
 
     # 동 하나 = 그룹 하나. 파트마다 바닥(아래를 본다)·지붕·옆면. 링은 전부 반시계 — 옆면은 구멍 링을 뒤집어 법선이 바깥(구멍 쪽)을 보게 한다
@@ -324,7 +339,8 @@ module BSH
         group.set_attribute(DICT, LAYER_KEY, item["layer"])
         set_attrs(group, item["attrs"])
         if !item["faces"].empty?
-          add_mesh(group.entities, item["verts"], item["faces"])
+          add_mesh(group.entities, item["verts"], item["faces"], item["layer"].start_with?(HIDDEN_EDGE_LAYER),
+                   CRISP_LAYERS.any? { |layer| item["layer"].start_with?(layer) })
         elsif !item["prisms"].empty?
           add_prisms(group.entities, item["prisms"])
         else

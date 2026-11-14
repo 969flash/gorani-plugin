@@ -586,3 +586,158 @@ class BufferedLineTest(unittest.TestCase):
         self.assertFalse(u.is_point_in_ring(15, 7, hairpin))
         self.assertIsNone(u.get_buffered_line_ring([(0, 0), (0, 0)], 10))
         self.assertIsNone(u.get_buffered_line_ring([(0, 0), (1, 1)], 0))
+
+
+
+class StreetDetailTest(unittest.TestCase):
+    """가로·철도 디테일(2026-11-08) — 연석(차도 내리기)·선로 단면·노면표시."""
+
+    def test_curb(self):
+        road = ([(0, 0, 1), (10, 0, 1), (20, 0, 1), (0, 10, 1), (10, 10, 1), (20, 10, 1)], [(0, 1, 4, 3), (1, 2, 5, 4)])
+        (verts, faces), (wall_verts, wall_faces) = u.get_curb(road, [(0, 0), (20, 0), (20, -50), (0, -50)], 0.15)
+        self.assertEqual(faces, road[1])
+        self.assertTrue(all(abs(z - 0.85) < 1e-9 for _x, _y, z in verts))
+        self.assertEqual(len(wall_faces), 4)   # 경계 변 6개 중 범위 링(y=0) 위 2개는 지형 옆면이 막는다
+        for face in wall_faces:   # 옆면은 차도 쪽(안쪽)을 본다
+            a, b, c = (wall_verts[i] for i in face[:3])
+            nx, ny = (b[1] - a[1]) * (c[2] - b[2]), -(b[0] - a[0]) * (c[2] - b[2])
+            self.assertGreater(nx * (10 - (a[0] + b[0]) / 2) + ny * (5 - (a[1] + b[1]) / 2), 0)
+        self.assertEqual(u.get_curb(road, [], 0.0), (road, ([], [])))
+        # 차도 안 실금 — 가운데 변 정점이 0.1 mm 어긋나 두 벌(삼각분할 겹친 경계). 그 변에는 연석을 세우지 않는다
+        cracked = ([(0, 0, 1), (10, 0, 1), (0, 10, 1), (10, 10, 1), (10.0001, 0, 1), (20, 0, 1), (10.0001, 10, 1), (20, 10, 1)], [(0, 1, 3, 2), (4, 5, 7, 6)])
+        _road, (_v, walls) = u.get_curb(cracked, [(0, 0), (20, 0), (20, -50), (0, -50)], 0.15)
+        self.assertEqual(len(walls), 4)   # 바깥 둘레(위 변 둘·양 끝 둘)만
+
+    def test_line_runs(self):
+        runs = u.get_line_runs([(0, 0), (100, 0)], lambda x, y: 40 < x < 60, 2.0)
+        self.assertEqual([(r[0][0], r[-1][0]) for r in runs], [(0.0, 40.0), (60.0, 100.0)])
+
+    def test_track_meshes(self):
+        dims = constants.RAIL_TRACK
+        out = u.get_track_meshes([([(0, 0), (100, 0)], 1.435)], lambda x, y: 10.0, dims, 5.0, 30.0)
+        rails = out["rails"][0]
+        self.assertAlmostEqual(max(v[2] for v in rails), 10 + dims["ballast_height"] + dims["sleeper_rise"] + dims["rail_height"])
+        self.assertAlmostEqual(max(v[1] for v in rails) - min(v[1] for v in rails), 1.435 + 2 * dims["rail_width"])
+        self.assertEqual(len(out["sleepers"][1]), 5 * 167)   # 0.3 m부터 0.6 m마다 100 m 안 = 167개, 상자마다 5면
+        verts, faces = out["ballast"]
+        a, b, c = (verts[i] for i in faces[1][:3])   # 단면 둘째 변 = 윗면 — 위를 본다
+        self.assertGreater((b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]), 0)
+
+    def test_marking_meshes(self):
+        style = {"widths": constants.MARKING_WIDTHS, "dash": (3.0, 5.0), "gap": 0.1, "bar": (0.5, 0.5), "lift": {"white": 0.02, "yellow": 0.03}, "step": 3.0}
+        out = u.get_marking_meshes([([(0, 0), (16, 0)], "lane", "white", "dashed"), ([(0, 5), (10, 5)], "center", "yellow", "double")],
+                                   [[(0, 20), (20, 20), (20, 24), (0, 24)]], lambda x, y: 1.0, style)
+        verts, faces = out["white"]
+        dashes = sorted({round(verts[i][0], 3) for face in faces for i in face if verts[i][1] < 1})
+        self.assertEqual(dashes, [0.0, 3.0, 8.0, 11.0])   # 3 m 칠·5 m 빈칸, 16 m 끝은 빈칸 시작
+        self.assertEqual(sum(1 for face in faces if verts[face[0]][1] >= 20), 20 * 2 * 2)   # 20 m 횡단보도 = 줄무늬 20개(0.5·0.5), 길이 4 m를 step 3 m로 둘로, 조각마다 삼각형 둘
+        self.assertTrue(all(abs(v[2] - 1.02) < 1e-9 for v in verts))
+        self.assertEqual(sorted({round(v[1], 3) for v in out["yellow"][0]}), [4.8, 4.95, 5.05, 5.2])
+
+    def test_marking_no_coincident_corners(self):
+        """껍질로 자른 횡단보도 줄무늬에 겹친 꼭짓점이 남지 않는다(Rhino가 메시를 거절했다 — 2026-11-08 성수)."""
+        style = {"widths": constants.MARKING_WIDTHS, "dash": (3.0, 5.0), "gap": 0.1, "bar": (0.5, 0.5), "lift": {"white": 0.02, "yellow": 0.03}, "step": 3.0}
+        ring = [(0, 0), (12, 2), (11.5, 6), (-0.5, 4)]   # 비스듬한 횡단보도 — 줄무늬 끝이 껍질 꼭짓점에 걸친다
+        verts, faces = u.get_marking_meshes([], [ring], lambda x, y: 0.0, style)["white"]
+        for face in faces:
+            pts = [verts[i] for i in face]
+            self.assertTrue(all(math.hypot(a[0] - b[0], a[1] - b[1]) > 1e-6 for a, b in zip(pts, pts[1:] + pts[:1])), pts)
+
+    def test_welded_mesh(self):
+        """조각 이음매의 mm 어긋난 정점을 하나로 — 공유 변이 생기고 경계 변(SketchUp이 그리는 선)이 바깥 둘레만 남는다(2026-11-08)."""
+        a = ([(0, 0, 1), (10, 0, 1), (10, 10, 1), (0, 10, 1)], [(0, 1, 2, 3)])
+        b = ([(10.0004, 0, 1), (20, 0, 1), (20, 10, 1), (10.0002, 10.0003, 1)], [(0, 1, 2, 3)])
+        verts = a[0] + b[0]
+        faces = a[1] + [tuple(4 + i for i in f) for f in b[1]]
+        self.assertEqual(len(u._get_boundary_edges(verts, faces)), 8)   # 이음매가 양쪽 테두리로 남는다
+        welded = u.get_welded_mesh(verts, faces, 0.005)
+        self.assertEqual(len(welded[0]), 6)
+        self.assertEqual(len(u._get_boundary_edges(*welded)), 6)
+        sliver = u.get_welded_mesh([(0, 0, 0), (5, 0, 0), (5, 0.001, 0)], [(0, 1, 2)], 0.005)   # 이음매 납작한 틈 — 버린다
+        self.assertEqual(sliver[1], [])
+
+
+class BridgeTest(unittest.TestCase):
+    """교량·고가 상판(2026-11-13) — 축·끝점 가리기, 상판 높이(표고점·추정), 닫힌 상판 메시."""
+
+    RING = [(0.0, 0.0), (100.0, 0.0), (100.0, 10.0), (0.0, 10.0)]   # 100 m × 10 m 상판
+
+    @staticmethod
+    def fan(rings, _loose):   # 볼록 면만 — 무게중심 부채꼴(호스트 CDT 대신)
+        ring = rings[0]
+        cx, cy = sum(p[0] for p in ring) / len(ring), sum(p[1] for p in ring) / len(ring)
+        xy = [(cx, cy)] + list(ring)
+        return xy, [(0, i + 1, (i + 1) % len(ring) + 1) for i in range(len(ring))]
+
+    def test_axes(self):
+        ext = [(-200.0, -200.0), (300.0, -200.0), (300.0, 200.0), (-200.0, 200.0)]
+        lines = [[(-20.0, 5.0), (120.0, 5.0)],   # 상판을 따라 건너간다 — 축, 양 끝 땅
+                 [(50.0, -20.0), (50.0, 30.0)],  # 밑을 직각으로 건넌다 — 축 아님
+                 [(20.0, 3.0), (60.0, 3.0)]]     # 상판 안에서 끊긴 선 조각 — 축이지만 끝점 아님
+        axes, ends = u.get_bridge_axes([[self.RING]], lines, ext, 3.0, 3.0)
+        self.assertEqual(len(axes), 2)
+        self.assertEqual(len(ends), 2)
+        self.assertTrue(all(min(abs(x), abs(x - 100.0)) <= 3.0 for x, _y in ends))   # 테두리에서 조밀화 간격 안
+        rail_axes, _ = u.get_bridge_axes([[self.RING]], lines, ext, 3.0, 3.0, along_only=False)
+        self.assertEqual(len(rail_axes), 3)   # 선로는 나란하지 않아도 상판 위
+
+    def test_top_z(self):
+        ground = lambda x, y: 0.0
+        rule = u.BridgeDeck([[self.RING]], [], [(0.0, 5.0), (100.0, 5.0)], [], 6.0, 1.5, ground)
+        self.assertEqual(rule.src, "rule")
+        self.assertAlmostEqual(rule.top_z(50.0, 5.0), 50.0 * constants.BRIDGE_GRADE + constants.BRIDGE_LIFT)   # 끝점에서 경사로 오른다
+        self.assertLess(rule.top_z(1.0, 5.0), 0.5)
+        spot = u.BridgeDeck([[self.RING]], [], [(0.0, 5.0), (100.0, 5.0)], [(50.0, 5.0, 8.0), (60.0, 5.0, 0.5)], 6.0, 1.5, ground)
+        self.assertEqual((spot.src, len(spot.spots)), ("spot", 1))   # 지반에 붙은 표고점(교량 밑 도로)은 뺀다
+        self.assertAlmostEqual(spot.top_z(50.0, 5.0), 8.0)
+        self.assertTrue(spot.is_on(50.0, 5.0, 1.0, 0.0) and not spot.is_on(50.0, 5.0, 0.0, 1.0))   # 나란한 차선만 상판 위
+        self.assertTrue(spot.is_on(50.0, 5.0, 0.0, 1.0, "rail") is False)   # 도로 상판 위 선로는 없다
+
+    def test_meshes(self):
+        ext = [(-200.0, -200.0), (300.0, -200.0), (300.0, 200.0), (-200.0, 200.0)]
+        deck = u.BridgeDeck([[self.RING]], [[(0.0, 5.0), (100.0, 5.0)]], [], [(50.0, 5.0, 10.0)], 6.0, 1.5, lambda x, y: 0.0)
+        out = u.get_bridge_meshes([deck], self.fan, ext, 3.0)
+        verts, faces = out["deck"]
+        edges = {}
+        for face in faces:
+            for a, b in zip(face, face[1:] + face[:1]):
+                key = tuple(sorted((verts[a], verts[b])))
+                edges[key] = edges.get(key, 0) + 1
+        self.assertTrue(edges and all(n == 2 for n in edges.values()))   # 윗면·밑면·옆면이 닫힌 판
+        self.assertTrue(out["parapet"][1] and out["pier"][1])
+        self.assertTrue(all(abs(z - 10.0) < 1e-6 or abs(z - 8.5) < 1e-6 for _x, _y, z in verts))   # 끝점 없음 = 표고점 높이 그대로
+
+
+class DetailTest(unittest.TestCase):
+    """디테일(2026-11-13) — 파라펫·층선·옹벽·담장·가로수 메시."""
+
+    SQUARE = [(0.0, 0.0), (20.0, 0.0), (20.0, 20.0), (0.0, 20.0)]
+
+    def test_parapet(self):
+        verts, faces = u.get_parapet_mesh([([[self.SQUARE]], 30.0), ([[[(0, 0), (3, 0), (3, 3), (0, 3)]]], 9.0)], constants.PARAPET)
+        self.assertEqual(len(faces), 4 * 3)   # 작은 동(9 ㎡)은 빼고, 변마다 바깥·위·안
+        zs = sorted({z for _x, _y, z in verts})
+        self.assertEqual(zs, [30.0, 30.0 + constants.PARAPET["height"]])
+        inner = [(x, y) for x, y, z in verts if 0 < x < 20 and 0 < y < 20]
+        self.assertTrue(inner and all(abs(min(x, y, 20 - x, 20 - y) - constants.PARAPET["width"]) < 1e-6 for x, y in inner))   # 지붕 쪽으로 들인다
+
+    def test_floor_rings(self):
+        rings = u.get_floor_rings([([[self.SQUARE]], 10.0, 12.0, 4), ([[self.SQUARE]], 0.0, 3.0, 1)], 2)
+        self.assertEqual([round(pts[0][2], 3) for pts, _closed in rings], [13.0, 16.0, 19.0])   # 1층 위부터 지붕 아래까지, 단층은 뺀다
+
+    def test_retaining_wall(self):
+        step = lambda x, y: 10.0 if y > 0 else 6.0   # y = 0 선에서 4 m 단
+        verts, faces = u.get_retaining_wall_mesh([[(0.0, 0.0), (20.0, 0.0)]], step, constants.WALL)
+        self.assertTrue(faces)
+        self.assertAlmostEqual(max(z for _x, _y, z in verts), 10.0 + constants.WALL["coping"])
+        self.assertAlmostEqual(min(z for _x, _y, z in verts), 6.0 - constants.WALL["embed"])
+        self.assertEqual(u.get_retaining_wall_mesh([[(0.0, 0.0), (20.0, 0.0)]], lambda x, y: 5.0, constants.WALL), ([], []))   # 지형에 단이 없으면 세우지 않는다
+
+    def test_fence_and_trees(self):
+        verts, faces = u.get_fence_mesh([[(0.0, 0.0), (9.0, 0.0)]], lambda x, y: 2.0, constants.FENCE)
+        self.assertAlmostEqual(max(z for _x, _y, z in verts), 2.0 + constants.FENCE["height"])
+        trees = [(0.0, 0.0, "은행나무 암나무", None, None), (10.0, 0.0, "모르는나무", None, None), (20.0, 0.0, "", 15.0, 6.0)]
+        verts, faces = u.get_tree_mesh(trees, lambda x, y: 1.0, constants.TREES, constants.TREE_TRUNK)
+        tops = [max(z for x, _y, z in verts if abs(x - cx) < 5) for cx in (0.0, 10.0, 20.0)]
+        self.assertAlmostEqual(tops[0], 1.0 + constants.TREES["은행나무"][0])   # 수종 앞부분 일치(원뿔 꼭대기)
+        self.assertAlmostEqual(tops[2], 16.0)   # 데이터 높이가 있으면 그 값

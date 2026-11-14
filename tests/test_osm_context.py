@@ -335,6 +335,29 @@ class JapanTest(unittest.TestCase):
             finally:
                 osm_context.get_overpass_elements, osm_context.get_terrain_spots, osm_context.data_pack.get_data_dir = saved
 
+    def test_detail_query_apart(self):
+        """디테일(가로수 등)은 켠 것만 본 질의와 따로 — 본 질의는 그대로, 디테일 질의만 실패하면 notes에 osm_detail_missing(2026-11-13)."""
+        queries = []
+
+        def fetch(bounds, query=None, endpoints=None, on_wait=None):
+            queries.append(query)
+            if query and "natural" in query and "tree" in query:
+                raise RuntimeError("busy")
+            return []
+        saved = osm_context.get_overpass_elements, osm_context.get_terrain_spots
+        osm_context.get_overpass_elements, osm_context.get_terrain_spots = fetch, lambda bounds, today: ([], set())
+        try:
+            context = osm_context.load((0, 0, 100, 100), "2026-11-13", details=["detail_trees", "detail_markings"])
+            self.assertEqual(context.notes, ["osm_detail_missing"])
+            self.assertEqual(queries[0], None)   # 본 질의 = constants.OSM_OVERPASS_QUERY 그대로
+            self.assertNotIn("tree", constants.OSM_OVERPASS_QUERY)
+            self.assertIn('node["highway"="crossing"]', queries[1])
+            queries.clear()
+            self.assertEqual(osm_context.load((0, 0, 100, 100), "2026-11-13").notes, [])
+            self.assertEqual(queries, [None])   # 디테일을 다 끄면 묻지 않는다
+        finally:
+            osm_context.get_overpass_elements, osm_context.get_terrain_spots = saved
+
     def test_osm_fills_gaps(self):
         def building(ring, key):
             geometry = {"type": "Polygon", "coordinates": [[list(non_rhino_utils.get_tm_from_wgs84(*p)) for p in ring]]}
@@ -351,3 +374,20 @@ class JapanTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+class CrosswalkTest(unittest.TestCase):
+    """OSM 횡단보도 점 → 도로 방향 직사각형(2026-11-08)."""
+
+    def test_crosswalk_rings(self):
+        road = {"type": "way", "id": 1, "tags": {"highway": "residential", "width": "8"}, "nodes": [10, 11, 12],
+                "geometry": [{"lat": 37.5, "lon": 127.0}, {"lat": 37.5, "lon": 127.001}, {"lat": 37.5, "lon": 127.002}]}
+        marked = {"type": "node", "id": 11, "lat": 37.5, "lon": 127.001, "tags": {"highway": "crossing", "crossing:markings": "zebra"}}
+        unmarked = {"type": "node", "id": 12, "lat": 37.5, "lon": 127.002, "tags": {"highway": "crossing", "crossing": "unmarked"}}
+        rings = osm_context.get_crosswalk_rings([road, marked, unmarked])
+        self.assertEqual([node for _ring, node in rings], [11])
+        xs, ys = [p[0] for p in rings[0][0]], [p[1] for p in rings[0][0]]
+        self.assertAlmostEqual(max(xs) - min(xs), constants.OSM_CROSSWALK_WIDTH, delta=0.05)   # 동서 도로 — 폭은 도로 방향
+        self.assertAlmostEqual(max(ys) - min(ys), 8.0, delta=0.05)                            # 길이 = 도로 폭
+        self.assertFalse(osm_context.is_marked_crossing({"highway": "crossing", "crossing:markings": "no", "crossing": "zebra"}))

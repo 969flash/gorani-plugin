@@ -1,0 +1,80 @@
+{
+ "out": "C:\\Users\\bsh96\\Gorani_test\\out",
+ "timeout": 900,
+ "sites": [
+  {
+   "name": "seongsu",
+   "target": {
+    "mode": "point",
+    "center": [
+     205670,
+     549190
+    ]
+   },
+   "options": {
+    "radius": 220,
+    "shape": "rect",
+    "make_basemap": false,
+    "make_sheets": false,
+    "make_tables": false,
+    "terrain_block": true,
+    "output_lang": "ko"
+   },
+   "views": [
+    {
+     "name": "close",
+     "offset": [
+      -45,
+      -45,
+      28
+     ]
+    },
+    {
+     "name": "wide",
+     "offset": [
+      -210,
+      -210,
+      190
+     ]
+    }
+   ]
+  },
+  {
+   "name": "seoul_stn",
+   "target": {
+    "mode": "point",
+    "center": [
+     197450,
+     550250
+    ]
+   },
+   "options": {
+    "radius": 220,
+    "shape": "rect",
+    "make_basemap": false,
+    "make_sheets": false,
+    "make_tables": false,
+    "terrain_block": true,
+    "output_lang": "ko"
+   },
+   "views": [
+    {
+     "name": "close",
+     "offset": [
+      -45,
+      -45,
+      28
+     ]
+    },
+    {
+     "name": "wide",
+     "offset": [
+      -210,
+      -210,
+      190
+     ]
+    }
+   ]
+  }
+ ]
+}

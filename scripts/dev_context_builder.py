@@ -72,6 +72,28 @@ BUILDING_SOURCE = {
     "note": "월간 전체본 교체. 높이 A16은 건축물대장 법정 높이(채움 약 40%). 층수 결측은 수치지형도 층수로 보충.",
 }
 
+MARKING_DIR = ROOT_DIR / constants.MARKING_RAW_DIRNAME
+TREE_DIR = ROOT_DIR / constants.TREE_RAW_DIRNAME
+MARKING_SOURCE = {
+    "source_id": "seoul_traffic_safety",
+    "name": "서울특별시 교통안전시설물 — 차선(OA-15537)·횡단보도(OA-15554)",
+    "page_url": "https://data.seoul.go.kr/dataList/OA-15537/S/1/datasetView.do",
+    "license": "공공누리 제1유형(출처표시)",
+    "crs": "EPSG:5186",
+    "note": "서울 열린데이터광장 SHP 2021-08-09판(페이지 갱신일과 다르다). 지상(EVE_CDE 001)만, 공사형태 제거(FRM_CDE 003)는 뺀다. 차선 코드는 constants.MARKING_SEOUL_LINES로 type·color·pattern",
+}
+MARKING_REFERENCE_DATE = "2021-08-09"
+TREE_SOURCE = {
+    "source_id": "seoul_street_trees",
+    "name": "서울특별시 가로수 위치정보(OA-23040)",
+    "page_url": "https://data.seoul.go.kr/dataList/OA-23040/S/1/datasetView.do",
+    "license": "공공누리 제1유형(출처표시)",
+    "crs": "EPSG:5186",
+    "note": "관리청(자치구·중부공원여가센터·서울시설공단)마다 시트 하나, 경위도 → EPSG:5186. '공분'(빈 식재 자리로 보임 — 확인 필요)은 뺀다",
+}
+TREE_REFERENCE_DATE = "2026-08-26"   # 열린데이터광장 파일 수정일
+
+
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS data_sources (
     source_id TEXT PRIMARY KEY,
@@ -250,6 +272,84 @@ def _to_5186(frame, label):
 
 
 # ── 수치지형도 도엽 ──────────────────────────────────────────
+
+def load_markings(connection, marking_dir=MARKING_DIR, bbox=None):
+    # type: (sqlite3.Connection, Path, tuple) -> dict
+    """서울 교통안전시설물 → features theme 'marking'(있던 것은 지우고 다시). kind line = 차선(attrs type·color·pattern, code '대분류-중분류'),
+    kind crosswalk = 횡단보도 면. bbox(min_x, min_y, max_x, max_y, EPSG:5186)를 주면 그 안만. 폴더가 없으면 아무것도 하지 않는다.
+    출력: {kind: 넣은 수}."""
+    lines_zip = next(iter(sorted(marking_dir.glob("*A058_L*.zip"))), None) if marking_dir.exists() else None
+    crosswalk_zip = marking_dir / "A004_A.zip"
+    if lines_zip is None or not crosswalk_zip.exists():
+        return {}
+    connection.execute("DELETE FROM features WHERE theme = 'marking'")
+    _upsert_source(connection, MARKING_SOURCE, MARKING_REFERENCE_DATE)
+    counts = {}
+    for path, member, kind in ((lines_zip, "A058_L.shp", "line"), (crosswalk_zip, "A004_A.shp", "crosswalk")):
+        frame = pyogrio.read_dataframe("/vsizip/%s/%s" % (path, member), encoding="cp949", on_invalid="ignore")
+        frame = _to_5186(frame[frame.geometry.notna()], member)
+        frame = frame[(frame["EVE_CDE"].astype(str).str.lstrip("0") == "1") & (frame["FRM_CDE"].astype(str).str.lstrip("0") != "3")]
+        rows = []
+        if kind == "line":
+            keys = list(zip(frame["A058_KND_C"].astype(str).str.zfill(3), frame["A058_KND2_"].astype(str).str.zfill(3)))
+            styles = [constants.MARKING_SEOUL_LINES.get(key) for key in keys]
+            keep = np.array([style is not None for style in styles])
+            frame, keys, styles = frame[keep], [k for k, ok in zip(keys, keep) if ok], [st for st in styles if st]
+        geometries = frame.geometry.values
+        if bbox:
+            inside = shapely.intersects(geometries, shapely.box(*bbox))
+            frame, geometries = frame[inside], geometries[inside]
+            if kind == "line":
+                keys, styles = [k for k, ok in zip(keys, inside) if ok], [st for st, ok in zip(styles, inside) if ok]
+        for k, (geojson, bounds) in enumerate(zip(_geojson_strings(geometries), _bounds_columns(geometries))):
+            if kind == "line":
+                code, attrs = "%s-%s" % keys[k], json.dumps(dict(zip(("type", "color", "pattern"), styles[k])), ensure_ascii=False)
+            else:
+                code, attrs = "", None
+            rows.append((MARKING_SOURCE["source_id"], "marking", kind, code, "", None, attrs, "", geojson, constants.DATABASE_CRS, MARKING_REFERENCE_DATE,
+                         float(bounds[0]), float(bounds[2]), float(bounds[1]), float(bounds[3])))
+        connection.executemany(
+            "INSERT INTO features (source_id, theme, kind, code, name, value, attrs_json, sheet, geometry_json, geometry_crs, reference_date, min_x, max_x, min_y, max_y)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", rows)
+        _record_file(connection, MARKING_SOURCE["source_id"], path, MARKING_REFERENCE_DATE)
+        counts[kind] = len(rows)
+    return counts
+
+
+def load_trees(connection, tree_dir=TREE_DIR, bbox=None):
+    # type: (sqlite3.Connection, Path, tuple) -> dict
+    """서울 가로수 위치정보 xlsx → features theme 'tree' kind 'street'(점, name·attrs 수종, attrs 노선). 있던 것은 지우고 다시.
+    bbox(EPSG:5186)를 주면 그 안만. 폴더·파일이 없으면 아무것도 하지 않는다. 출력: {'street': 넣은 수}."""
+    import openpyxl
+    path = next(iter(sorted(tree_dir.glob("*.xlsx"))), None) if tree_dir.exists() else None
+    if path is None:
+        return {}
+    connection.execute("DELETE FROM features WHERE theme = 'tree' AND source_id = ?", (TREE_SOURCE["source_id"],))
+    _upsert_source(connection, TREE_SOURCE, TREE_REFERENCE_DATE)
+    non_rhino_utils.set_projection()
+    rows = []
+    for sheet in openpyxl.load_workbook(path, read_only=True).worksheets:
+        head = None
+        for row in sheet.iter_rows(values_only=True):
+            if head is None:
+                head = list(row) if row and row[0] == "자치구" else None
+                continue
+            species = str(row[head.index("수종")] or "").strip()
+            try:
+                x, y = non_rhino_utils.get_tm_from_wgs84(float(row[head.index("좌표(경도)")]), float(row[head.index("좌표(위도)")]))
+            except (TypeError, ValueError):
+                continue
+            if species == "공분" or (bbox and not (bbox[0] <= x <= bbox[2] and bbox[1] <= y <= bbox[3])):
+                continue
+            attrs = json.dumps({"수종": species, "노선": str(row[head.index("노선")] or "")}, ensure_ascii=False)
+            rows.append((TREE_SOURCE["source_id"], "tree", "street", "", species, None, attrs, "",
+                         json.dumps({"type": "Point", "coordinates": [round(x, 3), round(y, 3)]}), constants.DATABASE_CRS, TREE_REFERENCE_DATE, x, x, y, y))
+    connection.executemany(
+        "INSERT INTO features (source_id, theme, kind, code, name, value, attrs_json, sheet, geometry_json, geometry_crs, reference_date, min_x, max_x, min_y, max_y)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", rows)
+    _record_file(connection, TREE_SOURCE["source_id"], path, TREE_REFERENCE_DATE)
+    return {"street": len(rows)}
+
 
 def read_sheet_index(sheet_dir=SHEET_DIR):
     # type: (Path) -> dict
@@ -850,6 +950,10 @@ def build(sheets=None, out_path=None, sheet_dir=SHEET_DIR, building_dir=BUILDING
         print("정합 샘플(qa/align_sample): %d" % align, flush=True)
         if DROPPED_GEOMETRIES:
             print("읽지 못해 버린 도형: %s" % ", ".join("%s/%s %d" % item for item in DROPPED_GEOMETRIES), flush=True)
+        if sido_code == SEOUL_CODE:   # 노면표시 — 서울 교통안전시설물(있을 때만)
+            print("노면표시: %s" % (load_markings(connection) or "원천 없음"), flush=True)
+            print("가로수: %s" % (load_trees(connection) or "원천 없음"), flush=True)
+            connection.commit()
 
         # 2) 건물
         bbox = None
@@ -907,7 +1011,16 @@ def main():
     parser.add_argument("--sido", default=SEOUL_CODE, help="PNU 앞 2자리 시도 코드(기본 11 서울). all = 묶음에 도엽이 있는 시도 전부")
     parser.add_argument("--sheets", help="쉼표로 구분한 도엽번호. 주면 그 도엽(과 그 범위의 건물)만 넣는다")
     parser.add_argument("--out", help="결과 DB 경로 (기본 data/<시도>_context.db)")
+    parser.add_argument("--markings", action="store_true", help="있는 서울 DB(--out 또는 기본)에 노면표시·가로수만 다시 넣는다 — 전체 빌드 없이")
     args = parser.parse_args()
+    if args.markings:
+        path = Path(args.out or get_database_path(SEOUL_CODE))
+        connection = _connect(path)
+        print("노면표시 → %s: %s" % (path, load_markings(connection)), flush=True)
+        print("가로수 → %s: %s" % (path, load_trees(connection)), flush=True)
+        connection.commit()
+        connection.close()
+        return
     sheets = [s.strip() for s in args.sheets.split(",") if s.strip()] if args.sheets else None
     codes = sorted(set(get_sheet_sido().values())) if args.sido == "all" else [args.sido]
     for code in codes:

@@ -266,6 +266,19 @@ out geom;"""   # 역·시설 줄은 OSM_PUBLIC_USE와 맞춘다(tests/test_osm_c
 # 일본(PLATEAU 팩이 있는 곳)은 건물 줄을 빼고 도로·수계·녹지를 먼저 묻고, OSM 건물(PLATEAU 빈 곳 메우기)은 따로 첫 미러에만 묻는다.
 # 도심은 OSM 건물이 많아 한 질의가 통째로 시간 초과됐다(2026-10-22 Rhino 시험: 도쿄타워·시부야·후쿠오카 덴진 — 7곳 중 3곳 도로 없음)
 OSM_OVERPASS_BUILDINGS = 'way["building"]; relation["building"]["type"="multipolygon"];'
+# 디테일(켠 옵션만) — 본 질의와 따로 첫 미러에만 묻고, 못 받으면 디테일만 빼고 만든다(osm_context.load). 본 질의를 키우면 붐빌 때 도로·건물까지 통째로 시간 초과된다.
+# 파리 2 km 사각형 3.1 MB(나무 9,059개가 70 %), 500 m 0.37 MB, 뉴욕 500 m 0.05 MB(2026-11-13 실측 — 같은 시각 overpass-api.de 502 여러 번)
+OSM_OVERPASS_DETAIL_PARTS = {
+    "detail_markings": 'node["highway"="crossing"];',
+    "detail_trees": 'node["natural"="tree"]; way["natural"="tree_row"];',
+    "detail_walls": 'way["barrier"="retaining_wall"];',
+    "detail_fences": 'way["barrier"~"^(wall|fence)$"];',
+}
+OSM_OVERPASS_DETAIL_QUERY = """[out:json][timeout:25][bbox:{bbox}];
+(
+  %s
+);
+out geom;"""
 OSM_OVERPASS_BUILDING_QUERY = """[out:json][timeout:25][bbox:{bbox}];
 (
   %s
@@ -629,6 +642,12 @@ CTX_LAYERS = {   # 이름: (RGB)
     "Bridges": (150, 150, 150), "Zoning": (200, 120, 40), "QA::cadastre_mismatch": (255, 0, 255), "Ref": (0, 0, 0),
     "Site::ground": (236, 150, 120), "Site::lots": (235, 140, 140), "Terrain::site_flat": (214, 196, 170), "Terrain::site_wall": (150, 140, 128), "Terrain::site_original": (236, 232, 222), "Site::original": (236, 232, 222), "Site::original::Terrain": (236, 232, 222), "Site::original::Green": (228, 235, 226),
     "Terrain::block": (200, 192, 180),   # 지형을 바닥까지 채우기 — 지형 덩어리 옆면·바닥
+    "Roads::sidewalk": (206, 202, 192), "Roads::curb": (150, 148, 142),   # 인도·교통섬(차도보다 연석 높이만큼 위)·연석 옆면
+    "Roads::marking_white": (245, 245, 240), "Roads::marking_yellow": (240, 190, 40), "Roads::marking_blue": (40, 110, 210),   # 노면표시(색 = 칠 색)
+    "Rail::ballast": (150, 142, 132), "Rail::sleepers": (196, 192, 184), "Rail::rails": (70, 72, 76), "Rail::platform": (180, 176, 168), "Rail::roof": (120, 124, 130),
+    "Bridges::deck": (176, 174, 168), "Bridges::parapet": (206, 204, 198), "Bridges::pier": (150, 148, 142),   # 교량·고가 상판(옆면 포함)·난간·교각
+    "Buildings::parapet": (200, 200, 196), "Buildings::floors": (90, 90, 90),   # 옥상 파라펫·층 구분선
+    "Walls": (176, 170, 160), "Walls::retaining": (176, 170, 160), "Walls::fence": (196, 190, 180), "Trees": (150, 182, 136),   # 옹벽·담장·가로수
 }
 # CTX::Zoning 하위 레이어 — overlays theme → 'CTX::Zoning::<이름>::<종류>'. 종류는 용도지역이면 현황도 11 범례 이름, 나머지는 overlay.kind.
 # 색은 현황도 11~13 범례 색(context_baker.get_layer_rgb). 현황도에 없는 theme(건축선 notice_road)은 넣지 않는다.
@@ -830,6 +849,103 @@ BLOCK_MIN_DEPTH = 5.0           # m — 두께 하한(작은 범위)
 BLOCK_BASE_SNAP = 5.0           # m — 바닥 높이를 이 단위로 내림(BASE_M이 읽기 쉬운 값이 되게)
 CLASSIFY_GRID = 50.0            # m — 면 분류용 격자 버킷
 WATER_LIFT = 0.02               # m — 수면 메시를 지형 위로 띄우는 높이
+MESH_WELD = 0.005              # m — 분류 메시(수면·차도·철도부지…) 조각 이음매에서 이 거리 안 정점을 하나로(non_rhino_utils.get_welded_mesh).
+                               # 원천 폴리곤 좌표가 미세하게 달라 이음매 정점이 0.1~5 mm 어긋나 SketchUp이 선으로 그렸다(성수 구거 166쌍·중랑천 260쌍·차도 62쌍)
+# 가로 디테일(2026-11-08, docs/research/09_street_rail_detail.md) — 차도만 연석 높이만큼 내려 블록·인도가 올라와 보이게 한다.
+# 인도를 올리지 않는 까닭: 대지는 인도 높이에 맞춰져 있어 인도를 올리면 인도와 대지 사이에 없는 단차가 생긴다.
+CURB_HEIGHT = 0.15              # m — 연석 높이. 법정 상한 25 cm(도로의 구조·시설 기준에 관한 규칙 제16조), 정밀도로지도 성수 실측 중앙값 0.175 m, PLATEAU LOD3.2 단차 기준 15 cm. 0이면 예전처럼 평평
+SIDEWALK_KINDS = ("sidewalk", "median")   # features theme road 중 차도에서 내리지 않는 면 — 인도(A0033320)·도로분리대(C0520000)
+SIDEWALK_SPLIT_INSET = 0.02     # m — Rhino 면 분할에 넣는 인도 테두리를 이만큼 안으로(도로경계와 겹치면 Split 실패). 분류는 원래 면으로 해서 결과는 거의 같다
+SAFETY_ISLAND = "교통섬"         # 안전지대(A0053326) 구조 중 올려 둘 것 — 서울 1,763개. 어린이보호구역(1,779개, 평균 4.6만 ㎡)은 도로 전체를 덮어 뺀다
+OSM_PATH_HIGHWAYS = ("footway", "path", "cycleway", "steps", "pedestrian", "bridleway", "corridor")   # OSM 버퍼 도로면 중 보행로 — 차도처럼 내리지 않는다
+# 철도 디테일 — 선로마다 자갈 도상 + 레일 두 줄 + 침목, 승강장·승강장 지붕은 각기둥. 지하·교량(고가) 구간은 아직 만들지 않는다(교량 위 높이를 모른다)
+RAIL_GAUGE = 1.435              # m — 표준궤(한국 전 노선). OSM gauge 태그(mm)가 있으면 그 값(일본 재래선 1,067)
+RAIL_TRACK = {                  # m — 선로 단면(대략값, 확인 필요: 자갈도상 두께 0.3~0.35 m, 50·60 kg 레일 높이 0.153~0.174 m, PC침목 2.4 m)
+    "ballast_top": 3.0, "ballast_bottom": 4.2, "ballast_height": 0.3, "rail_width": 0.07, "rail_height": 0.17,
+    "sleeper_length": 2.4, "sleeper_width": 0.24, "sleeper_rise": 0.08, "sleeper_spacing": 0.6,   # 침목 윗면 = 도상 위 8 cm(4 cm는 멀리서 도상과 깜빡였다)
+}
+RAIL_STEP = 5.0                 # m — 선로 단면을 놓는 간격(곡선 분할)
+RAIL_SMOOTH = 30.0              # m — 선로 높이를 이 거리 안 지반 높이 평균으로 편다(철도 기울기는 완만한데 등고선 TIN은 울퉁불퉁하다)
+RAIL_PLATFORM_HEIGHT = 1.135    # m — 승강장 윗면 = 레일면 위 이 높이(고상홈 1,135 mm — 광역·도시철도. 일반철도 저상홈은 0.5 m)
+RAIL_ROOF_CLEARANCE = 3.5       # m — 승강장 지붕 밑 = 승강장 윗면 위 이 높이(대략값)
+RAIL_ROOF_THICKNESS = 0.3       # m
+RAIL_3D_TYPES = ("rail", "light_rail", "narrow_gauge", "subway")   # OSM railway 중 선로를 만드는 것 — 노면전차(tram)·모노레일은 뺀다(도로 위·고가 빔)
+RAIL_EXCLUDE = (("structure", "tunnel", None, None),)   # (theme, kind, 속성, 값) — 이 면 안 선로·승강장은 만들지 않는다(터널). 철교 위 선로는 교량 상판 위로 올린다(BRIDGE_*)
+# 교량·고가 상판 — 수치지형도 교량(A0070000)·입체교차부 고가차도(A0090000)·육교(A0063321) 면, OSM bridge=* 도로·선로.
+# 높이는 상판 표고점(spot_struct — 교량 면 안 수치지형도 표고점, 성동구 교량 43곳 중 33곳에 있다)이 있으면 그 값, 없으면 끝점(땅에 닿는 곳)에서 BRIDGE_GRADE로 올라
+# 지반 + 통과높이 + 두께까지(추정 — 객체 DECK_Z_SRC = rule). 인터체인지 면(입체교차 구역 전체)·지하차도는 상판이 아니라 뺀다
+BRIDGE_KINDS = {   # (kind, 종류·구분) → 상판 종류. 표에 없으면 kind만으로, 그래도 없으면 뺀다
+    ("bridge", "철교"): "rail", ("bridge", "보도교"): "foot", ("bridge", None): "road",
+    ("overpass", "고가차도"): "road", ("footbridge", None): "foot",
+}
+BRIDGE_DECK = {   # 상판 종류 → 두께·통과높이(높이 속성이 없을 때) m. 통과높이 4.5 m = 도로 건축한계 4.5~4.8 m(도로의 구조·시설 기준에 관한 규칙 18조), 수치지형도 고가차도·육교 높이 속성 중앙값 4.0~4.5
+    "road": {"thickness": 1.5, "clearance": 4.5}, "rail": {"thickness": 2.0, "clearance": 5.0}, "foot": {"thickness": 0.8, "clearance": 4.5},
+}
+BRIDGE_GRADE = 0.05             # 끝점에서 상판이 오르는 기울기(추정 높이일 때) — 도시부 고가 접속 경사 5 % 안팎
+BRIDGE_LEVEL = 6.0              # m — OSM layer 한 단 높이(layer 2 이상 = 통과높이 + 두께 + (layer − 1) × 이 값)
+BRIDGE_SPOT_MIN = 1.5           # m — 이보다 지반에 가까운 상판 표고점은 쓰지 않는다(교량 밑 도로 표고점·접속부)
+BRIDGE_IDW_K = 6                # 상판 높이 = 가까운 표고점·끝점 이만큼의 역거리 가중
+BRIDGE_ALONG_COS = 0.8          # 교량 면 안 선(도로중심선·선로·차선)이 테두리와 이만큼(cos, 약 37°) 나란하면 상판 위, 아니면 밑을 지난다
+BRIDGE_END_NEAR = 3.0           # m — 상판 위 선 끝이 테두리 이 안이면 땅에 닿는 끝점(범위 경계 이 안은 아니다)
+BRIDGE_STEP = 3.0               # m — 상판 테두리 조밀화·안쪽 격자(높이 곡선을 따르게)
+BRIDGE_GROUND_RADIUS = 8.0      # m — 추정 높이의 바닥 = 이 반경 다섯 점 평균 지반(TIN 울퉁불퉁을 편다)
+BRIDGE_PARAPET = {"height": 1.0, "width": 0.3, "min_rise": 1.0}   # 난간 벽 — 상판 윗면이 지반보다 min_rise 이상 높은 테두리에만
+BRIDGE_PIER = {"size": 1.6, "spacing": 30.0, "min_height": 4.0, "inset": 2.0}   # 교각(추정 위치) — 축을 따라 spacing마다, 상판 밑이 지반보다 min_height 이상인 곳만
+BRIDGE_LIFT = 0.05              # m — 끝점 상판 윗면을 지반(차도)보다 띄운다(같은 높이 면 깜빡임)
+BRIDGE_MIN_RISE = 0.5           # m — 세 꼭짓점이 다 지반에서 이보다 낮은 상판 삼각형은 뺀다(땅에 닿은 끝·요금소 광장은 도로면이 이미 있다 — 광안대교)
+OSM_BRIDGE_RAIL_WIDTH = 5.0     # m — OSM 선로 교량 면 = 선로 한 줄 버퍼 폭
+# 디테일 모델링 켜고 끄기 — 패널 3D 설정 '디테일'(options.<키>). 공공데이터 기준일·정합이 제각각이라(노면표시 2021-08, 교량 높이 추정 등) 사용자가 끌 수 있게 한다
+DETAIL_OPTIONS = {   # 키: 기본값
+    "detail_curb": True,        # 연석(차도 0.15 m 내림)
+    "detail_markings": True,    # 노면표시(서울 교통안전시설물·OSM 횡단보도)
+    "detail_rail": True,        # 선로·승강장
+    "detail_bridges": True,     # 교량·고가 상판·난간·교각
+    "detail_walls": True,       # 옹벽·석축 세로 벽
+    "detail_fences": False,     # 담장 — 주거지는 객체가 많다
+    "detail_trees": True,       # 가로수(서울 가로수 위치정보·OSM natural=tree)
+    "building_parapet": False,  # 건물 옥상 파라펫
+    "building_floors": False,   # 건물 층 구분선
+}
+PARAPET = {"height": 1.0, "width": 0.25, "min_area": 30.0}   # 옥상 난간벽 m — 높이 1.0 m(건축물의 피난·방화구조 규칙 옥상 난간 1.2 m보다 낮은 매스 표현값), 이보다 작은 동(㎡)은 뺀다
+FLOOR_LINE_MIN_FLOORS = 2       # 층 구분선은 이 층수 이상인 동만(층고 = 높이 ÷ 지상층수)
+WALL = {"sample": 2.0, "probe": 2.0, "min_rise": 0.8, "max_rise": 15.0, "width": 0.4, "coping": 0.2, "embed": 0.3}   # 옹벽 — 선 양쪽 probe m 지반 고저차가 min_rise 이상인 구간만 세로 벽(높은 쪽 + coping, 낮은 쪽 − embed). 수치지형도 옹벽은 높이 속성이 없다
+FENCE = {"height": 1.8, "width": 0.2, "sample": 3.0}   # 담장 — 수치지형도 담장('담', 문주 제외)·OSM barrier=wall|fence
+TREES = {   # 가로수 — 수종 → (높이, 수관 지름 m, 모양 sphere|cone). 서울 가로수 2024 상위 수종 기준 대략값. 없는 수종은 default
+    "default": (9.0, 5.0, "sphere"), "은행나무": (12.0, 5.0, "cone"), "양버즘나무": (14.0, 8.0, "sphere"), "버즘나무": (14.0, 8.0, "sphere"),
+    "느티나무": (12.0, 9.0, "sphere"), "왕벚나무": (9.0, 7.0, "sphere"), "벚나무": (9.0, 7.0, "sphere"), "이팝나무": (8.0, 5.0, "sphere"),
+    "메타세쿼이아": (18.0, 5.0, "cone"), "회화나무": (11.0, 7.0, "sphere"), "소나무": (8.0, 5.0, "cone"), "중국단풍": (8.0, 5.0, "sphere"),
+    "단풍나무": (8.0, 5.0, "sphere"), "튤립나무": (14.0, 7.0, "sphere"), "튜울립나무": (14.0, 7.0, "sphere"), "대왕참나무": (12.0, 7.0, "sphere"),
+    "칠엽수": (12.0, 7.0, "sphere"), "배롱나무": (4.0, 3.0, "sphere"), "라일락": (3.5, 3.0, "sphere"), "무궁화": (3.0, 2.0, "sphere"),
+    "반송": (4.0, 4.0, "cone"), "needleleaved": (10.0, 4.0, "cone"),   # 수종은 앞부분이 같으면 쓴다(벚나무류·은행나무 암나무). needleleaved = OSM 침엽수
+}
+TREE_TRUNK = {"radius": 0.15, "ratio": 0.35, "sides": 6}   # 줄기 반지름 m·높이 비(수관 밑까지)·각
+OSM_TREE_ROW_SPACING = 8.0      # m — OSM natural=tree_row 선을 이 간격 나무로
+TREE_RAW_DIRNAME = "data/raw/seoul_street_trees"   # 서울 가로수 위치정보(OA-23040) xlsx를 둔다
+PANEL_DEFAULT_OPTIONS.update(DETAIL_OPTIONS)   # 패널 prefs·생성 요청 기본값에도 — 3D 설정 '가로·구조물·건물' 줄
+# 노면표시 — features theme 'marking'. kind line = 차선(attrs type·color·pattern), crosswalk = 횡단보도 면. 차도 위 얇은 면으로 깐다
+MARKING_RAW_DIRNAME = "data/raw/seoul_traffic_safety"   # 서울 교통안전시설물 SHP(OA-15537 차선 zip, OA-15554 zip 안의 A004_A.zip을 풀어 둔다)
+MARKING_SEOUL_LINES = {   # 서울 차선 A058_L (대분류, 중분류) → (type, color, pattern). 정의서 '교통안전시설물 테이블 정의서(차선)'. 여기 없는 것(주행유도선·자전거·가변주차 등)은 넣지 않는다
+    ("001", "001"): ("center", "yellow", "solid"), ("001", "002"): ("center", "yellow", "dashed"), ("001", "003"): ("center", "yellow", "double"),
+    ("001", "004"): ("center", "yellow", "solid_dashed"), ("001", "005"): ("center", "yellow", "dashed_solid"),
+    ("003", "001"): ("lane", "white", "dashed"),                                                   # 유턴구역선
+    ("004", "001"): ("stop", "white", "solid"),                                                    # 일시정지선
+    ("005", "001"): ("bus", "blue", "solid"), ("005", "002"): ("bus", "blue", "dashed"), ("005", "003"): ("bus", "blue", "double"), ("005", "004"): ("bus", "blue", "double_dashed"),
+    ("006", "001"): ("lane", "white", "solid"), ("006", "002"): ("lane", "white", "dashed"),
+    ("007", "001"): ("edge", "white", "solid"),                                                    # 가장자리구역선
+    ("008", "001"): ("lane", "white", "solid"), ("008", "002"): ("lane", "white", "solid_dashed"), ("008", "003"): ("lane", "white", "dashed_solid"),   # 진로변경제한선
+    ("009", "001"): ("edge", "yellow", "dashed"),                                                  # 주차금지
+    ("010", "001"): ("edge", "yellow", "solid"),   # 주정차금지 — 정의서는 백색실선이나 도로교통법 시행규칙 별표6 정차·주차금지는 황색 실선
+    ("017", "001"): ("bus", "blue", "solid"), ("017", "002"): ("bus", "blue", "dashed"), ("017", "003"): ("bus", "blue", "double"), ("017", "004"): ("bus", "blue", "double_dashed"),
+}
+MARKING_WIDTHS = {"center": 0.15, "lane": 0.15, "edge": 0.15, "bus": 0.15, "stop": 0.45}   # m — 선 폭(교통노면표시 설치·관리 매뉴얼 대략값: 차선 10~15 cm, 정지선 30~60 cm. 확인 필요)
+MARKING_DASH = (3.0, 5.0)      # m — 점선 칠·빈칸(일반도로. 고속도로는 10·10)
+MARKING_DOUBLE_GAP = 0.1       # m — 복선 두 줄 사이
+MARKING_CROSSWALK_BAR = (0.5, 0.5)   # m — 횡단보도 줄무늬 폭·간격(매뉴얼 45~50 cm)
+MARKING_LIFT = {"white": 0.05, "yellow": 0.06, "blue": 0.06}   # m — 노면표시를 차도 위로 띄우는 높이. 2 cm는 Rhino 뷰에서 차도와 깜빡였다. 색끼리 겹치는 곳(정지선 × 중앙선)도 깜빡이지 않게 1 cm 차
+MARKING_STEP = 1.0             # m — 노면표시 띠·횡단보도 줄무늬를 차도에 맞춰 꺾는 간격. 3 m는 꺾인 차도(서울역 고가 진입로, 4.5 m에 3.6 m 오름)에서 표시가 차도 속에 묻혔다
+MARKING_ROAD_NEAR = 1.5        # m — 노면표시는 도로면 안이거나 도로면 경계에서 이 거리 안만 남긴다. 서울 SHP(2021-08)의 옛 차로가 광장·보도가 된 곳(광화문광장 2022) 위에 그려졌다. 수치지형도와 정합 오차 중앙값 1.2 m
+OSM_CROSSWALK_WIDTH = 3.0      # m — OSM 횡단보도 점(highway=crossing)을 도로 방향으로 펼치는 폭(길이 = 그 도로 폭). 4 m보다 좁게 — 좁은 길에서 긴 축이 뒤집히지 않게
+OSM_CROSSWALK_MARKED = ("zebra", "marked", "uncontrolled", "traffic_signals")   # crossing:markings가 없을 때 칠한 횡단보도로 보는 crossing 값(옛 태그)
 WATER_EDGE_STEP = 2.0           # m — 수면 경계 조밀화 간격 (TIN 입력, code_map §5.1)
 OSM_FLOWING_WATER = ("river", "canal", "stream", "ditch", "drain", "rapids", "fish_pass")   # natural=water + water=* 중 흐르는 물(OSM wiki Key:water) — 나머지 수면은 고인 물
 WATER_STILL_KINDS = ("lake",)   # 고인 물 = 평평한 수면 하나(물가 최저). 나머지(river·stream)는 흐르는 물 — 물가를 따라 기운다
@@ -840,8 +956,11 @@ WATER_BLEND_SOURCE = "aws_terrain"   # 수면 둘레 칸이 호수·강 바닥 �
 WATER_BLEND_BUFFER = 30.0       # m — 그 원천 표고점을 수면 경계에서 이 거리 안이면 뺀다(원천 DEM 약 30 m 한 칸)
 WATER_SURFACE_CELL = 10.0       # m — 흐르는 물 안쪽 수위를 채우는 격자 칸(물가 수위를 가장 가까운 칸에서 가져와 쌍선형 보간)
 WATER_SURFACE_KINDS = ("river", "stream", "lake")   # features theme water 중 수면(면)으로 다루는 kind — 3dm CTX::Water 분류·시트 바탕 수계가 같이 쓴다. shore(습지)는 TOPO_LAYERS 주석 참고
-TERRAIN_CLASS_PRIORITY = ("water", "rail", "road", "green")
-TERRAIN_UNION_CLASSES = ("road", "green")   # Rhino 면 분할 전에 Boolean 합집합으로 겹침을 없애는 분류 — OSM 도로면 버퍼(교차부마다 겹침)·녹지. 수면은 폴리곤별 수위를 따로 쓰므로 합치지 않는다   # 면 분류 우선순위(앞이 이김), 나머지 terrain, 범위 밖 outside (code_map §5.3)
+TERRAIN_CLASS_PRIORITY = ("water", "rail", "sidewalk", "road", "path", "lot_water", "green")
+# lot_water = 지목 하천·구거·유지 필지 수면(수치지형도 수면이 없을 때) — 도로·철도·인도 뒤라 복개 구간은 도로가 이긴다
+# (성수 구거 필지가 철도부지 99 %·도로면 100 % 안 — 도로 위에 파란 띠가 떴다, 2026-11-08 사용자)
+TERRAIN_CLASS_MESH = {"path": "sidewalk", "lot_water": "water"}   # 분류 → 메시(레이어). path(OSM 보행로 버퍼)는 차도보다 뒤라 차도와 겹친 곳은 차도가 이기고, 나머지는 인도처럼 내리지 않는다
+TERRAIN_UNION_CLASSES = ("road", "path", "green")   # Rhino 면 분할 전에 Boolean 합집합으로 겹침을 없애는 분류 — OSM 도로면 버퍼(교차부마다 겹침)·녹지. 수면은 폴리곤별 수위를 따로 쓰므로 합치지 않는다   # 면 분류 우선순위(앞이 이김), 나머지 terrain, 범위 밖 outside (code_map §5.3)
 BUILDING_SLOPE_FLAG = 3.0       # m — 발자국 정점 지형 고저차가 이보다 크면 HEIGHT_SRC에 '~slope' (deliverables A.1)
 BREP_COPLANAR_ANGLE = 0.1      # ° — Brep 출력(options.geometry_type = brep)에서 지형 메시 면을 한 평면 면으로 묶는 각 허용(같은 TIN 삼각형 위 칸은 정확히 같은 평면 — 0.1°·1° 결과 같음, 2026-11-05)
 SLOPE_BREAKS_DEG = (5, 10, 15, 21, 27)       # 경사 6단계 (서울시 2013 범례)
