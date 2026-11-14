@@ -1,6 +1,7 @@
 """solar(태양 위치·그림자 스윕·등치선·하늘 가림·바람장미)와 도면 25~28, 패널 set_sun 상태. 표준 라이브러리만, Rhino 없음."""
 
 import json
+import math
 import os
 import sys
 import tempfile
@@ -94,6 +95,13 @@ class ShadowGridTest(unittest.TestCase):
         self.assertTrue(self._at(shadow, 30, 50))
         self.assertFalse(self._at(shadow, 25, 50) and self._at(shadow, 20, 50))
         self.assertFalse(self._at(shadow, 60, 50))
+
+    def test_diagonal_shadow_area(self):
+        """그림자 면적 = 발자국을 그림자 벡터로 쓸고 간 넓이 − 발자국(10 × 10 m 상자, 길이 10 m) — 대각선 방향도 칸 오차 8 % 안(45°는 브레즌햄 계단으로 6 % 작다)."""
+        for azimuth in (135.0, 225.0, 300.0):
+            dx, dy = abs(math.sin(math.radians(azimuth))), abs(math.cos(math.radians(azimuth)))
+            expected = 10.0 * (10.0 * dx + 10.0 * dy)
+            self.assertAlmostEqual(sum(self.grid.get_shadow(azimuth, 45.0)), expected, delta=expected * 0.08, msg=azimuth)
 
     def test_terrain_slope_shades_lee_side(self):
         """동쪽으로 깎아지른 언덕(서쪽 높음) — 해가 낮은 동쪽이면 언덕 서쪽 기슭이 그늘."""

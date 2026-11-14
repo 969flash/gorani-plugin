@@ -26,7 +26,8 @@ request = {"target": {"mode": "point", "center": [x, y]}, "result_root": os.path
            "options": {"output_lang": "en", "radius": 250, "shape": "rect", "region": "kr", "make_basemap": False, "make_sheets": False, "make_tables": False,
                        "terrain_block": True}}
 t = time.time()
-response = context_builder.run(request, lambda phase, fraction, text: True, doc, {})
+keep = {}
+response = context_builder.run(request, lambda phase, fraction, text: True, doc, keep)
 res["run"] = {"ok": response["ok"], "elapsed_s": round(time.time() - t, 1), "error": response["error"], "buildings": response["context"].get("buildings")}
 print("run", json.dumps(res["run"], ensure_ascii=False))
 assert response["ok"], response["error"]
@@ -65,6 +66,14 @@ for name, season, minutes in SHOTS:
     print(name, json.dumps(res["shots"][name]))
 context_baker.set_sun(doc, {"on": False})
 res["off"] = {"enabled": doc.Lights.Sun.Enabled}
+# 도면 25~28 — Rhino CPython 계산 시간(장마다)
+marks = []
+t = time.time()
+made = context_builder.make_2d(response["dir"], {"make_sheets": True, "sheet_ids": [25, 26, 27, 28], "make_basemap": False, "make_tables": False},
+                               lambda phase, fraction, text: marks.append((round(time.time() - t, 2), phase, text)) or True, keep)
+res["sheets"] = {"ok": made["ok"], "elapsed_s": made["elapsed_s"], "error": made["error"], "marks": [m for m in marks if m[1] == "sheets"],
+                 "sheets": [(s_["id"], s_["empty"], s_["reason"]) for s_ in made["sheets"]]}
+print("sheets", json.dumps(res["sheets"], ensure_ascii=False))
 print("off", res["off"])
 with open(os.path.join(OUT_DIR, "result.json"), "w", encoding="utf-8") as handle:   # noqa: F821
     json.dump(res, handle, ensure_ascii=False, indent=1)

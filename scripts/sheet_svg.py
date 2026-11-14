@@ -1474,12 +1474,14 @@ def _get_year(data):
     return int(data.options.get("today_year") or datetime.date.today().year)
 
 
-def get_sun_scene(data):
-    # type: (SheetData) -> dict
+def get_sun_scene(data, view=None):
+    # type: (SheetData, tuple) -> dict
     """25·26·27이 같이 쓰는 그림자 장면(data.cache) — {grid, buildings: [(링들, 지붕 z, 대상지 안, 중심)], ground_z, terrain, site_cells, extent_cells}.
-    격자 = 범위 bbox + SUN_SHADOW_REACH ∩ 자료(건물·지형)가 덮는 곳. 지형 삼각형이 없으면(지난 결과를 다시 열었을 때) 평지(0 m)."""
-    if "sun_scene" in data.cache:
-        return data.cache["sun_scene"]
+    격자 = 범위 bbox + SUN_SHADOW_REACH ∩ 자료(건물·지형)가 덮는 곳. 지형 삼각형이 없으면(지난 결과를 다시 열었을 때) 평지(0 m).
+    view(세계 bounds)를 주면 그 칸 + SUN_SHADOW_REACH로 더 줄인다 — 26 일조시간은 지도 칸만 보여 큰 범위에서 칸이 거칠어졌다(한 변 4 km: 8.5 → 4 m)."""
+    key = ("sun_scene", tuple(round(v, 1) for v in view) if view else None)
+    if key in data.cache:
+        return data.cache[key]
     terrain = non_rhino_utils.TriangleZ(data.terrain_tris) if data.terrain_tris else None
 
     def grid_z(x, y):   # 격자 — 자료 밖은 None(HeightGrid가 가까운 칸으로 메운다)
@@ -1495,6 +1497,8 @@ def get_sun_scene(data):
     if covered:   # 자료 밖은 비어 있어 격자만 키운다
         bounds = [max(bounds[0], min(ext[0], min(b[0] for b in covered))), max(bounds[1], min(ext[1], min(b[1] for b in covered))),
                   min(bounds[2], max(ext[2], max(b[2] for b in covered))), min(bounds[3], max(ext[3], max(b[3] for b in covered)))]
+    if view:
+        bounds = [max(bounds[0], view[0] - reach), max(bounds[1], view[1] - reach), min(bounds[2], view[2] + reach), min(bounds[3], view[3] + reach)]
     site_rings = data.site_rings or [part[0] for lot in data.target_lots for part in get_polygon_parts_from_geojson(lot.geometry)]
     grid = solar.HeightGrid(bounds, solar.get_grid_cell(bounds), grid_z, [])
 
@@ -1520,7 +1524,7 @@ def get_sun_scene(data):
     site_cells = grid.get_ring_cells(site_rings) if site_rings else []
     scene = {"grid": grid, "buildings": buildings, "ground_z": base_z, "terrain": terrain, "site_rings": site_rings,
              "extent_cells": [i for i in extent_cells if not grid.roof[i]], "site_cells": [i for i in site_cells if not grid.roof[i]]}
-    data.cache["sun_scene"] = scene
+    data.cache[key] = scene
     return scene
 
 
@@ -1755,22 +1759,25 @@ def _draw_sun_table(data, style, box, k, lat, lng):
     return lines
 
 
-def get_sun_hours_grid(data):
-    # type: (SheetData) -> dict
-    """26 일조시간 — {sun, hours(칸별 시)} (data.cache)."""
-    if "sun_hours" not in data.cache:
+def get_sun_hours_grid(data, frame):
+    # type: (SheetData, Frame) -> dict
+    """26 일조시간 — {sun, hours(칸별 시), scene} (data.cache, 지도 칸마다 — 레이아웃을 바꾸면 칸이 달라진다)."""
+    view = frame.world_bounds()
+    key = ("sun_hours", tuple(round(v, 1) for v in view))
+    if key not in data.cache:
         lng, lat = get_site_lnglat(data)
         sun = solar.get_season_sun(constants.SUN_HOURS_SEASON, lat, lng, _get_year(data))
-        data.cache["sun_hours"] = {"sun": sun, "hours": solar.get_sun_hours(get_sun_scene(data)["grid"], lat, sun)}
-    return data.cache["sun_hours"]
+        scene = get_sun_scene(data, view)
+        data.cache[key] = {"sun": sun, "hours": solar.get_sun_hours(scene["grid"], lat, sun), "scene": scene}
+    return data.cache[key]
 
 
 def _draw_sun_hours(key, subject, classify_fn, entries, items, data, style, frame, frame_bounds):
     # type: (str, str, object, list, list, SheetData, dict, Frame, tuple) -> tuple
     """26 일조시간 — 지면 격자마다 동지 진태양시 8~16시 중 해가 드는 시간을 1시간 단계색으로(건물 지붕은 흰 면으로 덮는다)."""
-    scene = get_sun_scene(data)
+    result = get_sun_hours_grid(data, frame)
+    scene = result["scene"]
     grid = scene["grid"]
-    result = get_sun_hours_grid(data)
     hours = result["hours"]
     ls, ink, paper = style["line_scale"], style["ink"], style["paper"]
     rect = _get_clip_rect(frame)

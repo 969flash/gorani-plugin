@@ -195,8 +195,9 @@ class HeightGrid(object):
     def get_shadow(self, azimuth, altitude):
         # type: (float, float) -> list
         """해 방위·고도 ° → 칸별 그림자 여부(bool 목록). 해가 지평선 아래면 전부 그림자.
-        스윕: 해 쪽에서부터 칸마다 '위쪽(해 쪽) 한 칸 너머 가림 높이'를 이어 받는다 — 칸 하나에 O(1)이라 시각 하나가 칸 수에 비례한다.
-        가림 높이 = max(이웃 표면, 이웃 가림 높이)를 두 이웃 사이 선형보간 − 한 걸음 거리 × tan(고도). 칸 표면보다 높으면 그림자.
+        래스터 광선: 해 방향과 나란한 선들(브레즌햄 — 긴 축 한 칸마다 짧은 축은 반올림)이 칸을 하나씩 나눠 가져, 선마다 해 쪽에서부터
+        '가림 높이 = max(앞 칸 표면, 앞 칸 가림 높이) − 한 걸음 × tan(고도)'를 이어 간다. 칸 하나에 O(1), 보간이 없어 그림자 가장자리가
+        깎이지 않는다(선형 보간 스윕은 30° 방향 상자 그림자를 15 % 작게 냈다, 2026-11-14). 칸 표면보다 가림이 높으면 그림자.
         격자 밖은 가림이 없다고 본다(격자 = 범위 + SUN_SHADOW_REACH)."""
         nx, ny = self.nx, self.ny
         if altitude <= 0.0:
@@ -205,48 +206,33 @@ class HeightGrid(object):
         ux, uy = math.sin(math.radians(azimuth)), math.cos(math.radians(azimuth))   # 해 쪽 수평 방향(동, 북)
         tan_alt = math.tan(math.radians(altitude))
         low = -1e9
-        occ = [low] * (nx * ny)   # 칸으로 들어오는 가림 높이
+        occ = [low] * (nx * ny)
+        x_major = abs(ux) >= abs(uy)
+        long_n, short_n = (nx, ny) if x_major else (ny, nx)
+        along = ux if x_major else uy
+        slope = -(uy if x_major else ux) / abs(along)   # 해에서 멀어지며 긴 축 한 칸마다 짧은 축이 바뀌는 칸 수
+        drop = self.cell * math.sqrt(1.0 + slope * slope) * tan_alt
+        order = range(long_n - 1, -1, -1) if along > 0 else range(long_n)   # 해 쪽부터
+        offsets = [int(math.floor(slope * c + 0.5)) for c in range(long_n)]
+        base = max(offsets)   # 선 번호 k = 짧은 축 − 오프셋 + base ≥ 0
+        run = [low] * (short_n + base - min(offsets) + 1)
+        # 다음 칸 중심에 닿는 가림 = max(이 칸에서 시작하는 가림, 들어온 가림 − 한 걸음). 이 칸에서 시작하는 가림은 지형이면 칸 중심 높이 − 한 걸음,
+        # 건물이면 지붕 − 반 걸음(건물은 칸 끝까지 선다 — 칸 중심에서 재면 그림자가 반 칸 짧았다). 지형까지 반 걸음으로 재니
+        # tan(고도)/2보다 가파른 뒷비탈이 가짜 그늘로 점점이 찍혔다(성북동 하지, 2026-11-14)
+        half = drop * 0.5
+        start = [h - half if r else h - drop for h, r in zip(surface, self.roof)]
+        for c, a in enumerate(order):
+            shift = base - offsets[c]
+            for b in range(short_n):
+                index = b * nx + a if x_major else a * nx + b
+                k = b + shift
+                prev = run[k]
+                occ[index] = prev
+                h = start[index]
+                prev -= drop
+                run[k] = h if h > prev else prev
         eps = constants.SUN_SHADOW_EPS
-        if abs(ux) >= abs(uy):   # 열(동서) 단위로 걷는다 — 위쪽 이웃은 해 쪽 열의 두 칸
-            step_i = 1 if ux > 0 else -1
-            t = uy / abs(ux)
-            step_j = 1 if t > 0 else -1
-            w = abs(t)
-            drop = self.cell * math.sqrt(1.0 + t * t) * tan_alt
-            columns = range(nx - 2, -1, -1) if step_i > 0 else range(1, nx)
-            for i in columns:
-                src = i + step_i
-                for j in range(ny):
-                    a = j * nx + src
-                    j2 = j + step_j
-                    va = surface[a] if surface[a] > occ[a] else occ[a]
-                    if 0 <= j2 < ny:
-                        b = j2 * nx + src
-                        vb = surface[b] if surface[b] > occ[b] else occ[b]
-                        value = va + (vb - va) * w
-                    else:
-                        value = va if w < 0.5 else low
-                    occ[j * nx + i] = value - drop
-        else:   # 행(남북) 단위
-            step_j = 1 if uy > 0 else -1
-            t = ux / abs(uy)
-            step_i = 1 if t > 0 else -1
-            w = abs(t)
-            drop = self.cell * math.sqrt(1.0 + t * t) * tan_alt
-            rows = range(ny - 2, -1, -1) if step_j > 0 else range(1, ny)
-            for j in rows:
-                base = (j + step_j) * nx
-                for i in range(nx):
-                    a = base + i
-                    i2 = i + step_i
-                    va = surface[a] if surface[a] > occ[a] else occ[a]
-                    if 0 <= i2 < nx:
-                        vb = surface[a + step_i] if surface[a + step_i] > occ[a + step_i] else occ[a + step_i]
-                        value = va + (vb - va) * w
-                    else:
-                        value = va if w < 0.5 else low
-                    occ[j * nx + i] = value - drop
-        return [o > s + eps for o, s in zip(occ, surface)]
+        return [o > s_ + eps for o, s_ in zip(occ, surface)]
 
     def get_point(self, index):
         # type: (int) -> tuple
