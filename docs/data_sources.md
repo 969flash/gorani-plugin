@@ -327,3 +327,28 @@ CREATE TABLE IF NOT EXISTS source_files (
 - 공식 출처를 안 쓴 이유: FEMA·ORNL USA Structures는 HEIGHT가 약 32M/125M동뿐이고 약관이 CC BY 4.0(ArcGIS Hub)과 미국 정부 저작물(data.gov)로 갈린다. 용도(OCC_CLS)는 더 좋아 나중에 보강 후보. 근거 `docs/research/country_buildings.md`.
 - 런타임: `countries.json`의 `us` — 상자 넷(`constants.US_BOUNDS` 본토·알래스카·하와이·푸에르토리코). 도로면은 OSM 버퍼, 지형은 Terrain Tiles.
 - 갱신: Overture 새 판 → `constants.OVERTURE_RELEASE` 바꾸고 `fetch`(주 parquet 다시) → `build`(판이 다르면 다시 만든다) → `upload`.
+
+## 6. 지역별 공개 정사영상 (해외 위성 배경·23 항공사진·지형에 입히기, 2026-11-14)
+
+해외 대상지의 위성 배경·23 항공사진·지형에 입히기(Rhino 8)는 그 나라 정부의 공개 정사영상을 먼저 쓰고, 없거나 줌이 모자라면 Esri World Imagery(상용 — 이용 조건 확인 필요, 저장 불가)로 물러난다. 국내는 그대로 VWorld 영상(키)·Esri다(국내 공개 타일 없음 — 지형 입히기는 국내 불가).
+
+- 목록 원본: `docs/imagery.json` → `dev_deploy.py notices`가 한국 매니페스트 `imagery[]`로 올린다(플러그인 판 없이). 내장 기본값 `constants.AERIAL_REGIONS`(같은 값 — `tests/test_data_pack.py`). Blender판은 내장 목록만 쓴다(심사가 본 주소).
+- 넣는 조건: 공개 라이선스(지형 입히기가 결과 폴더·3dm에 영상을 저장한다), 키·가입 없음, 웹 메르카토르 `{z}/{x}/{y}` 타일, 한 장 1 s 안쪽. 자료 밖 빈 그림은 `AERIAL_BLANK_BYTES`(2,000 B) 미만이어야 걸러진다.
+- 선택 규칙: 대상지 중심을 덮는 상자(작은 상자 먼저) → 타일마다 앞 원천부터, 못 받거나 빈 그림이면 다음 원천(Esri). 지역 영상 최대 줌이 필요한 줌보다 `AERIAL_REGION_SHORTFALL`(1)단계 넘게 모자라면 그 시트는 Esri(미국 USGS z16 → A3 1:5000 z18은 Esri). 지형 입히기는 지역 영상만(Esri로 채우지 않는다).
+- 출처 표기: 도면 정보 칸 '영상 <출처>' · '항공사진 겹침 <출처>'(스타일 겹치기), 패널 지도 오른쪽 아래(받은 층만), 3D 카드 '항공사진 <출처>'·`context.json` `context.aerial`. 촬영연도는 원천 대부분이 지역마다 달라 비워 두고 도면에 '시기 확인 필요'라고 쓴다.
+- 주소·줌·빈 타일 크기는 2026-11-14 curl 실측.
+
+| id | 원천 | 주소(틀) | 최대 줌 | 라이선스·출처 표기 | 비고 |
+|---|---|---|---|---|---|
+| `gsi` | 国土地理院 地理院タイル シームレス空中写真 | `cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg` | 18 | 国土地理院コンテンツ利用規約(CC BY 4.0 호환) — '国土地理院' | 일본 밖 404. 촬영 시기 지역마다 다름 |
+| `pdok` | PDOK Luchtfoto RGB `Actueel_orthoHR`(8 cm) | `service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg` | 21 | CC BY 4.0 — 'Beeldmateriaal Nederland / PDOK'(공식 라이선스 페이지는 확인 필요 — 커뮤니티·GEE 카탈로그 근거) | 밖은 흰 칸 1,651 B |
+| `ign_fr` | IGN Géoplateforme `ORTHOIMAGERY.ORTHOPHOTOS`(BD ORTHO®) | `data.geopf.fr/wmts?…TILEMATRIXSET=PM…` | 19 | Licence Ouverte Etalab 2.0 — 'IGN BD ORTHO®' | 밖은 흰 칸. 민감 시설은 원본이 모자이크(파리 경찰청) |
+| `swisstopo` | swisstopo SWISSIMAGE 10 cm | `wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg` | 20 | swisstopo OGD(자유 이용, 출처 표기) — '© swisstopo' | 리히텐슈타인 포함, 국경 밖도 조금 |
+| `usgs` | USGS The National Map `USGSImageryOnly` | `basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}` | 16 | 미국 연방 공공영역 — 'USGS The National Map: Orthoimagery' | 캐시가 z16까지라 큰 축척 시트는 Esri. NAIP 0.6 m ImageServer는 타일 8~11 s라 뺐다 |
+| `basemap_at` | basemap.at Orthofoto 30 cm | `mapsneu.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg` | 20 | CC BY 4.0 — 'basemap.at' | |
+| `pnoa` | IGN España PNOA 최신 정사영상 | `www.ign.es/wmts/pnoa-ma?…GoogleMapsCompatible…` | 20 | CC BY 4.0 — 'PNOA cedido por © Instituto Geográfico Nacional' | 카나리아 포함. 밖은 낮은 해상도 채움 1,123 B |
+| `bayern` | Bayerische Vermessungsverwaltung OpenData `by_dop` | `wmtsod1.bayernwolke.de/wmts/by_dop/smerc/{z}/{x}/{y}` | 19 | CC BY 4.0 — 'Bayerische Vermessungsverwaltung' | 밖은 빈 칸 736 B |
+| `geoportail_lu` | geoportail.lu `ortho_latest` | `wmts1.geoportail.lu/opendata/wmts/ortho_latest/GLOBAL_WEBMERCATOR_4_V3/{z}/{x}/{y}.jpeg` | 21 | CC0 | 밖은 투명 854 B |
+| `cuzk` | ČÚZK Ortofoto ČR | `ags.cuzk.cz/arcgis1/rest/services/ORTOFOTO_WM/MapServer/tile/{z}/{y}/{x}` | 20 | CC BY 4.0(2023-07부터 공개 데이터) — '© ČÚZK' | 밖은 404. WMS 쪽 라이선스는 커뮤니티 이견 — 확인 필요 |
+
+넣지 않은 후보(확인만): NSW·Queensland(호주 — 제3자 상용 영상이 섞여 '© Planet·AAM all rights reserved'), 대만 NLSC `PHOTO2`·홍콩 지정총서 영상(받아짐 — 라이선스 확인 필요), Geobasis NRW(WMTS 줌 번호가 00 = z5로 밀려 `{z}` 틀로 안 됨), 헬싱키(시간 초과), USGS NAIP ImageServer(느림), 독일 다른 주·Wallonie·Orthofoto Vlaanderen·GURS(WMS 위주 — 확인 필요). 라이선스를 확인하면 `docs/imagery.json`에 한 줄 더하고 `notices`로 올린다.

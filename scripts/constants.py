@@ -780,6 +780,7 @@ PANEL_DEFAULT_OPTIONS = {
     "terrain_vertex_color": False,
     "terrain_block": True,   # 지형을 바닥까지 채우기 — 지형 옆면·바닥(Terrain::block). 범위 링으로 건물·커브를 자르는 것은 늘 한다. 입체 매스도는 style.axo_ground가 따로 정한다
     "geometry_type": "mesh",   # Rhino 8 3D 형상: mesh = 동별·분류별 Mesh(기본 — 화면이 가볍다), brep = 건물은 닫힌 폴리서피스, 지형은 같은 평면 면을 묶은 Brep(무겁다 — 성수 500 m 3.8 → 44 MB). 패널은 HOST_LABELS의 brep일 때만 보인다
+    "terrain_aerial": False,   # 지형에 항공사진 입히기 — 지역 공개 정사영상(AERIAL_REGIONS)만, Rhino 8만(HOST_LABELS drape). 국내(VWorld 저장 금지)·Esri는 안 된다
     "terrain_step": 0,   # 지형 표현: 0 = 매끈(TIN), > 0 = 계단형(등고 모형) 단 간격 m — 패널은 1·2·5 m. 국내 원천 등고선은 5 m 간격이라 1·2 m 단은 보간값
     "make_dwg": False,   # 2D 도면(BM::)을 .dwg로도 — CAD 사용자용. 기본 off
     "zoom_after_import": True,
@@ -980,17 +981,18 @@ UDT_MANAGED_KEY = "GORANI_MANAGED"  # 베이크 객체 UserString — clear_prev
 UDT_LOT_KEY = "GORANI_LOT_KEY"      # 베이크 객체 UserString — pnus 정렬 sha1 앞 8자리
 DOC_ORIGIN_KEYS = ("GORANI_ORIGIN_E", "GORANI_ORIGIN_N", "GORANI_CRS")   # doc.Strings 문서 수준 원점 기록(Blender는 장면 사용자 속성)
 # 패널이 호스트마다 바꿔 쓰는 이름(init_state.host) — 문서 이름·결과 모델 파일·DWG 저장(Rhino만)·커브 가져오기.
-# aerial = 위성 영상(지도 배경·항공사진 시트), update_notice = 매니페스트 업데이트 모달, ip_center = 지도 첫 위치 IP 짐작(ipinfo.io) — 없으면 True, Blender는 셋 다 끈다
+# esri = Esri 위성 영상(지도 배경·항공사진 시트 — Blender는 지역 공개 영상만, 내장 목록만), update_notice = 매니페스트 업데이트 모달,
+# ip_center = 지도 첫 위치 IP 짐작(ipinfo.io) — 없으면 True, Blender는 셋 다 끈다. drape = 3D 설정 '지형에 항공사진'(context_baker.drape_aerial — Rhino 8만)
 HOST_LABELS = {
     "blender": {"id": "blender", "name": "Blender", "doc": "Blender 장면", "model": BLENDER_MODEL_FILE_NAME, "dwg": False,
                 # [blender-cut] ask_stats = 사용 통계를 동의한 사람만 보낸다(Blender 확장 약관 4.5 '사용자 허락 없이 외부 전송 금지', 사용자 결정 2026-10-16 — Rhino는 그대로).
                 # 확장 패키지에는 사용 통계가 없다(이 값은 저장소 시험용)
                 "ask_stats": True,
                 # [/blender-cut]
-                "aerial": False, "update_notice": False, "ip_center": False},   # 확장 스토어 약관: 분석 전송·상용 영상(Esri)·제3자 IP 조회 불가, 업데이트는 Blender가 한다
+                "esri": False, "update_notice": False, "ip_center": False},   # 확장 스토어 약관: 분석 전송·상용 영상(Esri)·제3자 IP 조회 불가, 업데이트는 Blender가 한다
     # [blender-cut] SketchUp도 Extension Warehouse 심사(개인정보 정책 위반 = 반려 사유)라 동의제 — GA_STREAMS에 sketchup 속성을 넣기 전에는 묻지도 않는다
     "rhino": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": True, "ask_stats": False,
-              "brep": True, "self_update": True},   # self_update = 패널 [지금 업데이트](yak — data_pack.install_update). yak을 못 찾으면 init이 끈다   # brep = 3D 설정 '형상' Mesh|Brep(options.geometry_type) — RhinoCommon 베이크만(Rhino 7판은 사이드카라 없다)
+              "brep": True, "self_update": True, "drape": True},   # self_update = 패널 [지금 업데이트](yak — data_pack.install_update). yak을 못 찾으면 init이 끈다   # brep = 3D 설정 '형상' Mesh|Brep(options.geometry_type) — RhinoCommon 베이크만(Rhino 7판은 사이드카라 없다)
     "sketchup": {"id": "sketchup", "name": "SketchUp", "doc": "SketchUp 모델", "model": SKETCHUP_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},
     # Rhino 7판(cmd_rhino7 사이드카 + rhino7_host.cs) — 패널에는 Rhino로 보인다. DWG는 Rhino 8 헤드리스 문서(context_baker.save_dwg)라 없다
     "rhino7": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": False, "ask_stats": False, "self_update": True},
@@ -1122,6 +1124,44 @@ AERIAL_MAX_TILES = 400           # 한 장 상한 — 넘으면 줌을 한 단�
 AERIAL_TIMEOUT_SECONDS = 10      # 타일 한 장
 AERIAL_WORKERS = 8               # 동시에 받는 타일 수
 AERIAL_TILE_OVERLAP = 1.0 + 1.0 / 256   # 타일을 1 px 겹쳐 놓는다 — 뷰어 안티앨리어싱으로 생기는 타일 사이 머리카락 틈을 덮는다
+# 지역별 공개 정사영상 — 해외 대상지는 Esri(상용·저장 불가)보다 먼저 쓴다: 패널 [위성](Esri 위에 겹침)·23 항공사진·지형에 입히기(Rhino 8).
+# ※ 내장 기본값 — 런타임은 data_pack.get_imagery_regions()(한국 매니페스트 imagery[]가 id로 덮는다, 원본 docs/imagery.json, 올리기 dev_deploy.py notices).
+#    새 지역은 docs/imagery.json에 넣는다(플러그인 판 없이). 여기 값은 그 파일과 같게 둔다(tests/test_data_pack.py).
+#    공개 라이선스(CC BY·CC0·공공영역·Licence Ouverte·swisstopo OGD)만 — 지형 입히기가 결과 폴더·3dm에 영상을 저장한다. VWorld·Esri는 넣지 않는다.
+# 칸: id, bounds[[서, 남, 동, 북], …](나라 상자 — 자료 밖 빈 타일은 AERIAL_BLANK_BYTES로 거른다), url(웹 메르카토르 {z}/{x}/{y}), max_zoom(서버 실측),
+#     attribution(도면·지도 출처 = 원천 + 라이선스), year(촬영연도, 모르면 "" — 도면에 '확인 필요'). 주소·줌·빈 타일 크기는 2026-11-14 curl 실측
+AERIAL_REGIONS = [
+    {"id": "gsi", "bounds": [[122.0, 20.0, 154.0, 46.0]], "max_zoom": 18, "year": "",
+     "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg", "attribution": "国土地理院 シームレス空中写真 (CC BY 4.0 互換)"},
+    {"id": "pdok", "bounds": [[3.2, 50.7, 7.3, 53.7]], "max_zoom": 21, "year": "",
+     "url": "https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg", "attribution": "Beeldmateriaal Nederland / PDOK (CC BY 4.0)"},
+    {"id": "ign_fr", "bounds": [[-5.6, 41.2, 9.9, 51.2]], "max_zoom": 19, "year": "",
+     "url": "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",
+     "attribution": "IGN BD ORTHO® (Licence Ouverte 2.0)"},
+    {"id": "swisstopo", "bounds": [[5.9, 45.8, 10.6, 47.9]], "max_zoom": 20, "year": "",
+     "url": "https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg", "attribution": "© swisstopo SWISSIMAGE (OGD)"},
+    {"id": "usgs", "bounds": [[-125.0, 24.3, -66.9, 49.5], [-170.0, 51.0, -129.0, 72.0], [-161.0, 18.5, -154.0, 22.5], [-68.0, 17.5, -64.4, 18.6]], "max_zoom": 16, "year": "",
+     "url": "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}", "attribution": "USGS The National Map: Orthoimagery (public domain)"},
+    {"id": "basemap_at", "bounds": [[9.5, 46.3, 17.2, 49.1]], "max_zoom": 20, "year": "",
+     "url": "https://mapsneu.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg", "attribution": "basemap.at Orthofoto (CC BY 4.0)"},
+    {"id": "pnoa", "bounds": [[-9.4, 35.9, 4.4, 43.9], [-18.2, 27.6, -13.4, 29.5]], "max_zoom": 20, "year": "",
+     "url": "https://www.ign.es/wmts/pnoa-ma?request=GetTile&service=WMTS&VERSION=1.0.0&Layer=OI.OrthoimageCoverage&Style=default&Format=image/jpeg&TileMatrixSet=GoogleMapsCompatible&TileMatrix={z}&TileRow={y}&TileCol={x}",
+     "attribution": "PNOA cedido por © Instituto Geográfico Nacional (CC BY 4.0)"},
+    {"id": "bayern", "bounds": [[8.9, 47.2, 13.9, 50.6]], "max_zoom": 19, "year": "",
+     "url": "https://wmtsod1.bayernwolke.de/wmts/by_dop/smerc/{z}/{x}/{y}", "attribution": "Bayerische Vermessungsverwaltung DOP (CC BY 4.0)"},
+    {"id": "geoportail_lu", "bounds": [[5.7, 49.4, 6.6, 50.2]], "max_zoom": 21, "year": "",
+     "url": "https://wmts1.geoportail.lu/opendata/wmts/ortho_latest/GLOBAL_WEBMERCATOR_4_V3/{z}/{x}/{y}.jpeg", "attribution": "geoportail.lu Orthophoto (CC0)"},
+    {"id": "cuzk", "bounds": [[12.0, 48.5, 18.9, 51.1]], "max_zoom": 20, "year": "",
+     "url": "https://ags.cuzk.cz/arcgis1/rest/services/ORTOFOTO_WM/MapServer/tile/{z}/{y}/{x}", "attribution": "© ČÚZK Ortofoto ČR (CC BY 4.0)"},
+]
+AERIAL_REGION_SHORTFALL = 1      # 23 항공사진·패널 [위성]: 지역 영상 최대 줌이 필요한 줌보다 이만큼까지 모자라면 지역 영상(확대), 더 모자라면 Esri — 미국 USGS(z16)는 A3 1:5000(z18)에서 Esri
+AERIAL_BLANK_BYTES = 2000        # 지역 영상 타일이 이보다 작으면 자료 밖 빈 그림 — 다음 원천으로(PDOK·IGN 흰 칸 1,651 B, PNOA 1,123 B, geoportail.lu 투명 854 B, 바이에른 736 B; 실제 영상 타일은 7 KB 이상, 2026-11-14)
+# 지형에 항공사진 입히기(options.terrain_aerial) — Rhino 8만(context_baker.drape_aerial: Eto 비트맵으로 타일을 한 장으로 붙여 평면 매핑). 지역 공개 영상만
+AERIAL_DRAPE_MAX_TILES = 256     # 한 장 상한 16×16 = 4096 px — 넘으면 줌을 낮춘다(범위 한 변 1 km면 줌 18 ≈ 0.4 m/px·100장)
+AERIAL_DRAPE_FILE_NAME = "aerial_drape.jpg"   # 결과 폴더 — 3dm이 이 그림을 쓴다
+AERIAL_DRAPE_MATERIAL = "Gorani aerial"
+AERIAL_DRAPE_LAYERS = ("Terrain", "Roads", "Roads::sidewalk", "Green", "Water", "Rail", "Site::ground", "Terrain::site_flat",
+                       "Terrain::site_original", "Site::original::Terrain", "Site::original::Green")   # CTX:: 아래 땅 면 — 옆면(Terrain::block·site_wall)·연석은 뺀다
 # 입체 매스도(axo) — 범위 안 건물(발자국 × height_m)을 평행 투상. 시점은 Rhino _SetView 등각 넷과 같다(카메라가 있는 방위). 지형은 평탄 가정
 AXO_VIEWS = {"se": ("남동 등각", 135.0), "sw": ("남서 등각", 225.0), "ne": ("북동 등각", 45.0), "nw": ("북서 등각", 315.0)}   # (이름, 카메라 방위각 — 북 0°, 시계)
 AXO_ELEVATION_DEG = 35.264       # 등각 투상 고도각 = atan(1/√2) — Rhino Isometric과 같다
@@ -1155,10 +1195,11 @@ STYLE_PRESETS = {
 }
 STYLE_DEFAULT_PRESET = "std"
 STYLE_DEFAULTS = {"layout": "side", "line_scale": 1.0, "text_scale": 1.0, "font": "sans", "fade_outside": 0.55,
-                  "labels": True, "subtitle_en": True, "project": "", "axo_view": "se", "axo_ground": "block"}
+                  "labels": True, "subtitle_en": True, "project": "", "axo_view": "se", "axo_ground": "block",
+                  "aerial_opacity": 0.0}   # 항공사진 겹치기 — 현황도 위 반투명 항공사진(0 = 끔). 23 항공사진과 같은 원천·타일, 출처는 정보 칸에
 STYLE_CHOICES = {"layout": ("side", "bottom", "map"), "font": ("sans", "serif"), "ramp": tuple(STYLE_RAMPS), "axo_view": tuple(AXO_VIEWS),
                  "axo_ground": ("block", "flat")}   # 입체 매스도 지형 — block = 지형 덩어리(지반 높이에 건물, 옆면·등고선), flat = 평평한 바닥. 3D의 terrain_block과 따로 고른다
-STYLE_RANGES = {"line_scale": (0.5, 2.0), "text_scale": (0.8, 1.4), "fade_outside": (0.0, 0.8)}
+STYLE_RANGES = {"line_scale": (0.5, 2.0), "text_scale": (0.8, 1.4), "fade_outside": (0.0, 0.8), "aerial_opacity": (0.0, 0.8)}
 STYLE_FONTS = {"sans": "Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif",
                "serif": "'Noto Serif KR', AppleMyungjo, Batang, serif"}
 # 일본어·중국어 도면은 그 언어 글꼴을 STYLE_FONTS 앞에 둔다 — 한국어 글꼴이 같은 한자를 한국식 자형으로 그리지 않게.

@@ -129,7 +129,7 @@ Blender는 기본 브라우저(`cmd_blender.py`), SketchUp은 `UI::HtmlDialog`(`
 이벤트 줄이 열린 뒤(`onopen`) `init`을 보낸다 — 다시 연결돼도 init으로 전부 다시 받는다. 새 이벤트 줄이 열리면 앞 줄로는 보내지 않는다(탭 하나) —
 앞 줄에는 마지막으로 `{"type":"superseded"}`를 보내고, 그 탭은 이벤트 줄을 닫고(다시 붙지 않음) '새 탭에서 열렸습니다' + [이 탭에서 계속](새로 고침)만 보인다.
 명령은 호스트 메인 스레드(Blender = bpy.app.timers, SketchUp·Rhino 7 사이드카 = 메인 루프)에서 처리하고, `cancel`·`host_reply`만 바로 받는다(SketchUp = 서버 스레드 — Rhino 7의 `host_reply`는 stdin을 읽는 스레드, Blender = 스레드 없이 메인 스레드 `poll` — 생성 중에는 진행 콜백이 `poll`을 불러 cancel·새 탭을 받는다). 토큰이 틀리면 403.
-Blender판 `init_state.host`는 `ask_stats:false`(통계 없음)·`aerial:false`(`tile`의 영상 주소가 비고 [위성]·항공사진 도면 없음)·`update_notice:false`(`update` 늘 null)·`ip_center:false`(`map`은 늘 서울시청)다.
+Blender판 `init_state.host`는 `ask_stats:false`(통계 없음)·`esri:false`(`tile`의 Esri 영상 주소가 비고 [위성]·항공사진 도면은 지역 공개 영상 `tile.imagery`만 — 내장 목록만, 2026-11-14)·`update_notice:false`(`update` 늘 null)·`ip_center:false`(`map`은 늘 서울시청)다.
 
 SketchUp 호스트 호출 — 사이드카는 SketchUp 모델을 직접 만지지 못해 패널을 거쳐 Ruby를 부른다(엔진 `run`은 응답을 기다리며 막혀 있다):
 
@@ -151,7 +151,7 @@ Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드�
  "blocked":false,                                 // true = 필지 DB 없음 → 블로커(차단은 이것뿐. 컨텍스트 DB 없음은 경고)
  "paths":{"root":"<HOME_DIR>","lot_db":"data/seoul_site.db","context_db":"data/seoul_context.db","env":".env","install_doc":"docs/install.md"},
  "generator":{"ok":true,"python":"Rhino Python","text":"Rhino 내장"},   // 항상 ok. UI 호환용(블로커 3행째는 ✓ 고정). Blender면 "Blender …"
- "host":{"id":"rhino","name":"Rhino","doc":"Rhino 문서","model":"context.3dm","dwg":true,"ask_stats":false,"brep":true},   // constants.HOST_LABELS — 패널 문구(문서 이름·모델 파일)와 DWG 옵션 표시. brep = 3D 설정 '형상' Mesh|Brep 줄(Rhino 8만). Blender = {"id":"blender","name":"Blender","doc":"Blender 장면","model":"context.blend","dwg":false,"ask_stats":true}, SketchUp = {"id":"sketchup",…,"model":"context.skp","dwg":false,"ask_stats":true}, Rhino 7 = Rhino와 같고 `"dwg":false`
+ "host":{"id":"rhino","name":"Rhino","doc":"Rhino 문서","model":"context.3dm","dwg":true,"ask_stats":false,"brep":true,"drape":true},   // constants.HOST_LABELS — 패널 문구(문서 이름·모델 파일)와 DWG 옵션 표시. brep = 3D 설정 '형상' Mesh|Brep 줄(Rhino 8만). drape = 3D 설정 '지형에 항공사진 입히기' 줄(Rhino 8만 — context_baker.drape_aerial). Blender = {"id":"blender","name":"Blender","doc":"Blender 장면","model":"context.blend","dwg":false,"ask_stats":true}, SketchUp = {"id":"sketchup",…,"model":"context.skp","dwg":false,"ask_stats":true}, Rhino 7 = Rhino와 같고 `"dwg":false`
  "output_langs":[["ko","한국어"],["en","English"]],   // constants.OUTPUT_LANGS — 메뉴 '결과 언어' 칸
  "links":{"website":"https://969flash.github.io/gorani/","contact":"mailto:gorani.3d@gmail.com"},   // constants.PANEL_LINKS — 메뉴 '웹페이지'·'문의' 줄이 주소를 링크로 보여 주고(문의는 메일 주소), 누르면 open_url{key}
  "stats_consent":null,                            // 사용 통계 동의 true|false|null(안 물음) — host.ask_stats(Blender + 측정 ID 있음)면 null일 때 정보 띠로 한 번 묻고([보내기]·[보내지 않음] → stats_consent{on}), 더보기 메뉴 설정에서 바꾼다
@@ -159,7 +159,12 @@ Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드�
  "sources":[source, source, source, source],      // id = lot, building, terrain, api 순서 고정(더보기 메뉴 자료 칸·블로커 체크리스트·첫 실행 모드 판정)
  "warnings":[warning],                            // 더보기 메뉴 자료 칸(no_api_key는 설정 칸 API 키 행). warn·danger면 메뉴 버튼의 점(Korea 모드). 띠로 띄우지 않는다
  "tile":{"url":"…","fallback_url":"…","attribution":"…","abroad_url":"…","abroad_attribution":"…",
-         "aerial_url":"…","aerial_attribution":"…","abroad_aerial_url":"…","abroad_aerial_attribution":"…"},   // review_map.get_tile_config(). 지도 중심이 map.korea_bounds 밖(또는 그 안 일본 모서리 map.korea_cut — 후쿠오카·쓰시마)이면 abroad_url(OSM). 지도 오른쪽 아래 [위성]을 누르면 aerial_url(VWorld 영상, 키 없으면 Esri) — 해외·폴백 뒤는 abroad_aerial_url(Esri)
+         "aerial_url":"…","aerial_attribution":"…","abroad_aerial_url":"…","abroad_aerial_attribution":"…",
+         "imagery":[{"id":"ign_fr","bounds":[[-5.6,41.2,9.9,51.2]],"url":"https://…{z}…{x}…{y}","max_zoom":19,"attribution":"IGN BD ORTHO® (Licence Ouverte 2.0)","year":""}],
+         "imagery_shortfall":1,"imagery_blank_bytes":2000},   // review_map.get_tile_config(). 지도 중심이 map.korea_bounds 밖(또는 그 안 일본 모서리 map.korea_cut — 후쿠오카·쓰시마)이면 abroad_url(OSM). 지도 오른쪽 아래 [위성]을 누르면 aerial_url(VWorld 영상, 키 없으면 Esri) — 해외·폴백 뒤는 abroad_aerial_url(Esri)
+            // imagery = 지역 공개 정사영상(data_pack.get_imagery_regions — 내장 constants.AERIAL_REGIONS + 매니페스트 imagery[], 2026-11-14). [위성]이고 지도 중심이 해외면 화면에 걸친 상자마다
+            // Esri 위에 겹친다(Leaflet bounds — 상자 밖은 요청하지 않는다, 작은 상자가 위, max_zoom + imagery_shortfall까지). 타일은 fetch로 받아 imagery_blank_bytes보다 작으면(자료 밖 흰·투명 칸) 버린다 — 그 자리는 Esri.
+            // 출처 표기는 타일을 하나라도 받은 층만. Esri가 없는 호스트(Blender)는 지도 위에 지역 영상만
  "map":{"center":[126.9784,37.5665],"zoom":16},              // review_map.get_map_init(map_center) — 첫 init에 IP로 짐작한 도시(zoom 12, get_ip_center), 못 받으면 서울시청(zoom 16)
  "options":{…옵션 키 전부, prefs.json 복원 또는 기본값…},
  "results":[{"dir":"…/result/성수동2가_277-17외1_20261106_1432","label":"성수동2가 277-17외1","mode":"lots","built_at":"2026-11-06T14:32:10","buildings":2695,"has_2d":true}],   // 최근 결과 — context_builder.get_recent_results: context.json과 이 프로그램의 3D 파일이 있는 결과 폴더, 새것 먼저 RECENT_RESULTS_MAX(5). 방식(필지·구역·위치)·나라와 상관없이. 트레이(대상지 없을 때)와 빈 검색칸 ↓, 누르면 open_result, x는 hide_result. 3D를 만들면 끝에 오는 init_state로 이번 것이 앞에 든다(2026-11-07 — 예전 recent는 필지만, prefs에 따로 적었다)
@@ -227,8 +232,10 @@ Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드�
  "elapsed_s":41,
  "options":{…generate에 쓰인 옵션 그대로…},        // dirty 판정·결과 카드 제목
  "context":{"path":"…/context.3dm","layers":12,"buildings":1842,"lots":2310,"demolished":9,"tin_points":5120,
-            "origin":[198000.0,551800.0],"imported":true,"import_text":""},
+            "origin":[198000.0,551800.0],"imported":true,"import_text":"",
+            "aerial":{"attribution":"IGN BD ORTHO® (Licence Ouverte 2.0)","year":"","m_per_px":0.18,"objects":7,"path":"…/aerial_drape.jpg"}},
             // imported: import_after 로 이미 넣었는가. 실패면 false + import_text(Rhino 메시지) — 문서 카드는 done만으로 그린다
+            // aerial: terrain_aerial로 지형에 입힌 항공사진(없으면 null) — 3D 카드 대상지 줄 아래 '항공사진 <출처> · <m/px> · 촬영 <연도|시기 확인 필요> [보기]'. 공개 영상이 없으면 info 경고 aerial_none
  "basemap":{"ready":true,"paper":"A1","layers":14,"exported":[]},
             // ready=false: basemap phase 실패 → 카드 안 빨강 1줄 '생성 실패 — [log.txt]', 버튼 비활성
             // exported: 항상 빈 배열로 시작(폴더 스캔 안 함). JS가 exported 푸시로만 누적. 이전 실행의 .ai는 files에만 보인다
@@ -283,7 +290,7 @@ Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드�
 - `countries[]`(2026-10-23) — 나라별 공식 건물 팩 목록. 원본 `docs/countries.json`, 올리기는 같은 `dev_deploy.py notices`(`upload`도 같이 넣는다). 항목 `{code(소문자 2자 = 팩 이름 접두사), label, source_id, manifest(한국 매니페스트 기준 상대경로 가능), bounds[서, 남, 동, 북] 또는 그 목록(미국처럼 본토·알래스카·하와이), code_pattern, disabled?}`. 플러그인은 `init`에 받아 둔 매니페스트의 이 목록으로 대상지 나라를 고르고(`data_pack.get_country_packs` → `osm_context.get_country`, 상자가 겹치면 작은 것), 못 받았으면 내장 `constants.COUNTRY_PACKS`(같은 값). 틀린 항목은 그 나라만 건너뛰고 `disabled: true`는 내장에서도 뺀다. **새 나라 = 팩·`<나라>/manifest.json` 올리기 + 이 목록 한 줄 — 플러그인 판은 올리지 않는다**(0.3.3·0.3.4를 나라 추가만으로 올린 뒤 바꿈). 생성 직전(`_download_for_generate`)에도 매니페스트를 한 번 더 받아 둔다(init 3 s 안에 못 받은 경우).
 - `services{}`(2026-10-23) — 외부 주소 덮어쓰기(같은 `docs/countries.json`의 `services`): `overpass`(미러 목록)·`nominatim`·`terrain_tiles`(`{z}/{x}/{y}` 틀). `data_pack.get_service(key, 내장값)` — https만 받고 틀리면 내장 상수. 미러가 죽거나 주소가 바뀌어도 판 없이.
 - **원격 설정 `config.json`**(2026-10-23, 매니페스트 옆) — 코드가 아니라 '값'을 판 없이 바꾼다: 도면 색·범례·틀 치수(`STYLE_PRESETS`·`SHEET_LEGENDS`·`SHEET_*_MM`·`BM_LAYERS`), 분류 구간·코드표(`SHEET_*_BREAKS`·`SHEET_*_KEYS`·`PLATEAU_USE`·`OSM_BUILDING_USE`), 높이·범위 파라미터(`FLOOR_HEIGHT_*`·`CONTEXT_RADIUS`), OSM 질의·도로폭, `PANEL_LINKS`, 번역 사전 전체. 목록은 `remote_config.REMOTE_KEYS`(원본 = `constants.py`·`i18n.json`, 올리기 = `dev_deploy.py notices`가 `remote_config.build()`로 만들어 같이 올림, 자가 점검 후). 플러그인은 컨트롤러 생성 때 캐시(`HOME_DIR/data/config.json`)를 덮고(패널 HTML에 번역을 심기 전), `init`에서 ETag로 새 것을 받는다(3 s, 못 받으면 캐시·내장값). 덮는 규칙: 이름이 목록에 있고 꼴(dict·list·str·수)이 내장값과 같고 dict는 내장 키를 다 가질 때만, 틀린 항목은 그 항목만 건너뜀. 번역은 `test_i18n`과 같은 규칙(자리표시 일치, 원문에 없는 `" & < >` 금지). **상수의 꼴을 바꾸는 판을 내면 `remote_config.COMPAT_MIN`을 그 판으로** — 옛 설치본은 원격 설정을 받지 않고 내장값으로 돈다. 그리는 코드·새 도면·패널 HTML은 원격으로 바꾸지 않는다(스토어 규정·보안).
-- **데이터 호환 규칙** — 팩·매니페스트만 바꿔도 깔린 플러그인이 그대로 돌게: ① 팩 표는 칸을 더하기만 한다(런타임은 `SELECT *` + 이름 조회라 모르는 칸을 무시한다), 칸 삭제·이름 바꾸기 금지 ② `PRAGMA user_version`은 호환이 깨질 때만 올린다(런타임은 자기보다 낮은 판만 거절한다) ③ 새 `height_src`는 `<source_id>_<height|levels|roof>` 꼴로 — 범례 표기는 `data_pack.get_height_src_label`이 팩 라벨로 만든다 ④ 새 출처(`source_id`)의 고지는 팩 `data_sources.note`에(런타임은 PLATEAU만 코드 특례, 나머지는 note 그대로) ⑤ 용도(`usability`)는 빌드 때 팩에 쓴다(런타임 코드 사전은 옛 PLATEAU 팩용) ⑥ 매니페스트에 모르는 키가 있어도 무시한다.
+- **데이터 호환 규칙** — 팩·매니페스트만 바꿔도 깔린 플러그인이 그대로 돌게: ① 팩 표는 칸을 더하기만 한다(런타임은 `SELECT *` + 이름 조회라 모르는 칸을 무시한다), 칸 삭제·이름 바꾸기 금지 ② `PRAGMA user_version`은 호환이 깨질 때만 올린다(런타임은 자기보다 낮은 판만 거절한다) ③ 새 `height_src`는 `<source_id>_<height|levels|roof>` 꼴로 — 범례 표기는 `data_pack.get_height_src_label`이 팩 라벨로 만든다 ④ 새 출처(`source_id`)의 고지는 팩 `data_sources.note`에(런타임은 PLATEAU만 코드 특례, 나머지는 note 그대로) ⑤ 용도(`usability`)는 빌드 때 팩에 쓴다(런타임 코드 사전은 옛 PLATEAU 팩용) ⑥ 매니페스트에 모르는 키가 있어도 무시한다 ⑦ 지역 영상(`imagery[]`, 원본 `docs/imagery.json`)은 id로 덮고 칸은 더하기만 — url은 https 웹 메르카토르 `{z}`·`{x}`·`{y}`만, 공개 라이선스만(지형 입히기가 파일에 저장한다), 내리려면 `disabled: true`.
 
 ## 언어 (2026-10-21)
 
@@ -366,6 +373,8 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
  "include_zoning":true,                                // 화면에 없다 — 늘 true(FIXED_3D, 2026-11-07 옵션을 없앴다). 한국 대상지만 자료가 있다   // CTX::Zoning::<구분>::<종류> — 용도지역·용도지구·용도구역·도시계획시설·지구단위계획(현황도 11~13 범례 색, 범위 bbox로 자름)
  "terrain_vertex_color":false,
  "terrain_step":0,                                     // 지형 표현(③ 지형): 0 = 매끈, 1|2|5 = 계단형(등고 모형) 단 간격 m. 지반·수면 메시를 단마다 수평면 + 수직 벽으로, 건물 바닥도 계단 지반 기준
+ "terrain_aerial":false,                               // 지형에 항공사진 입히기(Rhino 8만 — host.drape, 2026-11-14): 대상지를 덮는 지역 공개 영상(tile.imagery)이 있을 때만 켤 수 있다 — 국내(VWorld 저장 금지)·영상 없는 곳은 비활성 + 사유 한 줄.
+                                                       // generate는 그 조건으로 다시 걸러 보낸다(canDrape). 엔진: sheet_svg.get_drape_tiles → context_baker.drape_aerial(결과 폴더 aerial_drape.jpg + 땅 면 AERIAL_DRAPE_LAYERS에 재질·평면 매핑). 켜면 요약에 '항공사진'
  "terrain_block":true,                                 // 지형을 바닥까지 채우기: 지형 옆면·바닥(CTX::Terrain::block, BASE_M). 건물·필지·도로중심선·용도지역은 이 값과 상관없이 늘 범위 링으로 자른다(원·사각형 범위만). 끄면 3D 설정 요약에 '지형 표면만'. 입체 매스도는 style.axo_ground
  "detail_curb":true,"detail_markings":true,"detail_rail":true,"detail_bridges":true,"detail_walls":true,"detail_fences":false,"detail_trees":true,   // 디테일(3D 설정 '가로·구조물·건물' 체크, constants.DETAIL_OPTIONS — 2026-11-13). 기본과 다르면 요약에 이름 또는 '… 끔'
  "building_parapet":false,"building_floors":false,     // 옥상 파라펫·층 구분선
@@ -373,7 +382,7 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
  "make_dwg":false,                                     // 3dm 2D 도면(BM::)만 basemap_<축척>.dwg로도 저장(고급 > 3dm). 결과 경로는 done.context.dwg
  "zoom_after_import":true,
  "style":{"preset":"std"}}                              // 도면 스타일 — 사용자가 고른·바꾼 값. 해석은 sheet_svg.get_style(STYLE_*): 색 10개(paper·block·road·green·water·building·rail·site·extent·ink),
-                                                       // ramp, layout(side|bottom|map), line_scale, text_scale, font(sans|serif), fade_outside, labels, subtitle_en, project, name(저장한 스타일),
+                                                       // ramp, layout(side|bottom|map), line_scale, text_scale, font(sans|serif), fade_outside, aerial_opacity(항공사진 겹치기 0·0.3·0.5·0.7 — 주제 위 반투명 영상, 23 항공사진과 같은 원천·타일, 정보 칸에 '항공사진 겹침 <출처>'. 23·입체 매스도는 빼고), labels, subtitle_en, project, name(저장한 스타일),
                                                        // axo_view(se|sw|ne|nw — 입체 매스도 시점, Rhino 등각. 스타일 화면에서 바꾸면 미리보기가 입체 매스도로 넘어간다)
                                                        // axo_ground(block|flat — 입체 매스도 지형. block = 지형 덩어리(기본), flat = 평평한 바닥. 3D의 terrain_block과 따로. 바꾸면 미리보기가 입체 매스도로)
 ```
@@ -459,7 +468,7 @@ Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `r
 - `preflight`는 패널이 보내지 않는다(2026-10-19 — 범위가 원·사각형뿐이라 JS가 그린다). 명령은 남아 있다(Blender·SketchUp·예전 패널).
 - Leaflet 인스턴스 1개, 지도 화면에만 있다(결과 화면에서는 `#map_park`에 대피). `map.remove()` 금지. 줌 ≥ 17에서만 `map_lots`(moveend 250 ms 디바운스, `seq` 증가). `tileerror` 3회 → `fallback_url`로 `setUrl` 1회, 폴백 뒤에도 3회면 지도 위 칩.
 - `generate` 페이로드: `{target, options}` — 옵션 키 절의 고정값을 덮어 보낸다. `make_2d` 페이로드: `{dir: result.dir, options}`.
-- `?mock=1`: `send`를 콘솔 출력으로 바꾸고 `tests/fixtures/site_ui_mock.json`을 순서대로 흘린다(`init_state` → `search_result` → `lot_state` → `data_progress`·`progress`… → `done` → (`&step=2d`면) `progress`… → `made_2d`). `&step=1`은 지도까지, `&menu=1`은 메뉴를 연다. `&lang=ko`처럼 언어를 고른다(기본 영어).
+- `?mock=1`: `send`를 콘솔 출력으로 바꾸고 `tests/fixtures/site_ui_mock.json`을 순서대로 흘린다(`init_state` → `search_result` → `lot_state` → `data_progress`·`progress`… → `done` → (`&step=2d`면) `progress`… → `made_2d`). `&step=1`은 지도까지, `&menu=1`은 메뉴를 연다. `&lang=ko`처럼 언어를 고른다(기본 영어). `&center=lng,lat&zoom=n`은 그 자리 지도만(필지 흐름 없이), `&point=1`은 거기 위치 대상지, `&s3d=1`은 3D 설정을 펼친다, `&aerial=1`은 [위성]을 켠다, `&imagery=0`은 지역 영상 없이(Esri만 — 전/후 비교).
 
 ## 플랫폼 주의(기존 그대로)
 

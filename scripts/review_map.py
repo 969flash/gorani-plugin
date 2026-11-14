@@ -65,22 +65,48 @@ def get_tile_config():
         ``{"url", "fallback_url", "attribution", "abroad_url", "abroad_attribution",
         "aerial_url", "aerial_attribution", "abroad_aerial_url", "abroad_aerial_attribution"}``.
         abroad_aerial_url(Esri)은 국내 영상을 못 받을 때의 폴백도 겸한다.
+        imagery = 지역 공개 정사영상(get_imagery_regions) — 패널 [위성]이 해외에서 Esri 위에 상자(bounds)마다 겹쳐 깐다.
+        imagery_shortfall = 그 영상을 최대 줌보다 몇 단계 더 확대해 보일지(그 위는 Esri), imagery_blank_bytes = 이보다 작은 타일은 자료 밖 빈 그림.
     """
+    import context_builder   # 호스트 판정 — 모듈 수준 import는 순환
+    host = context_builder.get_host()
     osm_url = get_osm_url()
     config = {
         "url": osm_url, "fallback_url": osm_url, "attribution": OSM_ATTRIBUTION,
         "abroad_url": osm_url, "abroad_attribution": ABROAD_ATTRIBUTION,
         "aerial_url": ESRI_AERIAL_URL, "aerial_attribution": ESRI_AERIAL_ATTRIBUTION,
         "abroad_aerial_url": ESRI_AERIAL_URL, "abroad_aerial_attribution": ESRI_AERIAL_ATTRIBUTION,
+        "imagery": get_imagery_regions(), "imagery_shortfall": constants.AERIAL_REGION_SHORTFALL, "imagery_blank_bytes": constants.AERIAL_BLANK_BYTES,
     }
     api_key = pnu_loader.get_local_env_value(constants.VWORLD_API_KEY_ENV)
     if api_key:
         config.update(url=VWORLD_TILE_URL_TEMPLATE % api_key, attribution=VWORLD_ATTRIBUTION,
                       aerial_url=VWORLD_AERIAL_URL_TEMPLATE % api_key, aerial_attribution=tr(VWORLD_AERIAL_ATTRIBUTION))
-    import context_builder   # 호스트 판정 — 모듈 수준 import는 순환
-    if not constants.HOST_LABELS[context_builder.get_host()].get("aerial", True):   # Blender — 위성 영상 없음(패널은 [위성]을 숨긴다)
+    if not constants.HOST_LABELS[host].get("esri", True):   # Blender — 상용 영상(Esri) 없음, 지역 공개 영상만(패널은 그것도 없으면 [위성]을 숨긴다)
         config.update(aerial_url="", abroad_aerial_url="")
     return config
+
+
+def get_imagery_regions():
+    # type: () -> list
+    """지역 공개 정사영상 [{id, bounds[[서, 남, 동, 북]], url, max_zoom, attribution, year}] — Blender는 내장 목록만(심사가 본 주소)."""
+    import context_builder   # 호스트 판정 — 모듈 수준 import는 순환
+    import data_pack
+    return [dict(region, bounds=[list(box) for box in region["bounds"]])
+            for region in data_pack.get_imagery_regions(builtin_only=context_builder.get_host() == "blender")]
+
+
+def get_imagery_regions_at(lng, lat):
+    # type: (float, float) -> list
+    """경위도를 덮는 지역 공개 영상 — 작은 상자 먼저(스위스 안 제네바는 프랑스 상자에도 든다). 한국 안은 [](VWorld·Esri — 국내 공개 타일 없음)."""
+    if non_rhino_utils.is_korea(lng, lat):
+        return []
+    hits = []
+    for region in get_imagery_regions():
+        areas = [(box[2] - box[0]) * (box[3] - box[1]) for box in region["bounds"] if box[0] <= lng <= box[2] and box[1] <= lat <= box[3]]
+        if areas:
+            hits.append((min(areas), region))
+    return [region for _, region in sorted(hits, key=lambda hit: hit[0])]
 
 
 def get_osm_url():
