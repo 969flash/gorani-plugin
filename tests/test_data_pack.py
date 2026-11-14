@@ -224,6 +224,35 @@ class LocalPackTest(unittest.TestCase):
         for code in constants.COUNTRY_PACKS:
             self.assertEqual(builtin[code], remote[code], code)
 
+    def test_imagery_json_matches_builtin_and_manifest_overrides(self):
+        """docs/imagery.json(매니페스트 imagery[] 원본)은 검증을 지나고 내장 AERIAL_REGIONS와 같다. 매니페스트는 id로 덮고, disabled는 내리고,
+        틀린 항목·Blender(builtin_only)는 내장 그대로."""
+        import constants
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "imagery.json")
+        with open(path, encoding="utf-8") as f:
+            entries = json.load(f)["imagery"]
+        self.assertEqual([data_pack._get_imagery_region(e) for e in entries], [data_pack._get_imagery_region(e) for e in constants.AERIAL_REGIONS])
+        saved = data_pack._MANIFEST.get(constants.DATA_MANIFEST_URL)
+        try:
+            data_pack._MANIFEST[constants.DATA_MANIFEST_URL] = {"packs": [], "imagery": [
+                {"id": "pdok", "disabled": True},
+                {"id": "nlsc", "bounds": [119.3, 21.8, 122.1, 25.4], "url": "https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}",
+                 "max_zoom": 19, "attribution": "NLSC", "year": "2024"},
+                {"id": "bad", "bounds": [0, 0, 1, 1], "url": "http://x/{z}/{x}/{y}", "max_zoom": 19, "attribution": "x"},       # http
+                {"id": "bad2", "bounds": [0, 0, 1, 1], "url": "https://x/{z}/{x}/{y}/{s}", "max_zoom": 19, "attribution": "x"}]}   # 모르는 자리표시
+            ids = [r["id"] for r in data_pack.get_imagery_regions()]
+            self.assertNotIn("pdok", ids)
+            self.assertNotIn("bad", ids)
+            self.assertNotIn("bad2", ids)
+            self.assertEqual(ids[-1], "nlsc")
+            self.assertEqual(data_pack.get_imagery_regions()[-1]["bounds"], [(119.3, 21.8, 122.1, 25.4)])
+            self.assertEqual([r["id"] for r in data_pack.get_imagery_regions(builtin_only=True)], [r["id"] for r in constants.AERIAL_REGIONS])
+        finally:
+            if saved is None:
+                data_pack._MANIFEST.pop(constants.DATA_MANIFEST_URL, None)
+            else:
+                data_pack._MANIFEST[constants.DATA_MANIFEST_URL] = saved
+
     def test_group_without_table(self):
         """상한을 넘어 묶음으로 나뉠 때 테이블이 없는 묶음(등고선 팩만)은 건너뛴다. 어디에도 없으면 오류."""
         with tempfile.TemporaryDirectory() as data_dir:

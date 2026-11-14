@@ -242,8 +242,8 @@ class BridgeTest(unittest.TestCase):
         self.assertEqual(received[0]["type"], "init_state")
         self.assertEqual(received[0]["host"]["id"], "blender")
         self.assertFalse(received[0]["host"].get("ask_stats"))   # Blender판은 사용 통계를 묻지도 보내지도 않는다(패키지에는 키도 없다)
-        self.assertNotIn("aerial", [sheet["key"] for sheet in received[0]["sheet_catalog"]])
-        self.assertEqual(received[0]["tile"]["abroad_aerial_url"], "")
+        self.assertEqual(received[0]["tile"]["abroad_aerial_url"], "")   # 상용 영상(Esri) 없음 — 지역 공개 영상만, 내장 목록만(매니페스트로 새 주소가 들어오지 않게)
+        self.assertEqual([r["id"] for r in received[0]["tile"]["imagery"]], [r["id"] for r in loader.load("constants").AERIAL_REGIONS])
         self.assertIsNone(received[0]["update"])
 
 

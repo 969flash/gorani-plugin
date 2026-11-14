@@ -70,6 +70,7 @@ import remote_config  # noqa: E402 — config.json(원격 설정)은 런타임�
 
 BUILD_DIR = os.path.join(ROOT_DIR, "build")
 NOTICES_PATH = os.path.join(ROOT_DIR, "docs", "notices.json")   # 매니페스트 update·notices 원본 — 칸은 docs/panel_ui.md '업데이트·공지'
+IMAGERY_PATH = os.path.join(ROOT_DIR, "docs", "imagery.json")   # 매니페스트 imagery 원본 — 지역별 공개 정사영상(data_pack.get_imagery_regions). 새 지역은 여기에만(플러그인 판 없이)
 COUNTRIES_PATH = os.path.join(ROOT_DIR, "docs", "countries.json")   # 매니페스트 countries 원본 — 나라별 건물 팩 목록(data_pack.get_country_packs). 새 나라는 여기에만(플러그인 판 없이)
 RHINO_BIN_DIR = "/Applications/Rhino 8.app/Contents/Resources/bin"
 BRAND_DIR = os.path.join(ROOT_DIR, "docs", "brand")      # 로고 원본 SVG(currentColor)와 크기별 PNG — docs/brand/logo.html
@@ -270,7 +271,10 @@ BLENDER_CONSTANT_PATCHES = {
 BLENDER_ALLOWED_HOSTS = (
     "127.0.0.1",                                                       # 패널 서버(이 컴퓨터)
     "tile.openstreetmap.org", "nominatim.openstreetmap.org", "overpass-api.de", "overpass.openstreetmap.fr",   # OpenStreetMap — 지도·지명 검색·건물·도로
-    "s3.amazonaws.com", "cyberjapandata.gsi.go.jp",                    # 지형 타일 — AWS Open Data Terrain Tiles, 일본 국토지리원
+    "s3.amazonaws.com", "cyberjapandata.gsi.go.jp",                    # 지형 타일 — AWS Open Data Terrain Tiles, 일본 국토지리원(+ 시ームレス空中写真)
+    # 지역 공개 정사영상(constants.AERIAL_REGIONS — Blender는 내장 목록만, 매니페스트 imagery[]를 읽지 않는다). 정부 공개 데이터, 키·가입 없음(약관 3.10·4.3)
+    "service.pdok.nl", "data.geopf.fr", "wmts.geo.admin.ch", "basemap.nationalmap.gov", "mapsneu.wien.gv.at", "www.ign.es", "wmtsod1.bayernwolke.de",
+    "wmts1.geoportail.lu", "ags.cuzk.cz",
     "raw.githubusercontent.com", "github.com",                         # 데이터 팩 매니페스트·팩(GitHub 사본 constants.DATA_GITHUB_REPO)
     "150.230.249.1",                                                   # 한국 건물·도로·등고선 팩(국내 서버 — 공간정보관리법 제16조, constants.DATA_DOMESTIC_BASE_URL)
     "gorani.site", "extensions.blender.org", "www.eum.go.kr", "www.openstreetmap.org", "wiki.openstreetmap.org", "registry.opendata.aws",
@@ -456,6 +460,8 @@ def _set_rui_icons(rui_path):
 SMOKE_PLACES = {"domestic": ((126.9784, 37.5665), (129.0756, 35.1796)),   # 서울시청·부산시청 — url·aerial_url(국내)
                 "abroad": ((2.3488, 48.8534), (139.7671, 35.6812))}       # 파리·도쿄 — abroad_url·abroad_aerial_url
 SMOKE_ZOOM = 16
+# 지역 공개 영상(constants.AERIAL_REGIONS) 대표 지점 — 나라 팩 5개국 원천만(빌드 게이트가 느려지지 않게, 한 곳에 타일 2장). 나머지 지역은 패널에서 Esri로 물러난다
+SMOKE_IMAGERY_PLACES = {"gsi": (139.7671, 35.6812), "pdok": (4.8952, 52.3702), "ign_fr": (2.3488, 48.8534), "swisstopo": (8.5417, 47.3769), "usgs": (-74.0060, 40.7128)}
 SMOKE_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36 Edg/130.0"   # 웹뷰처럼, Referer 없이
 SMOKE_MIN_BYTES = 1000
 
@@ -524,6 +530,19 @@ def check_tiles():
                 continue
             print("  타일 통과: %s %s" % (label, field))
     bridge.server.shutdown()
+    regions = {region["id"]: region for region in constants.AERIAL_REGIONS}
+    for region_id, place in SMOKE_IMAGERY_PLACES.items():   # 지역 영상 — 이웃한 두 장이 영상(빈 칸·막힘 그림 아님)이고 서로 달라야 한다
+        z, x, y = get_xyz(*place)
+        try:
+            tiles = [fetch(regions[region_id]["url"].format(z=z, x=x + dx, y=y)) for dx in (0, 1)]
+        except Exception as error:
+            failures.append("imagery %s: %s" % (region_id, error))
+            continue
+        bad = [kind for kind, body in tiles if not kind.startswith("image/")] + ["%d B" % len(body) for _, body in tiles if len(body) < constants.AERIAL_BLANK_BYTES]
+        if bad or tiles[0][1] == tiles[1][1]:
+            failures.append("imagery %s: %s" % (region_id, ", ".join(bad) or "두 타일이 같다"))
+            continue
+        print("  타일 통과: imagery %s" % region_id)
     if failures:
         sys.exit("배포 전 점검 실패 — 패널 지도 타일:\n  " + "\n  ".join(failures))
 
@@ -1634,7 +1653,7 @@ def upload(site_only=False):
         subprocess.run(["oci", "os", "object", "sync", "-ns", parts[-4], "-bn", parts[-2], "--src-dir", ".",
                         "--include", "[0-9]*_context.db.xz", "--include", "[0-9]*_terrain.db.xz"],
                        check=True, cwd=pack_dir, env=dict(os.environ, SUPPRESS_LABEL_WARNING="True"))   # --include는 현재 폴더 기준
-    header = {key: remote[key] for key in ("update", "notices", "countries", "services") if key in remote} if remote else _read_notices()
+    header = {key: remote[key] for key in ("update", "notices", "countries", "services", "imagery") if key in remote} if remote else _read_notices()
     stage = os.path.join(BUILD_DIR, "hf_stage")
     os.makedirs(stage, exist_ok=True)
     with open(os.path.join(stage, "manifest.json"), "w", encoding="utf-8") as f:
@@ -1669,7 +1688,7 @@ def get_update_items(update):
 
 def _read_notices():
     # type: () -> dict
-    """docs/notices.json + docs/countries.json → {"update", "notices", "countries"}. 매니페스트를 올릴 때마다 넣어 팩을 다시 올려도 공지·나라 목록이 지워지지 않게 한다.
+    """docs/notices.json + docs/countries.json + docs/imagery.json → {"update", "notices", "countries", "services", "imagery"}. 매니페스트를 올릴 때마다 넣어 팩을 다시 올려도 공지·나라 목록이 지워지지 않게 한다.
     나라 항목이 런타임 검증(data_pack._get_country_pack)에 걸리면 올리기 전에 멈춘다 — 플러그인은 그 나라를 말없이 건너뛰므로 여기서 잡는다."""
     with open(NOTICES_PATH, encoding="utf-8") as f:
         data = json.load(f)
@@ -1679,10 +1698,15 @@ def _read_notices():
     bad = [entry.get("code") for entry in countries if not entry.get("disabled") and data_pack._get_country_pack(entry) is None]
     if bad:
         raise ValueError("docs/countries.json 항목이 틀렸습니다(code 2자·bounds 4수·code_pattern 정규식·manifest·source_id·label): %s" % bad)
+    with open(IMAGERY_PATH, encoding="utf-8") as f:
+        imagery = json.load(f)["imagery"]
+    bad = [entry.get("id") for entry in imagery if not entry.get("disabled") and data_pack._get_imagery_region(entry) is None]
+    if bad:
+        raise ValueError("docs/imagery.json 항목이 틀렸습니다(id·bounds 4수·https url {z}{x}{y}·max_zoom 1~22·attribution): %s" % bad)
     update = data.get("update")
     if update and update.get("groups"):
         update = dict(update, items=get_update_items(update))   # 올리는 값은 groups에서 만든다 — 손으로 고친 items가 어긋나 올라가지 않게
-    return {"update": update, "notices": data.get("notices") or [], "countries": countries, "services": services}
+    return {"update": update, "notices": data.get("notices") or [], "countries": countries, "services": services, "imagery": imagery}
 
 
 def build_config(path=None):
@@ -1719,8 +1743,8 @@ def upload_notices():
                     commit_message="manifest: 업데이트·공지·나라 목록")
     api.upload_file(path_or_fileobj=build_config(), path_in_repo=remote_config.CONFIG_FILE_NAME, repo_id=constants.DATA_REPO_ID, repo_type="dataset",
                     commit_message="config.json: 원격 설정(도면·코드표·파라미터·번역)")
-    print("  올림: update %s, 공지 %d개, 나라별 건물 팩 %d나라(%s)" % ("있음" if manifest["update"] else "없음", len(manifest["notices"]),
-          len(manifest["countries"]), "·".join(c["code"] for c in manifest["countries"])), flush=True)
+    print("  올림: update %s, 공지 %d개, 나라별 건물 팩 %d나라(%s), 지역 영상 %d곳" % ("있음" if manifest["update"] else "없음", len(manifest["notices"]),
+          len(manifest["countries"]), "·".join(c["code"] for c in manifest["countries"]), len(manifest["imagery"])), flush=True)
     return constants.DATA_MANIFEST_URL
 
 

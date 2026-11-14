@@ -1167,11 +1167,9 @@ def _phase_failed(response, phase, exc):
 def get_sheet_ids(options):
     # type: (dict) -> list
     """options.sheet_ids → 카탈로그에 있는 id만 카탈로그 순서로(옛 prefs의 다른 번호가 섞여도 깨지지 않게). 비면 전부.
-    Global 모드는 Korea 전용 도면(SHEET_KOREA_ONLY)을, 위성 영상이 없는 호스트(HOST_LABELS aerial)는 항공사진을 뺀다."""
+    Global 모드는 Korea 전용 도면(SHEET_KOREA_ONLY)을 뺀다. 항공사진은 늘 둔다 — Esri가 없는 Blender는 지역 공개 영상만, 없으면 빈 도면."""
     korea_only = (options or {}).get("region") == "global"
-    aerial = constants.HOST_LABELS[get_host()].get("aerial", True)   # Blender — 위성 영상 없음(항공사진 시트를 뺀다)
-    valid = [sheet_id for sheet_id, key, *_ in constants.SHEET_CATALOG
-             if not (korea_only and key in constants.SHEET_KOREA_ONLY) and (aerial or key != "aerial")]
+    valid = [sheet_id for sheet_id, key, *_ in constants.SHEET_CATALOG if not (korea_only and key in constants.SHEET_KOREA_ONLY)]
     wanted = set()
     for value in (options or {}).get("sheet_ids") or []:
         try:
@@ -1337,13 +1335,14 @@ def _run_phases(request, progress, doc, response, state):
     for path in {item.layer for item in items} | {constants.CTX_ROOT_LAYER + "::Ref"}:
         names = path.split("::")
         layers.update("::".join(names[:k]) for k in range(2, len(names) + 1))
+    aerial = _drape_aerial(prepared, geo, doc, context_baker, lot_key, progress, response) if options.get("terrain_aerial") else None
     _report(progress, "write_3dm", 0.85, tr("{0} 저장", constants.HOST_LABELS[get_host()]["model"]))
     state["save_timing"] = {}
     path = context_baker.save_copy(doc, os.path.join(prepared.result_dir, constants.CONTEXT_MODEL_FILE_NAME), ids, state["save_timing"])
     response["context"].update(path=path, layers=len(layers), buildings=geo.counts["buildings"], lots=prepared.stats["lots"],
                                demolished=geo.counts.get("demolished", 0), tin_points=geo.counts["tin_points"], origin=list(prepared.origin),
                                origin_reused=prepared.origin_reused, placement=prepared.placement, doc_origin=list(prepared.doc_origin),
-                               model_unit=str(getattr(doc, "ModelUnitSystem", "Meters")), imported=True, import_text="")   # Blender 장면은 m 고정
+                               model_unit=str(getattr(doc, "ModelUnitSystem", "Meters")), imported=True, import_text="", aerial=aerial)   # Blender 장면은 m 고정
     # [blender-cut] DWG는 Rhino만
     if options.get("make_dwg") and constants.DWG_EXPORT_ENABLED and hasattr(context_baker, "save_dwg_from_3dm"):   # DWG는 Rhino만   # 2D 도면(BM::)만 .dwg로 — 실패해도 3dm은 남긴다
         _report(progress, "write_3dm", 0.95, tr(".dwg 저장"))
@@ -1357,6 +1356,28 @@ def _run_phases(request, progress, doc, response, state):
     _report(progress, "write_3dm", 1.0, tr("객체 {0} · 레이어 {1}", len(ids), len(layers)))
 
     _run_2d_phases(prepared, options, geo.terrain_tris_world, progress, response, state)
+
+
+def _drape_aerial(prepared, geo, doc, baker, lot_key, progress, response):
+    # type: (object, object, object, object, str, object, dict) -> dict
+    """지형에 항공사진(options.terrain_aerial) — 지역 공개 영상 타일(sheet_svg.get_drape_tiles)을 베이커가 한 장으로 붙여 땅 면에 입힌다.
+    입힐 수 없는 호스트(drape_aerial 없음)·공개 영상이 없는 곳은 경고만. 실패해도 3D는 남긴다.
+    출력: {attribution, year, m_per_px, objects, path} 또는 None — 결과 화면·context.json."""
+    if not hasattr(baker, "drape_aerial"):
+        return None
+    import sheet_svg
+    _report(progress, "write_3dm", 0.75, tr("항공사진 입히기"))
+    try:
+        drape = sheet_svg.get_drape_tiles(geo.terrain_tris_world, prepared.origin)
+        if not drape:
+            response["warnings"].append(_warning("info", "aerial_none", tr("이 지역은 지형에 입힐 공개 항공사진이 없습니다"), ""))
+            return None
+        path = os.path.join(prepared.result_dir, constants.AERIAL_DRAPE_FILE_NAME)
+        objects = baker.drape_aerial(doc, prepared, lot_key, drape, path)
+    except Exception as exc:   # noqa: BLE001
+        _phase_failed(response, "write_3dm", exc)
+        return None
+    return {"attribution": drape["attribution"], "year": drape["year"], "m_per_px": round(drape["m_per_px"], 2), "objects": objects, "path": path}
 
 
 # [blender-cut] DWG는 Rhino만

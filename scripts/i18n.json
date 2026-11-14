@@ -4475,11 +4475,71 @@
   "ja": "画像 {0}",
   "zh": "影像 {0}"
  },
- "지상 해상도 약 {0:.2f} m/px · 촬영 시기 확인 필요": {
-  "en": "Ground resolution about {0:.2f} m/px · check the capture date",
-  "es": "Resolución en el terreno aprox. {0:.2f} m/px · verifica la fecha de captura",
-  "ja": "地上解像度 約{0:.2f} m/px・撮影時期は要確認",
-  "zh": "地面分辨率约 {0:.2f} m/px · 拍摄时间需核实"
+ "지상 해상도 약 {0:.2f} m/px · 촬영 {1}": {
+  "en": "Ground resolution about {0:.2f} m/px · captured {1}",
+  "es": "Resolución en el terreno aprox. {0:.2f} m/px · captura {1}",
+  "ja": "地上解像度 約{0:.2f} m/px・撮影 {1}",
+  "zh": "地面分辨率约 {0:.2f} m/px · 拍摄 {1}"
+ },
+ "시기 확인 필요": {
+  "en": "date to be checked",
+  "es": "fecha por verificar",
+  "ja": "時期は要確認",
+  "zh": "时间需核实"
+ },
+ "항공사진 겹침 {0}": {
+  "en": "Aerial overlay: {0}",
+  "es": "Foto aérea superpuesta: {0}",
+  "ja": "航空写真の重ね {0}",
+  "zh": "航拍叠加 {0}"
+ },
+ "항공사진 입히기": {
+  "en": "Draping aerial photo",
+  "es": "Aplicando foto aérea",
+  "ja": "航空写真を貼る",
+  "zh": "贴航拍图"
+ },
+ "이 지역은 지형에 입힐 공개 항공사진이 없습니다": {
+  "en": "No open aerial imagery here to drape on the terrain",
+  "es": "No hay imágenes aéreas abiertas aquí para aplicar al terreno",
+  "ja": "この地域には地形に貼れる公開航空写真がありません",
+  "zh": "该地区没有可贴到地形上的公开航拍图"
+ },
+ "국내 영상은 파일에 저장할 수 없습니다": {
+  "en": "Korean imagery can't be saved to files",
+  "es": "Las imágenes de Corea no se pueden guardar en archivos",
+  "ja": "韓国の画像はファイルに保存できません",
+  "zh": "韩国影像不能保存到文件"
+ },
+ "이 지역은 공개 영상이 없습니다": {
+  "en": "No open imagery for this area",
+  "es": "No hay imágenes abiertas para esta zona",
+  "ja": "この地域には公開画像がありません",
+  "zh": "该地区没有公开影像"
+ },
+ "지형에 항공사진 입히기": {
+  "en": "Drape aerial photo on terrain",
+  "es": "Aplicar foto aérea al terreno",
+  "ja": "地形に航空写真を貼る",
+  "zh": "在地形上贴航拍图"
+ },
+ "항공사진 {0} · {1} m/px · 촬영 {2}": {
+  "en": "Aerial photo {0} · {1} m/px · captured {2}",
+  "es": "Foto aérea {0} · {1} m/px · captura {2}",
+  "ja": "航空写真 {0}・{1} m/px・撮影 {2}",
+  "zh": "航拍图 {0} · {1} m/px · 拍摄 {2}"
+ },
+ "보기": {
+  "en": "View",
+  "es": "Ver",
+  "ja": "表示",
+  "zh": "查看"
+ },
+ "항공사진 겹치기": {
+  "en": "Aerial photo overlay",
+  "es": "Superponer foto aérea",
+  "ja": "航空写真の重ね",
+  "zh": "叠加航拍图"
  },
  "영상 타일을 받지 못함 — 인터넷 연결 확인 뒤 다시 생성": {
   "en": "Could not download imagery tiles — check your internet connection and create again",

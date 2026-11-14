@@ -279,6 +279,20 @@ def _get_dim_style_id(doc, height, style_cache):
     return style_cache[name]
 
 
+def _get_bake_xform(doc, prepared):
+    # type: (object, object) -> tuple
+    """로컬 m → 문서 (Transform 또는 None, 옮기는지). 실제 좌표 방식이면 계산 원점 − 문서 원점만큼 옮기고, 단위를 바꾼다."""
+    scale = get_model_unit_scale(doc)
+    doc_origin = getattr(prepared, "doc_origin", None) or prepared.origin
+    shift = (prepared.origin[0] - doc_origin[0], prepared.origin[1] - doc_origin[1])
+    moved = abs(shift[0]) > 1e-9 or abs(shift[1]) > 1e-9
+    xform = Rhino.Geometry.Transform.Scale(Rhino.Geometry.Point3d.Origin, scale) if abs(scale - 1.0) > 1e-12 else None
+    if moved:   # A*B는 B 먼저 — 로컬 m에서 옮기고 단위를 바꾼다
+        translation = Rhino.Geometry.Transform.Translation(shift[0], shift[1], 0.0)
+        xform = translation if xform is None else xform * translation
+    return xform, moved
+
+
 def bake(doc, items, prepared, lot_key=None):
     # type: (object, list, object, str) -> list
     """BakeItem 목록을 문서에 넣는다. 출력: 추가된 Guid 목록(실패 항목은 빠진다 — 수를 비교해 경고).
@@ -288,15 +302,8 @@ def bake(doc, items, prepared, lot_key=None):
           → m→문서 단위 Transform.Scale 복제본 → UserString + UDT_MANAGED·UDT_LOT_KEY → Add.
           옮길 때 메시는 배정밀도 정점으로 바꾼다 — 단정밀도는 서울 좌표(55만 m)에서 6 cm 단위로 뭉개진다.
     """
-    scale = get_model_unit_scale(doc)
     lot_key = lot_key or getattr(prepared, "target_key", "") or get_lot_key((prepared.request or {}).get("pnus") or [])
-    doc_origin = getattr(prepared, "doc_origin", None) or prepared.origin
-    shift = (prepared.origin[0] - doc_origin[0], prepared.origin[1] - doc_origin[1])
-    moved = abs(shift[0]) > 1e-9 or abs(shift[1]) > 1e-9
-    xform = Rhino.Geometry.Transform.Scale(Rhino.Geometry.Point3d.Origin, scale) if abs(scale - 1.0) > 1e-12 else None
-    if moved:   # A*B는 B 먼저 — 로컬 m에서 옮기고 단위를 바꾼다
-        translation = Rhino.Geometry.Transform.Translation(shift[0], shift[1], 0.0)
-        xform = translation if xform is None else xform * translation
+    xform, moved = _get_bake_xform(doc, prepared)
     layer_cache, style_cache, ids = {}, {}, []
     redraw = doc.Views.RedrawEnabled
     doc.Views.RedrawEnabled = False
@@ -331,6 +338,53 @@ def bake(doc, items, prepared, lot_key=None):
         doc.Views.RedrawEnabled = redraw
         doc.Views.Redraw()
     return ids
+
+
+def drape_aerial(doc, prepared, lot_key, drape, path):
+    # type: (object, object, str, dict, str) -> int
+    """지형에 항공사진 — 타일(sheet_svg.get_drape_tiles)을 Eto 비트맵 한 장으로 붙여 path(JPEG)에 쓰고, 이 대상지의 땅 면(AERIAL_DRAPE_LAYERS)에
+    그 그림 재질 + 평면 매핑(채널 1 — 영상 남서 모서리 = UV 0,0)을 준다. 웹 메르카토르 ↔ 로컬 TM은 범위 몇 km 안에서 닮음 변환으로 본다(대상지 중심 TM — 오차 1 m 미만).
+    출력: 입힌 객체 수."""
+    import Eto.Drawing as drawing
+    size = 256   # 웹 메르카토르 타일 한 변 px
+    bitmap = drawing.Bitmap((drape["x1"] - drape["x0"] + 1) * size, (drape["y1"] - drape["y0"] + 1) * size, drawing.PixelFormat.Format32bppRgb)
+    graphics = drawing.Graphics(bitmap)
+    try:
+        for (tx, ty), body in drape["tiles"].items():
+            tile = drawing.Bitmap(System.IO.MemoryStream(System.Array[System.Byte](body)))
+            graphics.DrawImage(tile, float((tx - drape["x0"]) * size), float((ty - drape["y0"]) * size), float(size), float(size))
+            tile.Dispose()
+    finally:
+        graphics.Dispose()
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    bitmap.Save(path, drawing.ImageFormat.Jpeg)
+    bitmap.Dispose()
+    material = Rhino.DocObjects.Material()
+    material.Name = "%s %s" % (constants.AERIAL_DRAPE_MATERIAL, os.path.basename(os.path.dirname(path)))
+    material.SetBitmapTexture(path)
+    render_material = Rhino.Render.RenderMaterial.CreateBasicMaterial(material, doc)
+    doc.RenderMaterials.Add(render_material)
+    xform, _moved = _get_bake_xform(doc, prepared)
+    nw, ne, sw = (Rhino.Geometry.Point3d(x, y, 0.0) for x, y in drape["corners"])
+    if xform is not None:   # 값 형식(Point3d)의 Transform()은 pythonnet 사본만 바꿀 수 있다 — 곱으로 새 점
+        nw, ne, sw = xform * nw, xform * ne, xform * sw
+    plane = Rhino.Geometry.Plane(sw, ne - nw, nw - sw)
+    mapping = Rhino.Render.TextureMapping.CreatePlaneMapping(plane, Rhino.Geometry.Interval(0.0, nw.DistanceTo(ne)), Rhino.Geometry.Interval(0.0, sw.DistanceTo(nw)),
+                                                             Rhino.Geometry.Interval(0.0, 1.0))
+    layers = {"%s::%s" % (constants.CTX_ROOT_LAYER, name) for name in constants.AERIAL_DRAPE_LAYERS}
+    settings = Rhino.DocObjects.ObjectEnumeratorSettings()
+    settings.HiddenObjects = True
+    settings.LockedObjects = True
+    count = 0
+    for rhino_object in doc.Objects.FindByUserString(constants.UDT_LOT_KEY, lot_key, True, False, True, settings) or []:
+        if doc.Layers[rhino_object.Attributes.LayerIndex].FullPath not in layers:
+            continue
+        attributes = rhino_object.Attributes.Duplicate()
+        attributes.RenderMaterial = render_material
+        attributes.MaterialSource = Rhino.DocObjects.ObjectMaterialSource.MaterialFromObject
+        if doc.Objects.ModifyAttributes(rhino_object, attributes, True) and doc.Objects.ModifyTextureMapping(rhino_object.Id, 1, mapping):
+            count += 1
+    return count
 # [/blender-cut]
 
 

@@ -1103,14 +1103,15 @@ def _fetch_tile(url):
         return b""
 
 
-def get_aerial_tiles(frame, rect, px_per_mm):
-    # type: (Frame, tuple, float) -> tuple
+def get_aerial_tiles(frame, rect, px_per_mm, max_zoom=None):
+    # type: (Frame, tuple, float, int) -> tuple
     """rect(지도 칸 mm (x0, y0, x1, y1))를 덮는 타일 → (줌, [(tx, ty)], 지상 m/px).
-    줌 = 지상 해상도가 px_per_mm에 닿는 가장 작은 줌(최대 AERIAL_MAX_ZOOM), 장수가 AERIAL_MAX_TILES를 넘으면 한 단계씩 낮춘다."""
+    줌 = 지상 해상도가 px_per_mm에 닿는 가장 작은 줌(최대 max_zoom, 기본 AERIAL_MAX_ZOOM), 장수가 AERIAL_MAX_TILES를 넘으면 한 단계씩 낮춘다."""
     corners = [get_wgs84_from_tm(*frame.to_world(x, y)) for x in (rect[0], rect[2]) for y in (rect[1], rect[3])]
     lat = sum(c[1] for c in corners) / 4.0
     target = frame.scale / 1000.0 / px_per_mm
-    zoom = next((z for z in range(constants.AERIAL_MAX_ZOOM + 1) if get_tile_m_per_px(lat, z) <= target), constants.AERIAL_MAX_ZOOM)
+    top = constants.AERIAL_MAX_ZOOM if max_zoom is None else min(max_zoom, constants.AERIAL_MAX_ZOOM)
+    zoom = next((z for z in range(top + 1) if get_tile_m_per_px(lat, z) <= target), top)
     while True:
         xs, ys = zip(*(get_tile_xy(lng, lat_, zoom) for lng, lat_ in corners))
         tiles = [(tx, ty) for tx in range(int(min(xs)), int(max(xs)) + 1) for ty in range(int(min(ys)), int(max(ys)) + 1)]
@@ -1119,26 +1120,43 @@ def get_aerial_tiles(frame, rect, px_per_mm):
         zoom -= 1
 
 
-def _get_aerial_images(data, frame, rect, px_per_mm):
-    # type: (SheetData, Frame, tuple, float) -> tuple
-    """rect를 덮는 영상 타일 → (<image> 줄, 출처, 지상 m/px). 받은 타일은 data.cache — 스타일을 바꿔 다시 그려도 다시 받지 않는다.
-    소스는 패널 지도와 같다(review_map.get_tile_config): 국내 + VWorld 키면 VWorld 영상, 절반 넘게 못 받으면(키 제한·장애) Esri.
-    타일마다 세 모서리를 지도 칸 mm로 옮긴 아핀 행렬로 놓는다 — 웹 메르카토르 ↔ TM의 회전(자오선수차)·축척 차를 타일 단위로 흡수한다."""
+def get_aerial_sources(frame, needed_zoom):
+    # type: (Frame, int) -> list
+    """영상 원천 [(url, 출처, 최대 줌, 촬영연도)] — 앞 것부터 쓰고 못 받은 타일만 다음 것으로 채운다. 패널 [위성]과 같은 선택(review_map).
+    해외: 대상지 중심을 덮는 지역 공개 영상(작은 상자 먼저, 최대 줌이 AERIAL_REGION_SHORTFALL 넘게 모자라면 뺀다 — Esri가 없으면 그래도 쓴다) → Esri.
+    국내: VWorld 영상(키) → Esri. 영상 없는 호스트(Blender Esri)는 주소가 비어 빠진다."""
     import review_map   # .env(VWorld 키)를 읽는다 — 이 시트에서만
     config = review_map.get_tile_config()
-    sources = [(config["abroad_aerial_url"], config["abroad_aerial_attribution"])]
-    if not is_local_projection() and config["aerial_url"] != config["abroad_aerial_url"]:
-        sources.insert(0, (config["aerial_url"], config["aerial_attribution"]))
-    sources = [source for source in sources if source[0]]   # 영상 없는 호스트(Blender)는 주소가 비어 있다 — 빈 시트
-    attribution, keys = "", []
+    last = [(config["abroad_aerial_url"], config["abroad_aerial_attribution"], constants.AERIAL_MAX_ZOOM, "")]
+    if is_local_projection():
+        regions = [(r["url"], r["attribution"], r["max_zoom"], r["year"]) for r in review_map.get_imagery_regions_at(*get_wgs84_from_tm(*frame.center))]
+        sources = [s for s in regions if needed_zoom - s[2] <= constants.AERIAL_REGION_SHORTFALL] + last
+    else:
+        regions, sources = [], ([(config["aerial_url"], config["aerial_attribution"], constants.AERIAL_MAX_ZOOM, "")] if config["aerial_url"] != config["abroad_aerial_url"] else []) + last
+    sources = [s for s in sources if s[0]]
+    return sources or [s for s in regions if s[0]]
+
+
+def _get_aerial_images(data, frame, rect, px_per_mm):
+    # type: (SheetData, Frame, tuple, float) -> tuple
+    """rect를 덮는 영상 타일 → (<image> 줄, 출처, 지상 m/px, 촬영연도). 받은 타일은 data.cache — 스타일을 바꿔 다시 그려도 다시 받지 않는다.
+    원천은 get_aerial_sources 순서 — 타일마다 앞 원천부터, 못 받거나 자료 밖 빈 그림(AERIAL_BLANK_BYTES 미만, 마지막 원천 빼고)이면 다음 원천.
+    줌은 첫 원천 최대 줌까지, 절반 넘게 못 채우면 한 단계씩 낮춘다(AERIAL_ZOOM_DROPS).
+    타일마다 세 모서리를 지도 칸 mm로 옮긴 아핀 행렬로 놓는다 — 웹 메르카토르 ↔ TM의 회전(자오선수차)·축척 차를 타일 단위로 흡수한다."""
+    needed = get_aerial_tiles(frame, rect, px_per_mm)[0]
+    sources = get_aerial_sources(frame, needed)
+    if not sources:
+        return [], "", 0.0, ""
+    got, zoom, m_per_px, tiles = {}, needed, 0.0, []
     fetch = lambda key: _fetch_tile(key[1].format(z=key[2], x=key[3], y=key[4]))
     for drop in range(constants.AERIAL_ZOOM_DROPS + 1):   # 이 줌에 영상이 없으면(시골·북유럽 z19) 한 단계씩 낮춘다
-        zoom, tiles, m_per_px = get_aerial_tiles(frame, rect, px_per_mm / 2 ** drop)
-        for url, attribution in sources:
-            keys = [("aerial", url, zoom, tx, ty) for tx, ty in tiles]
-            missing = [key for key in keys if key not in data.cache]
-            if ("aerial_dead", url) in data.cache or ("aerial_dead", url, zoom) in data.cache:
+        zoom, tiles, m_per_px = get_aerial_tiles(frame, rect, px_per_mm, min(needed, sources[0][2]) - drop)
+        got = {}   # (tx, ty) → 캐시 키
+        for index, (url, _attribution, max_zoom, _year) in enumerate(sources):
+            if max_zoom < zoom or ("aerial_dead", url) in data.cache or ("aerial_dead", url, zoom) in data.cache:
                 continue
+            keys = [("aerial", url, zoom, tx, ty) for tx, ty in tiles if (tx, ty) not in got]
+            missing = [key for key in keys if key not in data.cache]
             if missing and len(missing) == len(keys):   # 이 줌 첫 요청 — 가운데 한 장 먼저. 막힌 망에서 타일마다 시간 초과(10 s)를 기다리지 않는다
                 probe = missing.pop(len(missing) // 2)
                 body = fetch(probe)
@@ -1147,41 +1165,86 @@ def _get_aerial_images(data, frame, rect, px_per_mm):
                     continue
                 data.cache[probe] = body
             bodies = None
-            # [blender-cut] 영상 타일만 스레드로 받는다 — 확장 심사가 Blender 안 스레드를 막는다(Blender판은 영상이 없어 여기 오지 않는다)
+            # [blender-cut] 영상 타일만 스레드로 받는다 — 확장 심사가 Blender 안 스레드를 막는다
             if sys.platform != "emscripten":
                 from concurrent.futures import ThreadPoolExecutor
                 with ThreadPoolExecutor(constants.AERIAL_WORKERS) as pool:
                     bodies = list(pool.map(fetch, missing))
             # [/blender-cut]
-            if bodies is None:   # 차례로 — 웹판(Pyodide)은 스레드를 못 띄운다
+            if bodies is None:   # 차례로 — 웹판(Pyodide)·Blender는 스레드를 못 띄운다
                 bodies = list(map(fetch, missing))
             for key, body in zip(missing, bodies):
                 if body:
                     data.cache[key] = body
-            if sum(1 for key in keys if key in data.cache) * 2 > len(keys):
+            final = index == len(sources) - 1
+            for key in keys:   # 자료 밖 빈 그림(흰·투명 칸)은 다음 원천으로 — 마지막 원천(Esri 바다 1~2 KB)은 그대로 쓴다
+                body = data.cache.get(key)
+                if body and (final or len(body) >= constants.AERIAL_BLANK_BYTES):
+                    got[key[3:]] = key
+            if len(got) == len(tiles):
                 break
-        if keys and sum(1 for key in keys if key in data.cache) * 2 > len(keys):
+        if got and len(got) * 2 > len(tiles):
             break
-    lines = []
-    for key in keys:
-        body = data.cache.get(key)
-        if not body:
-            continue
+    lines, used = [], []
+    for key in got.values():
         tx, ty = key[3], key[4]
+        body = data.cache[key]
+        used.append(key[1])
         nw, ne, sw = (frame.to_paper(*get_tm_from_wgs84(*get_lnglat_from_tile(x, y, zoom))) for x, y in ((tx, ty), (tx + 1, ty), (tx, ty + 1)))
         matrix = " ".join("%.4f" % v for v in (ne[0] - nw[0], ne[1] - nw[1], sw[0] - nw[0], sw[1] - nw[1], nw[0], nw[1]))
         lines.append('<image width="%s" height="%s" preserveAspectRatio="none" transform="matrix(%s)" xlink:href="data:image/%s;base64,%s"/>'
                      % ("%.4f" % constants.AERIAL_TILE_OVERLAP, "%.4f" % constants.AERIAL_TILE_OVERLAP, matrix,
                         "png" if body[:4] == b"\x89PNG" else "jpeg", base64.b64encode(body).decode("ascii")))
-    return lines, attribution, m_per_px
+    used_sources = [s for s in sources if s[0] in used] or sources[:1]
+    attribution = " · ".join(s[1] for s in used_sources)
+    years = sorted({s[3] for s in used_sources if s[3]})
+    return lines, attribution, m_per_px, "·".join(years) if years and all(s[3] for s in used_sources) else ""
+
+
+def get_drape_tiles(tris_world, origin):
+    # type: (list, tuple) -> dict
+    """지형에 입힐 영상 타일 — 지형 삼각형(세계좌표)을 덮는 지역 공개 영상(review_map.get_imagery_regions_at, 작은 상자 먼저).
+    줌 = 그 원천 최대 줌에서 장수가 AERIAL_DRAPE_MAX_TILES 안에 들 때까지 낮춘다. 자료 밖 빈 그림·못 받은 타일은 빈 칸(다음 원천으로 채우지 않는다 —
+    원천이 섞이면 촬영 시기·색이 갈린다). VWorld·Esri는 저장할 수 없어 쓰지 않는다.
+    출력: {zoom, x0, y0, x1, y1, tiles {(tx, ty): bytes}, corners(로컬 m — 영상 북서·북동·남서 모서리), attribution, year, m_per_px} 또는 None(공개 영상 없음·다 못 받음)."""
+    import review_map
+    xs = [p[0] for tri in tris_world for p in tri[:3]]
+    ys = [p[1] for tri in tris_world for p in tri[:3]]
+    if not xs:
+        return None
+    corners = [get_wgs84_from_tm(x, y) for x in (min(xs), max(xs)) for y in (min(ys), max(ys))]
+    lng, lat = get_wgs84_from_tm((min(xs) + max(xs)) * 0.5, (min(ys) + max(ys)) * 0.5)
+    for region in review_map.get_imagery_regions_at(lng, lat):
+        for zoom in range(region["max_zoom"], 0, -1):
+            tx, ty = zip(*(get_tile_xy(c[0], c[1], zoom) for c in corners))
+            x0, x1, y0, y1 = int(min(tx)), int(max(tx)), int(min(ty)), int(max(ty))
+            if (x1 - x0 + 1) * (y1 - y0 + 1) <= constants.AERIAL_DRAPE_MAX_TILES:
+                break
+        keys = [(x, y) for x in range(x0, x1 + 1) for y in range(y0, y1 + 1)]
+        fetch = lambda key: _fetch_tile(region["url"].format(z=zoom, x=key[0], y=key[1]))
+        bodies = None
+        # [blender-cut] 타일은 스레드로 받는다(Rhino 8만 — 지형 입히기는 Rhino 8만)
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(constants.AERIAL_WORKERS) as pool:
+            bodies = list(pool.map(fetch, keys))
+        # [/blender-cut]
+        if bodies is None:
+            bodies = list(map(fetch, keys))
+        tiles = {key: body for key, body in zip(keys, bodies) if body and len(body) >= constants.AERIAL_BLANK_BYTES}
+        if len(tiles) * 2 <= len(keys):   # 절반도 못 받았으면(자료 밖·서버 장애) 다음 원천
+            continue
+        local = [get_tm_from_wgs84(*get_lnglat_from_tile(x, y, zoom)) for x, y in ((x0, y0), (x1 + 1, y0), (x0, y1 + 1))]
+        return {"zoom": zoom, "x0": x0, "y0": y0, "x1": x1, "y1": y1, "tiles": tiles, "attribution": region["attribution"], "year": region["year"],
+                "corners": [(x - origin[0], y - origin[1]) for x, y in local], "m_per_px": get_tile_m_per_px(lat, zoom)}
+    return None
 
 
 def _draw_aerial(key, subject, classify_fn, entries, items, data, style, frame, frame_bounds):
     # type: (str, str, object, list, list, SheetData, dict, Frame, tuple) -> tuple
     """항공사진 — 지도 칸을 덮는 영상 타일. 개수 = 받은 타일 수(0이면 빈 시트). 출처·해상도는 ctx로 카드에 넘긴다."""
     dpi = data.options.get("_aerial_dpi") or constants.AERIAL_DPI
-    images, attribution, m_per_px = _get_aerial_images(data, frame, (0.0, 0.0) + frame.paper_mm, dpi / 25.4)
-    (data.options.get("_ctx") or {}).update(aerial_attribution=attribution, aerial_m_per_px=m_per_px)
+    images, attribution, m_per_px, year = _get_aerial_images(data, frame, (0.0, 0.0) + frame.paper_mm, dpi / 25.4)
+    (data.options.get("_ctx") or {}).update(aerial_attribution=attribution, aerial_m_per_px=m_per_px, aerial_year=year)
     return ['<g id="theme">'] + images + ["</g>"], {"tile": len(images)}, {"tile": float(len(images))}, []
 
 
@@ -1654,7 +1717,8 @@ def _get_card_lines(key, data, items, counts, measures, ctx=None):
             lines.append(tr("평행 투상(축척 없음) · 지형은 평탄 가정 · 시점은 도면 스타일에서"))
     elif key == "aerial":
         if total_count:
-            lines = [tr("영상 {0}", ctx.get("aerial_attribution", "")), tr("지상 해상도 약 {0:.2f} m/px · 촬영 시기 확인 필요", ctx.get("aerial_m_per_px", 0.0))]
+            lines = [tr("영상 {0}", ctx.get("aerial_attribution", "")),
+                     tr("지상 해상도 약 {0:.2f} m/px · 촬영 {1}", ctx.get("aerial_m_per_px", 0.0), ctx.get("aerial_year") or tr("시기 확인 필요"))]
         else:
             lines = [tr("영상 타일을 받지 못함 — 인터넷 연결 확인 뒤 다시 생성")]
     elif key in constants.SHEET_TEMPLATE_KEYS:
@@ -1995,6 +2059,10 @@ def render_sheet(sheet_id, data):
             '<g id="map" transform="translate(%s %s)" clip-path="url(#map_clip)">' % (_fmt(box[0]), _fmt(box[1])),
             '<rect id="map_background" x="0" y="0" width="%s" height="%s" fill="%s"/>' % (_fmt(box[2]), _fmt(box[3]), background)]
     body += (theme_lines + base_lines) if subject in ("terrain", "block") else (base_lines + theme_lines)   # 지형·블록 채색은 도로·건물 아래
+    aerial_attribution = ""
+    if style["aerial_opacity"] > 0 and key != "aerial" and base_mode != "axo":   # 항공사진 겹치기(스타일) — 주제 위 반투명, 선·지명 아래. 타일은 23 항공사진과 같은 캐시
+        images, aerial_attribution = _get_aerial_images(data, frame, (0.0, 0.0) + frame.paper_mm, (data.options.get("_aerial_dpi") or constants.AERIAL_DPI) / 25.4)[:2]
+        body += ['<g id="aerial" opacity="%s">' % _fmt(style["aerial_opacity"])] + images + ["</g>"]
     if base_mode != "axo":   # 범위 밖 흐리기·지적·범위선·지명은 평면 좌표 — 입체 매스도는 _draw_axo가 제 것을 그린다
         if key not in constants.SHEET_NO_MASK:
             body += _draw_mask(frame, data.extent_ring, style)
@@ -2003,6 +2071,8 @@ def render_sheet(sheet_id, data):
     body.append("</g>")
     legend_rows = _get_legend_rows(entries, extras, counts, measures)
     card_rows = _get_card_lines(key, data, items, counts, measures, ctx)
+    if aerial_attribution:
+        card_rows.append(tr("항공사진 겹침 {0}", aerial_attribution))
     if "axo_north" in ctx:   # 정보 열 — 축척 막대 대신 화면 위 북쪽
         frame = AxoFrame(frame, ctx["axo_north"])
     if style["layout"] == "side":
@@ -2187,7 +2257,7 @@ def _get_aerial_thumbnail(data, style, frame, rect):
     # type: (SheetData, dict, Frame, tuple) -> str
     """항공사진 썸네일 — 썸네일 해상도 줌의 타일 + 범위·대상지 선을 담은 SVG data URI(타일 1~4장, ≈50~150 KB)."""
     x0, y0, size = rect
-    images, _attribution, _m_per_px = _get_aerial_images(data, frame, (x0, y0, x0 + size, y0 + size), constants.SHEET_THUMB_PX / size)
+    images = _get_aerial_images(data, frame, (x0, y0, x0 + size, y0 + size), constants.SHEET_THUMB_PX / size)[0]
     rings = [(style["extent"], data.extent_ring)] if data.extent_ring else []
     rings += [(style["site"], ring) for ring in data.site_rings or [part[0] for lot in data.target_lots for part in get_polygon_parts_from_geojson(lot.geometry)]]
     svg = ['<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="%d" height="%d" viewBox="%s %s %s %s">'

@@ -233,6 +233,33 @@ def get_country_packs():
     return packs
 
 
+def _get_imagery_region(entry):
+    # type: (dict) -> dict
+    """매니페스트 imagery[] 한 항목(또는 constants.AERIAL_REGIONS 한 항목) → {id, bounds[(서, 남, 동, 북), …], url, max_zoom, attribution, year}.
+    칸이 틀리면 None — 그 지역만 건너뛴다. url은 https + {z}·{x}·{y}만(웹 메르카토르 XYZ·WMTS)."""
+    if not isinstance(entry, dict):
+        return None
+    boxes, url, zoom = _get_boxes(entry.get("bounds")), entry.get("url"), entry.get("max_zoom")
+    if not (isinstance(entry.get("id"), str) and entry["id"] and boxes and isinstance(url, str) and url.startswith("https://")
+            and sorted(set(re.findall(r"\{(\w+)\}", url))) == ["x", "y", "z"] and isinstance(zoom, int) and 1 <= zoom <= 22 and entry.get("attribution")):
+        return None
+    return {"id": entry["id"], "bounds": boxes, "url": url, "max_zoom": zoom, "attribution": str(entry["attribution"]), "year": str(entry.get("year") or "")}
+
+
+def get_imagery_regions(builtin_only=False):
+    # type: (bool) -> list
+    """지역별 공개 정사영상 목록 — 내장(constants.AERIAL_REGIONS) 위에 이번 세션에 받은 한국 매니페스트 imagery[]를 id로 덮는다(disabled: true면 뺀다).
+    네트워크 접근 없음. builtin_only = 내장만(Blender — 확장 심사가 본 주소만 쓴다). 새 지역은 docs/imagery.json → dev_deploy.py notices(판 없이)."""
+    regions = {entry["id"]: _get_imagery_region(entry) for entry in constants.AERIAL_REGIONS}
+    manifest = {} if builtin_only else _MANIFEST.get(constants.DATA_MANIFEST_URL) or {}
+    for entry in manifest.get("imagery") or []:
+        if isinstance(entry, dict) and entry.get("disabled"):
+            regions.pop(entry.get("id"), None)
+        elif _get_imagery_region(entry):
+            regions[entry["id"]] = _get_imagery_region(entry)
+    return [region for region in regions.values() if region]
+
+
 def get_pack_source_ids():
     # type: () -> dict
     """팩 data_sources.source_id → 나라 코드(plateau → jp, pdok → nl …)."""

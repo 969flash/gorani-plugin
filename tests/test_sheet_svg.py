@@ -435,7 +435,7 @@ class AerialSheetTest(unittest.TestCase):
         self.assertAlmostEqual(m_per_px, 0.474, places=2)
         self.assertTrue(100 < len(tiles) <= constants.AERIAL_MAX_TILES)
         data = make_data()
-        lines, _attribution, _m = sheet_svg._get_aerial_images(data, frame, (0.0, 0.0, 273.0, 273.0), constants.AERIAL_DPI / 25.4)
+        lines = sheet_svg._get_aerial_images(data, frame, (0.0, 0.0, 273.0, 273.0), constants.AERIAL_DPI / 25.4)[0]
         self.assertEqual(len(lines), len(tiles))
         a, b, c, d = (float(v) for v in lines[0].split('matrix(')[1].split(")")[0].split()[:4])
         tile_mm = 256 * m_per_px * 1000.0 / 5000
@@ -478,6 +478,18 @@ class AerialSheetTest(unittest.TestCase):
         self.assertLessEqual(len(calls), 2)   # 막힌 망 — 소스마다 한 장만 시도하고(시트·썸네일 공통) 타일마다 시간 초과를 기다리지 않는다
         self.assertIn(review_map.ESRI_AERIAL_URL.split("/")[2], review_map.get_tile_config()["abroad_aerial_url"])
 
+    def test_overlay_style_on_other_sheets(self):
+        # 항공사진 겹치기(style.aerial_opacity) — 주제 위 반투명 영상, 정보 칸에 출처. 끄면(기본) 없다
+        data = make_data(style={"aerial_opacity": 0.5})
+        result = sheet_svg.write_sheets(data, tempfile.mkdtemp(), [ID["land_use"]])[0]
+        root = ET.parse(result["path"]).getroot()
+        group = root.find(".//*[@id='aerial']")
+        self.assertAlmostEqual(float(group.get("opacity")), 0.5)
+        self.assertTrue(len(list(group.iter(SVG + "image"))) > 0)
+        self.assertTrue(any(t.startswith("항공사진 겹침") for t in _texts(root, "card")))
+        plain = ET.parse(sheet_svg.write_sheets(make_data(), tempfile.mkdtemp(), [ID["land_use"]])[0]["path"]).getroot()
+        self.assertIsNone(plain.find(".//*[@id='aerial']"))
+
     def test_missing_zoom_falls_back_lower(self):
         # Esri가 그 줌에 자료가 없으면(404 → None) 한 단계 낮춘 줌으로 채운다 — 정선·울릉도·트롬쇠 z19 회색 그림(2026-10-23)
         calls = []
@@ -492,6 +504,49 @@ class AerialSheetTest(unittest.TestCase):
         first = int(calls[0].split("/tile/")[1].split("/")[0])
         self.assertFalse(result["empty"])
         self.assertTrue(any("/tile/%d/" % (first - 1) in u for u in calls))
+
+
+class RegionImageryTest(unittest.TestCase):
+    """해외 — 지역 공개 영상 먼저, 자료 밖 빈 타일은 Esri로 채운다, 줌이 많이 모자라면 Esri. 지형 입히기 타일·모서리."""
+
+    def setUp(self):
+        import non_rhino_utils
+        non_rhino_utils.set_projection(2.35, 48.85)   # 파리 — IGN BD ORTHO
+        self.addCleanup(non_rhino_utils.set_projection)
+
+    def test_sources_and_blank_tiles(self):
+        frame = sheet_svg.Frame((100.0, 100.0), 2500, (0.0, 0.0))
+        sources = sheet_svg.get_aerial_sources(frame, 19)
+        self.assertIn("geopf.fr", sources[0][0])
+        self.assertIn("arcgisonline", sources[-1][0])
+        self.assertIn("arcgisonline", sheet_svg.get_aerial_sources(frame, 21)[0][0])   # IGN 최대 줌 19 — 21이 필요하면 2단계 모자라 Esri
+
+        def fetch(url):   # IGN은 짝수 열만 영상, 홀수 열은 흰 빈 칸(1,651 B 같은 작은 그림)
+            if "geopf.fr" in url:
+                return b"\xff\xd8" + b"0" * (5000 if int(url.split("TILECOL=")[1]) % 2 == 0 else 100)
+            return FAKE_TILE
+        with patch.object(sheet_svg, "_fetch_tile", fetch):
+            lines, attribution, m_per_px, year = sheet_svg._get_aerial_images(make_data(), frame, (0.0, 0.0, 100.0, 100.0), constants.AERIAL_DPI / 25.4)
+        zoom, tiles, _ = sheet_svg.get_aerial_tiles(frame, (0.0, 0.0, 100.0, 100.0), constants.AERIAL_DPI / 25.4, 19)
+        self.assertEqual(len(lines), len(tiles))   # 빈 칸은 Esri로 채워 구멍이 없다
+        self.assertIn("IGN", attribution)
+        self.assertIn("Esri", attribution)
+        self.assertEqual(year, "")   # 촬영연도 모름 — 카드에 '확인 필요'
+
+    def test_drape_tiles(self):
+        tris = [((-300.0, -300.0, 0.0), (300.0, -300.0, 0.0), (300.0, 300.0, 0.0), "terrain")]
+        with patch.object(sheet_svg, "_fetch_tile", lambda url: b"0" * 5000):
+            drape = sheet_svg.get_drape_tiles(tris, (0.0, 0.0))
+        self.assertIn("IGN", drape["attribution"])
+        self.assertLessEqual(drape["zoom"], 19)
+        count = (drape["x1"] - drape["x0"] + 1) * (drape["y1"] - drape["y0"] + 1)
+        self.assertLessEqual(count, constants.AERIAL_DRAPE_MAX_TILES)
+        self.assertEqual(len(drape["tiles"]), count)
+        (nwx, nwy), (nex, ney), (swx, swy) = drape["corners"]
+        self.assertTrue(nwx <= -300 and nex >= 300 and nwy >= 300 and swy <= -300)   # 영상이 지형을 덮는다
+        self.assertAlmostEqual((nex - nwx) / ((drape["x1"] - drape["x0"] + 1) * 256), drape["m_per_px"], delta=drape["m_per_px"] * 0.01)
+        with patch.object(sheet_svg, "_fetch_tile", lambda url: b"0" * 100):   # 다 빈 칸 — 입히지 않는다
+            self.assertIsNone(sheet_svg.get_drape_tiles(tris, (0.0, 0.0)))
 
 
 class AxoSheetTest(unittest.TestCase):
