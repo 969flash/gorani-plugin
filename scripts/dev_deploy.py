@@ -271,7 +271,7 @@ BLENDER_CONSTANT_PATCHES = {
 BLENDER_ALLOWED_HOSTS = (
     "127.0.0.1",                                                       # 패널 서버(이 컴퓨터)
     "tile.openstreetmap.org", "nominatim.openstreetmap.org", "overpass-api.de", "overpass.openstreetmap.fr",   # OpenStreetMap — 지도·지명 검색·건물·도로
-    "s3.amazonaws.com", "cyberjapandata.gsi.go.jp",                    # 지형 타일 — AWS Open Data Terrain Tiles, 일본 국토지리원(+ 시ームレス空中写真)
+    "s3.amazonaws.com", "cyberjapandata.gsi.go.jp",                    # 지형 타일 — AWS Open Data Terrain Tiles, 일본 국토지리원(표고 + シームレス空中写真)
     # 지역 공개 정사영상(constants.AERIAL_REGIONS — Blender는 내장 목록만, 매니페스트 imagery[]를 읽지 않는다). 정부 공개 데이터, 키·가입 없음(약관 3.10·4.3)
     "service.pdok.nl", "data.geopf.fr", "wmts.geo.admin.ch", "basemap.nationalmap.gov", "mapsneu.wien.gv.at", "www.ign.es", "wmtsod1.bayernwolke.de",
     "wmts1.geoportail.lu", "ags.cuzk.cz",
