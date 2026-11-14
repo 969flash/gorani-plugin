@@ -78,7 +78,7 @@ Good to know
 - 사용 통계를 Google Analytics로 보냅니다. 설치별 무작위 ID, 버전·OS, 만든 위치·범위·걸린 시간·오류 종류이고, 이름·파일 경로·도면 내용은 보내지 않습니다.
 - 등고선·표고가 들어간 국내 결과물은 인터넷에 올리면 안 됩니다(국토지리정보원 보안관리규정).
 
-**Website**: https://969flash.github.io/gorani/en/ (한국어: https://969flash.github.io/gorani/)
+**Website**: https://gorani.site/en/ (한국어: https://gorani.site/)
 
 **Support**: https://github.com/969flash/gorani/issues
 

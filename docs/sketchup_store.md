@@ -19,7 +19,7 @@
 
 - 계정: Trimble ID bsh969flash@gmail.com(표시 이름 Shabushabu H. — 바꾸려면 Trimble Profile)
 - Support email: bsh969flash@gmail.com(신청에 넣음)
-- Company Home Page: https://969flash.github.io/gorani/en/(신청에 넣음)
+- Company Home Page: https://gorani.site/en/(신청에 넣음)
 - Support URL: https://github.com/969flash/gorani/issues
 
 ## 칸(2026-10-22 실제 양식 — 초안 extensions.sketchup.com/extension/be1e8d52-c032-40d5-a891-cc16b8caa8ab/edit)
@@ -63,7 +63,7 @@ Network: data packs (Hugging Face, a Korean server), OpenStreetMap, PLATEAU/GSI 
 **Extension Details 탭**
 - Screenshots(5장, 940×470 권장, 3 MB 이하): `build/sketchup_store/ew_hero.png` → `ew_steps` → `ew_window` → `ew_world` → `ew_twod` 순. 올리면 순서가 뒤집혀 들어가 끌어서 바로잡았다.
 - Promo Video: YouTube 주소만 받는다. 영상 파일 `build/sketchup_store/gorani_sketchup_demo.mp4`(22초, 1920×1080) — 사용자가 YouTube에 올리고 주소를 넣는다.
-- Website: `https://969flash.github.io/gorani/en/`
+- Website: `https://gorani.site/en/`
 - Keywords(띄어쓰기가 나눔 기호라 한 낱말씩): site, context, urban, design, analysis, city, model, OpenStreetMap, GIS, terrain, buildings, basemap, Korea, Japan, PLATEAU, topography, contours, zoning, masterplan, Illustrator
 - Description(Markdown, 5000자):
 
@@ -99,7 +99,7 @@ It's free.
 - Sources: © OpenStreetMap contributors (ODbL), PLATEAU (MLIT, CC BY 4.0), GSI tiles, Korean public data (MOLIT, NGII, Seoul).
 - Results with Korean contours or elevations must not be posted online (NGII security rules).
 
-Website: https://969flash.github.io/gorani/en/
+Website: https://gorani.site/en/
 Support: https://github.com/969flash/gorani/issues
 
 ---

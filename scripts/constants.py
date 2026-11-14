@@ -173,9 +173,10 @@ TEST_PNU = "1123010300106760006"       # DB 검증용 PNU (동대문구 제기�
 ADDRESS_SEARCH_MAX_RESULTS = 20
 
 # 패널 더보기 메뉴의 바깥 링크(open_url) — 키만 받아 이 주소를 연다(임의 URL은 받지 않는다)
+# 2026-11-12 도메인 gorani.site로 옮김 — 옛 주소 969flash.github.io/gorani/는 GitHub Pages가 301로 넘긴다(옛 설치본 링크도 동작)
 PANEL_LINKS = {
-    "website": "https://969flash.github.io/gorani/",   # 고라니 웹페이지 — 설치·사용법
-    "website_en": "https://969flash.github.io/gorani/en/",   # 같은 페이지 영어판 — 패널 언어가 한국어가 아니면 이쪽
+    "website": "https://gorani.site/",   # 고라니 웹페이지 — 설치·사용법
+    "website_en": "https://gorani.site/en/",   # 같은 페이지 영어판 — 패널 언어가 한국어가 아니면 이쪽
     "contact": "mailto:gorani.3d@gmail.com",   # 문의 메일 — 더보기 메뉴 '문의'(2026-10-30 사용자)
 }
 
@@ -236,7 +237,7 @@ TERRAIN_THEME = "terrain"
 
 # 해외 대상지(osm_context.py) — OSM Overpass + AWS Terrain Tiles. 사용자 PC가 직접 부른다(서버 없음).
 # Overpass 이용 기준: IP당 하루 1만 질의·1 GB 미만(https://wiki.openstreetmap.org/wiki/Overpass_API) — 대상지 1회 1질의
-OSM_USER_AGENT = "Gorani/0.3 (Rhino/Blender/SketchUp plugin; https://969flash.github.io/gorani/)"   # Overpass·Nominatim·타일 중계(review_map) — OSM 정책: 앱을 밝힌다
+OSM_USER_AGENT = "Gorani/0.3 (Rhino/Blender/SketchUp plugin; https://gorani.site/)"   # Overpass·Nominatim·타일 중계(review_map) — OSM 정책: 앱을 밝힌다
 OSM_CACHE_MAX = 8                # osm_context 응답 캐시 항목 상한(넘으면 비운다) — Blender판은 모듈을 다시 읽지 않아 세션 내내 쌓인다. 같은 대상지 다시 만들기(Overpass 1~2 + 지형 타일 수 장)만 덮으면 된다(도심 Overpass 응답은 수십 MB)
 OSM_TIMEOUT_SECONDS = 60         # 미러 하나당. 공개 Overpass는 자주 붐빈다(2026-10-13 파리 900 m: 독일 504, kumi·coffee 120 s 초과, mail.ru 22 s)
 # 2026-10-23 감사: overpass-api.de 429·차단일 때 kumi·coffee는 서울에서 60 s 시간 초과, mail.ru는 HARICA 인증서라 Windows·번들 파이썬에서 검증 실패.
