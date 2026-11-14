@@ -2621,11 +2621,11 @@
   "ja": "作成時にダウンロード（{0:.0f} MB）",
   "zh": "生成时下载（{0:.0f} MB）"
  },
- "Terrain Tiles (약 30 m DEM)": {
-  "en": "Terrain Tiles (approx. 30 m DEM)",
-  "es": "Terrain Tiles (DEM de unos 30 m)",
-  "ja": "Terrain Tiles（約30 m DEM）",
-  "zh": "Terrain Tiles（约 30 m DEM）"
+ "Mapterhorn(나라별 라이다 지형, 없는 곳 약 30 m)": {
+  "en": "Mapterhorn (national lidar terrain; approx. 30 m elsewhere)",
+  "es": "Mapterhorn (terreno lidar nacional; unos 30 m en el resto)",
+  "ja": "Mapterhorn（各国のレーザー測量地形、ない所は約30 m）",
+  "zh": "Mapterhorn（各国激光雷达地形，其他地区约 30 m）"
  },
  "필요 없음": {
   "en": "Not needed",
@@ -3155,23 +3155,23 @@
   "ja": "資料基準 — {0}",
   "zh": "数据基准 — {0}"
  },
- "자료기준 — OpenStreetMap {0} · Terrain Tiles · {1} · 생성 {2} · {3} v{4}": {
-  "en": "Data as of — OpenStreetMap {0} · Terrain Tiles · {1} · created {2} · {3} v{4}",
-  "es": "Datos de referencia — OpenStreetMap {0} · Terrain Tiles · {1} · creado {2} · {3} v{4}",
-  "ja": "資料基準 — OpenStreetMap {0} · Terrain Tiles · {1} · 作成 {2} · {3} v{4}",
-  "zh": "数据基准 — OpenStreetMap {0} · Terrain Tiles · {1} · 生成 {2} · {3} v{4}"
+ "지형 © Mapterhorn — {0}": {
+  "en": "terrain: © Mapterhorn — {0}",
+  "es": "terreno: © Mapterhorn — {0}",
+  "ja": "地形 © Mapterhorn — {0}",
+  "zh": "地形 © Mapterhorn — {0}"
  },
- "출처: © OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright); 지형 Terrain Tiles (Mapzen·AWS Open Data, SRTM 등 공개 DEM)": {
-  "en": "Sources: © OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright); terrain: Terrain Tiles (Mapzen, AWS Open Data; SRTM and other open DEMs)",
-  "es": "Fuentes: © OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright); terreno: Terrain Tiles (Mapzen, AWS Open Data; SRTM y otros DEM abiertos)",
-  "ja": "出典: © OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright); 地形 Terrain Tiles (Mapzen・AWS Open Data、SRTMなどの公開DEM)",
-  "zh": "来源：© OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright)；地形 Terrain Tiles（Mapzen、AWS Open Data，SRTM 等公开 DEM）"
+ "좌표계: {0} · {1} — 실측·법정 자료 아님": {
+  "en": "CRS: {0} · {1} — not survey-grade or legally binding",
+  "es": "Sistema de coordenadas: {0} · {1} — no es levantamiento ni dato oficial",
+  "ja": "座標系: {0} · {1} — 実測・法定資料ではありません",
+  "zh": "坐标系：{0} · {1} — 非实测或法定资料"
  },
- "좌표계: {0} · 지형 약 30 m 격자 — 실측·법정 자료 아님": {
-  "en": "CRS: {0} · terrain on an approx. 30 m grid — not survey-grade or legally binding",
-  "es": "Sistema de coordenadas: {0} · terreno en malla de unos 30 m — no es levantamiento ni dato oficial",
-  "ja": "座標系: {0} · 地形 約30 m格子 — 実測・法定資料ではありません",
-  "zh": "坐标系：{0} · 地形约 30 m 格网 — 非实测或法定资料"
+ "지형 약 30 m 격자": {
+  "en": "terrain on an approx. 30 m grid",
+  "es": "terreno en malla de unos 30 m",
+  "ja": "地形 約30 m格子",
+  "zh": "地形约 30 m 格网"
  },
  "대상지 중심 횡메르카토르(GRS80, 축척 1)": {
   "en": "Transverse Mercator centered on the site (GRS80, scale factor 1)",
@@ -3274,6 +3274,24 @@
   "es": "No es un archivo PNG",
   "ja": "PNGではありません",
   "zh": "不是 PNG 文件"
+ },
+ "WebP가 아닙니다": {
+  "en": "Not a WebP image",
+  "es": "No es una imagen WebP",
+  "ja": "WebPではありません",
+  "zh": "不是 WebP 图像"
+ },
+ "무손실 WebP가 아닙니다": {
+  "en": "Not a lossless WebP image",
+  "es": "No es una imagen WebP sin pérdida",
+  "ja": "可逆WebPではありません",
+  "zh": "不是无损 WebP 图像"
+ },
+ "Mapterhorn 지형 타일이 없습니다 — {0}/{1}/{2}": {
+  "en": "No Mapterhorn terrain tile — {0}/{1}/{2}",
+  "es": "No hay tesela de terreno Mapterhorn — {0}/{1}/{2}",
+  "ja": "Mapterhorn 地形タイルがありません — {0}/{1}/{2}",
+  "zh": "没有 Mapterhorn 地形瓦片 — {0}/{1}/{2}"
  },
  "지원하지 않는 PNG 형식(비트 {0}, 색 {1})": {
   "en": "Unsupported PNG format (bit depth {0}, color type {1})",
@@ -5441,11 +5459,17 @@
   "ja": "Global — {0}・{1}は作成時にダウンロードします",
   "zh": "Global — 生成时下载 {0} 和 {1}"
  },
- "국토지리원 5 m DEM": {
-  "en": "GSI Japan 5 m DEM",
-  "es": "DEM de 5 m del GSI de Japón",
-  "ja": "国土地理院 5 m DEM",
-  "zh": "日本国土地理院 5 m DEM"
+ "Mapterhorn 지형(표고점 약 {0} m 간격)": {
+  "en": "Mapterhorn terrain (spot heights approx. every {0} m)",
+  "es": "Terreno Mapterhorn (cotas cada {0} m aprox.)",
+  "ja": "Mapterhorn 地形（標高点 約{0} m間隔）",
+  "zh": "Mapterhorn 地形（高程点间距约 {0} m）"
+ },
+ "원천별 공개 라이선스 — 출처 표기": {
+  "en": "Open licences per source — attribution required",
+  "es": "Licencias abiertas según la fuente — citar la fuente",
+  "ja": "出典ごとの公開ライセンス — 出典表示",
+  "zh": "按来源的开放许可 — 须注明出处"
  },
  "지리원 5 m 지형": {
   "en": "GSI 5 m terrain",
@@ -5483,11 +5507,11 @@
   "ja": "資料基準 — {0} · {1} · 作成 {2} · {3} v{4}",
   "zh": "数据基准 — {0} · {1} · 生成 {2} · {3} v{4}"
  },
- "좌표계: {0} · 지형 5 m 격자(표고 T.P.) — 실측·법정 자료 아님": {
-  "en": "CRS: {0} · terrain on a 5 m grid (heights T.P.) — not survey-grade or legally binding",
-  "es": "Sistema de coordenadas: {0} · terreno en malla de 5 m (cotas T.P.) — no es levantamiento ni dato oficial",
-  "ja": "座標系: {0} · 地形 5 m格子（標高 T.P.） — 実測・法定資料ではありません",
-  "zh": "坐标系：{0} · 地形 5 m 格网（高程 T.P.） — 非实测或法定资料"
+ "지형 5 m 격자(표고 T.P.)": {
+  "en": "terrain on a 5 m grid (heights T.P.)",
+  "es": "terreno en malla de 5 m (cotas T.P.)",
+  "ja": "地形 5 m格子（標高 T.P.）",
+  "zh": "地形 5 m 格网（高程 T.P.）"
  },
  "지형 Terrain Tiles (Mapzen·AWS Open Data, SRTM 등 공개 DEM)": {
   "en": "terrain: Terrain Tiles (Mapzen, AWS Open Data; SRTM and other open DEMs)",

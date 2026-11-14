@@ -276,7 +276,7 @@ CREATE TABLE IF NOT EXISTS source_files (
 |---|---|---|---|
 | 건물 | 국토교통성 3D 도시모델 PLATEAU `bldg` — LOD0 외곽(RoofEdge 우선), `measuredHeight`, 층수, 용도 코드. 306개 시구정촌 최신 연도판(2020~2025년도), 엑스포 회장 제외 | `dev_plateau.py build` → HF `jp/jp<시구정촌코드>_context.db.xz`(합계 압축 2.69 GB, 최대 요코하마 80.5 MB) → 생성 직전 범위만 받는다 | 경위도 소수 6자리, `buildings` 칸은 런타임이 읽는 한국 이름 그대로(`ngii_kind` = 원천 용도 코드, `usability`는 런타임 `constants.PLATEAU_USE`). 층수 9999·높이 -9999 = 모름 |
 | 도로면 | PLATEAU `tran` — `tran:Road` LOD1 외곽 폴리곤(도로마다 하나, 신주쿠 31,433면·306팩 1,073만 면, tran이 없는 7팩은 0), `function`(1 고속·2 국도·3 도도부현도·4 시정촌도·5 그 밖·9020 등) | `dev_plateau.py roads` → 같은 팩의 `features`(theme road·kind surface, 한국 컨텍스트 팩과 같은 칸) | 2026-10-22. 팩에 도로면이 없거나(옛 판) 공도가 아닌 길(사유지 통로·공원 길)은 OSM 중심선 버퍼로 메운다(`osm_context.get_surfaces_apart`) |
-| 지형 | 국토지리원 표고 타일 DEM5A → 5B → 5C(z15, 약 8 m 간격), 없으면 같은 타일의 AWS terrarium | 실행 중(세션 캐시만, 저장·재배포 안 함) | 표고 기준 T.P. — PLATEAU와 같다 |
+| 지형 | Mapterhorn(§6 — 일본은 지리원 基盤地図情報 DEM 1·5·10 m를 담았다). 못 받으면 국토지리원 표고 타일 DEM5A → 5B → 5C(z15, 약 8 m 간격), 그것도 없으면 같은 타일의 AWS terrarium | 실행 중(세션 캐시만, 저장·재배포 안 함) | 표고 기준 T.P. — PLATEAU와 같다(같은 지점 지리원 5 m 타일과 0.1 m 안, 2026-11-14) |
 
 - 라이선스: PLATEAU = 公共データ利用規約 第1.0版(CC BY 4.0 호환), 저작권은 각 지방공공단체, 가공 사실을 따로 적는다(산출물 메타 줄·데이터셋 카드). 지리원 타일 = 실시간 읽기는 출처 표기만. 국외 반출 제한이 없어 국내 서버가 필요 없다.
 - 도시 경계 3차 메시는 이웃 도시 팩에도 들어 있다(도쿄도 팩끼리 같은 gml:id — 국립·국분지 13,245동). 런타임이 `src_key`(gml:id)로, 다른 도시 팩의 같은 자리 건물은 새 연도 팩 것을 남겨 걸러 낸다.
@@ -290,7 +290,7 @@ CREATE TABLE IF NOT EXISTS source_files (
 | 건물 | Kadaster PDOK **3D Basisvoorziening** `hoogtestatistieken_gebouwen`(2D 건물 + 높이 통계, 항공 lidar AHN 기반). 도엽(bladnr 1:10k) zip 안 GeoPackage, EPSG:28992. 2025년판 1,327도엽 2.23 GB | `dev_nl.py catalog → build → upload` → HF `nl/nl<도엽>_context.db.xz` + `nl/manifest.json`. 칸은 일본 팩과 같다(`dev_plateau.SCHEMA_SQL`). 높이 = `rf_h_roof_50p − rf_h_ground`(B, 없으면 70p·max, 범위 밖은 기본값 D), 건축연도 `oorspronkelijkbouwjaar` → `use_apr_day`(1500년 미만 자리표시는 모름), 지붕형 `rf_roof_type` → `ngii_kind` | 한 pand가 지붕 조각마다 행으로 나뉜다(암스테르담 25GN1 72,942행 중 13,809 pand가 여러 행) — `src_key`에 `#n`을 붙여 전부 남긴다. 철거·허가 단계(`PDOK_SKIP_STATUS`)는 뺀다 |
 
 - 라이선스: **CC BY 4.0**(OGC API collections의 license 링크 `https://creativecommons.org/licenses/by/4.0/deed.nl`). 출처 고지는 팩 `data_sources.note` 그대로 도면 출처 줄에 적는다: "Bron: Kadaster, 3D Basisvoorziening (CC BY 4.0), bewerkt door Gorani". 국외 반출 제한 없음.
-- 런타임: 나라 목록 `docs/countries.json`의 `nl`(한국 매니페스트 `countries[]` → `data_pack.get_country_packs`, 내장 기본값 `constants.COUNTRY_PACKS`) — 대상지 중심이 그 상자 안이면 생성 직전에 범위에 걸치는 도엽 팩을 받고(`cmd_site._download_for_generate`), `osm_context.load_plateau_buildings`가 팩 건물을 먼저, OSM 건물은 겹치지 않는 것만. 도로면은 OSM 버퍼(팩에 features 표 없음), 지형은 Terrain Tiles.
+- 런타임: 나라 목록 `docs/countries.json`의 `nl`(한국 매니페스트 `countries[]` → `data_pack.get_country_packs`, 내장 기본값 `constants.COUNTRY_PACKS`) — 대상지 중심이 그 상자 안이면 생성 직전에 범위에 걸치는 도엽 팩을 받고(`cmd_site._download_for_generate`), `osm_context.load_plateau_buildings`가 팩 건물을 먼저, OSM 건물은 겹치지 않는 것만. 도로면은 OSM 버퍼(팩에 features 표 없음), 지형은 Mapterhorn(§6, 못 받으면 Terrain Tiles).
 - 조사 근거·다른 나라 후보(프랑스 BD TOPO·스위스 swissBUILDINGS3D·독일): `docs/research/country_buildings.md`.
 - **새 나라 추가 절차(2026-10-23)**: ① `dev_<나라>.py catalog → build → upload`(팩 + `<나라>/manifest.json`, HF 올리기는 사용자 확인 뒤) ② `docs/countries.json`에 한 줄(코드·상자·라벨·source_id·고지) ③ `python3 scripts/dev_deploy.py notices`. 플러그인 판은 올리지 않는다 — 깔린 플러그인이 켤 때 목록을 받는다. 내리기는 `disabled: true`.
 - **GitHub 사본(Blender판, 2026-10-25)**: Blender 확장 심사가 'Hugging Face는 빼라'고 해서 Blender판은 같은 데이터셋의 GitHub 사본 `969flash/gorani-data`를 읽는다.
@@ -306,7 +306,7 @@ CREATE TABLE IF NOT EXISTS source_files (
 | 건물 | IGN **BD TOPO® v3.5** `batiment` — 데파르트망별 7z(모든 테마 GeoPackage, EPSG:2154, 파리 210 MB → 1.3 GB). Géoplateforme Atom 피드(`data.geopf.fr/telechargement/resource/BDTOPO?page=N`) 96 데파르트망(본토·코르시카), 2026-09-15판 | `dev_fr.py catalog → build → upload` → HF `fr/fr<데파르트망>_context.db.xz` + `fr/manifest.json`. 높이 `hauteur`(B — 지붕 처마선까지의 높이라 PLATEAU·PDOK의 지붕 50 %보다 낮다), 없으면 `nombre_d_etages` × 층고(C), 기본값(D). `usage_1` → 대분류(`BDTOPO_USE`: 주거는 호수 1이면 단독), `date_d_apparition` → `use_apr_day`, 층수 → `grnd_flr` | 벨포르(D090) 161,412동·B 96.8 %·xz 12.1 MB. `etat_de_l_objet` 계획·철거(`BDTOPO_SKIP_STATES`)는 뺀다. 해외 데파르트망(LAMB93 아님)은 없다 |
 
 - 라이선스: **Licence Ouverte / Open Licence 2.0**(Etalab; data.gouv.fr 데이터셋 `bd-topo` license `lov2`). 출처 고지: "Source : IGN, BD TOPO® <판> (Licence Ouverte 2.0), traité par Gorani"(팩 `data_sources.note`, 도면 출처 줄).
-- 런타임: `countries.json`의 `fr`(상자 본토·코르시카). 도로면은 OSM 버퍼, 지형은 Terrain Tiles.
+- 런타임: `countries.json`의 `fr`(상자 본토·코르시카). 도로면은 OSM 버퍼, 지형은 Mapterhorn(§6, 못 받으면 Terrain Tiles).
 
 ### 스위스 — swisstopo swissBUILDINGS3D 3.0 Beta 건물 팩 (`ch/`, 경위도, 2026-10-23)
 
@@ -325,5 +325,33 @@ CREATE TABLE IF NOT EXISTS source_files (
 
 - 라이선스: **ODbL 1.0**(Overture buildings 테마 전체 — docs.overturemaps.org/attribution. Microsoft ML Buildings도 ODbL로 제공). 우리 OSM 사용과 같은 라이선스이고 share-alike라 팩도 ODbL이다(데이터셋 카드에 적는다). 고지(팩 `data_sources.note`, 도면 출처 줄): "Source: Overture Maps Foundation (buildings, release <판>, ODbL 1.0) — © OpenStreetMap contributors, Microsoft; processed by Gorani. Heights mostly ML estimates".
 - 공식 출처를 안 쓴 이유: FEMA·ORNL USA Structures는 HEIGHT가 약 32M/125M동뿐이고 약관이 CC BY 4.0(ArcGIS Hub)과 미국 정부 저작물(data.gov)로 갈린다. 용도(OCC_CLS)는 더 좋아 나중에 보강 후보. 근거 `docs/research/country_buildings.md`.
-- 런타임: `countries.json`의 `us` — 상자 넷(`constants.US_BOUNDS` 본토·알래스카·하와이·푸에르토리코). 도로면은 OSM 버퍼, 지형은 Terrain Tiles.
+- 런타임: `countries.json`의 `us` — 상자 넷(`constants.US_BOUNDS` 본토·알래스카·하와이·푸에르토리코). 도로면은 OSM 버퍼, 지형은 Mapterhorn(§6, 못 받으면 Terrain Tiles).
 - 갱신: Overture 새 판 → `constants.OVERTURE_RELEASE` 바꾸고 `fetch`(주 parquet 다시) → `build`(판이 다르면 다시 만든다) → `upload`.
+
+---
+
+## 6. 해외 지형 — Mapterhorn (Global 모드, 2026-11-14)
+
+해외 지형을 AWS Terrain Tiles z13(약 30 m)에서 나라별 라이다 지형(0.25~5 m)으로 올렸다. 사용자 화면·사용법은 그대로다.
+
+| 항목 | 내용 |
+|---|---|
+| 원천 | Mapterhorn 공개 지형 타일 `https://tiles.mapterhorn.com/{z}/{x}/{y}.webp`(TileJSON `https://tiles.mapterhorn.com/tilejson.json`). 나라별 공개 DTM을 합친 오픈 데이터 프로젝트. Terrarium 인코딩(R·256 + G + B/256 − 32768), 512 px **무손실 WebP(VP8L)**. z0~12 전 세계, z13~17은 고해상 원천이 있는 곳만(없으면 404) |
+| 원천 목록 | `https://download.mapterhorn.com/attribution.json`(2026-11-14 151개). 주요: 스위스 swisstopo swissALTI3D 0.5 m(Open Government Data)·취리히주 0.25 m(CC0), 오스트리아 BEV ALS-DGM 1 m(CC BY 4.0), 독일 각 주 DGM1 1 m(dl-de/by-2-0·dl-de/zero·CC BY 4.0), 노르웨이 Kartverket DTM 1 m(CC BY 4.0), 스웨덴 Lantmäteriet 1 m(CC0), 덴마크 0.4 m·핀란드 2 m(CC BY 4.0), 영국 England·Scotland·Wales 1 m(Open Government Licence), 프랑스 IGN RGE ALTI 1 m·LiDAR HD 0.5 m(Licence Ouverte 2.0), 스페인 MDT02 2 m(CC BY 4.0), 일본 국토지리원 基盤地図情報 DEM 1·5·10 m(国土地理院コンテンツ利用規約／測量法に基づく国土地理院長承認（使用）R 8JHs 131), 미국 USGS 3DEP 1 m·10 m(Public Domain), 그 밖 Copernicus GLO-30 30 m |
+| 라이선스·출처 표기 | 코드 BSD-3, 지형 데이터는 원천별 공개 라이선스(mapterhorn.com: "Terrain data: various open-data sources"). 표기 "© Mapterhorn" + 원천 기관 — CC BY·dl-de/by·OGL은 기관 표기가 조건이다. 런타임이 coverage 벡터 타일(`https://single-archive-tiles.mapterhorn.com/coverage/{z}/{x}/{y}.mvt`, z12, 층 `coverage`의 `source`)에서 범위에 걸치는 원천 id를 읽고 attribution.json에서 기관·이름·해상도·라이선스를 찾아 도면 출처 줄(메타 둘째 줄)에 적는다(`osm_context.get_mapterhorn_sources`·`get_mapterhorn_credit`). z12 타일(수 km)이라 이웃 원천이 더 적힐 수 있다(덜 적는 것보다 낫다). 못 받으면 `mapterhorn.com/attribution` |
+| 이용 정책 | 공개 타일(Cloudflare R2 후원). 요청 한도·이용 약관 공지 없음(2026-11-14 mapterhorn.com·GitHub README) — **확인 필요**: 데스크톱 앱에서 직접 부르는 것에 대한 운영자 입장. 대상지 하나에 지형 타일 1~16장 + coverage 1~4장 + attribution.json 1번(세션 캐시). 저장·재배포하지 않는다 |
+| 기준일 | 원천별 `access_year`(2025~2026). 산출물에는 받은 날을 적는다 |
+| 표고 기준 | 원천 나라 기준 그대로(일본 T.P. — PLATEAU와 같다, 스위스 LN02 등). 일본은 같은 지점에서 지리원 5 m 타일과 0.1 m 안으로 같았다(시부야 15.19/15.18 m, 하코네 1335.69/1335.67 m) |
+| 수면 | 라이다 DTM은 수면이 수위 평면이다 — 취리히 호수 단면에서 Mapterhorn 405.6 m 평면·물가에서 바로 땅, AWS는 400.0 m(호수 바닥과 섞임). 그래서 물가 표고점 빼기(`WATER_BLEND_BUFFER` 30 m)는 AWS(`WATER_BLEND_SOURCE`)에만 건다 |
+
+- 런타임(`osm_context.get_terrain_spots`): `get_mapterhorn_grid`가 간격 = max(`TERRAIN_SPOT_SPACING` 3 m = 출력 격자 칸, √(범위 bbox ÷ `TERRAIN_MAX_SPOTS` 10만))과 그 간격에 가장 가까운 줌을 정한다(500 m 사각형 위도 47° z14·3.2 m, 2 km z13·6.5 m, 4 km z12·13 m). 타일을 `decode_webp`로 풀어 표고점을 만든다. 그 줌 타일이 404면 한 단계씩 부모 타일의 같은 구역(간격 2배 — 같은 값을 촘촘히 되풀이하지 않는다). 서버 오류·시간 초과(`TERRAIN_TIMEOUT_SECONDS`)·해독 실패면 예전 길(일본 지리원 5 m → AWS terrarium z13). 매니페스트 `services.mapterhorn`이 주소를 덮을 수 있다(`data_pack.get_service`).
+- WebP 해독: 표준 라이브러리로는 WebP를 못 열고 Rhino 8 CPython에는 pip 패키지를 못 싣는다(Yak). 타일이 무손실(VP8L)이라 순수 파이썬 해독기(`osm_context.decode_webp`, RFC 9649)를 모든 호스트가 같이 쓴다. 호스트 기능(Eto·System.Drawing·Pillow·bpy 이미지)은 쓰지 않는다 — 플랫폼마다 WebP 지원이 다르고(Windows Rhino의 System.Drawing은 WebP 코덱이 OS 확장에 달림) 색 관리로 RGB가 1만 바뀌어도 표고가 틀린다.
+
+1단계 해독 시험(2026-11-14, Mapterhorn 타일 58장 — 스위스·오스트리아·일본·바다·한 색 타일, z0~17):
+
+| 호스트 | 파이썬 | 512 px 한 장 | 기준과 화소 비교 |
+|---|---|---|---|
+| python3(개발 PC) | 3.9.6 | 0.18 s | Pillow 11.3·dwebp 1.6.0과 58장 모두 같다 |
+| Rhino 8 Mac | 3.9.10 | (Rhino 실측 — PR 본문) | 같은 코드 |
+| SketchUp·Rhino 7 사이드카(번들) | 3.12.15 | 0.12 s | 같은 코드 |
+| Blender 4.x | 3.13.13 | 0.14 s | 같은 코드 |
