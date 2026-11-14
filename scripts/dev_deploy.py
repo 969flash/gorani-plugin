@@ -270,11 +270,12 @@ BLENDER_CONSTANT_PATCHES = {
 BLENDER_ALLOWED_HOSTS = (
     "127.0.0.1",                                                       # 패널 서버(이 컴퓨터)
     "tile.openstreetmap.org", "nominatim.openstreetmap.org", "overpass-api.de", "overpass.openstreetmap.fr",   # OpenStreetMap — 지도·지명 검색·건물·도로
-    "s3.amazonaws.com", "cyberjapandata.gsi.go.jp",                    # 지형 타일 — AWS Open Data Terrain Tiles, 일본 국토지리원
+    "tiles.mapterhorn.com", "single-archive-tiles.mapterhorn.com", "download.mapterhorn.com",   # 정밀 지형 — Mapterhorn 타일·원천 구역·원천 목록(출처 표기)
+    "s3.amazonaws.com", "cyberjapandata.gsi.go.jp",                    # 지형 타일 — Mapterhorn을 못 받을 때 AWS Open Data Terrain Tiles, 일본 국토지리원
     "raw.githubusercontent.com", "github.com",                         # 데이터 팩 매니페스트·팩(GitHub 사본 constants.DATA_GITHUB_REPO)
     "150.230.249.1",                                                   # 한국 건물·도로·등고선 팩(국내 서버 — 공간정보관리법 제16조, constants.DATA_DOMESTIC_BASE_URL)
     "gorani.site", "extensions.blender.org", "www.eum.go.kr", "www.openstreetmap.org", "wiki.openstreetmap.org", "registry.opendata.aws",
-    "maps.gsi.go.jp", "www.mlit.go.jp", "overturemaps.org", "creativecommons.org", "www.w3.org", "leafletjs.com", "bugs.chromium.org",
+    "maps.gsi.go.jp", "www.mlit.go.jp", "mapterhorn.com", "overturemaps.org", "creativecommons.org", "www.w3.org", "leafletjs.com", "bugs.chromium.org",
     "bugzilla.mozilla.org", "fsf.org", "www.gnu.org",
 )
 # `if __package__:` … `else:` 진입 분기(cmd_site·cmd_blender) — 패키지에서는 앞쪽만 남긴다(뒤쪽은 Rhino·저장소 시험용 sys.modules 넣기)

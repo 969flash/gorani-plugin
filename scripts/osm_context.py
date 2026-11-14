@@ -1,15 +1,17 @@
-"""해외 대상지 컨텍스트 — OSM(Overpass API) 건물·도로·철도·수계·녹지 + AWS Terrain Tiles 지형을 context_db와 같은 형식으로.
+"""해외 대상지 컨텍스트 — OSM(Overpass API) 건물·도로·철도·수계·녹지 + Mapterhorn 지형(못 받으면 AWS Terrain Tiles)을 context_db와 같은 형식으로.
 
 국내는 로컬 DB(context_db)를 쓰고, 대상지가 한국 밖이면(non_rhino_utils.is_local_projection) context_builder가 이 모듈을 부른다.
 좌표는 non_rhino_utils의 지금 투영(대상지 중심 지역 횡메르카토르) m. 표준 라이브러리만 쓴다(urllib·json·zlib·sqlite3).
 일본은 받아 둔 PLATEAU 건물 팩(jp<시구정촌코드>_context.db — cmd_site가 생성 직전에 받는다)을 먼저 쓰고 OSM 건물은 그와 겹치지 않는
-것만 보탠다. 지형은 국토지리원(GSI) 5 m 표고 타일. 근거 docs/research/japan.md.
+것만 보탠다. 지형은 Mapterhorn(지리원 DEM을 담았다), 못 받으면 국토지리원(GSI) 5 m 표고 타일. 근거 docs/research/japan.md·data_sources.md §6.
 
 출처 표기: 건물·도로 등 "© OpenStreetMap contributors"(ODbL — 산출물은 출처 표기만, DB로 재배포하지 않는다),
-지형 "Terrain Tiles, Mapzen/AWS Open Data(SRTM·GMTED 등 공개 DEM)", 일본 건물 "3D都市モデル（Project PLATEAU）<도시>（<연도>年度）"
+지형 "© Mapterhorn" + 원천 기관(get_mapterhorn_credit), 대신 쓰면 "Terrain Tiles, Mapzen/AWS Open Data(SRTM·GMTED 등 공개 DEM)", 일본 건물 "3D都市モデル（Project PLATEAU）<도시>（<연도>年度）"
 (CC BY 4.0), 일본 지형 "国土地理院 標高タイル".
 """
 
+import array
+import gzip
 import json
 import sqlite3
 import math
@@ -574,7 +576,7 @@ def get_road_surface(geometry, tags, width):
     return {"type": "Polygon", "coordinates": [[[round(x, 3), round(y, 3)] for x, y in ring]]}
 
 
-# ── 지형 (Terrain Tiles, terrarium PNG) ─────────────────
+# ── 지형 (Mapterhorn WebP → 못 받으면 Terrain Tiles·지리원 PNG) ─────────
 
 def decode_png(data):
     # type: (bytes) -> tuple
@@ -618,10 +620,358 @@ def decode_png(data):
     return width, height, channels, rows
 
 
+# 무손실 WebP(VP8L) 해독 — 표준 라이브러리로는 WebP를 못 열고 Rhino 8 CPython엔 pip 패키지를 못 싣는다(Yak). 스펙 RFC 9649.
+# 2026-11-14 Mapterhorn 타일 58장을 dwebp 1.6.0과 화소 단위로 비교해 모두 같았다(512 px 한 장 평균 0.32 s, python 3.9).
+_WEBP_CODE_ORDER = (17, 18, 0, 1, 2, 3, 4, 5, 16, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)   # 코드 길이 코드의 길이를 읽는 순서
+_WEBP_PLANE = bytes.fromhex(   # 거리 코드 1~120 → (dy << 4) | (8 − dx) — libwebp kCodeToPlane
+    "1807171928062729161a262a38053739151b363a252b48044749141c353b464a242c58454b343c035759131d565a232d444c555b333d68026769121e"
+    "666a222e545c434d656b323e78017779535d111f646c424e767a212f757b313f636d525e00747c414f1020626e30737d515f40727e616f50717f6070")
+_WEBP_S8 = [v - 256 if v > 127 else v for v in range(256)]   # 바이트 → 부호 있는 8비트(색 변환)
+
+
+class _WebpBits(object):
+    """LSB부터 읽는 비트 읽기 — 헤더·부호표용(화소 루프는 지역 변수로 따로 돈다)."""
+
+    def __init__(self, data, pos):
+        self.data, self.pos, self.val, self.n = data, pos, 0, 0
+
+    def read(self, n):
+        if self.n < n:
+            self.val |= int.from_bytes(self.data[self.pos:self.pos + 8], "little") << self.n
+            self.pos += 8
+            self.n += 64
+        value = self.val & ((1 << n) - 1)
+        self.val >>= n
+        self.n -= n
+        return value
+
+    def symbol(self, code):
+        table, mask = code
+        if self.n < 15:
+            self.val |= int.from_bytes(self.data[self.pos:self.pos + 8], "little") << self.n
+            self.pos += 8
+            self.n += 64
+        entry = table[self.val & mask]
+        self.val >>= entry & 15
+        self.n -= entry & 15
+        return entry >> 4
+
+
+def _get_webp_code(lengths):
+    # type: (list) -> tuple
+    """기호별 코드 길이 → (표, 마스크) 정규 허프만 — 표[다음 비트] = 기호 << 4 | 길이. 기호가 하나면 길이 0(비트를 읽지 않는다)."""
+    used = sorted((n, s) for s, n in enumerate(lengths) if n)
+    if not used:
+        raise ValueError("WebP: empty code")
+    if len(used) == 1:
+        return [used[0][1] << 4], 0
+    top = used[-1][0]
+    table = [0] * (1 << top)
+    code, previous = 0, used[0][0]
+    for n, s in used:
+        code <<= n - previous
+        previous = n
+        table[int(format(code, "0%db" % n)[::-1], 2)::1 << n] = [s << 4 | n] * (1 << (top - n))   # 비트를 거꾸로 읽으므로 뒤집은 코드 자리마다
+        code += 1
+    if code != 1 << top:
+        raise ValueError("WebP: bad code")
+    return table, (1 << top) - 1
+
+
+def _read_webp_code(bits, size):
+    # type: (_WebpBits, int) -> tuple
+    """부호표 하나(단순 = 기호 1~2개, 일반 = 코드 길이를 부호화)."""
+    lengths = [0] * size
+    if bits.read(1):
+        count = bits.read(1) + 1
+        lengths[bits.read(1 + 7 * bits.read(1))] = 1
+        if count == 2:
+            lengths[bits.read(8)] = 1
+        return _get_webp_code(lengths)
+    length_lengths = [0] * 19
+    for i in range(4 + bits.read(4)):
+        length_lengths[_WEBP_CODE_ORDER[i]] = bits.read(3)
+    length_code = _get_webp_code(length_lengths)
+    max_symbol = 2 + bits.read(2 + 2 * bits.read(3)) if bits.read(1) else size
+    previous, s = 8, 0
+    while s < size and max_symbol:
+        max_symbol -= 1
+        c = bits.symbol(length_code)
+        if c < 16:
+            lengths[s] = c
+            s += 1
+            previous = c or previous
+        else:
+            extra, offset = ((2, 3), (3, 3), (7, 11))[c - 16]
+            repeat = bits.read(extra) + offset
+            if s + repeat > size:
+                raise ValueError("WebP: bad repeat")
+            lengths[s:s + repeat] = [previous if c == 16 else 0] * repeat
+            s += repeat
+    return _get_webp_code(lengths)
+
+
+def _read_webp_pixels(bits, width, height, is_main):
+    # type: (_WebpBits, int, int, bool) -> list
+    """엔트로피 부호 화소 → ARGB int 목록(색 캐시·메타 부호표·LZ77 역참조). is_main이면 메타 부호표(화소 구역별 부호표 묶음)가 올 수 있다."""
+    cache_bits = bits.read(4) if bits.read(1) else 0
+    if cache_bits > 11:
+        raise ValueError("WebP: bad color cache")
+    prefix_bits, group_map, group_width = 0, None, 1
+    if is_main and bits.read(1):
+        prefix_bits = bits.read(3) + 2
+        group_width = (width + (1 << prefix_bits) - 1) >> prefix_bits
+        group_map = [(p >> 8) & 0xffff for p in _read_webp_pixels(bits, group_width, (height + (1 << prefix_bits) - 1) >> prefix_bits, False)]
+    cache_size = (1 << cache_bits) if cache_bits else 0
+    groups = [tuple(_read_webp_code(bits, size) for size in (280 + cache_size, 256, 256, 256, 40))
+              for _ in range(max(group_map) + 1 if group_map else 1)]
+    # 화소 루프 — 512 px 한 장에 26만 번 돈다. 함수 호출 없이 지역 변수로(비트는 한 번에 64개씩 채운다, 화소 하나는 최대 58비트)
+    data, pos, val, n = bits.data, bits.pos, bits.val, bits.n
+    total = width * height
+    out = [0] * total
+    cache, cache_shift, cached = [0] * cache_size, 32 - cache_bits, 0
+    mask_x = (1 << prefix_bits) - 1
+    (gt, gm), (rt, rm), (bt, bm), (at, am), (dt, dm) = groups[0]
+    i = x = y = 0
+    from_bytes = int.from_bytes
+    while i < total:
+        if group_map is not None and not (x & mask_x):
+            (gt, gm), (rt, rm), (bt, bm), (at, am), (dt, dm) = groups[group_map[(y >> prefix_bits) * group_width + (x >> prefix_bits)]]
+        if n < 64:
+            val |= from_bytes(data[pos:pos + 8], "little") << n
+            pos += 8
+            n += 64
+        e = gt[val & gm]
+        val >>= e & 15
+        n -= e & 15
+        code = e >> 4
+        if code < 256:   # 글자 화소 — 초록 다음 빨강·파랑·알파
+            e = rt[val & rm]
+            val >>= e & 15
+            n -= e & 15
+            red = e >> 4
+            e = bt[val & bm]
+            val >>= e & 15
+            n -= e & 15
+            blue = e >> 4
+            e = at[val & am]
+            val >>= e & 15
+            n -= e & 15
+            out[i] = (e >> 4) << 24 | red << 16 | code << 8 | blue
+            i += 1
+            x += 1
+            if x == width:
+                x = 0
+                y += 1
+        elif code < 280:   # 역참조 — 길이·거리 접두 코드
+            code -= 256
+            if code < 4:
+                length = code + 1
+            else:
+                extra = (code - 2) >> 1
+                length = ((2 + (code & 1)) << extra) + (val & ((1 << extra) - 1)) + 1
+                val >>= extra
+                n -= extra
+            e = dt[val & dm]
+            val >>= e & 15
+            n -= e & 15
+            code = e >> 4
+            if code < 4:
+                dist = code + 1
+            else:
+                extra = (code - 2) >> 1
+                dist = ((2 + (code & 1)) << extra) + (val & ((1 << extra) - 1)) + 1
+                val >>= extra
+                n -= extra
+            if dist > 120:
+                dist -= 120
+            else:
+                plane = _WEBP_PLANE[dist - 1]
+                dist = max(1, (plane >> 4) * width + 8 - (plane & 15))
+            if dist > i or i + length > total:
+                raise ValueError("WebP: bad backward reference")
+            if dist >= length:
+                out[i:i + length] = out[i - dist:i - dist + length]
+            else:   # 겹치는 복사(반복 무늬)는 하나씩
+                for k in range(i, i + length):
+                    out[k] = out[k - dist]
+            i += length
+            x += length
+            while x >= width:
+                x -= width
+                y += 1
+            if group_map is not None and i < total:
+                (gt, gm), (rt, rm), (bt, bm), (at, am), (dt, dm) = groups[group_map[(y >> prefix_bits) * group_width + (x >> prefix_bits)]]
+        else:   # 색 캐시 — 앞 화소를 넣어 두고 꺼낸다
+            while cached < i:
+                c = out[cached]
+                cache[((c * 0x1e35a7bd) & 0xffffffff) >> cache_shift] = c
+                cached += 1
+            out[i] = cache[code - 280]
+            i += 1
+            x += 1
+            if x == width:
+                x = 0
+                y += 1
+    bits.pos, bits.val, bits.n = pos, val, n
+    return out
+
+
+def _add_argb(a, b):
+    # type: (int, int) -> int
+    """채널별 (a + b) mod 256."""
+    return (((a & 0xff00ff00) + (b & 0xff00ff00)) & 0xff00ff00) | (((a & 0x00ff00ff) + (b & 0x00ff00ff)) & 0x00ff00ff)
+
+
+def _average_argb(a, b):
+    # type: (int, int) -> int
+    """채널별 내림 평균."""
+    return (((a ^ b) & 0xfefefefe) >> 1) + (a & b)
+
+
+def _get_webp_prediction(mode, left, top, top_left, top_right):
+    # type: (int, int, int, int, int) -> int
+    """예측 변환 모드 0~13 → 예측 화소(스펙 4.1)."""
+    if mode == 1:
+        return left
+    if mode == 2:
+        return top
+    if mode == 3:
+        return top_right
+    if mode == 4:
+        return top_left
+    if mode == 5:
+        return _average_argb(_average_argb(left, top_right), top)
+    if mode == 6:
+        return _average_argb(left, top_left)
+    if mode == 7:
+        return _average_argb(left, top)
+    if mode == 8:
+        return _average_argb(top_left, top)
+    if mode == 9:
+        return _average_argb(top, top_right)
+    if mode == 10:
+        return _average_argb(_average_argb(left, top_left), _average_argb(top, top_right))
+    if mode == 11:   # Select — 예측(L + T − TL)에 더 가까운 쪽
+        to_left = to_top = 0
+        for s in (0, 8, 16, 24):
+            corner = (top_left >> s) & 255
+            to_left += abs(((top >> s) & 255) - corner)
+            to_top += abs(((left >> s) & 255) - corner)
+        return left if to_left < to_top else top
+    if mode == 12:   # ClampAddSubtractFull
+        result = 0
+        for s in (0, 8, 16, 24):
+            result |= min(255, max(0, ((left >> s) & 255) + ((top >> s) & 255) - ((top_left >> s) & 255))) << s
+        return result
+    if mode == 13:   # ClampAddSubtractHalf — 나눗셈은 C처럼 0 쪽으로
+        average, result = _average_argb(left, top), 0
+        for s in (0, 8, 16, 24):
+            a, b = (average >> s) & 255, (top_left >> s) & 255
+            result |= min(255, max(0, a + int((a - b) / 2))) << s
+        return result
+    return 0xff000000
+
+
+def _undo_webp_predictor(px, width, height, bits, modes):
+    # type: (list, int, int, int, list) -> None
+    """예측 변환 되돌리기 — 첫 화소는 검정, 첫 행은 왼쪽, 첫 열은 위, 나머지는 블록 모드. 오른쪽 끝 열의 오른쪽 위는 같은 행 첫 화소(목록에서 i − w + 1)."""
+    block_width = (width + (1 << bits) - 1) >> bits
+    size = 1 << bits
+    px[0] = _add_argb(px[0], 0xff000000)
+    for i in range(1, width):
+        px[i] = _add_argb(px[i], px[i - 1])
+    for y in range(1, height):
+        row = y * width
+        px[row] = _add_argb(px[row], px[row - width])
+        for block, mode_pixel in enumerate(modes[(y >> bits) * block_width:(y >> bits) * block_width + block_width]):
+            mode = (mode_pixel >> 8) & 15
+            start, stop = row + max(1, block * size), row + min(width, (block + 1) * size)
+            if mode in (1, 2, 3, 4):   # 이웃 하나를 그대로 — 지형 타일 블록의 절반 이상
+                offset = (1, width, width - 1, width + 1)[mode - 1]
+                for i in range(start, stop):
+                    a, b = px[i], px[i - offset]
+                    px[i] = (((a & 0xff00ff00) + (b & 0xff00ff00)) & 0xff00ff00) | (((a & 0x00ff00ff) + (b & 0x00ff00ff)) & 0x00ff00ff)
+            else:
+                for i in range(start, stop):
+                    px[i] = _add_argb(px[i], _get_webp_prediction(mode, px[i - 1], px[i - width], px[i - width - 1], px[i - width + 1]))
+
+
+def _undo_webp_color(px, width, height, bits, transforms):
+    # type: (list, int, int, int, list) -> None
+    """색 변환 되돌리기 — 빨강 += g2r·초록 >> 5, 파랑 += g2b·초록 >> 5 + r2b·빨강 >> 5(부호 있는 8비트). 0인 블록은 건너뛴다(지형 타일 99 %)."""
+    block_width = (width + (1 << bits) - 1) >> bits
+    size, s8 = 1 << bits, _WEBP_S8
+    for y in range(height):
+        row = y * width
+        for block, t in enumerate(transforms[(y >> bits) * block_width:(y >> bits) * block_width + block_width]):
+            if not t & 0xffffff:
+                continue
+            g2r, g2b, r2b = s8[t & 255], s8[(t >> 8) & 255], s8[(t >> 16) & 255]
+            for i in range(row + block * size, row + min(width, (block + 1) * size)):
+                p = px[i]
+                g = s8[(p >> 8) & 255]
+                r = ((p >> 16) + ((g2r * g) >> 5)) & 255
+                px[i] = (p & 0xff00ff00) | r << 16 | ((p + ((g2b * g) >> 5) + ((r2b * s8[r]) >> 5)) & 255)
+
+
+def decode_webp(data):
+    # type: (bytes) -> tuple
+    """무손실 WebP(RIFF/VP8L) → (폭, 높이, ARGB int 목록). 손실 WebP(VP8)는 ValueError — terrarium은 값이 1만 바뀌어도 표고가 틀린다."""
+    if data[:4] != b"RIFF" or data[8:12] != b"WEBP":
+        raise ValueError(tr("WebP가 아닙니다"))
+    pos = 12
+    while pos + 8 <= len(data) and data[pos:pos + 4] != b"VP8L":   # VP8X 등 다른 덩어리는 건너뛴다
+        pos += 8 + ((int.from_bytes(data[pos + 4:pos + 8], "little") + 1) & ~1)
+    if data[pos:pos + 4] != b"VP8L" or data[pos + 8] != 0x2f:
+        raise ValueError(tr("무손실 WebP가 아닙니다"))
+    bits = _WebpBits(data, pos + 9)
+    width, height = bits.read(14) + 1, bits.read(14) + 1
+    bits.read(1)   # 알파 사용 표시 — 값은 화소에 그대로 있다
+    if bits.read(3):
+        raise ValueError("WebP: bad version")
+    transforms, xsize = [], width
+    while bits.read(1):
+        kind = bits.read(2)
+        if kind in (0, 1):   # 예측·색 변환 — 블록별 값 이미지
+            b = bits.read(3) + 2
+            transforms.append((kind, b, _read_webp_pixels(bits, (xsize + (1 << b) - 1) >> b, (height + (1 << b) - 1) >> b, False), xsize))
+        elif kind == 2:      # 초록 빼기
+            transforms.append((2, 0, None, xsize))
+        else:                # 색 인덱스(팔레트) — 작은 팔레트는 한 화소에 여러 개를 묶는다
+            size = bits.read(8) + 1
+            palette = _read_webp_pixels(bits, size, 1, False)
+            for k in range(1, size):
+                palette[k] = _add_argb(palette[k], palette[k - 1])
+            b = 3 if size <= 2 else 2 if size <= 4 else 1 if size <= 16 else 0
+            transforms.append((3, b, palette + [0] * (256 - size), xsize))
+            xsize = (xsize + (1 << b) - 1) >> b
+    px = _read_webp_pixels(bits, xsize, height, True)
+    for kind, b, sub, xs in reversed(transforms):
+        if kind == 0:
+            _undo_webp_predictor(px, xs, height, b, sub)
+        elif kind == 1:
+            _undo_webp_color(px, xs, height, b, sub)
+        elif kind == 2:
+            for i, p in enumerate(px):
+                g = (p >> 8) & 255
+                px[i] = (p & 0xff00ff00) | (((p & 0x00ff00ff) + (g << 16 | g)) & 0x00ff00ff)
+        else:
+            per, bits_per = 1 << b, 8 >> b
+            mask, packed_width, packed, px = (1 << bits_per) - 1, (xs + (1 << b) - 1) >> b, px, []
+            for y in range(height):
+                line = []
+                for p in packed[y * packed_width:(y + 1) * packed_width]:
+                    g = (p >> 8) & 255
+                    line.extend(sub[(g >> (k * bits_per)) & mask] for k in range(per))
+                px.extend(line[:xs])
+    return width, height, px
+
+
 def get_elevation(source_id, r, g, b):
     # type: (str, int, int, int) -> float
     """화소 → 표고 m. 지리원(gsi_dem): x = R·2¹⁶ + G·2⁸ + B를 0.01 m 단위로, x = 2²³은 값 없음(None), 2²³보다 크면 음수(x − 2²⁴).
-    AWS terrarium: R·256 + G + B/256 − 32768."""
+    AWS terrarium·Mapterhorn: R·256 + G + B/256 − 32768."""
     if source_id == "gsi_dem":
         value = (r << 16) + (g << 8) + b
         if value == constants.GSI_NO_DATA:
@@ -646,10 +996,90 @@ def _get_terrain_tile(zoom, tx, ty, japan):
     return _CACHE[key]
 
 
-def get_terrain_spots(bounds, reference_date):
+def _get_spot(index, lng, lat, elevation, source_id, reference_date):
+    # type: (int, float, float, float, str, str) -> FeatureInfo
+    """경위도 표고 → 표고점(theme terrain, kind spot, 지금 투영 m)."""
+    x, y = non_rhino_utils.get_tm_from_wgs84(lng, lat)
+    return FeatureInfo(feature_id=10 ** 9 + index, theme="terrain", kind="spot", code="", name="", value=round(elevation, 2), attrs={},
+                       sheet="", geometry={"type": "Point", "coordinates": [round(x, 3), round(y, 3)]}, source_id=source_id,
+                       reference_date=reference_date, min_x=x, max_x=x, min_y=y, max_y=y)
+
+
+def get_mapterhorn_grid(bounds):
+    # type: (tuple) -> tuple
+    """TM bounds → (줌, 화소 건너뛰기(실수, 1 이상), 표고점 간격 m). 간격 = max(TERRAIN_SPOT_SPACING, √(면적 ÷ TERRAIN_MAX_SPOTS)),
+    줌 = 화소(512 px 타일)가 그 간격 × TERRAIN_SPOT_SLACK 이하인 가장 낮은 줌(MAPTERHORN_MIN~MAX_ZOOM) — 화소를 간격만큼 건너뛰어 표고점 수가 상한을 넘지 않는다."""
+    south, west, north, east = _get_lnglat_bbox(bounds)
+    area = max(1.0, (bounds[2] - bounds[0]) * (bounds[3] - bounds[1]))
+    spacing = max(constants.TERRAIN_SPOT_SPACING, math.sqrt(area / constants.TERRAIN_MAX_SPOTS))
+    pixel0 = constants.WEB_MERCATOR_EQUATOR * math.cos(math.radians((south + north) * 0.5)) / constants.MAPTERHORN_TILE_SIZE   # 줌 0 화소 m
+    zoom = max(constants.MAPTERHORN_MIN_ZOOM, min(constants.MAPTERHORN_MAX_ZOOM, int(math.ceil(math.log(pixel0 / (spacing * constants.TERRAIN_SPOT_SLACK), 2)))))
+    step = max(1.0, spacing * 2 ** zoom / pixel0)
+    return zoom, step, round(pixel0 / 2 ** zoom * step, 1)
+
+
+def _get_mapterhorn_tile(zoom, tx, ty):
+    # type: (int, int, int) -> object
+    """Mapterhorn 타일 하나 → decode_webp 결과(ARGB는 array로 — 512 px 한 장 1 MB). 고해상 원천이 없는 곳(404)은 None. 그 밖의 오류는 그대로 올린다."""
+    key = ("mapterhorn", zoom, tx, ty)
+    if key not in _TERRAIN_TILES:
+        try:
+            width, height, px = decode_webp(_fetch(data_pack.get_service("mapterhorn", constants.MAPTERHORN_URL).format(z=zoom, x=tx, y=ty),
+                                                   timeout=constants.TERRAIN_TIMEOUT_SECONDS))
+            tile = (width, height, array.array("I", px))
+        except urllib.error.HTTPError as exc:
+            if exc.code != 404:
+                raise
+            tile = None
+        if len(_TERRAIN_TILES) >= constants.TERRAIN_TILE_CACHE_MAX:
+            _TERRAIN_TILES.clear()
+        _TERRAIN_TILES[key] = tile
+    return _TERRAIN_TILES[key]
+
+
+_TERRAIN_TILES = {}   # Mapterhorn 해독 타일 — 같은 대상지를 다시 만들 때 받기·해독(한 장 0.3 s)을 건너뛴다. TERRAIN_TILE_CACHE_MAX를 넘으면 비운다
+
+
+def _get_mapterhorn_spots(bounds, reference_date):
+    # type: (tuple, str) -> list
+    """bounds를 덮는 Mapterhorn 타일(get_mapterhorn_grid 줌·건너뛰기) → 표고점. 그 줌 타일이 404(고해상 원천 없음)면 한 단계씩 부모 타일의 같은 구역을
+    건너뛰기를 줄여(간격 유지, 최소 1화소 — 거친 원천을 촘촘히 되풀이하지 않는다) 쓴다. 최저 줌도 없으면 RuntimeError."""
+    south, west, north, east = _get_lnglat_bbox(bounds)
+    zoom, step, _spacing = get_mapterhorn_grid(bounds)
+    x0, y0 = non_rhino_utils.get_tile_xy(west, north, zoom)
+    x1, y1 = non_rhino_utils.get_tile_xy(east, south, zoom)
+    spots = []
+    for tx in range(int(x0), int(x1) + 1):
+        for ty in range(int(y0), int(y1) + 1):
+            up, tile = 0, None
+            while tile is None:
+                tile = _get_mapterhorn_tile(zoom - up, tx >> up, ty >> up)
+                if tile is None:
+                    if zoom - up <= constants.MAPTERHORN_MIN_ZOOM:
+                        raise RuntimeError(tr("Mapterhorn 지형 타일이 없습니다 — {0}/{1}/{2}", zoom - up, tx >> up, ty >> up))
+                    up += 1
+            width, height, px = tile
+            z, px_tx, px_ty = zoom - up, tx >> up, ty >> up
+            size, k = width >> up, max(1.0, step / (1 << up))   # 부모 타일에서 이 타일 구역은 size 화소, 건너뛰기도 그만큼 줄인다
+            ox, oy = (tx - (px_tx << up)) * size, (ty - (px_ty << up)) * size
+            picks = [int(j * k) for j in range(int(math.ceil(size / k)))]   # 실수 간격 → 가까운 화소
+            for py in (oy + j for j in picks):
+                lat = math.degrees(math.atan(math.sinh(math.pi * (1.0 - 2.0 * (px_ty + (py + 0.5) / height) / 2 ** z))))
+                if not south <= lat <= north:
+                    continue
+                for px_x in (ox + j for j in picks):
+                    lng = (px_tx + (px_x + 0.5) / width) / 2 ** z * 360.0 - 180.0
+                    if not west <= lng <= east:
+                        continue
+                    p = px[py * width + px_x]
+                    spots.append(_get_spot(len(spots), lng, lat, ((p >> 16) & 255) * 256.0 + ((p >> 8) & 255) + (p & 255) / 256.0 - 32768.0,
+                                           "mapterhorn", reference_date))
+    return spots
+
+
+def _get_tile_spots(bounds, reference_date):
     # type: (tuple, str) -> tuple
-    """bounds를 덮는 지형 타일을 받아 표고점(theme terrain, kind spot)으로. 일본이면 지리원 5 m 타일(z15, 약 8 m 간격), 아니면 AWS terrarium
-    (z13, 약 30 m). 출력: (표고점 목록, 실제로 쓴 원천 id 집합 — gsi_dem·aws_terrain)."""
+    """Mapterhorn을 못 받을 때 — 일본이면 지리원 5 m 타일(z15, 약 8 m 간격), 아니면 AWS terrarium(z13, 약 30 m). 출력: (표고점, 원천 id 집합 — gsi_dem·aws_terrain)."""
     south, west, north, east = _get_lnglat_bbox(bounds)
     japan = is_japan((west + east) * 0.5, (south + north) * 0.5)
     zoom, step = (constants.GSI_TERRAIN_ZOOM, constants.GSI_TERRAIN_STEP) if japan else (constants.OSM_TERRAIN_ZOOM, constants.OSM_TERRAIN_STEP)
@@ -669,13 +1099,83 @@ def get_terrain_spots(bounds, reference_date):
                     elevation = get_elevation(source_id, *rows[py][px * channels:px * channels + 3])
                     if elevation is None:   # 지리원 수면 — 수계 평탄화가 경계 Z로 메운다
                         continue
-                    x, y = non_rhino_utils.get_tm_from_wgs84(lng, lat)
-                    spots.append(FeatureInfo(
-                        feature_id=10 ** 9 + len(spots), theme="terrain", kind="spot", code="", name="", value=round(elevation, 2), attrs={},
-                        sheet="", geometry={"type": "Point", "coordinates": [round(x, 3), round(y, 3)]}, source_id=source_id,
-                        reference_date=reference_date, min_x=x, max_x=x, min_y=y, max_y=y,
-                    ))
+                    spots.append(_get_spot(len(spots), lng, lat, elevation, source_id, reference_date))
     return spots, used
+
+
+def get_terrain_spots(bounds, reference_date):
+    # type: (tuple, str) -> tuple
+    """bounds를 덮는 지형 표고점(theme terrain, kind spot). Mapterhorn(나라별 라이다 합본, 간격 get_mapterhorn_grid)을 먼저,
+    받기·해독이 실패하면(서버 오류·시간 초과 — 404는 부모 타일로) 지리원 5 m·AWS terrarium. 출력: (표고점 목록, 쓴 원천 id 집합 — mapterhorn·gsi_dem·aws_terrain)."""
+    try:
+        return _get_mapterhorn_spots(bounds, reference_date), {"mapterhorn"}
+    except (OSError, ValueError, RuntimeError):   # URLError·시간 초과는 OSError, 해독 실패는 ValueError
+        return _get_tile_spots(bounds, reference_date)
+
+
+def _read_pb(data):
+    # type: (bytes) -> list
+    """프로토콜 버퍼 메시지 한 겹 → [(필드 번호, 값)] — 값은 varint면 int, 길이 구분이면 bytes(벡터 타일 coverage 층 읽기용)."""
+    fields, i = [], 0
+    while i < len(data):
+        key = shift = 0
+        while True:
+            c = data[i]
+            i += 1
+            key |= (c & 127) << shift
+            shift += 7
+            if c < 128:
+                break
+        kind = key & 7
+        if kind in (0, 2):
+            value = shift = 0
+            while True:
+                c = data[i]
+                i += 1
+                value |= (c & 127) << shift
+                shift += 7
+                if c < 128:
+                    break
+            if kind == 2:
+                value, i = data[i:i + value], i + value
+        else:   # 64·32비트 고정
+            size = 8 if kind == 1 else 4
+            value, i = data[i:i + size], i + size
+        fields.append((key >> 3, value))
+    return fields
+
+
+def get_mapterhorn_sources(bounds):
+    # type: (tuple) -> list
+    """bounds에 걸치는 Mapterhorn 원천 → [attribution.json 항목](해상도 순, 고운 것 먼저). coverage 벡터 타일(MAPTERHORN_COVERAGE_ZOOM)의
+    source 값 — 타일 하나가 수 km라 범위 밖 이웃 원천이 섞일 수 있다(출처를 덜 적는 것보다 낫다). 못 받으면 []."""
+    south, west, north, east = _get_lnglat_bbox(bounds)
+    zoom = constants.MAPTERHORN_COVERAGE_ZOOM
+    x0, y0 = non_rhino_utils.get_tile_xy(west, north, zoom)
+    x1, y1 = non_rhino_utils.get_tile_xy(east, south, zoom)
+    try:
+        names = set()
+        for tx in range(int(x0), int(x1) + 1):
+            for ty in range(int(y0), int(y1) + 1):
+                data = _fetch(constants.MAPTERHORN_COVERAGE_URL.format(z=zoom, x=tx, y=ty), timeout=constants.TERRAIN_TIMEOUT_SECONDS)
+                data = gzip.decompress(data) if data[:2] == b"\x1f\x8b" else data
+                for number, layer in _read_pb(data):
+                    if number == 3:   # Tile.layers → Layer.values(4) → Value.string_value(1)
+                        names.update(dict(_read_pb(v)).get(1, b"").decode("utf-8") for n, v in _read_pb(layer) if n == 4)
+        key = ("mapterhorn_attribution",)
+        if key not in _CACHE:
+            _keep(key, json.loads(_fetch(constants.MAPTERHORN_ATTRIBUTION_URL, timeout=constants.TERRAIN_TIMEOUT_SECONDS).decode("utf-8")))
+        catalog = {item.get("source"): item for item in _CACHE[key]}
+    except (OSError, ValueError, IndexError):
+        return []
+    return sorted((catalog[name] for name in names if name in catalog), key=lambda item: float(item.get("resolution") or 0))
+
+
+def get_mapterhorn_credit(sources):
+    # type: (list) -> str
+    """get_mapterhorn_sources → 출처 표기 '제작 기관 원천 이름 해상도 (라이선스); …'. 비면 원천 목록 주소."""
+    return "; ".join("%s %s %g m (%s)" % (s.get("producer", ""), s.get("name", ""), float(s.get("resolution") or 0), s.get("license", ""))
+                     for s in sources) or "mapterhorn.com/attribution"
 
 
 # ── 지명 검색 (Nominatim) ───────────────────────────────
@@ -750,6 +1250,11 @@ def load(bounds, today, on_wait=None, details=()):
     crs = non_rhino_utils.get_crs_label()
     sources = [DataSource("osm", "OpenStreetMap (Overpass API)", "https://www.openstreetmap.org/copyright", today, today, crs,
                           "ODbL 1.0 — © OpenStreetMap contributors", tr("건물 높이는 height·building:levels 태그, 없으면 기본값"))] if osm_ok else []
+    if "mapterhorn" in terrain_ids:   # 이름 = 표고점 간격(패널·좌표계 줄), 비고 = 실제 원천 기관(출처 줄 — CC BY 등은 기관 표기가 조건)
+        terrain_sources = get_mapterhorn_sources(bounds)
+        sources.append(DataSource("mapterhorn", tr("Mapterhorn 지형(표고점 약 {0} m 간격)", get_mapterhorn_grid(bounds)[2]), "https://mapterhorn.com/attribution",
+                                  "", today, crs, ", ".join(sorted({s.get("license", "") for s in terrain_sources})) or tr("원천별 공개 라이선스 — 출처 표기"),
+                                  get_mapterhorn_credit(terrain_sources)))
     if "aws_terrain" in terrain_ids:
         sources.append(DataSource("aws_terrain", "Terrain Tiles (AWS Open Data, terrarium)", "https://registry.opendata.aws/terrain-tiles/", "", today,
                                   crs, tr("공개(출처 표기)"), tr("SRTM·GMTED 등 혼합 DEM, 해상도 지역별 상이(약 30 m)")))

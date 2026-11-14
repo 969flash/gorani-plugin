@@ -31,6 +31,105 @@ def _png(width, height, rows, filter_type=1):
             + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
 
 
+class TerrainWebpTest(unittest.TestCase):
+    """Mapterhorn 정밀 지형(2026-11-14) — 무손실 WebP 해독(기준 = Pillow·dwebp 화소), 줌 고르기, 404 부모 타일, 실패하면 Terrain Tiles."""
+
+    UNIFORM_TILE = bytes.fromhex("524946462e000000574542505650384c220000002fffc17f0007d0d80616b2ff018140b2bff70c45f43fe33ffff9cf7ffef39ffffc1f")   # z17 512 px 한 색 433.5625 m(루체른 호수)
+    PALETTE = bytes.fromhex("5249464634000000574542505650384c270000002f2400010017202049913580028124f4d1469bffd0640341b6cd612633bd619f20a2ff8161d87e00")   # 37×5 세 색 — 팔레트·화소 묶기
+
+    def tearDown(self):
+        non_rhino_utils.set_projection()
+        osm_context._TERRAIN_TILES.clear()
+
+    @staticmethod
+    def elevation(p):
+        return ((p >> 16) & 255) * 256 + ((p >> 8) & 255) + (p & 255) / 256 - 32768
+
+    def test_decode_terrain_crop(self):
+        # 실제 알프스 타일(15/17154/11530) 97×79 조각 — cwebp -lossless -z 9: 예측·색 변환·색 캐시·역참조. md5 = Pillow 해독 RGB
+        import hashlib
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "mapterhorn_crop.webp"), "rb") as f:
+            width, height, px = osm_context.decode_webp(f.read())
+        self.assertEqual((width, height), (97, 79))
+        rgb = bytes(c for p in px for c in ((p >> 16) & 255, (p >> 8) & 255, p & 255))
+        self.assertEqual(hashlib.md5(rgb).hexdigest(), "d0823109c1acf7669d2d03d42ba17555")
+        self.assertEqual((self.elevation(px[0]), self.elevation(px[40 * 97 + 50]), self.elevation(px[-1])), (616.0, 592.5625, 569.9375))
+
+    def test_decode_palette_and_uniform(self):
+        width, height, px = osm_context.decode_webp(self.PALETTE)
+        colors = [(128, 0, 0), (128, 1, 128), (128, 3, 64)]
+        self.assertEqual([((p >> 16) & 255, (p >> 8) & 255, p & 255) for p in px], [colors[(x * 7 + y * 3) % 3] for y in range(5) for x in range(37)])
+        width, height, px = osm_context.decode_webp(self.UNIFORM_TILE)
+        self.assertEqual((width, height, len(px), set(map(self.elevation, px))), (512, 512, 512 * 512, {433.5625}))
+
+    def test_decode_rejects_lossy(self):
+        with self.assertRaises(ValueError):   # 손실 WebP(VP8)는 화소 값이 바뀌어 표고가 틀린다
+            osm_context.decode_webp(b"RIFF\x0c\x00\x00\x00WEBPVP8 \x00\x00\x00\x00")
+
+    def test_grid(self):
+        cases = [((11.40, 47.27), 270.0, 14, 3.2),    # 인스브루크 500 m 사각형 — 하한 3 m, 한 단계 거친 줌 화소 3.2 m(TERRAIN_SPOT_SLACK 안)
+                 ((11.40, 47.27), 1020.0, 13, 6.5),   # 2 km 사각형 — 표고점 상한으로 간격이 넓어진다
+                 ((11.40, 47.27), 2020.0, 12, 13.0),  # 4 km 사각형
+                 ((7.00, 61.20), 270.0, 14, 3.0),     # 노르웨이 — 고위도는 같은 줌 화소가 작다
+                 ((-78.5, -0.2), 270.0, 15, 3.0)]     # 키토(적도)
+        for (lng, lat), half, zoom, spacing in cases:
+            non_rhino_utils.set_projection(lng, lat)
+            grid = osm_context.get_mapterhorn_grid((-half, -half, half, half))
+            self.assertEqual((grid[0], grid[2]), (zoom, spacing), (lng, lat, half))
+            self.assertLessEqual((2 * half) ** 2 / grid[2] ** 2, constants.TERRAIN_MAX_SPOTS * 1.01)
+
+    def test_spots_parent_tile_and_fallback(self):
+        import urllib.error
+        non_rhino_utils.set_projection(8.517, 46.98)
+        bounds = (-150.0, -150.0, 150.0, 150.0)
+        zoom = osm_context.get_mapterhorn_grid(bounds)[0]
+        asked = []
+
+        def fetch(url, data=None, timeout=None):   # 그 줌과 한 단계 위는 없고(404) 두 단계 위 부모만 있다
+            asked.append(url)
+            if "/%d/" % zoom in url or "/%d/" % (zoom - 1) in url:
+                raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+            return self.UNIFORM_TILE
+        saved = osm_context._fetch, osm_context._get_tile_spots
+        try:
+            osm_context._fetch = fetch
+            spots, used = osm_context.get_terrain_spots(bounds, "2026-11-14")
+            self.assertEqual(used, {"mapterhorn"})
+            self.assertTrue(spots and all(s.value == 433.56 and s.source_id == "mapterhorn" for s in spots))
+            self.assertTrue(any("/%d/" % (zoom - 2) in url for url in asked))
+            spacing = osm_context.get_mapterhorn_grid(bounds)[2]
+            self.assertLess(len(spots), (300 / spacing) ** 2 / 2)   # 부모 화소 간격(약 6.5 m) — 거친 원천을 3 m로 촘촘히 되풀이하지 않는다
+
+            def down(url, data=None, timeout=None):
+                raise urllib.error.URLError("timed out")
+            osm_context._TERRAIN_TILES.clear()
+            osm_context._fetch = down
+            osm_context._get_tile_spots = lambda bounds, today: (["aws"], {"aws_terrain"})
+            self.assertEqual(osm_context.get_terrain_spots(bounds, "2026-11-14"), (["aws"], {"aws_terrain"}))   # Mapterhorn이 막히면 Terrain Tiles
+        finally:
+            osm_context._fetch, osm_context._get_tile_spots = saved
+
+    def test_coverage_credit(self):
+        # coverage 벡터 타일의 source 값 + attribution.json → 고운 원천부터 기관·라이선스
+        layer = b"\x0a\x08coverage" + b"".join(b"\x22" + bytes([len(v) + 2, 0x0a, len(v)]) + v for v in (b"glo30", b"swissalti3d"))
+        tile = b"\x1a" + bytes([len(layer)]) + layer
+        catalog = [{"source": "glo30", "producer": "DLR, Airbus", "name": "COPERNICUS GLO-30", "license": "COPERNICUS", "resolution": 30.0},
+                   {"source": "swissalti3d", "producer": "swisstopo", "name": "swissALTI3D", "license": "Open Government Data", "resolution": 0.5},
+                   {"source": "at1", "producer": "BEV", "name": "ALS-DGM", "license": "CC-BY-4.0", "resolution": 1.0}]
+        saved = osm_context._fetch
+        try:
+            osm_context._fetch = lambda url, data=None, timeout=None: json.dumps(catalog).encode() if url.endswith(".json") else tile
+            non_rhino_utils.set_projection(8.517, 46.98)
+            sources = osm_context.get_mapterhorn_sources((-100.0, -100.0, 100.0, 100.0))
+        finally:
+            osm_context._fetch = saved
+            osm_context._CACHE.pop(("mapterhorn_attribution",), None)
+        self.assertEqual([s["source"] for s in sources], ["swissalti3d", "glo30"])
+        self.assertEqual(osm_context.get_mapterhorn_credit(sources),
+                         "swisstopo swissALTI3D 0.5 m (Open Government Data); DLR, Airbus COPERNICUS GLO-30 30 m (COPERNICUS)")
+        self.assertEqual(osm_context.get_mapterhorn_credit([]), "mapterhorn.com/attribution")
+
+
 class ProjectionTest(unittest.TestCase):
     def tearDown(self):
         non_rhino_utils.set_projection()

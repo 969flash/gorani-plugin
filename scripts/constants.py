@@ -323,6 +323,21 @@ OSM_SEARCH_TIMEOUT_SECONDS = 10   # 지명 검색은 UI 스레드에서 기다�
 OSM_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 OSM_TERRAIN_ZOOM = 13           # 픽셀 약 19 m(적도)·15 m(위도 37°). 원천 DEM이 약 30 m라 더 키워도 정밀해지지 않는다
 OSM_TERRAIN_STEP = 2            # 픽셀 건너뛰기 — 표고점 간격 약 30 m
+# 해외 정밀 지형 — Mapterhorn(나라별 라이다 지형 합본: 독일·오스트리아·스위스·북유럽·영국·프랑스·스페인·일본·미국 일부 0.25~5 m, 그 밖 Copernicus GLO-30 30 m).
+# Terrarium 인코딩 512 px 무손실 WebP → osm_context.decode_webp(순수 파이썬, 한 장 약 0.3 s). 받기·해독이 실패하면(404 아닌 오류) 위 Terrain Tiles·아래 지리원 길.
+# 이용: 공개 타일(코드 BSD-3, 지형은 원천별 공개 라이선스 — 출처 표기 "© Mapterhorn" + 원천 기관), 요청 한도 공지 없음(2026-11-14 mapterhorn.com 확인). docs/data_sources.md
+MAPTERHORN_URL = "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp"
+MAPTERHORN_COVERAGE_URL = "https://single-archive-tiles.mapterhorn.com/coverage/{z}/{x}/{y}.mvt"   # 원천 구역 벡터 타일(coverage 층 source = 원천 id)
+MAPTERHORN_ATTRIBUTION_URL = "https://download.mapterhorn.com/attribution.json"   # 원천 id → 제작 기관·이름·라이선스·해상도
+MAPTERHORN_TILE_SIZE = 512
+MAPTERHORN_MIN_ZOOM, MAPTERHORN_MAX_ZOOM = 12, 17   # z12까지 전 세계, z13~17은 고해상 원천이 있는 곳만(없으면 404 → 부모 타일). 2026-11-14 확인
+MAPTERHORN_COVERAGE_ZOOM = 12   # 원천 이름은 이 줌 타일 하나(수 km)에서 — 대상지 범위(최대 4 km)가 1~4장
+WEB_MERCATOR_EQUATOR = 40075016.686   # m — 웹 메르카토르 적도 둘레(줌 0 타일 한 변)
+TERRAIN_SPOT_SPACING = 3.0      # m — 해외 표고점 간격 하한 = 출력 지형 격자 칸(TERRAIN_GRID). 원천이 1 m여도 메시는 3 m 격자라 더 촘촘하면 시간만 든다
+TERRAIN_MAX_SPOTS = 100000      # 표고점 수 상한(범위 bbox ÷ 간격²) — 넘으면 간격을 넓힌다. TIN·시트 삼각형이 파이썬으로 도는 시간(국내 등고선 TIN과 비슷한 수준)
+TERRAIN_SPOT_SLACK = 1.15       # 한 단계 거친 줌의 화소가 간격의 이 배 안이면 그 줌 — 타일 수가 4분의 1(인스브루크 500 m: z15 1.6 m 대신 z14 3.2 m)
+TERRAIN_TILE_CACHE_MAX = 36     # 해독한 Mapterhorn 타일 보관 장수(한 장 1 MB) — 같은 대상지 다시 만들기(최대 범위 4 km ≈ 16장)
+TERRAIN_TIMEOUT_SECONDS = 20    # 지형 타일 한 장 — 막히면 빨리 Terrain Tiles로 넘어간다
 
 # 데이터 팩 받기(data_pack.py) — Yak 설치본은 DB 없이 깔리고 패널에서 받는다
 DATA_REPO_ID = "hooooooooon/urbandesigntool-data"   # Hugging Face 공개 데이터셋(필지 시군구 팩 + 매니페스트) — dev_deploy upload
@@ -952,7 +967,8 @@ WATER_STILL_KINDS = ("lake",)   # 고인 물 = 평평한 수면 하나(물가 �
 WATER_SHORE_FALLOFF = 15.0      # m — 물가선에서 이 거리 안 지형을 수면 쪽으로 부드럽게 내린다(non_rhino_utils.get_shore_fitted). 물가선 정점만 내리면 한 면 폭에 둑 높이(수 m)가 떨어져 톱니로 보였다(2026-11-08 죽림리)
 WATER_SHORE_WINDOW = 50.0       # m — 흐르는 물 수위 = 이 거리 안 물가 높이의 최저. 물가 정점이 둑 꼭대기 등고선(성수 한강 15 m)을 받은 튀는 값을 걸러 낸다
 WATER_MAX_GRADE = 0.02          # 흐르는 물 수면의 최대 기울기(2 %) — 등고선 5 m 간격 때문에 계단진 물가 높이를 250 m 경사로로 편다. 수면(면)이 있는 하천은 폭이 넓어 대개 1 % 미만(5 %는 청계천·홍제천 수면이 급류처럼 보였다)
-WATER_BLEND_SOURCE = "aws_terrain"   # 수면 둘레 칸이 호수·강 바닥 수심과 섞인 격자 지형 원천(osm_context.get_terrain_spots) — 일본 지리원 5 m는 수면이 값 없음이라 해당 없음
+WATER_BLEND_SOURCE = "aws_terrain"   # 수면 둘레 칸이 호수·강 바닥 수심과 섞인 격자 지형 원천(osm_context.get_terrain_spots) — 일본 지리원 5 m는 수면이 값 없음이라 해당 없음.
+# Mapterhorn(라이다 DTM)은 수면이 수위 평면이라 해당 없음 — 취리히 호수 단면(2026-11-14): Mapterhorn 405.6 m 평면·물가에서 바로 땅, AWS 400.0 m(수심과 섞임)
 WATER_BLEND_BUFFER = 30.0       # m — 그 원천 표고점을 수면 경계에서 이 거리 안이면 뺀다(원천 DEM 약 30 m 한 칸)
 WATER_SURFACE_CELL = 10.0       # m — 흐르는 물 안쪽 수위를 채우는 격자 칸(물가 수위를 가장 가까운 칸에서 가져와 쌍선형 보간)
 WATER_SURFACE_KINDS = ("river", "stream", "lake")   # features theme water 중 수면(면)으로 다루는 kind — 3dm CTX::Water 분류·시트 바탕 수계가 같이 쓴다. shore(습지)는 TOPO_LAYERS 주석 참고
@@ -1062,9 +1078,9 @@ RESULT_TABLES_DIRNAME = "tables"
 RESULT_SHEETS_DIRNAME = "sheets"
 # data_sources.source_id → 메타 역할(lot·building·terrain·upis). prepare가 DataSource 객체를 그대로 넘겨도 역할을 찾는다
 SOURCE_ID_ROLES = {"vworld_land_char": "lot", "vworld_building": "building", "ngii_topo_5000": "terrain", "seoul_zoning": "upis",
-                   "osm": "building", "aws_terrain": "terrain",   # osm·aws_terrain = 해외 대상지(osm_context)
+                   "osm": "building", "aws_terrain": "terrain", "mapterhorn": "terrain",   # osm·aws_terrain·mapterhorn = 해외 대상지(osm_context)
                    "plateau": "building", "gsi_dem": "terrain"}   # 일본 — PLATEAU 건물 팩·지리원 표고 타일(뒤에 둔 것이 역할을 차지한다)
-GLOBAL_SOURCE_IDS = ("osm", "aws_terrain", "plateau", "gsi_dem")   # 이 출처가 하나라도 있으면 Global 산출물(메타 줄·도면 문구) — 일본은 OSM 없이도 만든다
+GLOBAL_SOURCE_IDS = ("osm", "aws_terrain", "mapterhorn", "plateau", "gsi_dem")   # 이 출처가 하나라도 있으면 Global 산출물(메타 줄·도면 문구) — 일본은 OSM 없이도 만든다
 META_SOURCE_NAMES = {"lot": "필지 토지특성정보", "building": "건물 GIS건물통합정보", "upis": "도시계획 서울시 UPIS", "terrain": "지형 수치지형도 1:5,000"}
 # ② 출처·라이선스 — 토지특성·토지이용계획은 '이용허락범위 제한 없음'(공공누리 1유형/CC BY로 적지 않는다, data_sources §3)
 META_SOURCE_LINE = ("출처: 국토교통부(GIS건물통합정보 — CC BY/공공누리 1유형; 토지특성정보·토지이용계획정보 — 이용허락범위 제한 없음), "

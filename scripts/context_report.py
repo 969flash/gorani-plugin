@@ -118,36 +118,36 @@ def _built_at(prepared):
 
 # ── ① ~ ⑤ 메타 5줄 ────────────────────────────────────────
 
+def _get_abroad_terrain(sources):
+    # type: (dict) -> tuple
+    """해외 지형 출처 → (자료기준 이름, 출처 표기, 좌표계 줄의 지형 설명). Mapterhorn이 먼저, 못 받았으면 지리원·Terrain Tiles(osm_context.get_terrain_spots)."""
+    if "mapterhorn" in sources:   # 이름 = 표고점 간격, 비고 = 원천 기관·라이선스(osm_context.load)
+        return "Mapterhorn", tr("지형 © Mapterhorn — {0}", sources["mapterhorn"].note), sources["mapterhorn"].name
+    if "gsi_dem" in sources:
+        return "国土地理院 標高タイル", tr("지형 国土地理院 標高タイル (加工)"), tr("지형 5 m 격자(표고 T.P.)")
+    return "Terrain Tiles", tr("지형 Terrain Tiles (Mapzen·AWS Open Data, SRTM 등 공개 DEM)"), tr("지형 약 30 m 격자")
+
+
 def _get_abroad_meta_lines(prepared):
     # type: (object) -> list
-    """Global(OSM) 메타 5줄 — OSM·지형 타일 출처와 좌표계(해외 = 지역 횡메르카토르, 한국 = EPSG:5186).
-    일본은 PLATEAU 건물(도시·연도, CC BY 4.0 가공 표기)과 지리원 표고 타일을 쓴 만큼 적는다."""
-    dates = get_source_dates(prepared)
+    """Global(OSM) 메타 5줄 — OSM·지형 출처와 좌표계(해외 = 지역 횡메르카토르, 한국 = EPSG:5186).
+    일본은 PLATEAU 건물(도시·연도, CC BY 4.0 가공 표기), 나라별 팩이 있으면 그 건물을 쓴 만큼 적는다."""
     sources = {getattr(s, "source_id", ""): s for s in getattr(prepared, "sources", None) or []}
     packs = [sources[i] for i in sorted(set(sources) & set(data_pack.get_pack_source_ids()))]   # 나라별 건물 팩 출처(plateau·pdok …)
-    plateau, gsi = (packs[0] if packs else None), "gsi_dem" in sources
+    plateau = packs[0] if packs else None
     pack_label = "·".join(data_pack.get_pack_label(p.source_id) for p in packs)
     crs_name = tr("대상지 중심 횡메르카토르(GRS80, 축척 1)") if non_rhino_utils.is_local_projection() else "EPSG:5186"
-    if not plateau and not gsi:
-        return [
-            tr("자료기준 — OpenStreetMap {0} · Terrain Tiles · {1} · 생성 {2} · {3} v{4}", dates["building"], non_rhino_utils.get_crs_label(),
-               _built_at(prepared)[:10], constants.TOOL_NAME, constants.PANEL_VERSION),
-            tr("출처: © OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright); 지형 Terrain Tiles (Mapzen·AWS Open Data, SRTM 등 공개 DEM)"),
-            tr("좌표계: {0} · 지형 약 30 m 격자 — 실측·법정 자료 아님", crs_name),
-            tr("정합 오차: — (필지 자료 없음)"),
-            tr("건물 높이: OSM height 태그(B)·층수(C)·기본값 {0:.1f} m(D)", constants.DEFAULT_BUILDING_HEIGHT_M),
-        ]
+    terrain_label, terrain_credit, terrain_grid = _get_abroad_terrain(sources)
     osm = sources.get("osm")   # Overpass가 막히면 없다(osm_context.load)
     data = ["%s %s" % (data_pack.get_pack_label(p.source_id), p.reference_date) for p in packs] + (["OpenStreetMap %s" % osm.reference_date] if osm else [])
-    data.append("国土地理院 標高タイル" if gsi else "Terrain Tiles")
+    data.append(terrain_label)
     credits = [tr("{0}、国土交通省 (CC BY 4.0, Gorani 가공)", p.name) if p.source_id == "plateau" else (p.note or p.name) for p in packs] + (
-        ["© OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright)"] if osm else []) + [
-        tr("지형 国土地理院 標高タイル (加工)") if gsi else tr("지형 Terrain Tiles (Mapzen·AWS Open Data, SRTM 등 공개 DEM)")]
+        ["© OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright)"] if osm else []) + [terrain_credit]
     return [
         tr("자료기준 — {0} · {1} · 생성 {2} · {3} v{4}", " · ".join(data), non_rhino_utils.get_crs_label(), _built_at(prepared)[:10],
            constants.TOOL_NAME, constants.PANEL_VERSION),
         tr("출처: {0}", "; ".join(credits)),
-        tr("좌표계: {0} · 지형 5 m 격자(표고 T.P.) — 실측·법정 자료 아님", crs_name) if gsi else tr("좌표계: {0} · 지형 약 30 m 격자 — 실측·법정 자료 아님", crs_name),
+        tr("좌표계: {0} · {1} — 실측·법정 자료 아님", crs_name, terrain_grid),
         tr("정합 오차: — (필지 자료 없음)"),
         tr("건물 높이: {0} 실측 높이(B)·층수(C), 없는 곳은 OSM height 태그(B)·층수(C)·기본값 {1:.1f} m(D)", pack_label, constants.DEFAULT_BUILDING_HEIGHT_M) if plateau
         else tr("건물 높이: OSM height 태그(B)·층수(C)·기본값 {0:.1f} m(D)", constants.DEFAULT_BUILDING_HEIGHT_M),
