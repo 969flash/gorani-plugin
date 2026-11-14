@@ -641,16 +641,18 @@ def get_place_address(lng, lat, lang):
     if key in _ADDRESS_CACHE:
         return _ADDRESS_CACHE[key]
     url = data_pack.get_service("nominatim_reverse", constants.OSM_NOMINATIM_REVERSE_URL) + "?" + urllib.parse.urlencode(
-        {"lat": lat, "lon": lng, "format": "jsonv2", "zoom": 16, "accept-language": lang or "en"})   # 16 = 도로 단위. 18은 건물 안 표기가 도로로 왔다(도쿄역: 'エレベーター;1階')
+        {"lat": lat, "lon": lng, "format": "jsonv2", "zoom": 16,   # 16 = 도로 단위. 18은 건물 안 표기가 도로로 왔다(도쿄역: 'エレベーター;1階')
+         "accept-language": lang if lang in (None, "", "en") else lang + ",en"})   # 그 언어 이름이 없는 칸은 현지어 대신 영어(방콕 ko: 'วงเวียน…, 방콕', 2026-11-12)
     try:
         address = json.loads(_fetch(url, timeout=constants.OSM_REVERSE_TIMEOUT_SECONDS).decode("utf-8")).get("address") or {}
     except Exception:
         return ""
-    street = address.get("road") or ""
-    street = "" if ";" in street else street   # 여러 값 태그(도쿄역 zoom 17: 'JR東京駅;9番線')는 도로 이름이 아니다
+    def first(*keys):   # 여러 값 태그는 첫 값 — zh 간체;번체(파리: '第一区;第一區', 뉴욕: '纽约;紐約')
+        return next((address[k].split(";")[0].strip() for k in keys if address.get(k)), "")
+    street = first("road")
     street = " ".join(constants.ADDRESS_ABBREVIATIONS.get(word, word) for word in street.split())   # Greenwich Street → Greenwich St
-    area = address.get("suburb") or address.get("neighbourhood") or address.get("quarter") or ""
-    city = address.get("city") or address.get("town") or address.get("village") or address.get("county") or address.get("state") or ""
+    area = first("suburb", "neighbourhood", "quarter")
+    city = first("city", "town", "village", "county", "state")
     text = ", ".join(v for v in (street, area, city) if v) or address.get("country", "")
     _ADDRESS_CACHE[key] = text
     return text

@@ -105,18 +105,20 @@ class ForeignOriginTest(unittest.TestCase):
 class MapInitTest(unittest.TestCase):
     def test_ip_center(self):
         # ipinfo.io의 loc은 "위도,경도" — 지도에는 [lng, lat]로 뒤집어 도시 배율로 연다
-        with patch("urllib.request.urlopen", return_value=io.BytesIO(b'{"city": "Paris", "loc": "48.8534,2.3488"}')):
-            center = review_map.get_ip_center()
-        self.assertEqual(center, [2.3488, 48.8534])
+        with patch("urllib.request.urlopen", return_value=io.BytesIO(b'{"city": "Paris", "country": "FR", "loc": "48.8534,2.3488"}')):
+            center, country = review_map.get_ip_location()
+        self.assertEqual((center, country), ([2.3488, 48.8534], "FR"))
         self.assertEqual(review_map.get_map_init(center)["zoom"], review_map.IP_MAP_ZOOM)
 
     def test_ip_center_fallback(self):
         # 오프라인·loc 없음(사설 IP)·nan이면 짐작하지 않고 서울시청
         for effect in (OSError("offline"), [io.BytesIO(b'{"bogon": true}')], [io.BytesIO(b'{"loc": "nan,nan"}')]):
             with patch("urllib.request.urlopen", side_effect=effect):
-                self.assertIsNone(review_map.get_ip_center())
+                self.assertIsNone(review_map.get_ip_location()[0])
         self.assertEqual(review_map.get_map_init(None)["center"], review_map.MAP_CENTER)
         self.assertEqual(review_map.get_map_init(None)["zoom"], review_map.MAP_ZOOM)
+        with patch("urllib.request.urlopen", side_effect=OSError("offline")):
+            self.assertEqual(review_map.get_ip_location(), (None, ""))
         self.assertEqual(review_map.get_map_init(None)["korea_cut"], list(review_map.non_rhino_utils.KOREA_JAPAN_CORNER))   # 패널 isAbroad가 같은 모서리를 뺀다
 
 

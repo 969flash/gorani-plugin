@@ -153,6 +153,7 @@ Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드�
  "generator":{"ok":true,"python":"Rhino Python","text":"Rhino 내장"},   // 항상 ok. UI 호환용(블로커 3행째는 ✓ 고정). Blender면 "Blender …"
  "host":{"id":"rhino","name":"Rhino","doc":"Rhino 문서","model":"context.3dm","dwg":true,"ask_stats":false,"brep":true},   // constants.HOST_LABELS — 패널 문구(문서 이름·모델 파일)와 DWG 옵션 표시. brep = 3D 설정 '형상' Mesh|Brep 줄(Rhino 8만). Blender = {"id":"blender","name":"Blender","doc":"Blender 장면","model":"context.blend","dwg":false,"ask_stats":true}, SketchUp = {"id":"sketchup",…,"model":"context.skp","dwg":false,"ask_stats":true}, Rhino 7 = Rhino와 같고 `"dwg":false`
  "output_langs":[["ko","한국어"],["en","English"]],   // constants.OUTPUT_LANGS — 메뉴 '결과 언어' 칸
+ "output_lang_guess":"ko",   // 결과 언어 첫 값 — 첫 init의 IP 나라(review_map.get_ip_location). null = 나라 모름(패널이 시스템 언어로)
  "links":{"website":"https://969flash.github.io/gorani/","contact":"mailto:gorani.3d@gmail.com"},   // constants.PANEL_LINKS — 메뉴 '웹페이지'·'문의' 줄이 주소를 링크로 보여 주고(문의는 메일 주소), 누르면 open_url{key}
  "stats_consent":null,                            // 사용 통계 동의 true|false|null(안 물음) — host.ask_stats(Blender + 측정 ID 있음)면 null일 때 정보 띠로 한 번 묻고([보내기]·[보내지 않음] → stats_consent{on}), 더보기 메뉴 설정에서 바꾼다
  "can_download":true,                             // DATA_MANIFEST_URL이 있으면 블로커에 [DB 받기]·[멈추기]
@@ -160,7 +161,7 @@ Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드�
  "warnings":[warning],                            // 더보기 메뉴 자료 칸(no_api_key는 설정 칸 API 키 행). warn·danger면 메뉴 버튼의 점(Korea 모드). 띠로 띄우지 않는다
  "tile":{"url":"…","fallback_url":"…","attribution":"…","abroad_url":"…","abroad_attribution":"…",
          "aerial_url":"…","aerial_attribution":"…","abroad_aerial_url":"…","abroad_aerial_attribution":"…"},   // review_map.get_tile_config(). 지도 중심이 map.korea_bounds 밖(또는 그 안 일본 모서리 map.korea_cut — 후쿠오카·쓰시마)이면 abroad_url(OSM). 지도 오른쪽 아래 [위성]을 누르면 aerial_url(VWorld 영상, 키 없으면 Esri) — 해외·폴백 뒤는 abroad_aerial_url(Esri)
- "map":{"center":[126.9784,37.5665],"zoom":16},              // review_map.get_map_init(map_center) — 첫 init에 IP로 짐작한 도시(zoom 12, get_ip_center), 못 받으면 서울시청(zoom 16)
+ "map":{"center":[126.9784,37.5665],"zoom":16},              // review_map.get_map_init(map_center) — 첫 init에 IP로 짐작한 도시(zoom 12, get_ip_location), 못 받으면 서울시청(zoom 16)
  "options":{…옵션 키 전부, prefs.json 복원 또는 기본값…},
  "results":[{"dir":"…/result/성수동2가_277-17외1_20261106_1432","label":"성수동2가 277-17외1","mode":"lots","built_at":"2026-11-06T14:32:10","buildings":2695,"has_2d":true}],   // 최근 결과 — context_builder.get_recent_results: context.json과 이 프로그램의 3D 파일이 있는 결과 폴더, 새것 먼저 RECENT_RESULTS_MAX(5). 방식(필지·구역·위치)·나라와 상관없이. 트레이(대상지 없을 때)와 빈 검색칸 ↓, 누르면 open_result, x는 hide_result. 3D를 만들면 끝에 오는 init_state로 이번 것이 앞에 든다(2026-11-07 — 예전 recent는 필지만, prefs에 따로 적었다)
  "sheet_catalog":[{"id":0,"key":"base","name":"베이스맵","needs":"lot","korea_only":false,"group":"base"},…,{"id":19,"key":"slope","name":"경사","needs":"terrain","korea_only":false,"group":"status"}],   // group = constants.SHEET_GROUP: base(베이스맵·항공사진)·status(현황도)·analysis(분석도)·frame(틀) — 2D 카드 묶음 칩   // constants.SHEET_CATALOG 25장(분석도 8 · 현황도 12 · 틀 3 · 항공사진 1 · 입체 매스도 1, needs image = 영상 타일). done.sheets[].thumb = 160 px PNG data URI(패널 도면 칸, 항공사진만 SVG data URI)
@@ -340,7 +341,7 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
  "target_geojson":FC,                                 // role="target" 안의 필지 + role="area" 구역마다 1개
  "warnings":[warning]}
 {"type":"point_state","ok":true,"center":[lng,lat],"center_tm":[x,y],"lot_name":"성수동2가_333-139_일대","address":""}
-// address — 해외 대상지(지역 TM)만 Nominatim reverse 짧은 주소 '도로, 동네, 도시'(output_lang 언어, osm_context.get_place_address, 3 s, 못 받으면 ''). 패널 '대상지' 줄은 address가 있으면 그것, 없으면 lot_name. area_state도 같은 칸. 해외 lot_name(결과 폴더 이름)도 같은 주소 'Greenwich St_Russian Hill_San Francisco_vicinity'(도로 종류는 약어 constants.ADDRESS_ABBREVIATIONS, context_builder.get_folder_safe_name — 못 쓰는 글자 빼고 40자, 넘치면 뒤 칸부터 뺀다), 주소를 못 받으면 'N37.8010_W122.4187_vicinity'(2026-11-08)
+// address — 해외 대상지(지역 TM)만 Nominatim reverse 짧은 주소 '도로, 동네, 도시'(패널 언어 — 명령의 lang, 언어를 바꾸면 패널이 set_point·set_area를 다시 보낸다, osm_context.get_place_address, 3 s, 못 받으면 ''). 패널 '대상지' 줄은 address가 있으면 그것, 없으면 lot_name. area_state도 같은 칸. 해외 lot_name(결과 폴더 이름)도 같은 주소 'Greenwich St_Russian Hill_San Francisco_vicinity'(도로 종류는 약어 constants.ADDRESS_ABBREVIATIONS, context_builder.get_folder_safe_name — 못 쓰는 글자 빼고 40자, 넘치면 뒤 칸부터 뺀다), 주소를 못 받으면 'N37.8010_W122.4187_vicinity'(2026-11-08)
 {"type":"curve_shape","ok":true,"text":"","located":false,"ring_tm":[],"offsets":[[dx,dy]],"area":22800.0,"vertices":4}
 ```
 
@@ -505,7 +506,7 @@ GA4 Measurement Protocol로 데몬 스레드에서 보내고 실패는 버린다
 
 ### 결과물 언어 (2026-10-21)
 
-`options.output_lang`(`constants.OUTPUT_LANGS`, 지금 ko·en)이 결과 폴더와 파일 이름의 언어를 정한다. 패널 글은 한국어 그대로다. 첫 실행(`null`)이면 패널이 시스템 언어로 고르고(지원 목록에 있으면 그것, 아니면 영어) `save_prefs`, 메뉴 설정 '결과 언어'에서 바꾼다. `generate`와 `make_2d` 둘 다 보낸다(`KEYS_2D`, `_2D_OPTION_KEYS`).
+`options.output_lang`(`constants.OUTPUT_LANGS`, 지금 ko·en)이 결과 폴더와 파일 이름의 언어를 정한다. 패널 글은 한국어 그대로다. 첫 실행(`null`)이면 패널이 사용자 IP 나라로 고르고(`init_state.output_lang_guess` — `cmd_site.get_output_lang_guess`, `constants.COUNTRY_OUTPUT_LANGS`, 그 나라 언어가 목록에 없으면 영어. 나라를 모르면(오프라인·Blender) 시스템 언어가 지원 목록에 있으면 그것, 아니면 영어) `save_prefs`, 메뉴 설정 '결과 언어'에서 바꾼다. `generate`와 `make_2d` 둘 다 보낸다(`KEYS_2D`, `_2D_OPTION_KEYS`).
 
 | 무엇 | 한국어 | English |
 |---|---|---|
