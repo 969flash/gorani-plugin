@@ -2,7 +2,8 @@
 python3 scripts/dev_rhino_run.py tests/rhino/driver_sun.py → out/log.txt·result.json·sun_<시각>.png.
 
 헤드리스 문서(m)에 성북동 경사지(위치 방식, 한 변 500 m)를 3D로 만들고, 같은 카메라에서 동지 9·12·15시·하지 12시(진태양시)마다
-context_builder.get_sun_state → context_baker.set_sun을 부른 뒤 Rendered 뷰를 캡처한다. 끄기(on = false)가 태양을 끄는지도 본다.
+context_builder.get_sun_state → context_baker.set_sun을 부르고 doc.Lights.Sun 방위·고도·벡터를 solar 값과 맞춘다. 끄기(on = false)도 본다.
+그 뒤 make_2d로 도면 25~28 계산 시간을 잰다. 헤드리스 뷰는 Rhino 8이 그리지 않아 캡처는 비어 있다(ViewCapture·DrawToBitmap 모두 None, 2026-11-14).
 사용자 문서는 건드리지 않는다. 컨텍스트 팩은 HOME_DIR(~/Gorani)/data.
 """
 import json
