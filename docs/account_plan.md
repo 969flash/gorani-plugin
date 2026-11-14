@@ -2,7 +2,7 @@
 
 2026-11-14 작성. 기준: main 4d232c2(배포판 0.3.9). 디테일 옵션(`constants.DETAIL_OPTIONS` 9종 — 2938bfe, 2026-11-13)은 아직 배포되지 않았다.
 목표: 디테일 옵션(화면 단계 '고급')은 무료 회원(구글 로그인)이 쓰고, 손님은 로그인 없이 3회 써 본다. 나머지 기능은 지금처럼 누구나 쓴다. 인스타그램에서 데려와 가입 수를 늘린다. 돈은 받지 않는다. 서버비 0을 지킨다.
-2026-11-14 수정: 가입 즉시 회원 확정, 손님 무료 3회, 인스타그램 연계, 3D 설정 아래 '수준' 알약(기본·고급, Gemini 모델 고르기 꼴 — 잠긴 고급에 자물쇠, 누르면 로그인 창), 손님이 만들기를 누르면 로그인 창(사용자 요청).
+2026-11-14 수정: 가입 즉시 회원 확정, 손님 무료 3회, 인스타그램 연계, 3D 설정 아래 '수준' 알약(기본·고급, Gemini 모델 고르기 꼴 — 잠긴 고급에 자물쇠, 누르면 로그인 창), 손님이 만들기를 누르면 로그인 창(사용자 요청). 2026-11-15: 만들 때 창은 처음 한 번만, 그림 비교 없이(B1안).
 
 ## 먼저 정할 것 — 권장안과 근거
 
@@ -58,10 +58,10 @@
 로그인은 **늘 시스템 브라우저에서** 한다. 구글은 앱 안 웹뷰(Rhino Eto WebView, SketchUp HtmlDialog, Archicad 팔레트)의 구글 로그인을 막는다(`disallowed_useragent` — [구글 공지](https://developers.googleblog.com/en/upcoming-security-changes-to-googles-oauth-20-authorization-endpoint-in-embedded-webviews/)).
 플러그인은 구글과 직접 말하지 않는다. 로그인은 gorani.site가 하고, 끝나면 브라우저가 내 PC의 플러그인(127.0.0.1)으로 결과를 돌려준다 — 데스크톱 앱 로그인의 흔한 방식이다(GitHub CLI·VS Code와 같다). 사용자는 코드를 보거나 고르지 않는다. 플러그인에 구글 클라이언트 비밀값이 없고, 호스트 넷(Rhino 8·7, SketchUp, Archicad)이 같은 코드를 쓴다. 2026-11-14 — 처음 안의 '연결 코드' 확인 단계를 사용자 요청으로 뺐다.
 
-1. **처음 열 때 묻지 않는다.** 로그인 팝업·띠 없음. 묻는 때는 손님이 [3D 모델 만들기]를 누를 때뿐이고, 기본 3D는 늘 '로그인 없이 만들기'로 끝까지 간다(PRODUCT.md '버튼 하나로 결과까지').
+1. **처음 열 때 묻지 않는다.** 로그인 팝업·띠 없음. 묻는 때는 손님이 처음 [3D 모델 만들기]를 누를 때 한 번과, 메뉴의 잠긴 '고급'을 누를 때뿐이고, 기본 3D는 늘 '로그인 없이 만들기'로 끝까지 간다(PRODUCT.md '버튼 하나로 결과까지').
 2. **3D 설정 아래 '수준' 알약 [기본 ⌄]** — 누르면 Gemini 모델 고르기 같은 메뉴(기본 ✓ / 고급 자물쇠 / 고급 항목 ▸). 손님이 잠긴 '고급'을 누르면 로그인 창(아래 '패널 개편').
 3. **더보기 메뉴 '설정' 맨 위 '계정' 줄** — 손님 `로그인 안 함 [구글로 로그인]`, 회원 `name@gmail.com [로그아웃]`.
-4. **손님이 [3D 모델 만들기]를 누르면 로그인 창** — [구글로 로그인하고 만들기] / 아래 [로그인 없이 만들기](지금 단계 그대로). ✕·Esc는 취소(만들지 않음). 회원은 창 없이 바로 만든다.
+4. **손님이 처음 [3D 모델 만들기]를 누를 때 한 번만 로그인 창** — [구글로 로그인하고 고급으로] / `로그인 없이 고급 써 보기 · 3회` / `기본으로 만들기`. 셋 중 무엇을 고르든 바로 만들고, 그 뒤로는 창 없이 만든다. ✕·Esc는 이번 만들기만 취소(다음에 다시 뜬다). 회원은 창 없이 바로 만든다.
 5. [구글로 로그인하고 만들기] → 브라우저에 `https://gorani.site/login/` → 구글 계정 고르기(처음이면 그 자리에서 가입 — 동의 화면 없음, 아래 '처음 로그인'). 창은 `브라우저에서 로그인을 마쳐 주세요 [취소]`로 바뀌고, 돌아오면 닫히며 **그대로 만들기가 시작된다**(다시 누르지 않는다). 브라우저는 `로그인했습니다. Rhino로 돌아가세요`. 그 PC 브라우저가 gorani.site에 이미 로그인돼 있으면 고르기도 없다. 더보기 메뉴 [구글로 로그인]도 같은 길(만들기 없이 로그인만).
 6. **오프라인** — 회원 확인 때문에 못 쓰게 되는 기능은 없다. 기본 기능과 무료 횟수 세기는 인터넷 없이 돈다(횟수는 PC에서 센다). 회원은 마지막 확인 뒤 30일(`ACCOUNT_OFFLINE_DAYS`)까지 그대로 회원이다. 그 뒤에는 만들기를 누를 때 창이 `로그인을 다시 확인하지 못했습니다 [다시 확인하고 만들기] [고급 빼고 만들기]`. 오류로 만들지 않는다. 연결 열쇠(`token`)는 지우지 않으니 인터넷이 다시 되면 다음 확인 때 저절로 풀린다 — 다시 로그인하지 않는다.
    인터넷이 원래 필요한 곳은 회원과 상관없이 지금과 같다: 해외·OSM 모드(Overpass), 한국 새 지역의 팩 받기, 처음 보는 지역의 지도 바탕(본 타일은 웹뷰가 7일 캐시). 처음 로그인할 때만 인터넷이 꼭 있어야 한다.
@@ -91,11 +91,11 @@
 | 누르는 것 | 손님 | 회원 |
 |---|---|---|
 | 메뉴의 '고급'·'고급 항목 ▸' | 로그인 창 A | 고급으로 바뀜 / 하위 메뉴 |
-| [3D 모델 만들기] | 로그인 창 B(`LOGIN_PROMPT_ON_BUILD`) | 창 없이 바로 |
+| [3D 모델 만들기] | 처음 한 번만 로그인 창 B, 그 뒤 바로 | 창 없이 바로 |
 
 - **로그인 창 A**(잠긴 고급을 누름): 자물쇠 동그라미 · `고급은 로그인하면 무료입니다` · 기본/고급 두 칸 비교 · [구글로 로그인] · 아래 `로그인 없이 써 보기 · n회 남음`(남은 횟수가 있을 때만) · 약관 한 줄. 로그인하고 돌아오면 창이 닫히고 알약이 '고급'이 된다(토스트 `로그인했습니다 — 고급으로 만듭니다`). '써 보기'는 다음 만들기 한 번만 고급, 만든 뒤 알약은 '기본'으로 돌아간다. 범위는 건드리지 않는다.
-- **로그인 창 B**(손님이 만들기를 누름 — 2026-11-14 사용자 요청): `로그인하고 만들까요?` · [구글로 로그인하고 만들기] · 아래 `로그인 없이 만들기`(지금 단계 그대로 — 기본이면 기본, '써 보기'를 골랐으면 고급). 로그인하고 돌아오면 그대로 만들기가 시작된다. 창 모양은 둘 다 패널 업데이트 창(#update_modal)과 같은 꼴.
-- `LOGIN_PROMPT_ON_BUILD`(원격): `always`(기본) · `advanced`('써 보기'로 고급을 골랐을 때만) · `off`. 매번 뜨는 창은 문턱이다 — 창 닫기·'로그인 없이' 비율이 높으면 판 없이 낮춘다.
+- **로그인 창 B**(손님이 처음 만들기를 누름 — 2026-11-15 사용자 B1안, 그림 비교 없음): 제목 `고급으로 만들어 볼까요?` · 한 줄 `가로수·노면표시·선로·옹벽까지 들어간 모형입니다. 구글 로그인하면 무료로 늘 씁니다.` · [구글로 로그인하고 고급으로] · `로그인 없이 고급 써 보기 · n회` · `기본으로 만들기` · 작은 글씨 `이 창은 처음 한 번만 뜹니다`. 셋 중 하나를 고르면 `prefs.json`의 `login_prompt_seen`을 적고 바로 만든다(로그인하고 돌아오면 고급으로 이어서 만들기). ✕·Esc는 이번 만들기만 취소하고 적지 않는다 — 다음에 누르면 다시 뜬다. 무료 횟수를 다 쓴 손님에게는 '써 보기' 줄이 없다. 창 모양은 A·B 모두 패널 업데이트 창(#update_modal)과 같은 꼴.
+- `LOGIN_PROMPT_ON_BUILD`(원격): `first`(기본 — 설치마다 처음 한 번) · `always`(만들 때마다) · `off`. 매번 뜨는 창은 패널이 Rhino 옆에 붙어 있어 '만들기가 멈춘 줄 모르는' 문제가 있어 `first`로 정했다(대화의 A/B 프레임 비교). 가입이 너무 적으면 판 없이 `always`로 올린다.
 - 기호: 잠긴 단계는 **자물쇠**(Gemini와 같다 — 사용자가 보여 준 화면), 고른 단계는 ✓, 둘 다 메뉴 안에서만 보인다. 트레이·알약에는 자물쇠·배지가 없다. 회원에게는 자물쇠가 아예 없다. 말: '맛보기' 대신 '로그인 없이 써 보기 · n회 남음'.
 - 기본 3D는 늘 로그인 없이 된다(생성 횟수 제한 없음 — 앞서 정함). 창의 버튼은 둘(+✕)을 넘기지 않는다.
 - 단계 → 옵션: 패널이 `options.advanced`(bool)를 저장하고, 만들 때 '기본'이면 `MEMBER_OPTIONS`를 끈 값을, '고급'이면 하위 메뉴 체크 값을 보낸다. 엔진은 그대로 — `account.get_allowed_options`가 회원·써 보기가 아니면 `MEMBER_OPTIONS`를 한 번 더 끈다. 범위는 단계와 상관없다.
@@ -106,7 +106,7 @@
 - 만료(30일 넘게 확인 못 함): 메뉴의 '고급'에 자물쇠가 다시 붙고 창 A 제목이 `로그인을 다시 확인하지 못했습니다`, 버튼 [다시 확인].
 - Blender·`ACCOUNT_ENABLED` 꺼짐: 메뉴에 자물쇠가 없고 창도 없다.
 - 더보기 메뉴 맨 위 '계정' 묶음(로그인·생성 기록), '도움'에 '개인정보 처리방침'(`PANEL_LINKS.privacy`).
-- GA `ui` 이벤트 `login_prompt`(detail = `advanced`·`build` — 어디서 떴는지, 그리고 `login`·`without`·`try`·`cancel`).
+- GA `ui` 이벤트 `login_prompt`(detail = 어디서 떴는지 `advanced`·`first`, 그리고 고른 것 `login`·`try`·`basic`·`cancel`).
 - 생성 기록(B)·메뉴(C) 와이어프레임은 v2 그대로 두고 같은 말·기호로 고친다.
 
 ## 생성 기록 (2026-11-14 사용자 요청)
@@ -279,7 +279,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 | 파일 | 할 일 |
 |---|---|
 | `scripts/account.py`(새 로직 모듈, 표준 라이브러리) | `~/.gorani/account.json`(`token`·`email`·`tier`·`checked_at`·`trial_used`) 읽기·쓰기, `start_login(host, on_done)`(받는 곳 열기 + 로그인 주소 — 아래 '받는 곳'), `claim(grant)`, `refresh()`(하루 1회 `me`), `logout()`(토큰만 지우고 `trial_used`는 남긴다), `is_member(account)`, `get_trial_left(account)`, `get_allowed_options(options, account, host_label)` — 회원도 아니고 무료 횟수도 없으면 `MEMBER_OPTIONS`를 끈 사본, `add_trial(account, options)`. prefs.json에 넣지 않는다 |
-| `scripts/constants.py` | `ACCOUNT_ENABLED`, `ACCOUNT_API_URL`, `ACCOUNT_LINK_URL`, `MEMBER_OPTIONS`(디테일 7종 — `detail_curb`·`detail_bridges` 뺌), `GUEST_TRIAL_BUILDS = 3`, `LOGIN_PROMPT_ON_BUILD = "always"`, `ACCOUNT_OFFLINE_DAYS = 30`, `ACCOUNT_LOGIN_MINUTES = 5`(브라우저에서 돌아오기를 기다리는 시간). `HOST_LABELS`에 `account`(blender만 False) |
+| `scripts/constants.py` | `ACCOUNT_ENABLED`, `ACCOUNT_API_URL`, `ACCOUNT_LINK_URL`, `MEMBER_OPTIONS`(디테일 7종 — `detail_curb`·`detail_bridges` 뺌), `GUEST_TRIAL_BUILDS = 3`, `LOGIN_PROMPT_ON_BUILD = "first"`, `ACCOUNT_OFFLINE_DAYS = 30`, `ACCOUNT_LOGIN_MINUTES = 5`(브라우저에서 돌아오기를 기다리는 시간). `HOST_LABELS`에 `account`(blender만 False) |
 | `scripts/remote_config.py` | `REMOTE_KEYS`에 `ACCOUNT_ENABLED`·`ACCOUNT_API_URL`·`MEMBER_OPTIONS`·`GUEST_TRIAL_BUILDS`·`LOGIN_PROMPT_ON_BUILD`·`ACCOUNT_OFFLINE_DAYS`(회원 API가 오래 멈추면 늘린다). 새 키 추가라 `COMPAT_MIN`은 그대로 |
 | `scripts/cmd_site.py` | 명령 `account_login`·`account_cancel`·`account_logout`, 푸시 `account_state{state: guest\|waiting\|member\|expired, email, trial_left}`, `init_state.account`. `generate` 직전에 `account.get_allowed_options`, 성공 뒤 손님이면 `account.add_trial` — 엔진(`context_builder`·`get_detail`)은 등급을 모른다. 저장한 prefs는 그대로 두고 생성 요청만 끈다. `context.json.options`에는 실제로 쓴 값이 남는다 |
 | 받는 곳·확인 | `account.start_login`이 `http.server`를 127.0.0.1의 빈 포트(0번 = OS가 고름)에 데몬 스레드로 연다 — Rhino 8 타일 중계(`review_map`)와 같은 방식이고, 127.0.0.1만 열면 Windows 방화벽 창이 뜨지 않는다. 경로는 `/gorani-login` 하나, state가 틀리면 400. 돌아오거나 5분이 지나면 닫는다. 결과 푸시는 Rhino 8은 `AsyncInvoke`로 UI 스레드에서(`panel_host`와 같다), 사이드카는 기존 푸시 줄. `init`은 캐시로 바로 그리고, 마지막 확인이 하루를 넘었으면 데몬 스레드로 `me` → 바뀌면 `account_state` |
@@ -357,7 +357,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 
 ## 할 일 — 순서대로
 
-확정(2026-11-14): 가입 즉시 회원, 로그인 한 번 = 가입, 손님 고급 로그인 없이 3회, 화면 이름 '고급'(3D 설정 아래), 손님이 만들기를 누르면 로그인 창, 연석·교량은 모두에게, 생성 횟수 제한 없음.
+확정(2026-11-14): 가입 즉시 회원, 로그인 한 번 = 가입, 손님 고급 로그인 없이 3회, 화면 이름 '고급'(3D 설정 아래), 손님이 처음 만들 때 한 번 로그인 창(2026-11-15), 연석·교량은 모두에게, 범위는 누구나 전부, 생성 횟수 제한 없음.
 기간은 1인 작업 기준 대략값. ①은 사용자 손으로만 되는 일(구글 계정·DNS), ②~⑤는 가짜 회원 API로 따로 진행할 수 있다.
 
 **① 계정·외부 설정 — 사용자, 1~2시간 + 브랜드 인증 대기(며칠)**
@@ -395,7 +395,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 - [ ] '수준' 알약(3D 설정 아래) + 메뉴(위로 열기)(기본·고급·고급 항목 ▸), `options.advanced`, 3D 설정 '도로' 줄(연석·교량) — `member_options`로 거른다(위 '패널 개편')
 - [ ] 메뉴 자물쇠·✓, 만료 때 다시 잠그기
 - [ ] 로그인 기다리는 띠·취소·시간 초과, 돌아온 뒤 토스트
-- [ ] 로그인 창 A(고급을 누름 — '로그인 없이 써 보기 · n회')·B(만들기를 누름 — `LOGIN_PROMPT_ON_BUILD`), 기다림, 돌아오면 이어 가기, 결과 화면 회색 한 줄
+- [ ] 로그인 창 A(고급을 누름 — '로그인 없이 써 보기 · n회')·B(처음 만들 때 한 번 — `LOGIN_PROMPT_ON_BUILD`·`login_prompt_seen`), 기다림, 돌아오면 이어 가기, 결과 화면 회색 한 줄
 - [ ] '생성 기록' 화면: 찾기·칩·날짜 묶음, 윤곽 썸네일 SVG, 아래 칸(이 PC·다른 PC 버튼), 이름 바꾸기·고정·빼기, 계정 저장 켜기 칸(손님은 로그인하고 켜기), 트레이 '최근 결과' 머리 `전체 n ›`
 - [ ] 더보기 메뉴 '계정' 줄, '개인정보 처리방침' 링크
 - [ ] 요약 줄 규칙, 트레이 높이 다시 재기(ui_spec §2)
