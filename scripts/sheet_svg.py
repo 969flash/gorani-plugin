@@ -1150,7 +1150,7 @@ def _get_aerial_images(data, frame, rect, px_per_mm):
     got, zoom, m_per_px, tiles = {}, needed, 0.0, []
     fetch = lambda key: _fetch_tile(key[1].format(z=key[2], x=key[3], y=key[4]))
     for drop in range(constants.AERIAL_ZOOM_DROPS + 1):   # 이 줌에 영상이 없으면(시골·북유럽 z19) 한 단계씩 낮춘다
-        zoom, tiles, m_per_px = get_aerial_tiles(frame, rect, px_per_mm, sources[0][2] - drop)
+        zoom, tiles, m_per_px = get_aerial_tiles(frame, rect, px_per_mm, min(needed, sources[0][2]) - drop)
         got = {}   # (tx, ty) → 캐시 키
         for index, (url, _attribution, max_zoom, _year) in enumerate(sources):
             if max_zoom < zoom or ("aerial_dead", url) in data.cache or ("aerial_dead", url, zoom) in data.cache:

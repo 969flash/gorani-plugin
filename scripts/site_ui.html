@@ -1241,6 +1241,12 @@ function updateRegionLayers() {   // [위성]이고 화면 중심이 해외면 �
       return layer;
     });
   }
+  var bar = $("aerial_btn");   // Esri가 없는 호스트(Blender)는 지역 영상이 있는 곳에서만 [위성]
+  if (bar && !t.abroad_aerial_url) {
+    var none = !imageryAt(mapCenter()).length;
+    bar.parentNode.hidden = none;
+    if (none && aerial) { setAerial(false); return; }
+  }
   var view = aerial && isAbroad(mapCenter()) ? map.getBounds() : null;
   regionLayers.forEach(function (layer) {
     var on = !!view && view.intersects(layer.options.bounds) && map.getZoom() <= layer.options.maxZoom;
@@ -1289,7 +1295,7 @@ function initMap(init) {
     L.DomEvent.on(bar.firstChild, "click", function (e) { L.DomEvent.preventDefault(e); setAerial(!aerial); });
     return bar;
   };
-  if (init.tile.abroad_aerial_url || (init.tile.imagery || []).length) aerialCtl.addTo(map);   // Blender는 Esri가 없고 지역 공개 영상만(review_map.get_tile_config)
+  if (init.tile.abroad_aerial_url || (init.tile.imagery || []).length) { aerialCtl.addTo(map); updateRegionLayers(); }   // Blender는 Esri가 없고 지역 공개 영상만(review_map.get_tile_config)
   tiles = L.tileLayer(init.tile.url, { attribution: init.tile.attribution, maxZoom: 21, maxNativeZoom: 19 }).addTo(map);   // 타일은 19까지 — 20·21은 확대해 보여 준다(작은 필지 고르기)
   map.attributionControl.setPrefix("");
   tiles.on("tileerror", function () {
@@ -2582,6 +2588,7 @@ if (MOCK) {
       if (/[?&]point=1/.test(location.search)) { state.mode = "point"; msgs.push({ type: "point_state", ok: true, center: mc, center_tm: [0, 0], lot_name: "", address: "Mock" }); }
     }
     if (/[?&]imagery=0/.test(location.search)) msgs[0].tile = Object.assign({}, msgs[0].tile, { imagery: [] });   // 지역 영상 없이(전 — Esri만)
+    if (/[?&]esri=0/.test(location.search)) msgs[0].tile = Object.assign({}, msgs[0].tile, { aerial_url: "", abroad_aerial_url: "" });   // Blender처럼 Esri 없이
     if (/[?&]drape=1/.test(location.search)) msgs.forEach(function (m) {   // 3D 카드 '항공사진' 줄 견본
       if (m.type === "done") m.context = Object.assign({}, m.context, { aerial: { attribution: "IGN BD ORTHO® (Licence Ouverte 2.0)", year: "", m_per_px: 0.18, objects: 7, path: "/Users/me/Gorani/result/aerial_drape.jpg" } });
     });

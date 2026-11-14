@@ -468,7 +468,7 @@ Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `r
 - `preflight`는 패널이 보내지 않는다(2026-10-19 — 범위가 원·사각형뿐이라 JS가 그린다). 명령은 남아 있다(Blender·SketchUp·예전 패널).
 - Leaflet 인스턴스 1개, 지도 화면에만 있다(결과 화면에서는 `#map_park`에 대피). `map.remove()` 금지. 줌 ≥ 17에서만 `map_lots`(moveend 250 ms 디바운스, `seq` 증가). `tileerror` 3회 → `fallback_url`로 `setUrl` 1회, 폴백 뒤에도 3회면 지도 위 칩.
 - `generate` 페이로드: `{target, options}` — 옵션 키 절의 고정값을 덮어 보낸다. `make_2d` 페이로드: `{dir: result.dir, options}`.
-- `?mock=1`: `send`를 콘솔 출력으로 바꾸고 `tests/fixtures/site_ui_mock.json`을 순서대로 흘린다(`init_state` → `search_result` → `lot_state` → `data_progress`·`progress`… → `done` → (`&step=2d`면) `progress`… → `made_2d`). `&step=1`은 지도까지, `&menu=1`은 메뉴를 연다. `&lang=ko`처럼 언어를 고른다(기본 영어). `&center=lng,lat&zoom=n`은 그 자리 지도만(필지 흐름 없이), `&point=1`은 거기 위치 대상지, `&s3d=1`은 3D 설정을 펼친다, `&aerial=1`은 [위성]을 켠다, `&imagery=0`은 지역 영상 없이(Esri만 — 전/후 비교).
+- `?mock=1`: `send`를 콘솔 출력으로 바꾸고 `tests/fixtures/site_ui_mock.json`을 순서대로 흘린다(`init_state` → `search_result` → `lot_state` → `data_progress`·`progress`… → `done` → (`&step=2d`면) `progress`… → `made_2d`). `&step=1`은 지도까지, `&menu=1`은 메뉴를 연다. `&lang=ko`처럼 언어를 고른다(기본 영어). `&center=lng,lat&zoom=n`은 그 자리 지도만(필지 흐름 없이), `&point=1`은 거기 위치 대상지, `&s3d=1`은 3D 설정을 펼친다, `&aerial=1`은 [위성]을 켠다, `&imagery=0`은 지역 영상 없이(Esri만 — 전/후 비교), `&esri=0`은 Blender처럼 Esri 없이(지역 영상이 없는 곳은 [위성]이 숨는다).
 
 ## 플랫폼 주의(기존 그대로)
 
