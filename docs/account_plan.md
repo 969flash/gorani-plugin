@@ -60,7 +60,7 @@
 플러그인은 구글과 직접 말하지 않는다. 로그인은 gorani.site가 하고, 끝나면 브라우저가 내 PC의 플러그인(127.0.0.1)으로 결과를 돌려준다 — 데스크톱 앱 로그인의 흔한 방식이다(GitHub CLI·VS Code와 같다). 사용자는 코드를 보거나 고르지 않는다. 플러그인에 구글 클라이언트 비밀값이 없고, 호스트 넷(Rhino 8·7, SketchUp, Archicad)이 같은 코드를 쓴다. 2026-11-14 — 처음 안의 '연결 코드' 확인 단계를 사용자 요청으로 뺐다.
 
 1. **처음 열 때 묻지 않는다.** 로그인 팝업·띠 없음 — 버튼 하나로 결과까지 간다는 원칙(PRODUCT.md)을 지킨다.
-2. **3D 설정 '디테일' 줄** — 손님에게도 보인다(숨기면 회원 기능이 있는지 모른다). 맛보기 동안은 그대로 쓰고, 다 쓰면 흐리게 잠긴다(위 '손님에게 여는 것'). 요약 줄(`s3d_sum`)에는 잠긴 디테일을 쓰지 않는다.
+2. **'디테일'은 3D 설정 밖 자기 줄** — 손님에게도 늘 보인다(아래 '패널 개편'). 맛보기 동안은 그대로 쓰고, 다 쓰면 흐리게 잠긴다(위 '손님에게 여는 것').
 3. **더보기 메뉴 '설정' 맨 위 '계정' 줄** — 손님 `로그인 안 함 [구글로 로그인]`, 회원 `name@gmail.com [로그아웃]`.
 4. **[구글로 로그인]** → 브라우저에 `https://gorani.site/login/` 열림 → 패널: `브라우저에서 로그인을 마쳐 주세요 [취소]`.
 5. 브라우저에서 구글 계정 고르기 → 끝. 처음이면 그 자리에서 가입된다(동의 화면 없음 — 아래 '처음 로그인'). 브라우저는 `로그인했습니다. Rhino로 돌아가세요`, 패널은 저절로 바뀌고 토스트 `로그인했습니다 — 디테일을 쓸 수 있습니다`. 디테일 체크는 그 사람이 저장해 둔 값(없으면 기본값)으로 돌아온다. 그 PC 브라우저가 gorani.site에 이미 로그인돼 있으면 고르기도 없이 바로 돌아온다.
@@ -68,6 +68,41 @@
    인터넷이 원래 필요한 곳은 회원과 상관없이 지금과 같다: 해외·OSM 모드(Overpass), 한국 새 지역의 팩 받기, 처음 보는 지역의 지도 바탕(본 타일은 웹뷰가 7일 캐시). 처음 로그인할 때만 인터넷이 꼭 있어야 한다.
 7. **회원 API가 죽었을 때** — 손님으로 계속 쓴다. 사용자를 막지 않는다(공지·매니페스트와 같은 원칙).
 8. 5분 안에 돌아오지 않으면 기다리기를 멈추고 `로그인이 끝나지 않았습니다 [다시 시도]`.
+
+## 패널 개편 — '디테일'을 3D 설정 밖으로
+
+지금(2938bfe) 디테일 체크는 접힌 '3D 설정' 안에 '가로·구조물·건물' 줄로 있다(ui_spec §1 '3D 설정은 접어 두고 요약 한 줄'). 그대로 잠그면 손님은 회원 기능이 있는지 모르고, 맛보기 3번이 끝나면 모형이 말없이 단순해진다. 그래서 줄을 '누가 쓰나'로 다시 나눈다.
+
+```
+[지도 화면 트레이]
+대상지   성수동2가 333-139 외 2필지
+범위     [사각형|원] [300 m|500 m|1 km|직접]
+3D 설정  원점(0,0), 지형 매끈하게                    ▾   ← 좌표·지형·바닥 채우기·대상지 평평·도로(연석·교량·고가)·형상
+디테일   가로수·노면표시 외 3가지  [맛보기 2번 남음]  ▾   ← 회원 기능(MEMBER_OPTIONS)만
+[3D 모델 만들기]
+
+[디테일 펼침]
+가로     [✓ 노면표시] [✓ 가로수]
+구조물   [✓ 선로] [✓ 옹벽] [ ] 담장
+건물     [ ] 파라펫  [ ] 층 구분선
+(손님)   무료 회원은 맛보기 없이 늘 씁니다.  [구글로 무료 가입]
+```
+
+| 상태 | 디테일 줄 배지 | 펼친 내용 |
+|---|---|---|
+| 손님·맛보기 남음 | `맛보기 n번 남음`(파랑) | 체크 그대로, 아래 작은 가입 칸 |
+| 손님·맛보기 끝 | 자물쇠 `회원 기능`(회색) | 체크를 흐리게 남겨 무엇이 빠지는지 보이고, 가입 칸은 주 버튼 색 |
+| 로그인 기다림 | 그대로 | 패널 위 띠 `브라우저에서 구글 로그인을 마쳐 주세요 [취소]` |
+| 회원 | `회원`(초록) | 체크만 |
+| 만료(30일) | 자물쇠 `다시 확인` | `로그인을 다시 확인하지 못했습니다 [다시 확인]` |
+| Blender·`ACCOUNT_ENABLED` 꺼짐 | 없음 | 체크만 |
+
+- 어느 체크가 '디테일'에 가는지는 패널에 박지 않는다 — `init_state.account.member_options`(= 원격 설정 `MEMBER_OPTIONS`)에 든 것만 디테일 줄로, 나머지는 3D 설정 '도로'·'건물' 줄로. 원격으로 교량을 회원 기능으로 옮겨도 판 없이 화면이 따라간다. JS `DETAIL_ROWS`는 줄 이름·설명만 갖고 두 번(회원·모두) 거른다.
+- 요약 줄: 디테일 줄은 켠 것 이름 두 개 + '외 n가지', 잠기면 빠질 것 이름. 3D 설정 요약에는 디테일을 쓰지 않는다.
+- 트레이에 줄이 하나(40 px) 는다 — 트레이 높이 상한 256 px(ui_spec §2 '3D 설정을 접은 트레이 중 가장 긴 것')를 다시 잰다. 넘으면 상한을 올리거나 스크롤로 둔다(지도 크기를 먼저 지킨다).
+- 결과 화면: 맛보기로 만든 결과의 3D 카드 아래 `디테일은 맛보기로 들어갔습니다 — 맛보기가 n번 남았습니다 [구글로 무료 가입] [나중에]`. [나중에]는 그 결과에서만 닫는다.
+- 더보기 메뉴 '설정' 맨 위 '계정' 줄, '도움'에 '개인정보 처리방침'(`PANEL_LINKS.privacy`).
+- 목업: 대화에서 본 6장(손님 맛보기·잠김·회원·기다림·결과·메뉴). 구현 PR에는 목 패널 캡처를 `docs/brand/preview/`에.
 
 ## 사용자 흐름 — 웹페이지(gorani.site)
 
@@ -275,6 +310,68 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 | 2. 플러그인 0.4.0 | 11/24~12/04 | 위 표. 배포 전 점검 셋(check_tiles, 키 없는 실제 설치 화면, personas 문제 0건) + 로그인 실기 — Rhino 8 Mac·Windows, Rhino 7, SketchUp, Archicad에서 한 번씩 맛보기 → 로그인 → 생성 → 로그아웃. Rhino 세 파일을 같은 버전으로. 그사이 `gorani-sns`: 문구 수정, 디테일 전후 릴스·캐러셀 |
 | 3. 배포 뒤 | 12/05~12/31 | 매니페스트 업데이트 안내 문구(`groups` 새 기능에 '디테일 — 무료 회원'), 디테일 콘텐츠 게시 시작, 깔때기에서 막힌 곳 고치기(앱 안 브라우저 이탈·로그인 완료율), 관리자 카드, food4Rhino·EW 문구, 웹 es·zh 안내. 다음 묶음 판에 [인스타용 이미지] |
 | 4. 큰 홍보 | 2월 말~3월 | 국내 개강 대지분석 시즌 + 공모전 마감 6주 전. 필요하면 맛보기 횟수를 원격으로 늘려 이벤트 |
+
+## 할 일 — 순서대로
+
+확정(2026-11-14): 가입 즉시 회원, 로그인 한 번 = 가입, 손님 맛보기 3번, 연석·교량은 모두에게, 생성 횟수 제한 없음.
+기간은 1인 작업 기준 대략값. ①은 사용자 손으로만 되는 일(구글 계정·DNS), ②~⑤는 가짜 회원 API로 따로 진행할 수 있다.
+
+**① 계정·외부 설정 — 사용자, 1~2시간 + 브랜드 인증 대기(며칠)**
+- [ ] Search Console에 gorani.site 도메인 인증(DNS TXT)
+- [ ] 구글 클라우드 OAuth 동의 화면: 외부, 범위 `openid email`, 앱 이름 Gorani, 홈 `https://gorani.site/`, 처리방침 `https://gorani.site/privacy/`, 지원 메일 → 브랜드 인증 신청
+- [ ] OAuth 클라이언트 '웹 애플리케이션' — 승인된 출처 `https://gorani.site`, 시험용 `http://localhost:8000`
+- [ ] 문의함과 같은 운영 계정으로 시트 '회원함' + 앱스 스크립트 프로젝트
+- [ ] 처리방침·약관 초안 확인(개인정보 포털 작성 도구로 초안을 만들어 둔다) — 가능하면 한 번 검토
+
+**② 회원 API — 웹 저장소 `tools/account/`, 1~2일, 판 없음**
+- [ ] `Code.gs`: `login`(tokeninfo 확인, 첫 로그인에 회원 줄)·`grant`·`claim`·`me`·`logout`·`delete`·`set_news`·`send_install_mail`, CacheService 한도, `setup`(탭·칸)
+- [ ] `README.md`: 배포·확인 순서(문의함 README 꼴), 운영(막기·탈퇴·장애 때 `ACCOUNT_ENABLED`)
+- [ ] 시험 계정으로 한 바퀴(로그인 → grant → claim → me → logout → delete)
+
+**③ 홈페이지 — 웹 저장소, 3~4일, 판 없음, 플러그인보다 먼저**
+- [ ] `assets/site.js` 계정: GIS 버튼, 세션(localStorage 30일), 머리줄 [로그인]/첫 글자, UTM·`ref` 저장, 앱 안 브라우저 알아보기·밖으로 열기, GA `sign_up`·`login`·`plugin_login`·`inapp`
+- [ ] 새 페이지: `login/`(port·state 검사, 이미 로그인이면 바로 넘김)·`login/done/`·`account/`·`join/`(ko·en·ja)·`privacy/`·`terms/`(ko·en)
+- [ ] 홈 다섯 언어: 머리줄, 히어로 두 단계 문구, 새 '디테일' 칸(같은 대지 손님·회원 모형 전후 + 7종 + 가입), 설치 칸 한 줄, FAQ 셋(왜 로그인·무엇을 저장·인터넷 없을 때), 바닥글 처리방침·약관
+- [ ] `llms.txt`·JSON-LD·README·sitemap(계정·로그인 제외)·robots
+- [ ] 이미지: 서울 노면표시·가로수가 잘 보이는 대지의 전후 렌더, 앱 안 브라우저 안내 그림
+- [ ] 시험: 아이폰·안드로이드 인스타 바이오 링크 → 가입, PC 크롬·엣지·사파리·파이어폭스 `/login/` → 127.0.0.1(가짜 받는 곳)
+- [ ] PR 스크린샷(데스크톱 ko·en, 휴대폰 `join`)
+
+**④ 플러그인 엔진·컨트롤러 — 이 저장소, 2~3일**
+- [ ] `constants.py`: `MEMBER_OPTIONS`·`GUEST_TRIAL_BUILDS`·`ACCOUNT_*`·`PANEL_LINKS.privacy`, `HOST_LABELS.account`(blender·web False). `remote_config.REMOTE_KEYS`에 다섯 키
+- [ ] `account.py`(새): account.json, 받는 곳, `claim`·`me`·`logout`, 맛보기 세기, `get_allowed_options`
+- [ ] `cmd_site.py`: `account_login`·`account_cancel`·`account_logout`, `account_state` 푸시, `init_state.account{state, email, trial_left, member_options}`, `generate` 직전 옵션 거르기·성공 뒤 맛보기 세기, 하루 1회 확인
+- [ ] 사이드카(`cmd_sketchup`·`cmd_rhino7`·`cmd_archicad`): 받는 곳 스레드 → 기존 푸시 줄로 나가는지
+- [ ] `usage_stats`(`member`·`trial`), `GA_UI_ACTIONS`(`account_login`·`account_done`·`account_logout`), `ADMIN_GA_DIMENSIONS`(`member`·`trial`)
+- [ ] Blender: `account` 구간 `# [blender-cut]`, `get_blender_problems` 통과, 디테일은 전부 열림
+
+**⑤ 패널 UI(고급 기능 개편 포함) — 이 저장소, 3~4일**
+- [ ] 트레이 '디테일' 줄(3D 설정 밖, 요약 + 상태 배지), 3D 설정 '도로' 줄(연석·교량) — `member_options`로 거른다(위 '패널 개편')
+- [ ] 잠김·맛보기·만료 상태, 가입 칸
+- [ ] 로그인 기다리는 띠·취소·시간 초과, 돌아온 뒤 토스트
+- [ ] 결과 화면 맛보기 안내 카드
+- [ ] 더보기 메뉴 '계정' 줄, '개인정보 처리방침' 링크
+- [ ] 요약 줄 규칙, 트레이 높이 다시 재기(ui_spec §2)
+- [ ] i18n 네 언어, 목 모드 `&account=guest|trial|locked|waiting|member|expired`, 목 데이터(`tests/fixtures/site_ui_mock.json`)
+- [ ] 목 패널 캡처 `docs/brand/preview/`(PR 표)
+
+**⑥ 시험 — 2일 + personas 약 40분**
+- [ ] `tests/test_account.py`, `python3 -m unittest discover tests`(test_i18n 포함), `tests/test_blender.py`, `tests/test_sketchup.py`, `tests/test_archicad.py`
+- [ ] `dev_personas.py`(+2명) 문제 0건 — 한 명씩
+- [ ] 실기 여섯 곳(Rhino 8 Mac·Windows, Rhino 7 Mac·Windows, SketchUp, Archicad): 맛보기 3번 → 잠김 → 로그인 → 회원으로 생성 → 네트워크 끊고 생성 → 로그아웃
+- [ ] 배포 전 점검 셋(check_tiles, 키 없는 실제 설치 화면, personas)
+
+**⑦ 문서 — 반나절**
+- [ ] `panel_ui.md`(명령·푸시·옵션·'계정' 절), `ui_spec.md`(§3.3 3D 설정, 디테일 줄), `code_map.md`, `CLAUDE.md`(외부 접속 예외 ⑦), `install.md`, `food4rhino.md`, `sketchup_store.md`, `DESIGN.md`(배지·잠금 모양)
+
+**⑧ 배포와 그 뒤 — 1일 + 운영**
+- [ ] `docs/notices.json` 0.4.0 `groups`(다섯 언어) — '디테일 — 무료 회원'
+- [ ] 같은 0.4.0으로 yak 세 파일·SketchUp rbz(Privacy 칸 고침)·Archicad zip·Blender(로그인 없음) — 올리기는 허락 뒤
+- [ ] `dev_deploy.py notices`(새 원격 키 들어간 config.json)
+- [ ] 관리자 페이지 '회원' 카드
+- [ ] `gorani-sns`: 문구·바이오 링크·하이라이트·디테일 전후 콘텐츠, food4Rhino·EW 설명 문구
+
+합계 약 2.5주(① 대기 시간 제외). ②·③이 끝나야 ④·⑤를 실제 로그인으로 시험할 수 있다 — 그 전에는 `tests/test_account.py`의 가짜 API로 만든다.
 
 ## 하지 않는 것
 
