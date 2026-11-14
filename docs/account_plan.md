@@ -102,7 +102,36 @@
 - 트레이에 줄이 하나(40 px) 는다 — 트레이 높이 상한 256 px(ui_spec §2 '3D 설정을 접은 트레이 중 가장 긴 것')를 다시 잰다. 넘으면 상한을 올리거나 스크롤로 둔다(지도 크기를 먼저 지킨다).
 - 결과 화면: 맛보기로 만든 결과의 3D 카드 아래 `디테일은 맛보기로 들어갔습니다 — 맛보기가 n번 남았습니다 [구글로 무료 가입] [나중에]`. [나중에]는 그 결과에서만 닫는다.
 - 더보기 메뉴 '설정' 맨 위 '계정' 줄, '도움'에 '개인정보 처리방침'(`PANEL_LINKS.privacy`).
-- 목업: 대화에서 본 6장(손님 맛보기·잠김·회원·기다림·결과·메뉴). 구현 PR에는 목 패널 캡처를 `docs/brand/preview/`에.
+- 목업: 대화에서 본 와이어프레임 v2(A 디테일·로그인 흐름 5장, B 생성 기록 4장, C 메뉴 2장). 구현 PR에는 목 패널 캡처를 `docs/brand/preview/`에.
+
+## 생성 기록 (2026-11-14 사용자 요청)
+
+지금은 지도 트레이 '최근 결과' 5줄뿐이다(`context_builder.get_recent_results`, 열기 `open_result`, 빼기 `hide_result`, 같은 설정으로 지도에 `restoreResultTarget`). 이것을 두 단계로 넓힌다.
+
+| 단계 | 누가 | 내용 |
+|---|---|---|
+| 이 PC 기록 | 손님·회원 모두 | 패널 '생성 기록' 화면 — 이 PC의 결과 폴더 전부. 서버 없음 |
+| 다른 PC에서도 보기 | 회원이 켜면(선택, 기본 꺼짐) | 결과의 '설명'만 계정에 남겨 다른 PC 패널과 웹 계정 페이지에서 본다. 다른 PC 기록은 [이 PC에서 다시 만들기] |
+
+**계정에 남기는 것과 남기지 않는 것**
+- 남김: 기록 id, 만든 시각, 프로그램·OS·판, 연결(PC) id, 대상지 이름(사용자가 바꾼 이름), 방식, 중심 경위도, 대상(필지 PNU 또는 구역 링 경위도), 범위(모양·크기), 3D 설정(디테일 포함), 건물 수, 2D 요약(베이스맵 용지·다이어그램 장수), 맛보기 여부, 고정(★).
+- 남기지 않음: 3D·2D 파일, 결과 폴더 경로(사용자 이름이 들어 있다), 컴퓨터 이름. 파일은 크고, 1:5,000 등고선에서 나온 것은 국외 서버(구글)에 둘 수 없다(공간정보관리법 제16조) — 그래서 다른 PC에서는 '다시 만들기'다.
+- 기본 꺼짐인 까닭: 회원 확인에 꼭 필요한 정보가 아니라 선택 동의 대상이고, 사무소 프로젝트 대상지는 민감할 수 있다. 켤 때 무엇이 남는지 한 번에 보여 준다(와이어프레임 B4). 켜기는 계정 설정이라 한 번 켜면 모든 PC가 따른다.
+- 계정당 최근 300개. 끄면 '계정에 남은 기록도 지울까요?', 탈퇴하면 함께 지운다.
+
+**패널 '생성 기록' 화면**(지도·결과 다음 세 번째 화면)
+- 들어가는 곳: 트레이 '최근 결과' 머리 `생성 기록 전체 n ›`, 더보기 메뉴 '계정' 묶음의 '생성 기록'.
+- 위: 이름 찾기, 칩 `전체·이 PC·다른 PC·★`. 목록은 날짜 묶음(오늘·이번 주·이전).
+- 한 줄: 썸네일(대상지 윤곽 + 범위 점선 — 패널이 경위도로 그리는 작은 SVG, 3D 캡처 없음), 이름, `시각 · 범위 · 프로그램`(다른 PC면 PC 이름), 배지(디테일·맛보기·2D n장·파일은 그 PC에).
+- 누르면 아래에서 올라오는 칸: 만든 곳·범위·3D 설정·파일 위치. 이 PC 기록은 [결과 열기]·[폴더 열기]·[같은 설정으로 지도에 열기], 다른 PC 기록은 [이 PC에서 다시 만들기]·[같은 설정으로 지도에 열기]. 공통 [이름 바꾸기]·[★ 고정]·[목록에서 빼기](이 PC — 폴더는 남김) 또는 [기록 지우기](계정).
+- 결과 폴더는 지우지 않는다(이전 결과는 지우지 않는다는 원칙). 지우려면 [폴더 열기].
+- '다시 만들기'는 그때 판이 아니라 지금 데이터 판으로 만든다 — 한 줄로 알린다.
+
+**동기화**
+- 3D 생성이 끝나면(성공만) 데몬 스레드로 `history_add`. 실패·오프라인이면 `account.json`의 `pending_history`에 두었다가 다음 확인 때 보낸다. 이름·고정·지우기도 같은 줄.
+- 생성 기록 화면을 열 때(그리고 하루 1회 확인 때) `history_list`로 받아 이 PC 기록과 합친다. 같은 기록은 `entry_id`(생성 때 `context.json`에 새로 적는 무작위 id — 칸 더하기라 옛 결과도 그대로 읽힌다)로 겹치지 않게 한다.
+- 이 PC 이름·고정은 `prefs.json`(`result_labels`·`starred_results`)에 두고, 동기화가 켜져 있으면 같은 값을 계정에도.
+- PC 이름은 웹 '연결된 프로그램'에서 붙인다(`노트북`·`연구실 PC`). 없으면 `Rhino 8 · Windows`.
 
 ## 사용자 흐름 — 웹페이지(gorani.site)
 
@@ -113,7 +142,7 @@
 | 처음 로그인(가입) | 따로 화면이 없다 — 구글 버튼 아래 한 줄 `계속하면 이용약관과 개인정보처리방침에 동의합니다. 만 14세 이상만 가입할 수 있습니다.` 회원 확인에 꼭 필요한 정보(구글 고유번호·이메일)는 계약 이행 근거라 체크박스 동의 없이 처리방침 공개로 갈음한다고 본다(확인 필요). 본 판(`terms_v`·`privacy_v`)은 적어 두고, 크게 바뀌면 다음 로그인 때 알린다. 소식 메일(광고성)은 따로 동의가 필요해 가입 화면에 넣지 않고 가입 뒤 토스트·계정 페이지에서 고른다 |
 | `/login/` | 플러그인이 여는 로그인 화면(`?port=&state=&h=rhino`) — 로그인되면 곧바로 플러그인으로 넘긴다 |
 | `/login/done/` | `로그인했습니다. Rhino로 돌아가세요 — 이 창은 닫아도 됩니다`. 실패하면 `[다시 시도]` |
-| `/account/` | 등급, 가입일, 연결된 프로그램(Rhino·SketchUp·Archicad — 판·마지막 확인일) + 프로그램마다 [연결 끊기], [소식 메일 받기] 끄고 켜기, [탈퇴](시트에서 줄을 지운다) |
+| `/account/` | 탭 셋 — 계정(등급·가입일, [다른 PC에서도 기록 보기] 켜고 끄기, [소식 메일], 로그아웃·탈퇴) / 생성 기록(목록 + 지도 상세, 이름·★·지우기 — 다시 만들기는 PC 패널에서) / 연결된 프로그램(PC 이름 붙이기·끊기) |
 | `/privacy/`·`/terms/` | 처리방침·약관. 바닥글·가입 화면·패널 메뉴에서 링크한다 |
 | 설치 칸·FAQ | `디테일 옵션은 무료 회원 기능입니다` 한 줄 + FAQ '왜 로그인하나요? 무엇을 저장하나요?' |
 
@@ -207,6 +236,12 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 | `logout` | 플러그인·웹 | `token`(그 연결만) 또는 `session`+`token_id` | `ok` |
 | `delete` | 웹 | `session` | `ok` — 회원 줄과 연결 전부 지움 |
 | `set_news` | 웹 | `session`, `on` | `ok` |
+| `set_history_sync` | 플러그인·웹 | `token` 또는 `session`, `on`, `clear`(끌 때 계정 기록도 지울지) | `ok` |
+| `history_add` | 플러그인 | `token`, `entry{…}`(위 '남기는 것') | `ok` — 꺼져 있으면 `off`(플러그인은 보내지 않는다) |
+| `history_list` | 플러그인·웹 | `token` 또는 `session` | `{on, items[최근 300]}` |
+| `history_update` | 플러그인·웹 | `token` 또는 `session`, `id`, `label`·`star` | `ok` |
+| `history_delete` | 플러그인·웹 | `token` 또는 `session`, `id` 또는 `all` | `ok` |
+| `rename_device` | 웹 | `session`, `token_id`, `name` | `ok` |
 
 - ID 토큰은 tokeninfo로 확인한다 — `aud` = 우리 클라이언트 ID, `email_verified`, `exp`. 앱스 스크립트에는 RSA 서명 확인이 없어 이 길을 쓴다.
 - 교환권은 CacheService에 5분 두고 `claim` 한 번에 지운다.
@@ -218,7 +253,8 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 | 탭 | 칸 |
 |---|---|
 | 회원 | `user_id`(무작위), `google_sub`, `email`, `tier`, 가입일, `terms_v`·`privacy_v`(가입 때 본 판), 소식 메일(Y/N·고른 날), 가입 경로(source·medium·campaign·ref), 마지막 확인, 메모(사람) |
-| 연결 | `token_hash`, `user_id`, `host`(web·rhino·sketchup·archicad), 판, 만든 날, 마지막 확인 |
+| 연결 | `token_hash`, `token_id`, `user_id`, `host`(web·rhino·sketchup·archicad), OS, 판, PC 이름(사용자가 붙임), 만든 날, 마지막 확인 |
+| 생성 기록 | `user_id`, `entry_id`, 만든 시각, `token_id`(만든 PC), 프로그램·판, 이름, 방식, 중심 경위도, 대상 JSON(PNU 또는 링), 범위, 3D 설정 JSON, 건물 수, 2D 요약, 맛보기, ★, 고친 시각 — 회원 탭에 `기록 저장`(Y/N·켠 날) |
 | 기록 | 날짜, 사건(가입·탈퇴·등급 변경·연결), `host` — 메일 없이 숫자 세기용 |
 
 시트 공유는 운영자 둘만(문의함과 같다). 설치 ID(`~/.gorani/client_id`)는 시트에 적지 않는다 — 적으면 GA·문지기 기록이 실명과 이어진다.
@@ -247,7 +283,8 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 | `scripts/usage_stats.py` | `panel_open`·`build`에 `member`(0/1)·`trial`(맛보기로 만든 것 0/1)만. `get_options3d`에 켠 디테일. 계정 id·메일은 보내지 않는다. `dev_stats`에 맞춤 측정기준 등록 |
 | 다음 판(0.4.x) | 결과 화면 [인스타용 이미지] — 도면 SVG → 패널 캔버스 4:5 PNG + 작은 `made with Gorani`, 파이썬은 파일 쓰기만(위 '공유 고리') |
 | Blender 빌드 | `account` 네트워크 구간을 `# [blender-cut]`으로 감싼다. 회원 API 주소는 `BLENDER_ALLOWED_HOSTS`에 넣지 않는다(남으면 빌드가 멈춰서 실수를 잡는다) |
-| `tests/test_account.py` | 가짜 회원 API(`http.server`)와 가짜 브라우저(받는 곳 주소를 바로 부른다)로 로그인·state 틀림·교환권 재사용·5분 넘김·오프라인 30일·로그아웃·맛보기 세기(실패·취소는 안 셈)·맛보기 끝난 손님 옵션 끄기·`ACCOUNT_ENABLED` 꺼짐 |
+| 생성 기록 | `context_builder.get_recent_results`를 전부 읽게(`limit`)·범위·3D 설정·맛보기를 함께 내고, 생성 때 `context.json`에 `entry_id`. `site_prefs`에 `result_labels`·`starred_results`. `account.py`에 `history_add`·`history_list`·`pending_history`. 명령 `history_list`·`history_label`·`history_star`·`history_restore`(다른 PC 기록 → `result_opened`와 같은 꼴의 대상·설정)·`history_sync`·`history_delete`, 푸시 `history{items, sync}`. 패널 세 번째 화면 '생성 기록'(위 절) |
+| `tests/test_account.py` | 가짜 회원 API(`http.server`)와 가짜 브라우저(받는 곳 주소를 바로 부른다)로 로그인·state 틀림·교환권 재사용·5분 넘김·오프라인 30일·로그아웃·기록 보내기·오프라인 기록 줄 세우기·같은 `entry_id` 합치기·맛보기 세기(실패·취소는 안 셈)·맛보기 끝난 손님 옵션 끄기·`ACCOUNT_ENABLED` 꺼짐 |
 | `scripts/dev_personas.py` | 지금 18명은 빈 HOME이라 맛보기 손님이다. 맛보기를 다 쓴 손님 1명(`trial_used = 3` — 디테일이 꺼진 결과로 문제 0건)과 회원 1명(가짜 `account.json` + 가짜 API)을 더한다 |
 
 함께 고칠 문서: `docs/panel_ui.md`(명령·푸시·옵션 키·'계정' 절), `docs/code_map.md`, `CLAUDE.md`(Rhino 실행 중 외부 접속 예외 여섯 → 일곱: ⑦ 회원 확인), `docs/install.md`(보내는 것), `docs/food4rhino.md`(지금 "You don't need … an account" → "Detail options need a free Google sign-in"), `docs/sketchup_store.md` Privacy 줄.
@@ -270,6 +307,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 | 처리방침 공개 — 웹 `/privacy/`, 패널 메뉴·스토어 설명에서 링크 | 개인정보보호법 제30조. 초안은 개인정보위 개인정보 포털의 '처리방침 만들기' 도구로 쓴다 |
 | 가입 = 로그인 한 번. 회원 확인에 꼭 필요한 정보(구글 계정 고유번호·이메일)는 계약 이행 근거로 처리하고, 처리방침에 항목·목적(회원 확인·디테일 제공)·보유(탈퇴하면 바로 지움)를 적는다. 구글 버튼 아래 한 줄로 약관·처리방침 링크 | 제15조 제1항 제4호(2023 개정 — 계약 이행에 필요한 처리는 동의 없이, 확인 필요) |
 | 소식 메일만 따로 고르게 한다(가입 뒤 토스트·계정 페이지, 고른 날 기록) | 광고성 정보는 별도 수신 동의 |
+| 생성 기록 계정 저장은 선택 동의(기본 꺼짐) — 켤 때 항목(대상지 이름·위치·범위·설정·날짜)·보유(최근 300개, 끄거나 탈퇴하면 지움)를 그 자리에서 보이고 켠 날을 적는다. 파일·폴더 경로·컴퓨터 이름은 받지 않는다 | 회원 확인에 꼭 필요하지 않은 정보(제15조 제1항 제1호 동의). 결과 파일은 국외 반출 제한(공간정보관리법 제16조) |
 | 만 14세 미만은 가입 불가 — 구글 버튼 아래 한 줄로 알린다 | 법정대리인 동의(제22조의2)가 필요한 경우를 피하려고. 학생 대부분이 대학생이라 확인란 대신 안내로 둔다(확인 필요) |
 | 구글(미국) 서버 보관을 처리방침에 적는다 — 이전받는 자 Google LLC, 국가, 항목, 목적, 보유기간 | 국외 이전(제28조의8, 계약 이행에 필요한 보관은 공개로 갈음 — 확인 필요) |
 | 소식 메일은 선택 동의자에게만, 드물게 | 광고성 정보 전송 규정(정보통신망법 제50조 — 확인 필요). 큰 소식은 패널 공지(`notices`)로 한다. 무료 Gmail 하루 약 100통 한도 |
@@ -327,11 +365,12 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 **② 회원 API — 웹 저장소 `tools/account/`, 1~2일, 판 없음**
 - [ ] `Code.gs`: `login`(tokeninfo 확인, 첫 로그인에 회원 줄)·`grant`·`claim`·`me`·`logout`·`delete`·`set_news`·`send_install_mail`, CacheService 한도, `setup`(탭·칸)
 - [ ] `README.md`: 배포·확인 순서(문의함 README 꼴), 운영(막기·탈퇴·장애 때 `ACCOUNT_ENABLED`)
-- [ ] 시험 계정으로 한 바퀴(로그인 → grant → claim → me → logout → delete)
+- [ ] 생성 기록: `set_history_sync`·`history_add`(최근 300개만 남김)·`history_list`·`history_update`·`history_delete`, `rename_device`, 시트 '생성 기록' 탭
+- [ ] 시험 계정으로 한 바퀴(로그인 → grant → claim → me → history_add·list → logout → delete)
 
 **③ 홈페이지 — 웹 저장소, 3~4일, 판 없음, 플러그인보다 먼저**
 - [ ] `assets/site.js` 계정: GIS 버튼, 세션(localStorage 30일), 머리줄 [로그인]/첫 글자, UTM·`ref` 저장, 앱 안 브라우저 알아보기·밖으로 열기, GA `sign_up`·`login`·`plugin_login`·`inapp`
-- [ ] 새 페이지: `login/`(port·state 검사, 이미 로그인이면 바로 넘김)·`login/done/`·`account/`·`join/`(ko·en·ja)·`privacy/`·`terms/`(ko·en)
+- [ ] 새 페이지: `login/`(port·state 검사, 이미 로그인이면 바로 넘김)·`login/done/`(기록 저장 권유 한 줄)·`account/`(탭: 계정·생성 기록(목록 + 윤곽 지도)·연결된 프로그램)·`join/`(ko·en·ja)·`privacy/`·`terms/`(ko·en)
 - [ ] 홈 다섯 언어: 머리줄, 히어로 두 단계 문구, 새 '디테일' 칸(같은 대지 손님·회원 모형 전후 + 7종 + 가입), 설치 칸 한 줄, FAQ 셋(왜 로그인·무엇을 저장·인터넷 없을 때), 바닥글 처리방침·약관
 - [ ] `llms.txt`·JSON-LD·README·sitemap(계정·로그인 제외)·robots
 - [ ] 이미지: 서울 노면표시·가로수가 잘 보이는 대지의 전후 렌더, 앱 안 브라우저 안내 그림
@@ -341,9 +380,10 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 **④ 플러그인 엔진·컨트롤러 — 이 저장소, 2~3일**
 - [ ] `constants.py`: `MEMBER_OPTIONS`·`GUEST_TRIAL_BUILDS`·`ACCOUNT_*`·`PANEL_LINKS.privacy`, `HOST_LABELS.account`(blender·web False). `remote_config.REMOTE_KEYS`에 다섯 키
 - [ ] `account.py`(새): account.json, 받는 곳, `claim`·`me`·`logout`, 맛보기 세기, `get_allowed_options`
+- [ ] 생성 기록: `get_recent_results` 넓히기, `entry_id`, `site_prefs` 이름·고정, `history_*` 명령, 동기화·`pending_history`, 다른 PC 기록 되살리기
 - [ ] `cmd_site.py`: `account_login`·`account_cancel`·`account_logout`, `account_state` 푸시, `init_state.account{state, email, trial_left, member_options}`, `generate` 직전 옵션 거르기·성공 뒤 맛보기 세기, 하루 1회 확인
 - [ ] 사이드카(`cmd_sketchup`·`cmd_rhino7`·`cmd_archicad`): 받는 곳 스레드 → 기존 푸시 줄로 나가는지
-- [ ] `usage_stats`(`member`·`trial`), `GA_UI_ACTIONS`(`account_login`·`account_done`·`account_logout`), `ADMIN_GA_DIMENSIONS`(`member`·`trial`)
+- [ ] `usage_stats`(`member`·`trial`), `GA_UI_ACTIONS`(`account_login`·`account_done`·`account_logout`·`history_open`·`history_restore`·`history_sync`), `ADMIN_GA_DIMENSIONS`(`member`·`trial`)
 - [ ] Blender: `account` 구간 `# [blender-cut]`, `get_blender_problems` 통과, 디테일은 전부 열림
 
 **⑤ 패널 UI(고급 기능 개편 포함) — 이 저장소, 3~4일**
@@ -351,9 +391,10 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 - [ ] 잠김·맛보기·만료 상태, 가입 칸
 - [ ] 로그인 기다리는 띠·취소·시간 초과, 돌아온 뒤 토스트
 - [ ] 결과 화면 맛보기 안내 카드
+- [ ] '생성 기록' 화면: 찾기·칩·날짜 묶음, 윤곽 썸네일 SVG, 아래 칸(이 PC·다른 PC 버튼), 이름 바꾸기·고정·빼기, 계정 저장 켜기 칸(손님은 로그인하고 켜기), 트레이 '최근 결과' 머리 `전체 n ›`
 - [ ] 더보기 메뉴 '계정' 줄, '개인정보 처리방침' 링크
 - [ ] 요약 줄 규칙, 트레이 높이 다시 재기(ui_spec §2)
-- [ ] i18n 네 언어, 목 모드 `&account=guest|trial|locked|waiting|member|expired`, 목 데이터(`tests/fixtures/site_ui_mock.json`)
+- [ ] i18n 네 언어, 목 모드 `&account=guest|trial|locked|waiting|member|expired`·`&screen=history&sync=0|1`, 목 데이터(`tests/fixtures/site_ui_mock.json`)
 - [ ] 목 패널 캡처 `docs/brand/preview/`(PR 표)
 
 **⑥ 시험 — 2일 + personas 약 40분**
@@ -372,7 +413,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 - [ ] 관리자 페이지 '회원' 카드
 - [ ] `gorani-sns`: 문구·바이오 링크·하이라이트·디테일 전후 콘텐츠, food4Rhino·EW 설명 문구
 
-합계 약 2.5주(① 대기 시간 제외). ②·③이 끝나야 ④·⑤를 실제 로그인으로 시험할 수 있다 — 그 전에는 `tests/test_account.py`의 가짜 API로 만든다.
+합계 약 3주(① 대기 시간 제외 — 생성 기록이 회원 API 1일·웹 1일·플러그인 2일쯤 더한다). 일정이 빠듯하면 생성 기록은 '이 PC 기록'만 0.4.0에 넣고 계정 저장을 다음 묶음 판으로 미룬다(웹 계정 탭은 판 없이 언제든). ②·③이 끝나야 ④·⑤를 실제 로그인으로 시험할 수 있다 — 그 전에는 `tests/test_account.py`의 가짜 API로 만든다.
 
 ## 하지 않는 것
 
@@ -396,6 +437,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 ## 확인 필요
 
 - 앱스 스크립트 무료 한도(외부 요청 하루 약 2만 회, 동시 실행 30) — 실제 값.
+- 구글 시트 한 파일 1,000만 칸 한도 — 생성 기록 한 줄 약 17칸이면 약 58만 줄. 회원당 300개 상한으로 3만 명 넘게 버틴다. 그 전에 백엔드 이전을 본다(위 '나중').
 - tokeninfo 엔드포인트 — 구글은 디버깅용이라고 한다. 적은 양에서는 괜찮다고 보지만 막히면 GIS의 서명 확인을 웹에서 하고 서버는 다시 확인하는 식으로 바꾼다.
 - 브라우저가 https 페이지에서 `http://127.0.0.1:<port>`로 넘어가는 것 — 크롬·엣지·사파리·파이어폭스에서 막히거나 경고가 뜨지 않는지(크롬 로컬 네트워크 접근 제한은 `fetch` 쪽으로 알고 있다). 회사 PC 보안 프로그램이 로컬 포트를 막는 경우가 있는지.
 - 앱스 스크립트 POST는 302로 googleusercontent에 넘어간다. 브라우저(문의 폼)는 문제가 없었다 — Rhino 8 CPython·번들 파이썬 3.12·Pyodide의 urllib에서 시험한다.
