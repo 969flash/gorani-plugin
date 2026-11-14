@@ -11,7 +11,7 @@
 | 누가 회원인가 | **확정(2026-11-14 사용자)** — 구글 로그인 + 동의하면 바로 회원(승인제 아님) | 승인제는 운영자가 매일 손대야 한다. 돈을 받지 않는 동안 구분하는 목적은 '누가 쓰는지 알고, 연락할 길을 만드는 것'이다 |
 | 무엇을 잠그나 | 보이는 디테일 7종(`MEMBER_OPTIONS` — 노면표시·가로수·선로·옹벽·담장·파라펫·층 구분선). 연석·교량은 모두에게 | 연석·교량은 기본 모형의 정합이다 — 교량을 끄면 철교 위 선로가 빠지고 도로가 지형에 얹혀(0.3.9 모양) 손님 모형이 틀려 보인다. 아직 아무도 받지 않은 기능이라 처음부터 회원 기능으로 내면 '빼앗는' 일이 없다. 원격 설정이라 판 없이 바꾼다 |
 | 손님에게 얼마나 여나 | 처음 3번 만들기는 디테일 전부(화면 말 '로그인 없이 n회', `GUEST_TRIAL_BUILDS`) | 직접 받아 보고 좋은 순간에 가입을 권하는 것이 가장 잘 먹힌다. 아래 '손님에게 여는 것' |
-| 범위도 단계에 넣나 | **넣는다(2026-11-14 사용자)** — 기본 = 한 변 1 km까지(원 반경 500 m), 고급 = 한 변 4 km까지(2 km·직접). `GUEST_MAX_RADIUS = 500`(원격) | GA Rhino 30일: 사각형 한 변 2 km 19번·11명, 4 km 8번·3명, 원 반경 1 km 3번·3명 — 만든 사람 약 4명 중 1명이 1 km를 넘긴다. 손이 큰 사용자일수록 가입할 까닭이 생긴다. 큰 범위는 국내 팩 받기·공개 Overpass 부담도 커서 로그인을 요구할 명분이 있다. 생성 횟수는 여전히 제한 없음 |
+| 범위도 단계에 넣나 | **넣지 않는다(2026-11-15 사용자)** — 범위는 기본도 전부(한 변 4 km·직접까지). 단계 차이는 디테일 7가지뿐 | 하루 앞서 '기본 1 km·고급 4 km'를 그렸다가 되돌렸다. GA Rhino 30일에 1 km를 넘긴 사람이 약 4명 중 1명이라 잠그면 가입 동기는 되지만, 기본 기능을 막는 일이라 '설치는 가입 없이'와 어긋난다. 쓰지 않는 스위치는 미리 만들지 않는다 — 다시 넣으려면 코드 판에서 |
 | 손님 생성 횟수 제한 | 두지 않는다 — 기본 3D·2D는 손님도 무제한 | GA Rhino 30일(10/16~11/14, 개발자 PC 제외): 만든 사람 48명·생성 168번, 만든 날 하루 평균 2.8번. 범위·옵션을 바꿔 가며 다시 만드는 것이 보통 쓰임이라 하루 3번 제한이면 쓰는 날 상당수가 막힌다. 생성은 사용자 PC에서 돌아 서버비가 들지 않는다(국내 팩 받기는 지금처럼 문지기가 설치당 하루 60개로 막는다 — 회원과 무관). 사용자가 아직 적은 지금 기본 기능에 문턱을 두면 홍보 문구 '설치는 가입 없이'와도 어긋난다 |
 | 가입을 어디서 늘리나 | 인스타그램(@gorani.3d) → 휴대폰 가입 페이지 `/join/` → PC 설치 | 아래 '가입 늘리기'. 지금 홍보 문구 "회원가입도 없습니다"부터 바꿔야 한다 |
 | 언제 내나 | 디테일과 로그인을 같은 판(0.4.0)으로 | 디테일만 먼저 내고 나중에 잠그면 써 본 사람에게서 빼앗는 꼴이 된다. 디테일 공개가 2주쯤 늦어지는 것을 감수한다 |
@@ -24,8 +24,8 @@
 
 | 등급 | 누가 | 쓰는 것 |
 |---|---|---|
-| 손님 `guest` | 로그인하지 않음 | 기본 단계 — 한 변 1 km까지, 3D 기본(건물·도로·지형·수계·녹지·철도 부지) + 연석·교량, 2D 전부. 고급(큰 범위 + 7종)은 '로그인 없이 써 보기' 3회 |
-| 회원 `member` | 구글 로그인 + 동의 | 고급 단계 — 한 변 4 km까지 + `MEMBER_OPTIONS` 7종을 늘 |
+| 손님 `guest` | 로그인하지 않음 | 기본 단계 — 범위 전부, 3D 기본(건물·도로·지형·수계·녹지·철도 부지) + 연석·교량, 2D 전부. 고급 7종은 '로그인 없이 써 보기' 3회 |
+| 회원 `member` | 구글 로그인 + 동의 | 고급 단계 — 기본 전부 + `MEMBER_OPTIONS` 7종을 늘 |
 | 막힘 `blocked` | 운영자가 시트에서 바꿈(남용·요청) | 손님과 같다 |
 | (나중) 유료 | 정하지 않았다 | 시트에 `tier` 칸만 둔다. 값을 늘리면 된다 |
 
@@ -70,38 +70,37 @@
 
 ## 패널 개편 — '수준' 알약(범위 위)과 로그인 창
 
-2026-11-14 사용자: 트레이 밖 '디테일' 줄·만들기 옆 체크·'모형' 줄은 버리고, Gemini 모델 고르기(알약 → 둥근 메뉴, 잠긴 단계에 자물쇠, 누르면 로그인)를 따른다. 와이어프레임은 대화의 '패널 v4'(메뉴·창) + 'v5'(수준을 범위 위로, 단계에 범위·기본 기능 — 같은 날 사용자 요청).
+2026-11-14 사용자: 트레이 밖 '디테일' 줄·만들기 옆 체크·'모형' 줄은 버리고, Gemini 모델 고르기(알약 → 둥근 메뉴, 잠긴 단계에 자물쇠, 누르면 로그인)를 따른다. 와이어프레임은 대화의 '패널 v4'(메뉴·창) + 'v6'(수준을 범위 위로, 메뉴에 기본 기능을 적되 범위는 누구나 — 2026-11-15 사용자).
 
 ```
 [지도 화면 트레이]
 대상지   성수동2가 277-17 외 1                      1,234.5 m²
-수준     ( 기본 ⌄ )  한 변 1 km까지 · 건물·도로·지형          ← 알약 + 지금 단계(회색). 범위보다 먼저 — 범위를 정하니까
+수준     ( 기본 ⌄ )  건물·도로·지형                          ← 알약 + 지금 단계(회색). 설정 묶음 맨 위
 범위     [원|사각형]
-한 변    [500|1,000|🔒2,000|🔒직접]                            ← 손님은 1 km 넘는 칸에 작은 자물쇠
+한 변    [500|1,000|2,000|직접]                                ← 누구나 전부(자물쇠 없음)
 3D 설정  원점(0,0), 지형 매끈                              ▾   ← 좌표·지형·바닥 채우기·대상지 평평·도로(연석·교량·고가)·형상
                                                 [3D 모델 만들기]
 
 [알약을 누르면 — Gemini처럼 둥근 흰 메뉴, 아래가 좁으면 위로]
- ✓  기본            한 변 1 km까지 / 건물·도로·지형·수계, 연석·교량 / 2D 자료 전부
- 🔒 고급  로그인·무료  한 변 4 km까지(2 km·직접) / + 가로수·노면표시·선로·옹벽 외 3
+ ✓  기본            범위 전부(한 변 4 km까지) / 건물·도로·지형·수계, 연석·교량 / 2D 자료 전부
+ 🔒 고급  로그인·무료  기본 전부 / + 가로수·노면표시·선로·옹벽 외 3
  ─────────
     고급 항목 ▸     (하위 메뉴: 가로 노면표시·가로수 / 구조물 선로·옹벽·담장 / 건물 파라펫·층 구분선 체크)
 ```
 
 | 누르는 것 | 손님 | 회원 |
 |---|---|---|
-| 메뉴의 '고급'·'고급 항목 ▸', 한 변 2,000·직접(원은 반경 1,000·직접) | 로그인 창 A | 고급으로 바뀜 / 하위 메뉴 / 그 범위 |
+| 메뉴의 '고급'·'고급 항목 ▸' | 로그인 창 A | 고급으로 바뀜 / 하위 메뉴 |
 | [3D 모델 만들기] | 로그인 창 B(`LOGIN_PROMPT_ON_BUILD`) | 창 없이 바로 |
 
-- **로그인 창 A**(잠긴 것을 누름): 자물쇠 동그라미 · `2 km 범위와 고급은 로그인하면 무료입니다` · 기본/고급 두 칸 비교(범위 + 들어가는 것) · [구글로 로그인] · 아래 `로그인 없이 써 보기 · n회 남음`(남은 횟수가 있을 때만) · 약관 한 줄. 로그인하고 돌아오면 창이 닫히고 알약이 '고급'이 된다(토스트 `로그인했습니다 — 고급으로 만듭니다`). '써 보기'는 다음 만들기 한 번만 고급(큰 범위 + 디테일), 만든 뒤 알약은 '기본'으로, 범위는 1 km로 돌아간다. 로그인하고 돌아오면 누른 범위(예: 2,000)가 그대로 골라져 있다.
+- **로그인 창 A**(잠긴 고급을 누름): 자물쇠 동그라미 · `고급은 로그인하면 무료입니다` · 기본/고급 두 칸 비교 · [구글로 로그인] · 아래 `로그인 없이 써 보기 · n회 남음`(남은 횟수가 있을 때만) · 약관 한 줄. 로그인하고 돌아오면 창이 닫히고 알약이 '고급'이 된다(토스트 `로그인했습니다 — 고급으로 만듭니다`). '써 보기'는 다음 만들기 한 번만 고급, 만든 뒤 알약은 '기본'으로 돌아간다. 범위는 건드리지 않는다.
 - **로그인 창 B**(손님이 만들기를 누름 — 2026-11-14 사용자 요청): `로그인하고 만들까요?` · [구글로 로그인하고 만들기] · 아래 `로그인 없이 만들기`(지금 단계 그대로 — 기본이면 기본, '써 보기'를 골랐으면 고급). 로그인하고 돌아오면 그대로 만들기가 시작된다. 창 모양은 둘 다 패널 업데이트 창(#update_modal)과 같은 꼴.
 - `LOGIN_PROMPT_ON_BUILD`(원격): `always`(기본) · `advanced`('써 보기'로 고급을 골랐을 때만) · `off`. 매번 뜨는 창은 문턱이다 — 창 닫기·'로그인 없이' 비율이 높으면 판 없이 낮춘다.
 - 기호: 잠긴 단계는 **자물쇠**(Gemini와 같다 — 사용자가 보여 준 화면), 고른 단계는 ✓, 둘 다 메뉴 안에서만 보인다. 트레이·알약에는 자물쇠·배지가 없다. 회원에게는 자물쇠가 아예 없다. 말: '맛보기' 대신 '로그인 없이 써 보기 · n회 남음'.
 - 기본 3D는 늘 로그인 없이 된다(생성 횟수 제한 없음 — 앞서 정함). 창의 버튼은 둘(+✕)을 넘기지 않는다.
-- 단계 → 옵션: 패널이 `options.advanced`(bool)를 저장하고, 만들 때 '기본'이면 `MEMBER_OPTIONS`를 끈 값을, '고급'이면 하위 메뉴 체크 값을 보낸다. 엔진은 그대로 — `account.get_allowed_options`가 회원·써 보기가 아니면 `MEMBER_OPTIONS`를 끄고 `radius`를 `GUEST_MAX_RADIUS`로 줄인다(줄였으면 경고 한 줄 `로그인하지 않아 범위를 한 변 1 km로 줄였습니다`).
-- 범위 상한은 원격 설정 `GUEST_MAX_RADIUS`(m, 사각형은 반 변·원은 반경 — 패널 `SIZE_PRESETS`와 같은 값). 지금 500 = 한 변 1 km. 판 없이 올리고 내린다.
+- 단계 → 옵션: 패널이 `options.advanced`(bool)를 저장하고, 만들 때 '기본'이면 `MEMBER_OPTIONS`를 끈 값을, '고급'이면 하위 메뉴 체크 값을 보낸다. 엔진은 그대로 — `account.get_allowed_options`가 회원·써 보기가 아니면 `MEMBER_OPTIONS`를 한 번 더 끈다. 범위는 단계와 상관없다.
 - 어느 체크가 '고급'에 드는지는 패널에 박지 않는다 — `init_state.account.member_options`. 나머지(연석·교량)는 3D 설정 '도로' 줄.
-- 알약 옆 회색 글씨: 기본 `한 변 1 km까지 · 건물·도로·지형`, 고급 `한 변 4 km까지 · 켠 것 이름 둘, 외 n`. 3D 설정 요약에는 쓰지 않는다.
+- 알약 옆 회색 글씨: 기본 `건물·도로·지형`, 고급 `켠 것 이름 둘, 외 n`. 3D 설정 요약에는 쓰지 않는다.
 - 트레이에 줄이 하나(40 px) 는다 — 트레이 높이 상한 256 px(ui_spec §2)를 다시 잰다. 메뉴의 기본 항목에 '2D 자료 전부'를 적어 기본만으로도 충분하다는 걸 보인다.
 - 결과 화면: 써 보기로 만든 결과의 3D 카드 아래 회색 한 줄 `로그인 없이 n회 남음 · 로그인`(상자 없음).
 - 만료(30일 넘게 확인 못 함): 메뉴의 '고급'에 자물쇠가 다시 붙고 창 A 제목이 `로그인을 다시 확인하지 못했습니다`, 버튼 [다시 확인].
@@ -280,8 +279,8 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 | 파일 | 할 일 |
 |---|---|
 | `scripts/account.py`(새 로직 모듈, 표준 라이브러리) | `~/.gorani/account.json`(`token`·`email`·`tier`·`checked_at`·`trial_used`) 읽기·쓰기, `start_login(host, on_done)`(받는 곳 열기 + 로그인 주소 — 아래 '받는 곳'), `claim(grant)`, `refresh()`(하루 1회 `me`), `logout()`(토큰만 지우고 `trial_used`는 남긴다), `is_member(account)`, `get_trial_left(account)`, `get_allowed_options(options, account, host_label)` — 회원도 아니고 무료 횟수도 없으면 `MEMBER_OPTIONS`를 끈 사본, `add_trial(account, options)`. prefs.json에 넣지 않는다 |
-| `scripts/constants.py` | `ACCOUNT_ENABLED`, `ACCOUNT_API_URL`, `ACCOUNT_LINK_URL`, `MEMBER_OPTIONS`(디테일 7종 — `detail_curb`·`detail_bridges` 뺌), `GUEST_TRIAL_BUILDS = 3`, `GUEST_MAX_RADIUS = 500`, `LOGIN_PROMPT_ON_BUILD = "always"`, `ACCOUNT_OFFLINE_DAYS = 30`, `ACCOUNT_LOGIN_MINUTES = 5`(브라우저에서 돌아오기를 기다리는 시간). `HOST_LABELS`에 `account`(blender만 False) |
-| `scripts/remote_config.py` | `REMOTE_KEYS`에 `ACCOUNT_ENABLED`·`ACCOUNT_API_URL`·`MEMBER_OPTIONS`·`GUEST_TRIAL_BUILDS`·`GUEST_MAX_RADIUS`·`LOGIN_PROMPT_ON_BUILD`·`ACCOUNT_OFFLINE_DAYS`(회원 API가 오래 멈추면 늘린다). 새 키 추가라 `COMPAT_MIN`은 그대로 |
+| `scripts/constants.py` | `ACCOUNT_ENABLED`, `ACCOUNT_API_URL`, `ACCOUNT_LINK_URL`, `MEMBER_OPTIONS`(디테일 7종 — `detail_curb`·`detail_bridges` 뺌), `GUEST_TRIAL_BUILDS = 3`, `LOGIN_PROMPT_ON_BUILD = "always"`, `ACCOUNT_OFFLINE_DAYS = 30`, `ACCOUNT_LOGIN_MINUTES = 5`(브라우저에서 돌아오기를 기다리는 시간). `HOST_LABELS`에 `account`(blender만 False) |
+| `scripts/remote_config.py` | `REMOTE_KEYS`에 `ACCOUNT_ENABLED`·`ACCOUNT_API_URL`·`MEMBER_OPTIONS`·`GUEST_TRIAL_BUILDS`·`LOGIN_PROMPT_ON_BUILD`·`ACCOUNT_OFFLINE_DAYS`(회원 API가 오래 멈추면 늘린다). 새 키 추가라 `COMPAT_MIN`은 그대로 |
 | `scripts/cmd_site.py` | 명령 `account_login`·`account_cancel`·`account_logout`, 푸시 `account_state{state: guest\|waiting\|member\|expired, email, trial_left}`, `init_state.account`. `generate` 직전에 `account.get_allowed_options`, 성공 뒤 손님이면 `account.add_trial` — 엔진(`context_builder`·`get_detail`)은 등급을 모른다. 저장한 prefs는 그대로 두고 생성 요청만 끈다. `context.json.options`에는 실제로 쓴 값이 남는다 |
 | 받는 곳·확인 | `account.start_login`이 `http.server`를 127.0.0.1의 빈 포트(0번 = OS가 고름)에 데몬 스레드로 연다 — Rhino 8 타일 중계(`review_map`)와 같은 방식이고, 127.0.0.1만 열면 Windows 방화벽 창이 뜨지 않는다. 경로는 `/gorani-login` 하나, state가 틀리면 400. 돌아오거나 5분이 지나면 닫는다. 결과 푸시는 Rhino 8은 `AsyncInvoke`로 UI 스레드에서(`panel_host`와 같다), 사이드카는 기존 푸시 줄. `init`은 캐시로 바로 그리고, 마지막 확인이 하루를 넘었으면 데몬 스레드로 `me` → 바뀌면 `account_state` |
 | `scripts/site_ui.html` | '수준' 알약(3D 설정 아래)·둥근 메뉴(✓·자물쇠·'고급 항목 ▸' 하위 메뉴), 로그인 창 A·B(업데이트 창 꼴 — 기다림·돌아오면 고급 고르기/만들기 이어 가기), 결과 화면 한 줄, 자물쇠 아이콘 `lock`, 메뉴 '계정' 묶음, 목 모드 `&account=guest\|trial\|waiting\|member\|expired` |
@@ -290,8 +289,8 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 | 다음 판(0.4.x) | 결과 화면 [인스타용 이미지] — 도면 SVG → 패널 캔버스 4:5 PNG + 작은 `made with Gorani`, 파이썬은 파일 쓰기만(위 '공유 고리') |
 | Blender 빌드 | `account` 네트워크 구간을 `# [blender-cut]`으로 감싼다. 회원 API 주소는 `BLENDER_ALLOWED_HOSTS`에 넣지 않는다(남으면 빌드가 멈춰서 실수를 잡는다) |
 | 생성 기록 | `context_builder.get_recent_results`를 전부 읽게(`limit`)·범위·3D 설정·로그인 없이 만든 것인지를 함께 내고, 생성 때 `context.json`에 `entry_id`. `site_prefs`에 `result_labels`·`starred_results`. `account.py`에 `history_add`·`history_list`·`pending_history`. 명령 `history_list`·`history_label`·`history_star`·`history_restore`(다른 PC 기록 → `result_opened`와 같은 꼴의 대상·설정)·`history_sync`·`history_delete`, 푸시 `history{items, sync}`. 패널 세 번째 화면 '생성 기록'(위 절) |
-| `tests/test_account.py` | 가짜 회원 API(`http.server`)와 가짜 브라우저(받는 곳 주소를 바로 부른다)로 로그인·state 틀림·교환권 재사용·5분 넘김·오프라인 30일·로그아웃·기록 보내기·오프라인 기록 줄 세우기·같은 `entry_id` 합치기·무료 횟수 세기(실패·취소는 안 셈)·횟수를 다 쓴 손님 옵션 끄기·범위 줄이기·`ACCOUNT_ENABLED` 꺼짐 |
-| `scripts/dev_personas.py` | 범위가 1 km를 넘는 사람(2 km·날짜변경선 등)은 회원으로 돌린다 — 손님이면 범위가 줄어 기대값이 바뀐다. 지금 18명은 빈 HOME이라 무료 3회가 남은 손님이다(로그인 창은 패널 JS라 명령을 바로 보내는 personas에는 걸리지 않는다). 3회를 다 쓴 손님 1명(`trial_used = 3` — 디테일이 꺼진 결과로 문제 0건)과 회원 1명(가짜 `account.json` + 가짜 API)을 더한다 |
+| `tests/test_account.py` | 가짜 회원 API(`http.server`)와 가짜 브라우저(받는 곳 주소를 바로 부른다)로 로그인·state 틀림·교환권 재사용·5분 넘김·오프라인 30일·로그아웃·기록 보내기·오프라인 기록 줄 세우기·같은 `entry_id` 합치기·무료 횟수 세기(실패·취소는 안 셈)·횟수를 다 쓴 손님 옵션 끄기·`ACCOUNT_ENABLED` 꺼짐 |
+| `scripts/dev_personas.py` | 지금 18명은 빈 HOME이라 무료 3회가 남은 손님이다(로그인 창은 패널 JS라 명령을 바로 보내는 personas에는 걸리지 않는다). 3회를 다 쓴 손님 1명(`trial_used = 3` — 디테일이 꺼진 결과로 문제 0건)과 회원 1명(가짜 `account.json` + 가짜 API)을 더한다 |
 
 함께 고칠 문서: `docs/panel_ui.md`(명령·푸시·옵션 키·'계정' 절), `docs/code_map.md`, `CLAUDE.md`(Rhino 실행 중 외부 접속 예외 여섯 → 일곱: ⑦ 회원 확인), `docs/install.md`(보내는 것), `docs/food4rhino.md`(지금 "You don't need … an account" → "Detail options need a free Google sign-in"), `docs/sketchup_store.md` Privacy 줄.
 
@@ -384,7 +383,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 - [ ] PR 스크린샷(데스크톱 ko·en, 휴대폰 `join`)
 
 **④ 플러그인 엔진·컨트롤러 — 이 저장소, 2~3일**
-- [ ] `constants.py`: `MEMBER_OPTIONS`·`GUEST_TRIAL_BUILDS`·`GUEST_MAX_RADIUS`·`LOGIN_PROMPT_ON_BUILD`·`ACCOUNT_*`·`PANEL_LINKS.privacy`, `HOST_LABELS.account`(blender·web False). `remote_config.REMOTE_KEYS`에 일곱 키
+- [ ] `constants.py`: `MEMBER_OPTIONS`·`GUEST_TRIAL_BUILDS`·`LOGIN_PROMPT_ON_BUILD`·`ACCOUNT_*`·`PANEL_LINKS.privacy`, `HOST_LABELS.account`(blender·web False). `remote_config.REMOTE_KEYS`에 여섯 키
 - [ ] `account.py`(새): account.json, 받는 곳, `claim`·`me`·`logout`, 무료 횟수 세기, `get_allowed_options`
 - [ ] 생성 기록: `get_recent_results` 넓히기, `entry_id`, `site_prefs` 이름·고정, `history_*` 명령, 동기화·`pending_history`, 다른 PC 기록 되살리기
 - [ ] `cmd_site.py`: `account_login`·`account_cancel`·`account_logout`, `account_state` 푸시, `init_state.account{state, email, trial_left, member_options}`, `generate` 직전 옵션 거르기·성공 뒤 맛보기 세기, 하루 1회 확인
@@ -393,7 +392,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 - [ ] Blender: `account` 구간 `# [blender-cut]`, `get_blender_problems` 통과, 디테일은 전부 열림
 
 **⑤ 패널 UI(고급 기능 개편 포함) — 이 저장소, 3~4일**
-- [ ] '수준' 알약(대상지 아래·범위 위) + 메뉴(기본·고급·고급 항목 ▸), `options.advanced`, 한 변·반경 단추의 자물쇠(`GUEST_MAX_RADIUS` 넘는 칸), 3D 설정 '도로' 줄(연석·교량) — `member_options`로 거른다(위 '패널 개편')
+- [ ] '수준' 알약(대상지 아래·범위 위) + 메뉴(기본·고급·고급 항목 ▸), `options.advanced`, 3D 설정 '도로' 줄(연석·교량) — `member_options`로 거른다(위 '패널 개편')
 - [ ] 메뉴 자물쇠·✓, 만료 때 다시 잠그기
 - [ ] 로그인 기다리는 띠·취소·시간 초과, 돌아온 뒤 토스트
 - [ ] 로그인 창 A(고급을 누름 — '로그인 없이 써 보기 · n회')·B(만들기를 누름 — `LOGIN_PROMPT_ON_BUILD`), 기다림, 돌아오면 이어 가기, 결과 화면 회색 한 줄
@@ -406,7 +405,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 **⑥ 시험 — 2일 + personas 약 40분**
 - [ ] `tests/test_account.py`, `python3 -m unittest discover tests`(test_i18n 포함), `tests/test_blender.py`, `tests/test_sketchup.py`, `tests/test_archicad.py`
 - [ ] `dev_personas.py`(+2명) 문제 0건 — 한 명씩
-- [ ] 실기 여섯 곳(Rhino 8 Mac·Windows, Rhino 7 Mac·Windows, SketchUp, Archicad): 손님 2 km 누름 → 창, 써 보기 3회 → 잠긴 고급 → 로그인 창 → 로그인 → 회원으로 생성 → 네트워크 끊고 생성 → 로그아웃
+- [ ] 실기 여섯 곳(Rhino 8 Mac·Windows, Rhino 7 Mac·Windows, SketchUp, Archicad): 써 보기 3회 → 잠긴 고급 → 로그인 창 → 로그인 → 회원으로 생성 → 네트워크 끊고 생성 → 로그아웃
 - [ ] 배포 전 점검 셋(check_tiles, 키 없는 실제 설치 화면, personas)
 
 **⑦ 문서 — 반나절**
