@@ -1,8 +1,9 @@
 """driver_aerial — 지역 공개 정사영상(2026-11-14): 파리 루브르 위치 방식 R=250(사각형 한 변 500 m), 지형에 항공사진(terrain_aerial) + 23 항공사진·도형-배경(겹치기 0.5).
-python3 scripts/dev_rhino_run.py tests/rhino/driver_aerial.py → out/log.txt·result.json·aerial_context.3dm·aerial_drape.jpg·sheets_after/·sheets_before/·render_*.png.
+python3 scripts/dev_rhino_run.py tests/rhino/driver_aerial.py → out/log.txt·result.json·aerial_context.3dm·aerial_drape.jpg·aerial.obj·sheets_after/·sheets_before/.
 
 헤드리스 문서(m) — 사용자 문서는 건드리지 않는다. OSM(Overpass 한 번)·AWS 지형·IGN 영상을 받는다.
-before = 같은 SheetData를 지역 영상 없이(Esri만) 다시 그린 23 항공사진. 렌더 캡처는 헤드리스 문서에 뷰를 붙일 수 있을 때만(안 되면 건너뛴다).
+before = 같은 SheetData를 지역 영상 없이(Esri만) 다시 그린 23 항공사진. 헤드리스 문서는 뷰 캡처가 빈 그림이라(2026-11-14 시험 — RhinoView·ViewCaptureSettings 모두)
+렌더는 aerial.obj(UV = 객체에 저장된 매핑 채널 1로 Rhino가 계산)를 Blender로 찍는다.
 """
 import json
 import os
@@ -10,7 +11,6 @@ import shutil
 import time
 
 import Rhino
-import System
 
 import constants
 import context_baker
@@ -27,28 +27,40 @@ def check(name, ok, detail=""):
     print("%s %s %s" % ("PASS" if ok else "FAIL", name, detail))
 
 
-def capture(doc, path, perspective):
-    """헤드리스 문서에 뷰를 하나 붙여 Rendered로 찍는다. 못 붙이면 False."""
-    try:
-        projection = Rhino.Display.DefinedViewportProjection.Perspective if perspective else Rhino.Display.DefinedViewportProjection.Top
-        view = doc.Views.Add("aerial", projection, System.Drawing.Rectangle(0, 0, 1400, 1000), True)
-    except Exception as error:   # noqa: BLE001
-        print("view add failed", error)
-        return False
-    if view is None:
-        return False
-    viewport = view.ActiveViewport
-    viewport.DisplayMode = Rhino.Display.DisplayModeDescription.FindByName("Rendered")
-    if perspective:
-        viewport.SetCameraLocations(Rhino.Geometry.Point3d(0, 0, 0), Rhino.Geometry.Point3d(-420, -520, 380))
-    viewport.ZoomExtents()
-    capture_ = Rhino.Display.ViewCapture()
-    capture_.Width, capture_.Height = 1400, 1000
-    bitmap = capture_.CaptureToBitmap(view)
-    if bitmap is None:
-        return False
-    bitmap.Save(path)
-    return True
+def write_obj(doc, path):
+    """렌더용 OBJ — 항공사진을 입힌 땅 면(객체에 저장된 매핑 채널 1로 Rhino가 계산한 UV)과 건물. 헤드리스 문서는 뷰 캡처가 비어서(2026-11-14 시험) Blender로 렌더한다."""
+    lines, offset, counts = ["mtllib aerial.mtl"], 1, {"draped": 0, "buildings": 0}
+    for rhino_object in context_baker._get_objects(doc):
+        layer = doc.Layers[rhino_object.Attributes.LayerIndex].FullPath
+        draped = rhino_object.Attributes.MaterialSource == Rhino.DocObjects.ObjectMaterialSource.MaterialFromObject
+        if not (draped or layer.startswith("CTX::Buildings")):
+            continue
+        mesh = rhino_object.Geometry if isinstance(rhino_object.Geometry, Rhino.Geometry.Mesh) else None
+        if mesh is None:
+            meshes = Rhino.Geometry.Mesh.CreateFromBrep(rhino_object.Geometry.ToBrep() if hasattr(rhino_object.Geometry, "ToBrep") else rhino_object.Geometry,
+                                                         Rhino.Geometry.MeshingParameters.FastRenderMesh) or []
+            mesh = Rhino.Geometry.Mesh()
+            for part in meshes:
+                mesh.Append(part)
+        mesh = mesh.DuplicateMesh()
+        mesh.Faces.ConvertQuadsToTriangles()
+        if draped:
+            mesh.SetTextureCoordinates(rhino_object.GetTextureMapping(1), Rhino.Geometry.Transform.Identity, False)
+        lines.append("o %s_%d" % ("ground" if draped else "building", offset))
+        lines.append("usemtl %s" % ("aerial" if draped else "white"))
+        lines += ["v %.3f %.3f %.3f" % (v.X, v.Y, v.Z) for v in mesh.Vertices]
+        if draped:
+            lines += ["vt %.6f %.6f" % (t.X, t.Y) for t in mesh.TextureCoordinates]
+        for face in mesh.Faces:
+            a, b, c = face.A + offset, face.B + offset, face.C + offset
+            lines.append("f %d/%d %d/%d %d/%d" % (a, a, b, b, c, c) if draped else "f %d %d %d" % (a, b, c))
+        offset += mesh.Vertices.Count
+        counts["draped" if draped else "buildings"] += 1
+    with open(path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    with open(os.path.join(os.path.dirname(path), "aerial.mtl"), "w") as f:
+        f.write("newmtl aerial\nKd 1 1 1\nmap_Kd %s\nnewmtl white\nKd 0.92 0.92 0.9\n" % constants.AERIAL_DRAPE_FILE_NAME)
+    return counts
 
 
 doc = Rhino.RhinoDoc.CreateHeadless(None)
@@ -58,7 +70,7 @@ try:
     x, y = non_rhino_utils.get_tm_from_wgs84(LNG, LAT)
     sheet_ids = [constants.SHEET_IDS["aerial"], constants.SHEET_IDS["figure"]]
     request = {"target": {"mode": "point", "center": [x, y]}, "result_root": os.path.join(OUT_DIR, "result"),   # noqa: F821
-               "options": {"region": "global", "radius": 250, "shape": "rect", "scales": [2500], "paper": "A3", "make_sheets": True, "sheet_ids": sheet_ids,
+               "options": {"region": "global", "radius": 250, "shape": "rect", "scales": [3000], "paper": "A3", "make_sheets": True, "sheet_ids": sheet_ids,
                            "terrain_aerial": True, "terrain_block": True, "output_lang": "ko", "style": {"preset": "std", "aerial_opacity": 0.5}}}
     t0 = time.time()
 
@@ -100,9 +112,8 @@ try:
             check("sheet before", before and before[0].get("path"), str(before))
         finally:
             constants.AERIAL_REGIONS = saved
-    res["render_top"] = capture(doc, os.path.join(OUT_DIR, "render_top.png"), False)   # noqa: F821
-    res["render_persp"] = capture(doc, os.path.join(OUT_DIR, "render_persp.png"), True)   # noqa: F821
-    print("render", res["render_top"], res["render_persp"])
+    res["obj"] = write_obj(doc, os.path.join(OUT_DIR, "aerial.obj"))   # noqa: F821
+    check("obj uv", res["obj"]["draped"] > 0, json.dumps(res["obj"]))
 finally:
     non_rhino_utils.set_projection()
     doc.Dispose()
