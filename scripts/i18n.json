@@ -6029,6 +6029,54 @@
   "ja": "OSMサーバーが混雑していたため、街路樹・塀・横断歩道を除いて作りました",
   "zh": "OSM 服务器繁忙，已省略行道树、围墙和人行横道"
  },
+ "OSM 서버가 붐벼 간이 데이터(OpenFreeMap)로 받는 중 ({0}/{1})": {
+  "en": "OSM server busy, downloading simplified data (OpenFreeMap) ({0}/{1})",
+  "es": "Servidor OSM saturado, descargando datos simplificados (OpenFreeMap) ({0}/{1})",
+  "ja": "OSMサーバーが混雑しているため簡易データ（OpenFreeMap）を取得中（{0}/{1}）",
+  "zh": "OSM 服务器繁忙，正在获取简易数据（OpenFreeMap）（{0}/{1}）"
+ },
+ "벡터 타일을 읽지 못했습니다(wire {0})": {
+  "en": "Could not read the vector tile (wire {0})",
+  "es": "No se pudo leer la tesela vectorial (wire {0})",
+  "ja": "ベクタータイルを読み込めませんでした（wire {0}）",
+  "zh": "无法读取矢量瓦片（wire {0}）"
+ },
+ "OpenFreeMap 받기 상한({0} MB)을 넘었습니다": {
+  "en": "OpenFreeMap download limit ({0} MB) exceeded",
+  "es": "Se superó el límite de descarga de OpenFreeMap ({0} MB)",
+  "ja": "OpenFreeMapの取得上限（{0} MB）を超えました",
+  "zh": "超过 OpenFreeMap 下载上限（{0} MB）"
+ },
+ "Overpass가 막혀 받은 간이 데이터 — 도로 폭은 등급 기본값, 층수 없음, 높이는 render_height": {
+  "en": "Simplified data used because Overpass was unavailable — road widths are class defaults, no floor counts, heights from render_height",
+  "es": "Datos simplificados porque Overpass no estaba disponible — anchos de vía por categoría, sin número de plantas, alturas de render_height",
+  "ja": "Overpassが使えなかったため簡易データ — 道路幅は等級の既定値、階数なし、高さはrender_height",
+  "zh": "因 Overpass 不可用而使用的简易数据 — 道路宽度为等级默认值，无层数，高度取 render_height"
+ },
+ "OSM 서버가 붐벼 간이 데이터(OpenFreeMap 주간 사본)로 만들었습니다": {
+  "en": "OSM server was busy, so the model was built from simplified data (OpenFreeMap weekly copy)",
+  "es": "El servidor OSM estaba saturado; el modelo se creó con datos simplificados (copia semanal de OpenFreeMap)",
+  "ja": "OSMサーバーが混雑していたため簡易データ（OpenFreeMap週次コピー）で作成しました",
+  "zh": "OSM 服务器繁忙，已用简易数据（OpenFreeMap 每周副本）生成"
+ },
+ "도로 폭은 등급 기본값이고 층수·건물 용도가 없습니다. 잠시 뒤 다시 만들면 OSM 원본으로 만듭니다.": {
+  "en": "Road widths are class defaults, and floor counts and building uses are missing. Build again later to use the original OSM data.",
+  "es": "Los anchos de vía son valores por categoría y faltan plantas y usos de edificios. Vuelva a crear más tarde para usar los datos originales de OSM.",
+  "ja": "道路幅は等級の既定値で、階数・建物用途はありません。しばらくしてから作り直すとOSMの元データで作成します。",
+  "zh": "道路宽度为等级默认值，缺少层数和建筑用途。稍后重新生成即可使用 OSM 原始数据。"
+ },
+ "건물 높이: OpenFreeMap render_height(C — height 태그 또는 층수 × 3.66 m)·기본값 {0:.1f} m(D)": {
+  "en": "Building height: OpenFreeMap render_height (C — height tag or floors × 3.66 m), default {0:.1f} m (D)",
+  "es": "Altura de edificios: render_height de OpenFreeMap (C — etiqueta height o plantas × 3.66 m), por defecto {0:.1f} m (D)",
+  "ja": "建物高さ: OpenFreeMap render_height（C — heightタグまたは階数 × 3.66 m）・既定値 {0:.1f} m（D）",
+  "zh": "建筑高度：OpenFreeMap render_height（C — height 标签或层数 × 3.66 m）、默认值 {0:.1f} m（D）"
+ },
+ "OpenFreeMap 높이": {
+  "en": "OpenFreeMap height",
+  "es": "Altura OpenFreeMap",
+  "ja": "OpenFreeMapの高さ",
+  "zh": "OpenFreeMap 高度"
+ },
  "잠시 뒤 다시 만들면 들어갑니다. 3D 설정에서 끄면 묻지 않습니다.": {
   "en": "Generate again later to include them. Turn them off in 3D settings to skip the request.",
   "es": "Vuelva a generar más tarde para incluirlos. Desactívelos en los ajustes 3D para no solicitarlos.",

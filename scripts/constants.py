@@ -323,6 +323,26 @@ OSM_SEARCH_TIMEOUT_SECONDS = 10   # 지명 검색은 UI 스레드에서 기다�
 OSM_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 OSM_TERRAIN_ZOOM = 13           # 픽셀 약 19 m(적도)·15 m(위도 37°). 원천 DEM이 약 30 m라 더 키워도 정밀해지지 않는다
 OSM_TERRAIN_STEP = 2            # 픽셀 건너뛰기 — 표고점 간격 약 30 m
+# OSM 받기 보험 — Overpass(모든 미러·다시 묻기)가 다 실패하면 같은 범위를 OpenFreeMap 벡터 타일(OSM 주간 사본, OpenMapTiles 스키마)로 받는다(osm_context.get_tile_elements).
+# 이용 조건(https://openfreemap.org/tos/ 2026-10-14판, 2026-11-14 확인): 키·가입 없음, 상업 이용 가능, 출처 표기 필수(인쇄물 포함).
+# 앱의 지역 받기는 한 번에 3,000타일·50 MB 이하, 동시 요청 4개 이하, 앱을 밝힌 User-Agent(OSM_USER_AGENT) — 타일을 하나씩 차례로 받는다.
+# 타일 주소는 주간 판 폴더라(2026-11-14: planet/20261101_080013_pt/{z}/{x}/{y}.pbf) TileJSON에서 읽는다. 매니페스트 services.osm_fallback이 덮을 수 있다
+OSM_FALLBACK_TILEJSON_URL = "https://tiles.openfreemap.org/planet"
+OSM_FALLBACK_CREDIT = "OpenFreeMap © OpenMapTiles · Data from OpenStreetMap (© OpenStreetMap contributors, ODbL 1.0)"   # TileJSON attribution 그대로
+OSM_FALLBACK_ZOOM = 14          # 최대 줌(건물은 z13~14만). 위도 47°에서 타일 약 1.7 km — 반경 1 km면 4~9장, 파리 도심 타일 약 1.2 MB
+OSM_FALLBACK_MAX_BYTES = 50 * 1024 * 1024   # 이용 조건의 한 번 받기 상한 — 넘으면 대체를 멈춘다(반경 2 km 상한이면 16장 안팎이라 닿지 않는다)
+OSM_FALLBACK_TIMEOUT_SECONDS = 30
+OSM_FALLBACK_LAYERS = ("building", "transportation", "water", "waterway", "landcover", "landuse", "park", "poi")   # 나머지 레이어는 해독하지 않는다
+# 타일 경계에서 잘린 면 조각의 정점을 이 거리 안이면 한 점으로 본다(non_rhino_utils.get_merged_rings). 단위 = 1/4096 타일(z14 위도 47°에서 약 0.4 m).
+# 타일은 경계 밖 64 단위까지 겹쳐 담고 정점은 정수 격자라, 양쪽 타일이 경계에서 자른 점이 1 단위 안팎으로 어긋난다(2026-11-14 파리 타일 실측)
+OSM_FALLBACK_SEAM_TOLERANCE = 2.0
+OSM_FALLBACK_DEFAULT_HEIGHT = 5   # OpenMapTiles render_height 기본값 — height·층수 태그가 없으면 5 m(정수 올림). 이 값이면 우리 기본 높이(D)로
+# OpenMapTiles transportation class → OSM highway(폭은 OSM_ROAD_WIDTHS). minor = residential·unclassified·living_street, path는 subclass(footway 등) 그대로.
+# rail·transit은 subclass가 railway 값. 공사 중(*_construction)·ferry·aerialway는 뺀다
+OSM_FALLBACK_ROAD_CLASSES = {"motorway": "motorway", "trunk": "trunk", "primary": "primary", "secondary": "secondary", "tertiary": "tertiary",
+                             "minor": "residential", "service": "service", "track": "track"}
+OSM_FALLBACK_STATIONS = ("station", "subway")   # poi class railway의 subclass 중 역(railway=station, 지하철역은 subway) — 정류장(halt·tram_stop)은 Overpass 질의처럼 뺀다
+OSM_FALLBACK_FORCE_ENV = "GORANI_FORCE_OSM_FALLBACK"   # "1"이면 Overpass를 부르지 않고 실패로 본다 — 대체 경로 재현(dev_rhino_run 드라이버·시험)
 
 # 데이터 팩 받기(data_pack.py) — Yak 설치본은 DB 없이 깔리고 패널에서 받는다
 DATA_REPO_ID = "hooooooooon/urbandesigntool-data"   # Hugging Face 공개 데이터셋(필지 시군구 팩 + 매니페스트) — dev_deploy upload
@@ -1062,9 +1082,9 @@ RESULT_TABLES_DIRNAME = "tables"
 RESULT_SHEETS_DIRNAME = "sheets"
 # data_sources.source_id → 메타 역할(lot·building·terrain·upis). prepare가 DataSource 객체를 그대로 넘겨도 역할을 찾는다
 SOURCE_ID_ROLES = {"vworld_land_char": "lot", "vworld_building": "building", "ngii_topo_5000": "terrain", "seoul_zoning": "upis",
-                   "osm": "building", "aws_terrain": "terrain",   # osm·aws_terrain = 해외 대상지(osm_context)
+                   "osm": "building", "openfreemap": "building", "aws_terrain": "terrain",   # osm·openfreemap(Overpass 대체)·aws_terrain = 해외 대상지(osm_context)
                    "plateau": "building", "gsi_dem": "terrain"}   # 일본 — PLATEAU 건물 팩·지리원 표고 타일(뒤에 둔 것이 역할을 차지한다)
-GLOBAL_SOURCE_IDS = ("osm", "aws_terrain", "plateau", "gsi_dem")   # 이 출처가 하나라도 있으면 Global 산출물(메타 줄·도면 문구) — 일본은 OSM 없이도 만든다
+GLOBAL_SOURCE_IDS = ("osm", "openfreemap", "aws_terrain", "plateau", "gsi_dem")   # 이 출처가 하나라도 있으면 Global 산출물(메타 줄·도면 문구) — 일본은 OSM 없이도 만든다
 META_SOURCE_NAMES = {"lot": "필지 토지특성정보", "building": "건물 GIS건물통합정보", "upis": "도시계획 서울시 UPIS", "terrain": "지형 수치지형도 1:5,000"}
 # ② 출처·라이선스 — 토지특성·토지이용계획은 '이용허락범위 제한 없음'(공공누리 1유형/CC BY로 적지 않는다, data_sources §3)
 META_SOURCE_LINE = ("출처: 국토교통부(GIS건물통합정보 — CC BY/공공누리 1유형; 토지특성정보·토지이용계획정보 — 이용허락범위 제한 없음), "
@@ -1090,7 +1110,7 @@ SHEET_MIN_VERTEX_MM = 0.05       # 종이에서 이보다 가까운 연속 정�
 SHEET_PARCEL_MAX_SCALE = 3000    # 이 축척보다 작은 도면(1:5000)은 지적선을 그리지 않는다 — deliverables B.2 '1:5000 지적선 off'
 SHEET_FADE_TO_PAPER = 0.45       # 주제도의 바탕(가구·건물·녹지·수계)을 종이색 쪽으로 이만큼 흐린다 — 주제 색이 먼저 읽히게
 SHEET_HEIGHT_SRC_LABELS = {"height": "대장 높이", "grnd_flr": "대장 층수", "topo_flr": "지형도 층수", "hub": "건축HUB", "default": "기본값",
-                           "osm_height": "OSM 높이", "osm_levels": "OSM 층수",
+                           "osm_height": "OSM 높이", "osm_levels": "OSM 층수", "openfreemap_height": "OpenFreeMap 높이",
                            "plateau_height": "PLATEAU 실측 높이", "plateau_levels": "PLATEAU 층수"}  # 층수 카드, A.4 HEIGHT_SRC. 여기 없는 키는 data_pack.get_height_src_label이 팩 라벨로 만든다
 HEIGHT_SRC_KIND_LABELS = {"height": "{0} 높이", "height_rel": "{0} 높이", "levels": "{0} 층수", "roof": "{0} 지붕 높이"}   # '<source_id>_<종류>' 꼴 height_src의 종류 — 새 나라 팩은 코드 수정 없이
 SHEET_HATCH = {"landlocked": {"stroke": "#D83A3A", "stroke-width": 0.25, "spacing_mm": 1.5}}   # <pattern id="hatch_<키>"> 45° 사선

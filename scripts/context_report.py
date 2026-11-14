@@ -128,7 +128,8 @@ def _get_abroad_meta_lines(prepared):
     plateau, gsi = (packs[0] if packs else None), "gsi_dem" in sources
     pack_label = "·".join(data_pack.get_pack_label(p.source_id) for p in packs)
     crs_name = tr("대상지 중심 횡메르카토르(GRS80, 축척 1)") if non_rhino_utils.is_local_projection() else "EPSG:5186"
-    if not plateau and not gsi:
+    tiles = sources.get("openfreemap")   # Overpass가 막혀 OpenFreeMap 타일로 대체(osm_context.get_elements)
+    if not plateau and not gsi and not tiles:
         return [
             tr("자료기준 — OpenStreetMap {0} · Terrain Tiles · {1} · 생성 {2} · {3} v{4}", dates["building"], non_rhino_utils.get_crs_label(),
                _built_at(prepared)[:10], constants.TOOL_NAME, constants.PANEL_VERSION),
@@ -138,10 +139,11 @@ def _get_abroad_meta_lines(prepared):
             tr("건물 높이: OSM height 태그(B)·층수(C)·기본값 {0:.1f} m(D)", constants.DEFAULT_BUILDING_HEIGHT_M),
         ]
     osm = sources.get("osm")   # Overpass가 막히면 없다(osm_context.load)
-    data = ["%s %s" % (data_pack.get_pack_label(p.source_id), p.reference_date) for p in packs] + (["OpenStreetMap %s" % osm.reference_date] if osm else [])
+    data = ["%s %s" % (data_pack.get_pack_label(p.source_id), p.reference_date) for p in packs] + (["OpenStreetMap %s" % osm.reference_date] if osm else []) + (
+        ["OpenFreeMap %s" % tiles.reference_date] if tiles else [])
     data.append("国土地理院 標高タイル" if gsi else "Terrain Tiles")
     credits = [tr("{0}、国土交通省 (CC BY 4.0, Gorani 가공)", p.name) if p.source_id == "plateau" else (p.note or p.name) for p in packs] + (
-        ["© OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright)"] if osm else []) + [
+        ["© OpenStreetMap contributors (ODbL 1.0, openstreetmap.org/copyright)"] if osm else []) + ([constants.OSM_FALLBACK_CREDIT] if tiles else []) + [
         tr("지형 国土地理院 標高タイル (加工)") if gsi else tr("지형 Terrain Tiles (Mapzen·AWS Open Data, SRTM 등 공개 DEM)")]
     return [
         tr("자료기준 — {0} · {1} · 생성 {2} · {3} v{4}", " · ".join(data), non_rhino_utils.get_crs_label(), _built_at(prepared)[:10],
@@ -150,6 +152,7 @@ def _get_abroad_meta_lines(prepared):
         tr("좌표계: {0} · 지형 5 m 격자(표고 T.P.) — 실측·법정 자료 아님", crs_name) if gsi else tr("좌표계: {0} · 지형 약 30 m 격자 — 실측·법정 자료 아님", crs_name),
         tr("정합 오차: — (필지 자료 없음)"),
         tr("건물 높이: {0} 실측 높이(B)·층수(C), 없는 곳은 OSM height 태그(B)·층수(C)·기본값 {1:.1f} m(D)", pack_label, constants.DEFAULT_BUILDING_HEIGHT_M) if plateau
+        else tr("건물 높이: OpenFreeMap render_height(C — height 태그 또는 층수 × 3.66 m)·기본값 {0:.1f} m(D)", constants.DEFAULT_BUILDING_HEIGHT_M) if tiles and not osm
         else tr("건물 높이: OSM height 태그(B)·층수(C)·기본값 {0:.1f} m(D)", constants.DEFAULT_BUILDING_HEIGHT_M),
     ]
 

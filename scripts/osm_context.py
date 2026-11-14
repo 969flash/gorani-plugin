@@ -4,13 +4,15 @@
 좌표는 non_rhino_utils의 지금 투영(대상지 중심 지역 횡메르카토르) m. 표준 라이브러리만 쓴다(urllib·json·zlib·sqlite3).
 일본은 받아 둔 PLATEAU 건물 팩(jp<시구정촌코드>_context.db — cmd_site가 생성 직전에 받는다)을 먼저 쓰고 OSM 건물은 그와 겹치지 않는
 것만 보탠다. 지형은 국토지리원(GSI) 5 m 표고 타일. 근거 docs/research/japan.md.
+Overpass가 다 막히면 같은 범위를 OpenFreeMap 벡터 타일(OSM 주간 사본, get_elements → get_tile_elements)로 받는다 — 근거 docs/data_sources.md 'OSM 받기 보험'.
 
 출처 표기: 건물·도로 등 "© OpenStreetMap contributors"(ODbL — 산출물은 출처 표기만, DB로 재배포하지 않는다),
 지형 "Terrain Tiles, Mapzen/AWS Open Data(SRTM·GMTED 등 공개 DEM)", 일본 건물 "3D都市モデル（Project PLATEAU）<도시>（<연도>年度）"
-(CC BY 4.0), 일본 지형 "国土地理院 標高タイル".
+(CC BY 4.0), 일본 지형 "国土地理院 標高タイル", 타일 대체 "OpenFreeMap © OpenMapTiles · Data from OpenStreetMap"(constants.OSM_FALLBACK_CREDIT).
 """
 
 import json
+import os
 import sqlite3
 import math
 import re
@@ -105,6 +107,8 @@ def get_overpass_elements(bounds, query=None, endpoints=None, on_wait=None):
     """bounds 안 OSM 요소(out geom). query = Overpass 질의 틀({bbox} 자리, 기본 constants.OSM_OVERPASS_QUERY), endpoints = 미러(기본 전부).
     미러를 차례로 시도한다. 첫 서버가 붐비면 OSM_RETRY_WAITS만큼 쉬며 다시 묻는다(on_wait = 기다리는 동안 진행 문구 콜백 — 취소 예외는 그대로 올라간다).
     실패하면 RuntimeError."""
+    if os.environ.get(constants.OSM_FALLBACK_FORCE_ENV) == "1":   # 대체 경로 재현 — 서버가 붐빈 것처럼
+        raise RuntimeError(tr("OSM(Overpass) 서버가 붐빕니다. 1~2분 뒤 다시 시도하세요") + "\n" + constants.OSM_FALLBACK_FORCE_ENV)
     bbox = "%.6f,%.6f,%.6f,%.6f" % _get_lnglat_bbox(bounds)
     query = (query or constants.OSM_OVERPASS_QUERY).replace("{bbox}", bbox)
     key = ("overpass", query)
@@ -219,7 +223,13 @@ def _parse_meters(text):
 
 def get_building_height(tags):
     # type: (dict) -> tuple
-    """OSM 태그 → (높이 m, 층수, height_src, height_grade). height 태그 B, building:levels C, 없으면 기본값 D(국내 규칙과 같은 등급 체계)."""
+    """OSM 태그 → (높이 m, 층수, height_src, height_grade). height 태그 B, building:levels C, 없으면 기본값 D(국내 규칙과 같은 등급 체계).
+    OpenFreeMap 대체(get_tile_tags)는 render_height(height 태그 또는 층수 × 3.66 m를 올림한 정수 — 어느 쪽인지 모른다) C, 기본값 5면 D."""
+    if "render_height" in tags:
+        render = float(tags["render_height"] or 0)
+        if render != constants.OSM_FALLBACK_DEFAULT_HEIGHT and 2.0 <= render <= 500.0:
+            return render, 0, "openfreemap_height", "C"
+        return constants.DEFAULT_BUILDING_HEIGHT_M, 0, "default", "D"
     height = _parse_meters(tags.get("height", ""))
     levels = int(_parse_meters(tags.get("building:levels", "")))
     if 2.0 <= height <= 500.0:
@@ -717,6 +727,296 @@ def get_place_address(lng, lat, lang):
 _ADDRESS_CACHE = {}   # 같은 자리를 다시 찍어도 묻지 않는다(Nominatim 이용 정책: 초당 1건)
 
 
+# ── OSM 받기 보험 (OpenFreeMap 벡터 타일) ──────────────
+# Overpass가 다 막히면 같은 범위를 OpenFreeMap z14 타일(OpenMapTiles 스키마 MVT)로 받아 Overpass 요소 꼴로 바꾼다 —
+# 건물·피처 만들기(_get_buildings·_get_features·_apply_public_use)는 그대로 쓴다. 도로 폭은 등급 기본값, 층수 없음, 높이는 render_height.
+
+def _read_varint(data, pos):
+    # type: (bytes, int) -> tuple
+    value = shift = 0
+    while True:
+        byte = data[pos]
+        pos += 1
+        value |= (byte & 0x7F) << shift
+        if byte < 0x80:
+            return value, pos
+        shift += 7
+
+
+def _get_fields(data):
+    # type: (bytes) -> object
+    """protobuf 메시지 → (필드 번호, 값) 차례로. 값은 varint면 정수, 길이 있는 것·고정 길이면 bytes."""
+    pos, end = 0, len(data)
+    while pos < end:
+        key, pos = _read_varint(data, pos)
+        wire = key & 7
+        if wire == 0:
+            value, pos = _read_varint(data, pos)
+        elif wire == 2:
+            size, pos = _read_varint(data, pos)
+            value, pos = data[pos:pos + size], pos + size
+        elif wire in (1, 5):
+            size = 8 if wire == 1 else 4
+            value, pos = data[pos:pos + size], pos + size
+        else:
+            raise ValueError(tr("벡터 타일을 읽지 못했습니다(wire {0})", wire))
+        yield key >> 3, value
+
+
+def _get_packed(data):
+    # type: (bytes) -> list
+    values, pos = [], 0
+    while pos < len(data):
+        value, pos = _read_varint(data, pos)
+        values.append(value)
+    return values
+
+
+def _get_mvt_value(data):
+    # type: (bytes) -> object
+    """MVT Value 메시지 → str·float·int·bool."""
+    for field, value in _get_fields(data):
+        if field == 1:
+            return value.decode("utf-8")
+        if field == 2:
+            return struct.unpack("<f", value)[0]
+        if field == 3:
+            return struct.unpack("<d", value)[0]
+        if field == 4:   # int64 — 음수는 64비트 2의 보수
+            return value - (1 << 64) if value >= 1 << 63 else value
+        if field == 6:   # sint64 zigzag
+            return (value >> 1) ^ -(value & 1)
+        return bool(value) if field == 7 else value
+    return None
+
+
+def _get_mvt_lines(commands):
+    # type: (list) -> list
+    """MVT 도형 명령(MoveTo 1·LineTo 2·ClosePath 7, 매개변수는 zigzag 차분) → 점 목록들(타일 좌표, MoveTo마다 새 목록, 면 링은 열린 채)."""
+    lines, x, y, i = [], 0, 0, 0
+    while i < len(commands):
+        command, count = commands[i] & 7, commands[i] >> 3
+        i += 1
+        if command == 7:
+            continue
+        for _ in range(count):
+            dx, dy = commands[i], commands[i + 1]
+            i += 2
+            x += (dx >> 1) ^ -(dx & 1)
+            y += (dy >> 1) ^ -(dy & 1)
+            if command == 1:
+                lines.append([(x, y)])
+            else:
+                lines[-1].append((x, y))
+    return lines
+
+
+def decode_mvt(data, names=None):
+    # type: (bytes, tuple) -> dict
+    """MVT(Mapbox Vector Tile 2.1, protobuf — gzip이면 먼저 푼다) → {레이어: (extent, [(속성 dict, 종류 1 점·2 선·3 면, 점 목록들)])}.
+    names가 있으면 그 레이어만 푼다(파리 타일 1.2 MB 중 poi가 절반)."""
+    if data[:2] == b"\x1f\x8b":
+        data = zlib.decompress(data, 31)
+    layers = {}
+    for field, layer in _get_fields(data):
+        if field != 3:
+            continue
+        name, extent, keys, values, features = "", 4096, [], [], []
+        for key, value in _get_fields(layer):
+            if key == 1:
+                name = value.decode("utf-8")
+                if names and name not in names:
+                    break
+            elif key == 2:
+                features.append(value)
+            elif key == 3:
+                keys.append(value.decode("utf-8"))
+            elif key == 4:
+                values.append(_get_mvt_value(value))
+            elif key == 5:
+                extent = value
+        if names and name not in names:
+            continue
+        decoded = []
+        for feature in features:
+            props, kind, lines = {}, 0, []
+            for key, value in _get_fields(feature):
+                if key == 2:
+                    tags = _get_packed(value)
+                    props = {keys[tags[i]]: values[tags[i + 1]] for i in range(0, len(tags) - 1, 2)}
+                elif key == 3:
+                    kind = value
+                elif key == 4:
+                    lines = _get_mvt_lines(_get_packed(value))
+            decoded.append((props, kind, lines))
+        layers[name] = (extent, decoded)
+    return layers
+
+
+def get_tile_tags(layer, props, kind):
+    # type: (str, dict, int) -> dict
+    """OpenMapTiles 레이어 속성 → Overpass 요소와 같은 OSM 태그(get_feature_kind·_get_buildings가 그대로 읽게). 쓰지 않으면 None.
+    kind = MVT 종류(1 점·2 선·3 면). 녹지·시설은 원래 OSM 값(landcover subclass, landuse·park class)을 OSM_GREEN_TAGS·OSM_PUBLIC_USE에서 찾는다."""
+    cls, sub = props.get("class") or "", props.get("subclass") or ""
+    if layer == "building":
+        if props.get("hide_3d") or (props.get("render_min_height") or 0) > 0:   # 부분(building:part)이 따로 있는 외곽·떠 있는 부분 — 바닥에서 올리면 겹친다
+            return None
+        return {"building": "yes", "render_height": props.get("render_height", constants.OSM_FALLBACK_DEFAULT_HEIGHT)}
+    if layer == "transportation":
+        brunnel = props.get("brunnel") or ""
+        tags = {key: str(props[key]) for key in ("layer", "level") if props.get(key) not in (None, "")}
+        if brunnel in ("bridge", "tunnel"):
+            tags[brunnel] = "yes"
+        if kind == 3:   # 면 — 보행 광장(highway=pedestrian area). 승강장(path platform)은 버스·철도를 가를 수 없어 뺀다(Innsbruck 1 km: 타일 102면, Overpass 철도 승강장 33면)
+            return dict(tags, highway=sub, area="yes") if cls == "path" and sub in constants.OSM_ROAD_WIDTHS else None
+        if cls in ("rail", "transit"):
+            return dict(tags, railway=sub) if sub in constants.OSM_RAIL_TYPES else None
+        highway = sub if cls == "path" else constants.OSM_FALLBACK_ROAD_CLASSES.get(cls)
+        return dict(tags, highway=highway) if kind == 2 and highway in constants.OSM_ROAD_WIDTHS else None
+    if layer == "water":   # ocean은 뺀다(Overpass 경로도 해안선 바다 면이 없다), 수영장도
+        if props.get("brunnel") == "tunnel" or cls not in ("river", "lake", "pond", "dock"):
+            return None
+        return {"natural": "water", "water": "river"} if cls == "river" else {"natural": "water"}
+    if layer == "waterway":
+        return {"waterway": cls} if kind == 2 and props.get("brunnel") != "tunnel" else None
+    if layer in ("landcover", "landuse", "park") and kind == 3:
+        value = sub or cls
+        if value in constants.OSM_PUBLIC_USE:
+            return {"amenity": value}
+        key = next((k for k, values in constants.OSM_GREEN_TAGS.items() if value in values), None)
+        return {key: value} if key else None
+    if layer == "poi" and kind == 1 and cls == "railway" and sub in constants.OSM_FALLBACK_STATIONS and props.get("name"):
+        return {"railway": "station", "name": props["name"]}
+    return None
+
+
+def _get_tile_template():
+    # type: () -> str
+    """OpenFreeMap 타일 주소 틀({z}·{x}·{y}) — TileJSON tiles[0](주간 판 폴더가 바뀐다). 세션에 한 번 묻는다(_CACHE와 따로 — 비워져도 기준일을 읽게).
+    ponytail: 몇 주 열어 둔 Blender 세션은 옛 판 폴더를 쓴다 — 옛 판이 지워져 404가 나면 그때 다시 묻게."""
+    url = data_pack.get_service("osm_fallback", constants.OSM_FALLBACK_TILEJSON_URL)
+    if url not in _TILE_TEMPLATES:
+        _TILE_TEMPLATES[url] = json.loads(_fetch(url, timeout=constants.OSM_FALLBACK_TIMEOUT_SECONDS).decode("utf-8"))["tiles"][0]
+    return _TILE_TEMPLATES[url]
+
+
+_TILE_TEMPLATES = {}   # TileJSON 주소 → 타일 주소 틀
+
+
+def get_tile_date(template):
+    # type: (str) -> str
+    """타일 주소의 판 폴더(planet/20261101_080013_pt) → 기준일 '2026-11-01'. 모르면 ''."""
+    match = re.search(r"/(\d{4})(\d{2})(\d{2})_", template)
+    return "-".join(match.groups()) if match else ""
+
+
+def get_tile_elements(bounds, on_wait=None):
+    # type: (tuple, object) -> list
+    """Overpass 대체 — bounds(TM m)를 덮는 OpenFreeMap z14 타일을 차례로 받아 Overpass 요소 꼴(get_tile_tags 태그, 경위도 geometry)로.
+    처리: 좌표는 전역 타일 격자(z14 타일 하나 = 4096 단위)로 둔다. 타일마다 도형을 타일 경계로 잘라 이웃 타일과 겹친 버퍼를 없앤다(점은 타일 안 것만).
+          경계에 닿은 면은 같은 레이어·태그끼리 정점 붙이기 + 공유 변 지우기로 잇는다(get_merged_rings — 필지 합치기와 같은 함수).
+          범위 밖 도형은 뺀다. on_wait = 타일마다 진행 문구(취소 예외는 그대로 올라간다).
+    출력: 요소 목록(캐시). 못 받으면 OSError·ValueError·KeyError."""
+    south, west, north, east = _get_lnglat_bbox(bounds)
+    key = ("tiles", south, west, north, east)
+    if key in _CACHE:
+        return _CACHE[key]
+    zoom, unit = constants.OSM_FALLBACK_ZOOM, 4096
+    template = _get_tile_template()
+    x0, y0 = non_rhino_utils.get_tile_xy(west, north, zoom)
+    x1, y1 = non_rhino_utils.get_tile_xy(east, south, zoom)
+    query = (x0 * unit, y0 * unit, x1 * unit, y1 * unit)
+    tiles = [(tx, ty) for tx in range(int(x0), int(x1) + 1) for ty in range(int(y0), int(y1) + 1)]
+    elements, seams, size = [], {}, 0   # seams: (레이어, 태그) → 경계에 닿은 면 [[바깥, 구멍…]]
+
+    def is_near(points):
+        xs, ys = [p[0] for p in points], [p[1] for p in points]
+        return min(xs) <= query[2] and max(xs) >= query[0] and min(ys) <= query[3] and max(ys) >= query[1]
+
+    def add(tags, rings, kind):
+        lnglat = [[dict(zip(("lon", "lat"), non_rhino_utils.get_lnglat_from_tile(x / unit, y / unit, zoom))) for x, y in ring] for ring in rings]
+        element = {"id": len(elements) + 1, "tags": tags}
+        if kind == 1:
+            element.update(type="node", **lnglat[0][0])
+        elif kind == 2 or len(rings) == 1:
+            element.update(type="way", geometry=lnglat[0] + (lnglat[0][:1] if kind == 3 else []))
+        else:
+            element.update(type="relation", members=[{"role": "inner" if i else "outer", "geometry": ring + ring[:1]} for i, ring in enumerate(lnglat)])
+        elements.append(element)
+
+    for index, (tx, ty) in enumerate(tiles):
+        if on_wait is not None:
+            on_wait(tr("OSM 서버가 붐벼 간이 데이터(OpenFreeMap)로 받는 중 ({0}/{1})", index + 1, len(tiles)))
+        data = _fetch(template.format(z=zoom, x=tx, y=ty), timeout=constants.OSM_FALLBACK_TIMEOUT_SECONDS)
+        size += len(data)
+        if size > constants.OSM_FALLBACK_MAX_BYTES:   # 이용 조건의 한 번 받기 상한
+            raise ValueError(tr("OpenFreeMap 받기 상한({0} MB)을 넘었습니다", constants.OSM_FALLBACK_MAX_BYTES // (1024 * 1024)))
+        left, top = tx * unit, ty * unit
+        clip = [(left, top), (left + unit, top), (left + unit, top + unit), (left, top + unit)]
+        for layer, (extent, features) in decode_mvt(data, constants.OSM_FALLBACK_LAYERS).items():
+            scale = float(unit) / extent
+            for props, kind, lines in features:
+                tags = get_tile_tags(layer, props, kind)
+                if tags is None or not lines:
+                    continue
+                lines = [[(left + x * scale, top + y * scale) for x, y in line] for line in lines]
+                if kind == 1:
+                    for point in (line[0] for line in lines):
+                        if left <= point[0] < left + unit and top <= point[1] < top + unit and is_near([point]):
+                            add(tags, [[point]], 1)
+                elif kind == 2:
+                    for line in lines:
+                        for piece in non_rhino_utils.get_clipped_lines(line, clip):
+                            if is_near(piece):
+                                add(tags, [piece], 2)
+                elif kind == 3:
+                    polygons = []   # 바깥 링(타일 좌표 면적 +, y가 아래로라 시계로 보인다)마다 새 면, 구멍(−)은 앞 면에
+                    for ring in lines:
+                        if len(ring) < 3:
+                            continue
+                        if non_rhino_utils.get_signed_area(ring) > 0 or not polygons:
+                            polygons.append([ring])
+                        else:
+                            polygons[-1].append(ring)
+                    for polygon in polygons:
+                        xs, ys = [p[0] for p in polygon[0]], [p[1] for p in polygon[0]]
+                        if min(xs) > left and max(xs) < left + unit and min(ys) > top and max(ys) < top + unit:   # 타일 안 — 그대로
+                            if is_near(polygon[0]):
+                                add(tags, polygon, 3)
+                            continue
+                        rings = [non_rhino_utils.get_convex_clipped_ring(ring, clip) for ring in polygon]
+                        if len(rings[0]) >= 3 and non_rhino_utils.get_ring_area(rings[0]) > 1.0:
+                            seams.setdefault((layer, tuple(sorted(tags.items()))), []).append([r for r in rings if len(r) >= 3])
+    for (layer, items), polygons in seams.items():
+        try:
+            outers, holes = non_rhino_utils.get_merged_rings(polygons, constants.OSM_FALLBACK_SEAM_TOLERANCE)
+        except (ZeroDivisionError, ValueError):   # ponytail: 못 붙이면 조각 그대로 — 경계에 이음선만 남는다
+            outers, holes = [polygon[0] for polygon in polygons], []
+        outers = sorted(outers, key=non_rhino_utils.get_ring_area)   # 구멍은 그 점을 품는 가장 작은 바깥 링에
+        owned = [[outer] for outer in outers]
+        for hole in holes:
+            owner = next((group for group in owned if non_rhino_utils.is_point_in_ring(hole[0][0], hole[0][1], group[0])), None)
+            if owner is not None:
+                owner.append(hole)
+        for polygon in owned:
+            if is_near(polygon[0]):
+                add(dict(items), polygon, 3)
+    return _keep(key, elements)
+
+
+def get_elements(bounds, query=None, endpoints=None, on_wait=None):
+    # type: (tuple, str, tuple, object) -> tuple
+    """Overpass(get_overpass_elements), 다 실패하면 같은 범위 OpenFreeMap 타일(get_tile_elements) → (요소, 'osm'·'openfreemap').
+    타일은 질의와 상관없이 모든 레이어를 담는다(쓰는 쪽이 고른다). 둘 다 실패하면 RuntimeError(두 오류)."""
+    try:
+        return get_overpass_elements(bounds, query, endpoints, on_wait), "osm"
+    except RuntimeError as error:
+        try:
+            return get_tile_elements(bounds, on_wait), "openfreemap"
+        except (OSError, ValueError, KeyError) as tile_error:   # URLError·시간 초과는 OSError
+            raise RuntimeError("%s\nOpenFreeMap: %s" % (error, tile_error))
+
+
 # ── 묶기 ────────────────────────────────────────────────
 
 def load(bounds, today, on_wait=None, details=()):
@@ -727,29 +1027,44 @@ def load(bounds, today, on_wait=None, details=()):
     plateau, plateau_sources = load_plateau_buildings(get_lnglat_bounds(bounds))   # 나라별 팩 건물(일본 PLATEAU·네덜란드 PDOK)
     if plateau:   # 팩이 있는 곳 — 도로·수계·녹지 먼저(건물 줄 뺀 질의), OSM 건물은 따로 첫 미러에만(constants.OSM_OVERPASS_BUILDING_QUERY 주석)
         try:
-            elements, osm_ok = get_overpass_elements(bounds, constants.OSM_OVERPASS_QUERY.replace(constants.OSM_OVERPASS_BUILDINGS, ""), on_wait=on_wait), True
-        except RuntimeError:   # 공개 Overpass 서버가 모두 막힘(2026-10-21 Rhino 실측: 502·504·시간 초과) — 팩 건물·지형만으로 만든다
-            elements, osm_ok = [], False   # 출처에 osm이 빠진 것을 context_builder가 보고 알린다
-        try:
-            osm_buildings = _get_buildings(get_overpass_elements(bounds, constants.OSM_OVERPASS_BUILDING_QUERY, constants.OSM_OVERPASS_URLS[:1], on_wait), today) if osm_ok else []
-        except RuntimeError:   # 메우기용이라 못 받아도 넘어간다
-            osm_buildings = []
+            elements, via = get_elements(bounds, constants.OSM_OVERPASS_QUERY.replace(constants.OSM_OVERPASS_BUILDINGS, ""), on_wait=on_wait)
+        except RuntimeError:   # Overpass·타일 모두 막힘(2026-10-21 Rhino 실측: 502·504·시간 초과) — 팩 건물·지형만으로 만든다
+            elements, via = [], ""   # 출처에 osm이 빠진 것을 context_builder가 보고 알린다
+        building_elements, building_via = elements, via   # 타일 대체면 건물도 들어 있다(Overpass 본 질의는 건물 줄을 뺐다)
+        if via == "osm":
+            try:
+                building_elements, building_via = get_elements(bounds, constants.OSM_OVERPASS_BUILDING_QUERY, constants.OSM_OVERPASS_URLS[:1], on_wait)
+            except RuntimeError:   # 메우기용이라 못 받아도 넘어간다
+                building_elements = []
     else:
-        elements, osm_ok = get_overpass_elements(bounds, on_wait=on_wait), True
-        osm_buildings = _get_buildings(elements, today)
+        elements, via = get_elements(bounds, on_wait=on_wait)
+        building_elements, building_via = elements, via
+    osm_buildings = _get_buildings(building_elements, today)
+    if building_via == "openfreemap":   # 타일 대체 건물은 OSM id가 없다 — 건물 키를 출처 이름으로(PNU_SRC)
+        for building in osm_buildings:
+            building.src_key = "openfreemap:%d" % building.building_id
+    used = {via, building_via}   # 실제로 쓴 OSM 출처 — osm(Overpass)·openfreemap(타일 대체)
     buildings = plateau + get_buildings_apart(osm_buildings, plateau)
     _apply_public_use(buildings, elements)
     parts = [constants.OSM_OVERPASS_DETAIL_PARTS[key] for key in sorted(details) if key in constants.OSM_OVERPASS_DETAIL_PARTS]
     notes = []
-    if parts and osm_ok:   # 디테일 — 따로, 첫 미러에만(붐비면 디테일만 빠진다)
+    if parts and via == "osm":   # 디테일 — 따로, 첫 미러에만(붐비면 디테일만 빠진다). 타일에는 가로수·담·횡단보도가 없다
         try:
             elements = elements + get_overpass_elements(bounds, constants.OSM_OVERPASS_DETAIL_QUERY % " ".join(parts), constants.OSM_OVERPASS_URLS[:1], on_wait)
         except RuntimeError:
             notes.append("osm_detail_missing")
+    elif parts and via == "openfreemap":
+        notes.append("osm_detail_missing")
     spots, terrain_ids = get_terrain_spots(bounds, today)
     crs = non_rhino_utils.get_crs_label()
-    sources = [DataSource("osm", "OpenStreetMap (Overpass API)", "https://www.openstreetmap.org/copyright", today, today, crs,
-                          "ODbL 1.0 — © OpenStreetMap contributors", tr("건물 높이는 height·building:levels 태그, 없으면 기본값"))] if osm_ok else []
+    sources = []
+    if "osm" in used:
+        sources.append(DataSource("osm", "OpenStreetMap (Overpass API)", "https://www.openstreetmap.org/copyright", today, today, crs,
+                                  "ODbL 1.0 — © OpenStreetMap contributors", tr("건물 높이는 height·building:levels 태그, 없으면 기본값")))
+    if "openfreemap" in used:   # 기준일 = 타일 판(주간 사본) 날짜
+        sources.append(DataSource("openfreemap", "OpenFreeMap (OpenMapTiles z14)", "https://openfreemap.org/", get_tile_date(_get_tile_template()), today, crs,
+                                  "ODbL 1.0 — " + constants.OSM_FALLBACK_CREDIT,
+                                  tr("Overpass가 막혀 받은 간이 데이터 — 도로 폭은 등급 기본값, 층수 없음, 높이는 render_height")))
     if "aws_terrain" in terrain_ids:
         sources.append(DataSource("aws_terrain", "Terrain Tiles (AWS Open Data, terrarium)", "https://registry.opendata.aws/terrain-tiles/", "", today,
                                   crs, tr("공개(출처 표기)"), tr("SRTM·GMTED 등 혼합 DEM, 해상도 지역별 상이(약 30 m)")))

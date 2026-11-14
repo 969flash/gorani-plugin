@@ -316,13 +316,17 @@ class JapanTest(unittest.TestCase):
                 non_rhino_utils.set_projection()
 
     def test_overpass_down_keeps_plateau(self):
-        """Overpass가 모두 막혀도 일본 팩이 있으면 PLATEAU 건물로 만든다(출처에 osm 없음). 팩이 없으면 그대로 실패."""
+        """Overpass와 타일 대체가 모두 막혀도 일본 팩이 있으면 PLATEAU 건물로 만든다(출처에 osm 없음). 팩이 없으면 그대로 실패."""
         def down(bounds, query=None, endpoints=None, on_wait=None):
             raise RuntimeError("Overpass down")
-        saved = osm_context.get_overpass_elements, osm_context.get_terrain_spots, osm_context.data_pack.get_data_dir
+
+        def tiles_down(bounds, on_wait=None):
+            raise OSError("OpenFreeMap down")
+        saved = osm_context.get_overpass_elements, osm_context.get_terrain_spots, osm_context.data_pack.get_data_dir, osm_context.get_tile_elements
         with tempfile.TemporaryDirectory() as data_dir:
             _write_jp_pack(data_dir, "13104", [("a", _square(139.700, 35.690), "412")], 2025)
             osm_context.get_overpass_elements, osm_context.get_terrain_spots = down, lambda bounds, today: ([], set())
+            osm_context.get_tile_elements = tiles_down
             osm_context.data_pack.get_data_dir = lambda: data_dir
             try:
                 x, y = non_rhino_utils.get_tm_from_wgs84(139.7001, 35.6901)
@@ -333,7 +337,7 @@ class JapanTest(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     osm_context.load((x - 50, y - 50, x + 50, y + 50), "2026-10-21")
             finally:
-                osm_context.get_overpass_elements, osm_context.get_terrain_spots, osm_context.data_pack.get_data_dir = saved
+                osm_context.get_overpass_elements, osm_context.get_terrain_spots, osm_context.data_pack.get_data_dir, osm_context.get_tile_elements = saved
 
     def test_detail_query_apart(self):
         """디테일(가로수 등)은 켠 것만 본 질의와 따로 — 본 질의는 그대로, 디테일 질의만 실패하면 notes에 osm_detail_missing(2026-11-13)."""
