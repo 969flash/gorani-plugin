@@ -29,6 +29,7 @@ from xml.sax.saxutils import escape
 import constants
 import data_pack
 import non_rhino_utils
+import solar
 from i18n import get_lang, get_texts, tr
 from non_rhino_utils import (get_convex_clipped_ring, get_lnglat_from_tile, get_polygon_parts_from_geojson, get_ring_area, get_ring_orientation, get_text_width_em, get_tile_m_per_px,
                              get_tile_xy, get_tm_from_wgs84, get_wgs84_from_tm, is_local_projection, is_point_in_ring)
@@ -469,6 +470,7 @@ SHEETS = {
     "facility": (classify_facility, "faded"), "use": (classify_use, "faded"), "floor": (classify_floor, "faded"),
     "age": (classify_age, "faded"), "price": (classify_price, "faded"), "elev": (classify_elev, "faded"), "slope": (classify_slope, "faded"),
     "aerial": (None, "image"), "axo": (None, "axo"),
+    "shadow": (None, "diagram"), "sun_hours": (None, "faded"), "sun_path": (None, "diagram"), "wind": (None, "diagram"),   # diagram = 바탕 없이 그 시트가 다 그린다
 }
 
 
@@ -876,6 +878,26 @@ def _get_sheet_context(key, data, style, items):
         edges = [prices[0] if prices else 0.0] + list(breaks) + [prices[-1] if prices else 0.0]
         ramp = get_ramp(style, len(breaks) + 1)
         entries = [("p%d" % i, tr("{0}~{1} 만원/㎡", _won(edges[i]), _won(edges[i + 1])), {"fill": ramp[i]}) for i in range(len(breaks) + 1)] + [unknown]
+    elif key == "shadow":
+        hours = constants.SUN_SHADOW_HOURS
+        extras = [(tr("그림자 {0}시간", n) if n < len(hours) else tr("그림자 {0}시간 (종일)", n), {"fill": color}) for n, color in enumerate(constants.SUN_SHADOW_COLORS, 1)]
+        extras += [(tr("건축물"), {"fill": style["paper"], "stroke": get_mixed_color(style["ink"], style["paper"], 0.3)}), (tr("대상지"), site), (tr("분석 범위"), extent),
+                   (tr("해 방향 ({0}~{1}시)", hours[0], hours[-1]), {"fill": "none", "stroke": constants.SUN_PATH_COLORS["winter"], "stroke-width": 0.3})]
+    elif key == "sun_hours":
+        colors = constants.SUN_HOURS_COLORS
+        extras = [(tr("{0}~{1}시간", n, n + 1), {"fill": color}) for n, color in enumerate(colors)]
+        extras += [(tr("건축물"), {"fill": style["paper"], "stroke": get_mixed_color(style["ink"], style["paper"], 0.3)}), (tr("대상지"), site), (tr("분석 범위"), extent)]
+    elif key == "sun_path":
+        extras = [(tr(name), {"fill": "none", "stroke": constants.SUN_PATH_COLORS[season], "stroke-width": 0.7}) for season, name in constants.SUN_SEASONS]
+        extras += [(tr("매월 21일 궤적"), {"fill": "none", "stroke": get_mixed_color(style["ink"], style["paper"], 0.82), "stroke-width": 0.3}),
+                   (tr("정시 해 위치 — 보임"), {"shape": "circle", "fill": style["ink"], "stroke": style["ink"], "stroke-width": 0.3}),
+                   (tr("정시 해 위치 — 가려짐"), {"shape": "circle", "fill": style["paper"], "stroke": style["ink"], "stroke-width": 0.3}),
+                   (tr("지형이 가리는 하늘"), {"fill": constants.SUN_MASK_COLORS["terrain"]}), (tr("건물이 가리는 하늘"), {"fill": constants.SUN_MASK_COLORS["building"]})]
+    elif key == "wind":
+        breaks = constants.WIND_SPEED_BREAKS
+        extras = [(tr("{0}~{1} m/s", "%g" % breaks[i], "%g" % breaks[i + 1]) if i + 1 < len(breaks) else tr("{0} m/s 이상", "%g" % breaks[i]), {"fill": color})
+                  for i, color in enumerate(constants.WIND_COLORS)]
+        extras.append((tr("정온 {0} m/s 미만 (방향 없음)", "%g" % breaks[0]), {"fill": "none", "stroke": style["ink"], "stroke-width": 0.2}))
     elif key == "elev":
         step = constants.ELEV_PRESETS.get(data.options.get("elev_preset"), list(constants.ELEV_PRESETS.values())[0])
         zs = [p[2] for tri in items for p in tri[:3]]
@@ -986,7 +1008,7 @@ def _draw_base(data, style, base_mode, frame, frame_bounds, skip_buildings):
     # type: (SheetData, dict, str, Frame, tuple, bool) -> list
     """바탕(배경 사각형 다음): 도로면 → 수계 → 녹지 → 철도 → 건물. 도로면은 지목 도로 필지 ∪ 수치지형도 도로면.
     건물이 주제면 base_buildings는 빈 그룹 — 주제 path가 윤곽선까지 맡는다. image(항공사진)·axo(입체 매스도)는 바탕을 그리지 않는다."""
-    if base_mode in ("image", "axo"):
+    if base_mode in ("image", "axo", "diagram"):
         return []
     colors = _get_base_colors(style, base_mode)
     ground = _get_ground_items(data)
@@ -1429,8 +1451,677 @@ def _draw_axo(key, subject, classify_fn, entries, items, data, style, frame, fra
     return lines, {"bld": scene["count"]}, {"bld": float(scene["count"])}, []
 
 
+# ─────────────────────────────────────────────
+# 태양·그림자·바람(25~28) — 계산은 solar.py(순수 파이썬, 호스트 무관). 시각은 진태양시. 법규 일조 적합 판정 문구는 넣지 않는다
+# ─────────────────────────────────────────────
+
+class DiagramFrame(Frame):
+    """지도 대신 다이어그램을 그린 도면의 정보 열용 Frame — 축척이 없고 다이어그램 위가 북."""
+
+    def __init__(self, frame):
+        Frame.__init__(self, frame.paper_mm, frame.scale, frame.center)
+        self.north = (0.0, -1.0)
+        self.diagram = True
+
+
+def get_site_lnglat(data):
+    # type: (SheetData) -> tuple
+    """대상지 중심 (경도, 위도) — 국내 EPSG:5186, 해외 지역 TM(non_rhino_utils 지금 투영)."""
+    return get_wgs84_from_tm(data.center[0], data.center[1])
+
+
+def _get_year(data):
+    return int(data.options.get("today_year") or datetime.date.today().year)
+
+
+def get_sun_scene(data, view=None):
+    # type: (SheetData, tuple) -> dict
+    """25·26·27이 같이 쓰는 그림자 장면(data.cache) — {grid, buildings: [(링들, 지붕 z, 대상지 안, 중심)], ground_z, terrain, site_cells, extent_cells}.
+    격자 = 범위 bbox + SUN_SHADOW_REACH ∩ 자료(건물·지형)가 덮는 곳. 지형 삼각형이 없으면(지난 결과를 다시 열었을 때) 평지(0 m).
+    view(세계 bounds)를 주면 그 칸 + SUN_SHADOW_REACH로 더 줄인다 — 26 일조시간은 지도 칸만 보여 큰 범위에서 칸이 거칠어졌다(한 변 4 km: 8.5 → 4 m)."""
+    key = ("sun_scene", tuple(round(v, 1) for v in view) if view else None)
+    if key in data.cache:
+        return data.cache[key]
+    terrain = non_rhino_utils.TriangleZ(data.terrain_tris) if data.terrain_tris else None
+
+    def grid_z(x, y):   # 격자 — 자료 밖은 None(HeightGrid가 가까운 칸으로 메운다)
+        return terrain.hit_z(x, y) if terrain is not None else 0.0
+
+    if data.extent_ring:
+        ext = _get_ring_bounds(data.extent_ring)
+    else:
+        ext = (data.center[0] - 250.0, data.center[1] - 250.0, data.center[0] + 250.0, data.center[1] + 250.0)
+    reach = constants.SUN_SHADOW_REACH
+    bounds = [ext[0] - reach, ext[1] - reach, ext[2] + reach, ext[3] + reach]
+    covered = [_get_item_bounds(b) for b in data.buildings] + ([_get_ring_bounds([p for tri in data.terrain_tris for p in tri[:3]])] if data.terrain_tris else [])
+    if covered:   # 자료 밖은 비어 있어 격자만 키운다
+        bounds = [max(bounds[0], min(ext[0], min(b[0] for b in covered))), max(bounds[1], min(ext[1], min(b[1] for b in covered))),
+                  min(bounds[2], max(ext[2], max(b[2] for b in covered))), min(bounds[3], max(ext[3], max(b[3] for b in covered)))]
+    if view:
+        bounds = [max(bounds[0], view[0] - reach), max(bounds[1], view[1] - reach), min(bounds[2], view[2] + reach), min(bounds[3], view[3] + reach)]
+    site_rings = data.site_rings or [part[0] for lot in data.target_lots for part in get_polygon_parts_from_geojson(lot.geometry)]
+    grid = solar.HeightGrid(bounds, solar.get_grid_cell(bounds), grid_z, [])
+
+    def base_z(x, y):   # 3D와 같이 지형 TIN, 자료 밖(범위가 넓은 2D 조회의 바깥 건물)은 격자가 메운 지반 — 최저값이면 지붕이 땅에 묻힌다(한 변 2 km, 2026-11-14)
+        z = terrain.hit_z(x, y) if terrain is not None else 0.0
+        return grid.get_ground_at(x, y) if z is None else z
+
+    buildings = []
+    for building in data.buildings:
+        b = _get_item_bounds(building)
+        if not _intersects(b, bounds):
+            continue
+        height = float(getattr(building, "height_m", 0.0) or constants.DEFAULT_BUILDING_HEIGHT_M)
+        cx, cy = (b[0] + b[2]) * 0.5, (b[1] + b[3]) * 0.5
+        on_site = any(is_point_in_ring(cx, cy, ring) for ring in site_rings)
+        for part in get_polygon_parts_from_geojson(building.geometry):
+            rings = [[(float(p[0]), float(p[1])) for p in ring] for ring in part if len(ring) >= 3]
+            if rings:
+                base = min(base_z(x, y) for x, y in rings[0])   # 3D와 같이 발자국 최저 지반
+                buildings.append((rings, base + height, on_site, (cx, cy)))
+    grid.add_buildings([(rings, top) for rings, top, _s, _c in buildings])
+    extent_cells = grid.get_ring_cells([data.extent_ring]) if data.extent_ring else list(range(grid.nx * grid.ny))
+    site_cells = grid.get_ring_cells(site_rings) if site_rings else []
+    scene = {"grid": grid, "buildings": buildings, "ground_z": base_z, "terrain": terrain, "site_rings": site_rings,
+             "extent_cells": [i for i in extent_cells if not grid.roof[i]], "site_cells": [i for i in site_cells if not grid.roof[i]]}
+    data.cache[key] = scene
+    return scene
+
+
+def get_season_shadow(data, season):
+    # type: (SheetData, str) -> dict
+    """계절 하나의 그림자 겹침 — {sun, counts(칸별 0~7), positions [(시, 방위, 고도)]} (data.cache)."""
+    key = ("sun_shadow", season)
+    if key not in data.cache:
+        lng, lat = get_site_lnglat(data)
+        sun = solar.get_season_sun(season, lat, lng, _get_year(data))
+        counts, positions = solar.get_shadow_counts(get_sun_scene(data)["grid"], lat, sun, constants.SUN_SHADOW_HOURS)
+        data.cache[key] = {"sun": sun, "counts": counts, "positions": positions}
+    return data.cache[key]
+
+
+def get_level_rings(grid, values, levels, tolerance=None):
+    # type: (object, list, list, float) -> list
+    """값 ≥ 각 level 영역의 링들(세계좌표, 더글러스-포이커로 줄임) — [(level, [링])]."""
+    tolerance = grid.cell * 0.3 if tolerance is None else tolerance
+    return [(level, [solar.get_simplified_ring(ring, tolerance) for ring in solar.get_contour_rings(values, grid.nx, grid.ny, level, grid.x0, grid.y0, grid.cell)])
+            for level in levels]
+
+
+def _get_mm_d(rings_world, to_mm, rect, thumb=None, color=None):
+    # type: (list, object, tuple, list, str) -> str
+    """세계 링들 → 절대좌표 path d. to_mm(x, y) → 종이 mm, rect(min_x, min_y, max_x, max_y)로 자르고 SHEET_MIN_VERTEX_MM보다 가까운 점은 버린다.
+    thumb(목록)을 주면 (종이 mm 링들, color)를 덧붙인다 — 썸네일이 같은 형상을 다시 계산하지 않게."""
+    rings = _get_mm_rings(rings_world, to_mm, rect)
+    if thumb is not None and rings and color:
+        thumb.append((rings, color))
+    out = []
+    for ring in rings:   # 0.01 mm 정수 상대좌표(l) — 절대좌표보다 40 % 작다(한 변 2 km 25번 10.8 MB → 실측은 PR)
+        pts = [(int(round(x * 100)), int(round(y * 100))) for x, y in ring]
+        out.append("M%s %sl" % (_fmt(pts[0][0] / 100.0), _fmt(pts[0][1] / 100.0)) +
+                   " ".join("%s %s" % (_fmt((b[0] - a[0]) / 100.0), _fmt((b[1] - a[1]) / 100.0)) for a, b in zip(pts, pts[1:])) + "Z")
+    return "".join(out)
+
+
+def _get_mm_rings(rings_world, to_mm, rect):
+    # type: (list, object, tuple) -> list
+    """_get_mm_d의 링 목록(종이 mm). 종이에서 SUN_MIN_RING_MM2보다 작은 링(작은 축척의 헛간·그림자 부스러기)은 버린다 —
+    한 변 4 km 25번이 22 MB가 되어 rsvg가 못 읽었다(2026-11-14)."""
+    out = []
+    unit = constants.SUN_MIN_VERTEX_MM
+    for ring in rings_world:
+        pts = [to_mm(p[0], p[1]) for p in ring]
+        if len(pts) < 3:
+            continue
+        b = _get_ring_bounds(pts)
+        if not _intersects(b, rect):
+            continue
+        if not _contains(rect, b):
+            pts = get_clipped_ring(pts, rect)
+        kept = []
+        for x, y in pts:
+            if kept and abs(x - kept[-1][0]) < unit and abs(y - kept[-1][1]) < unit:
+                continue
+            kept.append((x, y))
+        if len(kept) >= 3 and get_ring_area(kept) >= constants.SUN_MIN_RING_MM2:
+            out.append(kept)
+    return out
+
+
+def _get_panel_boxes(w, h, gap, count=4):
+    # type: (float, float, float, int) -> list
+    """칸 count개 (x, y, w, h) — 2×2·4×1·1×4 가운데 칸의 짧은 변이 가장 긴 배치."""
+    best = None
+    for cols, rows in ((2, 2), (4, 1), (1, 4)):
+        cw, ch = (w - gap * (cols - 1)) / cols, (h - gap * (rows - 1)) / rows
+        if best is None or min(cw, ch) > best[0]:
+            best = (min(cw, ch), cols, rows, cw, ch)
+    _side, cols, rows, cw, ch = best
+    return [(c * (cw + gap), r * (ch + gap), cw, ch) for r in range(rows) for c in range(cols)][:count]
+
+
+def get_panel_scale(size_mm, bounds):
+    # type: (tuple, tuple) -> float
+    """칸(가로, 세로 mm)에 bounds(세계 m)가 들어가는 가장 상세한 SUN_PANEL_SCALES 축척(다 넘치면 마지막)."""
+    span_x, span_y = bounds[2] - bounds[0], bounds[3] - bounds[1]
+    for scale in constants.SUN_PANEL_SCALES:
+        if size_mm[0] * scale / 1000.0 >= span_x and size_mm[1] * scale / 1000.0 >= span_y:
+            return float(scale)
+    return float(constants.SUN_PANEL_SCALES[-1])
+
+
+def _get_season_label(season, sun):
+    # type: (str, dict) -> str
+    """'동지 12월 22일'."""
+    name = dict(constants.SUN_SEASONS)[season]
+    return tr("{0} {1}월 {2}일", tr(name), sun["date"][1], sun["date"][2])
+
+
+def _draw_shadow(key, subject, classify_fn, entries, items, data, style, frame, frame_bounds):
+    # type: (str, str, object, list, list, SheetData, dict, Frame, tuple) -> tuple
+    """25 계절별 그림자 — 지도 칸을 넷으로: 동지·춘추분·하지 지도(9~15시 매시 그림자를 겹쳐 짙을수록 오래 그늘) + 시각별 해 높이 표.
+    칸마다 축척이 같다(SUN_PANEL_SCALES — 범위가 들어가는 가장 상세한 것). 정보 열 축척은 ctx.info_frame."""
+    k = get_template_scale(data.paper_mm)
+    ts, ls, ink, paper = style["text_scale"], style["line_scale"], style["ink"], style["paper"]
+    muted = get_mixed_color(ink, paper, 0.45)
+    scene = get_sun_scene(data)
+    grid = scene["grid"]
+    w, h = frame.paper_mm
+    boxes = _get_panel_boxes(w, h, 6.0 * k)
+    title_h = 7.5 * k * ts
+    ext = _get_ring_bounds(data.extent_ring) if data.extent_ring else frame.world_bounds()
+    pad = 2.0 * k
+    scale = max(get_panel_scale((bw - 2 * pad, bh - title_h - 2 * pad), ext) for _x, _y, bw, bh in boxes[:3])
+    colors = _get_base_colors(style, "faded")
+    ground = _get_ground_items(data)
+    tolerance = max(grid.cell * 0.3, scale * constants.SUN_SIMPLIFY_MM / 1000.0)   # 등치선 단순화 — 칸 축척에서 0.15 mm
+    lines, shown, site_hours = [], 0, {}
+    lng, lat = get_site_lnglat(data)
+    thumb = data.cache[("thumb", key)] = []
+    for season, (bx, by, bw, bh) in zip(constants.SUN_SHADOW_PANELS, boxes):
+        shadow = get_season_shadow(data, season)
+        sun = shadow["sun"]
+        mw, mh = bw, bh - title_h
+        pf = Frame((mw, mh), scale, data.center)
+        ox, oy = bx, by + title_h
+
+        def to_mm(x, y, pf=pf, ox=ox, oy=oy):
+            px, py = pf.to_paper(x, y)
+            return px + ox, py + oy
+
+        rect = (ox, oy, ox + mw, oy + mh)
+        group = "panel_%s" % season
+        lines.append('<g id="%s">' % group)
+        lines.append('<rect id="%s_bg" x="%s" y="%s" width="%s" height="%s" fill="%s"/>' % (group, _fmt(ox), _fmt(oy), _fmt(mw), _fmt(mh), colors["block"]))
+        thumb.append(([[(ox, oy), (ox + mw, oy), (ox + mw, oy + mh), (ox, oy + mh)]], colors["block"]))
+        for layer in ("road", "water", "green"):
+            d = _get_mm_d([ring for item in ground[layer] if (item.geometry or {}).get("type") in ("Polygon", "MultiPolygon")
+                           for part in get_polygon_parts_from_geojson(item.geometry) for ring in part], to_mm, rect, thumb, colors[layer])
+            if d:
+                lines.append('<path id="%s_%s" fill="%s" fill-rule="evenodd" d="%s"/>' % (group, layer, colors[layer], d))
+        bands = get_level_rings(grid, shadow["counts"], list(range(1, len(constants.SUN_SHADOW_HOURS) + 1)), tolerance)
+        lines.append('<g id="theme_%s" fill-rule="evenodd" fill-opacity="0.92">' % season)
+        for level, rings in bands:
+            d = _get_mm_d(rings, to_mm, rect, thumb, constants.SUN_SHADOW_COLORS[level - 1])
+            if d:
+                lines.append('<path fill="%s" d="%s"/>' % (constants.SUN_SHADOW_COLORS[level - 1], d))
+        lines.append("</g>")
+        lines.append('<path id="%s_buildings" fill="%s" stroke="%s" stroke-width="%s" fill-rule="evenodd" d="%s"/>'
+                     % (group, paper, get_mixed_color(ink, paper, 0.3), _fmt(constants.SHEET_LINE_MM["building"] * 1.6 * ls),
+                        _get_mm_d([ring for rings, _top, _s, _c in scene["buildings"] for ring in rings], to_mm, rect, thumb, paper)))
+        if data.extent_ring:
+            lines.append('<path id="%s_extent" fill="none" stroke="%s" stroke-width="%s" stroke-dasharray="1.6 1" d="%s"/>'
+                         % (group, style["extent"], _fmt(constants.SHEET_LINE_MM["extent"] * 0.8 * ls), _get_mm_d([data.extent_ring], to_mm, rect)))
+        if scene["site_rings"]:
+            lines.append('<path id="%s_site" fill="none" stroke="%s" stroke-width="%s" stroke-linejoin="round" d="%s"/>'
+                         % (group, style["site"], _fmt(constants.SHEET_LINE_MM["site"] * 0.7 * ls), _get_mm_d(scene["site_rings"], to_mm, rect)))
+        # 칸 머리 — 계절·날짜(왼쪽), 남중 고도·낮 길이(오른쪽)
+        noon_alt = solar.get_sun_position(lat, sun["decl"], 720.0)[1]
+        rise, set_ = sun["daylight"]
+        size = constants.SHEET_FONT_MM["body"] * k * ts
+        lines.append(_text(bx, by + title_h * 0.62, _get_season_label(season, sun), size * 1.1, fill=constants.SUN_PATH_COLORS[season], **{"font-weight": "800"}))
+        lines.append(_text(bx + bw, by + title_h * 0.62, tr("남중 {0:.1f}° · 낮 {1}", noon_alt, solar.get_format_minutes(set_ - rise)),
+                           constants.SHEET_FONT_MM["small"] * k * ts, fill=muted, **{"text-anchor": "end"}))
+        # 해 방향 부채 — 9~15시 해가 있는 쪽(칸 오른쪽 위)
+        fan_r = 6.0 * k
+        fx, fy = ox + mw - fan_r - 3.0 * k, oy + fan_r + 3.0 * k
+        fan = ['<g id="%s_sun">' % group, '<circle cx="%s" cy="%s" r="%s" fill="%s" fill-opacity="0.9" stroke="%s" stroke-width="%s"/>'
+               % (_fmt(fx), _fmt(fy), _fmt(fan_r + 1.6 * k), paper, muted, _fmt(0.15 * ls))]
+        for hour, azimuth, altitude in shadow["positions"]:
+            if altitude <= 0:
+                continue
+            ex, ey = fx + fan_r * math.sin(math.radians(azimuth)), fy - fan_r * math.cos(math.radians(azimuth))
+            fan.append('<path d="M%s %sL%s %s" stroke="%s" stroke-width="%s"/>' % (_fmt(fx), _fmt(fy), _fmt(ex), _fmt(ey), constants.SUN_PATH_COLORS[season], _fmt(0.25 * ls)))
+            fan.append('<circle cx="%s" cy="%s" r="%s" fill="%s"/>' % (_fmt(ex), _fmt(ey), _fmt(0.55 * k), constants.SUN_PATH_COLORS[season]))
+        fan += [_text(fx, fy - fan_r - 2.1 * k, "N", constants.SHEET_FONT_MM["meta"] * k * ts, fill=muted, **{"text-anchor": "middle", "font-weight": "700"}), "</g>"]
+        lines += fan
+        lines.append('<rect id="%s_frame" x="%s" y="%s" width="%s" height="%s" fill="none" stroke="%s" stroke-width="%s"/>'
+                     % (group, _fmt(ox), _fmt(oy), _fmt(mw), _fmt(mh), get_mixed_color(ink, paper, 0.6), _fmt(0.2 * ls)))
+        lines.append("</g>")
+        cells = scene["site_cells"] or scene["extent_cells"]
+        if cells:
+            site_hours[season] = sum(shadow["counts"][i] for i in cells) / float(len(cells))
+        shown += 1 if any(p[2] > 0 for p in shadow["positions"]) else 0
+    if len(boxes) > 3:
+        lines += _draw_sun_table(data, style, boxes[3], k, lat, lng)
+    ctx = data.options.get("_ctx")
+    if ctx is not None:
+        ctx["meta_extra"] = [tr(constants.SUN_METHOD_LINE)]
+        ctx.update(info_frame=Frame((boxes[0][2], boxes[0][3] - title_h), scale, data.center), sun_cell=grid.cell, sun_site_hours=site_hours,
+                   sun_terrain=scene["terrain"] is not None, sun_site=bool(scene["site_cells"]))
+    return lines, {"panel": shown}, {"panel": float(shown)}, []
+
+
+def _draw_sun_table(data, style, box, k, lat, lng):
+    # type: (SheetData, dict, tuple, float, float, float) -> list
+    """시각별 해의 고도·방위 표(진태양시 8~16시 × 동지·춘추분·하지) + 해 뜸·짐·낮 길이."""
+    bx, by, bw, bh = box
+    ts, ink, paper = style["text_scale"], style["ink"], style["paper"]
+    muted = get_mixed_color(ink, paper, 0.45)
+    seasons = list(constants.SUN_SHADOW_PANELS)
+    suns = {season: get_season_shadow(data, season)["sun"] for season in seasons}
+    hours = list(range(int(constants.SUN_HOURS_WINDOW[0]), int(constants.SUN_HOURS_WINDOW[1]) + 1))
+    head = constants.SHEET_FONT_MM["body"] * k * ts
+    rows = len(hours) + 4
+    row_h = min(5.4 * k * ts, (bh - 12.0 * k * ts) / rows)
+    size = min(constants.SHEET_FONT_MM["small"] * k * ts, row_h * 0.62)
+    col0 = bw * 0.2
+    col_w = (bw - col0) / len(seasons)
+    lines = ['<g id="sun_table">', _text(bx, by + head * 1.1, tr("시각별 해의 고도·방위 (진태양시)"), head * 1.05, fill=ink, **{"font-weight": "800"})]
+    y = by + head * 1.1 + row_h * 1.3
+    lines.append(_text(bx, y, tr("시각"), size, fill=muted, **{"font-weight": "700"}))
+    for c, season in enumerate(seasons):
+        lines.append(_text(bx + col0 + col_w * (c + 1) - 1.0 * k, y, tr(dict(constants.SUN_SEASONS)[season]), size,
+                           fill=constants.SUN_PATH_COLORS[season], **{"font-weight": "800", "text-anchor": "end"}))
+    y += row_h * 0.45
+    lines.append('<rect x="%s" y="%s" width="%s" height="%s" fill="%s"/>' % (_fmt(bx), _fmt(y), _fmt(bw), _fmt(0.25 * k), ink))
+    for n, hour in enumerate(hours):
+        y += row_h
+        if n % 2 == 0:
+            lines.append('<rect x="%s" y="%s" width="%s" height="%s" fill="%s"/>' % (_fmt(bx), _fmt(y - row_h * 0.72), _fmt(bw), _fmt(row_h),
+                                                                                    get_mixed_color(ink, paper, 0.94)))
+        lines.append(_text(bx + 1.0 * k, y, "%02d:00" % hour, size, fill=ink, **{"font-weight": "700" if hour == 12 else "500"}))
+        for c, season in enumerate(seasons):
+            azimuth, altitude = solar.get_sun_position(lat, suns[season]["decl"], hour * 60.0)
+            text = "%.1f° · %.0f°" % (altitude, azimuth) if altitude > 0 else "-"
+            lines.append(_text(bx + col0 + col_w * (c + 1) - 1.0 * k, y, text, size, fill=ink if altitude > 0 else muted, **{"text-anchor": "end"}))
+    y += row_h * 0.45
+    lines.append('<rect x="%s" y="%s" width="%s" height="%s" fill="%s"/>' % (_fmt(bx), _fmt(y), _fmt(bw), _fmt(0.15 * k), muted))
+    for label, getter in ((tr("해 뜸 · 짐"), lambda s: "%s · %s" % (solar.get_format_minutes(s["daylight"][0]), solar.get_format_minutes(s["daylight"][1]))),
+                          (tr("낮 길이"), lambda s: solar.get_format_minutes(s["daylight"][1] - s["daylight"][0]))):
+        y += row_h
+        lines.append(_text(bx + 1.0 * k, y, label, size, fill=muted, **{"font-weight": "700"}))
+        for c, season in enumerate(seasons):
+            lines.append(_text(bx + col0 + col_w * (c + 1) - 1.0 * k, y, getter(suns[season]), size, fill=ink, **{"text-anchor": "end"}))
+    y += row_h * 1.2
+    lines.append(_text(bx, y, tr("고도 · 방위(북 0°, 시계) · 위도 {0:.2f}° 경도 {1:.2f}°", lat, lng), size * 0.92, fill=muted))
+    lines.append("</g>")
+    return lines
+
+
+def get_sun_hours_grid(data, frame):
+    # type: (SheetData, Frame) -> dict
+    """26 일조시간 — {sun, hours(칸별 시), scene} (data.cache, 지도 칸마다 — 레이아웃을 바꾸면 칸이 달라진다)."""
+    view = frame.world_bounds()
+    key = ("sun_hours", tuple(round(v, 1) for v in view))
+    if key not in data.cache:
+        lng, lat = get_site_lnglat(data)
+        sun = solar.get_season_sun(constants.SUN_HOURS_SEASON, lat, lng, _get_year(data))
+        scene = get_sun_scene(data, view)
+        data.cache[key] = {"sun": sun, "hours": solar.get_sun_hours(scene["grid"], lat, sun), "scene": scene}
+    return data.cache[key]
+
+
+def _draw_sun_hours(key, subject, classify_fn, entries, items, data, style, frame, frame_bounds):
+    # type: (str, str, object, list, list, SheetData, dict, Frame, tuple) -> tuple
+    """26 일조시간 — 지면 격자마다 동지 진태양시 8~16시 중 해가 드는 시간을 1시간 단계색으로(건물 지붕은 흰 면으로 덮는다)."""
+    result = get_sun_hours_grid(data, frame)
+    scene = result["scene"]
+    grid = scene["grid"]
+    hours = result["hours"]
+    ls, ink, paper = style["line_scale"], style["ink"], style["paper"]
+    rect = _get_clip_rect(frame)
+    to_mm = frame.to_paper
+    levels = list(range(1, len(constants.SUN_HOURS_COLORS)))
+    box = [(grid.x0, grid.y0), (grid.x0 + grid.nx * grid.cell, grid.y0), (grid.x0 + grid.nx * grid.cell, grid.y0 + grid.ny * grid.cell), (grid.x0, grid.y0 + grid.ny * grid.cell)]
+    thumb = data.cache[("thumb", key)] = []
+    lines = ['<g id="theme" fill-rule="evenodd" fill-opacity="0.9">',
+             '<path id="theme_h0" fill="%s" d="%s"/>' % (constants.SUN_HOURS_COLORS[0], _get_mm_d([box], to_mm, rect, thumb, constants.SUN_HOURS_COLORS[0]))]
+    for level, rings in get_level_rings(grid, hours, levels, max(grid.cell * 0.3, frame.scale * constants.SUN_SIMPLIFY_MM / 1000.0)):
+        d = _get_mm_d(rings, to_mm, rect, thumb, constants.SUN_HOURS_COLORS[level])
+        if d:
+            lines.append('<path id="theme_h%d" fill="%s" d="%s"/>' % (level, constants.SUN_HOURS_COLORS[level], d))
+    lines.append("</g>")
+    lines.append('<path id="sun_buildings" fill="%s" stroke="%s" stroke-width="%s" fill-rule="evenodd" d="%s"/>'
+                 % (paper, get_mixed_color(ink, paper, 0.3), _fmt(constants.SHEET_LINE_MM["building"] * 1.6 * ls),
+                    _get_mm_d([ring for rings, _top, _s, _c in scene["buildings"] for ring in rings], to_mm, rect, thumb, paper)))
+    cells = scene["extent_cells"]
+    shares = [0] * len(constants.SUN_HOURS_COLORS)
+    for i in cells:
+        shares[min(len(shares) - 1, int(hours[i]))] += 1
+    ctx = data.options.get("_ctx")
+    if ctx is not None:
+        site = [hours[i] for i in scene["site_cells"]]
+        ext = [hours[i] for i in cells]
+        ctx["meta_extra"] = [tr(constants.SUN_METHOD_LINE)]
+        ctx.update(sun_hours_sun=result["sun"], sun_hours_site=site, sun_hours_extent=ext, sun_cell=grid.cell, sun_terrain=scene["terrain"] is not None,
+                   sun_hours_shares=[100.0 * s / len(cells) for s in shares] if cells else [])
+    return lines, {"cells": len(cells)}, {"cells": float(len(cells))}, []
+
+
+def _get_far_height(data, lat, lng):
+    # type: (SheetData, float, float) -> object
+    """분석 지형 밖 먼 산 높이 함수(x, y) → z 또는 None — AWS Terrain Tiles z10(약 120 m 칸)을 SUN_MASK_FAR_RADIUS까지 받는다. 못 받으면 None."""
+    if "sun_far" in data.cache:
+        return data.cache["sun_far"]
+    import osm_context   # 지형 타일 받기·PNG 풀기(표준 라이브러리) — 해외 지형과 같은 것
+    zoom = constants.SUN_MASK_FAR_ZOOM
+    tiles = {}
+    try:
+        radius_deg = constants.SUN_MASK_FAR_RADIUS / 111320.0
+        x0, y0 = get_tile_xy(lng - radius_deg / max(0.2, math.cos(math.radians(lat))), min(85.0, lat + radius_deg), zoom)
+        x1, y1 = get_tile_xy(lng + radius_deg / max(0.2, math.cos(math.radians(lat))), max(-85.0, lat - radius_deg), zoom)
+        for tx in range(int(x0), int(x1) + 1):
+            for ty in range(int(y0), int(y1) + 1):
+                tiles[(tx, ty)] = osm_context._get_terrain_tile(zoom, tx, ty, False)
+    except Exception:   # noqa: BLE001 — 오프라인·서버 장애면 분석 지형만
+        data.cache["sun_far"] = None
+        return None
+
+    def height_at(x, y):
+        lon, la = get_wgs84_from_tm(x, y)
+        fx, fy = get_tile_xy(lon, la, zoom)
+        tile = tiles.get((int(fx), int(fy)))
+        if tile is None:
+            return None
+        source_id, (width, height, channels, rows) = tile
+        px, py = min(width - 1, int((fx - int(fx)) * width)), min(height - 1, int((fy - int(fy)) * height))
+        return osm_context.get_elevation(source_id, *rows[py][px * channels:px * channels + 3])
+
+    data.cache["sun_far"] = height_at
+    return height_at
+
+
+def get_sky_mask(data):
+    # type: (SheetData) -> dict
+    """27 하늘 가림 — 관측점(대상지 중심, 지반 + SUN_EYE_HEIGHT)에서 본 방위별 지형·건물 고도각 (data.cache).
+    대상지 안 건물·관측점을 덮는 건물은 뺀다(대상지가 받는 주변의 가림을 본다). 지형 = 분석 지형 + 그 밖 먼 산(AWS z10)."""
+    if "sky_mask" in data.cache:
+        return data.cache["sky_mask"]
+    scene = get_sun_scene(data)
+    lng, lat = get_site_lnglat(data)
+    rings = scene["site_rings"]
+    ox, oy = _get_ring_center([p for ring in rings for p in ring]) if rings else data.center
+    oz = scene["ground_z"](ox, oy) + constants.SUN_EYE_HEIGHT
+    others = [(r, top) for r, top, on_site, _c in scene["buildings"] if not on_site and not is_point_in_ring(ox, oy, r[0])]
+    building_alts = solar.get_building_horizon((ox, oy, oz), others)
+    terrain = scene["terrain"]
+    far = _get_far_height(data, lat, lng) if terrain is not None else None   # 지형이 없으면(평지 0 m) 먼 산 절대 표고와 섞지 않는다
+    local_reach = 0.0
+    if terrain is not None:
+        tb = _get_ring_bounds([p for tri in data.terrain_tris for p in tri[:3]])
+        local_reach = max(abs(tb[0] - ox), abs(tb[2] - ox), abs(tb[1] - oy), abs(tb[3] - oy)) * 1.42
+
+    def height_at(x, y):
+        z = terrain.hit_z(x, y) if terrain is not None else None
+        if z is None and far is not None:
+            z = far(x, y)
+        return z
+
+    max_dist = constants.SUN_MASK_FAR_RADIUS if far is not None else local_reach
+    terrain_alts = solar.get_terrain_horizon((ox, oy, oz), height_at, max_dist) if (terrain is not None or far is not None) else [0.0] * len(building_alts)
+    mask = {"observer": (ox, oy, oz), "terrain": terrain_alts, "building": building_alts, "far": far is not None, "buildings": len(others), "has_terrain": terrain is not None,
+            "excluded": sum(1 for _r, _t, on_site, _c in scene["buildings"] if on_site)}
+    data.cache["sky_mask"] = mask
+    return mask
+
+
+def _draw_sun_path(key, subject, classify_fn, entries, items, data, style, frame, frame_bounds):
+    # type: (str, str, object, list, list, SheetData, dict, Frame, tuple) -> tuple
+    """27 태양 궤적·하늘 가림 — 평사 투영(천정 = 가운데, 지평선 = 원). 지형·건물 실루엣 위에 매월 21일 궤적(옅게)과 하지·춘추분·동지 궤적,
+    정시 해 위치(해가 보이면 채운 점, 가려지면 빈 점). 위 = 북, 오른쪽 = 동(평면도와 같다)."""
+    k = get_template_scale(data.paper_mm)
+    ts, ls, ink, paper = style["text_scale"], style["line_scale"], style["ink"], style["paper"]
+    muted = get_mixed_color(ink, paper, 0.45)
+    faint = get_mixed_color(ink, paper, 0.82)
+    w, h = frame.paper_mm
+    lng, lat = get_site_lnglat(data)
+    mask = get_sky_mask(data)
+    year = _get_year(data)
+    radius = min(w, h) * 0.5 - 16.0 * k
+    cx, cy = w * 0.5, h * 0.5 + 2.0 * k
+
+    def project(azimuth, altitude):
+        r = radius * math.tan(math.radians(90.0 - max(-1.0, altitude)) * 0.5)
+        return cx + r * math.sin(math.radians(azimuth)), cy - r * math.cos(math.radians(azimuth))
+
+    def line_d(points):
+        return "M" + "L".join("%s %s" % (_fmt(x), _fmt(y)) for x, y in points) if len(points) >= 2 else ""
+
+    bins = len(mask["terrain"])
+    step = 360.0 / bins
+    horizon = [max(t, b) for t, b in zip(mask["terrain"], mask["building"])]
+    rim = [project(i * step, 0.0) for i in range(bins)]
+    lines = ['<g id="sun_path">', '<path id="sky" fill="%s" stroke="none" d="%s"/>' % (paper, _poly_d([rim]))]
+    terrain_ring = [project(i * step, mask["terrain"][i]) for i in range(bins)]
+    building_ring = [project(i * step, horizon[i]) for i in range(bins)]
+    data.cache[("thumb", key)] = [([rim], paper), ([rim, terrain_ring], constants.SUN_MASK_COLORS["terrain"]), ([terrain_ring, building_ring], constants.SUN_MASK_COLORS["building"])]
+    lines.append('<path id="theme_terrain" fill="%s" fill-rule="evenodd" d="%s"/>' % (constants.SUN_MASK_COLORS["terrain"], _poly_d([rim, terrain_ring[::-1]])))
+    lines.append('<path id="theme_building" fill="%s" fill-rule="evenodd" d="%s"/>' % (constants.SUN_MASK_COLORS["building"], _poly_d([terrain_ring, building_ring[::-1]])))
+    # 눈금 — 고도 15°마다 원, 방위 15°마다 살(30°마다 진하게)
+    grid_lines = []
+    for altitude in range(15, 90, 15):
+        ring = [project(i * 2.0, altitude) for i in range(180)]
+        grid_lines.append('<path fill="none" d="%s"/>' % _poly_d([ring]))
+    for azimuth in range(0, 360, 15):
+        a, b = project(azimuth, 0.0), project(azimuth, 89.0 if azimuth % 90 else 90.0)
+        grid_lines.append('<path fill="none" stroke-width="%s" d="M%s %sL%s %s"/>' % (_fmt((0.18 if azimuth % 30 == 0 else 0.1) * ls), _fmt(a[0]), _fmt(a[1]), _fmt(b[0]), _fmt(b[1])))
+    lines.append('<g id="grid" stroke="%s" stroke-width="%s">' % (get_mixed_color(ink, paper, 0.7), _fmt(0.12 * ls)))
+    lines += grid_lines
+    lines.append("</g>")
+    lines.append('<path id="horizon" fill="none" stroke="%s" stroke-width="%s" d="%s"/>' % (ink, _fmt(0.35 * ls), _poly_d([rim])))
+    small = constants.SHEET_FONT_MM["small"] * k * ts
+    meta = constants.SHEET_FONT_MM["meta"] * k * ts
+    labels = ['<g id="grid_labels" fill="%s">' % muted]
+    for altitude in range(15, 90, 15):
+        x, y = project(195.0, altitude)
+        labels.append(_text(x, y, "%d°" % altitude, meta, **{"text-anchor": "middle", "paint-order": "stroke", "stroke": paper, "stroke-width": _fmt(0.5 * k)}))
+    for azimuth in range(0, 360, 30):
+        x, y = project(azimuth, -9.0 if azimuth % 90 else -11.0)
+        text = {0: "N", 90: "E", 180: "S", 270: "W"}.get(azimuth, "%d°" % azimuth)
+        labels.append(_text(x, y + small * 0.35, text, small * (1.35 if azimuth % 90 == 0 else 1.0), fill=ink if azimuth % 90 == 0 else muted,
+                            **{"text-anchor": "middle", "font-weight": "800" if azimuth % 90 == 0 else "500"}))
+    labels.append("</g>")
+    # 시각선(진태양시 — 적위만 바뀐다) + 매월 21일 궤적
+    hour_lines, month_lines = [], []
+    for hour in range(4, 21):
+        points = [project(*solar.get_sun_position(lat, decl * 0.5, hour * 60.0)) for decl in range(-47, 48)
+                  if solar.get_sun_position(lat, decl * 0.5, hour * 60.0)[1] > 0]
+        if len(points) >= 2:
+            hour_lines.append('<path d="%s"/>' % line_d(points))
+            end = solar.get_sun_position(lat, -26.5 if lat >= 0 else 26.5, hour * 60.0)
+            if end[1] > 1.0:
+                x, y = project(*end)
+                labels.append(_text(x, y + meta * 0.35, "%d" % hour, meta, fill=muted, **{"text-anchor": "middle", "font-weight": "700"}))
+    for month in range(1, 13):
+        decl, _eot = solar.get_solar_day(year, month, 21, lng)
+        rise, set_ = solar.get_daylight(lat, decl)
+        points = [project(*solar.get_sun_position(lat, decl, m)) for m in _get_minutes(rise, set_)]
+        if points:
+            month_lines.append('<path d="%s"/>' % line_d(points))
+    lines.append('<g id="month_paths" fill="none" stroke="%s" stroke-width="%s">' % (faint, _fmt(0.15 * ls)))
+    lines += month_lines
+    lines.append("</g>")
+    lines.append('<g id="hour_lines" fill="none" stroke="%s" stroke-width="%s" stroke-dasharray="0.8 0.6">' % (get_mixed_color(ink, paper, 0.65), _fmt(0.12 * ls)))
+    lines += hour_lines
+    lines.append("</g>")
+    visible = {}
+    for season in ("summer", "equinox", "winter"):
+        sun = solar.get_season_sun(season, lat, lng, year)
+        color = constants.SUN_PATH_COLORS[season]
+        points = [project(*solar.get_sun_position(lat, sun["decl"], m)) for m in _get_minutes(*sun["daylight"])]
+        lines.append('<path id="path_%s" fill="none" stroke="%s" stroke-width="%s" stroke-linecap="round" d="%s"/>' % (season, color, _fmt(0.7 * ls), line_d(points)))
+        data.cache[("thumb", key)].append((points, color, "line"))
+        dots = ['<g id="hours_%s" stroke="%s" stroke-width="%s">' % (season, color, _fmt(0.35 * ls))]
+        for hour in range(0, 25):
+            azimuth, altitude = solar.get_sun_position(lat, sun["decl"], hour * 60.0)
+            if altitude <= 0:
+                continue
+            x, y = project(azimuth, altitude)
+            seen = altitude > horizon[int((azimuth + step * 0.5) / step) % bins]
+            dots.append('<circle cx="%s" cy="%s" r="%s" fill="%s"/>' % (_fmt(x), _fmt(y), _fmt(0.95 * k), color if seen else paper))
+        dots.append("</g>")
+        lines += dots
+        noon = project(*solar.get_sun_position(lat, sun["decl"], 720.0))
+        labels.append(_text(noon[0] + 2.2 * k, noon[1] - 1.6 * k, _get_season_label(season, sun), small, fill=color,
+                            **{"font-weight": "800", "paint-order": "stroke", "stroke": paper, "stroke-width": _fmt(0.6 * k)}))
+        visible[season] = (sun, solar.get_visible_minutes(lat, sun, horizon))
+    lines += labels
+    lines.append('<path id="observer" fill="none" stroke="%s" stroke-width="%s" d="M%s %sH%sM%s %sV%s"/>'
+                 % (style["site"], _fmt(0.4 * ls), _fmt(cx - 1.6 * k), _fmt(cy), _fmt(cx + 1.6 * k), _fmt(cx), _fmt(cy - 1.6 * k), _fmt(cy + 1.6 * k)))
+    lines.append("</g>")
+    ctx = data.options.get("_ctx")
+    if ctx is not None:
+        ctx["meta_extra"] = [tr(constants.SUN_METHOD_LINE)] + ([tr(constants.SUN_FAR_SOURCE_LINE)] if mask["far"] else [])
+        ctx.update(sun_path_visible=visible, sun_mask=mask, sun_lat=lat, sun_lng=lng, diagram=True)
+    return lines, {"path": 1}, {"path": 1.0}, []
+
+
+def _get_minutes(rise, set_, step=4.0):
+    # type: (float, float, float) -> list
+    """해 뜸 ~ 짐 진태양시 분 목록(양 끝 포함)."""
+    if set_ <= rise:
+        return []
+    n = max(2, int((set_ - rise) / step))
+    return [rise + (set_ - rise) * i / n for i in range(n + 1)]
+
+
+def _get_wind_table(data):
+    # type: (SheetData) -> object
+    """28 바람 집계표(solar.get_wind_records) 또는 None(못 받음). data.cache — 스타일 미리보기마다 다시 받지 않는다."""
+    if "wind" not in data.cache:
+        lng, lat = get_site_lnglat(data)
+        try:
+            data.cache["wind"] = solar.get_wind_records(lat, lng)
+        except Exception as exc:   # noqa: BLE001 — 오프라인·서버 장애 — 빈 도면(바람 자료 못 받음)
+            data.cache["wind"] = None
+            data.cache["wind_error"] = str(exc)[:160]
+    return data.cache["wind"]
+
+
+WIND_NAMES = ("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
+
+
+def _draw_rose(cx, cy, radius, rose, ring_step, style, k, big, group, thumb=None):
+    # type: (float, float, float, dict, float, dict, float, bool, str, list) -> list
+    """바람장미 하나 — 16방위 꽃잎(풍속 등급 누적, 빈도 %)·빈도 원·방위 글자."""
+    ts, ls, ink, paper = style["text_scale"], style["line_scale"], style["ink"], style["paper"]
+    muted = get_mixed_color(ink, paper, 0.45)
+    sectors = constants.WIND_SECTORS
+    width = 360.0 / sectors
+    peak = max([sum(row) for row in rose["freq"]] or [0.0]) or 1.0
+    ring_step = ring_step or next((s_ for s_ in (1.0, 2.0, 2.5, 5.0, 10.0, 20.0) if peak / s_ <= 4.0), 25.0)   # 장미마다 꽃잎이 원을 80 % 넘게 채운다
+    max_ring = ring_step * max(1, int(math.ceil(peak / ring_step)))
+    scale = radius / max_ring
+    lines = ['<g id="%s">' % group]
+    rings = ['<g id="%s_rings" fill="none" stroke="%s" stroke-width="%s">' % (group, get_mixed_color(ink, paper, 0.75), _fmt(0.12 * ls))]
+    value = ring_step
+    while value <= max_ring + 1e-9:
+        rings.append('<path d="%s"/>' % _circle_d(cx, cy, value * scale))
+        value += ring_step
+    for s in range(0, sectors, 2 if big else 4):
+        a = math.radians(s * width)
+        rings.append('<path d="M%s %sL%s %s"/>' % (_fmt(cx), _fmt(cy), _fmt(cx + radius * math.sin(a)), _fmt(cy - radius * math.cos(a))))
+    rings.append("</g>")
+    lines += rings
+    for level in range(len(constants.WIND_SPEED_BREAKS)):
+        petals = []
+        for s in range(sectors):
+            inner = sum(rose["freq"][s][:level]) * scale
+            outer = inner + rose["freq"][s][level] * scale
+            if outer - inner < 0.02:
+                continue
+            a0, a1 = math.radians(s * width - width * 0.42), math.radians(s * width + width * 0.42)
+            arc = lambda r, n=6: [(cx + r * math.sin(a0 + (a1 - a0) * i / n), cy - r * math.cos(a0 + (a1 - a0) * i / n)) for i in range(n + 1)]
+            petals.append(arc(outer) + arc(inner)[::-1] if inner > 0.01 else arc(outer) + [(cx, cy)])
+        if petals:
+            lines.append('<path id="%s_w%d" fill="%s" stroke="%s" stroke-width="%s" d="%s"/>' % (group, level, constants.WIND_COLORS[level], paper, _fmt(0.08 * ls), _poly_d(petals)))
+            if thumb is not None:
+                thumb += [([petal], constants.WIND_COLORS[level]) for petal in petals]
+    size = constants.SHEET_FONT_MM["small" if big else "meta"] * k * ts
+    for s in range(0, sectors, 2 if big else 4):
+        a = math.radians(s * width)
+        x, y = cx + (radius + size * 1.3) * math.sin(a), cy - (radius + size * 1.3) * math.cos(a)
+        lines.append(_text(x, y + size * 0.35, WIND_NAMES[s], size * (1.15 if s % 4 == 0 else 0.95), fill=ink if s % 4 == 0 else muted,
+                           **{"text-anchor": "middle", "font-weight": "800" if s % 4 == 0 else "500"}))
+    label_a = math.radians(width * 2.5)
+    value = ring_step
+    while value <= max_ring + 1e-9:
+        r = value * scale
+        lines.append(_text(cx + r * math.sin(label_a), cy - r * math.cos(label_a), "%g %%" % value, constants.SHEET_FONT_MM["meta"] * k * ts * (1.0 if big else 0.85),
+                           fill=muted, **{"paint-order": "stroke", "stroke": paper, "stroke-width": _fmt(0.5 * k)}))
+        value += ring_step
+    lines.append("</g>")
+    return lines
+
+
+def _draw_wind(key, subject, classify_fn, entries, items, data, style, frame, frame_bounds):
+    # type: (str, str, object, list, list, SheetData, dict, Frame, tuple) -> tuple
+    """28 바람장미 — 연간(크게) + 계절 넷. 꽃잎 = 바람이 불어오는 쪽, 길이 = 빈도 %, 색 = 풍속 등급(보퍼트). 자료는 NASA POWER 10년 시간별."""
+    table = _get_wind_table(data)
+    ctx = data.options.get("_ctx")
+    if ctx is not None:
+        ctx["diagram"] = True
+    if not table:
+        return ['<g id="theme"></g>'], {"rose": 0}, {"rose": 0.0}, []
+    k = get_template_scale(data.paper_mm)
+    ts, ink, paper = style["text_scale"], style["ink"], style["paper"]
+    muted = get_mixed_color(ink, paper, 0.45)
+    lng, lat = get_site_lnglat(data)
+    seasons = solar.get_wind_seasons(lat)
+    roses = [(label, months, solar.get_wind_rose(table, months)) for label, months in seasons]
+    w, h = frame.paper_mm
+    head = constants.SHEET_FONT_MM["body"] * k * ts
+    small = constants.SHEET_FONT_MM["small"] * k * ts
+    if w / h >= 1.4:   # 넓은 칸 — 연간 왼쪽, 계절 2×2 오른쪽
+        big = (h * 0.5, h * 0.5 + head, h * 0.5 - 14.0 * k - head)
+        cell_w, cell_h = (w - h) / 2.0, h / 2.0
+        cells = [(h + cell_w * (i % 2) + cell_w * 0.5, cell_h * (i // 2) + cell_h * 0.5 + head * 0.5) for i in range(4)]
+        small_r = min(cell_w, cell_h) * 0.5 - 10.0 * k - head
+    else:   # 정사각 칸 — 연간 위, 계절 넷은 아래 한 줄
+        top_h = h * 0.66
+        big = (w * 0.5, top_h * 0.5 + head * 1.4, top_h * 0.5 - 12.0 * k - head)
+        cell_w = w / 4.0
+        cells = [(cell_w * (i + 0.5), top_h + (h - top_h) * 0.5 + head * 0.4) for i in range(4)]
+        small_r = min(cell_w, h - top_h) * 0.5 - 8.0 * k - head * 0.6
+    ring_step = None   # 장미마다 축척(빈도 원 글자로 읽는다) — 연간은 계절보다 고르게 퍼져 같은 축척이면 작게 보였다
+    lines = ['<g id="theme">']
+    label, months, rose = roses[0]
+    thumb = data.cache[("thumb", key)] = [([[(big[0] + big[2] * math.sin(a * math.pi / 32), big[1] - big[2] * math.cos(a * math.pi / 32)) for a in range(64)]],
+                                           get_mixed_color(ink, paper, 0.94))]
+    lines += _draw_rose(big[0], big[1], big[2], rose, ring_step, style, k, True, "rose_year", thumb)
+    lines.append(_text(big[0], big[1] - big[2] - small * 3.6, tr("연간"), head * 1.25, fill=ink, **{"text-anchor": "middle", "font-weight": "800"}))
+    lines.append(_text(big[0], big[1] + big[2] + small * 3.4,
+                       tr("주풍 {0} {1:.1f} % · 평균 {2:.1f} m/s · 정온 {3:.1f} %", WIND_NAMES[rose["top"]], rose["top_share"], rose["mean"], rose["calm"]), small,
+                       fill=muted, **{"text-anchor": "middle"}))
+    for (label, months, rose), (sx, sy) in zip(roses[1:], cells):
+        group = "rose_%d" % months[0]
+        lines += _draw_rose(sx, sy, small_r, rose, ring_step, style, k, False, group, thumb)
+        lines.append(_text(sx, sy - small_r - small * 2.6, tr("{0} ({1}~{2}월)", tr(label), months[0], months[-1]), head, fill=ink,
+                           **{"text-anchor": "middle", "font-weight": "800"}))
+        lines.append(_text(sx, sy + small_r + small * 2.6, tr("{0} {1:.0f} % · {2:.1f} m/s", WIND_NAMES[rose["top"]], rose["top_share"], rose["mean"]), small * 0.95,
+                           fill=muted, **{"text-anchor": "middle"}))
+    lines.append("</g>")
+    if ctx is not None:
+        grid = table.get("grid") or [lng, lat]
+        ctx["meta_extra"] = [tr(constants.WIND_SOURCE_LINE, table.get("api", ""), "%.2f°, %.2f°" % (grid[1], grid[0]), table["start"], table["end"], "{:,}".format(sum(table["total"])))]
+        ctx.update(wind_roses=roses, wind_table=table, wind_lat=lat, wind_lng=lng)
+    return lines, {"rose": roses[0][2]["total"]}, {"rose": float(roses[0][2]["total"])}, []
+
+
+SUN_KEYS = ("shadow", "sun_hours", "sun_path", "wind")
 THEME_DRAWERS = {"transit": _draw_transit, "view": _draw_template, "image": _draw_template, "synthesis": _draw_template, "aerial": _draw_aerial,
-                 "axo": _draw_axo}
+                 "axo": _draw_axo, "shadow": _draw_shadow, "sun_hours": _draw_sun_hours, "sun_path": _draw_sun_path, "wind": _draw_wind}
 
 
 def _draw_mask(frame, extent_ring, style):
@@ -1705,7 +2396,51 @@ def _get_card_lines(key, data, items, counts, measures, ctx=None):
         if key == "slope" and items:
             slopes = [get_slope_deg(tri) for tri in items]
             lines.append(tr("평균 경사 {0:.1f}° · 최대 {1:.1f}°", sum(slopes) / len(slopes), max(slopes)))
+    elif key == "shadow":
+        hours = constants.SUN_SHADOW_HOURS
+        lines = [tr("진태양시 {0}~{1}시 매시 그림자 {2}장을 겹침 — 짙을수록 오래 그늘", hours[0], hours[-1], len(hours))]
+        site_hours = ctx.get("sun_site_hours") or {}
+        if site_hours:
+            lines.append(tr("{0} 지면 평균 그늘 — 동지 {1:.1f} · 춘추분 {2:.1f} · 하지 {3:.1f}시간", tr("대상지") if ctx.get("sun_site") else tr("범위"),
+                            site_hours.get("winter", 0.0), site_hours.get("equinox", 0.0), site_hours.get("summer", 0.0)))
+        lines.append(_get_sun_basis(ctx))
+    elif key == "sun_hours" and ctx.get("sun_hours_sun"):
+        sun = ctx["sun_hours_sun"]
+        window = constants.SUN_HOURS_WINDOW
+        lines = [tr("{0} · 진태양시 {1:g}~{2:g}시 · {3}분 간격", _get_season_label(constants.SUN_HOURS_SEASON, sun), window[0], window[1], constants.SUN_HOURS_STEP_MIN)]
+        site, ext = ctx.get("sun_hours_site") or [], ctx.get("sun_hours_extent") or []
+        if site:
+            lines.append(tr("대상지 지면 평균 {0:.1f}시간 (최소 {1:.1f} · 최대 {2:.1f})", sum(site) / len(site), min(site), max(site)))
+        if ext:
+            lines.append(tr("범위 지면 평균 {0:.1f}시간", sum(ext) / len(ext)))
+        lines.append(_get_sun_basis(ctx))
+    elif key == "sun_path" and ctx.get("sun_mask"):
+        mask = ctx["sun_mask"]
+        lines = [tr("관측점 {0} · 지반 +{1:g} m (표고 {2:.1f} m)", tr("대상지 중심") if data.site_rings else tr("범위 중심"), constants.SUN_EYE_HEIGHT,
+                    mask["observer"][2] - constants.SUN_EYE_HEIGHT)]
+        for season in constants.SUN_SHADOW_PANELS:
+            sun, visible = ctx["sun_path_visible"][season]
+            lines.append(tr("{0} — 낮 {1} · 해 보임 {2} · 남중 {3:.1f}°", _get_season_label(season, sun), solar.get_format_minutes(sun["daylight"][1] - sun["daylight"][0]),
+                            solar.get_format_minutes(visible), solar.get_sun_position(ctx["sun_lat"], sun["decl"], 720.0)[1]))
+        lines.append(tr("가림: 건물 {0}동(대상지 안 {1}동 제외) · 지형 {2}", fmt0(mask["buildings"]), fmt0(mask["excluded"]),
+                        tr("분석 범위 + 먼 산 {0:g} km", constants.SUN_MASK_FAR_RADIUS / 1000.0) if mask["far"] else
+                        tr("분석 범위") if mask.get("has_terrain") else tr("지형 없음(평지로 계산)")))
+    elif key == "wind":
+        roses = ctx.get("wind_roses")
+        if roses:
+            lines = [tr("{0} — 주풍 {1} {2:.1f} % · 평균 {3:.1f} m/s · 정온 {4:.1f} %", tr(label), WIND_NAMES[rose["top"]], rose["top_share"], rose["mean"], rose["calm"])
+                     for label, _months, rose in roses]
+            grid = (ctx.get("wind_table") or {}).get("grid") or [ctx.get("wind_lng", 0.0), ctx.get("wind_lat", 0.0)]
+            lines.append(tr("재분석 격자({0:.2f}°, {1:.2f}°) 값 — 도심 관측소 풍속과 다를 수 있음(확인 필요)", grid[1], grid[0]))
+        else:
+            lines = [tr("바람 자료를 받지 못했습니다 — 인터넷 연결을 확인하고 다시 만드세요")]
     return lines
+
+
+def _get_sun_basis(ctx):
+    # type: (dict) -> str
+    """그림자·일조 카드 끝 줄 — 격자·지형·나무."""
+    return tr("격자 {0:g} m · {1} · 나무 그림자 제외", ctx.get("sun_cell") or 0.0, tr("지형 반영") if ctx.get("sun_terrain") else tr("지형 없음(평지로 계산)"))
 
 
 # ─────────────────────────────────────────────
@@ -1728,7 +2463,9 @@ def _draw_swatch(x, y, w, h, swatch):
 
 def _get_scale_text(frame):
     # type: (Frame) -> str
-    """'1:5,000' — 입체 매스도(AxoFrame)는 평행 투상이라 축척이 없다."""
+    """'1:5,000' — 입체 매스도(AxoFrame)는 평행 투상, 다이어그램(DiagramFrame)은 축척이 없다."""
+    if getattr(frame, "diagram", False):
+        return tr("축척 없음")
     return tr("평행 투상(축척 없음)") if getattr(frame, "north", None) else "1:%s" % "{:,}".format(int(frame.scale))
 
 
@@ -1765,7 +2502,8 @@ def _draw_scale_north(x, y, frame, style, k):
 def _get_meta_lines(data):
     # type: (SheetData) -> list
     """여백 줄(context_report.get_meta_lines — 자료기준·출처·좌표계·정합·경고). 출처 줄은 끌 수 없다."""
-    return list(data.meta_lines) or [tr("자료기준 — (meta_lines 없음)")]
+    lines = list(data.meta_lines) or [tr("자료기준 — (meta_lines 없음)")]
+    return lines[:1] + list(data.options.get("_meta_extra") or []) + lines[1:]   # 그 도면만 쓴 출처(바람장미 NASA POWER)는 자료기준 바로 아래
 
 
 def _get_paper_label(paper_mm):
@@ -1784,7 +2522,7 @@ def _get_legend_rows(entries, extras, counts, measures):
         share = (100.0 * measures[entry_key] / total_measure) if total_measure else 0.0
         count = "{:,}".format(counts[entry_key])
         rows.append((swatch, label, count if len(entries) == 1 else "%s · %.0f %%" % (count, share)))
-    rows += [(swatch, label, "") for label, swatch in extras]
+    rows += [(extra[1], extra[0], extra[2] if len(extra) > 2 else "") for extra in extras]   # (라벨, 견본[, 값])
     return rows
 
 
@@ -1982,10 +2720,11 @@ def render_sheet(sheet_id, data):
     finally:
         data.options.pop("_ctx", None)
     empty = sum(counts.values()) == 0 and not (key == "base" and data.mode != "lots") and key not in constants.SHEET_TEMPLATE_KEYS   # 구역·위치 방식 베이스맵은 경계·범위만으로 쓴다(Global은 필지가 없다)
-    reason = (tr("영상 못 받음") if key == "aerial" else tr("지형 없음") if subject == "terrain" else tr("데이터 없음")) if empty else ""
+    reason = (tr("영상 못 받음") if key == "aerial" else tr("바람 자료 못 받음") if key == "wind" else tr("지형 없음") if subject == "terrain"
+              else tr("데이터 없음")) if empty else ""
 
-    background = style["paper"] if base_mode in ("figure", "image", "axo") else _get_base_colors(style, base_mode)["block"]
-    base_lines = _draw_base(data, style, base_mode, frame, frame_bounds, skip_buildings=subject == "building")
+    background = style["paper"] if base_mode in ("figure", "image", "axo", "diagram") else _get_base_colors(style, base_mode)["block"]
+    base_lines = _draw_base(data, style, base_mode, frame, frame_bounds, skip_buildings=subject == "building" or key == "sun_hours")
     font_family = constants.STYLE_FONTS_CJK.get(get_lang(), {}).get(style["font"], "") + constants.STYLE_FONTS[style["font"]]
     body = ['<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="%smm" height="%smm" viewBox="0 0 %s %s" font-family="%s">'
             % (_fmt(width), _fmt(height), _fmt(width), _fmt(height), escape(font_family, {'"': "&quot;"})),
@@ -1995,7 +2734,7 @@ def render_sheet(sheet_id, data):
             '<g id="map" transform="translate(%s %s)" clip-path="url(#map_clip)">' % (_fmt(box[0]), _fmt(box[1])),
             '<rect id="map_background" x="0" y="0" width="%s" height="%s" fill="%s"/>' % (_fmt(box[2]), _fmt(box[3]), background)]
     body += (theme_lines + base_lines) if subject in ("terrain", "block") else (base_lines + theme_lines)   # 지형·블록 채색은 도로·건물 아래
-    if base_mode != "axo":   # 범위 밖 흐리기·지적·범위선·지명은 평면 좌표 — 입체 매스도는 _draw_axo가 제 것을 그린다
+    if base_mode not in ("axo", "diagram"):   # 범위 밖 흐리기·지적·범위선·지명은 평면 좌표 — 입체 매스도·다이어그램은 제 것을 그린다
         if key not in constants.SHEET_NO_MASK:
             body += _draw_mask(frame, data.extent_ring, style)
         body += _draw_overlay_lines(data, style, frame, frame_bounds, subject, key, k)
@@ -2005,12 +2744,20 @@ def render_sheet(sheet_id, data):
     card_rows = _get_card_lines(key, data, items, counts, measures, ctx)
     if "axo_north" in ctx:   # 정보 열 — 축척 막대 대신 화면 위 북쪽
         frame = AxoFrame(frame, ctx["axo_north"])
-    if style["layout"] == "side":
-        body += _draw_info_side(data, style, sheet_id, name, frame, box, legend_rows, card_rows)
-    elif style["layout"] == "bottom":
-        body += _draw_info_bottom(data, style, sheet_id, name, frame, box, legend_rows, card_rows)
-    else:
-        body += _draw_info_map_only(data, style, frame)
+    elif ctx.get("diagram"):   # 태양 궤적·바람장미 — 축척 없음, 다이어그램 위가 북
+        frame = DiagramFrame(frame)
+    elif ctx.get("info_frame") is not None:   # 계절별 그림자 — 칸 지도의 축척
+        frame = ctx["info_frame"]
+    data.options["_meta_extra"] = ctx.get("meta_extra") or []
+    try:
+        if style["layout"] == "side":
+            body += _draw_info_side(data, style, sheet_id, name, frame, box, legend_rows, card_rows)
+        elif style["layout"] == "bottom":
+            body += _draw_info_bottom(data, style, sheet_id, name, frame, box, legend_rows, card_rows)
+        else:
+            body += _draw_info_map_only(data, style, frame)
+    finally:
+        data.options.pop("_meta_extra", None)
     if style["layout"] != "map":
         body.append('<rect id="map_frame" x="%s" y="%s" width="%s" height="%s" fill="none" stroke="%s" stroke-width="%s"/>'
                     % (_fmt(box[0]), _fmt(box[1]), _fmt(box[2]), _fmt(box[3]), style["ink"], _fmt(constants.SHEET_LINE_MM["frame"] * style["line_scale"])))
@@ -2109,6 +2856,8 @@ def render_thumbnail(sheet_id, data):
         return _get_aerial_thumbnail(data, style, frame, rect)
     if key == "axo":
         return _get_axo_thumbnail(data, style, frame, rect, px)
+    if key in SUN_KEYS:
+        return _get_sun_thumbnail(sheet_id, data, style, frame, rect, px)
     frame_bounds = frame.world_bounds()
     classify_fn, base_mode = SHEETS[key]
     subject = constants.SHEET_LEGENDS[key][0]
@@ -2222,6 +2971,28 @@ def _get_axo_thumbnail(data, style, frame, rect, px):
         add(rings, colors[(kind, on_site)])
     grid = _rasterize(shapes, Frame(frame.paper_mm, 1000.0, (frame.paper_mm[0] * 0.5, -frame.paper_mm[1] * 0.5)), rect, px)
     rgbs = [_get_rgb(color) for color in fills]
+    paper = _get_rgb(style["paper"])
+    return _get_png_uri([rgbs[i] if i >= 0 else paper for i in grid], px)
+
+
+def _get_sun_thumbnail(sheet_id, data, style, frame, rect, px):
+    # type: (int, SheetData, dict, Frame, tuple, int) -> str
+    """태양·바람 도면 썸네일 — 그릴 때 남긴 (종이 mm 링, 색)(data.cache 'thumb')을 격자로 칠한다. 없으면 한 번 그린다."""
+    key = SHEET_KEYS[sheet_id]
+    if ("thumb", key) not in data.cache:
+        render_sheet(sheet_id, data)
+    shapes, colors = [], []
+    for item in data.cache.get(("thumb", key)) or []:
+        if len(item) > 2:   # 선 — 궤적
+            shapes.append(SimpleShape({"type": "LineString", "coordinates": [(x, -y) for x, y in item[0]]}))
+        else:
+            shapes.append(SimpleShape({"type": "Polygon", "coordinates": [[(x, -y) for x, y in ring] for ring in item[0]]}))
+        colors.append(item[1])
+    if key == "sun_hours" and data.extent_ring:   # 지도 시트 — 범위 선
+        shapes.append(SimpleShape({"type": "LineString", "coordinates": [(x, -y) for x, y in (frame.to_paper(*p) for p in list(data.extent_ring) + list(data.extent_ring[:1]))]}))
+        colors.append(style["extent"])
+    grid = _rasterize(shapes, Frame(frame.paper_mm, 1000.0, (frame.paper_mm[0] * 0.5, -frame.paper_mm[1] * 0.5)), rect, px)
+    rgbs = [_get_rgb(color) for color in colors]
     paper = _get_rgb(style["paper"])
     return _get_png_uri([rgbs[i] if i >= 0 else paper for i in grid], px)
 

@@ -152,6 +152,14 @@ def import_skp(host, result_dir):
     return result
 
 
+def set_sun(host, state):
+    # type: (object, dict) -> bool
+    """패널 '해와 그림자' — 호스트 태양을 맞춘다(context_builder.get_sun_state). SketchUp은 위경도·시간대·시계(shadow_info),
+    Rhino 7(rhino7_host.cs)은 방위·고도를 그대로 쓴다 — 같은 호출에 둘 다 싣는다."""
+    keys = ("on", "lat", "lng", "tz", "local", "azimuth", "altitude", "vector")
+    return bool(host.call("sun", **{key: state.get(key) for key in keys}))
+
+
 def zoom_to_site(host, result_dir, center_lng_lat=None):
     # type: (object, str, list) -> bool
     """이번 결과의 CTX::Site + 여백(없으면 context.json 중심 500 m, 경위도를 주면 그 주변 100 m)이 화면에 들어오게 카메라를 옮긴다."""

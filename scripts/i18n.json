@@ -6034,5 +6034,395 @@
   "es": "Vuelva a generar más tarde para incluirlos. Desactívelos en los ajustes 3D para no solicitarlos.",
   "ja": "しばらくして作り直すと入ります。3D設定でオフにすると問い合わせません。",
   "zh": "稍后重新生成即可包含。在 3D 设置中关闭则不再请求。"
+ },
+ "{0} ({1}~{2}월)": {
+  "en": "{0} (months {1}–{2})",
+  "es": "{0} (meses {1}–{2})",
+  "ja": "{0}（{1}～{2}月）",
+  "zh": "{0}（{1}~{2}月）"
+ },
+ "{0} m/s 이상": {
+  "en": "{0} m/s or more",
+  "es": "{0} m/s o más",
+  "ja": "{0} m/s 以上",
+  "zh": "{0} m/s 以上"
+ },
+ "{0} {1:.0f} % · {2:.1f} m/s": {
+  "en": "{0} {1:.0f} % · {2:.1f} m/s",
+  "es": "{0} {1:.0f} % · {2:.1f} m/s",
+  "ja": "{0} {1:.0f} % · {2:.1f} m/s",
+  "zh": "{0} {1:.0f} % · {2:.1f} m/s"
+ },
+ "{0} {1}월 {2}일": {
+  "en": "{0}, {1}/{2}",
+  "es": "{0}, {2}/{1}",
+  "ja": "{0} {1}月{2}日",
+  "zh": "{0} {1}月{2}日"
+ },
+ "{0} · 진태양시 {1:g}~{2:g}시 · {3}분 간격": {
+  "en": "{0} · solar time {1:g}–{2:g} h · every {3} min",
+  "es": "{0} · hora solar {1:g}–{2:g} h · cada {3} min",
+  "ja": "{0} · 真太陽時 {1:g}～{2:g}時 · {3}分間隔",
+  "zh": "{0} · 真太阳时 {1:g}~{2:g} 时 · 每 {3} 分钟"
+ },
+ "{0} — 낮 {1} · 해 보임 {2} · 남중 {3:.1f}°": {
+  "en": "{0} — day {1} · sun visible {2} · noon {3:.1f}°",
+  "es": "{0} — día {1} · sol visible {2} · mediodía {3:.1f}°",
+  "ja": "{0} — 昼 {1} · 日照 {2} · 南中 {3:.1f}°",
+  "zh": "{0} — 白昼 {1} · 可见日照 {2} · 正午高度 {3:.1f}°"
+ },
+ "{0} — 주풍 {1} {2:.1f} % · 평균 {3:.1f} m/s · 정온 {4:.1f} %": {
+  "en": "{0} — prevailing {1} {2:.1f} % · mean {3:.1f} m/s · calm {4:.1f} %",
+  "es": "{0} — dominante {1} {2:.1f} % · media {3:.1f} m/s · calma {4:.1f} %",
+  "ja": "{0} — 卓越風 {1} {2:.1f} % · 平均 {3:.1f} m/s · 静穏 {4:.1f} %",
+  "zh": "{0} — 主导风 {1} {2:.1f} % · 平均 {3:.1f} m/s · 静风 {4:.1f} %"
+ },
+ "{0} 지면 평균 그늘 — 동지 {1:.1f} · 춘추분 {2:.1f} · 하지 {3:.1f}시간": {
+  "en": "{0} ground mean shade — winter {1:.1f} · equinox {2:.1f} · summer {3:.1f} h",
+  "es": "Sombra media del suelo en {0} — invierno {1:.1f} · equinoccio {2:.1f} · verano {3:.1f} h",
+  "ja": "{0} 地面の平均日影 — 冬至 {1:.1f} · 春秋分 {2:.1f} · 夏至 {3:.1f}時間",
+  "zh": "{0} 地面平均阴影 — 冬至 {1:.1f} · 春秋分 {2:.1f} · 夏至 {3:.1f} 小时"
+ },
+ "{0} 화면의 해를 대상지 위치와 시각에 맞춰 그림자를 봅니다": {
+  "en": "Set the {0} sun to the site location and time to see shadows",
+  "es": "Ajusta el sol de {0} a la ubicación y la hora del sitio para ver las sombras",
+  "ja": "{0} の太陽を対象地の位置と時刻に合わせて影を見ます",
+  "zh": "将 {0} 的太阳设为场地位置和时间以查看阴影"
+ },
+ "{0}~{1} m/s": {
+  "en": "{0}–{1} m/s",
+  "es": "{0}–{1} m/s",
+  "ja": "{0}～{1} m/s",
+  "zh": "{0}~{1} m/s"
+ },
+ "{0}~{1}시간": {
+  "en": "{0}–{1} h",
+  "es": "{0}–{1} h",
+  "ja": "{0}～{1}時間",
+  "zh": "{0}~{1} 小时"
+ },
+ "가림: 건물 {0}동(대상지 안 {1}동 제외) · 지형 {2}": {
+  "en": "Obstruction: {0} buildings ({1} on site excluded) · terrain {2}",
+  "es": "Obstrucción: {0} edificios ({1} del sitio excluidos) · terreno {2}",
+  "ja": "遮蔽: 建物 {0}棟（対象地内 {1}棟を除く） · 地形 {2}",
+  "zh": "遮挡：建筑 {0} 栋（不含场地内 {1} 栋） · 地形 {2}"
+ },
+ "가을": {
+  "en": "Autumn",
+  "es": "Otoño",
+  "ja": "秋",
+  "zh": "秋季"
+ },
+ "건물이 가리는 하늘": {
+  "en": "Sky blocked by buildings",
+  "es": "Cielo tapado por edificios",
+  "ja": "建物が遮る空",
+  "zh": "建筑遮挡的天空"
+ },
+ "겨울": {
+  "en": "Winter",
+  "es": "Invierno",
+  "ja": "冬",
+  "zh": "冬季"
+ },
+ "격자 {0:g} m · {1} · 나무 그림자 제외": {
+  "en": "Grid {0:g} m · {1} · tree shadows excluded",
+  "es": "Malla {0:g} m · {1} · sin sombra de árboles",
+  "ja": "格子 {0:g} m · {1} · 樹木の影は除く",
+  "zh": "网格 {0:g} m · {1} · 不含树木阴影"
+ },
+ "결과의 위치를 읽지 못했습니다": {
+  "en": "Could not read the location of this result",
+  "es": "No se pudo leer la ubicación del resultado",
+  "ja": "結果の位置を読めませんでした",
+  "zh": "无法读取结果的位置"
+ },
+ "계절별 그림자": {
+  "en": "Seasonal shadows",
+  "es": "Sombras estacionales",
+  "ja": "季節別の日影",
+  "zh": "季节阴影"
+ },
+ "고도 {0}° · 방위 {1}°": {
+  "en": "Altitude {0}° · azimuth {1}°",
+  "es": "Altura {0}° · acimut {1}°",
+  "ja": "高度 {0}° · 方位 {1}°",
+  "zh": "高度角 {0}° · 方位角 {1}°"
+ },
+ "고도 · 방위(북 0°, 시계) · 위도 {0:.2f}° 경도 {1:.2f}°": {
+  "en": "Altitude · azimuth (north 0°, clockwise) · lat {0:.2f}° lon {1:.2f}°",
+  "es": "Altura · acimut (norte 0°, horario) · lat {0:.2f}° lon {1:.2f}°",
+  "ja": "高度 · 方位（北 0°、時計回り） · 緯度 {0:.2f}° 経度 {1:.2f}°",
+  "zh": "高度角 · 方位角（北 0°，顺时针） · 纬度 {0:.2f}° 经度 {1:.2f}°"
+ },
+ "관측점 {0} · 지반 +{1:g} m (표고 {2:.1f} m)": {
+  "en": "Viewpoint {0} · ground +{1:g} m (elevation {2:.1f} m)",
+  "es": "Punto de vista {0} · suelo +{1:g} m (cota {2:.1f} m)",
+  "ja": "観測点 {0} · 地盤 +{1:g} m（標高 {2:.1f} m）",
+  "zh": "观测点 {0} · 地面 +{1:g} m（高程 {2:.1f} m）"
+ },
+ "그림자 {0}시간": {
+  "en": "Shade {0} h",
+  "es": "Sombra {0} h",
+  "ja": "日影 {0}時間",
+  "zh": "阴影 {0} 小时"
+ },
+ "그림자 {0}시간 (종일)": {
+  "en": "Shade {0} h (all day)",
+  "es": "Sombra {0} h (todo el día)",
+  "ja": "日影 {0}時間（終日）",
+  "zh": "阴影 {0} 小时（全天）"
+ },
+ "날짜": {
+  "en": "Date",
+  "es": "Fecha",
+  "ja": "日付",
+  "zh": "日期"
+ },
+ "남중 {0:.1f}° · 낮 {1}": {
+  "en": "Noon {0:.1f}° · day {1}",
+  "es": "Mediodía {0:.1f}° · día {1}",
+  "ja": "南中 {0:.1f}° · 昼 {1}",
+  "zh": "正午 {0:.1f}° · 白昼 {1}"
+ },
+ "낮 길이": {
+  "en": "Day length",
+  "es": "Duración del día",
+  "ja": "昼の長さ",
+  "zh": "昼长"
+ },
+ "대상지 중심": {
+  "en": "site centre",
+  "es": "centro del sitio",
+  "ja": "対象地の中心",
+  "zh": "场地中心"
+ },
+ "대상지 지면 평균 {0:.1f}시간 (최소 {1:.1f} · 최대 {2:.1f})": {
+  "en": "Site ground mean {0:.1f} h (min {1:.1f} · max {2:.1f})",
+  "es": "Media del suelo del sitio {0:.1f} h (mín. {1:.1f} · máx. {2:.1f})",
+  "ja": "対象地の地面平均 {0:.1f}時間（最小 {1:.1f} · 最大 {2:.1f}）",
+  "zh": "场地地面平均 {0:.1f} 小时（最少 {1:.1f} · 最多 {2:.1f}）"
+ },
+ "동지": {
+  "en": "Winter solstice",
+  "es": "Solsticio de invierno",
+  "ja": "冬至",
+  "zh": "冬至"
+ },
+ "매월 21일 궤적": {
+  "en": "Path on the 21st of each month",
+  "es": "Trayectoria del día 21 de cada mes",
+  "ja": "毎月21日の軌跡",
+  "zh": "每月21日轨迹"
+ },
+ "먼 산 지평선 — Terrain Tiles(Mapzen/AWS Open Data, SRTM 등 공개 DEM) z10": {
+  "en": "Distant horizon — Terrain Tiles (Mapzen/AWS Open Data, SRTM and other open DEMs) z10",
+  "es": "Horizonte lejano — Terrain Tiles (Mapzen/AWS Open Data, SRTM y otros MDE abiertos) z10",
+  "ja": "遠景の地平線 — Terrain Tiles（Mapzen/AWS Open Data、SRTM など公開 DEM） z10",
+  "zh": "远处地平线 — Terrain Tiles（Mapzen/AWS Open Data，SRTM 等公开 DEM） z10"
+ },
+ "바람 — NASA POWER Hourly {0}(MERRA-2 재분석, 지상 10 m, 격자 {1}) {2}~{3}년 시간별 {4}개 · NASA Langley Research Center POWER Project 제공": {
+  "en": "Wind — NASA POWER Hourly {0} (MERRA-2 reanalysis, 10 m above ground, cell {1}) {2}–{3}, {4} hourly records · data from the NASA Langley Research Center POWER Project",
+  "es": "Viento — NASA POWER Hourly {0} (reanálisis MERRA-2, 10 m sobre el suelo, celda {1}) {2}–{3}, {4} registros horarios · datos del NASA Langley Research Center POWER Project",
+  "ja": "風 — NASA POWER Hourly {0}（MERRA-2 再解析、地上 10 m、格子 {1}） {2}～{3}年 毎時 {4}件 · NASA Langley Research Center POWER Project 提供",
+  "zh": "风 — NASA POWER Hourly {0}（MERRA-2 再分析，离地 10 m，网格 {1}） {2}~{3} 年 逐时 {4} 条 · 数据来自 NASA Langley Research Center POWER Project"
+ },
+ "바람 자료 못 받음": {
+  "en": "No wind data",
+  "es": "Sin datos de viento",
+  "ja": "風データなし",
+  "zh": "无风数据"
+ },
+ "바람 자료를 받지 못했습니다 — 인터넷 연결을 확인하고 다시 만드세요": {
+  "en": "Could not get wind data — check the internet connection and make it again",
+  "es": "No se obtuvieron datos de viento: compruebe la conexión a internet y vuelva a generarlo",
+  "ja": "風データを取得できませんでした — インターネット接続を確認して作り直してください",
+  "zh": "未能获取风数据 — 请检查网络连接后重新生成"
+ },
+ "바람장미": {
+  "en": "Wind rose",
+  "es": "Rosa de los vientos",
+  "ja": "風配図",
+  "zh": "风玫瑰图"
+ },
+ "범위 중심": {
+  "en": "extent centre",
+  "es": "centro del ámbito",
+  "ja": "範囲の中心",
+  "zh": "范围中心"
+ },
+ "범위 지면 평균 {0:.1f}시간": {
+  "en": "Extent ground mean {0:.1f} h",
+  "es": "Media del suelo del ámbito {0:.1f} h",
+  "ja": "範囲の地面平均 {0:.1f}時間",
+  "zh": "范围地面平均 {0:.1f} 小时"
+ },
+ "봄": {
+  "en": "Spring",
+  "es": "Primavera",
+  "ja": "春",
+  "zh": "春季"
+ },
+ "분석 범위 + 먼 산 {0:g} km": {
+  "en": "analysis extent + distant hills {0:g} km",
+  "es": "ámbito de análisis + montes lejanos {0:g} km",
+  "ja": "分析範囲 + 遠くの山 {0:g} km",
+  "zh": "分析范围 + 远山 {0:g} km"
+ },
+ "시각": {
+  "en": "Time",
+  "es": "Hora",
+  "ja": "時刻",
+  "zh": "时刻"
+ },
+ "시각(진태양시)": {
+  "en": "Time (solar time)",
+  "es": "Hora (hora solar)",
+  "ja": "時刻（真太陽時）",
+  "zh": "时刻（真太阳时）"
+ },
+ "시각별 해의 고도·방위 (진태양시)": {
+  "en": "Sun altitude and azimuth by hour (solar time)",
+  "es": "Altura y acimut del sol por hora (hora solar)",
+  "ja": "時刻別の太陽高度・方位（真太陽時）",
+  "zh": "逐时太阳高度角·方位角（真太阳时）"
+ },
+ "여름": {
+  "en": "Summer",
+  "es": "Verano",
+  "ja": "夏",
+  "zh": "夏季"
+ },
+ "연간": {
+  "en": "Annual",
+  "es": "Anual",
+  "ja": "年間",
+  "zh": "全年"
+ },
+ "일조시간": {
+  "en": "Sunlight hours",
+  "es": "Horas de sol",
+  "ja": "日照時間",
+  "zh": "日照时数"
+ },
+ "재분석 격자({0:.2f}°, {1:.2f}°) 값 — 도심 관측소 풍속과 다를 수 있음(확인 필요)": {
+  "en": "Reanalysis cell ({0:.2f}°, {1:.2f}°) values — may differ from urban station wind speeds (to be checked)",
+  "es": "Valores de la celda de reanálisis ({0:.2f}°, {1:.2f}°): pueden diferir de las estaciones urbanas (por comprobar)",
+  "ja": "再解析格子（{0:.2f}°, {1:.2f}°）の値 — 都市部の観測所の風速と異なる場合あり（要確認）",
+  "zh": "再分析网格（{0:.2f}°, {1:.2f}°）数值 — 可能与城区站点风速不同（需核实）"
+ },
+ "정시 해 위치 — 가려짐": {
+  "en": "Sun on the hour — blocked",
+  "es": "Sol a la hora en punto — tapado",
+  "ja": "正時の太陽 — 遮られる",
+  "zh": "整点太阳 — 被遮挡"
+ },
+ "정시 해 위치 — 보임": {
+  "en": "Sun on the hour — visible",
+  "es": "Sol a la hora en punto — visible",
+  "ja": "正時の太陽 — 見える",
+  "zh": "整点太阳 — 可见"
+ },
+ "정온 {0} m/s 미만 (방향 없음)": {
+  "en": "Calm below {0} m/s (no direction)",
+  "es": "Calma por debajo de {0} m/s (sin dirección)",
+  "ja": "静穏 {0} m/s 未満（方向なし）",
+  "zh": "静风 低于 {0} m/s（无风向）"
+ },
+ "주풍 {0} {1:.1f} % · 평균 {2:.1f} m/s · 정온 {3:.1f} %": {
+  "en": "Prevailing {0} {1:.1f} % · mean {2:.1f} m/s · calm {3:.1f} %",
+  "es": "Dominante {0} {1:.1f} % · media {2:.1f} m/s · calma {3:.1f} %",
+  "ja": "卓越風 {0} {1:.1f} % · 平均 {2:.1f} m/s · 静穏 {3:.1f} %",
+  "zh": "主导风 {0} {1:.1f} % · 平均 {2:.1f} m/s · 静风 {3:.1f} %"
+ },
+ "지형 반영": {
+  "en": "terrain included",
+  "es": "con terreno",
+  "ja": "地形を反映",
+  "zh": "含地形"
+ },
+ "지형 없음(평지로 계산)": {
+  "en": "no terrain (computed as flat)",
+  "es": "sin terreno (calculado plano)",
+  "ja": "地形なし（平地として計算）",
+  "zh": "无地形（按平地计算）"
+ },
+ "지형이 가리는 하늘": {
+  "en": "Sky blocked by terrain",
+  "es": "Cielo tapado por el terreno",
+  "ja": "地形が遮る空",
+  "zh": "地形遮挡的天空"
+ },
+ "진태양시": {
+  "en": "solar time",
+  "es": "hora solar",
+  "ja": "真太陽時",
+  "zh": "真太阳时"
+ },
+ "진태양시 {0}~{1}시 매시 그림자 {2}장을 겹침 — 짙을수록 오래 그늘": {
+  "en": "Hourly shadows {0}–{1} h solar time, {2} overlaid — darker means longer shade",
+  "es": "Sombras horarias {0}–{1} h (hora solar), {2} superpuestas: más oscuro, más horas de sombra",
+  "ja": "真太陽時 {0}～{1}時の毎時の影 {2}枚を重ねる — 濃いほど長く日影",
+  "zh": "叠加真太阳时 {0}~{1} 时逐时阴影 {2} 张 — 越深阴影越久"
+ },
+ "축척 없음": {
+  "en": "No scale",
+  "es": "Sin escala",
+  "ja": "縮尺なし",
+  "zh": "无比例尺"
+ },
+ "춘추분": {
+  "en": "Equinox",
+  "es": "Equinoccio",
+  "ja": "春秋分",
+  "zh": "春秋分"
+ },
+ "태양 궤적·하늘 가림": {
+  "en": "Sun path and sky mask",
+  "es": "Trayectoria solar y máscara de cielo",
+  "ja": "太陽軌跡・天空の遮蔽",
+  "zh": "太阳轨迹·天空遮挡"
+ },
+ "태양 위치 NOAA Solar Calculator 식 · 진태양시(남중 12:00) · 현황 분석용 — 법규 일조 판정 아님": {
+  "en": "Sun position by NOAA Solar Calculator equations · solar time (noon 12:00) · for site analysis, not a statutory sunlight assessment",
+  "es": "Posición solar según NOAA Solar Calculator · hora solar (mediodía 12:00) · para análisis del sitio, no es una evaluación normativa de asoleamiento",
+  "ja": "太陽位置 NOAA Solar Calculator 式 · 真太陽時（南中 12:00） · 現況分析用 — 法規の日影判定ではない",
+  "zh": "太阳位置按 NOAA Solar Calculator 公式 · 真太阳时（正午 12:00） · 用于现状分析 — 非法规日照判定"
+ },
+ "하지": {
+  "en": "Summer solstice",
+  "es": "Solsticio de verano",
+  "ja": "夏至",
+  "zh": "夏至"
+ },
+ "해 뜸 · 짐": {
+  "en": "Sunrise · sunset",
+  "es": "Salida · puesta",
+  "ja": "日の出 · 日の入り",
+  "zh": "日出 · 日落"
+ },
+ "해 방향 ({0}~{1}시)": {
+  "en": "Sun direction ({0}–{1} h)",
+  "es": "Dirección del sol ({0}–{1} h)",
+  "ja": "太陽の方向（{0}～{1}時）",
+  "zh": "太阳方向（{0}~{1} 时）"
+ },
+ "해가 진 시각입니다": {
+  "en": "The sun is down at this time",
+  "es": "El sol está bajo el horizonte a esta hora",
+  "ja": "この時刻は日没後です",
+  "zh": "此时太阳已落下"
+ },
+ "해와 그림자": {
+  "en": "Sun and shadows",
+  "es": "Sol y sombras",
+  "ja": "太陽と日影",
+  "zh": "太阳与阴影"
+ },
+ "화면에 적용하지 못함": {
+  "en": "not applied to the view",
+  "es": "no aplicado a la vista",
+  "ja": "画面に反映できません",
+  "zh": "未应用到视图"
  }
 }

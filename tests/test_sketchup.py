@@ -155,6 +155,9 @@ class FakeSketchUp(object):
             result = len(self.items)
         elif method == "import":
             result = {"objects": 7, "layers": 5}
+        elif method == "sun":
+            self.sun = args
+            result = True
         else:
             result = True
         self.controller.replies.put({"cmd": "host_reply", "id": msg["id"], "ok": True, "result": result, "error": ""})
@@ -231,6 +234,16 @@ class SidecarRunTest(unittest.TestCase):
 
     def test_origin_written(self):
         self.assertEqual(self.fake.attrs["GORANI_ORIGIN_E"], "%.3f" % self.response["context"]["origin"][0])
+
+    def test_set_sun(self):
+        """패널 '해와 그림자' — set_sun 명령이 위경도·시간대·시계(SketchUp)와 방위·고도(Rhino 7)를 같은 호출로 보내고 sun_state를 돌려준다."""
+        self.controller.handle({"cmd": "set_sun", "dir": self.response["dir"], "season": "winter", "minutes": 720, "on": True, "seq": 1})
+        state = [m for m in self.fake.pushed if m.get("type") == "sun_state"][-1]
+        self.assertTrue(state["applied"])
+        self.assertAlmostEqual(state["altitude"], 90.0 - state["lat"] - 23.44, delta=0.2)
+        self.assertEqual(self.fake.sun["local"][1:3], [12, 22])
+        self.assertEqual(self.fake.sun["tz"], 9.0)
+        self.assertAlmostEqual(self.fake.sun["azimuth"], 180.0, delta=0.01)
 
     def test_import_replaces(self):
         baker = loader.load("sketchup_baker")
