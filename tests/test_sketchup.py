@@ -212,7 +212,7 @@ class SidecarRunTest(unittest.TestCase):
         self.assertTrue(r["context"]["path"].endswith("context.skp"))
         self.assertTrue(os.path.exists(r["context"]["path"]))
         self.assertEqual(self.fake.calls[:3], ["get_model_attrs", "clear", "bake"])
-        self.assertFalse([w for w in r["warnings"] if w["code"] == "skipped" and "베이크" in w["text"]])
+        self.assertFalse([w for w in r["warnings"] if w["code"] == "skipped"])
 
     def test_payload(self):
         layers = {item["layer"]: item for item in self.fake.items}

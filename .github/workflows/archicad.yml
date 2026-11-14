@@ -1,0 +1,71 @@
+# Gorani Archicad 애드온(archicad/ — Tapir에서 가져온 C++) 빌드. Archicad 버전마다 맥·윈도 하나씩, 결과는 작업 산출물(artifact)로 남는다.
+# 배포 패키지(번들 파이썬 + scripts)는 dev_deploy.py archicad가 이 산출물을 받아 묶는다. 서명·공증은 하지 않는다(무료 배포 — docs/archicad.md).
+name: Archicad Add-On
+
+on:
+  push:
+    paths:
+      - "archicad/**"
+      - ".github/workflows/archicad.yml"
+  workflow_dispatch:
+
+jobs:
+  build_mac:
+    strategy:
+      fail-fast: false
+      matrix:
+        params:
+          - acVersion: 27
+            devKitUrl: https://github.com/GRAPHISOFT/archicad-api-devkit/releases/download/27.3001/API.Development.Kit.MAC.27.3001.zip
+          - acVersion: 28
+            devKitUrl: https://github.com/GRAPHISOFT/archicad-api-devkit/releases/download/28.3001/API.Development.Kit.MAC.28.3001.zip
+          - acVersion: 29
+            devKitUrl: https://github.com/GRAPHISOFT/archicad-api-devkit/releases/download/29.3000/API.Development.Kit.MAC.29.3000.zip
+          - acVersion: 30
+            devKitUrl: https://github.com/GRAPHISOFT/archicad-api-devkit/releases/download/30.3000/API.Development.Kit.MAC.30.3000.zip
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Development Kit
+        run: python3 archicad/Tools/download_and_unzip.py ${{ matrix.params.devKitUrl }} archicad/Build/DevKits/AC${{ matrix.params.acVersion }}
+      - name: Generate Project
+        run: cmake -B archicad/Build -G "Xcode" -DAC_VERSION=${{ matrix.params.acVersion }} -DAC_API_DEVKIT_DIR="archicad/Build/DevKits/AC${{ matrix.params.acVersion }}/Support" archicad
+      - name: Build
+        run: cmake --build archicad/Build --config RelWithDebInfo
+      - name: Zip
+        run: ditto -c -k --keepParent archicad/Build/RelWithDebInfo/Gorani_AC${{ matrix.params.acVersion }}_Mac.bundle archicad/Build/Gorani_AC${{ matrix.params.acVersion }}_Mac.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Gorani_AC${{ matrix.params.acVersion }}_Mac
+          path: archicad/Build/Gorani_AC${{ matrix.params.acVersion }}_Mac.zip
+
+  build_win:
+    strategy:
+      fail-fast: false
+      matrix:
+        params:
+          - acVersion: 27
+            toolset: v142
+            devKitUrl: https://github.com/GRAPHISOFT/archicad-api-devkit/releases/download/27.3001/API.Development.Kit.WIN.27.3001.zip
+          - acVersion: 28
+            toolset: v142
+            devKitUrl: https://github.com/GRAPHISOFT/archicad-api-devkit/releases/download/28.3001/API.Development.Kit.WIN.28.3001.zip
+          - acVersion: 29
+            toolset: v143
+            devKitUrl: https://github.com/GRAPHISOFT/archicad-api-devkit/releases/download/29.3000/API.Development.Kit.WIN.29.3000.zip
+          - acVersion: 30
+            toolset: v143
+            devKitUrl: https://github.com/GRAPHISOFT/archicad-api-devkit/releases/download/30.3000/API.Development.Kit.WIN.30.3000.zip
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Development Kit
+        run: python archicad/Tools/download_and_unzip.py ${{ matrix.params.devKitUrl }} archicad/Build/DevKits/AC${{ matrix.params.acVersion }}
+      - name: Generate Project
+        run: cmake -B archicad/Build -G "Visual Studio 17 2022" -A "x64" -T "${{ matrix.params.toolset }}" -DAC_VERSION=${{ matrix.params.acVersion }} -DAC_API_DEVKIT_DIR="archicad/Build/DevKits/AC${{ matrix.params.acVersion }}/Support" archicad
+      - name: Build
+        run: cmake --build archicad/Build --config RelWithDebInfo
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Gorani_AC${{ matrix.params.acVersion }}_Win
+          path: archicad/Build/RelWithDebInfo/Gorani_AC${{ matrix.params.acVersion }}_Win.apx

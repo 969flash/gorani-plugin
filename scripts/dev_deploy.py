@@ -6,6 +6,7 @@
     python3 scripts/dev_deploy.py blender    # build/blender_repo/gorani-<버전>.zip + index.json(정적 확장 저장소)
     python3 scripts/dev_deploy.py sketchup   # build/bsh_gorani-<버전>.rbz (Extension Warehouse·확장 관리자 설치)
     python3 scripts/dev_deploy.py rhino7     # build/Gorani-<버전>-rh7_0-mac.yak·-win.yak (Rhino 7 — .NET SDK 필요)
+    python3 scripts/dev_deploy.py archicad   # build/archicad/Gorani-<버전>-Archicad<N>-<mac|win>.zip (애드온은 CI 빌드를 받는다)
     python3 scripts/dev_deploy.py web        # build/web/ (정적 파일 — 웹사이트 app/에 올린다)
     python3 scripts/dev_deploy.py packs      # build/packs/*.db.xz + manifest.json
     python3 scripts/dev_deploy.py packs --sido 43 --drop   # 시도 하나만 압축하고 원본 DB를 지운다(전국 빌드 흐름)
@@ -30,6 +31,9 @@ sketchup: SketchUp 확장(.rbz = zip) — 뿌리 bsh_gorani.rb(등록) + bsh_gor
 rhino7: Rhino 7판 yak(플랫폼마다 하나 — mac·win) — Gorani.rhp(scripts/rhino7_host.cs를 dotnet으로, RhinoCommon 7.0) + scripts/(SketchUp판과 같은
      평문 진입 스크립트 + cmd_rhino7.py + 로직 .pyc) + python/<플랫폼>/(SketchUp판과 같은 번들 파이썬). Rhino 7에는 CPython 3이 없어 .rhp가 번들 파이썬으로
      사이드카(cmd_rhino7)를 띄운다. 같은 버전에 rh8_0-any(yak)와 함께 올리면 PackageManager가 Rhino 버전에 맞는 쪽을 받는다.
+archicad: Archicad 애드온 — Archicad 버전·플랫폼마다 zip 하나, 안은 Gorani/ 폴더(Gorani_AC<N>_<Mac|Win> 애드온 + scripts/ + python/<플랫폼>/
+     + LICENSE-tapir.txt). 애드온(archicad/ C++)은 이 Mac에서 못 빌드해(Xcode 없음) GitHub Actions(.github/workflows/archicad.yml)가 빌드한 것을
+     gh로 받는다 — 지금 archicad/ 트리와 같은 커밋의 성공한 실행. 파이썬·scripts는 SketchUp판과 같은 사이드카(cmd_archicad).
 web: 브라우저판 정적 파일 — index.html(scripts/web_app.html) + panel.html(site_ui.html에 vendor 주입, panel_server.get_html) + web_worker.js
      + scripts.zip(로직 원본 .py — 워커가 Pyodide 가상 파일계에 푼다). Pyodide·numpy·shapely·three.js는 CDN에서 받는다(web_worker.js·web_app.html 맨 위).
 packs: data/의 시도별 `<시도>_site.db`·`<시도>_context.db`마다 필지(rtree 제거)·컨텍스트(등고선 제외)·등고선 팩을
@@ -149,7 +153,7 @@ PLAIN_SCRIPT_NAMES = ("loader.py", "cmd_site.py")         # 입출력 연결뿐�
 UI_FILE_NAMES = ("site_ui.html", "i18n.json")   # i18n.json = 다국어 사전(패널 tr()·로직 모듈 i18n.tr 공용)
 UI_DIR_NAMES = ("vendor",)
 DOC_FILE_NAMES = ("docs/install.md",)
-EXCLUDED_MODULE_PREFIXES = ("dev_", "cmd_", "probe_", "server_", "blender_", "sketchup_", "web_")     # 개발·실측 전용, 진입 스크립트, 국내 서버(VM) 전용, Blender·SketchUp·웹판
+EXCLUDED_MODULE_PREFIXES = ("dev_", "cmd_", "probe_", "server_", "blender_", "sketchup_", "archicad_", "web_")     # 개발·실측 전용, 진입 스크립트, 국내 서버(VM) 전용, Blender·SketchUp·웹판
 YAK_EXCLUDED_NAMES = ("mesh_geometry", "panel_server")      # Blender·SketchUp 공용(mathutils·shapely, 브라우저 패널) — Rhino는 안 쓴다
 
 # Gorani 명령 본문 — rhinocode가 .rhp에 넣는다.
@@ -180,7 +184,7 @@ else:
 
 BLENDER_APP = "/Applications/Blender.app/Contents/MacOS/Blender"
 BLENDER_PACKAGE_ID = "gorani"
-BLENDER_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py", "cmd_sketchup.py", "cmd_rhino7.py", "cmd_web.py", "usage_stats.py")    # Rhino 전용(Eto·RhinoCommon·사용 통계), SketchUp·Rhino 7 사이드카, 웹판
+BLENDER_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py", "cmd_sketchup.py", "cmd_rhino7.py", "cmd_archicad.py", "cmd_web.py", "usage_stats.py")    # Rhino 전용(Eto·RhinoCommon·사용 통계), SketchUp·Rhino 7·Archicad 사이드카, 웹판
 # 확장 심사(2026-10-28): 애드온에는 Blender 코드만 — 다른 프로그램(Rhino·SketchUp) 분기, Blender에 없는 라이브러리 import, 스레드(threading·queue)는 안 된다.
 # 공용 모듈의 그런 구간은 소스에서 `# [blender-cut]` … `# [/blender-cut]` 줄(패널 HTML은 `// [blender-cut]`)로 감싸 두고 패키지에서 뺀다(get_blender_source).
 # 남으면 get_blender_problems가 빌드를 멈춘다. 번역 사전은 다른 프로그램·사용 통계 문구를 뺀다(BLENDER_I18N_DROPPED)
@@ -710,7 +714,7 @@ def build_blender():
     target = os.path.join(package_dir, "scripts")
     os.makedirs(target)
     names = [n for n in sorted(os.listdir(SCRIPTS_DIR)) if n.endswith(".py") and n not in BLENDER_EXCLUDED_NAMES
-             and not n.startswith(("dev_", "probe_", "server_", "sketchup_", "web_"))]
+             and not n.startswith(("dev_", "probe_", "server_", "sketchup_", "archicad_", "web_"))]
     for name in names:
         with open(os.path.join(SCRIPTS_DIR, name), encoding="utf-8") as f:
             source = get_blender_source(BLENDER_SOURCE_OVERRIDES.get(name) or f.read(), name, [n[:-3] for n in names])
@@ -850,39 +854,49 @@ def _stage_python(python_dir):
     return host_python
 
 
-def _stage_sidecar_scripts(target, host_python, plain_names, source=False):
-    # type: (str, str, tuple, bool) -> int
-    """사이드카 판(SketchUp·Rhino 7)의 scripts/ — 평문 진입 스크립트 + UI 에셋 + 로직 .pyc(번들 파이썬 3.12로 컴파일). 모듈 수를 돌려준다.
+def _stage_sidecar_scripts(target, host_python, plain_names, excluded_names, excluded_prefixes, source=False):
+    # type: (str, str, tuple, tuple, tuple, bool) -> list
+    """사이드카판(SketchUp·Rhino 7·Archicad) scripts/ — 평문 진입 스크립트 + UI 에셋 + 로직 .pyc(번들 파이썬 3.12로 컴파일). 로직 모듈 이름을 돌려준다.
     source면 로직도 평문 .py 그대로 — SketchUp EW 요건 'Readable to Reviewer'(컴파일한 코드 금지, 2026-11-08). 사이드카는 `-B`로 떠
     확장 폴더에 __pycache__를 쓰지 않는다(서명된 확장 폴더 쓰기 금지)."""
     for name in plain_names + UI_FILE_NAMES:
         shutil.copyfile(os.path.join(SCRIPTS_DIR, name), os.path.join(target, name))
     for dir_name in UI_DIR_NAMES:
         shutil.copytree(os.path.join(SCRIPTS_DIR, dir_name), os.path.join(target, dir_name))
-    names = [n[:-3] for n in sorted(os.listdir(SCRIPTS_DIR)) if n.endswith(".py") and n[:-3] not in SKETCHUP_EXCLUDED_NAMES
-             and n[:-3] != "loader" and not n.startswith(("dev_", "cmd_", "probe_", "server_", "blender_", "web_"))]
+    names = [n[:-3] for n in sorted(os.listdir(SCRIPTS_DIR)) if n.endswith(".py") and n[:-3] not in excluded_names
+             and n[:-3] != "loader" and not n.startswith(("dev_", "cmd_", "probe_", "server_", "blender_", "web_") + excluded_prefixes)]
     if source:
         for name in names:
             shutil.copyfile(os.path.join(SCRIPTS_DIR, name + ".py"), os.path.join(target, name + ".py"))
-        return len(names)
+        return names
     compile_source = ("import py_compile, sys\nsource, target = sys.argv[1:3]\n"
                       "for name in sys.argv[3:]:\n"
                       "    py_compile.compile(source + '/' + name + '.py', cfile=target + '/' + name + '.pyc', dfile=name + '.py', doraise=True, optimize=2)\n")
     subprocess.run([host_python, "-I", "-c", compile_source, SCRIPTS_DIR, target] + names, check=True)
-    return len(names)
+    return names
+
+
+def _write_zip(work_dir, path):
+    # type: (str, str) -> None
+    """work_dir 안을 zip으로(경로는 work_dir 기준). 심볼릭 링크는 원본 내용으로(푸는 쪽이 링크를 모른다), 실행 비트는 그대로."""
+    import zipfile
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+        for folder, _dirs, files in os.walk(work_dir):
+            for name in sorted(files):
+                file_path = os.path.join(folder, name)
+                zf.write(file_path, os.path.relpath(file_path, work_dir))
 
 
 def build_sketchup():
     # type: () -> str
     """build/sketchup/에 확장 폴더를 모아 build/bsh_gorani-<버전>.rbz로 묶는다. rbz 경로를 돌려준다."""
-    import zipfile
     work_dir = os.path.join(BUILD_DIR, "sketchup")
     shutil.rmtree(work_dir, ignore_errors=True)
     ext_dir = os.path.join(work_dir, SKETCHUP_EXT_ID)
     target = os.path.join(ext_dir, "scripts")
     os.makedirs(target)
     host_python = _stage_python(os.path.join(ext_dir, "python"))
-    count = _stage_sidecar_scripts(target, host_python, SKETCHUP_PLAIN_NAMES, source=True)   # EW 심사자가 읽을 수 있게 평문
+    names = _stage_sidecar_scripts(target, host_python, SKETCHUP_PLAIN_NAMES, SKETCHUP_EXCLUDED_NAMES, ("archicad_",), source=True)   # EW 심사자가 읽을 수 있게 평문
     shutil.copyfile(os.path.join(SCRIPTS_DIR, "sketchup_ext.rb"), os.path.join(ext_dir, "main.rb"))
     os.makedirs(os.path.join(ext_dir, "icons"))
     # 도구 막대 아이콘 — Windows는 SVG, macOS는 PNG(SketchUp 맥은 SVG 대신 PDF를 받는다 — PNG는 48 px를 줄여 그린다)
@@ -895,14 +909,89 @@ def build_sketchup():
     with open(os.path.join(work_dir, SKETCHUP_EXT_ID + ".rb"), "w", encoding="utf-8") as f:
         f.write(SKETCHUP_ROOT_SOURCE % {"id": SKETCHUP_EXT_ID, "version": PACKAGE_VERSION, "creator": PUBLISHER["name"],
                                         "year": datetime.date.today().year})
-    print("  로직 모듈 %d개(평문 .py)" % count)
+    print("  로직 모듈 %d개(평문 .py)" % len(names))
     rbz = os.path.join(BUILD_DIR, "%s-%s.rbz" % (SKETCHUP_EXT_ID, PACKAGE_VERSION))
-    with zipfile.ZipFile(rbz, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
-        for folder, _dirs, files in os.walk(work_dir):
-            for name in sorted(files):
-                path = os.path.join(folder, name)
-                zf.write(path, os.path.relpath(path, work_dir))   # 심볼릭 링크는 원본 내용으로(rbz를 푸는 SketchUp이 링크를 모른다)
+    _write_zip(work_dir, rbz)
     return rbz
+
+
+# ── archicad ────────────────────────────────────────────
+
+ARCHICAD_VERSIONS = (27, 28, 29, 30)   # .github/workflows/archicad.yml 행렬과 같게
+ARCHICAD_PLAIN_NAMES = ("loader.py", "cmd_site.py", "cmd_archicad.py")
+ARCHICAD_EXCLUDED_NAMES = ("panel_host", "cmd_install", "blender_baker", "sketchup_baker")
+ARCHICAD_PLATFORMS = {"mac": ("mac-arm64", "mac-x64"), "win": ("win-x64",)}   # zip 하나에 넣을 번들 파이썬 플랫폼
+ARCHICAD_REPO = "969flash/gorani-plugin"
+ARCHICAD_DEV_MDID = re.compile(r"'MDID'[^{]*\{\s*1\s+1\s*\}")   # archicad/Sources/RFIX/AddOnFix.grc 개발용 ID(1·1) — 데모 모드에서만 켜진다
+
+
+def _gh(*args):
+    # type: (str) -> str
+    """gh를 개인 계정(969flash) 토큰으로 — 활성 계정은 회사 계정이다(메모: 개인 GitHub만)."""
+    token = subprocess.run(["gh", "auth", "token", "-u", "969flash"], capture_output=True, text=True, check=True).stdout.strip()
+    return subprocess.run(["gh"] + list(args), capture_output=True, text=True, check=True, env=dict(os.environ, GH_TOKEN=token)).stdout
+
+
+def _get_archicad_addons():
+    # type: () -> str
+    """지금 archicad/ 트리와 같은 트리로 CI가 성공한 실행의 애드온을 build/archicad_addon/<run>/에 받는다. 폴더를 돌려준다."""
+    tree = subprocess.run(["git", "rev-parse", "HEAD:archicad"], capture_output=True, text=True, check=True, cwd=ROOT_DIR).stdout.strip()
+    if subprocess.run(["git", "status", "--porcelain", "archicad"], capture_output=True, text=True, cwd=ROOT_DIR).stdout.strip():
+        sys.exit("archicad/에 커밋하지 않은 변경이 있습니다 — 커밋·푸시해 CI가 빌드한 뒤 다시 돌리세요")
+    runs = json.loads(_gh("run", "list", "-R", ARCHICAD_REPO, "--workflow", "archicad.yml", "--status", "success", "--limit", "30",
+                          "--json", "databaseId,headSha"))
+    for run in runs:
+        found = subprocess.run(["git", "rev-parse", run["headSha"] + ":archicad"], capture_output=True, text=True, cwd=ROOT_DIR).stdout.strip()
+        if found == tree:
+            break
+    else:
+        sys.exit("지금 archicad/ 트리로 성공한 CI 실행이 없습니다 — 푸시하고 'Archicad Add-On' 작업이 끝난 뒤 다시 돌리세요")
+    out_dir = os.path.join(BUILD_DIR, "archicad_addon", str(run["databaseId"]))
+    if not os.path.isdir(out_dir):
+        print("  CI 애드온 받기 (run %s)" % run["databaseId"])
+        _gh("run", "download", str(run["databaseId"]), "-R", ARCHICAD_REPO, "-D", out_dir + ".part")
+        os.replace(out_dir + ".part", out_dir)
+    return out_dir
+
+
+def build_archicad(allow_dev_mdid=False):
+    # type: (bool) -> list
+    """build/archicad/에 Archicad 버전·플랫폼마다 zip을 만든다. zip 경로 목록을 돌려준다."""
+    with open(os.path.join(ROOT_DIR, "archicad", "Sources", "RFIX", "AddOnFix.grc"), encoding="utf-8") as f:
+        if ARCHICAD_DEV_MDID.search(f.read()) and not allow_dev_mdid:
+            sys.exit("애드온 ID(MDID)가 개발용 1·1입니다 — Graphisoft 개발자 등록으로 받은 ID를 AddOnFix.grc에 넣거나 --dev로 시험판을 만드세요")
+    addon_dir = _get_archicad_addons()
+    work_dir = os.path.join(BUILD_DIR, "archicad")
+    shutil.rmtree(work_dir, ignore_errors=True)
+    stage = os.path.join(work_dir, "stage")
+    target = os.path.join(stage, "scripts")
+    os.makedirs(target)
+    host_python = _stage_python(os.path.join(stage, "python"))
+    names = _stage_sidecar_scripts(target, host_python, ARCHICAD_PLAIN_NAMES, ARCHICAD_EXCLUDED_NAMES, ("sketchup_",))
+    print("  로직 모듈 %d개 컴파일" % len(names))
+    zips = []
+    for version in ARCHICAD_VERSIONS:
+        for platform, pythons in ARCHICAD_PLATFORMS.items():
+            name = "Gorani_AC%d_%s" % (version, platform.capitalize())
+            package_dir = os.path.join(work_dir, name, PACKAGE_NAME)
+            os.makedirs(package_dir)
+            if platform == "mac":   # CI가 ditto로 묶은 번들(서명·실행 비트 유지) — ditto로 푼다
+                subprocess.run(["ditto", "-x", "-k", os.path.join(addon_dir, name, name + ".zip"), package_dir], check=True)
+            else:
+                shutil.copyfile(os.path.join(addon_dir, name, name + ".apx"), os.path.join(package_dir, name + ".apx"))
+            shutil.copytree(target, os.path.join(package_dir, "scripts"))
+            for python in pythons:
+                shutil.copytree(os.path.join(stage, "python", python), os.path.join(package_dir, "python", python), symlinks=True)
+            shutil.copyfile(os.path.join(ROOT_DIR, "archicad", "LICENSE.tapir"), os.path.join(package_dir, "LICENSE-tapir.txt"))
+            shutil.copyfile(os.path.join(ROOT_DIR, "docs", "archicad.md"), os.path.join(package_dir, "README.md"))
+            for doc in DOC_FILE_NAMES:   # 패널 [문서 열기]
+                os.makedirs(os.path.join(package_dir, os.path.dirname(doc)), exist_ok=True)
+                shutil.copyfile(os.path.join(ROOT_DIR, doc), os.path.join(package_dir, doc))
+            path = os.path.join(work_dir, "%s-%s-Archicad%d-%s.zip" % (PACKAGE_NAME, PACKAGE_VERSION, version, platform))
+            _write_zip(os.path.join(work_dir, name), path)
+            shutil.rmtree(os.path.join(work_dir, name))
+            zips.append(path)
+    return zips
 
 
 # ── rhino7 ──────────────────────────────────────────────
@@ -956,7 +1045,7 @@ def build_rhino7():
     scripts_dir = os.path.join(work_dir, "scripts")
     os.makedirs(scripts_dir)
     host_python = _stage_python(python_dir)
-    print("  로직 모듈 %d개 컴파일" % _stage_sidecar_scripts(scripts_dir, host_python, RHINO7_PLAIN_NAMES))
+    print("  로직 모듈 %d개 컴파일" % len(_stage_sidecar_scripts(scripts_dir, host_python, RHINO7_PLAIN_NAMES, SKETCHUP_EXCLUDED_NAMES, ("archicad_",))))
     plugin = _build_rhino7_plugin(os.path.join(work_dir, "project"))
     packages = []
     for platform, folders in RHINO7_PLATFORMS.items():
@@ -985,8 +1074,8 @@ def build_rhino7():
 # ── web ─────────────────────────────────────────────────
 
 WEB_DIR = os.path.join(BUILD_DIR, "web")
-WEB_EXCLUDED_PREFIXES = ("dev_", "probe_", "server_", "blender_", "sketchup_")
-WEB_EXCLUDED_NAMES = ("panel_host", "panel_server", "cmd_install", "cmd_blender", "cmd_sketchup", "cmd_rhino7")   # Rhino·Blender·SketchUp 연결
+WEB_EXCLUDED_PREFIXES = ("dev_", "probe_", "server_", "blender_", "sketchup_", "archicad_")
+WEB_EXCLUDED_NAMES = ("panel_host", "panel_server", "cmd_install", "cmd_blender", "cmd_sketchup", "cmd_rhino7", "cmd_archicad")   # Rhino·Blender·SketchUp·Archicad 연결
 
 
 def build_web():
@@ -1835,15 +1924,16 @@ def rebounds():
 
 def main():
     parser = argparse.ArgumentParser(description="Yak 패키지·Blender·SketchUp 확장·웹판·데이터 팩 빌드")
-    parser.add_argument("what", nargs="?", default="all", choices=("all", "smoke", "yak", "blender", "sketchup", "rhino7", "web", "packs", "repack", "upload", "notices", "config", "rebounds", "mirror"))
+    parser.add_argument("what", nargs="?", default="all", choices=("all", "smoke", "yak", "blender", "sketchup", "rhino7", "archicad", "web", "packs", "repack", "upload", "notices", "config", "rebounds", "mirror"))
     parser.add_argument("--sido", help="packs: 쉼표로 구분한 시도 코드만 (기본 data/에 있는 전부)")
     parser.add_argument("--drop", action="store_true", help="packs: 압축 뒤 원본 시도 DB를 지운다(서울 제외)")
     parser.add_argument("--site-only", action="store_true", help="packs·upload: 필지 팩만(토지이용계획·토지특성 갱신 — 컨텍스트·등고선 팩과 국내 버킷은 그대로)")
     parser.add_argument("--dirs", help="mirror: 쉼표로 구분한 데이터셋 폴더만(맨 위 = 빈 이름, 예: ',jp') — 기본 전부")
+    parser.add_argument("--dev", action="store_true", help="archicad: 개발용 애드온 ID(1·1)로도 만든다 — 데모 모드 시험용")
     args = parser.parse_args()
     if args.what in ("all", "yak") and sys.version_info[:2] != (3, 9):
         sys.exit("Rhino 8의 CPython(3.9)과 같은 Python 3.9로 실행해야 .pyc가 호환됩니다. 현재: %d.%d" % sys.version_info[:2])
-    if args.what in ("all", "smoke", "yak", "blender", "sketchup", "rhino7"):   # 배포 전 점검 — 건너뛰는 옵션 없음
+    if args.what in ("all", "smoke", "yak", "blender", "sketchup", "rhino7", "archicad"):   # 배포 전 점검 — 건너뛰는 옵션 없음
         check_tiles()
         if args.what == "smoke":
             return
@@ -1860,6 +1950,10 @@ def main():
         for path in build_rhino7():
             print("rhino7: %s (%.0f MB)" % (path, os.path.getsize(path) / 1e6))
         print("  설치: Rhino 7에 .yak 파일을 끌어다 놓고 다시 켠다. 올리기는 yak과 같은 버전으로 yak push(허락 받은 뒤)")
+    if args.what == "archicad":
+        for path in build_archicad(args.dev):
+            print("archicad: %s (%.0f MB)" % (path, os.path.getsize(path) / 1e6))
+        print("  설치: zip을 풀어 Gorani 폴더를 Archicad Add-Ons 폴더에 넣거나 Add-On Manager로 애드온 파일을 고른다 — docs/archicad.md")
         return
     if args.what == "web":
         print("web: %s" % build_web())

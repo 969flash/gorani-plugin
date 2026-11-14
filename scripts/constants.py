@@ -609,6 +609,7 @@ BLENDER_MODEL_FILE_NAME = "context.blend"      # Blender판 사본(blender_baker
 # [blender-cut]
 SKETCHUP_MODEL_FILE_NAME = "context.skp"       # SketchUp판 사본(sketchup_baker.save_copy — 대상지 그룹 정의를 저장)
 WEB_MODEL_FILE_NAME = "context.glb"            # 웹판 사본(web_baker.save_copy) — 페이지 뷰어가 바로 그리고 Blender·Rhino 8이 가져온다
+ARCHICAD_MODEL_FILE_NAME = "context.mod"       # Archicad판 사본(archicad_baker.save_copy — 구운 요소를 모듈로). 다시 넣기는 핫링크
 # [/blender-cut]
 CONTEXT_META_FILE_NAME = "context.json"
 BASEMAP_FILE_FORMAT = "basemap_%d.ai"          # 축척 분모
@@ -631,7 +632,7 @@ CTX_LAYERS = {   # 이름: (RGB)
 # CTX::Zoning 하위 레이어 — overlays theme → 'CTX::Zoning::<이름>::<종류>'. 종류는 용도지역이면 현황도 11 범례 이름, 나머지는 overlay.kind.
 # 색은 현황도 11~13 범례 색(context_baker.get_layer_rgb). 현황도에 없는 theme(건축선 notice_road)은 넣지 않는다.
 ZONING_LAYERS = {"zone": "용도지역", "district": "용도지구", "area": "용도구역", "facility": "도시계획시설", "plan": "지구단위계획"}
-CTX_HIDDEN_LAYERS = ("Terrain::site_original", "Site::original", "Site::lots")   # 처음 만들 때 끈다(평탄화 전 원지형·대상지 면 아래 원래 지형·녹지·합필 전 필지 — 필요할 때 켜 본다). 사용자가 켠 뒤로는 건드리지 않는다
+CTX_HIDDEN_LAYERS = ("Terrain::site_original", "Site::original", "Site::lots", "Terrain::mesh")   # 처음 만들 때 끈다(평탄화 전 원지형·대상지 면 아래 원래 지형·녹지·합필 전 필지 — 필요할 때 켜 본다). 사용자가 켠 뒤로는 건드리지 않는다
 # 베이스맵 레이어 순서·K톤(0~100)·선두께 mm(1:5000, 1:1000). fill=None이면 선만.
 BM_LAYERS = [
     ("00_frame_scale", "프레임·축척·방위", None, 100, (0.5, 0.5)),
@@ -873,6 +874,7 @@ HOST_LABELS = {
     "sketchup": {"id": "sketchup", "name": "SketchUp", "doc": "SketchUp 모델", "model": SKETCHUP_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},
     # Rhino 7판(cmd_rhino7 사이드카 + rhino7_host.cs) — 패널에는 Rhino로 보인다. DWG는 Rhino 8 헤드리스 문서(context_baker.save_dwg)라 없다
     "rhino7": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": False, "ask_stats": False, "self_update": True},
+    "archicad": {"id": "archicad", "name": "Archicad", "doc": "Archicad 프로젝트", "model": ARCHICAD_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},   # GA 속성을 만들기 전에는 묻지 않는다
     "web": {"id": "web", "name": "브라우저", "doc": "3D 모델", "model": WEB_MODEL_FILE_NAME, "dwg": False, "ask_stats": False},   # 통계는 웹사이트 GA(페이지)만
     # [/blender-cut]
 }
@@ -890,6 +892,27 @@ SKETCHUP_HOST_TIMEOUT = 1800.0  # s — 호스트 호출(베이크 등) 응답 �
 SKETCHUP_HOST_POLL = 0.5        # s — 응답을 기다리며 패널 닫힘을 확인하는 간격
 SKETCHUP_ZOOM_MIN_SPAN = 400.0  # m — 생성 뒤 화면 맞춤에서 대상지 + 여백의 최소 한 변. 작은 필지도 주변 맥락이 보이게(Rhino는 대상지 + 대각선 반 여백만)
 SKETCHUP_GROUND_CELL = 5.0      # m — 지반 높이 조회 격자 칸(mesh_geometry._Ground shapely판). 지형 리샘플 4 m 삼각형이 칸마다 열 개 안팎
+# Archicad판(cmd_archicad 사이드카 — 번들 파이썬 + Gorani 애드온 archicad/, 모델 변경은 Archicad JSON API + GoraniCommand)
+ARCHICAD_COMMAND_NAMESPACE = "GoraniCommand"   # 애드온 명령 이름 공간(archicad/Sources/CommandBase.cpp). 개발 시험은 Tapir('TapirCommand')로도 돈다
+ARCHICAD_HOST_TIMEOUT = 1800.0  # s — JSON 명령 하나의 응답 대기 상한(건물 수천 동 Morph 한 묶음)
+ARCHICAD_BUSY_CODE = 4001       # JSON 오류 'Invalid program status' — 사용자 입력 중·모달 대화상자. 기다렸다 다시 부른다
+ARCHICAD_BUSY_WAIT = 60.0       # s — 위 상태가 풀리기를 기다리는 상한
+ARCHICAD_BUSY_POLL = 0.5        # s
+ARCHICAD_WATCH_SECONDS = 5.0    # s — Archicad가 살아 있는지 보는 간격. 연결 거부가 ARCHICAD_WATCH_MISSES번 이어지면 사이드카를 끝낸다
+ARCHICAD_WATCH_MISSES = 3
+ARCHICAD_LOG_FILE_NAME = "archicad_sidecar.log"   # HOME_DIR 안 — 사이드카 출력(애드온이 띄운 파이썬은 출력을 받는 곳이 없다)
+ARCHICAD_PANEL_SIZE = (440, 860)   # px — Archicad 안 패널 팔레트(ShowScriptUI) 처음 크기. 사용자가 늘리면 Archicad가 기억한다
+ARCHICAD_BATCH = 200            # 요소 만들기 명령 하나에 보내는 Morph 수(속성·레이어 지정은 ×10)
+ARCHICAD_SPLIT_MAX = 2000      # 면 메시 Morph가 거부되면 면마다 나눠 만드는 상한(옹벽 수백 면). 넘으면 그 항목은 빠지고 경고
+ARCHICAD_MESH_LAYER = "Terrain::mesh"   # 지형 도구용 Archicad Mesh 레이어(꺼 둔다) — 보이는 지형은 TIN 그대로의 Morph 면. Mesh는 Archicad가 다시 삼각분할해
+                                      # 강변 축대처럼 높이 차가 큰 곳에서 도로 위로 솟았다(파리 시청 R250, Archicad 30 2026-11-09)
+ARCHICAD_HARD_EDGE_LAYERS = ("CTX::Terrain::block", "CTX::Terrain::site_wall")   # 모서리를 각지게 칠할 면 — 지형은 부드럽게(Morph 모서리는 요소 하나에 한 종류)
+ARCHICAD_VIEW = (-0.35, 1.25, 0.9, 50)   # 3D 창에서 만든 뒤 카메라: (옆, 뒤, 위) × 대상지 폭, 시야각° — 남남서쪽 위에서 내려다본다
+ARCHICAD_2D_FILE_NAME = "archicad_2d.json"   # HOME_DIR — 대상지(lot_key)별 2D 요소 id. Archicad 2D 요소는 분류·속성을 못 받아 이것으로 지운다
+_ARCHICAD_ON_HOME = {"showOnHome": True, "showAllAbove": False, "showAllBelow": False, "showRelAbove": 0, "showRelBelow": 0}
+ARCHICAD_MORPH_PLAN = {"isAutoOnStoryVisibility": False, "showContour": _ARCHICAD_ON_HOME, "showFill": _ARCHICAD_ON_HOME}   # Morph를 0층 평면에 늘 보인다 —
+# 층 자동 표시면 해발 45 m 넘는 건물·지형이 어느 층(0~9 m)과도 겹치지 않아 평면도에 아무것도 안 나왔다(성북동, Archicad 30 2026-11-09)
+ARCHICAD_SURFACE_REFLECTION = (60, 80)   # % (주변광, 확산) — 표면 'Gorani <레이어>'. 안 주면 0이라 레이어 색이 안 보이고 회색·검정으로 칠해졌다(Archicad 30, 2026-11-09)
 # 웹판(cmd_web — 브라우저 Pyodide 워커 web_worker.js + 페이지 web_app.html). Pyodide·three.js 주소는 JS 파일 맨 위 상수
 # 반경 상한 — 2026-10-19 실측(Chrome·Apple M5, 성수 333-139): 500 m 5 s·탭 0.8 GB, 1 km 11 s·0.9 GB, 2 km 39 s·1.8 GB(시군구 팩 6곳 681 MB 포함).
 # CPU 4배 감속(오래된 보급형 노트북 가정)이면 500 m 20 s·1 km 45 s. 3 km는 팩만 1.8 GB(10곳)라 탭 메모리에 못 든다
