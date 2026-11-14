@@ -1,30 +1,57 @@
 # 회원(구글 로그인)과 디테일 옵션 — 작업 계획
 
 2026-11-14 작성. 기준: main 4d232c2(배포판 0.3.9). 디테일 옵션(`constants.DETAIL_OPTIONS` 9종 — 2938bfe, 2026-11-13)은 아직 배포되지 않았다.
-목표: 디테일 옵션은 무료 회원(구글 로그인)만 쓰고, 나머지 기능은 지금처럼 누구나 쓴다. 돈은 받지 않는다. 서버비 0을 지킨다.
+목표: 디테일 옵션은 무료 회원(구글 로그인)이 쓰고, 손님은 맛보기로 몇 번 써 본다. 나머지 기능은 지금처럼 누구나 쓴다. 인스타그램에서 데려와 가입 수를 늘린다. 돈은 받지 않는다. 서버비 0을 지킨다.
+2026-11-14 수정: 가입 즉시 회원 확정, 손님 맛보기, 인스타그램 연계(사용자 요청).
 
 ## 먼저 정할 것 — 권장안과 근거
 
 | 질문 | 권장 | 근거 |
 |---|---|---|
-| 누가 회원인가 | 구글 로그인 + 동의만 하면 바로 회원(승인제 아님) | 승인제는 운영자가 매일 손대야 한다. 돈을 받지 않는 동안 구분하는 목적은 '누가 쓰는지 알고, 연락할 길을 만드는 것'이다 |
-| 무엇을 잠그나 | 디테일 9종 전부(`MEMBER_OPTIONS`) — 원격 설정으로 빼고 넣는다 | 아직 아무도 받지 않은 기능이라 처음부터 회원 기능으로 내면 '써 보던 것을 빼앗는' 일이 없다. 교량을 끄면 철교 위 선로가 빠지고 도로가 지형에 얹히는(0.3.9 모양) 점이 불만으로 오면 교량만 손님에게 연다 — 판 없이 |
+| 누가 회원인가 | **확정(2026-11-14 사용자)** — 구글 로그인 + 동의하면 바로 회원(승인제 아님) | 승인제는 운영자가 매일 손대야 한다. 돈을 받지 않는 동안 구분하는 목적은 '누가 쓰는지 알고, 연락할 길을 만드는 것'이다 |
+| 무엇을 잠그나 | 보이는 디테일 7종(`MEMBER_OPTIONS` — 노면표시·가로수·선로·옹벽·담장·파라펫·층 구분선). 연석·교량은 모두에게 | 연석·교량은 기본 모형의 정합이다 — 교량을 끄면 철교 위 선로가 빠지고 도로가 지형에 얹혀(0.3.9 모양) 손님 모형이 틀려 보인다. 아직 아무도 받지 않은 기능이라 처음부터 회원 기능으로 내면 '빼앗는' 일이 없다. 원격 설정이라 판 없이 바꾼다 |
+| 손님에게 얼마나 여나 | 처음 3번 만들기는 디테일 전부(맛보기, `GUEST_TRIAL_BUILDS`) | 직접 받아 보고 좋은 순간에 가입을 권하는 것이 가장 잘 먹힌다. 아래 '손님에게 여는 것' |
+| 가입을 어디서 늘리나 | 인스타그램(@gorani.3d) → 휴대폰 가입 페이지 `/join/` → PC 설치 | 아래 '가입 늘리기'. 지금 홍보 문구 "회원가입도 없습니다"부터 바꿔야 한다 |
 | 언제 내나 | 디테일과 로그인을 같은 판(0.4.0)으로 | 디테일만 먼저 내고 나중에 잠그면 써 본 사람에게서 빼앗는 꼴이 된다. 디테일 공개가 2주쯤 늦어지는 것을 감수한다 |
 | 얼마나 단단히 잠그나 | 정직한 사용자용 구분만(서명·난독화 없음) | 설치본에 파이썬 원본이 그대로 있다(Blender판은 GPL 원본). 돈을 받기 전에는 막는 데 시간을 쓰지 않는다. 정말 막아야 할 때는 서버 쪽 자원으로 막는다(아래 '나중') |
 | Blender판 | 로그인 없음, 디테일 전부 열림 | Blender Extensions 약관: 외부 서비스는 로그인·가입 같은 추가 제한 없이 쓰게 해야 한다([terms-of-service](https://extensions.blender.org/terms-of-service)). 심사 답변에도 "free and without login"이라 적었다(`docs/blender_store/README.md`) |
 | 회원 정보는 어디에 | 앱스 스크립트 + 구글 시트(문의함과 같은 방식) | 서버비 0. 이미 운영 중인 방식이다(웹 저장소 `tools/contact`). 회원 표를 시트에서 바로 보고 고친다 |
-| 무엇을 저장하나 | 구글 계정 고유번호(`sub`)·이메일·동의 기록만. 이름·사진은 받지 않는다 | 최소 수집 — 처리방침과 탈퇴가 단순해진다 |
+| 무엇을 저장하나 | 구글 계정 고유번호(`sub`)·이메일·동의 기록·가입 경로(UTM)만. 이름·사진은 받지 않는다 | 최소 수집 — 처리방침과 탈퇴가 단순해진다 |
 
 ## 등급
 
 | 등급 | 누가 | 쓰는 것 |
 |---|---|---|
-| 손님 `guest` | 로그인하지 않음 | 지금 기능 전부 — 3D 기본(건물·도로·지형·수계·녹지·철도 부지), 2D 전부 |
-| 회원 `member` | 구글 로그인 + 동의 | + `MEMBER_OPTIONS`(연석·노면표시·가로수·교량·선로·옹벽·담장·파라펫·층 구분선) |
+| 손님 `guest` | 로그인하지 않음 | 지금 기능 전부 — 3D 기본(건물·도로·지형·수계·녹지·철도 부지), 2D 전부 + 연석·교량. 디테일 7종은 처음 3번 만들기만(맛보기) |
+| 회원 `member` | 구글 로그인 + 동의 | + `MEMBER_OPTIONS` 7종을 늘 |
 | 막힘 `blocked` | 운영자가 시트에서 바꿈(남용·요청) | 손님과 같다 |
 | (나중) 유료 | 정하지 않았다 | 시트에 `tier` 칸만 둔다. 값을 늘리면 된다 |
 
 `ACCOUNT_ENABLED = False`(원격 설정)이면 회원 구분이 없다 — 로그인 버튼이 사라지고 디테일이 모두 열린다. 회원 API가 오래 멈췄을 때 쓰는 비상 스위치다.
+
+## 손님에게 여는 것 — 맛보기
+
+손님을 나누는 방법을 견줬다.
+
+| 나누는 법 | 예 | 판단 |
+|---|---|---|
+| 기능 | 연석·교량은 모두에게 | **쓴다** — 기본 모형이 틀려 보이지 않게 |
+| 횟수(맛보기) | 처음 3번 만들기는 전부 | **쓴다** — 가로수·횡단보도가 든 모형을 직접 받아 본 뒤 가입을 권한다 |
+| 기간 | 설치 뒤 14일 | 안 쓴다 — 설치만 해 두고 몇 주 뒤(공모전 시즌)에 처음 쓰는 학생은 맛도 못 본다 |
+| 범위 | 300 m 안은 무료 | 안 쓴다 — 왜 되고 안 되는지 설명하기 어렵다 |
+| 지역 | 서울만 회원 | 안 쓴다 — 해외 사용자에게 가입할 까닭이 사라진다 |
+| 특정 사람(초대 코드·강의) | 스튜디오 단체 | 안 쓴다 — 가입이 바로 되니 코드 대신 가입하게 한다. 어느 강의에서 왔는지는 가입 경로(`ref`)로 센다 |
+| 무작위 비율 | 새 설치 절반만 맛보기 | 나중에 — 맛보기가 가입을 정말 늘리는지 재 보고 싶을 때(설치 ID로 가른다) |
+
+규칙:
+- 맛보기 1번 = 디테일 7종 중 하나라도 켜고 3D 만들기가 성공한 것. 실패·취소·결과 다시 열기·2D만 만들기는 세지 않는다.
+- 센 값은 `~/.gorani/account.json`의 `trial_used`(설치마다). 파일을 지우면 다시 생긴다 — 정직한 사용자용 구분이라 받아들인다.
+- `GUEST_TRIAL_BUILDS`는 원격 설정이다. 인스타 이벤트 기간에 5번으로 늘리는 식으로 판 없이 바꾼다.
+
+패널:
+- 맛보기가 남았으면 디테일 체크박스는 그대로 쓰고, 줄 이름 옆에 `맛보기 2번 남음`.
+- 맛보기로 만든 결과 화면(3D 카드 아래): `가로수·노면표시는 무료 회원 기능입니다. 맛보기가 1번 남았습니다 [구글로 무료 가입]`. 결과를 본 바로 그 자리가 가입을 권하기 가장 좋은 때다.
+- 다 쓰면 체크박스가 잠기고 `무료 가입하면 계속 씁니다 [구글로 무료 가입]`. 잠긴 칸을 누르면 작은 전후 그림(디테일 없음·있음)과 같은 버튼.
 
 ## 사용자 흐름 — 플러그인
 
@@ -32,7 +59,7 @@
 플러그인은 구글과 직접 말하지 않는다. 로그인은 gorani.site가 하고, 플러그인은 '연결 코드'로 결과만 받는다. 그래서 플러그인에 구글 클라이언트 비밀값이 없고, 호스트 다섯 개가 같은 코드를 쓴다.
 
 1. **처음 열 때 묻지 않는다.** 로그인 팝업·띠 없음 — 버튼 하나로 결과까지 간다는 원칙(PRODUCT.md)을 지킨다.
-2. **3D 설정 '디테일' 줄** — 손님에게도 보인다(숨기면 회원 기능이 있는지 모른다). 체크박스는 흐리게 잠기고 줄 끝에 자물쇠 + `디테일은 무료 회원 기능입니다 [구글로 로그인]`. 요약 줄(`s3d_sum`)에는 손님의 디테일을 쓰지 않는다.
+2. **3D 설정 '디테일' 줄** — 손님에게도 보인다(숨기면 회원 기능이 있는지 모른다). 맛보기 동안은 그대로 쓰고, 다 쓰면 흐리게 잠긴다(위 '손님에게 여는 것'). 요약 줄(`s3d_sum`)에는 잠긴 디테일을 쓰지 않는다.
 3. **더보기 메뉴 '설정' 맨 위 '계정' 줄** — 손님 `로그인 안 함 [구글로 로그인]`, 회원 `name@gmail.com [로그아웃]`.
 4. **[구글로 로그인]** → 브라우저에 `https://gorani.site/link/?c=<코드>&h=rhino` 열림 → 패널: `브라우저에서 로그인을 마쳐 주세요 · 확인 코드 K7Q2 [주소 복사] [취소]`.
 5. 웹에서 로그인(처음이면 동의) → `Rhino를 name@gmail.com으로 연결합니다. 패널의 코드가 K7Q2인가요? [연결]` → 패널이 저절로 바뀌고 토스트 `로그인했습니다 — 디테일을 쓸 수 있습니다`. 디테일 체크는 그 사람이 저장해 둔 값(없으면 기본값)으로 돌아온다.
@@ -45,6 +72,7 @@
 | 자리 | 내용 |
 |---|---|
 | 머리줄 오른쪽 | 작은 `로그인`(로그인하면 메일 첫 글자 동그라미 → 계정 페이지). 주 버튼은 여전히 '받기'다 |
+| `/join/` | 인스타에서 오는 휴대폰용 가입 화면(아래 '가입 늘리기'). ko·en·ja 먼저(릴스 언어) |
 | 처음 로그인(가입) | 한 화면: 필수 [이용약관 동의] [개인정보 수집·이용 동의] [만 14세 이상입니다], 선택 [업데이트 소식 메일 받기]. 동의한 판(`terms_v`·`privacy_v`)을 적어 두고, 판이 오르면 다음 로그인 때 다시 묻는다 |
 | `/link/` | 플러그인이 여는 연결 화면 — 로그인 → 코드 확인 → [연결]. 연결한 뒤 `이제 Rhino로 돌아가세요` |
 | `/account/` | 등급, 가입일, 연결된 프로그램(Rhino·SketchUp·Archicad — 판·마지막 확인일) + 프로그램마다 [연결 끊기], [소식 메일 받기] 끄고 켜기, [탈퇴](시트에서 줄을 지운다) |
@@ -53,6 +81,54 @@
 
 다국어: 웹은 다섯 언어지만 계정·처리방침은 한국어·영어를 먼저 쓰고, es·ja·zh는 영어판으로 보낸다(법적 문서를 다섯 벌 관리하지 않는다. 영어판에 '한국어판이 우선한다').
 웹 GA에는 `sign_up`·`login`·`link_device` 이벤트만 더한다(메일·id는 보내지 않는다).
+
+## 가입 늘리기 — 인스타그램 연계
+
+인스타 계정 @gorani.3d와 홍보 전략은 `gorani-sns` 저장소(`docs/marketing_strategy.md`)에 있다. 그 전략의 북극성은 '주간 신규 설치'다.
+
+**먼저 고칠 것 — 메시지가 거꾸로다.** 홍보 전략의 차별점 ③과 카피 뱅크가 "무료, 가입·API 키 없음", "회원가입도, 결제도 없습니다", "Free. No account."다. 설치와 기본 기능은 여전히 가입이 없으니 버리지 말고 두 단계로 말한다.
+- KO: `설치는 가입 없이. 가로수·횡단보도까지는 무료 가입으로.`
+- EN: `Free to install, no account. Sign in free for street-level detail.`
+
+**인스타그램 계정으로 가입은 못 한다.** 일반 사용자 로그인에 쓰던 Instagram Basic Display API는 2024-12-04에 끝났고, 남은 Instagram API는 비즈니스·크리에이터 계정 관리용이다. 가입은 구글 하나로 하고 인스타는 '데려오는 곳'으로 쓴다.
+
+**가장 큰 함정 — 인스타 앱 안 브라우저에서는 구글 로그인이 막힌다.** 바이오·스토리 링크는 인스타 앱 안 웹뷰로 열리고, 구글은 여기서 로그인을 막는다(플러그인 웹뷰와 같은 `disallowed_useragent`). 손대지 않으면 인스타에서 온 사람이 가입 버튼에서 거의 다 떨어진다.
+- `/join/`이 앱 안 브라우저(UA의 `Instagram`·`FBAN`·`FBAV`, 스레드)를 알아본다.
+- 안드로이드: `intent://` 주소로 크롬에서 다시 연다(확인 필요).
+- 아이폰: 앱 밖으로 내보낼 방법이 없다 — 구글 버튼 대신 `오른쪽 위 ⋯ → 외부 브라우저에서 열기` 그림 안내.
+- 앱 안 비율과 이탈은 GA 웹에 `inapp`(0/1)로 남긴다. 이탈이 크면 이메일 코드 가입을 더할지 그때 정한다(앱스 스크립트 메일은 하루 약 100통이 한도라 지금은 넣지 않는다).
+
+**휴대폰에서 가입하고 PC에서 쓴다.** 인스타로 온 사람은 휴대폰에 있고, 플러그인은 PC에만 깔린다. 그래서 '가입 먼저, 설치 나중'으로 잇는다.
+1. 릴스·캐러셀 끝에 디테일 모형 + `프로필 링크에서 무료 가입`(캡션 링크는 눌리지 않는다).
+2. `gorani.site/join/?utm_source=instagram&utm_medium=reel&utm_campaign=…` — 휴대폰 한 화면: 디테일 전후 몇 초, [구글로 무료 가입], 그 아래 작게 `설치와 기본 기능은 가입 없이도 됩니다`.
+3. 가입 끝 → `PC에서 설치하세요` + [설치 링크를 메일로 받기](누를 때만 한 통) + [링크 복사].
+4. PC에서 플러그인을 깔고 [구글로 로그인]하면 이미 회원이다 — 맛보기 없이 바로 디테일.
+
+**디테일을 콘텐츠의 주인공으로.** 가로수·횡단보도·교량·선로가 든 3D가 피드에서 가장 눈에 띄는 그림이다. 데이터가 좋은 곳(서울 노면표시·가로수, OSM 나무가 많은 도쿄·암스테르담)에서 찍고, 마지막 장·자막에 `이 디테일은 무료 회원 기능`. 기존 형식(Before/After 캐러셀)에 'Before = 손님 모형, After = 회원 모형'을 더한다.
+
+**가입 경로를 남긴다.** 첫 방문의 UTM과 `ref`를 localStorage에 두었다가 첫 `login`에 같이 보낸다 → 시트 `가입 경로` 칸(source·medium·campaign·ref). 개인정보가 아닌 값만. 웹 GA `sign_up`에도 같은 값. 어느 릴스·스토리·강의가 회원을 데려왔는지 센다.
+
+**공유 고리 — 플러그인에서 인스타로(0.4.0 다음 판).** 결과 화면 다이어그램에 [인스타용 이미지] — 패널이 도면 SVG를 4:5(1080×1350) PNG로 굽고 구석에 작은 `made with Gorani · @gorani.3d`. 캔버스로 굽고 파이썬은 파일만 쓰므로 호스트 다섯 개가 같다(3D 뷰포트 캡처는 호스트마다 달라 뒤로 미룬다). 사용자가 올린 작업은 동의를 받고 리포스트한다.
+
+**이벤트 규칙.** 팔로우를 디테일이나 이벤트의 조건으로 걸지 않는다 — 팔로우를 확인할 API가 없고, 메타 홍보 규정상 팔로우를 필수 참여 조건으로 둘 수 없다(확인 필요). 이벤트를 하면 '가입 + 작업 태그' 정도로 하고, 메타가 후원하지 않는다는 문구를 붙인다.
+
+**댓글 → DM 링크(선택).** '댓글에 고라니를 남기면 DM으로 링크'는 링크 클릭을 크게 늘리지만 메타 앱 심사나 외부 도구(ManyChat 등 — 무료 한도 확인 필요)가 필요하고, DM 링크도 앱 안 브라우저로 열린다. 바이오 링크로 시작해 성과를 본 뒤 정한다.
+
+**재는 것 — 깔때기.**
+
+| 단계 | 어디서 |
+|---|---|
+| 릴스 조회 → 프로필 방문 → 링크 클릭 | 인스타 인사이트 |
+| `/join/` 방문(앱 안 비율) → 가입 | GA 웹(UTM·`inapp`·`sign_up`) |
+| 가입 → 플러그인 연결 | 시트 '연결' 탭(가입 경로별) |
+| 손님 맛보기 → 가입 | GA 플러그인(`trial`·`member`) |
+| 연결 → 디테일로 만들기 | GA 플러그인(`member`·켠 디테일) |
+
+북극성은 **'주간 신규 연결 회원'**(가입하고 플러그인까지 연결한 사람)으로 바꾼다. 휴대폰으로 가입만 하고 설치하지 않은 사람은 숫자만 부풀린다 — 가입 수는 보조 지표다.
+
+**시기.** 0.4.0(12월 초)은 국내 학기말이라 대지분석 수요가 적다. 12월은 가입 흐름의 막힌 곳을 고치는 기간으로 쓰고, 큰 홍보는 2월 말 개강 대지분석 시즌과 공모전 마감 6주 전(홍보 전략 5절)에 맞춘다.
+
+`gorani-sns`에서 고칠 것: `docs/marketing_strategy.md`의 차별점 ③·7절 카피 뱅크(위 두 단계 문구)·6절 측정(북극성), 프로필 바이오 링크(`/join/` + UTM), 하이라이트에 '무료 가입'.
 
 ## 구성
 
@@ -69,7 +145,8 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 
 | action | 부르는 곳 | 보냄 | 받음 |
 |---|---|---|---|
-| `login` | 웹 | `id_token`, 처음이면 `consent{terms_v, privacy_v, age14, news}`, `lang` | `session`(웹용), `user{email, tier, created}` / `need_consent` |
+| `login` | 웹 | `id_token`, 처음이면 `consent{terms_v, privacy_v, age14, news}`·`source{utm_source, utm_medium, utm_campaign, ref}`, `lang` | `session`(웹용), `user{email, tier, created}` / `need_consent` |
+| `send_install_mail` | 웹(휴대폰 가입 뒤) | `session`, `lang` | `ok` — 사람마다 하루 한 통, 설치 안내 링크만 |
 | `link_approve` | 웹 `/link/` | `session`, `code`, `host` | `ok` |
 | `link_poll` | 플러그인 | `code`, `host`, `version` | `pending` / `{token, email, tier}` |
 | `me` | 플러그인·웹 | `token` 또는 `session` | `{email, tier}` / `invalid` |
@@ -86,7 +163,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 
 | 탭 | 칸 |
 |---|---|
-| 회원 | `user_id`(무작위), `google_sub`, `email`, `tier`, 가입일, `terms_v`, `privacy_v`, 소식 메일(Y/N), 마지막 확인, 메모(사람) |
+| 회원 | `user_id`(무작위), `google_sub`, `email`, `tier`, 가입일, `terms_v`, `privacy_v`, 소식 메일(Y/N), 가입 경로(source·medium·campaign·ref), 마지막 확인, 메모(사람) |
 | 연결 | `token_hash`, `user_id`, `host`(web·rhino·sketchup·archicad), 판, 만든 날, 마지막 확인 |
 | 기록 | 날짜, 사건(가입·탈퇴·등급 변경·연결), `host` — 메일 없이 숫자 세기용 |
 
@@ -106,17 +183,18 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 
 | 파일 | 할 일 |
 |---|---|
-| `scripts/account.py`(새 로직 모듈, 표준 라이브러리) | `~/.gorani/account.json`(`token`·`email`·`tier`·`checked_at`) 읽기·쓰기, `get_link_url(code, host)`, `poll_link(code)`, `refresh()`(하루 1회 `me`), `logout()`, `is_member(account)`, `get_allowed_options(options, account, host_label)` — 손님이면 `MEMBER_OPTIONS`를 끈 사본. prefs.json에 넣지 않는다 — 로그아웃 = 파일 삭제 |
-| `scripts/constants.py` | `ACCOUNT_ENABLED`, `ACCOUNT_API_URL`, `ACCOUNT_LINK_URL`, `MEMBER_OPTIONS = tuple(DETAIL_OPTIONS)`, `ACCOUNT_OFFLINE_DAYS = 30`, `ACCOUNT_POLL_SECONDS = 3`, `ACCOUNT_LINK_MINUTES = 10`. `HOST_LABELS`에 `account`(blender만 False) |
-| `scripts/remote_config.py` | `REMOTE_KEYS`에 `ACCOUNT_ENABLED`·`ACCOUNT_API_URL`·`MEMBER_OPTIONS`. 새 키 추가라 `COMPAT_MIN`은 그대로 |
-| `scripts/cmd_site.py` | 명령 `account_login`·`account_cancel`·`account_logout`, 푸시 `account_state{state: guest\|linking\|member\|expired, email, code}`, `init_state.account`. `generate` 직전에 `account.get_allowed_options` — 엔진(`context_builder`·`get_detail`)은 등급을 모른다. 저장한 prefs는 그대로 두고 생성 요청만 끈다. `context.json.options`에는 실제로 쓴 값이 남는다 |
+| `scripts/account.py`(새 로직 모듈, 표준 라이브러리) | `~/.gorani/account.json`(`token`·`email`·`tier`·`checked_at`·`trial_used`) 읽기·쓰기, `get_link_url(code, host)`, `poll_link(code)`, `refresh()`(하루 1회 `me`), `logout()`(토큰만 지우고 `trial_used`는 남긴다), `is_member(account)`, `get_trial_left(account)`, `get_allowed_options(options, account, host_label)` — 회원도 맛보기도 아니면 `MEMBER_OPTIONS`를 끈 사본, `add_trial(account, options)`. prefs.json에 넣지 않는다 |
+| `scripts/constants.py` | `ACCOUNT_ENABLED`, `ACCOUNT_API_URL`, `ACCOUNT_LINK_URL`, `MEMBER_OPTIONS`(디테일 7종 — `detail_curb`·`detail_bridges` 뺌), `GUEST_TRIAL_BUILDS = 3`, `ACCOUNT_OFFLINE_DAYS = 30`, `ACCOUNT_POLL_SECONDS = 3`, `ACCOUNT_LINK_MINUTES = 10`. `HOST_LABELS`에 `account`(blender만 False) |
+| `scripts/remote_config.py` | `REMOTE_KEYS`에 `ACCOUNT_ENABLED`·`ACCOUNT_API_URL`·`MEMBER_OPTIONS`·`GUEST_TRIAL_BUILDS`. 새 키 추가라 `COMPAT_MIN`은 그대로 |
+| `scripts/cmd_site.py` | 명령 `account_login`·`account_cancel`·`account_logout`, 푸시 `account_state{state: guest\|linking\|member\|expired, email, code, trial_left}`, `init_state.account`. `generate` 직전에 `account.get_allowed_options`, 성공 뒤 손님이면 `account.add_trial` — 엔진(`context_builder`·`get_detail`)은 등급을 모른다. 저장한 prefs는 그대로 두고 생성 요청만 끈다. `context.json.options`에는 실제로 쓴 값이 남는다 |
 | 폴링·확인 | 데몬 스레드(`usage_stats`와 같은 방식)가 3초마다 `link_poll`. 결과 푸시는 Rhino 8은 `AsyncInvoke`로 UI 스레드에서(`panel_host`와 같다), 사이드카는 기존 푸시 줄. `init`은 캐시로 바로 그리고, 마지막 확인이 하루를 넘었으면 같은 스레드로 `me` → 바뀌면 `account_state` |
-| `scripts/site_ui.html` | 디테일 줄 잠금·자물쇠·로그인 링크, 메뉴 '계정' 줄, 연결 중 띠(코드·주소 복사·취소), 목 모드 `&account=guest\|linking\|member\|expired` |
+| `scripts/site_ui.html` | 디테일 줄 맛보기 표시·잠금·전후 그림(작은 webp 인라인), 결과 화면 가입 권유, 메뉴 '계정' 줄, 연결 중 띠(코드·주소 복사·취소), 목 모드 `&account=guest\|trial\|linking\|member\|expired` |
 | `scripts/i18n.json` | 새 문구 네 언어(`tests/test_i18n.py`) |
-| `scripts/usage_stats.py` | `panel_open`·`build`에 `member`(0/1)만. `get_options3d`에 켠 디테일. 계정 id·메일은 보내지 않는다. `dev_stats`에 맞춤 측정기준 등록 |
+| `scripts/usage_stats.py` | `panel_open`·`build`에 `member`(0/1)·`trial`(맛보기로 만든 것 0/1)만. `get_options3d`에 켠 디테일. 계정 id·메일은 보내지 않는다. `dev_stats`에 맞춤 측정기준 등록 |
+| 다음 판(0.4.x) | 결과 화면 [인스타용 이미지] — 도면 SVG → 패널 캔버스 4:5 PNG + 작은 `made with Gorani`, 파이썬은 파일 쓰기만(위 '공유 고리') |
 | Blender 빌드 | `account` 네트워크 구간을 `# [blender-cut]`으로 감싼다. 회원 API 주소는 `BLENDER_ALLOWED_HOSTS`에 넣지 않는다(남으면 빌드가 멈춰서 실수를 잡는다) |
-| `tests/test_account.py` | 가짜 회원 API(`http.server`)로 연결·폴링·만료·오프라인 30일·로그아웃·손님 옵션 끄기·`ACCOUNT_ENABLED` 꺼짐 |
-| `scripts/dev_personas.py` | 지금 18명은 빈 HOME이라 손님이다 — 디테일이 꺼진 결과로 문제 0건인지 본다. 회원 1명 추가(가짜 `account.json` + 가짜 API) |
+| `tests/test_account.py` | 가짜 회원 API(`http.server`)로 연결·폴링·만료·오프라인 30일·로그아웃·맛보기 세기(실패·취소는 안 셈)·맛보기 끝난 손님 옵션 끄기·`ACCOUNT_ENABLED` 꺼짐 |
+| `scripts/dev_personas.py` | 지금 18명은 빈 HOME이라 맛보기 손님이다. 맛보기를 다 쓴 손님 1명(`trial_used = 3` — 디테일이 꺼진 결과로 문제 0건)과 회원 1명(가짜 `account.json` + 가짜 API)을 더한다 |
 
 함께 고칠 문서: `docs/panel_ui.md`(명령·푸시·옵션 키·'계정' 절), `docs/code_map.md`, `CLAUDE.md`(Rhino 실행 중 외부 접속 예외 여섯 → 일곱: ⑦ 회원 확인), `docs/install.md`(보내는 것), `docs/food4rhino.md`(지금 "You don't need … an account" → "Detail options need a free Google sign-in"), `docs/sketchup_store.md` Privacy 줄.
 
@@ -125,6 +203,8 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 - `tools/account/`(새로): `Code.gs`·`README.md` — 문의함과 같은 꼴(`setup` 실행 → 웹 앱 배포 → 주소를 `assets/site.js`와 `constants.ACCOUNT_API_URL`에). 설정값(클라이언트 ID)은 스크립트 속성에.
 - `assets/site.js`: GIS 로그인 버튼, 세션(localStorage, 30일), 머리줄 계정 표시.
 - `link/`·`account/`·`privacy/`·`terms/` 페이지(ko·en), `sitemap.xml`·`robots.txt`(계정·연결 페이지는 색인하지 않음), 바닥글 링크, FAQ·설치 칸 한 줄.
+- `join/`(ko·en·ja, 휴대폰 먼저): 앱 안 브라우저 알아보기·밖으로 열기 안내, UTM·`ref` 저장, 가입 뒤 [설치 링크를 메일로 받기]·[링크 복사]. 디테일 전후 짧은 영상은 `gorani-sns` 원본에서 자른다.
+- 홈 화면 문구: '무료, 가입 없음' → 두 단계 문구(위 '가입 늘리기'), 다섯 언어·`llms.txt`·JSON-LD 함께.
 - 웹은 판 묶음 규칙이 없다 — 플러그인 0.4.0보다 먼저 올려 둔다.
 
 ## 개인정보·약관·스토어
@@ -161,7 +241,8 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 | 처리방침 개정 | `privacy_v`를 올린다 — 다음 로그인 때 다시 동의받는다. 웹에 바뀐 날짜를 남긴다 |
 | 백업 | 시트 판 기록에 맡긴다. 개인정보라 로컬 사본(CSV)을 만들지 않는다 |
 | 관리자 페이지 '회원' 카드 | 시트를 서비스 계정(기존 GA 키)에 '보기'로 공유하고 시트 ID만 `~/.config/gorani/`에. 누적 회원, 이번 주 가입, 프로그램별 연결, 30일 안 확인한 회원, 탈퇴 수 — 숫자만, 메일은 띄우지 않는다 |
-| 볼 지표 | 주간 가입, 패널을 연 사람 중 회원 비율(GA `member`), 회원의 디테일 사용률, 연결 완료율(링크 연 수 대비 연결 수 — 낮으면 로그인 흐름이 막힌 것) |
+| 볼 지표 | 위 '깔때기'. 북극성 = 주간 신규 연결 회원. 그 밖에 연결 완료율(플러그인에서 링크를 연 수 대비 연결 수 — 낮으면 로그인 흐름이 막힌 것), 맛보기를 다 쓴 손님 중 가입 비율 |
+| 맛보기·잠금 조정 | `GUEST_TRIAL_BUILDS`·`MEMBER_OPTIONS`를 고치고 `dev_deploy.py notices` — 이벤트 기간에만 늘렸다면 끝나는 날 되돌린다 |
 
 ## 일정
 
@@ -169,10 +250,11 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 
 | 단계 | 기간(안) | 내용 |
 |---|---|---|
-| 0. 결정 | 11/14~11/16 | 위 '먼저 정할 것' 확정. Search Console 도메인 인증과 구글 브랜드 인증 신청(며칠 걸려 가장 먼저 한다) |
-| 1. 웹·회원 API | 11/17~11/23 | OAuth 클라이언트·동의 화면, `tools/account` 앱스 스크립트·시트, `/privacy`·`/terms`·`/link`·`/account`(ko·en), 머리줄 로그인. 이 단계만으로도 웹 가입은 된다 |
-| 2. 플러그인 0.4.0 | 11/24~12/04 | 위 표. 배포 전 점검 셋(check_tiles, 키 없는 실제 설치 화면, personas 문제 0건) + 로그인 실기 — Rhino 8 Mac·Windows, Rhino 7, SketchUp, Archicad에서 한 번씩 로그인 → 생성 → 로그아웃. Rhino 세 파일을 같은 버전으로 |
-| 3. 배포 뒤 | 12/05~12/18 | 매니페스트 업데이트 안내 문구(`groups` 새 기능에 '디테일 — 무료 회원'), 관리자 카드, food4Rhino·EW 문구, 웹 es·ja·zh 안내 |
+| 0. 결정 | 11/14~11/16 | 남은 결정(Blender판, 맛보기 횟수, 백엔드) 확정. Search Console 도메인 인증과 구글 브랜드 인증 신청(며칠 걸려 가장 먼저 한다) |
+| 1. 웹·회원 API | 11/17~11/23 | OAuth 클라이언트·동의 화면, `tools/account` 앱스 스크립트·시트, `/privacy`·`/terms`·`/link`·`/account`(ko·en)·`/join`(ko·en·ja), 머리줄 로그인, 앱 안 브라우저 처리. 인스타 바이오 링크를 `/join/`으로. 이 단계만으로도 휴대폰 가입은 된다 — 플러그인이 나오기 전 가입자는 0.4.0 공지 메일 대상(소식 메일 동의자만) |
+| 2. 플러그인 0.4.0 | 11/24~12/04 | 위 표. 배포 전 점검 셋(check_tiles, 키 없는 실제 설치 화면, personas 문제 0건) + 로그인 실기 — Rhino 8 Mac·Windows, Rhino 7, SketchUp, Archicad에서 한 번씩 맛보기 → 로그인 → 생성 → 로그아웃. Rhino 세 파일을 같은 버전으로. 그사이 `gorani-sns`: 문구 수정, 디테일 전후 릴스·캐러셀 |
+| 3. 배포 뒤 | 12/05~12/31 | 매니페스트 업데이트 안내 문구(`groups` 새 기능에 '디테일 — 무료 회원'), 디테일 콘텐츠 게시 시작, 깔때기에서 막힌 곳 고치기(앱 안 브라우저 이탈·연결 완료율), 관리자 카드, food4Rhino·EW 문구, 웹 es·zh 안내. 다음 묶음 판에 [인스타용 이미지] |
+| 4. 큰 홍보 | 2월 말~3월 | 국내 개강 대지분석 시즌 + 공모전 마감 6주 전. 필요하면 맛보기 횟수를 원격으로 늘려 이벤트 |
 
 ## 하지 않는 것
 
@@ -182,6 +264,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 - 앱 안 웹뷰에서 구글 로그인 — 구글이 막는다.
 - 첫 실행 로그인 강요.
 - GA에 계정 id, 시트에 설치 ID.
+- 인스타그램 계정 로그인(일반 사용자용 API가 없다), 팔로우를 조건으로 거는 잠금·이벤트.
 - 결제(아직).
 
 ## 나중 — 돈을 받을 때
@@ -197,3 +280,6 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 - 앱스 스크립트 POST는 302로 googleusercontent에 넘어간다. 브라우저(문의 폼)는 문제가 없었다 — Rhino 8 CPython·번들 파이썬 3.12·Pyodide의 urllib에서 시험한다.
 - SketchUp EW·food4Rhino가 외부 계정 연결을 어떻게 보는지 — 다음 제출 때 문의.
 - 처리방침·동의 문구 — 초안을 만든 뒤 가능하면 한 번 검토받는다.
+- 앱 안 브라우저: 인스타·스레드 UA 문자열, 안드로이드 `intent://` 다시 열기가 지금도 되는지 — 실제 휴대폰(iOS·안드로이드)에서 바이오 링크로 시험한다.
+- 앱스 스크립트 메일 하루 한도(무료 계정 약 100통) — 설치 링크 메일이 몰리면 [링크 복사]만 남긴다.
+- 메타 홍보 규정(팔로우 조건)·ManyChat 무료 한도.
