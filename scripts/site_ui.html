@@ -360,6 +360,16 @@ details.s3d .trow:has(> label.chk) { min-height: 32px; }   /* 체크박스 줄�
 .doc-again { margin: 4px 0 0; }
 .doc-again:empty { display: none; }
 .card2d .top h3 { margin: 0 0 4px; padding: 0; border: 0; }
+/* 해와 그림자 — 호스트 태양(set_sun). 켜면 계절 칸 · 시각 막대 · 고도·방위 한 줄 */
+.sun-head { display: flex; align-items: center; gap: 8px; }
+.sun-head h3 { margin: 0; flex: 1; font-size: 13px; line-height: 20px; }
+.sun-head .btn[aria-pressed="true"] { background: var(--accent-wash); border-color: var(--accent); color: var(--accent-ink); }
+.sun-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.sun-row input[type="date"] { height: 28px; border: 1px solid var(--line-2); border-radius: 6px; padding: 0 8px; font: inherit; font-size: 12px; background: var(--surface); color: var(--ink); }
+.sun-time { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.sun-time input[type="range"] { flex: 1; accent-color: var(--accent); }
+.sun-time .num { font-size: 15px; line-height: 22px; font-weight: 600; min-width: 44px; text-align: right; }
+#sun_read { margin-top: 2px; }
 /* 진행 카드(3D·2D 같은 꼴) — 제목 + 오른쪽 위 [취소], 대상지 줄, 막대, 단계, 안내. 로그는 카드 밖 */
 .job .track { margin-top: 12px; }
 .job .job-note { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
@@ -539,6 +549,7 @@ footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-
   <symbol id="i-save" viewBox="0 0 16 16"><path d="M3.5 2.5h7l3 3v7a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z"/><path d="M5 2.5v3h5M5 13.5v-4h6v4"/></symbol>
   <symbol id="i-undo" viewBox="0 0 16 16"><path d="M5.5 2.5 2.5 5.5l3 3M2.5 5.5h7a4 4 0 0 1 0 8H6"/></symbol>
   <symbol id="i-clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5V8l2.5 1.5"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/></symbol>
   <symbol id="i-key" viewBox="0 0 16 16"><circle cx="5.5" cy="10.5" r="3"/><path d="M7.6 8.4 13.5 2.5M11.5 4.5l2 2M9.8 6.2l1.5 1.5"/></symbol>
   <symbol id="i-database" viewBox="0 0 16 16"><ellipse cx="8" cy="3.75" rx="5.5" ry="2"/><path d="M2.5 3.75v8.5c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2v-8.5M2.5 8c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2"/></symbol>
   <symbol id="i-gorani" viewBox="0 0 256 256"><path d="M132.2 246.2C127.8 246.4 122.6 246.4 117.7 245.5C112.8 244.7 107.4 243.0 102.9 241.0C98.4 239.0 93.8 235.9 90.7 233.3C87.5 230.7 85.2 227.1 84.1 225.4C82.9 223.7 82.3 227.9 83.7 222.8C85.1 217.7 90.9 202.6 92.4 194.8C94.0 187.0 93.4 180.4 93.1 175.8C92.7 171.3 93.2 171.8 90.5 167.4C87.8 163.1 79.9 154.7 76.6 149.7C73.4 144.7 72.0 141.7 70.9 137.5C69.7 133.3 69.1 129.9 69.6 124.6C70.0 119.3 73.2 110.1 73.7 105.6C74.3 101.2 74.0 100.3 73.1 97.9C72.2 95.5 70.9 93.6 68.4 91.3C65.9 89.0 60.8 86.5 58.1 84.2C55.4 81.9 54.2 80.5 52.2 77.6C50.2 74.7 47.6 70.4 46.1 67.0C44.5 63.6 43.6 60.3 42.8 57.3C42.1 54.4 41.6 54.0 41.6 49.3C41.5 44.6 41.6 34.7 42.5 29.0C43.4 23.3 45.4 18.0 47.0 14.8C48.6 11.7 50.1 10.9 52.0 10.2C54.0 9.4 56.3 9.7 58.8 10.2C61.2 10.6 63.7 11.6 66.8 13.1C69.9 14.6 74.3 17.1 77.5 19.2C80.6 21.3 82.2 22.3 85.5 25.6C88.8 29.0 93.7 33.5 97.3 39.3C100.8 45.1 103.4 57.4 106.8 60.4C110.1 63.4 114.0 58.1 117.4 57.5C120.7 56.8 123.2 56.5 126.7 56.5C130.2 56.5 134.6 56.8 138.3 57.5C142.0 58.1 146.4 61.8 148.9 60.4C151.4 59.0 151.5 52.8 153.3 49.0C155.1 45.1 156.9 41.3 159.7 37.4C162.5 33.5 167.1 28.6 170.2 25.6C173.3 22.6 175.1 21.3 178.2 19.2C181.3 17.1 185.4 14.6 188.9 13.1C192.3 11.5 196.0 10.2 198.8 9.8C201.6 9.5 203.6 9.6 205.6 11.1C207.6 12.7 209.2 14.7 210.6 19.0C212.0 23.3 213.5 31.7 214.1 36.7C214.7 41.8 214.6 45.1 214.1 49.3C213.7 53.5 212.7 58.0 211.5 61.8C210.4 65.6 208.6 69.2 207.0 72.1C205.5 75.0 203.8 77.2 202.2 79.2C200.6 81.2 200.0 82.2 197.5 84.2C195.0 86.2 189.7 89.0 187.2 91.3C184.7 93.6 183.5 95.5 182.6 97.9C181.7 100.3 181.3 101.2 181.9 105.6C182.5 110.1 185.6 119.3 186.1 124.6C186.6 129.9 186.0 133.3 184.8 137.5C183.6 141.7 182.3 144.7 179.0 149.7C175.8 154.7 167.9 163.1 165.2 167.4C162.5 171.8 162.9 171.3 162.6 175.8C162.3 180.4 161.7 187.0 163.3 194.8C164.8 202.6 170.6 217.7 171.9 222.8C173.3 227.9 172.8 223.7 171.6 225.4C170.5 227.1 167.5 231.0 165.0 233.3C162.5 235.6 160.2 237.3 156.7 239.1C153.1 240.9 147.9 243.0 143.8 244.2C139.7 245.4 136.5 245.9 132.2 246.2ZM80.2 89.5C80.8 89.3 80.0 91.7 82.1 88.2C84.3 84.7 91.8 74.1 93.1 68.6C94.3 63.1 91.1 59.5 89.5 55.4C87.9 51.3 86.1 47.6 83.4 43.8C80.8 40.0 77.2 35.8 73.6 32.7C70.0 29.6 65.0 26.7 62.0 25.3C59.0 23.9 57.0 24.1 55.6 24.3C54.1 24.6 54.0 25.5 53.5 26.7C52.9 27.9 52.4 28.8 52.2 31.6C51.9 34.3 51.2 38.4 51.9 43.2C52.5 47.9 54.0 55.0 56.0 60.2C58.1 65.5 60.4 69.9 64.1 74.7C67.8 79.6 75.7 86.9 78.4 89.4C81.1 91.8 79.6 89.7 80.2 89.5ZM176.5 89.5C179.6 87.1 188.5 78.9 192.6 73.4C196.6 68.0 199.1 61.2 200.9 56.7C202.7 52.1 203.0 49.9 203.5 46.1C204.0 42.3 204.0 37.0 203.8 33.8C203.6 30.6 202.8 28.3 202.2 26.7C201.6 25.2 201.5 24.6 200.1 24.3C198.7 24.1 196.7 23.9 193.7 25.3C190.7 26.7 185.7 29.6 182.1 32.7C178.5 35.8 174.9 40.0 172.3 43.8C169.6 47.6 167.8 51.3 166.2 55.4C164.5 59.5 161.4 63.1 162.6 68.6C163.8 74.1 171.3 84.7 173.6 88.2C175.9 91.7 173.3 92.0 176.5 89.5ZM102.7 120.8C103.8 120.5 105.1 119.8 105.6 119.1C106.2 118.4 106.2 117.9 105.9 116.6C105.7 115.2 105.1 112.9 104.0 111.1C102.9 109.2 101.1 106.9 99.3 105.5C97.5 104.0 95.0 103.0 93.2 102.6C91.5 102.1 90.1 102.2 88.7 102.6C87.4 102.9 85.6 103.9 85.0 104.7C84.4 105.4 84.3 105.8 85.0 106.9C85.8 108.0 87.8 109.0 89.5 111.1C91.2 113.2 93.6 117.7 95.2 119.3C96.7 120.9 97.8 120.7 99.0 120.9C100.3 121.2 101.6 121.1 102.7 120.8ZM156.8 120.8C158.1 120.5 159.0 120.9 160.5 119.3C162.1 117.7 164.5 113.2 166.2 111.1C167.8 109.0 170.1 108.2 170.7 106.9C171.2 105.7 170.2 104.3 169.5 103.5C168.9 102.8 168.6 102.6 167.0 102.6C165.3 102.6 161.9 102.4 159.6 103.5C157.2 104.7 154.2 107.5 152.6 109.5C151.0 111.4 150.5 113.7 150.1 115.3C149.6 116.9 149.5 118.2 150.1 119.1C150.6 120.1 152.0 120.6 153.1 120.9C154.2 121.2 155.6 121.0 156.8 120.8ZM144.3 189.7C145.0 189.4 146.2 189.5 147.2 187.7C148.1 186.0 149.3 182.8 150.1 179.0C150.8 175.2 151.6 169.4 151.7 164.9C151.8 160.3 150.4 154.3 150.7 151.7C151.0 149.0 152.6 150.2 153.3 149.1C154.0 148.0 154.8 146.9 154.9 144.9C154.9 142.9 154.7 139.6 153.6 137.2C152.5 134.7 151.1 132.4 148.3 130.3C145.5 128.1 140.7 125.6 136.7 124.5C132.7 123.3 127.9 123.2 124.1 123.5C120.4 123.8 117.4 124.5 114.2 126.1C110.9 127.7 106.9 130.4 104.7 133.0C102.4 135.5 101.3 139.0 100.8 141.4C100.3 143.7 100.7 145.4 101.4 147.2C102.1 148.9 104.6 150.3 105.0 151.7C105.4 153.1 104.1 152.5 104.0 155.5C103.9 158.5 103.7 164.5 104.3 169.7C105.0 174.8 106.7 183.1 107.9 186.4C109.1 189.8 110.6 189.5 111.6 189.8C112.6 190.1 113.1 194.1 114.0 188.4C114.9 182.6 115.3 161.1 116.9 155.2C118.5 149.3 121.8 154.1 123.5 153.1C125.2 152.1 126.5 150.5 126.9 149.4C127.2 148.3 127.2 148.0 125.7 146.7C124.3 145.3 119.8 143.1 118.2 141.4C116.6 139.7 116.3 137.7 116.2 136.5C116.2 135.3 117.1 134.8 118.0 134.1C118.9 133.4 119.5 132.9 121.6 132.5C123.7 132.1 127.9 131.6 130.6 131.9C133.3 132.1 136.2 133.3 137.7 134.1C139.1 134.9 139.5 135.3 139.4 136.5C139.4 137.7 139.1 139.7 137.5 141.4C135.9 143.1 131.4 145.3 129.9 146.7C128.5 148.0 128.4 148.3 128.8 149.4C129.2 150.5 130.5 152.1 132.2 153.1C133.8 154.1 137.3 149.6 138.8 155.2C140.3 160.8 140.4 181.1 141.0 186.8C141.7 192.4 142.0 188.7 142.5 189.2C143.0 189.7 143.5 189.9 144.3 189.7Z" fill="currentColor" stroke="none" fill-rule="evenodd"/></symbol>
@@ -658,12 +669,13 @@ function mapStyle(k) { return (aerial && AERIAL_STYLE[k]) || MAP_STYLE[k]; }
 var state = { screen: "map", run: "idle", job2d: "idle", blocked: false,
   mode: null, lots: [], lotState: null, area: null, point: null, flyOnLot: false, options: {}, progress: null, result: null,
   made2d: null, form2d: true, err2d: "", dl: null, init: null, busy: false, logLines: [], startedAt: 0,
-  seq: { map: 0, packs: 0, style: 0 }, areaPacks: null, lastRegion: null,
+  seq: { map: 0, packs: 0, style: 0, sun: 0 }, areaPacks: null, lastRegion: null,
+  sun: { on: false, season: "winter", date: "", minutes: 720, info: null },   // 해와 그림자 — 결과가 바뀌어도 고른 날짜·시각은 둔다
   styleOpen: false, styleSheet: 0, styleEdit: null, styleBase: null, madeTargets: {}, appliedStyle: null, openEl: null, styleSaving: false, menuOpen: false, upd: { state: "", text: "" } };
 var map = null, tiles = null, lotsLayer = null, targetLayer = null, extentLayer = null, extentLabel = null;
 var tileErrors = 0, tileFallback = false, tileDead = false, aerial = false;
 var pointLayer = null, draw = { on: false, pts: [], layer: null, rubber: null, first: null }, stamp = { on: false, rings: null, kind: "", layer: null };
-var timers = { prefs: 0, move: 0, elapsed: 0, toast: 0, style: 0, packs: 0 };
+var timers = { prefs: 0, move: 0, elapsed: 0, toast: 0, style: 0, packs: 0, sun: null };
 var listItems = [], listIndex = -1, toastAction = null;
 
 // ── 유틸 ──
@@ -1516,7 +1528,41 @@ function doneHtml() {   // 3D 완료 카드 — 제목, 주소, [열기]만(2026
     '<span class="doc-acts" id="doc_acts">' + docActsHtml() + "</span></div>" +
     '<div class="sub ellip">' + esc(r.restored ? r.restored.label : targetLabel()) + "</div>" +
     '<div id="doc_status">' + docStatusHtml(!!c.imported, c.import_text, c.path) + "</div></div></div>" +
+    (HOST.sun && HOST.id !== "web" ? '<div class="card" id="sun_card">' + sunCardHtml() + "</div>" : "") +
     '<div class="card card2d" id="card2d"></div><div id="log2d"></div>';
+}
+// ── 해와 그림자 — 날짜·진태양시를 고르면 호스트 태양을 대상지 위치에 맞춰 화면에 그림자가 보인다(set_sun → sun_state). 2D 도면 25~28과 같은 solar 계산 ──
+var SUN_SEASONS = [["winter", "동지"], ["equinox", "춘추분"], ["summer", "하지"]];   // 글은 표시할 때 tr()
+function hhmm(min) { min = Math.round(min) % 1440; return ("0" + Math.floor(min / 60)).slice(-2) + ":" + ("0" + (min % 60)).slice(-2); }
+function sunRange() { var i = state.sun.info; return i ? [Math.ceil(i.daylight[0] / 10) * 10, Math.floor(i.daylight[1] / 10) * 10] : [360, 1080]; }
+function sunReadout() {
+  var i = state.sun.info; if (!i) return "";
+  if (i.altitude <= 0) return tr("해가 진 시각입니다");
+  return tr("고도 {0}° · 방위 {1}°", i.altitude.toFixed(1), Math.round(i.azimuth)) + " · " + tr("진태양시") + (i.korea ? " · KST " + hhmm(i.clock) : "") + (i.applied === false ? " · " + tr("화면에 적용하지 못함") : "");
+}
+function sunCardHtml() {
+  var s = state.sun, title = tr("{0} 화면의 해를 대상지 위치와 시각에 맞춰 그림자를 봅니다", hostName());
+  var head = '<div class="sun-head"><span class="ti-ic">' + ico("sun") + "</span><h3>" + tr("해와 그림자") + '</h3><button type="button" class="btn sm" data-act="sun_toggle" aria-pressed="' + s.on + '" title="' + esc(title) + '">' + (s.on ? tr("끄기") : tr("켜기")) + "</button></div>";
+  if (!s.on) return '<div class="top">' + head + "</div>";
+  var r = sunRange(), m = Math.max(r[0], Math.min(r[1], s.minutes));
+  var date = s.season === "date" ? '<input type="date" id="sun_date" value="' + s.date + '" aria-label="' + tr("날짜") + '">' : "";
+  return '<div class="top">' + head +
+    '<div class="sun-row"><div class="seg" role="group" aria-label="' + tr("날짜") + '">' + SUN_SEASONS.map(function (x) { return segBtn("sun_season", ' data-v="' + x[0] + '"', s.season === x[0], tr(x[1])); }).join("") +
+      segBtn("sun_season", ' data-v="date"', s.season === "date", tr("날짜")) + "</div>" + date + "</div>" +
+    '<div class="sun-time"><input type="range" id="sun_time" min="' + r[0] + '" max="' + r[1] + '" step="10" value="' + m + '" aria-label="' + tr("시각(진태양시)") + '"><span class="num" id="sun_clock">' + hhmm(m) + "</span></div>" +
+    '<div class="sub" id="sun_read" role="status">' + sunReadout() + "</div></div>";
+}
+function renderSunCard() { var el = $("sun_card"); if (el) el.innerHTML = sunCardHtml(); }
+function sendSun() {   // 막대를 끄는 동안은 120 ms마다 한 번 — 호스트 다시 그리기가 밀리지 않게
+  var s = state.sun, r = state.result; if (!r) return;
+  var msg = { cmd: "set_sun", dir: r.dir, on: s.on, minutes: s.minutes, seq: ++state.seq.sun };
+  if (s.season === "date") { var d = String(s.date || "").split("-"); msg.month = +d[1]; msg.day = +d[2]; } else msg.season = s.season;
+  send(msg);
+}
+function sunTimeInput(v) {
+  state.sun.minutes = +v; var c = $("sun_clock"); if (c) c.textContent = hhmm(state.sun.minutes);
+  if (timers.sun) return;
+  timers.sun = setTimeout(function () { timers.sun = null; sendSun(); }, 120);
 }
 function applyImported(ok, text, layers, objects) {   // 다시 넣기·문서에 넣기 뒤 3D 블록만 교체
   var r = state.result; if (!r) return;
@@ -2137,6 +2183,12 @@ var ACTIONS = {
   cancel: requestCancel,
   make2d: startMake2d,
   form2d: function () { state.form2d = true; renderCard2d(); },
+  sun_toggle: function () { state.sun.on = !state.sun.on; if (!state.sun.on) state.sun.info = null; renderSunCard(); sendSun(); },
+  sun_season: function (b) {
+    var s = state.sun; s.season = b.dataset.v;
+    if (s.season === "date" && !s.date) { var t = new Date(); s.date = t.getFullYear() + "-" + ("0" + (t.getMonth() + 1)).slice(-2) + "-" + ("0" + t.getDate()).slice(-2); }
+    renderSunCard(); sendSun();
+  },
   tile2d: function (b) { var k = b.dataset.key; state.options[k] = !state.options[k]; afterOptionChange(k); renderCard2d(); },
   bm_preset: function (b) {
     var v = b.dataset.v, o = state.options; o.basemap_preset = v;
@@ -2239,6 +2291,8 @@ document.addEventListener("mouseover", function (e) { var r = e.target.closest("
 document.addEventListener("mouseout", function (e) { var r = e.target.closest(".chip-row"); if (r) highlightLot(r.dataset.pnu, false); });
 document.addEventListener("change", function (e) {
   if (e.target.id === "lang_pick") { setLang(e.target.value); return; }
+  if (e.target.id === "sun_date") { state.sun.date = e.target.value; sendSun(); return; }
+  if (e.target.id === "sun_time") { sunTimeInput(e.target.value); return; }
   if (e.target.id === "pick2d") {   // 지난 결과에서 만든 2D를 바꿔 본다 — 카드만 바뀐다
     var rs = state.result && state.result.restored, x = rs && (rs.made2d_list || [])[+e.target.value];
     if (x && x.made2d) { apply2d(x.made2d); renderCard2d(); }
@@ -2252,6 +2306,7 @@ document.addEventListener("change", function (e) {
 });
 document.addEventListener("input", function (e) {
   var id = e.target.id;
+  if (id === "sun_time") { sunTimeInput(e.target.value); return; }
   if (state.styleOpen && (id === "st_hex" || id === "st_native" || id === "st_project")) {
     if (id === "st_project") { state.styleEdit.project = e.target.value.trim(); afterStyleChange(false); return; }
     var v = e.target.value.trim(); if (v && v[0] !== "#") v = "#" + v;
@@ -2438,6 +2493,12 @@ var handlers = {
     state.progress = null; state.run = "done"; state.screen = "result"; render();
     announce(tr("지난 결과를 열었습니다"));
   },
+  sun_state: function (m) {   // set_sun 응답 — 늦게 온 것은 버린다. 해가 뜨고 지는 시각으로 막대 범위를 다시 잡는다
+    if (m.seq < state.seq.sun || !state.result || m.dir !== state.result.dir) return;
+    var first = !state.sun.info; state.sun.info = m;
+    if (first || $("sun_time") && (+$("sun_time").min !== sunRange()[0] || +$("sun_time").max !== sunRange()[1])) { renderSunCard(); return; }
+    var rd = $("sun_read"); if (rd) rd.textContent = sunReadout();
+  },
   made_2d: function (m) {
     clearInterval(timers.elapsed);
     if (!state.result || m.dir !== state.result.dir) return;
@@ -2496,6 +2557,12 @@ var MOCK = /[?&]mock=1/.test(location.search);
 if (MOCK) {
   send = function (msg) {
     console.log("[send]", JSON.stringify(msg));
+    if (msg.cmd === "set_sun") setTimeout(function () {   // 해와 그림자 — 서울 위도로 대강(적위는 계절 표 값)
+      var r = Math.PI / 180, lat = 37.55 * r, d = ({ winter: -23.44, equinox: 0, summer: 23.44 }[msg.season] || 0) * r, h = (msg.minutes / 4 - 180) * r;
+      var alt = Math.asin(Math.sin(lat) * Math.sin(d) + Math.cos(lat) * Math.cos(d) * Math.cos(h)), half = Math.acos(-Math.tan(lat) * Math.tan(d)) * 720 / Math.PI;
+      window.app.receive({ type: "sun_state", dir: state.result.dir, seq: msg.seq, on: msg.on, applied: true, altitude: alt / r, korea: true, clock: msg.minutes + 30.5,
+        azimuth: (Math.atan2(Math.sin(h), Math.cos(h) * Math.sin(lat) - Math.tan(d) * Math.cos(lat)) / r + 180) % 360, daylight: [720 - half, 720 + half] });
+    }, 50);
     if (msg.cmd === "install_update") setTimeout(function () { window.app.receive({ type: "update_state", state: /[?&]updfail=1/.test(location.search) ? "failed" : "done", text: "", next: /[?&]updrestart=1/.test(location.search) ? "restart" : "reopen" }); }, 1500);   // &updfail=1 — 실패 화면
   };
   var upto = (location.search.match(/[?&]step=(\w+)/) || [])[1] || "3d";
@@ -2518,7 +2585,12 @@ if (MOCK) {
     }
     var i = 0;
     var tick = function () {
-      if (i >= msgs.length) { if (/[?&]menu=1/.test(location.search)) openMenu(); return; }
+      if (i >= msgs.length) {
+        if (/[?&]menu=1/.test(location.search)) openMenu();
+        var sm = (location.search.match(/[?&]sun=(\w+)/) || [])[1];   // &sun=winter|summer|equinox — 해와 그림자 카드를 켠 화면(&min=분)
+        if (sm && state.result) { state.sun.season = sm; state.sun.minutes = +((location.search.match(/[?&]min=(\d+)/) || [])[1] || 720); ACTIONS.sun_toggle(); }
+        return;
+      }
       var m = msgs[i++];
       if (upto === "1" && after3d[m.type]) { i = msgs.length; tick(); return; }
       if (m.type === "_mock_make2d") {

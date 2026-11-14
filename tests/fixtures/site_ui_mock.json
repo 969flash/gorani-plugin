@@ -499,7 +499,8 @@
    "model": "context.3dm",
    "dwg": true,
    "ask_stats": false,
-   "brep": true
+   "brep": true,
+   "sun": true
   },
   "links": {
    "website": "https://gorani.site/",

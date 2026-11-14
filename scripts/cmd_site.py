@@ -147,7 +147,7 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
         "results": context_builder.get_recent_results(hidden=site_prefs.get_hidden_results(), model_name=host["model"]),   # 최근 결과(지도 트레이)
         "sheet_catalog": [{"id": sheet_id, "key": key, "name": name, "needs": needs, "korea_only": key in constants.SHEET_KOREA_ONLY,
                            "group": constants.SHEET_GROUP.get(key, "base")}
-                          for sheet_id, key, name, needs in constants.SHEET_CATALOG if key != "aerial" or host.get("aerial", True)],
+                          for sheet_id, key, name, needs in constants.SHEET_CATALOG if host.get(key, True) or key not in ("aerial", "wind")],
         "style_presets": {key: dict(preset) for key, preset in constants.STYLE_PRESETS.items()},
         "style_defaults": dict(constants.STYLE_DEFAULTS),
         "style_ramps": {key: list(ramp) for key, ramp in constants.STYLE_RAMPS.items()},
@@ -572,7 +572,7 @@ class _SiteController:
             "install_update": self._install_update,
             # [/blender-cut]
             "style_preview": self._style_preview, "apply_style": self._apply_style, "save_style": self._save_style, "sheet_ai": self._sheet_ai,
-            "sheet_view": self._sheet_view, "area_packs": self._area_packs,
+            "sheet_view": self._sheet_view, "area_packs": self._area_packs, "set_sun": self._set_sun,
             # [blender-cut]
             "stats_consent": self._stats_consent, "track": self._track,
             # [/blender-cut]
@@ -967,6 +967,15 @@ class _SiteController:
         if not context_baker.zoom_to_site(self._get_doc(), str(msg.get("dir") or ""), msg.get("center")):
             raise ValueError(tr("대상지 3D가 열린 파일에 없습니다. 먼저 불러오세요"))
 
+    def _set_sun(self, msg):
+        """결과 화면 '해와 그림자' — 날짜·진태양시 → 해 방위·고도(solar, 호스트 무관) → 베이커 set_sun(호스트 태양·뷰 그림자) → sun_state.
+        베이커에 set_sun이 없는 호스트(Archicad·웹)는 패널이 카드를 숨긴다(HOST_LABELS sun)."""
+        context_builder = loader.load("context_builder")
+        state = context_builder.get_sun_state(self._get_result_dir(msg), msg)
+        baker = context_builder.get_host_modules()[1]
+        state["applied"] = bool(baker.set_sun(self._get_doc(), state)) if hasattr(baker, "set_sun") else False
+        self.push(state)
+
     def _open_path(self, msg):
         self._open(resolve_open_path(msg.get("path")))
 
@@ -1097,7 +1106,7 @@ class _SiteController:
 _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "select", "set_point": "select", "pick_curve": "select",
                    "import_context": "import", "export_basemap": "export",
                    "zoom_view": "open", "open_path": "open", "open_eum": "open", "open_url": "open", "save_prefs": "init", "open_result": "init", "hide_result": "init", "cancel": "generate", "make_2d": "generate", "download_data": "init",
-                   "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style", "sheet_view": "view",
+                   "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style", "sheet_view": "view", "set_sun": "open",
                    # [blender-cut]
                    "stats_consent": "init", "track": "init", "install_update": "init",
                    # [/blender-cut]

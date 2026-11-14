@@ -1,0 +1,74 @@
+"""driver_sun — 패널 '해와 그림자'(set_sun)를 Rhino 8에서 확인한다(2026-11-14).
+python3 scripts/dev_rhino_run.py tests/rhino/driver_sun.py → out/log.txt·result.json·sun_<시각>.png.
+
+헤드리스 문서(m)에 성북동 경사지(위치 방식, 한 변 500 m)를 3D로 만들고, 같은 카메라에서 동지 9·12·15시·하지 12시(진태양시)마다
+context_builder.get_sun_state → context_baker.set_sun을 부른 뒤 Rendered 뷰를 캡처한다. 끄기(on = false)가 태양을 끄는지도 본다.
+사용자 문서는 건드리지 않는다. 컨텍스트 팩은 HOME_DIR(~/Gorani)/data.
+"""
+import json
+import os
+import time
+
+import Rhino
+import System
+
+import context_baker
+import context_builder
+import non_rhino_utils
+
+LNG, LAT = 127.0005, 37.5935   # 성북동 — 북쪽 언덕, 남쪽 성북천
+SHOTS = (("winter_0900", "winter", 540), ("winter_1200", "winter", 720), ("winter_1500", "winter", 900), ("summer_1200", "summer", 720))
+res = {"shots": {}}
+doc = Rhino.RhinoDoc.CreateHeadless(None)
+doc.ModelUnitSystem = Rhino.UnitSystem.Meters
+x, y = non_rhino_utils.get_tm_from_wgs84(LNG, LAT)
+request = {"target": {"mode": "point", "center": [x, y]}, "result_root": os.path.join(OUT_DIR, "result"),   # noqa: F821 — dev_rhino_run 머리말 전역
+           "options": {"output_lang": "en", "radius": 250, "shape": "rect", "region": "kr", "make_basemap": False, "make_sheets": False, "make_tables": False,
+                       "terrain_block": True}}
+t = time.time()
+response = context_builder.run(request, lambda phase, fraction, text: True, doc, {})
+res["run"] = {"ok": response["ok"], "elapsed_s": round(time.time() - t, 1), "error": response["error"], "buildings": response["context"].get("buildings")}
+print("run", json.dumps(res["run"], ensure_ascii=False))
+assert response["ok"], response["error"]
+
+view = None
+try:
+    view = doc.Views.Add("sun", Rhino.Display.DefinedViewportProjection.Perspective, System.Drawing.Rectangle(0, 0, 1600, 1000), True)
+except Exception as exc:   # noqa: BLE001
+    print("view add failed", exc)
+res["view"] = view is not None
+meta = json.load(open(os.path.join(response["dir"], "context.json"), encoding="utf-8"))
+cx, cy = meta["center"][0] - meta["origin"][0], meta["center"][1] - meta["origin"][1]
+if view is not None:
+    vp = view.ActiveViewport
+    vp.DisplayMode = Rhino.Display.DisplayModeDescription.FindByName("Rendered")
+    target = Rhino.Geometry.Point3d(cx, cy, 45.0)
+    vp.SetCameraLocations(target, Rhino.Geometry.Point3d(cx - 260.0, cy - 520.0, 420.0))
+    vp.Camera35mmLensLength = 40.0
+for name, season, minutes in SHOTS:
+    state = context_builder.get_sun_state(response["dir"], {"season": season, "minutes": minutes})
+    ok = context_baker.set_sun(doc, state)
+    sun = doc.Lights.Sun
+    vec = sun.Vector
+    res["shots"][name] = {"applied": ok, "azimuth": round(state["azimuth"], 2), "altitude": round(state["altitude"], 2), "enabled": sun.Enabled,
+                          "rhino_azimuth": round(sun.Azimuth, 2), "rhino_altitude": round(sun.Altitude, 2), "vector": [round(vec.X, 3), round(vec.Y, 3), round(vec.Z, 3)],
+                          "expected_vector": [round(-v, 3) for v in state["vector"]], "kst": "%02d:%02d" % tuple(state["local"][3:])}
+    if view is not None:
+        view.Redraw()
+        capture = Rhino.Display.ViewCapture()
+        capture.Width, capture.Height = 1600, 1000
+        capture.ScaleScreenItems, capture.DrawAxes, capture.DrawGrid = False, False, False
+        bitmap = capture.CaptureToBitmap(view)
+        if bitmap is not None:
+            bitmap.Save(os.path.join(OUT_DIR, "sun_%s.png" % name))   # noqa: F821
+            res["shots"][name]["png"] = True
+    print(name, json.dumps(res["shots"][name]))
+context_baker.set_sun(doc, {"on": False})
+res["off"] = {"enabled": doc.Lights.Sun.Enabled}
+print("off", res["off"])
+with open(os.path.join(OUT_DIR, "result.json"), "w", encoding="utf-8") as handle:   # noqa: F821
+    json.dump(res, handle, ensure_ascii=False, indent=1)
+doc.Dispose()
+assert not res["off"]["enabled"]
+assert all(shot["enabled"] and abs(shot["rhino_altitude"] - shot["altitude"]) < 0.5 for shot in res["shots"].values()), res["shots"]
+print("PASS sun")

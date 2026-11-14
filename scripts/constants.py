@@ -722,7 +722,7 @@ ESTIMATE_SECONDS_BASE = 2.0
 ESTIMATE_SECONDS_PER_BUILDING = 1.0 / 370.0   # (50.7 − 2) / 18016
 ESTIMATE_MB_PER_BUILDING = 1.0 / 170.0        # 110 / 18016 (반경 500 m는 1/205)
 RADIUS_MIN, RADIUS_MAX = 100, 2000
-SHEET_CATALOG = [   # (id, 키, 이름, 필요한 데이터: lot|building|terrain|road|image). 다른 언어 이름은 i18n.json(이름이 키) 하나 — 영어 이름은 영국 Design and Access Statement 현황 분석 용어. 번호 = 파일 번호(00_베이스맵.svg)
+SHEET_CATALOG = [   # (id, 키, 이름, 필요한 데이터: lot|building|terrain|road|image|climate). 다른 언어 이름은 i18n.json(이름이 키) 하나 — 영어 이름은 영국 Design and Access Statement 현황 분석 용어. 번호 = 파일 번호(00_베이스맵.svg)
     # 도시설계 분석도(형태·조직·접근·녹지·시설) → 현황도(가로·토지·규제·건축물·지가·지형) → 직접 그리는 틀. 2026-10-13 개편 — 옛 #1 위치·범위도는 00 베이스맵이 맡는다
     (0, "base", "베이스맵", "lot"),
     (1, "figure", "도형-배경도", "building"),
@@ -750,11 +750,16 @@ SHEET_CATALOG = [   # (id, 키, 이름, 필요한 데이터: lot|building|terrai
     # 2026-10-14 추가 — 번호를 끼워 넣으면 저장된 sheet_ids·옛 결과 폴더가 다른 시트를 가리켜서 끝에 붙인다. image = 영상 타일(생성 때 받음, DB 무관)
     (23, "aerial", "항공사진", "image"),
     (24, "axo", "입체 매스도", "building"),   # 2026-10-15 추가 — 범위 안 건물을 평행 투상(등각)으로
+    # 2026-11-14 태양·바람(solar.py) — climate = 위경도만 있으면 된다(바람은 생성 때 NASA POWER에서 받음)
+    (25, "shadow", "계절별 그림자", "building"),
+    (26, "sun_hours", "일조시간", "building"),
+    (27, "sun_path", "태양 궤적·하늘 가림", "climate"),
+    (28, "wind", "바람장미", "climate"),
 ]
 SHEET_IDS = {key: sheet_id for sheet_id, key, _name, _needs in SHEET_CATALOG}
 # 패널 2D 카드의 다이어그램 묶음 칩(전체·현황도·분석도) — 실무 보고서의 현황도/분석도 구분. 기본(베이스맵·항공사진)은 두 묶음에 다 넣고, 틀은 '전체'에만
 SHEET_GROUP = dict(
-    [(key, "analysis") for key in ("figure", "lot_size", "density", "transit", "walk", "green", "public", "road", "axo")] +
+    [(key, "analysis") for key in ("figure", "lot_size", "density", "transit", "walk", "green", "public", "road", "axo", "shadow", "sun_hours", "sun_path", "wind")] +
     [(key, "status") for key in ("land_use", "land_category", "zone", "district", "facility", "use", "floor", "age", "price", "elev", "slope")] +
     [(key, "frame") for key in ("view", "image", "synthesis")] +
     [(key, "base") for key in ("base", "aerial")])
@@ -987,13 +992,14 @@ HOST_LABELS = {
                 # 확장 패키지에는 사용 통계가 없다(이 값은 저장소 시험용)
                 "ask_stats": True,
                 # [/blender-cut]
-                "aerial": False, "update_notice": False, "ip_center": False},   # 확장 스토어 약관: 분석 전송·상용 영상(Esri)·제3자 IP 조회 불가, 업데이트는 Blender가 한다
+                "aerial": False, "update_notice": False, "ip_center": False, "wind": False, "sun": True},   # 확장 스토어 약관: 분석 전송·상용 영상(Esri)·제3자 IP 조회 불가, 업데이트는 Blender가 한다. 바람(외부 기상 서비스)도 뺀다
+    # sun = 패널 결과 화면 '해와 그림자'(베이커 set_sun — 호스트 태양을 대상지 위경도·시각에 맞춘다). Archicad·웹판은 없다
     # [blender-cut] SketchUp도 Extension Warehouse 심사(개인정보 정책 위반 = 반려 사유)라 동의제 — GA_STREAMS에 sketchup 속성을 넣기 전에는 묻지도 않는다
     "rhino": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": True, "ask_stats": False,
-              "brep": True, "self_update": True},   # self_update = 패널 [지금 업데이트](yak — data_pack.install_update). yak을 못 찾으면 init이 끈다   # brep = 3D 설정 '형상' Mesh|Brep(options.geometry_type) — RhinoCommon 베이크만(Rhino 7판은 사이드카라 없다)
-    "sketchup": {"id": "sketchup", "name": "SketchUp", "doc": "SketchUp 모델", "model": SKETCHUP_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},
+              "brep": True, "self_update": True, "sun": True},   # self_update = 패널 [지금 업데이트](yak — data_pack.install_update). yak을 못 찾으면 init이 끈다   # brep = 3D 설정 '형상' Mesh|Brep(options.geometry_type) — RhinoCommon 베이크만(Rhino 7판은 사이드카라 없다)
+    "sketchup": {"id": "sketchup", "name": "SketchUp", "doc": "SketchUp 모델", "model": SKETCHUP_MODEL_FILE_NAME, "dwg": False, "ask_stats": True, "sun": True},
     # Rhino 7판(cmd_rhino7 사이드카 + rhino7_host.cs) — 패널에는 Rhino로 보인다. DWG는 Rhino 8 헤드리스 문서(context_baker.save_dwg)라 없다
-    "rhino7": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": False, "ask_stats": False, "self_update": True},
+    "rhino7": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": False, "ask_stats": False, "self_update": True, "sun": True},
     "archicad": {"id": "archicad", "name": "Archicad", "doc": "Archicad 프로젝트", "model": ARCHICAD_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},   # GA 속성을 만들기 전에는 묻지 않는다
     "web": {"id": "web", "name": "브라우저", "doc": "3D 모델", "model": WEB_MODEL_FILE_NAME, "dwg": False, "ask_stats": False},   # 통계는 웹사이트 GA(페이지)만
     # [/blender-cut]
@@ -1002,6 +1008,8 @@ HOST_LABELS = {
 CDT_EPSILON = 1e-4              # m — CDT 근접 판정(mathutils delaunay_2d_cdt는 0이면 안 된다, shapely판은 겹치기 격자). 0.1 mm — 원천 좌표는 mm 반올림
 # Blender판(cmd_blender)
 BLENDER_PANEL_POLL = 0.1        # s — 브라우저 패널 명령을 Blender 메인 스레드에서 꺼내는 간격(bpy.app.timers)
+BLENDER_SUN_NAME = "Gorani Sun"   # 패널 '해와 그림자' 태양 램프(장면 바로 아래) — Material Preview·Rendered 그림자. Solid는 scene.display.light_direction
+BLENDER_SUN_ENERGY = 4.0         # W/m² — 태양 램프 세기(Blender 기본 1은 어둡다, 맑은 날 실외 3~5)
 BLENDER_VIEW_CLIP_END = 20000.0  # m — 줌할 때 3D 뷰 먼 클리핑(기본 1 km면 반경 1 km 지형이 잘린다)
 BLENDER_CURVE_WAIT = 60.0       # s — [Blender 커브 가져오기]를 눌렀는데 고른 커브가 없을 때 Blender에서 고르기를 기다리는 시간(Rhino 고르기 프롬프트 자리)
 # [blender-cut]
@@ -1133,6 +1141,47 @@ AXO_CONTOUR_STEPS = (1.0, 2.0, 5.0, 10.0, 20.0, 50.0)   # 지형 덩어리 입�
 AXO_CONTOUR_MAX = 20
 AXO_CONTOUR_SHADE = 0.45         # 등고선 = 바닥색을 글자색 쪽으로 이만큼
 AXO_SITE_TINT = 0.55             # 대상지 안 건물 면을 대상지 색 쪽으로 섞는 비율 — 대상지가 먼저 읽히게
+# ── 태양·그림자·바람(시트 25~28, 패널 결과 화면 '해와 그림자') — solar.py, deliverables D.1. 법규 일조 판정(정북 사선·연속 2시간)은 하지 않는다 ──
+# 시각은 진태양시(남중 = 12:00) — 국내 일조 분석·일본 日影図 관행이고 시간대·서머타임이 끼지 않는다. 날짜는 북반구 기준(남반구는 하지·동지를 바꾼다)
+SUN_SEASONS = (("summer", "하지"), ("equinox", "춘추분"), ("winter", "동지"))   # (키, 이름) — 계절별 그림자 칸 순서는 SUN_SHADOW_PANELS
+SUN_SEASON_DATES = {"summer": (6, 21), "equinox": (3, 20), "winter": (12, 22)}   # 2020~2030 하지 6/20~21·춘분 3/20·동지 12/21~22 — 하루 차이는 적위 0.01° 미만
+SUN_SHADOW_PANELS = ("winter", "equinox", "summer")   # 25 계절별 그림자 2×2 칸 — 동지(가장 긴 그림자)를 왼쪽 위에, 넷째 칸은 시각별 해 높이 표
+SUN_PANEL_SCALES = (1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 7500, 10000, 15000, 20000, 25000, 30000, 40000, 50000)   # 25 칸 지도 축척 후보 — 범위가 칸에 드는 가장 상세한 것
+SUN_SHADOW_HOURS = (9, 10, 11, 12, 13, 14, 15)   # 그림자를 겹치는 시각(진태양시) — 일영도 관행 9~15시. 겹친 횟수 = 그림자 시간
+SUN_HOURS_WINDOW = (8.0, 16.0)   # 26 일조시간 창(진태양시 시) — 동지 8~16시. 그 밖은 서울 동지 고도 5° 아래라 건물·지형이 거의 다 가린다
+SUN_HOURS_STEP_MIN = 10          # 일조시간 표본 간격(분) — 48번 스윕. 5분이면 두 배 걸리고 단계 경계만 조금 매끄러워진다
+SUN_HOURS_SEASON = "winter"      # 26 일조시간 기준일 — 동지(가장 불리한 날, 관행)
+SUN_GRID_MAX_CELLS = 250000      # 그림자 격자 칸 수 상한 — 범위 + SUN_SHADOW_REACH를 덮는다. 500 m 사각형(약 1.1 km 격자) ≈ 2.5 m 칸, 2 km 반경 ≈ 9.5 m. 시간은 칸 수에 비례(PR 표)
+SUN_GRID_MIN_CELL = 1.0          # m — 칸 하한(작은 범위)
+SUN_SHADOW_REACH = 300.0         # m — 범위 밖 이 거리 안 건물·지형까지 그림자를 드리운다(서울 동지 9시 고도 14° → 30 m 건물 그림자 120 m, 75 m 건물 300 m)
+SUN_SIMPLIFY_MM = 0.15          # 그림자·일조 등치선 단순화 허용 오차(종이 mm) — 선 굵기 수준. 한 변 2 km 25번(칸 1:15,000)에서 2.25 m
+SUN_MIN_VERTEX_MM = 0.1         # 25·26 면을 종이에 옮길 때 이보다 가까운 연속 점은 버린다(다른 도면 SHEET_MIN_VERTEX_MM 0.05의 두 배 — 칸 지도가 작다)
+SUN_MIN_RING_MM2 = 0.08          # 종이에서 이보다 작은 링은 그리지 않는다(1:15,000에서 18 ㎡, 1:3,000에서 0.7 ㎡)
+SUN_SHADOW_EPS = 0.05            # m — 가림 높이가 칸 표면보다 이만큼 높아야 그림자(평지 반올림 떨림 방지)
+SUN_EYE_HEIGHT = 1.5             # m — 27 하늘 가림 관측점 높이(대상지 중심 지반 위 눈높이)
+SUN_MASK_STEP_DEG = 1.0          # 하늘 가림 방위 간격 °
+SUN_MASK_TERRAIN_STEP = 5.0      # m — 지형 가림을 걷는 첫 걸음(분석 지형)
+SUN_MASK_STEP_GROWTH = 0.02      # 걸음 = max(첫 걸음, 거리 × 이 값) — 1 km에서 20 m, 10 km에서 200 m
+SUN_MASK_FAR_RADIUS = 12000.0    # m — 먼 산 지평선(AWS Terrain Tiles z10, 약 120 m 칸)을 이 거리까지. 분석 지형 밖만 쓴다
+SUN_MASK_FAR_ZOOM = 10
+SUN_SHADOW_COLORS = ("#E4E3EE", "#CFCDE2", "#B7B4D3", "#9C98C1", "#7F7AAB", "#615C92", "#433F74")   # 그림자 1~7시간(9~15시 겹침) — 옅은 회보라 → 짙은 남보라
+SUN_HOURS_COLORS = ("#2B2D5C", "#3B4A88", "#3F6EA6", "#4593A9", "#57B39A", "#93C97F", "#D2D96B", "#F5D25C")   # 일조 0~1·1~2…7~8시간 — 남색(그늘) → 노랑(볕)
+SUN_PATH_COLORS = {"summer": "#E07B39", "equinox": "#3E9E6E", "winter": "#3C6FB4"}   # 27 태양 궤적 — 하지 주황·춘추분 초록·동지 파랑
+SUN_MASK_COLORS = {"terrain": "#B9A88A", "building": "#6F7480"}   # 27 하늘 가림 — 지형 흙색·건물 회색
+SUN_METHOD_LINE = "태양 위치 NOAA Solar Calculator 식 · 진태양시(남중 12:00) · 현황 분석용 — 법규 일조 판정 아님"
+SUN_FAR_SOURCE_LINE = "먼 산 지평선 — Terrain Tiles(Mapzen/AWS Open Data, SRTM 등 공개 DEM) z10"
+SUN_MODE_KEY = "GORANI_SUN_PREVIOUS_MODE"   # Rhino doc.Strings — 해 그림자를 켜기 전 뷰 표시 모드 id(끄면 되돌린다). rhino7_host.cs SunModeKey와 같다
+SUN_TZ_KOREA = 9.0               # 패널 '해와 그림자' 표준시 줄 — 한국(KST)만 적는다. 해외는 시간대 자료가 없어(표준 라이브러리) 진태양시만
+# 바람장미(28) — NASA POWER Hourly API: MERRA-2 재분석 지상 10 m 풍향·풍속(0.5°×0.625° 격자), 키 없음, NASA 공개 자료(상업 이용 가능, 출처 표기 요청).
+# Open-Meteo는 무료 API가 비상업 전용(실무 사용 = 상업)이라 쓰지 않는다. 국내 관측소(기상청 ASOS)는 키가 필요해 보류 — docs/data_sources.md 'NASA POWER'
+WIND_POWER_URL = ("https://power.larc.nasa.gov/api/temporal/hourly/point?parameters=WS10M,WD10M&community=RE"
+                  "&longitude={lng}&latitude={lat}&start={start}&end={end}&format=JSON&time-standard=LST")
+WIND_YEARS = 10                  # 최근 10년(끝난 해까지) — 기상 평년 관행(30년)보다 짧지만 요청 하나 3 MB·2 s(2026-11-14 실측)
+WIND_TIMEOUT_SECONDS = 40
+WIND_SECTORS = 16                # 16방위
+WIND_SPEED_BREAKS = (0.5, 1.6, 3.4, 5.5, 8.0, 10.8)   # m/s — 0.5 미만 정온(WMO), 나머지는 보퍼트 풍력 1~5·6 이상 경계
+WIND_COLORS = ("#CFE3EE", "#9CC6DD", "#62A3C8", "#357DB0", "#1D5791", "#0F3566")   # 풍속 등급 — 옅은 하늘 → 짙은 남색
+WIND_SOURCE_LINE = "바람 — NASA POWER Hourly {0}(MERRA-2 재분석, 지상 10 m, 격자 {1}) {2}~{3}년 시간별 {4}개 · NASA Langley Research Center POWER Project 제공"
 
 # ── 도면 스타일 (패널 '도면 스타일' 화면 · HOME_DIR/styles/*.json · options.style) ──
 # 색은 도면 요소별, 나머지는 전 도면 공통. 법정·관행 색표가 있는 주제(용도지역·토지이용)는 SHEET_LEGENDS에 고정 — 바꾸면 보는 사람이 오독한다
@@ -1200,6 +1249,7 @@ SHEET_LEGENDS = {
     ]),
     "aerial": ("none", []),           # 영상 타일 + 대상지·범위 선 — 범례는 sheet_svg가 만든다
     "axo": ("none", []),              # 평행 투상 건물·바닥(도로·수계·녹지·대상지) — 범례는 sheet_svg가 만든다
+    "shadow": ("none", []), "sun_hours": ("none", []), "sun_path": ("none", []), "wind": ("none", []),   # 태양·바람(solar.py) — 범례는 sheet_svg가 만든다
     "synthesis": ("none", [           # 제약·기회 두 층 — 현황도를 겹쳐 사람이 판단한다(03 §5)
         ("opportunity", "기회·강점", {"fill": "#CFE8D8", "stroke": "#1F8A5B", "stroke-width": 0.3}),
         ("constraint", "제약·약점", {"fill": "#F6D0C8", "stroke": "#C43C3C", "stroke-width": 0.3}),

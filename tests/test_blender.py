@@ -57,6 +57,24 @@ class LargeIdTest(unittest.TestCase):
         bpy.data.meshes.remove(mesh)
 
 
+@unittest.skipUnless(bpy is not None, "Blender 안에서만 돈다")
+class SunTest(unittest.TestCase):
+    def test_set_sun_lamp_and_solid_direction(self):
+        """패널 '해와 그림자' — 태양 램프 +Z가 해 쪽, Solid 그림자 방향 = (동, 위, −북). 끄면 램프를 숨긴다."""
+        blender_baker = loader.load("blender_baker")
+        constants = loader.load("constants")
+        scene = bpy.context.scene
+        vector = (0.0, -0.8746, 0.4848)   # 남쪽 해, 고도 29°
+        self.assertTrue(blender_baker.set_sun(scene, {"on": True, "altitude": 29.0, "vector": vector}))
+        lamp = bpy.data.objects[constants.BLENDER_SUN_NAME]
+        up = lamp.rotation_quaternion @ __import__("mathutils").Vector((0.0, 0.0, 1.0))
+        self.assertAlmostEqual(up.y, vector[1], places=3)
+        self.assertAlmostEqual(up.z, vector[2], places=3)
+        self.assertAlmostEqual(scene.display.light_direction[2], -vector[1], places=3)
+        self.assertTrue(blender_baker.set_sun(scene, {"on": False}))
+        self.assertTrue(lamp.hide_viewport)
+
+
 @unittest.skipUnless(bpy is not None and HAS_FIXTURES, "Blender 안에서 fixture DB로만 돈다")
 class RunTest(unittest.TestCase):
     """성수 fixture 500 m — 대상지 평탄화 + 바닥 메시까지 켠 생성 한 번."""

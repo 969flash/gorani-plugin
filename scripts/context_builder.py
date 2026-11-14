@@ -38,6 +38,7 @@ import osm_context
 import pnu_loader
 import site_prefs
 import sheet_svg
+import solar
 from i18n import tr
 from sheet_svg import Frame
 
@@ -1049,6 +1050,39 @@ def get_result_state(result_dir, model_name=None):
                              "made_at": time.strftime("%Y-%m-%dT%H:%M", time.localtime(os.path.getmtime(os.path.join(result_dir, name))))} for name in _get_2d_dirs(result_dir)]}
 
 
+def get_sun_state(result_dir, msg, today=None):
+    # type: (str, dict, datetime.date) -> dict
+    """패널 '해와 그림자'(set_sun) — 결과 폴더의 대상지 위경도 + 날짜·진태양시 → 해 방위·고도와 호스트가 쓸 값.
+
+    입력: msg {on, season(summer|equinox|winter) 또는 month·day, minutes(진태양시 분)}. 계절은 남반구면 하지·동지 날짜가 바뀐다(solar.get_season_date).
+    출력: sun_state {on, lng, lat, year, month, day, minutes, azimuth, altitude, vector(동·북·위), daylight[뜨는, 지는 분], tz, clock(그 시간대 분),
+          local[년, 월, 일, 시, 분](SketchUp ShadowTime — 그 시간대 시계), korea}. 시간대: 한국은 KST, 해외는 경도/15(지방 평균시 — 표준 라이브러리에 시간대 자료가 없다).
+    """
+    meta = _read_meta(result_dir)
+    crs = meta.get("crs") or "EPSG:5186"
+    points = non_rhino_utils.get_lnglat_in_crs([meta["center"]], crs) if len(meta.get("center") or []) == 2 else []
+    if not points:
+        raise ValueError(tr("결과의 위치를 읽지 못했습니다"))
+    lng, lat = points[0]
+    year = (today or datetime.date.today()).year
+    if msg.get("season") in constants.SUN_SEASON_DATES:
+        year, month, day = solar.get_season_date(msg["season"], lat, year)
+    else:
+        month, day = int(msg.get("month") or 12), int(msg.get("day") or 22)
+        datetime.date(year, month, day)   # 없는 날짜면 ValueError
+    minutes = max(0.0, min(1440.0, float(msg.get("minutes") if msg.get("minutes") is not None else 720.0)))
+    decl, eot = solar.get_solar_day(year, month, day, lng)
+    azimuth, altitude = solar.get_sun_position(lat, decl, minutes)
+    korea = crs == "EPSG:5186"
+    tz = constants.SUN_TZ_KOREA if korea else lng / 15.0
+    clock = solar.get_clock_minutes(minutes, lng, tz, eot)
+    local = datetime.datetime(year, month, day) + datetime.timedelta(minutes=round(clock))
+    return {"type": "sun_state", "dir": result_dir, "on": bool(msg.get("on", True)), "lng": lng, "lat": lat, "year": year, "month": month, "day": day,
+            "minutes": minutes, "azimuth": azimuth, "altitude": altitude, "vector": list(solar.get_sun_vector(azimuth, altitude)),
+            "daylight": list(solar.get_daylight(lat, decl)), "tz": tz, "clock": clock, "korea": korea,
+            "local": [local.year, local.month, local.day, local.hour, local.minute], "season": msg.get("season") or "", "seq": msg.get("seq")}
+
+
 def _rebase_paths(value, mapping):
     # type: (object, list) -> object
     """저장된 절대 경로(만들 때의 위치)를 지금 위치로 — mapping [(옛 경로, 지금 경로)]. 문자열·목록·dict 안을 모두 훑는다(썸네일 data: 주소는 그대로)."""
@@ -1167,11 +1201,11 @@ def _phase_failed(response, phase, exc):
 def get_sheet_ids(options):
     # type: (dict) -> list
     """options.sheet_ids → 카탈로그에 있는 id만 카탈로그 순서로(옛 prefs의 다른 번호가 섞여도 깨지지 않게). 비면 전부.
-    Global 모드는 Korea 전용 도면(SHEET_KOREA_ONLY)을, 위성 영상이 없는 호스트(HOST_LABELS aerial)는 항공사진을 뺀다."""
+    Global 모드는 Korea 전용 도면(SHEET_KOREA_ONLY)을, 위성 영상·바람 자료가 없는 호스트(HOST_LABELS aerial·wind)는 항공사진·바람장미를 뺀다."""
     korea_only = (options or {}).get("region") == "global"
-    aerial = constants.HOST_LABELS[get_host()].get("aerial", True)   # Blender — 위성 영상 없음(항공사진 시트를 뺀다)
+    host = constants.HOST_LABELS[get_host()]   # Blender — 위성 영상·외부 기상 서비스 없음(항공사진·바람장미를 뺀다)
     valid = [sheet_id for sheet_id, key, *_ in constants.SHEET_CATALOG
-             if not (korea_only and key in constants.SHEET_KOREA_ONLY) and (aerial or key != "aerial")]
+             if not (korea_only and key in constants.SHEET_KOREA_ONLY) and (host.get(key, True) or key not in ("aerial", "wind"))]
     wanted = set()
     for value in (options or {}).get("sheet_ids") or []:
         try:
@@ -1525,7 +1559,7 @@ def preflight(request, today=None):
                 "seconds": int(round(constants.ESTIMATE_SECONDS_BASE + buildings * constants.ESTIMATE_SECONDS_PER_BUILDING)),
                 "mb": max(1, int(round(buildings * constants.ESTIMATE_MB_PER_BUILDING))), "note": "",
                 "pending_mb": round(sum(p.get("xz_size", 0) for p in pending) / 1048576.0) if pending else 0}   # 받기 전 — 건물 수·도엽은 모른다
-    available = {"lot": lot_count > 0, "building": buildings > 0 or bool(pending), "image": True,
+    available = {"lot": lot_count > 0, "building": buildings > 0 or bool(pending), "image": True, "climate": True,
                  "terrain": counts["themes"].get("terrain", 0) > 0 or bool(pending), "road": counts["themes"].get("road", 0) > 0 or bool(pending)}
     empty_sheets = [sheet_id for sheet_id, _key, _name, needs in constants.SHEET_CATALOG if not available[needs]]
 

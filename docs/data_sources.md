@@ -327,3 +327,15 @@ CREATE TABLE IF NOT EXISTS source_files (
 - 공식 출처를 안 쓴 이유: FEMA·ORNL USA Structures는 HEIGHT가 약 32M/125M동뿐이고 약관이 CC BY 4.0(ArcGIS Hub)과 미국 정부 저작물(data.gov)로 갈린다. 용도(OCC_CLS)는 더 좋아 나중에 보강 후보. 근거 `docs/research/country_buildings.md`.
 - 런타임: `countries.json`의 `us` — 상자 넷(`constants.US_BOUNDS` 본토·알래스카·하와이·푸에르토리코). 도로면은 OSM 버퍼, 지형은 Terrain Tiles.
 - 갱신: Overture 새 판 → `constants.OVERTURE_RELEASE` 바꾸고 `fetch`(주 parquet 다시) → `build`(판이 다르면 다시 만든다) → `upload`.
+
+## 6. 기후 — 바람·태양 (도면 25~28, 2026-11-14)
+
+| 항목 | 원천 | 쓰는 곳 | 비고 |
+|---|---|---|---|
+| 바람(28 바람장미) | **NASA POWER Hourly API** v2.10 — `https://power.larc.nasa.gov/api/temporal/hourly/point?parameters=WS10M,WD10M&community=RE&…&time-standard=LST`. MERRA-2 재분석 지상 10 m 풍속·풍향, 격자 0.5°×0.625°(약 50 km), 2001년~근실시간, 키 없음 | 2D 만들 때 대상지 중심 격자 하나를 받아(최근 10년 끝난 해까지 — `constants.WIND_YEARS`, 87,672시간·약 3 MB·2초, 2026-11-14 실측) 월별 16방위 × 풍속 등급으로 줄여 `HOME_DIR/data/cache/wind_<위도>_<경도>_<첫 해>_<끝 해>.json`에 둔다(원자료는 버린다). 못 받으면 도면이 '바람 자료 못 받음'으로 빈다 | 라이선스: NASA 지구과학 자료 정책 — "full, open, without restrictions", 개인·기업 이용 모두 가능(earthdata.nasa.gov 'NASA Earth Science Data: Yours to Use, Fully and Without Restrictions'). POWER 쪽 요청 표기(power.larc.nasa.gov/docs/referencing): "The data was obtained from the National Aeronautics and Space Administration (NASA) Langley Research Center (LaRC) Prediction of Worldwide Energy Resource (POWER) Project funded through the NASA Earth Science/Applied Science Program" + 서비스·판·받은 날. 도면 자료기준 줄에 "바람 — NASA POWER Hourly <판>(MERRA-2 재분석, 지상 10 m, 격자 <중심>) <첫 해>~<끝 해>년 시간별 <n>개 · NASA Langley Research Center POWER Project 제공"을 넣는다(`constants.WIND_SOURCE_LINE`). 기준일 = 받은 기간(끝난 해). 정확도: 재분석 격자 평균이라 도심 관측소 풍속과 다르다 — 카드에 '확인 필요' |
+| 먼 산 지평선(27 하늘 가림) | Terrain Tiles(Mapzen/AWS Open Data — SRTM·GMTED 등 공개 DEM) z10, 약 120 m 칸 — 해외 지형과 같은 서비스(`osm_context._get_terrain_tile`) | 관측점에서 12 km(`SUN_MASK_FAR_RADIUS`)까지, 분석 지형 밖만. 못 받으면 분석 지형만 | 국내에서도 범위 밖 먼 산에만 쓴다(수치지형도가 아니다 — 국외 반출과 무관). 자료기준 줄에 `constants.SUN_FAR_SOURCE_LINE` |
+| 태양 위치(25~27, 패널 '해와 그림자') | 자료 없음 — NOAA Solar Calculator 식(gml.noaa.gov/grad/solcalc/calcdetails.html, `solar.py`) | 진태양시(남중 12:00)로 계산한다. 한국천문연구원 서울 동지 낮 9:34·하지 14:46과 ±3분(`tests/test_solar.py`) | 도면에 "현황 분석용 — 법규 일조 판정 아님"(`SUN_METHOD_LINE`) |
+
+- **쓰지 않은 것**: Open-Meteo Historical(ERA5, 0.25°) — 자료는 CC BY 4.0이지만 무료 API는 비상업 전용이다(open-meteo.com/en/terms: "You may only use the free API services for non-commercial purposes", 상업 예 'commercial products'·'undisclosed research at commercial entities'). Gorani는 무료지만 사용자가 실무에 쓰므로 상업 이용으로 본다. 유료 API 키를 사용자가 넣는 방식은 나중 후보.
+- **국내 대안(보류)**: 기상청 ASOS 시간 자료(공공데이터포털, 관측소 기준 — 국내 보고서 관행 "○○관측소 최근 10년")는 인증키가 필요하다(VWorld 키처럼 사용자 키). 관측소 선택(가까운 곳·고도 차)도 판단이 들어가 이번에는 넣지 않았다. 재분석 격자는 해외와 같은 길이고 키가 없다.
+- 나무 그림자는 넣지 않는다 — 가로수는 대부분 낙엽수라 동지(일조 분석 기준일)에는 가지만 남고, 서울 가로수 자료는 공공누리 4유형이다.

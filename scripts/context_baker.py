@@ -565,6 +565,39 @@ def import_3dm(doc, result_dir, lot_key=None):
     return result
 
 
+def set_sun(doc, state):
+    # type: (object, dict) -> bool
+    """패널 '해와 그림자' — 문서 태양을 사이드카와 같은 solar 방위·고도로(수동 제어), 지금 뷰를 Rendered로(그림자). 끄면 태양을 끄고
+    처음 바꾸기 전 표시 모드로 되돌린다(doc.Strings SUN_MODE_KEY). 문서 +Y = 북(North 90°). 위경도는 Rhino 태양 창에 보이게 넣는다."""
+    sun = doc.Lights.Sun
+    view = doc.Views.ActiveView
+    if not state.get("on"):
+        sun.Enabled = False
+        previous = doc.Strings.GetValue(constants.SUN_MODE_KEY)
+        mode = Rhino.Display.DisplayModeDescription.GetDisplayMode(System.Guid(previous)) if previous else None
+        if view is not None and mode is not None:
+            view.ActiveViewport.DisplayMode = mode
+        doc.Strings.Delete(constants.SUN_MODE_KEY)
+        doc.Views.Redraw()
+        return True
+    sun.Enabled = True
+    sun.North = 90.0
+    try:   # 표시용 — 수동 모드라 계산에는 쓰지 않는다
+        sun.Latitude, sun.Longitude = float(state["lat"]), float(state["lng"])
+    except Exception:   # noqa: BLE001 — 판에 따라 읽기 전용
+        pass
+    sun.ManualControlOn = True
+    sun.Azimuth = float(state["azimuth"])
+    sun.Altitude = float(state["altitude"])
+    rendered = Rhino.Display.DisplayModeDescription.FindByName("Rendered")
+    if view is not None and rendered is not None and view.ActiveViewport.DisplayMode.Id != rendered.Id:
+        if not doc.Strings.GetValue(constants.SUN_MODE_KEY):
+            doc.Strings.SetString(constants.SUN_MODE_KEY, str(view.ActiveViewport.DisplayMode.Id))
+        view.ActiveViewport.DisplayMode = rendered
+    doc.Views.Redraw()
+    return True
+
+
 def zoom_to_site(doc, result_dir, center_lng_lat=None):
     # type: (object, str, list) -> bool
     """CTX::Site 객체(또는 경위도 center 주변 100 m)로 활성 뷰 줌. center는 문서 원점(doc.Strings, 없으면 context.json origin) 기준

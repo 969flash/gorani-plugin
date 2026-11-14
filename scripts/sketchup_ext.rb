@@ -429,6 +429,26 @@ module BSH
       true
     end
 
+    # 패널 '해와 그림자' — 그림자 설정을 대상지 위경도·그 시간대 시계로 맞추고 그림자를 켠다(on = false면 그림자만 끈다).
+    # ShadowTime은 '그 시간대 시계 값을 UTC 필드에 담은' Time이다(SketchUp 관례) — Time.utc(시계)로 넣고 TZOffset으로 시간대를 준다.
+    # 모델 +Y = 북(Gorani 베이크와 같다)이라 NorthAngle 0. 해 위치는 SketchUp이 계산한다(사이드카 solar와 0.1° 안팎)
+    def self.rpc_sun(args)
+      info = Sketchup.active_model.shadow_info
+      unless args["on"]
+        info["DisplayShadows"] = false
+        return true
+      end
+      year, month, day, hour, minute = args["local"]
+      info["Latitude"] = args["lat"].to_f
+      info["Longitude"] = args["lng"].to_f
+      info["TZOffset"] = args["tz"].to_f
+      info["NorthAngle"] = 0.0
+      info["ShadowTime"] = Time.utc(year, month, day, hour, minute)
+      info["DisplayShadows"] = true
+      info["UseSunForAllShading"] = true
+      true
+    end
+
     # 면 하나(바깥 고리) 또는 끊김 없이 한 바퀴 도는 선들 → 모델 좌표 m. 그룹을 편집 중이면 편집 변환을 곱한다
     def self.rpc_pick_curve(_args)
       model = Sketchup.active_model
