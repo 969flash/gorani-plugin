@@ -63,7 +63,8 @@
 3. **더보기 메뉴 '설정' 맨 위 '계정' 줄** — 손님 `로그인 안 함 [구글로 로그인]`, 회원 `name@gmail.com [로그아웃]`.
 4. **[구글로 로그인]** → 브라우저에 `https://gorani.site/link/?c=<코드>&h=rhino` 열림 → 패널: `브라우저에서 로그인을 마쳐 주세요 · 확인 코드 K7Q2 [주소 복사] [취소]`.
 5. 웹에서 로그인(처음이면 동의) → `Rhino를 name@gmail.com으로 연결합니다. 패널의 코드가 K7Q2인가요? [연결]` → 패널이 저절로 바뀌고 토스트 `로그인했습니다 — 디테일을 쓸 수 있습니다`. 디테일 체크는 그 사람이 저장해 둔 값(없으면 기본값)으로 돌아온다.
-6. **오프라인** — 마지막 확인 뒤 30일까지는 회원으로 돈다. 그 뒤에는 손님으로 돌고 디테일 줄에 `로그인을 다시 확인하지 못해 디테일이 꺼졌습니다 [다시 확인]`. 오류로 만들지 않는다.
+6. **오프라인** — 회원 확인 때문에 못 쓰게 되는 기능은 없다. 기본 기능과 맛보기 세기는 인터넷 없이 돈다(맛보기는 PC에서 센다). 회원은 마지막 확인 뒤 30일(`ACCOUNT_OFFLINE_DAYS`)까지 그대로 회원이다. 그 뒤에는 디테일만 잠기고 디테일 줄에 `로그인을 다시 확인하지 못해 디테일이 꺼졌습니다 [다시 확인]`. 오류로 만들지 않는다. 연결 열쇠(`token`)는 지우지 않으니 인터넷이 다시 되면 다음 확인 때 저절로 풀린다 — 다시 로그인하지 않는다.
+   인터넷이 원래 필요한 곳은 회원과 상관없이 지금과 같다: 해외·OSM 모드(Overpass), 한국 새 지역의 팩 받기, 처음 보는 지역의 지도 바탕(본 타일은 웹뷰가 7일 캐시). 처음 로그인할 때만 인터넷이 꼭 있어야 한다.
 7. **회원 API가 죽었을 때** — 손님으로 계속 쓴다. 사용자를 막지 않는다(공지·매니페스트와 같은 원칙).
 8. 10분 안에 연결하지 않으면 코드가 끝나고 `시간이 지났습니다 [다시 시도]`.
 
@@ -185,7 +186,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 |---|---|
 | `scripts/account.py`(새 로직 모듈, 표준 라이브러리) | `~/.gorani/account.json`(`token`·`email`·`tier`·`checked_at`·`trial_used`) 읽기·쓰기, `get_link_url(code, host)`, `poll_link(code)`, `refresh()`(하루 1회 `me`), `logout()`(토큰만 지우고 `trial_used`는 남긴다), `is_member(account)`, `get_trial_left(account)`, `get_allowed_options(options, account, host_label)` — 회원도 맛보기도 아니면 `MEMBER_OPTIONS`를 끈 사본, `add_trial(account, options)`. prefs.json에 넣지 않는다 |
 | `scripts/constants.py` | `ACCOUNT_ENABLED`, `ACCOUNT_API_URL`, `ACCOUNT_LINK_URL`, `MEMBER_OPTIONS`(디테일 7종 — `detail_curb`·`detail_bridges` 뺌), `GUEST_TRIAL_BUILDS = 3`, `ACCOUNT_OFFLINE_DAYS = 30`, `ACCOUNT_POLL_SECONDS = 3`, `ACCOUNT_LINK_MINUTES = 10`. `HOST_LABELS`에 `account`(blender만 False) |
-| `scripts/remote_config.py` | `REMOTE_KEYS`에 `ACCOUNT_ENABLED`·`ACCOUNT_API_URL`·`MEMBER_OPTIONS`·`GUEST_TRIAL_BUILDS`. 새 키 추가라 `COMPAT_MIN`은 그대로 |
+| `scripts/remote_config.py` | `REMOTE_KEYS`에 `ACCOUNT_ENABLED`·`ACCOUNT_API_URL`·`MEMBER_OPTIONS`·`GUEST_TRIAL_BUILDS`·`ACCOUNT_OFFLINE_DAYS`(회원 API가 오래 멈추면 늘린다). 새 키 추가라 `COMPAT_MIN`은 그대로 |
 | `scripts/cmd_site.py` | 명령 `account_login`·`account_cancel`·`account_logout`, 푸시 `account_state{state: guest\|linking\|member\|expired, email, code, trial_left}`, `init_state.account`. `generate` 직전에 `account.get_allowed_options`, 성공 뒤 손님이면 `account.add_trial` — 엔진(`context_builder`·`get_detail`)은 등급을 모른다. 저장한 prefs는 그대로 두고 생성 요청만 끈다. `context.json.options`에는 실제로 쓴 값이 남는다 |
 | 폴링·확인 | 데몬 스레드(`usage_stats`와 같은 방식)가 3초마다 `link_poll`. 결과 푸시는 Rhino 8은 `AsyncInvoke`로 UI 스레드에서(`panel_host`와 같다), 사이드카는 기존 푸시 줄. `init`은 캐시로 바로 그리고, 마지막 확인이 하루를 넘었으면 같은 스레드로 `me` → 바뀌면 `account_state` |
 | `scripts/site_ui.html` | 디테일 줄 맛보기 표시·잠금·전후 그림(작은 webp 인라인), 결과 화면 가입 권유, 메뉴 '계정' 줄, 연결 중 띠(코드·주소 복사·취소), 목 모드 `&account=guest\|trial\|linking\|member\|expired` |
@@ -270,6 +271,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 ## 나중 — 돈을 받을 때
 
 - **서버 쪽 잠금**: 서울 노면표시·가로수는 지금 컨텍스트 팩에 덧붙여 국내 서버(문지기)로 나간다(41bf893). 회원 전용 팩(`<시군구코드>_detail.db`)으로 떼고 문지기가 회원 토큰을 확인하면 진짜로 막힌다. 교량·선로·옹벽처럼 기본 팩으로 계산하는 디테일과 해외 OSM 디테일(공개 Overpass)은 서버로 막을 수 없다.
+- 인터넷이 아예 없는 PC(공공기관·대형 사무소 망분리)는 처음 로그인을 못 해 맛보기 3번뿐이다. 요청이 오면 계정 페이지에 '오프라인 PC용 회원 파일'(90일)을 두고 패널 [파일로 로그인]으로 읽는다. 그런 PC는 지금도 팩을 손으로 옮겨야 해서 드물다고 보고 먼저 만들지 않는다.
 - 회원이 1만 명을 넘거나 하루 `me`가 앱스 스크립트 한도의 절반을 넘으면 Firebase 등으로 옮긴다(API 모양을 지키면 플러그인은 원격 설정 주소만 바뀐다).
 - 결제 대행·환불·세금은 그때 따로 계획한다. 스토어 정책도 다시 본다(Blender는 그때도 로그인 불가).
 
