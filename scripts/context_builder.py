@@ -900,7 +900,7 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
                                  tr("{0} 건물과 지형만 들어 있습니다. 잠시 뒤 다시 만들면 도로·수계·녹지가 들어갑니다.", pack_label)))
     if pack_label or "gsi_dem" in source_ids:   # 나라별 건물 팩(PLATEAU·PDOK …)·지리원 지형
         warnings.append(_warning("info", "abroad", tr("Global — {0} 건물 {1}동·{2}", pack_label + "·OpenStreetMap" if pack_label else "OpenStreetMap",
-                                                     height["n"], tr("지리원 5 m 지형") if "gsi_dem" in source_ids else tr("지형 타일")),
+                                                     height["n"], tr("지리원 5 m 지형") if "gsi_dem" in source_ids else tr("Mapterhorn 지형") if "mapterhorn" in source_ids else tr("지형 타일")),
                                  tr("필지·용도지역 도면은 Korea 모드에만 있고, 실측 높이·높이 태그가 있는 건물은 {0} %입니다(나머지 {1:.1f} m 또는 층수 추정).",
                                     round(grade_ab * 100), constants.DEFAULT_BUILDING_HEIGHT_M)))
     else:

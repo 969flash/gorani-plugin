@@ -5483,6 +5483,12 @@
   "ja": "地形タイル",
   "zh": "地形瓦片"
  },
+ "Mapterhorn 지형": {
+  "en": "Mapterhorn terrain",
+  "es": "terreno Mapterhorn",
+  "ja": "Mapterhorn 地形",
+  "zh": "Mapterhorn 地形"
+ },
  "필지·용도지역 도면은 Korea 모드에만 있고, 건물 높이는 실측·태그 값(없으면 {0:.1f} m)입니다. 인터넷 연결이 필요합니다.": {
   "en": "Parcel and zoning maps are only in Korea mode. Building heights are measured or tagged values ({0:.1f} m if missing). An internet connection is required.",
   "es": "Los planos de parcelas y zonificación solo están en el modo Korea. La altura de los edificios es medida o de etiquetas ({0:.1f} m si falta). Se necesita conexión a internet.",

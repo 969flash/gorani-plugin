@@ -1109,8 +1109,8 @@ def get_terrain_spots(bounds, reference_date):
     받기·해독이 실패하면(서버 오류·시간 초과 — 404는 부모 타일로) 지리원 5 m·AWS terrarium. 출력: (표고점 목록, 쓴 원천 id 집합 — mapterhorn·gsi_dem·aws_terrain)."""
     try:
         return _get_mapterhorn_spots(bounds, reference_date), {"mapterhorn"}
-    except (OSError, ValueError, RuntimeError):   # URLError·시간 초과는 OSError, 해독 실패는 ValueError
-        return _get_tile_spots(bounds, reference_date)
+    except Exception:   # 무엇이든 대체 길로 — URLError·시간 초과(OSError), 중간에 끊긴 응답(http.client.IncompleteRead), 깨진 WebP(ValueError·IndexError).
+        return _get_tile_spots(bounds, reference_date)   # 이 안은 진행 콜백을 부르지 않아 취소(Cancelled)를 삼키지 않는다
 
 
 def _read_pb(data):

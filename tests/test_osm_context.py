@@ -106,6 +106,12 @@ class TerrainWebpTest(unittest.TestCase):
             osm_context._fetch = down
             osm_context._get_tile_spots = lambda bounds, today: (["aws"], {"aws_terrain"})
             self.assertEqual(osm_context.get_terrain_spots(bounds, "2026-11-14"), (["aws"], {"aws_terrain"}))   # Mapterhorn이 막히면 Terrain Tiles
+            import http.client
+            for broken in (lambda url, data=None, timeout=None: (_ for _ in ()).throw(http.client.IncompleteRead(b"")),   # 받다가 끊김
+                           lambda url, data=None, timeout=None: b"RIFF\x00\x00\x00\x00WEBPVP8L"):   # 잘린 WebP(IndexError)
+                osm_context._TERRAIN_TILES.clear()
+                osm_context._fetch = broken
+                self.assertEqual(osm_context.get_terrain_spots(bounds, "2026-11-14"), (["aws"], {"aws_terrain"}))
         finally:
             osm_context._fetch, osm_context._get_tile_spots = saved
 
