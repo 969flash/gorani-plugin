@@ -201,6 +201,7 @@ class TileFallbackTest(unittest.TestCase):
         self.assertEqual([(b.src_key, b.height_m, b.height_src) for b in context.buildings], [("openfreemap:1", 18.0, "openfreemap_height")])
         self.assertEqual(sorted({(f.theme, f.kind) for f in context.features}), [("road", "centerline"), ("road", "surface"), ("transit", "station")])
         self.assertEqual(context.notes, ["osm_detail_missing"])
+        self.assertTrue(all(f.attrs["osm"].startswith("openfreemap/") for f in context.features if "osm" in f.attrs))   # 진짜 OSM way 번호로 읽히지 않게
         self.assertTrue(all(url.startswith("https://tiles.example/") for url in self.calls))   # Overpass는 부르지 않았다
         self.assertEqual(len(waits), 2)   # 타일마다 진행 문구
 

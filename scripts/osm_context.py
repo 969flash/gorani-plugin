@@ -503,7 +503,7 @@ def _get_features(elements, reference_date):
         theme, kind = target
         min_x, max_x, min_y, max_y = _get_bounds(geometry)
         value = get_road_width(tags) if theme == "road" else None
-        attrs = {"osm": "%s/%d" % (element["type"], element["id"])}
+        attrs = {"osm": _get_osm_ref(element)}
         if theme in ("rail", "road"):   # 지하·교량·층 정보와 궤간 — 지상 선로·승강장만 3D로, 교량은 상판(context_geometry.get_rail_detail·get_bridges)
             attrs.update((key, tags[key]) for key in ("tunnel", "bridge", "layer", "level", "gauge") if key in tags)
         elif theme in ("tree", "structure"):   # 나무 높이·수관 지름·수종, 담 높이(context_geometry.get_trees·get_structure_lines)
@@ -517,7 +517,7 @@ def _get_features(elements, reference_date):
         if surface is not None:
             features.append(FeatureInfo(
                 feature_id=len(features) + 1, theme="road", kind="surface", code=tags.get("highway") or "", name=tags.get("name", ""), value=value,
-                attrs={"osm": "%s/%d" % (element["type"], element["id"]), "derived": "buffer", "bridge": tags.get("bridge", ""),
+                attrs={"osm": _get_osm_ref(element), "derived": "buffer", "bridge": tags.get("bridge", ""),
                        "mid": list(geometry["coordinates"][len(geometry["coordinates"]) // 2])}, sheet="",   # 중심선 가운데 꼭짓점 — get_surfaces_apart가 쓴다
                 geometry=surface, source_id="osm", reference_date=reference_date, min_x=min_x - value, max_x=max_x + value, min_y=min_y - value, max_y=max_y + value,
             ))
@@ -853,6 +853,12 @@ def decode_mvt(data, names=None):
     return layers
 
 
+def _get_osm_ref(element):
+    # type: (dict) -> str
+    """요소 → 3dm 속성 'osm' 값(way/123). 타일 대체 요소는 OSM id가 없어 openfreemap/<번호> — 진짜 OSM way 번호로 읽히지 않게."""
+    return "%s/%d" % ("openfreemap" if element.get("via") == "openfreemap" else element["type"], element["id"])
+
+
 def get_tile_tags(layer, props, kind):
     # type: (str, dict, int) -> dict
     """OpenMapTiles 레이어 속성 → Overpass 요소와 같은 OSM 태그(get_feature_kind·_get_buildings가 그대로 읽게). 쓰지 않으면 None.
@@ -937,7 +943,7 @@ def get_tile_elements(bounds, on_wait=None):
 
     def add(tags, rings, kind):
         lnglat = [[dict(zip(("lon", "lat"), non_rhino_utils.get_lnglat_from_tile(x / unit, y / unit, zoom))) for x, y in ring] for ring in rings]
-        element = {"id": len(elements) + 1, "tags": tags}
+        element = {"id": len(elements) + 1, "tags": tags, "via": "openfreemap"}   # OSM id가 없다 — _get_osm_ref가 openfreemap/<번호>로
         if kind == 1:
             element.update(type="node", **lnglat[0][0])
         elif kind == 2 or len(rings) == 1:
