@@ -587,7 +587,7 @@ def set_sun(doc, state):
     except Exception:   # noqa: BLE001 — 판에 따라 읽기 전용
         pass
     sun.ManualControlOn = True
-    sun.Azimuth = float(state["azimuth"])
+    sun.Azimuth = float(state.get("grid_azimuth", state["azimuth"]))   # 문서 +Y = 격자북
     sun.Altitude = float(state["altitude"])
     rendered = Rhino.Display.DisplayModeDescription.GetDisplayMode(Rhino.Display.DisplayModeDescription.RenderedId)   # 이름은 Rhino 언어마다 다르다
     if view is not None and rendered is not None and view.ActiveViewport.DisplayMode.Id != rendered.Id:

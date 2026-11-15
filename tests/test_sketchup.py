@@ -243,7 +243,8 @@ class SidecarRunTest(unittest.TestCase):
         self.assertAlmostEqual(state["altitude"], 90.0 - state["lat"] - 23.44, delta=0.2)
         self.assertEqual(self.fake.sun["local"][1:3], [12, 22])
         self.assertEqual(self.fake.sun["tz"], 9.0)
-        self.assertAlmostEqual(self.fake.sun["azimuth"], 180.0, delta=0.01)
+        self.assertAlmostEqual(self.fake.sun["azimuth"], (180.0 + state["north"]) % 360.0, delta=0.01)   # Rhino 7 — 모델 +Y(격자북) 기준
+        self.assertAlmostEqual(self.fake.sun["north"], state["north"], places=9)   # SketchUp NorthAngle — 성수(127.05°E)는 −0.03°
 
     def test_import_replaces(self):
         baker = loader.load("sketchup_baker")

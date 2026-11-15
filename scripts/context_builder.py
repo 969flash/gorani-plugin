@@ -1056,7 +1056,8 @@ def get_sun_state(result_dir, msg, today=None):
 
     입력: msg {on, season(summer|equinox|winter) 또는 month·day, minutes(진태양시 분)}. 계절은 남반구면 하지·동지 날짜가 바뀐다(solar.get_season_date).
     출력: sun_state {on, lng, lat, year, month, day, minutes, azimuth, altitude, vector(동·북·위), daylight[뜨는, 지는 분], tz, clock(그 시간대 분),
-          local[년, 월, 일, 시, 분](SketchUp ShadowTime — 그 시간대 시계), korea}. 시간대: 한국은 KST, 해외는 경도/15(지방 평균시 — 표준 라이브러리에 시간대 자료가 없다).
+          local[년, 월, 일, 시, 분](SketchUp ShadowTime — 그 시간대 시계), korea, grid_azimuth·north(모델 격자 기준 — 호스트는 이것과 vector를 쓴다)}.
+          시간대: 한국은 KST, 해외는 round(경도/15)(표준 라이브러리에 시간대 자료가 없다 — 시계는 그 시간대 기준이라 순간은 정확하다).
     """
     meta = _read_meta(result_dir)
     crs = meta.get("crs") or "EPSG:5186"
@@ -1067,18 +1068,21 @@ def get_sun_state(result_dir, msg, today=None):
     year = (today or datetime.date.today()).year
     if msg.get("season") in constants.SUN_SEASON_DATES:
         year, month, day = solar.get_season_date(msg["season"], lat, year)
-    else:
-        month, day = int(msg.get("month") or 12), int(msg.get("day") or 22)
+    else:   # 날짜 — 패널이 보낸 연도(윤년 2월 29일이 올해 없는 날짜로 깨지지 않게, 2026-11-15 리뷰)
+        year, month, day = int(msg.get("year") or year), int(msg.get("month") or 12), int(msg.get("day") or 22)
         datetime.date(year, month, day)   # 없는 날짜면 ValueError
     minutes = max(0.0, min(1440.0, float(msg.get("minutes") if msg.get("minutes") is not None else 720.0)))
     decl, eot = solar.get_solar_day(year, month, day, lng)
     azimuth, altitude = solar.get_sun_position(lat, decl, minutes)
     korea = crs == "EPSG:5186"
-    tz = constants.SUN_TZ_KOREA if korea else lng / 15.0
+    tz = constants.SUN_TZ_KOREA if korea else round(lng / 15.0)   # 해외는 경도/15를 정수 시간대로 — SketchUp TZOffset이 소수를 반올림해도 같은 순간(시계는 그 시간대로 맞춘다)
     clock = solar.get_clock_minutes(minutes, lng, tz, eot)
     local = datetime.datetime(year, month, day) + datetime.timedelta(minutes=round(clock))
+    north = non_rhino_utils.get_grid_north(lng, lat, crs)   # 모델 +Y는 격자북 — 해 방향을 격자로(부산 −1.2°, 독도 −2.95°)
+    grid_azimuth = (azimuth + north) % 360.0
     return {"type": "sun_state", "dir": result_dir, "on": bool(msg.get("on", True)), "lng": lng, "lat": lat, "year": year, "month": month, "day": day,
-            "minutes": minutes, "azimuth": azimuth, "altitude": altitude, "vector": list(solar.get_sun_vector(azimuth, altitude)),
+            "minutes": minutes, "azimuth": azimuth, "grid_azimuth": grid_azimuth, "north": north, "altitude": altitude,
+            "vector": list(solar.get_sun_vector(grid_azimuth, altitude)),
             "daylight": list(solar.get_daylight(lat, decl)), "tz": tz, "clock": clock, "korea": korea,
             "local": [local.year, local.month, local.day, local.hour, local.minute], "season": msg.get("season") or "", "seq": msg.get("seq")}
 

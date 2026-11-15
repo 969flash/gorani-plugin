@@ -136,7 +136,9 @@ class HeightGrid(object):
     입력: bounds(min_x, min_y, max_x, max_y) m, cell m, ground_z(x, y) → z 또는 None(자료 밖 — 가까운 칸 값으로 메운다),
           buildings [(링들 — 외곽·구멍, 지붕 z)] (발자국 최저 지반 + 높이 — 3D와 같다).
     ponytail: 칸 중심 표본이라 칸보다 좁은 틈·건물은 뭉개진다. 칸은 SUN_GRID_MAX_CELLS로 정한다(500 m 범위 ≈ 2 m).
+    north = 진북의 격자 방위 °(non_rhino_utils.get_grid_north) — get_shadow는 진방위를 받아 격자 방위로 바꾼다.
     """
+    north = 0.0
 
     def __init__(self, bounds, cell, ground_z, buildings):
         self.cell = float(cell)
@@ -203,7 +205,8 @@ class HeightGrid(object):
         if altitude <= 0.0:
             return [True] * (nx * ny)
         surface = self.surface
-        ux, uy = math.sin(math.radians(azimuth)), math.cos(math.radians(azimuth))   # 해 쪽 수평 방향(동, 북)
+        azimuth += self.north   # 진방위 → 격자 방위(자오선수차 — non_rhino_utils.get_grid_north)
+        ux, uy = math.sin(math.radians(azimuth)), math.cos(math.radians(azimuth))   # 해 쪽 수평 방향(격자 동, 북)
         tan_alt = math.tan(math.radians(altitude))
         low = -1e9
         occ = [low] * (nx * ny)
@@ -372,9 +375,9 @@ def get_simplified_ring(ring, tolerance):
 
 # ── 하늘 가림 (관측점에서 본 지형·건물 실루엣) ─────────────
 
-def get_building_horizon(observer, buildings, step_deg=None):
-    # type: (tuple, list, float) -> list
-    """관측점 (x, y, z)에서 본 방위별 건물 가림 고도각 ° 목록(방위 0 = 북부터 step_deg 간격). 건물은 [(링들, 지붕 z)].
+def get_building_horizon(observer, buildings, step_deg=None, north=0.0):
+    # type: (tuple, list, float, float) -> list
+    """관측점 (x, y, z)에서 본 방위별 건물 가림 고도각 ° 목록(진방위 0 = 진북부터 step_deg 간격 — north = 진북의 격자 방위). 건물은 [(링들, 지붕 z)].
     지붕 테두리를 방위 0.5° 이하 간격으로 쪼개 칸마다 가장 높은 각을 남긴다(관측점에 가까운 테두리가 가장 높다)."""
     step = float(step_deg or constants.SUN_MASK_STEP_DEG)
     bins = int(round(360.0 / step))
@@ -396,14 +399,14 @@ def get_building_horizon(observer, buildings, step_deg=None):
                     if dist < 0.5:
                         continue
                     alt = math.degrees(math.atan2(rise, dist))
-                    index = int(((math.degrees(math.atan2(x - ox, y - oy)) % 360.0) + step * 0.5) / step) % bins
+                    index = int(((math.degrees(math.atan2(x - ox, y - oy)) - north) % 360.0 + step * 0.5) / step) % bins
                     if alt > alts[index]:
                         alts[index] = alt
     return alts
 
 
-def get_terrain_horizon(observer, height_at, max_dist, step_deg=None, step_m=None, start_m=None):
-    # type: (tuple, object, float, float, float, float) -> list
+def get_terrain_horizon(observer, height_at, max_dist, step_deg=None, step_m=None, start_m=None, north=0.0):
+    # type: (tuple, object, float, float, float, float, float) -> list
     """관측점에서 방위마다 지형을 따라 걸으며 가장 높은 고도각 °(아래로 보이면 0). height_at(x, y) → z 또는 None(자료 밖 — 그 방위는 거기서 멈춘다).
     걸음은 가까이 step_m, 멀수록 넓힌다(거리 × SUN_MASK_STEP_GROWTH) — 먼 산은 각이 작게 변한다."""
     step = float(step_deg or constants.SUN_MASK_STEP_DEG)
@@ -412,7 +415,7 @@ def get_terrain_horizon(observer, height_at, max_dist, step_deg=None, step_m=Non
     ox, oy, oz = observer
     alts = [0.0] * bins
     for index in range(bins):
-        az = math.radians(index * step)
+        az = math.radians(index * step + north)   # 진방위 칸 → 격자 방향
         dx, dy = math.sin(az), math.cos(az)
         dist = float(start_m or base_step)
         best = 0.0

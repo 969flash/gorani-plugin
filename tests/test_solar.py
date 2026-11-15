@@ -283,6 +283,57 @@ class SunStateTest(unittest.TestCase):
             self.assertLess(other["azimuth"], 180.0)
             with self.assertRaises(ValueError):
                 context_builder.get_sun_state(tmp, {"month": 2, "day": 30})
+            leap = context_builder.get_sun_state(tmp, {"year": 2028, "month": 2, "day": 29, "minutes": 720})   # 패널이 연도를 보낸다 — 윤년 2월 29일
+            self.assertEqual((leap["year"], leap["month"], leap["day"]), (2028, 2, 29))
+
+    def test_grid_north_and_timezone(self):
+        """2026-11-15 리뷰 — 국내는 격자북(EPSG:5186)과 진북 차를 해 방향에 더하고, 해외는 정수 시간대(SketchUp TZOffset)."""
+        self.assertAlmostEqual(non_rhino_utils.get_grid_north(126.978, 37.566, "EPSG:5186"), 0.0, delta=0.05)   # 서울 — 중부원점 부근
+        self.assertAlmostEqual(non_rhino_utils.get_grid_north(129.075, 35.18, "EPSG:5186"), -1.2, delta=0.1)   # 부산
+        self.assertAlmostEqual(non_rhino_utils.get_grid_north(124.71, 37.97, "EPSG:5186"), 1.4, delta=0.1)    # 백령도
+        self.assertFalse(non_rhino_utils.is_local_projection())   # crs를 줘도 지금 원점은 그대로
+        with tempfile.TemporaryDirectory() as tmp:
+            x, y = non_rhino_utils.get_tm_from_wgs84(129.075, 35.18)
+            with open(os.path.join(tmp, constants.CONTEXT_META_FILE_NAME), "w", encoding="utf-8") as handle:
+                json.dump({"center": [x, y], "crs": "EPSG:5186"}, handle)
+            state = context_builder.get_sun_state(tmp, {"season": "winter", "minutes": 720})
+            self.assertAlmostEqual(state["grid_azimuth"], (state["azimuth"] + state["north"]) % 360.0, places=6)
+            self.assertAlmostEqual(state["north"], -1.2, delta=0.1)
+            east, north = state["vector"][:2]
+            self.assertAlmostEqual(math.degrees(math.atan2(east, north)) % 360.0, state["grid_azimuth"], places=4)
+        lisbon = (-9.14, 38.72)
+        non_rhino_utils.set_projection(*lisbon)
+        try:
+            x, y = non_rhino_utils.get_tm_from_wgs84(*lisbon)
+            crs = non_rhino_utils.get_crs_label()
+        finally:
+            non_rhino_utils.set_projection()
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, constants.CONTEXT_META_FILE_NAME), "w", encoding="utf-8") as handle:
+                json.dump({"center": [x, y], "crs": crs}, handle)
+            state = context_builder.get_sun_state(tmp, {"season": "equinox", "minutes": 720})
+            self.assertEqual(state["tz"], -1)   # 경도/15 = −0.61 → 정수 시간대 — 시계는 그 시간대로 맞춘다
+            self.assertAlmostEqual(state["north"], 0.0, delta=0.05)
+
+    def test_shadow_uses_grid_north(self):
+        """HeightGrid.north만큼 돌린 그림자 = 북을 0으로 두고 방위를 그만큼 더한 그림자."""
+        def make(north):
+            grid = solar.HeightGrid((0.0, 0.0, 60.0, 60.0), 1.0, lambda x, y: 0.0, [([[(28.0, 28.0), (32.0, 28.0), (32.0, 32.0), (28.0, 32.0)]], 10.0)])
+            grid.north = north
+            return grid
+        self.assertEqual(make(7.0).get_shadow(180.0, 30.0), make(0.0).get_shadow(187.0, 30.0))
+        self.assertNotEqual(make(7.0).get_shadow(180.0, 30.0), make(0.0).get_shadow(180.0, 30.0))
+
+
+class SketchUpRpcTest(unittest.TestCase):
+    def test_every_rpc_method_is_allowed(self):
+        """sketchup_ext.rb의 rpc_* 메서드는 모두 RPC 허용 목록에 있어야 host_call이 부른다 — 'sun'이 빠져 해와 그림자가 늘 실패했다(2026-11-15 리뷰)."""
+        import re
+        text = (Path(__file__).resolve().parents[1] / "scripts" / "sketchup_ext.rb").read_text(encoding="utf-8")
+        allowed = set(re.search(r"RPC = %w\[([^\]]*)\]", text).group(1).split())
+        methods = set(re.findall(r"def self\.rpc_(\w+)", text))
+        self.assertTrue(methods)
+        self.assertEqual(methods - allowed, set())
 
 
 if __name__ == "__main__":

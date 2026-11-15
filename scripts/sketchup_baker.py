@@ -156,8 +156,10 @@ def set_sun(host, state):
     # type: (object, dict) -> bool
     """패널 '해와 그림자' — 호스트 태양을 맞춘다(context_builder.get_sun_state). SketchUp은 위경도·시간대·시계(shadow_info),
     Rhino 7(rhino7_host.cs)은 방위·고도를 그대로 쓴다 — 같은 호출에 둘 다 싣는다."""
-    keys = ("on", "lat", "lng", "tz", "local", "azimuth", "altitude", "vector")
-    return bool(host.call("sun", **{key: state.get(key) for key in keys}))
+    keys = ("on", "lat", "lng", "tz", "local", "altitude", "vector", "north")
+    args = {key: state.get(key) for key in keys}
+    args["azimuth"] = state.get("grid_azimuth", state.get("azimuth"))   # Rhino 7 SetPosition — 문서 +Y = 격자북
+    return bool(host.call("sun", **args))
 
 
 def zoom_to_site(host, result_dir, center_lng_lat=None):

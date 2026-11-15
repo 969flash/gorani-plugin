@@ -1501,6 +1501,7 @@ def get_sun_scene(data, view=None):
         bounds = [max(bounds[0], view[0] - reach), max(bounds[1], view[1] - reach), min(bounds[2], view[2] + reach), min(bounds[3], view[3] + reach)]
     site_rings = data.site_rings or [part[0] for lot in data.target_lots for part in get_polygon_parts_from_geojson(lot.geometry)]
     grid = solar.HeightGrid(bounds, solar.get_grid_cell(bounds), grid_z, [])
+    grid.north = non_rhino_utils.get_grid_north(*get_site_lnglat(data))   # 해 방위는 진북 기준 — 격자(EPSG:5186)는 중부원점에서 멀면 1~3° 돈다(부산·독도)
 
     def base_z(x, y):   # 3D와 같이 지형 TIN, 자료 밖(범위가 넓은 2D 조회의 바깥 건물)은 격자가 메운 지반 — 최저값이면 지붕이 땅에 묻힌다(한 변 2 km, 2026-11-14)
         z = terrain.hit_z(x, y) if terrain is not None else 0.0
@@ -1687,10 +1688,11 @@ def _draw_shadow(key, subject, classify_fn, entries, items, data, style, frame, 
         fx, fy = ox + mw - fan_r - 3.0 * k, oy + fan_r + 3.0 * k
         fan = ['<g id="%s_sun">' % group, '<circle cx="%s" cy="%s" r="%s" fill="%s" fill-opacity="0.9" stroke="%s" stroke-width="%s"/>'
                % (_fmt(fx), _fmt(fy), _fmt(fan_r + 1.6 * k), paper, muted, _fmt(0.15 * ls))]
+        north = get_sun_scene(data)["grid"].north   # 지도 위쪽 = 격자북
         for hour, azimuth, altitude in shadow["positions"]:
             if altitude <= 0:
                 continue
-            ex, ey = fx + fan_r * math.sin(math.radians(azimuth)), fy - fan_r * math.cos(math.radians(azimuth))
+            ex, ey = fx + fan_r * math.sin(math.radians(azimuth + north)), fy - fan_r * math.cos(math.radians(azimuth + north))
             fan.append('<path d="M%s %sL%s %s" stroke="%s" stroke-width="%s"/>' % (_fmt(fx), _fmt(fy), _fmt(ex), _fmt(ey), constants.SUN_PATH_COLORS[season], _fmt(0.25 * ls)))
             fan.append('<circle cx="%s" cy="%s" r="%s" fill="%s"/>' % (_fmt(ex), _fmt(ey), _fmt(0.55 * k), constants.SUN_PATH_COLORS[season]))
         fan += [_text(fx, fy - fan_r - 2.1 * k, "N", constants.SHEET_FONT_MM["meta"] * k * ts, fill=muted, **{"text-anchor": "middle", "font-weight": "700"}), "</g>"]
@@ -1816,14 +1818,15 @@ def _get_far_height(data, lat, lng):
         return data.cache["sun_far"]
     import osm_context   # 지형 타일 받기·PNG 풀기(표준 라이브러리) — 해외 지형과 같은 것
     zoom = constants.SUN_MASK_FAR_ZOOM
+    n = 2 ** zoom   # 날짜변경선을 넘으면 타일 열을 감는다(경도 179.95°에서 x = 1024 — z10 최대 1023, 2026-11-15 리뷰)
     tiles = {}
     try:
         radius_deg = constants.SUN_MASK_FAR_RADIUS / 111320.0
         x0, y0 = get_tile_xy(lng - radius_deg / max(0.2, math.cos(math.radians(lat))), min(85.0, lat + radius_deg), zoom)
         x1, y1 = get_tile_xy(lng + radius_deg / max(0.2, math.cos(math.radians(lat))), max(-85.0, lat - radius_deg), zoom)
         for tx in range(int(x0), int(x1) + 1):
-            for ty in range(int(y0), int(y1) + 1):
-                tiles[(tx, ty)] = osm_context._get_terrain_tile(zoom, tx, ty, False)
+            for ty in range(max(0, int(y0)), min(n - 1, int(y1)) + 1):
+                tiles[(tx % n, ty)] = osm_context._get_terrain_tile(zoom, tx % n, ty, False)
     except Exception:   # noqa: BLE001 — 오프라인·서버 장애면 분석 지형만
         data.cache["sun_far"] = None
         return None
@@ -1831,7 +1834,7 @@ def _get_far_height(data, lat, lng):
     def height_at(x, y):
         lon, la = get_wgs84_from_tm(x, y)
         fx, fy = get_tile_xy(lon, la, zoom)
-        tile = tiles.get((int(fx), int(fy)))
+        tile = tiles.get((int(fx) % n, int(fy)))
         if tile is None:
             return None
         source_id, (width, height, channels, rows) = tile
@@ -1854,7 +1857,8 @@ def get_sky_mask(data):
     ox, oy = _get_ring_center([p for ring in rings for p in ring]) if rings else data.center
     oz = scene["ground_z"](ox, oy) + constants.SUN_EYE_HEIGHT
     others = [(r, top) for r, top, on_site, _c in scene["buildings"] if not on_site and not is_point_in_ring(ox, oy, r[0])]
-    building_alts = solar.get_building_horizon((ox, oy, oz), others)
+    north = scene["grid"].north
+    building_alts = solar.get_building_horizon((ox, oy, oz), others, north=north)
     terrain = scene["terrain"]
     far = _get_far_height(data, lat, lng) if terrain is not None else None   # 지형이 없으면(평지 0 m) 먼 산 절대 표고와 섞지 않는다
     local_reach = 0.0
@@ -1869,7 +1873,7 @@ def get_sky_mask(data):
         return z
 
     max_dist = constants.SUN_MASK_FAR_RADIUS if far is not None else local_reach
-    terrain_alts = solar.get_terrain_horizon((ox, oy, oz), height_at, max_dist) if (terrain is not None or far is not None) else [0.0] * len(building_alts)
+    terrain_alts = solar.get_terrain_horizon((ox, oy, oz), height_at, max_dist, north=north) if (terrain is not None or far is not None) else [0.0] * len(building_alts)
     mask = {"observer": (ox, oy, oz), "terrain": terrain_alts, "building": building_alts, "far": far is not None, "buildings": len(others), "has_terrain": terrain is not None,
             "excluded": sum(1 for _r, _t, on_site, _c in scene["buildings"] if on_site)}
     data.cache["sky_mask"] = mask

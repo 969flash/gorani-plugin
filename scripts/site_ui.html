@@ -1556,8 +1556,11 @@ function renderSunCard() { var el = $("sun_card"); if (el) el.innerHTML = sunCar
 function sendSun() {   // 막대를 끄는 동안은 120 ms마다 한 번 — 호스트 다시 그리기가 밀리지 않게
   var s = state.sun, r = state.result; if (!r) return;
   var msg = { cmd: "set_sun", dir: r.dir, on: s.on, minutes: s.minutes, seq: ++state.seq.sun };
-  if (s.season === "date") { var d = String(s.date || "").split("-"); msg.month = +d[1]; msg.day = +d[2]; } else msg.season = s.season;
+  if (s.season === "date") { var d = String(s.date || "").split("-"); msg.year = +d[0] || undefined; msg.month = +d[1]; msg.day = +d[2]; } else msg.season = s.season;
   send(msg);
+}
+function sunResultChanged() {   // 다른 결과로 — 호스트 해는 앞 대상지 위경도라 켜져 있으면 새 결과로 다시 보낸다(2026-11-15 리뷰)
+  state.sun.info = null; if (state.sun.on) sendSun();
 }
 function sunTimeInput(v) {
   state.sun.minutes = +v; var c = $("sun_clock"); if (c) c.textContent = hhmm(state.sun.minutes);
@@ -2178,7 +2181,7 @@ var ACTIONS = {
     if (!canReturn()) return;
     var l = state.last; state.last = null;
     state.result = l.result; state.made2d = l.made2d; state.job2d = l.job2d; state.form2d = l.form2d; state.err2d = l.err2d; state.err2dObj = l.err2dObj;
-    state.progress = null; state.styleOpen = false; state.run = "done"; go("result");
+    state.progress = null; state.styleOpen = false; state.run = "done"; go("result"); sunResultChanged();
   },
   cancel: requestCancel,
   make2d: startMake2d,
@@ -2479,7 +2482,7 @@ var handlers = {
     clearInterval(timers.elapsed);
     state.result = m; state.result.sheets = []; state.made2d = null; state.job2d = "idle"; state.form2d = true; state.dl = null; state.resultKey = state.runKey; if (state.runTarget) state.madeTargets[state.runTarget] = true;
     state.appliedStyle = fullStyle(state.options.style); state.styleEdit = clone(state.appliedStyle); state.styleOpen = false;
-    state.run = "done"; state.screen = "result"; render();
+    state.run = "done"; state.screen = "result"; render(); sunResultChanged();
     announce(docTitle());
   },
   result_opened: function (m) {   // 최근 결과 하나 — 결과 화면을 context.json으로 다시 채운다(3D는 문서에 없을 수 있어 [불러오기])
@@ -2490,12 +2493,14 @@ var handlers = {
     state.appliedStyle = fullStyle(state.options.style); state.styleEdit = clone(state.appliedStyle); state.styleOpen = false;
     var list = m.made2d_list || [];
     for (var k = list.length - 1; k >= 0; k--) if (list[k].made2d) { apply2d(list[k].made2d); break; }   // 마지막(최신) 2D를 만든 직후와 같은 카드로
-    state.progress = null; state.run = "done"; state.screen = "result"; render();
+    state.progress = null; state.run = "done"; state.screen = "result"; render(); sunResultChanged();
     announce(tr("지난 결과를 열었습니다"));
   },
   sun_state: function (m) {   // set_sun 응답 — 늦게 온 것은 버린다. 해가 뜨고 지는 시각으로 막대 범위를 다시 잡는다
     if (m.seq < state.seq.sun || !state.result || m.dir !== state.result.dir) return;
     var first = !state.sun.info; state.sun.info = m;
+    var rg = sunRange(), kept = Math.max(rg[0], Math.min(rg[1], state.sun.minutes));   // 계절을 바꾸면 고른 시각이 해 진 뒤일 수 있다 — 막대 범위로 자르고 다시 보낸다
+    if (state.sun.on && rg[0] < rg[1] && kept !== state.sun.minutes) { state.sun.minutes = kept; renderSunCard(); sendSun(); return; }
     if (first || $("sun_time") && (+$("sun_time").min !== sunRange()[0] || +$("sun_time").max !== sunRange()[1])) { renderSunCard(); return; }
     var rd = $("sun_read"); if (rd) rd.textContent = sunReadout();
   },
