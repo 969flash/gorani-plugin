@@ -80,7 +80,7 @@ PACKAGE_VERSION = constants.PANEL_VERSION                  # 올릴 때마다 co
 PLUGIN_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a10"         # 바꾸지 말 것 — Gorani가 이 id로 자기 폴더를 찾는다
 COMMAND_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a11"
 COMMAND_NAME = "Gorani"
-PUBLISHER = {"name": "sanghoon", "email": "bsh969flash@gmail.com"}
+PUBLISHER = {"name": "Gorani", "email": "bsh969flash@gmail.com"}   # 패키지 관리자 '작성자'·Rhino 플러그인 정보·Blender 관리자·SketchUp 제작자 칸 — 개인 이름 대신 제품 이름(2026-11-15 사용자 지시)
 WEBSITE_URL = "https://gorani.site/en/"   # PackageManager 링크 — 영어 페이지(한국어 페이지는 거기서 링크, food4Rhino 심사 2026-10-21)
 # yak manifest — rhinocode가 쓰는 manifest.yml은 url·검색어가 비고 버전에 +빌드번호가 붙는다. PackageManager 목록·검색에 보일 내용으로 갈아 쓴다.
 # 설명은 영어를 먼저 쓴다(food4Rhino 심사 2026-10-21 — 영어가 없으면 올릴 수 없다).
@@ -293,7 +293,7 @@ support = "https://github.com/969flash/gorani-plugin/issues"
 tags = ["Import-Export"]
 blender_version_min = "4.2.0"
 license = ["SPDX:GPL-3.0-or-later", "SPDX:BSD-2-Clause"]
-copyright = ["2026 sanghoon", "2010-2023 Volodymyr Agafonkin (Leaflet)", "2010-2011 CloudMade (Leaflet)"]
+copyright = ["2026 %(author)s", "2010-2023 Volodymyr Agafonkin (Leaflet)", "2010-2011 CloudMade (Leaflet)"]
 
 [permissions]
 network = "Map tiles, regional data packs and OpenStreetMap context"   # IP 위치 조회는 Blender판에서 끈다(HOST_LABELS ip_center)
@@ -737,7 +737,7 @@ def build_blender():
         f.write(BLENDER_INIT_SOURCE)
     with open(os.path.join(package_dir, "blender_manifest.toml"), "w", encoding="utf-8") as f:
         f.write(BLENDER_MANIFEST % {"id": BLENDER_PACKAGE_ID, "version": PACKAGE_VERSION, "name": PACKAGE_NAME,
-                                    "maintainer": "%s <%s>" % (PUBLISHER["name"], PUBLISHER["email"])})
+                                    "maintainer": "%s <%s>" % (PUBLISHER["name"], PUBLISHER["email"]), "author": PUBLISHER["name"]})
     print("  모듈 %d개" % len(names))
     foreign = get_foreign_hosts(package_dir, BLENDER_ALLOWED_HOSTS)
     if foreign:   # 확장 심사 2026-10-25 — 쓰지 않는 외부 주소가 남으면 싣지 않는다
