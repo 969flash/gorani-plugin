@@ -105,7 +105,8 @@ class InitStateTest(unittest.TestCase):
         self.assertTrue(state["sheet_catalog"][constants.SHEET_IDS["zone"]]["korea_only"])   # 용도지역 = Korea 모드 전용
         self.assertFalse(state["sheet_catalog"][constants.SHEET_IDS["figure"]]["korea_only"])
         self.assertEqual(set(state["tile"]), {"url", "fallback_url", "attribution", "abroad_url", "abroad_attribution",
-                                              "aerial_url", "aerial_attribution", "abroad_aerial_url", "abroad_aerial_attribution"})
+                                              "aerial_url", "aerial_attribution", "abroad_aerial_url", "abroad_aerial_attribution",
+                                              "imagery", "imagery_shortfall", "imagery_blank_bytes"})
         for warning in state["warnings"]:
             self.assertEqual(set(warning), WARNING_KEYS)
 

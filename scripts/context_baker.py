@@ -279,6 +279,20 @@ def _get_dim_style_id(doc, height, style_cache):
     return style_cache[name]
 
 
+def _get_bake_xform(doc, prepared):
+    # type: (object, object) -> tuple
+    """로컬 m → 문서 (Transform 또는 None, 옮기는지). 실제 좌표 방식이면 계산 원점 − 문서 원점만큼 옮기고, 단위를 바꾼다."""
+    scale = get_model_unit_scale(doc)
+    doc_origin = getattr(prepared, "doc_origin", None) or prepared.origin
+    shift = (prepared.origin[0] - doc_origin[0], prepared.origin[1] - doc_origin[1])
+    moved = abs(shift[0]) > 1e-9 or abs(shift[1]) > 1e-9
+    xform = Rhino.Geometry.Transform.Scale(Rhino.Geometry.Point3d.Origin, scale) if abs(scale - 1.0) > 1e-12 else None
+    if moved:   # A*B는 B 먼저 — 로컬 m에서 옮기고 단위를 바꾼다
+        translation = Rhino.Geometry.Transform.Translation(shift[0], shift[1], 0.0)
+        xform = translation if xform is None else xform * translation
+    return xform, moved
+
+
 def bake(doc, items, prepared, lot_key=None):
     # type: (object, list, object, str) -> list
     """BakeItem 목록을 문서에 넣는다. 출력: 추가된 Guid 목록(실패 항목은 빠진다 — 수를 비교해 경고).
@@ -288,15 +302,8 @@ def bake(doc, items, prepared, lot_key=None):
           → m→문서 단위 Transform.Scale 복제본 → UserString + UDT_MANAGED·UDT_LOT_KEY → Add.
           옮길 때 메시는 배정밀도 정점으로 바꾼다 — 단정밀도는 서울 좌표(55만 m)에서 6 cm 단위로 뭉개진다.
     """
-    scale = get_model_unit_scale(doc)
     lot_key = lot_key or getattr(prepared, "target_key", "") or get_lot_key((prepared.request or {}).get("pnus") or [])
-    doc_origin = getattr(prepared, "doc_origin", None) or prepared.origin
-    shift = (prepared.origin[0] - doc_origin[0], prepared.origin[1] - doc_origin[1])
-    moved = abs(shift[0]) > 1e-9 or abs(shift[1]) > 1e-9
-    xform = Rhino.Geometry.Transform.Scale(Rhino.Geometry.Point3d.Origin, scale) if abs(scale - 1.0) > 1e-12 else None
-    if moved:   # A*B는 B 먼저 — 로컬 m에서 옮기고 단위를 바꾼다
-        translation = Rhino.Geometry.Transform.Translation(shift[0], shift[1], 0.0)
-        xform = translation if xform is None else xform * translation
+    xform, moved = _get_bake_xform(doc, prepared)
     layer_cache, style_cache, ids = {}, {}, []
     redraw = doc.Views.RedrawEnabled
     doc.Views.RedrawEnabled = False
@@ -331,6 +338,89 @@ def bake(doc, items, prepared, lot_key=None):
         doc.Views.RedrawEnabled = redraw
         doc.Views.Redraw()
     return ids
+
+
+def drape_aerial(doc, prepared, lot_key, drape, path):
+    # type: (object, object, str, dict, str) -> int
+    """지형에 항공사진 — 타일(sheet_svg.get_drape_tiles)을 Eto 비트맵 한 장으로 붙여 path(JPEG)에 쓰고, 이 대상지의 땅 면(AERIAL_DRAPE_LAYERS)에
+    그 그림 재질을 준다. 메시는 꼭짓점마다 경위도 → 타일 좌표로 텍스처 좌표를 넣고(영상 남서 모서리 = UV 0,0), 메시가 아닌 땅만 평면 매핑(채널 1)이다.
+    출력: 입힌 객체 수."""
+    import Eto.Drawing as drawing
+    size = 256   # 웹 메르카토르 타일 한 변 px
+    bitmap = drawing.Bitmap((drape["x1"] - drape["x0"] + 1) * size, (drape["y1"] - drape["y0"] + 1) * size, drawing.PixelFormat.Format32bppRgb)
+    graphics = drawing.Graphics(bitmap)
+    try:
+        for (tx, ty), body in drape["tiles"].items():
+            tile = drawing.Bitmap(System.IO.MemoryStream(System.Array[System.Byte](body)))
+            graphics.DrawImage(tile, float((tx - drape["x0"]) * size), float((ty - drape["y0"]) * size), float(size), float(size))
+            tile.Dispose()
+    finally:
+        graphics.Dispose()
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    bitmap.Save(path, drawing.ImageFormat.Jpeg)
+    bitmap.Dispose()
+    material = Rhino.DocObjects.Material()
+    material.Name = "%s %s" % (constants.AERIAL_DRAPE_MATERIAL, os.path.basename(os.path.dirname(path)))
+    material.SetBitmapTexture(path)
+    render_material = Rhino.Render.RenderMaterial.CreateBasicMaterial(material, doc)
+    doc.RenderMaterials.Add(render_material)
+    xform, _moved = _get_bake_xform(doc, prepared)
+    nw, ne, sw = (Rhino.Geometry.Point3d(x, y, 0.0) for x, y in drape["corners"])
+    if xform is not None:   # 값 형식(Point3d)의 Transform()은 pythonnet 사본만 바꿀 수 있다 — 곱으로 새 점
+        nw, ne, sw = xform * nw, xform * ne, xform * sw
+    plane = Rhino.Geometry.Plane(sw, ne - nw, nw - sw)   # 메시가 아닌 땅(Brep)만 — 평면 매핑은 모자이크(웹 메르카토르)를 TM 직사각형으로 펴서 2~5 km에서 1~6 m 어긋난다
+    mapping = Rhino.Render.TextureMapping.CreatePlaneMapping(plane, Rhino.Geometry.Interval(0.0, nw.DistanceTo(ne)), Rhino.Geometry.Interval(0.0, sw.DistanceTo(nw)),
+                                                             Rhino.Geometry.Interval(0.0, 1.0))
+    inverse = None
+    if xform is not None:
+        ok, inverse = xform.TryGetInverse()
+        inverse = inverse if ok else None
+    ox, oy = prepared.origin
+    zoom, x0, y0 = drape["zoom"], drape["x0"], drape["y0"]
+    span_x, span_y = float(drape["x1"] - x0 + 1), float(drape["y1"] - y0 + 1)
+
+    def get_uv(point):   # 문서 점 → 영상 UV(남서 0,0) — 꼭짓점마다 경위도 → 타일 좌표로 정확히(2026-11-15 리뷰: 파리 z17 3.2 km 1.9 m, 앵커리지 6.3 m 어긋남)
+        if inverse is not None:
+            point = inverse * point
+        tx, ty = non_rhino_utils.get_tile_xy(*non_rhino_utils.get_wgs84_from_tm(point.X + ox, point.Y + oy), zoom=zoom)
+        return (tx - x0) / span_x, 1.0 - (ty - y0) / span_y
+
+    layers = {"%s::%s" % (constants.CTX_ROOT_LAYER, name) for name in constants.AERIAL_DRAPE_LAYERS}
+    settings = Rhino.DocObjects.ObjectEnumeratorSettings()
+    settings.HiddenObjects = True
+    settings.LockedObjects = True
+    count = 0
+    for rhino_object in list(doc.Objects.FindByUserString(constants.UDT_LOT_KEY, lot_key, True, False, True, settings) or []):
+        if doc.Layers[rhino_object.Attributes.LayerIndex].FullPath not in layers:
+            continue
+        object_id = rhino_object.Id
+        mesh = rhino_object.Geometry.DuplicateMesh() if isinstance(rhino_object.Geometry, Rhino.Geometry.Mesh) else None
+        if mesh is not None:   # 메시 — 자기 텍스처 좌표(매핑 없이 쓰인다)
+            mesh.TextureCoordinates.Clear()
+            for i in range(mesh.Vertices.Count):
+                u, v = get_uv(mesh.Vertices.Point3dAt(i))
+                mesh.TextureCoordinates.Add(u, v)
+            if not doc.Objects.Replace(object_id, mesh):
+                continue
+            rhino_object = doc.Objects.FindId(object_id)
+        attributes = rhino_object.Attributes.Duplicate()
+        attributes.RenderMaterial = render_material
+        attributes.MaterialSource = Rhino.DocObjects.ObjectMaterialSource.MaterialFromObject
+        if doc.Objects.ModifyAttributes(rhino_object, attributes, True) and (mesh is not None or doc.Objects.ModifyTextureMapping(object_id, 1, mapping)):
+            count += 1
+    _remove_unused_drape_materials(doc)
+    return count
+
+
+def _remove_unused_drape_materials(doc):
+    # type: (object) -> None
+    """어느 객체도 쓰지 않는 항공사진 재질을 지운다 — 다시 만들 때마다 'Gorani aerial <폴더>' 재질이 문서에 쌓였다(2026-11-15 리뷰). 실패해도 넘어간다."""
+    try:
+        used = {rhino_object.RenderMaterial.Id for rhino_object in doc.Objects if rhino_object.RenderMaterial is not None}
+        for render_material in [m for m in doc.RenderMaterials if (m.Name or "").startswith(constants.AERIAL_DRAPE_MATERIAL) and m.Id not in used]:
+            doc.RenderMaterials.Remove(render_material)
+    except Exception:   # noqa: BLE001 — 재질 정리는 덤
+        pass
 # [/blender-cut]
 
 

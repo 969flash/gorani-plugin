@@ -62,6 +62,18 @@ class TileConfigTest(unittest.TestCase):
         self.assertIn("arcgisonline", config["aerial_url"])   # 키 없으면 영상은 Esri
 
 
+class ImageryRegionTest(unittest.TestCase):
+    def test_regions_at_prefer_small_box_and_skip_korea(self):
+        ids = lambda lng, lat: [r["id"] for r in review_map.get_imagery_regions_at(lng, lat)]
+        self.assertEqual(ids(6.14, 46.20), ["swisstopo", "ign_fr"])   # 제네바 — 스위스 상자가 작아 먼저, 프랑스 상자에도 든다
+        self.assertEqual(ids(139.77, 35.68), ["gsi"])
+        self.assertEqual(ids(-74.0, 40.71), ["usgs"])
+        self.assertEqual(ids(126.98, 37.57), [])   # 서울 — 국내는 VWorld·Esri(공개 타일 없음)
+        self.assertEqual(ids(129.07, 35.18), [])   # 부산은 일본 상자 안이지만 한국
+        self.assertEqual(ids(-58.4, -34.6), [])    # 부에노스아이레스 — Esri
+        self.assertEqual(review_map.get_tile_config()["imagery_shortfall"], review_map.constants.AERIAL_REGION_SHORTFALL)
+
+
 class OsmProxyTest(unittest.TestCase):
     def test_rhino_proxy_serves_tile(self):
         # Rhino 중계 서버가 OSM 주소로 앱 User-Agent를 붙여 받고 PNG를 돌려준다(네트워크는 가짜)
