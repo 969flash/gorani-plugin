@@ -2,38 +2,66 @@
 
 2026-11-14 작성. 기준: main 4d232c2(배포판 0.3.9). 디테일 옵션(`constants.DETAIL_OPTIONS` 9종 — 2938bfe, 2026-11-13)은 아직 배포되지 않았다.
 목표: 디테일 옵션(화면 단계 '고급')은 무료 회원(구글 로그인)이 쓰고, 손님은 로그인 없이 3회 써 본다. 나머지 기능은 지금처럼 누구나 쓴다. 인스타그램에서 데려와 가입 수를 늘린다. 돈은 받지 않는다. 서버비 0을 지킨다.
-2026-11-14 수정: 가입 즉시 회원 확정, 손님 무료 3회, 인스타그램 연계, 3D 설정 맨 아래 '디테일 [기본 | 고급]'(손님은 고급에 자물쇠, 누르면 로그인 창; 고급이면 바로 아래 항목 체크), 손님이 만들기를 누르면 로그인 창(사용자 요청). 2026-11-15: 만들 때 창은 처음 한 번만, 그림 비교 없이(B1안).
+2026-11-14 수정: 가입 즉시 회원 확정, 손님 무료 3회, 인스타그램 연계, 3D 설정 맨 아래 '디테일 [기본 | 고급]'(손님은 고급에 자물쇠, 누르면 로그인 창; 고급이면 바로 아래 항목 체크), 손님이 만들기를 누르면 로그인 창(사용자 요청). 2026-11-15: 만들 때 창은 처음 한 번만, 그림 비교 없이(B1안). 같은 날: 이용권·기능·권한을 나누는 설계 원칙, 인증 흐름 6단계와 '누른 곳으로 돌아가기'(사용자).
 
 ## 먼저 정할 것 — 권장안과 근거
 
 | 질문 | 권장 | 근거 |
 |---|---|---|
 | 누가 회원인가 | **확정(2026-11-14 사용자)** — 구글 로그인 + 동의하면 바로 회원(승인제 아님) | 승인제는 운영자가 매일 손대야 한다. 돈을 받지 않는 동안 구분하는 목적은 '누가 쓰는지 알고, 연락할 길을 만드는 것'이다 |
-| 무엇을 잠그나 | 보이는 디테일 7종(`MEMBER_OPTIONS` — 노면표시·가로수·선로·옹벽·담장·파라펫·층 구분선). 연석·교량은 모두에게 | 연석·교량은 기본 모형의 정합이다 — 교량을 끄면 철교 위 선로가 빠지고 도로가 지형에 얹혀(0.3.9 모양) 손님 모형이 틀려 보인다. 아직 아무도 받지 않은 기능이라 처음부터 회원 기능으로 내면 '빼앗는' 일이 없다. 원격 설정이라 판 없이 바꾼다 |
-| 손님에게 얼마나 여나 | 처음 3번 만들기는 디테일 전부(화면 말 '로그인 없이 n회', `GUEST_TRIAL_BUILDS`) | 직접 받아 보고 좋은 순간에 가입을 권하는 것이 가장 잘 먹힌다. 아래 '손님에게 여는 것' |
+| 무엇을 잠그나 | 보이는 디테일 7종(기능 `detail_advanced` — 노면표시·가로수·선로·옹벽·담장·파라펫·층 구분선). 연석·교량은 모두에게 | 연석·교량은 기본 모형의 정합이다 — 교량을 끄면 철교 위 선로가 빠지고 도로가 지형에 얹혀(0.3.9 모양) 손님 모형이 틀려 보인다. 아직 아무도 받지 않은 기능이라 처음부터 회원 기능으로 내면 '빼앗는' 일이 없다. 원격 설정이라 판 없이 바꾼다 |
+| 손님에게 얼마나 여나 | 처음 3번 만들기는 디테일 전부(화면 말 '로그인 없이 n회', `GUEST_TRIALS`) | 직접 받아 보고 좋은 순간에 가입을 권하는 것이 가장 잘 먹힌다. 아래 '손님에게 여는 것' |
 | 범위도 단계에 넣나 | **넣지 않는다(2026-11-15 사용자)** — 범위는 기본도 전부(한 변 4 km·직접까지). 단계 차이는 디테일 7가지뿐 | 하루 앞서 '기본 1 km·고급 4 km'를 그렸다가 되돌렸다. GA Rhino 30일에 1 km를 넘긴 사람이 약 4명 중 1명이라 잠그면 가입 동기는 되지만, 기본 기능을 막는 일이라 '설치는 가입 없이'와 어긋난다. 쓰지 않는 스위치는 미리 만들지 않는다 — 다시 넣으려면 코드 판에서 |
 | 손님 생성 횟수 제한 | 두지 않는다 — 기본 3D·2D는 손님도 무제한 | GA Rhino 30일(10/16~11/14, 개발자 PC 제외): 만든 사람 48명·생성 168번, 만든 날 하루 평균 2.8번. 범위·옵션을 바꿔 가며 다시 만드는 것이 보통 쓰임이라 하루 3번 제한이면 쓰는 날 상당수가 막힌다. 생성은 사용자 PC에서 돌아 서버비가 들지 않는다(국내 팩 받기는 지금처럼 문지기가 설치당 하루 60개로 막는다 — 회원과 무관). 사용자가 아직 적은 지금 기본 기능에 문턱을 두면 홍보 문구 '설치는 가입 없이'와도 어긋난다 |
 | 가입을 어디서 늘리나 | 인스타그램(@gorani.3d) → 휴대폰 가입 페이지 `/join/` → PC 설치 | 아래 '가입 늘리기'. 지금 홍보 문구 "회원가입도 없습니다"부터 바꿔야 한다 |
 | 언제 내나 | 디테일과 로그인을 같은 판(0.4.0)으로 | 디테일만 먼저 내고 나중에 잠그면 써 본 사람에게서 빼앗는 꼴이 된다. 디테일 공개가 2주쯤 늦어지는 것을 감수한다 |
 | 얼마나 단단히 잠그나 | 정직한 사용자용 구분만(서명·난독화 없음) | 설치본에 파이썬 원본이 그대로 있다(Blender판은 GPL 원본). 돈을 받기 전에는 막는 데 시간을 쓰지 않는다. 정말 막아야 할 때는 서버 쪽 자원으로 막는다(아래 '나중') |
 | Blender판 | 로그인 없음, 디테일 전부 열림 | Blender Extensions 약관: 외부 서비스는 로그인·가입 같은 추가 제한 없이 쓰게 해야 한다([terms-of-service](https://extensions.blender.org/terms-of-service)). 심사 답변에도 "free and without login"이라 적었다(`docs/blender_store/README.md`) |
+| 요금제·권한 구조 | **확정(2026-11-15 사용자)** — 이용권(Plan)·기능(Feature)·권한(Entitlement)을 나눈다. 플러그인은 기능 키만 보고, 계정이 쓸 기능은 서버가 정한다. 회원 = 무료 로그인(`free`), `pro`·`enterprise`는 나중에 붙일 자리만 | 요금제를 바꿀 때마다 플러그인 판을 올리지 않으려고. 아래 '설계 원칙' |
+| 로그인 수단 | 구글 먼저, 이메일은 다음 단계 | 사용자 흐름은 '구글 또는 이메일'. 이메일 로그인은 인증 메일을 보내야 하는데 앱스 스크립트 무료 계정은 하루 약 100통이 한도라 인스타 가입이 몰리면 막힌다. 구글로 시작하고, 이메일은 인증 코드 방식으로 더한다. 이메일 가입이 늘면 인증만 Firebase Auth(메일을 대신 보낸다)로 옮긴다 — 플러그인은 우리 회원 API만 알아 영향이 없다 |
 | 회원 정보는 어디에 | 앱스 스크립트 + 구글 시트(문의함과 같은 방식) | 서버비 0. 이미 운영 중인 방식이다(웹 저장소 `tools/contact`). 회원 표를 시트에서 바로 보고 고친다 |
 | 무엇을 저장하나 | 구글 계정 고유번호(`sub`)·이메일·동의 기록·가입 경로(UTM)만. 이름·사진은 받지 않는다 | 최소 수집 — 처리방침과 탈퇴가 단순해진다 |
 
-## 등급
+## 설계 원칙 — 이용권·기능·권한 나누기 (2026-11-15 사용자)
 
-| 등급 | 누가 | 쓰는 것 |
+요금제를 코드에 박으면 요금제를 바꿀 때마다 플러그인 판을 올려야 한다. 그래서 셋으로 나누고, 로그인·권한은 지금 플러그인 위에 얇게 얹는다(핵심 기능은 계속 무료로 연다).
+
+| 말 | 뜻 | 어디에 있나 | 예 |
+|---|---|---|---|
+| 이용권 Plan | 계정이 가진 이용권 | 서버 — 시트 '이용권' 탭(이용권 → 기능)과 회원 줄의 `plan` | `guest`(로그인 안 함), `free`(무료 로그인 = 회원), 나중에 `pro`·`enterprise` |
+| 기능 Feature | 켜고 끄는 기능 하나 | 기능 목록 — 원격 설정 `FEATURES`(키 → 이름·설명·묶는 옵션) | `detail_advanced`(고급 디테일 7종), `history_sync`(다른 PC 기록), 나중에 `laser_cut`·`stl_export`·`terrain_analysis` |
+| 권한 Entitlement | 이 계정이 지금 쓸 수 있는 기능 | 서버가 계산해 플러그인에 준다 | `{plan: "free", plan_name: "무료", features: ["detail_advanced", "history_sync"], valid_until: …}` |
+
+규칙:
+- **플러그인은 기능 키만 본다.** `if plan == "pro"` 같은 분기를 코드에 쓰지 않는다. 화면의 이용권 이름도 서버가 준 `plan_name`을 그대로 쓴다.
+- **권한은 서버가 정한다.** 권한 = 이용권의 기능 + 계정별 더한 기능(`extra_features`) − 뺀 기능(`removed_features`). 이용권 기한(`plan_until`)이 지나면 `free`로, 막힌 계정(`status = blocked`)은 `guest`와 같게 계산한다.
+- **로그인했다고 다 열리지 않는다.** 회원(`free`)이 쓸 기능은 '이용권' 탭의 `free` 줄이 정한다 — 지금은 `detail_advanced`·`history_sync`. 새 기능을 유료로만 내려면 `pro` 줄에만 적는다.
+- **손님도 같은 꼴**: 로그인 없이 쓰는 기능 `GUEST_FEATURES`(지금 빈 목록), 횟수로 허용 `GUEST_TRIALS = {"detail_advanced": 3}` — 원격 설정.
+- **기능 → 옵션**은 기능 목록이 정한다(`FEATURES.detail_advanced.options` = 노면표시·가로수·선로·옹벽·담장·파라펫·층 구분선 키). 엔진(`context_builder`·`get_detail`)은 그대로이고, `account.get_allowed_options`가 권한에 없는 기능의 옵션을 끈다.
+- **바꾸는 곳**: 어느 이용권이 어느 기능을 쓰는지 → 시트 '이용권' 탭(서버, 바로 — 다음 `me` 확인 때 반영). 기능 이름·설명·옵션 묶음 → 원격 설정(`dev_deploy.py notices`, 판 없음). 기능 자체(새 코드) → 코드 판.
+- 권한 응답은 서명하지 않는다(정직한 사용자용 — 원본 공개). 유료를 시작하면 서버 서명 토큰이나 서버 쪽 자원으로 막는다(아래 '나중').
+
+```
+플러그인 ── claim·me ──▶ 회원 API ── 회원 줄(plan · status · plan_until · extra/removed_features)
+   ▲                         └─ '이용권' 탭(plan → features, plan_name)
+   └── {plan, plan_name, features, valid_until} ◀── 권한 계산
+   패널: features에 든 기능만 열고, 없는 기능에는 자물쇠 + 여는 길(지금은 '로그인·무료', 나중엔 이용권 안내)
+```
+
+## 이용권(지금)
+
+| 이용권 | 누가 | 권한 |
 |---|---|---|
-| 손님 `guest` | 로그인하지 않음 | 기본 단계 — 범위 전부, 3D 기본(건물·도로·지형·수계·녹지·철도 부지) + 연석·교량, 2D 전부. 고급 7종은 '로그인 없이 써 보기' 3회 |
-| 회원 `member` | 구글 로그인 + 동의 | 고급 단계 — 기본 전부 + `MEMBER_OPTIONS` 7종을 늘 |
-| 막힘 `blocked` | 운영자가 시트에서 바꿈(남용·요청) | 손님과 같다 |
-| (나중) 유료 | 정하지 않았다 | 시트에 `tier` 칸만 둔다. 값을 늘리면 된다 |
+| `guest` 손님 | 로그인하지 않음 | 기본 전부 — 범위 전부, 3D 기본(건물·도로·지형·수계·녹지·철도 부지) + 연석·교량, 2D 전부. `detail_advanced`는 '로그인 없이 써 보기' 3회(`GUEST_TRIALS`) |
+| `free` 회원 | 구글 로그인(이메일은 다음 단계) | 기본 전부 + `detail_advanced` · `history_sync` |
+| (나중) `pro` · `enterprise` | 정하지 않았다 | '이용권' 탭에 줄을 더하고 기능을 적는다. 플러그인 판 없음 |
+| 막힘 `status = blocked` | 운영자가 시트에서 | 손님과 같다 |
 
 `ACCOUNT_ENABLED = False`(원격 설정)이면 회원 구분이 없다 — 로그인 버튼이 사라지고 디테일이 모두 열린다. 회원 API가 오래 멈췄을 때 쓰는 비상 스위치다.
 
 ## 손님에게 여는 것 — 로그인 없이 고급 3회
 
-화면 말(2026-11-14 사용자): 단계 이름 **'기본'·'고급'**(3D 설정 안 '디테일' 단추), 무료 횟수는 로그인 창 안의 **'로그인 없이 써 보기 · n회 남음'**, 잠긴 단계 기호는 **자물쇠 + '로그인·무료'**(Gemini 모델 고르기에서 따옴 — 사용자가 보여 준 화면). '맛보기'·색 배지는 쓰지 않는다. 회원에게는 아무 표시도 없다. 내부 이름은 그대로(`DETAIL_OPTIONS`·`MEMBER_OPTIONS`·`GUEST_TRIAL_BUILDS`).
+화면 말(2026-11-14 사용자): 단계 이름 **'기본'·'고급'**(3D 설정 안 '디테일' 단추), 무료 횟수는 로그인 창 안의 **'로그인 없이 써 보기 · n회 남음'**, 잠긴 단계 기호는 **자물쇠 + '로그인·무료'**(Gemini 모델 고르기에서 따옴 — 사용자가 보여 준 화면). '맛보기'·색 배지는 쓰지 않는다. 회원에게는 아무 표시도 없다. 내부 이름: 기능 키 `detail_advanced`, 옵션 `DETAIL_OPTIONS`, 무료 횟수 `GUEST_TRIALS`.
 
 손님을 나누는 방법을 견줬다.
 
@@ -50,7 +78,7 @@
 규칙:
 - 1회 = 로그인 창의 '로그인 없이 써 보기'로 고급을 골라 3D 만들기가 성공한 것. 실패·취소·결과 다시 열기·2D만 만들기는 세지 않는다.
 - 센 값은 `~/.gorani/account.json`의 `trial_used`(설치마다). 파일을 지우면 다시 생긴다 — 정직한 사용자용 구분이라 받아들인다.
-- `GUEST_TRIAL_BUILDS`는 원격 설정이다. 인스타 이벤트 기간에 5회로 늘리는 식으로 판 없이 바꾼다.
+- `GUEST_TRIALS`는 원격 설정이다. 인스타 이벤트 기간에 5회로 늘리는 식으로 판 없이 바꾼다.
 - 화면은 아래 '패널 개편'(3D 설정 안 디테일 단추·로그인 창).
 
 ## 사용자 흐름 — 플러그인
@@ -58,15 +86,24 @@
 로그인은 **늘 시스템 브라우저에서** 한다. 구글은 앱 안 웹뷰(Rhino Eto WebView, SketchUp HtmlDialog, Archicad 팔레트)의 구글 로그인을 막는다(`disallowed_useragent` — [구글 공지](https://developers.googleblog.com/en/upcoming-security-changes-to-googles-oauth-20-authorization-endpoint-in-embedded-webviews/)).
 플러그인은 구글과 직접 말하지 않는다. 로그인은 gorani.site가 하고, 끝나면 브라우저가 내 PC의 플러그인(127.0.0.1)으로 결과를 돌려준다 — 데스크톱 앱 로그인의 흔한 방식이다(GitHub CLI·VS Code와 같다). 사용자는 코드를 보거나 고르지 않는다. 플러그인에 구글 클라이언트 비밀값이 없고, 호스트 넷(Rhino 8·7, SketchUp, Archicad)이 같은 코드를 쓴다. 2026-11-14 — 처음 안의 '연결 코드' 확인 단계를 사용자 요청으로 뺐다.
 
-1. **처음 열 때 묻지 않는다.** 로그인 팝업·띠 없음. 묻는 때는 손님이 처음 [3D 모델 만들기]를 누를 때 한 번과, 메뉴의 잠긴 '고급'을 누를 때뿐이고, 기본 3D는 늘 '로그인 없이 만들기'로 끝까지 간다(PRODUCT.md '버튼 하나로 결과까지').
-2. **3D 설정 맨 아래 '디테일 [기본 | 고급]'** — 고급을 고르면 바로 아래 항목 체크가 펼쳐진다. 3D 설정 요약에 `디테일 기본/고급`을 늘 쓴다. 손님이 자물쇠 붙은 '고급'을 누르면 로그인 창(아래 '패널 개편').
-3. **더보기 메뉴 '설정' 맨 위 '계정' 줄** — 손님 `로그인 안 함 [구글로 로그인]`, 회원 `name@gmail.com [로그아웃]`.
-4. **손님이 처음 [3D 모델 만들기]를 누를 때 한 번만 로그인 창** — [구글로 로그인하고 고급으로] / `로그인 없이 고급 써 보기 · 3회` / `기본으로 만들기`. 셋 중 무엇을 고르든 바로 만들고, 그 뒤로는 창 없이 만든다. ✕·Esc는 이번 만들기만 취소(다음에 다시 뜬다). 회원은 창 없이 바로 만든다.
-5. [구글로 로그인하고 만들기] → 브라우저에 `https://gorani.site/login/` → 구글 계정 고르기(처음이면 그 자리에서 가입 — 동의 화면 없음, 아래 '처음 로그인'). 창은 `브라우저에서 로그인을 마쳐 주세요 [취소]`로 바뀌고, 돌아오면 닫히며 **그대로 만들기가 시작된다**(다시 누르지 않는다). 브라우저는 `로그인했습니다. Rhino로 돌아가세요`. 그 PC 브라우저가 gorani.site에 이미 로그인돼 있으면 고르기도 없다. 더보기 메뉴 [구글로 로그인]도 같은 길(만들기 없이 로그인만).
-6. **오프라인** — 회원 확인 때문에 못 쓰게 되는 기능은 없다. 기본 기능과 무료 횟수 세기는 인터넷 없이 돈다(횟수는 PC에서 센다). 회원은 마지막 확인 뒤 30일(`ACCOUNT_OFFLINE_DAYS`)까지 그대로 회원이다. 그 뒤에는 만들기를 누를 때 창이 `로그인을 다시 확인하지 못했습니다 [다시 확인하고 만들기] [고급 빼고 만들기]`. 오류로 만들지 않는다. 연결 열쇠(`token`)는 지우지 않으니 인터넷이 다시 되면 다음 확인 때 저절로 풀린다 — 다시 로그인하지 않는다.
+인증 흐름(2026-11-15 사용자):
+
+1. **Gorani 실행 — 손님으로 시작.** 기본 기능 전부. 로그인 팝업·띠 없음.
+2. **고급 기능을 누름** — 권한이 필요한 자리(3D 설정의 '디테일 고급', 처음 만들기의 첫 창, 생성 기록의 '다른 PC에서도 보기'). 패널 안 **작은 모달**(업데이트 창과 같은 꼴)에 로그인 안내와 그 기능 설명이 뜬다. 큰 화면을 따로 만들지 않는다.
+3. **[구글로 로그인]** → 시스템 브라우저에 `gorani.site/login/`.
+4. **계정 인증** — 구글(이메일은 다음 단계). 처음이면 그 자리에서 가입(동의 화면 없음 — 아래 '처음 로그인').
+5. **권한 확인** — 회원 API가 권한을 계산해 교환권과 함께 넘기고, 플러그인이 `claim`으로 토큰과 권한을 받는다. 모달은 그동안 `브라우저에서 로그인을 마쳐 주세요 [취소]`.
+6. **활성화 — 누른 곳으로 돌아간다.** 모달이 닫히고 처음 누른 기능을 이어 한다: '디테일 고급'이었으면 고급이 눌리고 항목이 펼쳐진 채로, 첫 만들기 창이었으면 고급으로 만들기 시작, 생성 기록이었으면 그 화면에서 '다른 PC에서도 보기'가 켜진 채로. 받은 권한에 그 기능이 없으면(나중의 유료 기능) 모달이 `이 기능은 지금 이용권에 없습니다`로 바뀐다.
+
+- **돌아가기 구현**: 브라우저로 나가기 전 패널이 `pending_action = {feature, action, args}`(예 `{detail_advanced, select_advanced}`·`{detail_advanced, build}`·`{history_sync, open_history}`)를 들고 있다가, `account_state`(권한 포함)가 오면 그 기능이 권한에 있을 때만 실행한다. 취소·5분 넘김이면 버린다.
+- **플러그인은 계정 상태와 권한만 관리한다.** 비밀번호·구글 정보를 다루지 않고, 로그인 자체는 브라우저에 맡긴다.
+- **기존 기능과 새 기능을 눈으로 나눈다.** 기존 화면(지도·범위·3D 설정 윗줄·로딩·결과)은 그대로 두고, 계정 기능은 3D 설정 맨 아래 '디테일' 줄(위에 가는 구분선)·더보기 메뉴 '계정' 묶음·로그인 모달에만 둔다. 기존 사용자는 익숙한 화면 그대로, 새 기능은 자물쇠와 회색 한 줄로 발견한다.
+- 더보기 메뉴 '설정' 맨 위 '계정' 줄: 손님 `로그인 안 함 [구글로 로그인]`, 회원 `name@gmail.com · 무료 [로그아웃]`(이용권 이름은 서버의 `plan_name`). 메뉴에서 로그인하면 돌아갈 곳 없이 로그인만.
+- 처음 만들기 첫 창(B1안): [구글로 로그인하고 고급으로] / `로그인 없이 고급 써 보기 · 3회` / `기본으로 만들기`. 무엇을 고르든 바로 만들고 그 뒤로는 창이 없다. ✕·Esc는 이번 만들기만 취소. 회원은 창 없이 만든다.
+- **오프라인** — 회원 확인 때문에 못 쓰게 되는 기능은 없다. 기본 기능과 무료 횟수 세기는 인터넷 없이 돈다(횟수는 PC에서 센다). 받은 권한은 마지막 확인 뒤 30일(`ACCOUNT_OFFLINE_DAYS`)까지 그대로 쓴다. 그 뒤에는 만들기를 누를 때 창이 `로그인을 다시 확인하지 못했습니다 [다시 확인하고 만들기] [고급 빼고 만들기]`. 오류로 만들지 않는다. 연결 열쇠(`token`)는 지우지 않으니 인터넷이 다시 되면 다음 확인 때 저절로 풀린다 — 다시 로그인하지 않는다.
    인터넷이 원래 필요한 곳은 회원과 상관없이 지금과 같다: 해외·OSM 모드(Overpass), 한국 새 지역의 팩 받기, 처음 보는 지역의 지도 바탕(본 타일은 웹뷰가 7일 캐시). 처음 로그인할 때만 인터넷이 꼭 있어야 한다.
-7. **회원 API가 죽었을 때** — 손님으로 계속 쓴다. 사용자를 막지 않는다(공지·매니페스트와 같은 원칙).
-8. 5분 안에 돌아오지 않으면 창이 `로그인이 끝나지 않았습니다 [다시 시도] [로그인 없이 만들기]`.
+- **회원 API가 죽었을 때** — 손님으로 계속 쓴다. 사용자를 막지 않는다(공지·매니페스트와 같은 원칙).
+- 5분 안에 돌아오지 않으면 창이 `로그인이 끝나지 않았습니다 [다시 시도] [로그인 없이 만들기]`.
 
 ## 패널 개편 — 3D 설정 맨 아래 '디테일 [기본 | 고급]'과 로그인 창
 
@@ -109,8 +146,8 @@
 - `LOGIN_PROMPT_ON_BUILD`(원격): `first`(기본 — 설치마다 처음 한 번) · `always` · `off`. 매번 뜨는 창은 패널이 Rhino 옆에 붙어 있어 '만들기가 멈춘 줄 모르는' 문제가 있어 `first`로 정했다(대화의 A/B 프레임 비교). 가입이 너무 적으면 판 없이 `always`로 올린다.
 - 기호: 손님에게만 '고급' 단추 안 **자물쇠**와 회색 줄의 **'로그인·무료'**(무료라는 말을 늘 붙인다 — 자물쇠만 있으면 유료로 읽힌다). 회원에게는 자물쇠가 없다.
 - 기본 3D는 늘 로그인 없이 된다(범위 전부, 생성 횟수 제한 없음). 창의 버튼은 셋(+✕)을 넘기지 않는다.
-- 단계 → 옵션: 패널이 `options.advanced`(bool)를 저장하고, 만들 때 '기본'이면 `MEMBER_OPTIONS`를 끈 값을, '고급'이면 항목 체크 값을 보낸다. 엔진은 그대로 — `account.get_allowed_options`가 회원·써 보기가 아니면 `MEMBER_OPTIONS`를 한 번 더 끈다.
-- 어느 체크가 고급 항목에 드는지는 패널에 박지 않는다 — `init_state.account.member_options`. 나머지(연석·교량)는 '도로' 줄. JS `DETAIL_ROWS`는 줄 이름·설명만 갖고 두 번 거른다. 줄 순서는 건물 → 구조물 → 가로(어디서나 되는 것 먼저).
+- 단계 → 옵션: 패널이 `options.advanced`(bool)를 저장하고, 만들 때 '기본'이면 `detail_advanced` 기능의 옵션을 끈 값을, '고급'이면 항목 체크 값을 보낸다. 엔진은 그대로 — `account.get_allowed_options`가 권한(또는 남은 무료 횟수)에 없는 기능의 옵션을 한 번 더 끈다.
+- 어느 체크가 고급 항목에 드는지, 자물쇠를 붙일지는 패널에 박지 않는다 — 기능 목록 `FEATURES`(기능 → 옵션)와 `init_state.account.features`(권한)로 정한다. 디테일 줄 위에 가는 구분선 — 기존 3D 설정과 계정 기능을 눈으로 나눈다. 나머지(연석·교량)는 '도로' 줄. JS `DETAIL_ROWS`는 줄 이름·설명만 갖고 두 번 거른다. 줄 순서는 건물 → 구조물 → 가로(어디서나 되는 것 먼저).
 - 트레이 줄 수는 그대로(트레이 높이 상한 256 px 그대로). 고급 항목을 펼치면 3D 설정이 길어지지만 펼친 머리를 트레이 맨 위로 올리는 지금 동작을 그대로 쓴다.
 - 로딩 화면('3D 모델 만드는 중' 카드 + 달리는 고라니 막대 + 단계 목록)은 그대로 둔다. 첫 창(B)은 그 직전 지도 위에 한 번 뜨고, 고르면 바로 이 화면으로 넘어간다. 더하는 것은 둘: 카드 윗줄 끝에 단계(`· 고급`/`· 기본`), 아래 안내('Rhino 화면이 잠깐씩 멈출 수 있습니다') 밑 회색 한 줄 — 써 보기면 `(자물쇠) 고급 써 보기 · n회 남음`, 손님 기본이면 `(자물쇠) 로그인하면 고급(가로수·노면표시)도 무료 · 로그인`(누르면 로그인 창 A, 만들기는 계속 — 기다리는 동안 보는 자리라 막지 않는 권유. 빼도 흐름은 같다, 사용자 결정 전 제안).
 - 결과 화면: 써 보기로 만든 결과의 3D 카드 아래 회색 한 줄 `로그인 없이 n회 남음 · 로그인`(상자 없음).
@@ -204,8 +241,8 @@
 | 릴스 조회 → 프로필 방문 → 링크 클릭 | 인스타 인사이트 |
 | `/join/` 방문(앱 안 비율) → 가입 | GA 웹(UTM·`inapp`·`sign_up`) |
 | 가입 → 플러그인 연결 | 시트 '연결' 탭(가입 경로별) |
-| 로그인 창 → 가입 | GA 플러그인(`login_prompt`·`trial`·`member`) |
-| 연결 → 디테일로 만들기 | GA 플러그인(`member`·켠 디테일) |
+| 로그인 창 → 가입 | GA 플러그인(`login_prompt`·`trial`·`plan`) |
+| 연결 → 디테일로 만들기 | GA 플러그인(`plan`·켠 디테일) |
 
 북극성은 **'주간 신규 연결 회원'**(가입하고 플러그인까지 연결한 사람)으로 바꾼다. 휴대폰으로 가입만 하고 설치하지 않은 사람은 숫자만 부풀린다 — 가입 수는 보조 지표다.
 
@@ -244,11 +281,11 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 
 | action | 부르는 곳 | 보냄 | 받음 |
 |---|---|---|---|
-| `login` | 웹 | `id_token`, 처음이면 `source{utm_source, utm_medium, utm_campaign, ref}`, `terms_v`·`privacy_v`(본 판), `lang` | `session`(웹용), `user{email, tier, created, new}` — 처음이면 그 자리에서 회원 줄을 만든다 |
+| `login` | 웹 | `id_token`, 처음이면 `source{utm_source, utm_medium, utm_campaign, ref}`, `terms_v`·`privacy_v`(본 판), `lang` | `session`(웹용), `user{email, created, new}`, `entitlement` — 처음이면 그 자리에서 회원 줄을 만든다 |
 | `send_install_mail` | 웹(휴대폰 가입 뒤) | `session`, `lang` | `ok` — 사람마다 하루 한 통, 설치 안내 링크만 |
 | `grant` | 웹 `/login/` | `session`, `host` | `grant`(일회용 교환권, 5분) |
-| `claim` | 플러그인 | `grant`, `host`, `version` | `{token, email, tier}` / `invalid` |
-| `me` | 플러그인·웹 | `token` 또는 `session` | `{email, tier}` / `invalid` |
+| `claim` | 플러그인 | `grant`, `host`, `version` | `{token, email, entitlement}` / `invalid` |
+| `me` | 플러그인·웹 | `token` 또는 `session` | `{email, entitlement}` / `invalid` |
 | `logout` | 플러그인·웹 | `token`(그 연결만) 또는 `session`+`token_id` | `ok` |
 | `delete` | 웹 | `session` | `ok` — 회원 줄과 연결 전부 지움 |
 | `set_news` | 웹 | `session`, `on` | `ok` |
@@ -259,6 +296,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 | `history_delete` | 플러그인·웹 | `token` 또는 `session`, `id` 또는 `all` | `ok` |
 | `rename_device` | 웹 | `session`, `token_id`, `name` | `ok` |
 
+- `entitlement` = `{plan, plan_name, features[], valid_until}` — 위 '설계 원칙'의 계산. `plan_name`은 요청의 `lang`으로(이용권 탭에 다섯 언어 이름).
 - ID 토큰은 tokeninfo로 확인한다 — `aud` = 우리 클라이언트 ID, `email_verified`, `exp`. 앱스 스크립트에는 RSA 서명 확인이 없어 이 길을 쓴다.
 - 교환권은 CacheService에 5분 두고 `claim` 한 번에 지운다.
 - `token`·`session`은 32바이트 무작위 값이다. 시트에는 SHA-256만 적는다(시트가 새도 토큰은 새지 않는다).
@@ -268,10 +306,11 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 
 | 탭 | 칸 |
 |---|---|
-| 회원 | `user_id`(무작위), `google_sub`, `email`, `tier`, 가입일, `terms_v`·`privacy_v`(가입 때 본 판), 소식 메일(Y/N·고른 날), 가입 경로(source·medium·campaign·ref), 마지막 확인, 메모(사람) |
+| 회원 | `user_id`(무작위), `google_sub`, `email`, `plan`(기본 `free`), `status`(active·blocked), `plan_until`(빈칸 = 기한 없음), `extra_features`·`removed_features`(쉼표, 운영자가), 가입일, `terms_v`·`privacy_v`(가입 때 본 판), 소식 메일(Y/N·고른 날), 가입 경로(source·medium·campaign·ref), 마지막 확인, 메모(사람) |
+| 이용권 | `plan`(free·pro·enterprise…), 이름(ko·en·es·ja·zh), `features`(쉼표), 메모 — 지금은 `free` 한 줄: `detail_advanced, history_sync` |
 | 연결 | `token_hash`, `token_id`, `user_id`, `host`(web·rhino·sketchup·archicad), OS, 판, PC 이름(사용자가 붙임), 만든 날, 마지막 확인 |
 | 생성 기록 | `user_id`, `entry_id`, 만든 시각, `token_id`(만든 PC), 프로그램·판, 이름, 방식, 중심 경위도, 대상 JSON(PNU 또는 링), 범위, 3D 설정 JSON, 건물 수, 2D 요약, 로그인 없이 만든 것, ★, 고친 시각 — 회원 탭에 `기록 저장`(Y/N·켠 날) |
-| 기록 | 날짜, 사건(가입·탈퇴·등급 변경·연결), `host` — 메일 없이 숫자 세기용 |
+| 기록 | 날짜, 사건(가입·탈퇴·이용권 변경·연결), `host` — 메일 없이 숫자 세기용 |
 
 시트 공유는 운영자 둘만(문의함과 같다). 설치 ID(`~/.gorani/client_id`)는 시트에 적지 않는다 — 적으면 GA·문지기 기록이 실명과 이어진다.
 
@@ -289,14 +328,14 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 
 | 파일 | 할 일 |
 |---|---|
-| `scripts/account.py`(새 로직 모듈, 표준 라이브러리) | `~/.gorani/account.json`(`token`·`email`·`tier`·`checked_at`·`trial_used`) 읽기·쓰기, `start_login(host, on_done)`(받는 곳 열기 + 로그인 주소 — 아래 '받는 곳'), `claim(grant)`, `refresh()`(하루 1회 `me`), `logout()`(토큰만 지우고 `trial_used`는 남긴다), `is_member(account)`, `get_trial_left(account)`, `get_allowed_options(options, account, host_label)` — 회원도 아니고 무료 횟수도 없으면 `MEMBER_OPTIONS`를 끈 사본, `add_trial(account, options)`. prefs.json에 넣지 않는다 |
-| `scripts/constants.py` | `ACCOUNT_ENABLED`, `ACCOUNT_API_URL`, `ACCOUNT_LINK_URL`, `MEMBER_OPTIONS`(디테일 7종 — `detail_curb`·`detail_bridges` 뺌), `GUEST_TRIAL_BUILDS = 3`, `LOGIN_PROMPT_ON_BUILD = "first"`, `ACCOUNT_OFFLINE_DAYS = 30`, `ACCOUNT_LOGIN_MINUTES = 5`(브라우저에서 돌아오기를 기다리는 시간). `HOST_LABELS`에 `account`(blender만 False) |
-| `scripts/remote_config.py` | `REMOTE_KEYS`에 `ACCOUNT_ENABLED`·`ACCOUNT_API_URL`·`MEMBER_OPTIONS`·`GUEST_TRIAL_BUILDS`·`LOGIN_PROMPT_ON_BUILD`·`ACCOUNT_OFFLINE_DAYS`(회원 API가 오래 멈추면 늘린다). 새 키 추가라 `COMPAT_MIN`은 그대로 |
-| `scripts/cmd_site.py` | 명령 `account_login`·`account_cancel`·`account_logout`, 푸시 `account_state{state: guest\|waiting\|member\|expired, email, trial_left}`, `init_state.account`. `generate` 직전에 `account.get_allowed_options`, 성공 뒤 손님이면 `account.add_trial` — 엔진(`context_builder`·`get_detail`)은 등급을 모른다. 저장한 prefs는 그대로 두고 생성 요청만 끈다. `context.json.options`에는 실제로 쓴 값이 남는다 |
+| `scripts/account.py`(새 로직 모듈, 표준 라이브러리) | `~/.gorani/account.json`(`token`·`email`·`entitlement`·`checked_at`·`trials_used{기능: 횟수}`) 읽기·쓰기, `start_login(host, on_done)`(받는 곳 열기 + 로그인 주소 — 아래 '받는 곳'), `claim(grant)`, `refresh()`(하루 1회 `me`), `logout()`(토큰만 지우고 `trial_used`는 남긴다), `has_feature(account, key)`, `get_trials_left(account, key)`, `get_allowed_options(options, account, host_label)` — 권한(`features`)에도 남은 무료 횟수에도 없는 기능의 옵션(`FEATURES[키].options`)을 끈 사본, `add_trial(account, key, options)`. prefs.json에 넣지 않는다 |
+| `scripts/constants.py` | `ACCOUNT_ENABLED`, `ACCOUNT_API_URL`, `ACCOUNT_LINK_URL`, `FEATURES`(기능 목록 — `detail_advanced`: 디테일 7종 옵션(`detail_curb`·`detail_bridges` 뺌)·이름·설명, `history_sync`), `GUEST_FEATURES = []`, `GUEST_TRIALS = {"detail_advanced": 3}`, `LOGIN_PROMPT_ON_BUILD = "first"`, `ACCOUNT_OFFLINE_DAYS = 30`, `ACCOUNT_LOGIN_MINUTES = 5`(브라우저에서 돌아오기를 기다리는 시간). `HOST_LABELS`에 `account`(blender만 False) |
+| `scripts/remote_config.py` | `REMOTE_KEYS`에 `ACCOUNT_ENABLED`·`ACCOUNT_API_URL`·`FEATURES`·`GUEST_FEATURES`·`GUEST_TRIALS`·`LOGIN_PROMPT_ON_BUILD`·`ACCOUNT_OFFLINE_DAYS`(회원 API가 오래 멈추면 늘린다). 새 키 추가라 `COMPAT_MIN`은 그대로 |
+| `scripts/cmd_site.py` | 명령 `account_login`·`account_cancel`·`account_logout`, 푸시 `account_state{state: guest\|waiting\|signed_in\|expired, email, plan_name, features, trials_left}`, `init_state.account`. `generate` 직전에 `account.get_allowed_options`, 성공 뒤 손님이면 `account.add_trial` — 엔진(`context_builder`·`get_detail`)은 등급을 모른다. 저장한 prefs는 그대로 두고 생성 요청만 끈다. `context.json.options`에는 실제로 쓴 값이 남는다 |
 | 받는 곳·확인 | `account.start_login`이 `http.server`를 127.0.0.1의 빈 포트(0번 = OS가 고름)에 데몬 스레드로 연다 — Rhino 8 타일 중계(`review_map`)와 같은 방식이고, 127.0.0.1만 열면 Windows 방화벽 창이 뜨지 않는다. 경로는 `/gorani-login` 하나, state가 틀리면 400. 돌아오거나 5분이 지나면 닫는다. 결과 푸시는 Rhino 8은 `AsyncInvoke`로 UI 스레드에서(`panel_host`와 같다), 사이드카는 기존 푸시 줄. `init`은 캐시로 바로 그리고, 마지막 확인이 하루를 넘었으면 데몬 스레드로 `me` → 바뀌면 `account_state` |
 | `scripts/site_ui.html` | 3D 설정 맨 아래 '디테일 [기본 | 고급]'(손님은 고급에 자물쇠 + 회색 '로그인·무료' 줄, 고급이면 바로 아래 항목 체크·출처 한 줄), 3D 설정 요약에 단계, 로그인 창 A·B(업데이트 창 꼴 — 기다림·돌아오면 고급 고르기/만들기 이어 가기), 결과 화면 한 줄, 자물쇠 아이콘 `lock`, 메뉴 '계정' 묶음, 목 모드 `&account=guest\|trial\|waiting\|member\|expired` |
 | `scripts/i18n.json` | 새 문구 네 언어(`tests/test_i18n.py`) |
-| `scripts/usage_stats.py` | `panel_open`·`build`에 `member`(0/1)·`trial`(로그인 없이 고급으로 만든 것 0/1)만. `get_options3d`에 켠 디테일. 계정 id·메일은 보내지 않는다. `dev_stats`에 맞춤 측정기준 등록 |
+| `scripts/usage_stats.py` | `panel_open`·`build`에 `plan`(guest·free…)·`trial`(로그인 없이 고급으로 만든 것 0/1)만. `get_options3d`에 켠 디테일. 계정 id·메일은 보내지 않는다. `dev_stats`에 맞춤 측정기준 등록 |
 | 다음 판(0.4.x) | 결과 화면 [인스타용 이미지] — 도면 SVG → 패널 캔버스 4:5 PNG + 작은 `made with Gorani`, 파이썬은 파일 쓰기만(위 '공유 고리') |
 | Blender 빌드 | `account` 네트워크 구간을 `# [blender-cut]`으로 감싼다. 회원 API 주소는 `BLENDER_ALLOWED_HOSTS`에 넣지 않는다(남으면 빌드가 멈춰서 실수를 잡는다) |
 | 생성 기록 | `context_builder.get_recent_results`를 전부 읽게(`limit`)·범위·3D 설정·로그인 없이 만든 것인지를 함께 내고, 생성 때 `context.json`에 `entry_id`. `site_prefs`에 `result_labels`·`starred_results`. `account.py`에 `history_add`·`history_list`·`pending_history`. 명령 `history_list`·`history_label`·`history_star`·`history_restore`(다른 PC 기록 → `result_opened`와 같은 꼴의 대상·설정)·`history_sync`·`history_delete`, 푸시 `history{items, sync}`. 패널 세 번째 화면 '생성 기록'(위 절) |
@@ -344,15 +383,16 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 | 일 | 하는 법 |
 |---|---|
 | 평소 | 할 일 없다(가입·연결은 자동). 주 1회 관리자 페이지 '회원' 카드를 본다 |
-| 막기 | 시트 `tier`를 `blocked`로 — 다음 `me` 확인 때 반영된다(늦어도 하루) |
+| 막기 | 회원 줄 `status`를 `blocked`로 — 다음 `me` 확인 때 반영된다(늦어도 하루) |
 | 탈퇴 요청 메일 | 웹 [탈퇴]를 안내하고, 못 하면 시트에서 그 사람의 회원·연결 줄을 지운다 |
 | 회원 API 장애 | 플러그인은 30일 캐시로 돈다. 길어지면 `ACCOUNT_ENABLED`를 끄고 `dev_deploy.py notices`(디테일 모두 열림, 판 없음) |
-| 잠글 기능 바꾸기 | `constants.MEMBER_OPTIONS`를 고치고 `dev_deploy.py notices` |
+| 누가 어떤 기능을 쓰나 바꾸기 | 시트 '이용권' 탭의 `features`(모두에게) 또는 회원 줄의 `extra_features`·`removed_features`(한 사람) — 서버만 고치면 끝(판·원격 설정 없음) |
+| 기능에 드는 옵션·이름 바꾸기 | `constants.FEATURES`를 고치고 `dev_deploy.py notices` |
 | 처리방침 개정 | `privacy_v`를 올린다 — 다음 로그인 때 다시 동의받는다. 웹에 바뀐 날짜를 남긴다 |
 | 백업 | 시트 판 기록에 맡긴다. 개인정보라 로컬 사본(CSV)을 만들지 않는다 |
 | 관리자 페이지 '회원' 카드 | 시트를 서비스 계정(기존 GA 키)에 '보기'로 공유하고 시트 ID만 `~/.config/gorani/`에. 누적 회원, 이번 주 가입, 프로그램별 연결, 30일 안 확인한 회원, 탈퇴 수 — 숫자만, 메일은 띄우지 않는다 |
 | 볼 지표 | 위 '깔때기'. 북극성 = 주간 신규 연결 회원. 그 밖에 로그인 완료율(패널 [구글로 로그인]을 누른 수 대비 돌아온 수 — 낮으면 로그인 흐름이 막힌 것. GA `ui` 이벤트 `account_login`·`account_done`), 로그인 창에서 [구글로 로그인하고 만들기]를 고른 비율 |
-| 무료 횟수·잠금·창 조정 | `GUEST_TRIAL_BUILDS`·`MEMBER_OPTIONS`·`LOGIN_PROMPT_ON_BUILD`를 고치고 `dev_deploy.py notices` — 이벤트 기간에만 늘렸다면 끝나는 날 되돌린다 |
+| 무료 횟수·손님 기능·창 조정 | `GUEST_TRIALS`·`GUEST_FEATURES`·`LOGIN_PROMPT_ON_BUILD`를 고치고 `dev_deploy.py notices` — 이벤트 기간에만 늘렸다면 끝나는 날 되돌린다 |
 
 ## 일정
 
@@ -379,7 +419,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 - [ ] 처리방침·약관 초안 확인(개인정보 포털 작성 도구로 초안을 만들어 둔다) — 가능하면 한 번 검토
 
 **② 회원 API — 웹 저장소 `tools/account/`, 1~2일, 판 없음**
-- [ ] `Code.gs`: `login`(tokeninfo 확인, 첫 로그인에 회원 줄)·`grant`·`claim`·`me`·`logout`·`delete`·`set_news`·`send_install_mail`, CacheService 한도, `setup`(탭·칸)
+- [ ] `Code.gs`: 권한 계산(이용권 탭 + 회원 줄 `plan`·`status`·`plan_until`·더한·뺀 기능) — `login`·`claim`·`me`가 `entitlement`를 돌려준다. `login`(tokeninfo 확인, 첫 로그인에 회원 줄 `plan = free`)·`grant`·`claim`·`me`·`logout`·`delete`·`set_news`·`send_install_mail`, CacheService 한도, `setup`(탭·칸)
 - [ ] `README.md`: 배포·확인 순서(문의함 README 꼴), 운영(막기·탈퇴·장애 때 `ACCOUNT_ENABLED`)
 - [ ] 생성 기록: `set_history_sync`·`history_add`(최근 300개만 남김)·`history_list`·`history_update`·`history_delete`, `rename_device`, 시트 '생성 기록' 탭
 - [ ] 시험 계정으로 한 바퀴(로그인 → grant → claim → me → history_add·list → logout → delete)
@@ -394,17 +434,18 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 - [ ] PR 스크린샷(데스크톱 ko·en, 휴대폰 `join`)
 
 **④ 플러그인 엔진·컨트롤러 — 이 저장소, 2~3일**
-- [ ] `constants.py`: `MEMBER_OPTIONS`·`GUEST_TRIAL_BUILDS`·`LOGIN_PROMPT_ON_BUILD`·`ACCOUNT_*`·`PANEL_LINKS.privacy`, `HOST_LABELS.account`(blender·web False). `remote_config.REMOTE_KEYS`에 여섯 키
-- [ ] `account.py`(새): account.json, 받는 곳, `claim`·`me`·`logout`, 무료 횟수 세기, `get_allowed_options`
+- [ ] `constants.py`: `FEATURES`·`GUEST_FEATURES`·`GUEST_TRIALS`·`LOGIN_PROMPT_ON_BUILD`·`ACCOUNT_*`·`PANEL_LINKS.privacy`, `HOST_LABELS.account`(blender·web False). `remote_config.REMOTE_KEYS`에 여섯 키
+- [ ] `account.py`(새): account.json, 받는 곳, `claim`·`me`·`logout`, 권한(`has_feature`)·무료 횟수 세기, `get_allowed_options`(권한에 없는 기능의 옵션 끄기) — 이용권 이름으로 분기하지 않는다
+- [ ] 패널 `pending_action`(누른 곳으로 돌아가기 — 디테일 고급·첫 만들기·생성 기록), 권한에 없는 기능이면 '지금 이용권에 없습니다'
 - [ ] 생성 기록: `get_recent_results` 넓히기, `entry_id`, `site_prefs` 이름·고정, `history_*` 명령, 동기화·`pending_history`, 다른 PC 기록 되살리기
-- [ ] `cmd_site.py`: `account_login`·`account_cancel`·`account_logout`, `account_state` 푸시, `init_state.account{state, email, trial_left, member_options}`, `generate` 직전 옵션 거르기·성공 뒤 맛보기 세기, 하루 1회 확인
+- [ ] `cmd_site.py`: `account_login`·`account_cancel`·`account_logout`, `account_state` 푸시, `init_state.account{state, email, plan_name, features, trials_left}`, `generate` 직전 옵션 거르기·성공 뒤 맛보기 세기, 하루 1회 확인
 - [ ] 사이드카(`cmd_sketchup`·`cmd_rhino7`·`cmd_archicad`): 받는 곳 스레드 → 기존 푸시 줄로 나가는지
-- [ ] `usage_stats`(`member`·`trial`), `GA_UI_ACTIONS`(`account_login`·`account_done`·`account_logout`·`history_open`·`history_restore`·`history_sync`·`login_prompt`), `ADMIN_GA_DIMENSIONS`(`member`·`trial`)
+- [ ] `usage_stats`(`plan`·`trial`), `GA_UI_ACTIONS`(`account_login`·`account_done`·`account_logout`·`history_open`·`history_restore`·`history_sync`·`login_prompt`), `ADMIN_GA_DIMENSIONS`(`plan`·`trial`)
 - [ ] Blender: `account` 구간 `# [blender-cut]`, `get_blender_problems` 통과, 디테일은 전부 열림
 
 **⑤ 패널 UI(고급 기능 개편 포함) — 이 저장소, 3~4일**
 - [ ] 3D 설정 맨 아래 '디테일 [기본 | 고급]' + 고급일 때 펼쳐지는 항목 체크(건물·구조물·가로)·출처 한 줄, `options.advanced`, '도로' 줄(연석·교량), 3D 설정 요약에 단계
-- [ ] `constants.DETAIL_OPTIONS`: `building_parapet`·`building_floors` 기본값 `True`(고급 문구가 앞세우는 것), 고급 문구 다섯 언어(어디서나 되는 것 먼저, 가로수·노면표시는 '자료 있는 곳') — `member_options`로 거른다(위 '패널 개편')
+- [ ] `constants.DETAIL_OPTIONS`: `building_parapet`·`building_floors` 기본값 `True`(고급 문구가 앞세우는 것), 고급 문구 다섯 언어(어디서나 되는 것 먼저, 가로수·노면표시는 '자료 있는 곳') — 어느 옵션이 고급인지는 `FEATURES`로 거른다(위 '패널 개편')
 - [ ] '고급' 단추 자물쇠·'로그인·무료' 줄(손님), 만료 때 다시 잠그기
 - [ ] 로딩 화면(`progressHtml`·진행 카드): 윗줄 끝 단계, 아래 회색 한 줄(써 보기 남은 횟수 / 손님 기본 권유 — 권유 줄은 결정 뒤)
 - [ ] 로그인 기다리는 띠·취소·시간 초과, 돌아온 뒤 토스트
@@ -441,6 +482,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 - 앱 안 웹뷰에서 구글 로그인 — 구글이 막는다.
 - 첫 실행 로그인 강요.
 - GA에 계정 id, 시트에 설치 ID.
+- 플러그인 코드에서 이용권 이름(`free`·`pro`)으로 분기하기 — 기능 키만 본다.
 - 인스타그램 계정 로그인(일반 사용자용 API가 없다), 팔로우를 조건으로 거는 잠금·이벤트.
 - 결제(아직).
 
@@ -449,6 +491,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 - **서버 쪽 잠금**: 서울 노면표시·가로수는 지금 컨텍스트 팩에 덧붙여 국내 서버(문지기)로 나간다(41bf893). 회원 전용 팩(`<시군구코드>_detail.db`)으로 떼고 문지기가 회원 토큰을 확인하면 진짜로 막힌다. 교량·선로·옹벽처럼 기본 팩으로 계산하는 디테일과 해외 OSM 디테일(공개 Overpass)은 서버로 막을 수 없다.
 - 인터넷이 아예 없는 PC(공공기관·대형 사무소 망분리)는 처음 로그인을 못 해 고급은 로그인 없이 3회뿐이다. 요청이 오면 계정 페이지에 '오프라인 PC용 회원 파일'(90일)을 두고 패널 [파일로 로그인]으로 읽는다. 그런 PC는 지금도 팩을 손으로 옮겨야 해서 드물다고 보고 먼저 만들지 않는다.
 - 회원이 1만 명을 넘거나 하루 `me`가 앱스 스크립트 한도의 절반을 넘으면 Firebase 등으로 옮긴다(API 모양을 지키면 플러그인은 원격 설정 주소만 바뀐다).
+- 유료 이용권은 '이용권' 탭에 `pro`·`enterprise` 줄을 더하고, 결제 대행의 결제 알림(웹훅)이 회원 줄의 `plan`·`plan_until`을 고친다. 플러그인은 바뀌지 않는다(받는 권한만 달라진다). 이때 권한 응답에 서버 서명을 붙이거나 서버 쪽 자원으로 막는다.
 - 결제 대행·환불·세금은 그때 따로 계획한다. 스토어 정책도 다시 본다(Blender는 그때도 로그인 불가). 참고: 같은 시기 유료 서비스 MassLabs의 면적 등급·팀 요금·판매 대행(`docs/research/10_masslabs.md`).
 - 회원 기능 후보: 레이저 커팅용 등고 판 배치(학생 콘타 모형 — 계단 지형·1:5,000 등고선이 이미 있다), STL 내보내기(같은 문서).
 
