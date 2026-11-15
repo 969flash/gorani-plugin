@@ -4541,6 +4541,12 @@
   "ja": "航空写真の重ね",
   "zh": "叠加航拍图"
  },
+ "이 지역에는 이 프로그램에서 쓸 수 있는 공개 항공사진이 없음": {
+  "en": "No open aerial imagery available here for this program",
+  "es": "No hay ortofotos abiertas disponibles aquí para este programa",
+  "ja": "この地域ではこのプログラムで使える公開航空写真がありません",
+  "zh": "此地区没有本程序可用的公开航空影像"
+ },
  "영상 타일을 받지 못함 — 인터넷 연결 확인 뒤 다시 생성": {
   "en": "Could not download imagery tiles — check your internet connection and create again",
   "es": "No se pudieron descargar las teselas de imagen — revisa la conexión a internet y vuelve a crear",

@@ -1140,15 +1140,36 @@ def get_aerial_sources(frame, needed_zoom):
 def _get_aerial_images(data, frame, rect, px_per_mm):
     # type: (SheetData, Frame, tuple, float) -> tuple
     """rect를 덮는 영상 타일 → (<image> 줄, 출처, 지상 m/px, 촬영연도). 받은 타일은 data.cache — 스타일을 바꿔 다시 그려도 다시 받지 않는다.
-    원천은 get_aerial_sources 순서 — 타일마다 앞 원천부터, 못 받거나 자료 밖 빈 그림(AERIAL_BLANK_BYTES 미만, 마지막 원천 빼고)이면 다음 원천.
+    원천은 get_aerial_sources 순서 — 대상지 가운데 타일이 자료 밖인 지역 원천은 먼저 뺀다. 타일마다 앞 원천부터, 못 받거나 지역 원천의 빈 그림(AERIAL_BLANK_BYTES 미만)이면 다음 원천.
     줌은 첫 원천 최대 줌까지, 절반 넘게 못 채우면 한 단계씩 낮춘다(AERIAL_ZOOM_DROPS).
     타일마다 세 모서리를 지도 칸 mm로 옮긴 아핀 행렬로 놓는다 — 웹 메르카토르 ↔ TM의 회전(자오선수차)·축척 차를 타일 단위로 흡수한다."""
+    import review_map
     needed = get_aerial_tiles(frame, rect, px_per_mm)[0]
     sources = get_aerial_sources(frame, needed)
-    if not sources:
-        return [], "", 0.0, ""
-    got, zoom, m_per_px, tiles = {}, needed, 0.0, []
     fetch = lambda key: _fetch_tile(key[1].format(z=key[2], x=key[3], y=key[4]))
+    regional = {region["url"] for region in review_map.get_imagery_regions()}   # 빈 그림 거르기는 지역 공개 영상만 — Esri·VWorld의 작은 바다 칸은 진짜 영상
+
+    def covers(source):   # 나라 상자 안이어도 자료 밖이면 뺀다 — 토론토·몬트리올의 USGS(404), 브라티슬라바의 basemap.at(흰 칸 2,419 B, 2026-11-15).
+        top = min(needed, source[2])   # 빼지 않으면 줌 상한이 그 원천 최대 줌에 묶여 Esri를 낮은 줌으로 받았다(토론토 z17 → z16)
+        for z in range(top, top - constants.AERIAL_ZOOM_DROPS - 1, -1):   # 시골은 높은 줌에 자료가 없다 — 아래 줌 낮추기와 같은 폭까지 본다
+            ztiles = get_aerial_tiles(frame, rect, px_per_mm, z)[1]
+            key = ("aerial", source[0], z) + tuple(ztiles[len(ztiles) // 2])
+            body = data.cache.get(key)
+            if body is None:
+                body = fetch(key)
+                if body:
+                    data.cache[key] = body
+            if body and len(body) >= constants.AERIAL_BLANK_BYTES:
+                return True
+            if body is not None and not body:   # 연결 실패 — 더 묻지 않는다
+                offline.append(source[0])
+                return False
+        return False
+    offline = []
+    sources = [source for source in sources if source[0] not in regional or covers(source)]
+    if not sources:   # 출처 None = 이 지역에 쓸 영상이 없다(Blender 국내·자료 밖), "" = 받지 못했다(인터넷)
+        return [], ("" if offline else None), 0.0, ""
+    got, zoom, m_per_px, tiles = {}, needed, 0.0, []
     for drop in range(constants.AERIAL_ZOOM_DROPS + 1):   # 이 줌에 영상이 없으면(시골·북유럽 z19) 한 단계씩 낮춘다
         zoom, tiles, m_per_px = get_aerial_tiles(frame, rect, px_per_mm, min(needed, sources[0][2]) - drop)
         got = {}   # (tx, ty) → 캐시 키
@@ -1176,10 +1197,10 @@ def _get_aerial_images(data, frame, rect, px_per_mm):
             for key, body in zip(missing, bodies):
                 if body:
                     data.cache[key] = body
-            final = index == len(sources) - 1
-            for key in keys:   # 자료 밖 빈 그림(흰·투명 칸)은 다음 원천으로 — 마지막 원천(Esri 바다 1~2 KB)은 그대로 쓴다
+            blank_ok = url not in regional
+            for key in keys:   # 지역 영상의 자료 밖 빈 그림(흰·투명 칸)은 다음 원천으로 — Esri 바다 칸(1~2 KB)은 그대로 쓴다. Blender는 Esri가 없어 빈 칸을 남긴다(흰 그림보다 낫다)
                 body = data.cache.get(key)
-                if body and (final or len(body) >= constants.AERIAL_BLANK_BYTES):
+                if body and (blank_ok or len(body) >= constants.AERIAL_BLANK_BYTES):
                     got[key[3:]] = key
             if len(got) == len(tiles):
                 break
@@ -1719,6 +1740,8 @@ def _get_card_lines(key, data, items, counts, measures, ctx=None):
         if total_count:
             lines = [tr("영상 {0}", ctx.get("aerial_attribution", "")),
                      tr("지상 해상도 약 {0:.2f} m/px · 촬영 {1}", ctx.get("aerial_m_per_px", 0.0), ctx.get("aerial_year") or tr("시기 확인 필요"))]
+        elif ctx.get("aerial_attribution", "") is None:   # 받을 원천이 없다 — Esri가 없는 Blender의 국내·공개 영상 밖(2026-11-15 리뷰)
+            lines = [tr("이 지역에는 이 프로그램에서 쓸 수 있는 공개 항공사진이 없음")]
         else:
             lines = [tr("영상 타일을 받지 못함 — 인터넷 연결 확인 뒤 다시 생성")]
     elif key in constants.SHEET_TEMPLATE_KEYS:

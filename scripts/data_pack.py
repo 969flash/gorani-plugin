@@ -243,6 +243,8 @@ def _get_imagery_region(entry):
     if not (isinstance(entry.get("id"), str) and entry["id"] and boxes and isinstance(url, str) and url.startswith("https://")
             and sorted(set(re.findall(r"\{(\w+)\}", url))) == ["x", "y", "z"] and isinstance(zoom, int) and 1 <= zoom <= 22 and entry.get("attribution")):
         return None
+    if re.search(r"[<>\"'`\s]", url) or re.search(r"[<>\"`]", str(entry["attribution"])):   # 패널 Leaflet 출처 칸은 innerHTML — 매니페스트가 HTML을 넣지 못하게
+        return None
     return {"id": entry["id"], "bounds": boxes, "url": url, "max_zoom": zoom, "attribution": str(entry["attribution"]), "year": str(entry.get("year") or "")}
 
 

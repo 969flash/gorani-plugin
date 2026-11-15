@@ -533,6 +533,25 @@ class RegionImageryTest(unittest.TestCase):
         self.assertIn("Esri", attribution)
         self.assertEqual(year, "")   # 촬영연도 모름 — 카드에 '확인 필요'
 
+    def test_uncovering_region_does_not_cap_zoom(self):
+        """나라 상자 안이어도 자료 밖인 지역 원천(토론토의 USGS 404·브라티슬라바의 basemap.at 흰 칸)은 빼고, Esri 줌은 필요한 줌 그대로(2026-11-15 리뷰)."""
+        import review_map
+        frame = sheet_svg.Frame((100.0, 100.0), 2500, (0.0, 0.0))
+        needed = sheet_svg.get_aerial_tiles(frame, (0.0, 0.0, 100.0, 100.0), constants.AERIAL_DPI / 25.4)[0]
+        for answer in (None, b"\xff\xd8" + b"0" * 2400):   # 404, 흰 칸
+            fake = {"id": "fake", "url": "https://fake.example/{z}/{x}/{y}", "max_zoom": needed - 1, "attribution": "Fake", "year": "", "bounds": [[-180, -85, 180, 85]]}
+            calls = []
+
+            def fetch(url):
+                calls.append(url)
+                return answer if "fake.example" in url else FAKE_TILE
+            with patch.object(review_map, "get_imagery_regions", lambda: [fake]), patch.object(review_map, "get_imagery_regions_at", lambda lng, lat: [fake]), \
+                    patch.object(sheet_svg, "_fetch_tile", fetch):
+                lines, attribution = sheet_svg._get_aerial_images(make_data(), frame, (0.0, 0.0, 100.0, 100.0), constants.AERIAL_DPI / 25.4)[:2]
+            self.assertTrue(lines)
+            self.assertNotIn("Fake", attribution)
+            self.assertTrue(all("/tile/%d/" % needed in u for u in calls if "arcgisonline" in u), calls[:3])
+
     def test_drape_tiles(self):
         tris = [((-300.0, -300.0, 0.0), (300.0, -300.0, 0.0), (300.0, 300.0, 0.0), "terrain")]
         with patch.object(sheet_svg, "_fetch_tile", lambda url: b"0" * 5000):

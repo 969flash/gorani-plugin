@@ -343,7 +343,7 @@ def bake(doc, items, prepared, lot_key=None):
 def drape_aerial(doc, prepared, lot_key, drape, path):
     # type: (object, object, str, dict, str) -> int
     """지형에 항공사진 — 타일(sheet_svg.get_drape_tiles)을 Eto 비트맵 한 장으로 붙여 path(JPEG)에 쓰고, 이 대상지의 땅 면(AERIAL_DRAPE_LAYERS)에
-    그 그림 재질 + 평면 매핑(채널 1 — 영상 남서 모서리 = UV 0,0)을 준다. 웹 메르카토르 ↔ 로컬 TM은 범위 몇 km 안에서 닮음 변환으로 본다(대상지 중심 TM — 오차 1 m 미만).
+    그 그림 재질을 준다. 메시는 꼭짓점마다 경위도 → 타일 좌표로 텍스처 좌표를 넣고(영상 남서 모서리 = UV 0,0), 메시가 아닌 땅만 평면 매핑(채널 1)이다.
     출력: 입힌 객체 수."""
     import Eto.Drawing as drawing
     size = 256   # 웹 메르카토르 타일 한 변 px
@@ -368,23 +368,59 @@ def drape_aerial(doc, prepared, lot_key, drape, path):
     nw, ne, sw = (Rhino.Geometry.Point3d(x, y, 0.0) for x, y in drape["corners"])
     if xform is not None:   # 값 형식(Point3d)의 Transform()은 pythonnet 사본만 바꿀 수 있다 — 곱으로 새 점
         nw, ne, sw = xform * nw, xform * ne, xform * sw
-    plane = Rhino.Geometry.Plane(sw, ne - nw, nw - sw)
+    plane = Rhino.Geometry.Plane(sw, ne - nw, nw - sw)   # 메시가 아닌 땅(Brep)만 — 평면 매핑은 모자이크(웹 메르카토르)를 TM 직사각형으로 펴서 2~5 km에서 1~6 m 어긋난다
     mapping = Rhino.Render.TextureMapping.CreatePlaneMapping(plane, Rhino.Geometry.Interval(0.0, nw.DistanceTo(ne)), Rhino.Geometry.Interval(0.0, sw.DistanceTo(nw)),
                                                              Rhino.Geometry.Interval(0.0, 1.0))
+    inverse = None
+    if xform is not None:
+        ok, inverse = xform.TryGetInverse()
+        inverse = inverse if ok else None
+    ox, oy = prepared.origin
+    zoom, x0, y0 = drape["zoom"], drape["x0"], drape["y0"]
+    span_x, span_y = float(drape["x1"] - x0 + 1), float(drape["y1"] - y0 + 1)
+
+    def get_uv(point):   # 문서 점 → 영상 UV(남서 0,0) — 꼭짓점마다 경위도 → 타일 좌표로 정확히(2026-11-15 리뷰: 파리 z17 3.2 km 1.9 m, 앵커리지 6.3 m 어긋남)
+        if inverse is not None:
+            point = inverse * point
+        tx, ty = non_rhino_utils.get_tile_xy(*non_rhino_utils.get_wgs84_from_tm(point.X + ox, point.Y + oy), zoom=zoom)
+        return (tx - x0) / span_x, 1.0 - (ty - y0) / span_y
+
     layers = {"%s::%s" % (constants.CTX_ROOT_LAYER, name) for name in constants.AERIAL_DRAPE_LAYERS}
     settings = Rhino.DocObjects.ObjectEnumeratorSettings()
     settings.HiddenObjects = True
     settings.LockedObjects = True
     count = 0
-    for rhino_object in doc.Objects.FindByUserString(constants.UDT_LOT_KEY, lot_key, True, False, True, settings) or []:
+    for rhino_object in list(doc.Objects.FindByUserString(constants.UDT_LOT_KEY, lot_key, True, False, True, settings) or []):
         if doc.Layers[rhino_object.Attributes.LayerIndex].FullPath not in layers:
             continue
+        object_id = rhino_object.Id
+        mesh = rhino_object.Geometry.DuplicateMesh() if isinstance(rhino_object.Geometry, Rhino.Geometry.Mesh) else None
+        if mesh is not None:   # 메시 — 자기 텍스처 좌표(매핑 없이 쓰인다)
+            mesh.TextureCoordinates.Clear()
+            for i in range(mesh.Vertices.Count):
+                u, v = get_uv(mesh.Vertices.Point3dAt(i))
+                mesh.TextureCoordinates.Add(u, v)
+            if not doc.Objects.Replace(object_id, mesh):
+                continue
+            rhino_object = doc.Objects.FindId(object_id)
         attributes = rhino_object.Attributes.Duplicate()
         attributes.RenderMaterial = render_material
         attributes.MaterialSource = Rhino.DocObjects.ObjectMaterialSource.MaterialFromObject
-        if doc.Objects.ModifyAttributes(rhino_object, attributes, True) and doc.Objects.ModifyTextureMapping(rhino_object.Id, 1, mapping):
+        if doc.Objects.ModifyAttributes(rhino_object, attributes, True) and (mesh is not None or doc.Objects.ModifyTextureMapping(object_id, 1, mapping)):
             count += 1
+    _remove_unused_drape_materials(doc)
     return count
+
+
+def _remove_unused_drape_materials(doc):
+    # type: (object) -> None
+    """어느 객체도 쓰지 않는 항공사진 재질을 지운다 — 다시 만들 때마다 'Gorani aerial <폴더>' 재질이 문서에 쌓였다(2026-11-15 리뷰). 실패해도 넘어간다."""
+    try:
+        used = {rhino_object.RenderMaterial.Id for rhino_object in doc.Objects if rhino_object.RenderMaterial is not None}
+        for render_material in [m for m in doc.RenderMaterials if (m.Name or "").startswith(constants.AERIAL_DRAPE_MATERIAL) and m.Id not in used]:
+            doc.RenderMaterials.Remove(render_material)
+    except Exception:   # noqa: BLE001 — 재질 정리는 덤
+        pass
 # [/blender-cut]
 
 

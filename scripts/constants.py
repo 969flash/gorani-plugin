@@ -1155,7 +1155,8 @@ AERIAL_REGIONS = [
      "url": "https://ags.cuzk.cz/arcgis1/rest/services/ORTOFOTO_WM/MapServer/tile/{z}/{y}/{x}", "attribution": "© ČÚZK Ortofoto ČR (CC BY 4.0)"},
 ]
 AERIAL_REGION_SHORTFALL = 1      # 23 항공사진·패널 [위성]: 지역 영상 최대 줌이 필요한 줌보다 이만큼까지 모자라면 지역 영상(확대), 더 모자라면 Esri — 미국 USGS(z16)는 A3 1:5000(z18)에서 Esri
-AERIAL_BLANK_BYTES = 2000        # 지역 영상 타일이 이보다 작으면 자료 밖 빈 그림 — 다음 원천으로(PDOK·IGN 흰 칸 1,651 B, PNOA 1,123 B, geoportail.lu 투명 854 B, 바이에른 736 B; 실제 영상 타일은 7 KB 이상, 2026-11-14)
+AERIAL_BLANK_BYTES = 3000        # 지역 영상 타일이 이보다 작으면 자료 밖 빈 그림 — 다음 원천으로(PDOK·IGN 흰 칸 1,651 B, PNOA 1,123 B, geoportail.lu 투명 854 B, 바이에른 736 B, 2026-11-14;
+                                 # basemap.at은 오스트리아 밖 z16 이하에서 흰 칸 2,419 B를 200으로 준다 — 2026-11-15 브라티슬라바). 실제 영상은 4.8 KB(레만 호 z18) 이상, 고른 물(레만 호 z20 1,865 B)은 Esri로 채운다
 # 지형에 항공사진 입히기(options.terrain_aerial) — Rhino 8만(context_baker.drape_aerial: Eto 비트맵으로 타일을 한 장으로 붙여 평면 매핑). 지역 공개 영상만
 AERIAL_DRAPE_MAX_TILES = 256     # 한 장 상한 16×16 = 4096 px — 넘으면 줌을 낮춘다(범위 한 변 1 km면 줌 18 ≈ 0.4 m/px·100장)
 AERIAL_DRAPE_FILE_NAME = "aerial_drape.jpg"   # 결과 폴더 — 3dm이 이 그림을 쓴다

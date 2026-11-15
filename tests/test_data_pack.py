@@ -239,11 +239,13 @@ class LocalPackTest(unittest.TestCase):
                 {"id": "nlsc", "bounds": [119.3, 21.8, 122.1, 25.4], "url": "https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}",
                  "max_zoom": 19, "attribution": "NLSC", "year": "2024"},
                 {"id": "bad", "bounds": [0, 0, 1, 1], "url": "http://x/{z}/{x}/{y}", "max_zoom": 19, "attribution": "x"},       # http
-                {"id": "bad2", "bounds": [0, 0, 1, 1], "url": "https://x/{z}/{x}/{y}/{s}", "max_zoom": 19, "attribution": "x"}]}   # 모르는 자리표시
+                {"id": "bad2", "bounds": [0, 0, 1, 1], "url": "https://x/{z}/{x}/{y}/{s}", "max_zoom": 19, "attribution": "x"},   # 모르는 자리표시
+                {"id": "bad3", "bounds": [0, 0, 1, 1], "url": "https://x/{z}/{x}/{y}", "max_zoom": 19, "attribution": "<img src=x onerror=alert(1)>"}]}   # 패널 innerHTML
             ids = [r["id"] for r in data_pack.get_imagery_regions()]
             self.assertNotIn("pdok", ids)
             self.assertNotIn("bad", ids)
             self.assertNotIn("bad2", ids)
+            self.assertNotIn("bad3", ids)
             self.assertEqual(ids[-1], "nlsc")
             self.assertEqual(data_pack.get_imagery_regions()[-1]["bounds"], [(119.3, 21.8, 122.1, 25.4)])
             self.assertEqual([r["id"] for r in data_pack.get_imagery_regions(builtin_only=True)], [r["id"] for r in constants.AERIAL_REGIONS])
