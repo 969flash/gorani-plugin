@@ -594,7 +594,7 @@ def _get_align_stats(samples):
 def get_abroad_sources(today=None, country=""):
     # type: (datetime.date, str) -> list
     """해외 대상지의 원천 상태 4건(lot·building·terrain·api) — 필지 없음, 건물·지형은 생성 때 OSM·지형 타일에서 받는다.
-    country(data_pack.get_country_packs 키)가 있으면 건물은 그 나라 팩(있는 지역만)·OSM, 일본은 지형도 지리원 5 m 타일."""
+    country(data_pack.get_country_packs 키)가 있으면 건물은 그 나라 팩(있는 지역만)·OSM. 지형은 어디서나 Mapterhorn(osm_context.get_terrain_spots)."""
     label = data_pack.get_country_packs()[country]["label"] if country else ""
     today = (today or datetime.date.today()).isoformat()
     def row(source_id, name, level, text):
@@ -602,7 +602,7 @@ def get_abroad_sources(today=None, country=""):
                 "age_months": 0.0 if level == "ok" else None, "level": level, "newer_date": None, "text": text}
     return [row("lot", tr("해외 — 필지 자료 없음"), "missing", tr("해외")),
             row("building", label + "·OpenStreetMap" if label else "OpenStreetMap", "ok", tr("생성 때 받음")),
-            row("terrain", tr("국토지리원 5 m DEM") if country == "jp" else tr("Terrain Tiles (약 30 m DEM)"), "ok", tr("생성 때 받음")), row("api", tr("필요 없음"), "ok", "")]
+            row("terrain", tr("Mapterhorn(나라별 라이다 지형, 없는 곳 약 30 m)"), "ok", tr("생성 때 받음")), row("api", tr("필요 없음"), "ok", "")]
 
 
 def get_sources(lot_database_path=None, context_database_path=None, today=None):
@@ -903,7 +903,7 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
                                  tr("{0} 건물과 지형만 들어 있습니다. 잠시 뒤 다시 만들면 도로·수계·녹지가 들어갑니다.", pack_label)))
     if pack_label or "gsi_dem" in source_ids:   # 나라별 건물 팩(PLATEAU·PDOK …)·지리원 지형
         warnings.append(_warning("info", "abroad", tr("Global — {0} 건물 {1}동·{2}", pack_label + "·OpenStreetMap" if pack_label else "OpenStreetMap",
-                                                     height["n"], tr("지리원 5 m 지형") if "gsi_dem" in source_ids else tr("지형 타일")),
+                                                     height["n"], tr("지리원 5 m 지형") if "gsi_dem" in source_ids else tr("Mapterhorn 지형") if "mapterhorn" in source_ids else tr("지형 타일")),
                                  tr("필지·용도지역 도면은 Korea 모드에만 있고, 실측 높이·높이 태그가 있는 건물은 {0} %입니다(나머지 {1:.1f} m 또는 층수 추정).",
                                     round(grade_ab * 100), constants.DEFAULT_BUILDING_HEIGHT_M)))
     else:
