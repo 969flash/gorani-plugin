@@ -146,6 +146,9 @@ class TileFallbackTest(unittest.TestCase):
         """OpenMapTiles 레이어 → Overpass와 같은 OSM 태그 — 그 뒤는 기존 get_feature_kind·높이 규칙이 그대로 읽는다."""
         tags = osm_context.get_tile_tags
         self.assertEqual(tags("transportation", {"class": "minor"}, 2), {"highway": "residential"})
+        self.assertEqual(tags("transportation", {"class": "motorway", "ramp": 1}, 2), {"highway": "motorway_link"})   # 진입로는 본선 폭이 아니다
+        self.assertEqual(tags("transportation", {"class": "path", "subclass": "steps", "ramp": 1}, 2), {"highway": "steps"})
+        self.assertEqual(tags("transportation", {"class": "service", "ramp": 1}, 2), {"highway": "service"})   # service_link는 없다
         self.assertEqual(tags("transportation", {"class": "path", "subclass": "footway", "brunnel": "bridge", "layer": 1}, 2),
                          {"highway": "footway", "bridge": "yes", "layer": "1"})
         self.assertEqual(tags("transportation", {"class": "rail", "subclass": "rail", "brunnel": "tunnel"}, 2), {"railway": "rail", "tunnel": "yes"})

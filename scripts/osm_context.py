@@ -872,6 +872,8 @@ def get_tile_tags(layer, props, kind):
         if cls in ("rail", "transit"):
             return dict(tags, railway=sub) if sub in constants.OSM_RAIL_TYPES else None
         highway = sub if cls == "path" else constants.OSM_FALLBACK_ROAD_CLASSES.get(cls)
+        if props.get("ramp") and cls != "path" and (highway or "") + "_link" in constants.OSM_ROAD_WIDTHS:   # 진입로(OSM *_link) — 본선 폭(고속도로 22 m)으로 버퍼하면 나들목이 덩어리가 된다. path의 ramp는 계단
+            highway += "_link"
         return dict(tags, highway=highway) if kind == 2 and highway in constants.OSM_ROAD_WIDTHS else None
     if layer == "water":   # ocean은 뺀다(Overpass 경로도 해안선 바다 면이 없다), 수영장도
         if props.get("brunnel") == "tunnel" or cls not in ("river", "lake", "pond", "dock"):
