@@ -282,6 +282,41 @@ def import_blend(scene, result_dir):
     return result
 
 
+def set_sun(scene, state):
+    # type: (object, dict) -> bool
+    """패널 '해와 그림자' — Solid 뷰 그림자 방향(scene.display.light_direction)과 태양 램프(BLENDER_SUN_NAME — Material Preview·Rendered)를
+    해 방향(state.vector — 동·북·위)으로. 끄면 Solid 그림자를 끄고 램프를 숨긴다. 장면 +Y = 북(베이크와 같다).
+    light_direction 축은 (동, 위, −북)이다 — 백그라운드 Workbench 렌더로 확인(2026-11-14: (0.8, 0.6, 0)이면 그림자가 서쪽, (0, 0.6, 0.8)이면 북쪽)."""
+    import mathutils
+    obj = bpy.data.objects.get(constants.BLENDER_SUN_NAME)
+    on = bool(state.get("on")) and state.get("altitude", 0.0) > 0.0
+    spaces = [area.spaces.active for window in bpy.context.window_manager.windows for area in window.screen.areas if area.type == "VIEW_3D"]
+    if not on:
+        if obj is not None:
+            obj.hide_viewport = obj.hide_render = True
+        for space in spaces:
+            space.shading.show_shadows = False
+        return True
+    vx, vy, vz = state["vector"]
+    scene.display.light_direction = (vx, vz, -vy)
+    if obj is None:
+        light = bpy.data.lights.new(constants.BLENDER_SUN_NAME, type="SUN")
+        light.energy = constants.BLENDER_SUN_ENERGY
+        obj = bpy.data.objects.new(constants.BLENDER_SUN_NAME, light)
+        scene.collection.objects.link(obj)
+    obj.hide_viewport = obj.hide_render = False
+    obj.rotation_mode = "QUATERNION"
+    obj.rotation_quaternion = mathutils.Vector((vx, vy, vz)).to_track_quat("Z", "Y")   # 램프는 −Z로 비춘다 — +Z를 해 쪽으로
+    for space in spaces:
+        space.shading.show_shadows = True
+        space.shading.use_scene_lights = True
+    for window in bpy.context.window_manager.windows:
+        for area in window.screen.areas:
+            if area.type == "VIEW_3D":
+                area.tag_redraw()
+    return True
+
+
 def zoom_to_site(scene, result_dir, center_lng_lat=None):
     # type: (object, str, list) -> bool
     """3D 뷰를 이번 결과의 CTX::Site(없으면 context.json 중심 500 m, 경위도를 주면 그 주변 100 m)로 옮긴다.

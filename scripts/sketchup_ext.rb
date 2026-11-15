@@ -22,7 +22,7 @@ module BSH
     TAG_FOLDER = "CTX"                      # constants.CTX_ROOT_LAYER
     M = 1.m.to_f                            # m → 인치
     DEBUG = false                           # true면 실패를 Ruby 콘솔에도(EW 요건 'Printing to the Console' — 평소에는 패널·사이드카 로그로만)
-    RPC = %w[get_model_attrs set_model_attrs clear bake ref save zoom import pick_curve].freeze
+    RPC = %w[get_model_attrs set_model_attrs clear bake ref save zoom import pick_curve sun].freeze
     TERRAIN_SMOOTH = Geom::PolygonMesh::AUTO_SOFTEN | Geom::PolygonMesh::SMOOTH_SOFT_EDGES
     HIDDEN_EDGE_LAYER = "CTX::Roads::marking_"   # 테두리 선을 숨기는 레이어(태그) 앞부분
     # 모서리를 살리는 레이어 — 지형처럼 다 부드럽게 하면 교각·난간·옹벽 상자가 둥글게 뭉개졌다(Windows SketchUp 2027, 2026-11-13).
@@ -426,6 +426,26 @@ module BSH
         return false
       end
       look_at(model.active_view, bounds, z)
+      true
+    end
+
+    # 패널 '해와 그림자' — 그림자 설정을 대상지 위경도·그 시간대 시계로 맞추고 그림자를 켠다(on = false면 그림자만 끈다).
+    # ShadowTime은 '그 시간대 시계 값을 UTC 필드에 담은' Time이다(SketchUp 관례) — Time.utc(시계)로 넣고 TZOffset으로 시간대를 준다.
+    # 모델 +Y = 북(Gorani 베이크와 같다)이라 NorthAngle 0. 해 위치는 SketchUp이 계산한다(사이드카 solar와 0.1° 안팎)
+    def self.rpc_sun(args)
+      info = Sketchup.active_model.shadow_info
+      unless args["on"]
+        info["DisplayShadows"] = false
+        return true
+      end
+      year, month, day, hour, minute = args["local"]
+      info["Latitude"] = args["lat"].to_f
+      info["Longitude"] = args["lng"].to_f
+      info["TZOffset"] = args["tz"].to_f
+      info["NorthAngle"] = args["north"].to_f   # 진북 = 녹색(Y)축에서 시계 방향 각 — 모델 Y는 격자북(EPSG:5186 자오선수차)
+      info["ShadowTime"] = Time.utc(year, month, day, hour, minute)
+      info["DisplayShadows"] = true
+      info["UseSunForAllShading"] = true
       true
     end
 

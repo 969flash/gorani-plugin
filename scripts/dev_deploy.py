@@ -262,6 +262,7 @@ BLENDER_CONSTANT_PATCHES = {
         "VWORLD_API_KEY_ENV": '""', "VWORLD_SEARCH_URL": '""',
         "OSM_USER_AGENT": '"Gorani/0.3 (Blender add-on; https://gorani.site/)"',
         "PDOK_ITEMS_URL": '""', "BDTOPO_FEED_URL": '""', "SWISS_STAC_ITEMS_URL": '""', "PLATEAU_CKAN_URL": '""', "CENSUS_COUNTY_URL": '""', "OVERTURE_S3_URL": '""',
+        "WIND_POWER_URL": '""',   # 바람장미(NASA POWER) — Blender판은 시트를 뺀다(HOST_LABELS blender wind)
     },
     "review_map.py": {"VWORLD_TILE_URL_TEMPLATE": '""', "VWORLD_AERIAL_URL_TEMPLATE": '""', "ESRI_AERIAL_URL": '""', "IP_LOCATE_URL": '""'},
 }

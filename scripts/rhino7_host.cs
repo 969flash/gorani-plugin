@@ -265,6 +265,7 @@ namespace Gorani
                 case "save": return Save(doc, (string)args["path"]);
                 case "import": return Import(doc, args);
                 case "zoom": return Zoom(doc, args);
+                case "sun": return Sun(doc, args);
                 case "pick_curve": return PickCurve(doc, D(args["tolerance"]));
                 default: throw new ArgumentException("Unknown call: " + method);
             }
@@ -641,6 +642,41 @@ namespace Gorani
             view.Redraw();
             return true;
         }
+
+        // 패널 '해와 그림자' — 문서 태양을 사이드카가 계산한 방위·고도로(수동), 지금 뷰를 Rendered(그림자)로. 끄면 태양을 끄고 전 표시 모드로 되돌린다.
+        // 문서 +Y = 북(North 90°). 해 위치는 사이드카(solar)가 계산한 값 그대로 — Rhino 8판 context_baker.set_sun과 같다
+        static object Sun(RhinoDoc doc, Dictionary<string, object> args)
+        {
+            var sun = doc.Lights.Sun;
+            var view = doc.Views.ActiveView;
+            bool on = args["on"] is bool flag && flag;
+            if (!on)
+            {
+                sun.Enabled = false;
+                string previous = doc.Strings.GetValue(SunModeKey);
+                var mode = string.IsNullOrEmpty(previous) ? null : Rhino.Display.DisplayModeDescription.GetDisplayMode(new Guid(previous));
+                if (view != null && mode != null)
+                    view.ActiveViewport.DisplayMode = mode;
+                doc.Strings.Delete(SunModeKey);
+                doc.Views.Redraw();
+                return true;
+            }
+            sun.Enabled = true;
+            sun.North = 90.0;
+            sun.ManualControl = true;
+            sun.SetPosition(D(args["azimuth"]), D(args["altitude"]));   // RhinoCommon 7은 위경도·방위·고도 속성이 읽기 전용이다
+            var rendered = Rhino.Display.DisplayModeDescription.GetDisplayMode(Rhino.Display.DisplayModeDescription.RenderedId);   // 이름은 Rhino 언어마다 다르다
+            if (view != null && rendered != null && view.ActiveViewport.DisplayMode.Id != rendered.Id)
+            {
+                if (string.IsNullOrEmpty(doc.Strings.GetValue(SunModeKey)))
+                    doc.Strings.SetString(SunModeKey, view.ActiveViewport.DisplayMode.Id.ToString());
+                view.ActiveViewport.DisplayMode = rendered;
+            }
+            doc.Views.Redraw();
+            return true;
+        }
+
+        const string SunModeKey = "GORANI_SUN_PREVIOUS_MODE";
 
         // 선택해 둔 닫힌 평면 커브 하나 → 문서 좌표 m 링. 안 되는 까닭은 problem(사이드카가 번역 문구로 바꾼다: open·planar·tilted·self)
         static object PickCurve(RhinoDoc doc, double tolerance)

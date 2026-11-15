@@ -405,6 +405,34 @@ def get_lnglat_in_crs(points, crs):
         _apply_projection()
 
 
+def get_grid_north(lng, lat, crs=None):
+    # type: (float, float, str) -> float
+    """그 자리 진북의 격자 방위 °(+Y에서 시계 +) — 평면 좌표 +Y(격자북)와 진북의 차(자오선수차). 진방위 A의 격자 방위 = A + 이 값.
+    EPSG:5186은 중부원점(127°E)에서 멀수록 커진다(서울 +0.01°, 부산 −1.2°, 독도 −2.95°, 백령도 +1.42° — 2026-11-15 리뷰). 해외 지역 TM은 원점에서 0.
+    crs(context.json crs)를 주면 그 좌표계로 — 지금 원점(프로세스 전역)은 되돌린다. 못 읽으면 0."""
+    if crs is not None:
+        match = re.match(r"^\+proj=tmerc \+lat_0=(-?[\d.]+) \+lon_0=(-?[\d.]+) ", crs or "")
+        if crs != "EPSG:5186" and not match:
+            return 0.0
+        saved = os.environ.get(PROJECTION_ENV)
+        if match:
+            os.environ[PROJECTION_ENV] = "%s,%s" % (match.group(2), match.group(1))
+        else:
+            os.environ.pop(PROJECTION_ENV, None)
+        _apply_projection()
+        try:
+            return get_grid_north(lng, lat)
+        finally:
+            if saved:
+                os.environ[PROJECTION_ENV] = saved
+            else:
+                os.environ.pop(PROJECTION_ENV, None)
+            _apply_projection()
+    x0, y0 = get_tm_from_wgs84(lng, lat)
+    x1, y1 = get_tm_from_wgs84(lng, lat + 0.001)
+    return math.degrees(math.atan2(x1 - x0, y1 - y0))
+
+
 def _apply_projection():
     # type: () -> None
     """환경변수의 원점(없으면 EPSG:5186)을 모듈 전역에 적용한다. import 때도 부른다."""
