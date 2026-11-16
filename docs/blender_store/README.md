@@ -41,7 +41,10 @@ https://developer.blender.org/docs/features/extensions/moderation/guidelines/ ·
 - Blender 안 스레드 금지 — 패널 서버는 메인 스레드 poll(`panel_server.Bridge` 기본값). 스레드 코드(SketchUp 분기·Rhino 타일 중계·위성 영상)는 패키지에서 뺀다(아래 2026-10-28).
 - 분석 전송 금지(동의를 받아도) — Blender 패키지에는 사용 통계가 없다(`usage_stats`·동의 창·`_send_stats` 호출을 뺀다).
 - `sys.path`·`sys.modules` 조작·모듈 다시 읽기 금지 — 패키지의 `loader.py`는 상대 import만, 진입 분기는 패키지 쪽만 남긴다.
-- 상용·키 필요 서비스 금지 — Esri 위성 영상을 끈다(지도 [위성]·항공사진 도면 없음). OSM·Overpass·Nominatim·지형 타일은 무료·무가입이라 된다.
+- 상용·키 필요 서비스 금지 — Esri 위성 영상을 끈다. OSM·Overpass·Nominatim·지형 타일은 무료·무가입이라 된다.
+  2026-11-14: 같은 기준(약관 3.10 '키·가입·결제로 기능을 막지 않는다', 4.3 '가입 없이 완전한 서비스')으로 나라별 정부 공개 정사영상(CC BY·CC0·공공영역, 키 없음)은 켠다 —
+  지도 [위성]·항공사진 도면. 내장 목록(`constants.AERIAL_REGIONS`)만 쓰고 매니페스트 `imagery[]`는 읽지 않는다(심사가 보지 않은 주소가 런타임에 들어오지 않게). 주소는 `BLENDER_ALLOWED_HOSTS`.
+  심사 가이드라인(moderation guidelines)에는 외부 서비스 일반 규칙이 '자체 완결·외부 서버에 의존하지 않는다'뿐이라 심사자 판단이 남는다 — 확인 필요. 새 판을 올릴 때 아래 Network 6번을 같이 적는다.
 - 자체 업데이터 금지 — 매니페스트 업데이트 모달을 끈다(공지 띠는 남김). 코드 내려받기 없음(데이터 팩만).
 - 영어 기본(심사 약 39건) — 패널은 첫 설치가 영어(0.3.0 다국어: 한·영·서·일·중), Blender 단추·메시지는 영어 + Blender 번역 시스템(ko_KR·es·ja_JP·zh_HANS).
 - 사용자가 하지 않은 제3자 전송 금지 — 지도 첫 위치 IP 짐작(ipinfo.io)을 끈다(`HOST_LABELS` `ip_center`).
@@ -93,6 +96,8 @@ Thank you for the review, and sorry for the messy first submission. You were rig
 3. Terrain anywhere: Terrain Tiles from the Registry of Open Data on AWS (s3.amazonaws.com/elevation-tiles-prod). This is a free public dataset: https://registry.opendata.aws/terrain-tiles/. The add-on downloads plain image files over HTTPS; no AWS account or key is needed. For sites in Japan it uses the Japanese government's GSI elevation tiles instead (cyberjapandata.gsi.go.jp, free: https://maps.gsi.go.jp/development/ichiran.html).
 4. Official open building data for Korea (parcels), Japan, the Netherlands, France, Switzerland and the USA: SQLite packs on GitHub. The manifest comes from raw.githubusercontent.com and the packs from github.com releases. Each pack is checked against the sha256 in the manifest.
 5. Korea only, buildings, roads and contours: this data comes from Korea's national base map. Korean law (Spatial Data Act, Article 16) does not allow it to be stored outside Korea. So it is served as static files from a small server in Korea (Oracle Cloud, always-free tier, 150.230.249.1). It costs users nothing and needs no account. Each file is checked against the sha256 in the manifest from GitHub.
+
+6. Satellite view and the aerial photo sheet (from 0.4): only official open orthophotos from national mapping agencies, chosen by site location — IGN France (data.geopf.fr, Licence Ouverte 2.0), PDOK Netherlands (service.pdok.nl, CC BY 4.0), swisstopo (wmts.geo.admin.ch, OGD), GSI Japan (cyberjapandata.gsi.go.jp, CC BY 4.0 compatible), USGS The National Map (basemap.nationalmap.gov, public domain), basemap.at (CC BY 4.0), IGN España PNOA (www.ign.es, CC BY 4.0), Bavaria (wmtsod1.bayernwolke.de, CC BY 4.0), geoportail.lu (CC0) and ČÚZK Czechia (ags.cuzk.cz, CC BY 4.0). No key or account. The list is fixed in the add-on; outside these areas there is no satellite imagery. No commercial imagery service is used.
 
 Links that open in the browser only when the user clicks them: the project website, and the Korean land-use plan page (eum.go.kr) for a selected parcel. The add-on sends no analytics.
 

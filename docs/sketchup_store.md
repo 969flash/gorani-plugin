@@ -57,7 +57,7 @@ First release on the Extension Warehouse.
 4) Optional: "Create 2D material" writes drawings to ~/Gorani/result. It does not touch the model.
 
 Executables: SketchUp has no Python, so Gorani bundles CPython 3.12 (python-build-standalone, PSF) with numpy and shapely (BSD). It runs as a helper process (-I -B) and writes nothing into the extension folder. The panel (HtmlDialog) talks to it only on 127.0.0.1 with a per-session token.
-Network: data packs (Hugging Face, a Korean server), OpenStreetMap, PLATEAU/GSI in Japan, ipinfo.io once for the first map position, Esri imagery for the satellite view, Google Analytics only after opt-in.
+Network: data packs (Hugging Face, a Korean server), OpenStreetMap, PLATEAU/GSI in Japan, ipinfo.io once for the first map position, national open orthophoto services (IGN, PDOK, swisstopo, GSI, USGS …) and Esri imagery for the satellite view, Google Analytics only after opt-in.
 ```
 
 **Extension Details 탭**
@@ -95,7 +95,7 @@ It's free.
 - The panel speaks English, Korean, Spanish, Japanese and Chinese. Switch it with the globe button.
 - Gorani brings its own Python engine. It runs as a helper process, and the panel talks to it only on your computer (127.0.0.1).
 - Data is downloaded when you generate, so you need an internet connection.
-- Privacy: usage statistics go to Google Analytics only if you opt in. To center the map the first time, the panel asks ipinfo.io for your approximate city by IP. The satellite map and the aerial photo sheet load Esri World Imagery tiles. No names, file paths or model contents are sent.
+- Privacy: usage statistics go to Google Analytics only if you opt in. To center the map the first time, the panel asks ipinfo.io for your approximate city by IP. The satellite map and the aerial photo sheet load open orthophoto tiles from national mapping agencies where available (IGN, PDOK, swisstopo, GSI, USGS and others), otherwise Esri World Imagery tiles. No names, file paths or model contents are sent.
 - Sources: © OpenStreetMap contributors (ODbL), PLATEAU (MLIT, CC BY 4.0), GSI tiles, Korean public data (MOLIT, NGII, Seoul).
 - Results with Korean contours or elevations must not be posted online (NGII security rules).
 
