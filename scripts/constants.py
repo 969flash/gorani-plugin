@@ -894,7 +894,8 @@ BRIDGE_PIER = {"size": 1.6, "spacing": 30.0, "min_height": 4.0, "inset": 2.0}   
 BRIDGE_LIFT = 0.05              # m — 끝점 상판 윗면을 지반(차도)보다 띄운다(같은 높이 면 깜빡임)
 BRIDGE_MIN_RISE = 0.5           # m — 세 꼭짓점이 다 지반에서 이보다 낮은 상판 삼각형은 뺀다(땅에 닿은 끝·요금소 광장은 도로면이 이미 있다 — 광안대교)
 OSM_BRIDGE_RAIL_WIDTH = 5.0     # m — OSM 선로 교량 면 = 선로 한 줄 버퍼 폭
-# 디테일 모델링 켜고 끄기 — 패널 3D 설정 '디테일'(options.<키>). 공공데이터 기준일·정합이 제각각이라(노면표시 2021-08, 교량 높이 추정 등) 사용자가 끌 수 있게 한다
+# 디테일 모델링 켜고 끄기(options.<키>) — 엔진 기본값. 패널은 키마다 고르지 않는다(2026-11-16 사용자 — 고르는 것이 많으면 피로하다, 빼고 싶으면 만든 뒤 레이어로):
+# 지형 메시를 바꾸는 연석만 3D 설정 체크, 고급 6종은 '수준 [기본 | 고급]'이 한꺼번에(FEATURES), 교량은 늘 켬·담장은 늘 끔(site_ui FIXED_3D)
 DETAIL_OPTIONS = {   # 키: 기본값
     "detail_curb": True,        # 연석(차도 0.15 m 내림)
     "detail_markings": True,    # 노면표시(서울 교통안전시설물·OSM 횡단보도)
@@ -903,8 +904,12 @@ DETAIL_OPTIONS = {   # 키: 기본값
     "detail_walls": True,       # 옹벽·석축 세로 벽
     "detail_fences": False,     # 담장 — 주거지는 객체가 많다
     "detail_trees": True,       # 가로수(서울 가로수 위치정보·OSM natural=tree)
-    "building_parapet": False,  # 건물 옥상 파라펫
-    "building_floors": False,   # 건물 층 구분선
+    "building_parapet": True,   # 건물 옥상 파라펫 — 고급 모델이 앞세우는 것(중요도 1위)
+    "building_floors": True,    # 건물 층 구분선(중요도 2위)
+}
+# 기능 → 그 기능이 켜는 옵션. 수준 '고급' = detail_advanced(순서 = 중요도 순, 패널 '고급' 설명 글 순서). 회원 권한도 이 키로 거른다(docs/account_plan.md)
+FEATURES = {
+    "detail_advanced": {"options": ["building_parapet", "building_floors", "detail_markings", "detail_trees", "detail_rail", "detail_walls"]},
 }
 PARAPET = {"height": 1.0, "width": 0.25, "min_area": 30.0}   # 옥상 난간벽 m — 높이 1.0 m(건축물의 피난·방화구조 규칙 옥상 난간 1.2 m보다 낮은 매스 표현값), 이보다 작은 동(㎡)은 뺀다
 FLOOR_LINE_MIN_FLOORS = 2       # 층 구분선은 이 층수 이상인 동만(층고 = 높이 ÷ 지상층수)
@@ -921,7 +926,8 @@ TREES = {   # 가로수 — 수종 → (높이, 수관 지름 m, 모양 sphere|c
 TREE_TRUNK = {"radius": 0.15, "ratio": 0.35, "sides": 6}   # 줄기 반지름 m·높이 비(수관 밑까지)·각
 OSM_TREE_ROW_SPACING = 8.0      # m — OSM natural=tree_row 선을 이 간격 나무로
 TREE_RAW_DIRNAME = "data/raw/seoul_street_trees"   # 서울 가로수 위치정보(OA-23040) xlsx를 둔다
-PANEL_DEFAULT_OPTIONS.update(DETAIL_OPTIONS)   # 패널 prefs·생성 요청 기본값에도 — 3D 설정 '가로·구조물·건물' 줄
+PANEL_DEFAULT_OPTIONS.update(DETAIL_OPTIONS)   # 생성 요청 기본값에도(시험 드라이버는 키마다 켠다)
+PANEL_DEFAULT_OPTIONS["detail_level"] = "basic"   # 패널 '수준' — basic | advanced. 요청에 있으면 FEATURES.detail_advanced 옵션을 한꺼번에 정한다(context_builder.get_request_with_defaults)
 # 노면표시 — features theme 'marking'. kind line = 차선(attrs type·color·pattern), crosswalk = 횡단보도 면. 차도 위 얇은 면으로 깐다
 MARKING_RAW_DIRNAME = "data/raw/seoul_traffic_safety"   # 서울 교통안전시설물 SHP(OA-15537 차선 zip, OA-15554 zip 안의 A004_A.zip을 풀어 둔다)
 MARKING_SEOUL_LINES = {   # 서울 차선 A058_L (대분류, 중분류) → (type, color, pattern). 정의서 '교통안전시설물 테이블 정의서(차선)'. 여기 없는 것(주행유도선·자전거·가변주차 등)은 넣지 않는다
