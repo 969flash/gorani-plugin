@@ -5998,5 +5998,149 @@
   "es": "Bajar calzadas 15 cm (bordillos)",
   "ja": "車道を15 cm下げる(縁石)",
   "zh": "车行道降低15 cm(路缘石)"
+ },
+ "2D 자료 전부": {
+  "en": "All 2D outputs",
+  "es": "Todos los materiales 2D",
+  "ja": "2D資料すべて",
+  "zh": "全部2D资料"
+ },
+ "Guest 기능 전부": {
+  "en": "Everything in Guest",
+  "es": "Todo lo de Guest",
+  "ja": "Guestの機能すべて",
+  "zh": "Guest全部功能"
+ },
+ "계정": {
+  "en": "Account",
+  "es": "Cuenta",
+  "ja": "アカウント",
+  "zh": "账户"
+ },
+ "고급 모델 {0}회 써 보기": {
+  "en": "Try Advanced model {0} times",
+  "es": "Probar el modelo avanzado {0} veces",
+  "ja": "高度モデルを{0}回お試し",
+  "zh": "试用高级模型{0}次"
+ },
+ "고급 모델 써 보기 — 다 씀": {
+  "en": "Advanced model trial — used up",
+  "es": "Prueba del modelo avanzado — agotada",
+  "ja": "高度モデルのお試し — 使い切り",
+  "zh": "高级模型试用 — 已用完"
+ },
+ "고급 모델은 Member 기능입니다": {
+  "en": "Advanced model is a Member feature",
+  "es": "El modelo avanzado es una función de Member",
+  "ja": "高度モデルはMemberの機能です",
+  "zh": "高级模型是Member功能"
+ },
+ "구글 로그인": {
+  "en": "Google sign-in",
+  "es": "Inicio de sesión con Google",
+  "ja": "Googleログイン",
+  "zh": "Google登录"
+ },
+ "구글로 로그인": {
+  "en": "Sign in with Google",
+  "es": "Iniciar sesión con Google",
+  "ja": "Googleでログイン",
+  "zh": "使用Google登录"
+ },
+ "기본 모델": {
+  "en": "Basic model",
+  "es": "Modelo básico",
+  "ja": "基本モデル",
+  "zh": "基础模型"
+ },
+ "로그아웃": {
+  "en": "Sign out",
+  "es": "Cerrar sesión",
+  "ja": "ログアウト",
+  "zh": "退出登录"
+ },
+ "로그인": {
+  "en": "Sign in",
+  "es": "Iniciar sesión",
+  "ja": "ログイン",
+  "zh": "登录"
+ },
+ "로그인 없이": {
+  "en": "No sign-in",
+  "es": "Sin iniciar sesión",
+  "ja": "ログインなし",
+  "zh": "无需登录"
+ },
+ "로그인 없이 만들기": {
+  "en": "Create without signing in",
+  "es": "Crear sin iniciar sesión",
+  "ja": "ログインせずに作成",
+  "zh": "不登录直接创建"
+ },
+ "로그인 없이 써 보기 ({0}회)": {
+  "en": "Try without signing in ({0} left)",
+  "es": "Probar sin iniciar sesión (quedan {0})",
+  "ja": "ログインせずに試す(残り{0}回)",
+  "zh": "不登录试用(剩余{0}次)"
+ },
+ "로그인 필요": {
+  "en": "sign-in required",
+  "es": "requiere iniciar sesión",
+  "ja": "ログインが必要",
+  "zh": "需要登录"
+ },
+ "로그인이 끝나지 않았습니다": {
+  "en": "Sign-in did not finish",
+  "es": "El inicio de sesión no terminó",
+  "ja": "ログインが完了しませんでした",
+  "zh": "登录未完成"
+ },
+ "로그인하지 못했습니다": {
+  "en": "Could not sign in",
+  "es": "No se pudo iniciar sesión",
+  "ja": "ログインできませんでした",
+  "zh": "无法登录"
+ },
+ "로그인했습니다": {
+  "en": "Signed in",
+  "es": "Sesión iniciada",
+  "ja": "ログインしました",
+  "zh": "已登录"
+ },
+ "무료": {
+  "en": "Free",
+  "es": "Gratis",
+  "ja": "無料",
+  "zh": "免费"
+ },
+ "범위 전부, 횟수 제한 없음": {
+  "en": "Any range, unlimited builds",
+  "es": "Cualquier extensión, sin límite",
+  "ja": "範囲すべて、回数無制限",
+  "zh": "任意范围,次数不限"
+ },
+ "브라우저에서 로그인 중": {
+  "en": "Signing in in your browser",
+  "es": "Iniciando sesión en el navegador",
+  "ja": "ブラウザでログイン中",
+  "zh": "正在浏览器中登录"
+ },
+ "잠시 뒤 다시 시도해 주세요": {
+  "en": "Please try again shortly",
+  "es": "Inténtalo de nuevo en un momento",
+  "ja": "しばらくしてからもう一度お試しください",
+  "zh": "请稍后再试"
+ },
+ "지금은 로그인을 쓸 수 없습니다": {
+  "en": "Sign-in is not available right now",
+  "es": "El inicio de sesión no está disponible ahora",
+  "ja": "現在ログインは利用できません",
+  "zh": "目前无法使用登录"
+ },
+ "현재": {
+  "en": "Current",
+  "es": "Actual",
+  "ja": "現在",
+  "zh": "当前"
  }
 }

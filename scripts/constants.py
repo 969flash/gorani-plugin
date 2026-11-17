@@ -455,7 +455,8 @@ GA_PNU_PARAMS = 4  # 필지 PNU를 나눠 담는 매개변수 수(값 하나에 
 # 패널 버튼 → ui 이벤트(action·detail, 2026-11-02). 목록 밖 action은 버린다 — 패널이 임의 값을 GA로 보내지 못하게. 검색어·주소·경로는 보내지 않는다
 GA_UI_ACTIONS = ("recent", "recent_del", "search_pick", "mode", "force_osm", "output_lang", "pick_curve", "eum", "download_area",
                  "rerange", "to_result", "retry", "open", "open_url", "import", "export", "copylog",
-                 "sheet_ai", "sheet_ai_all", "sheet_view", "style_open", "st_apply", "st_save_ok")
+                 "sheet_ai", "sheet_ai_all", "sheet_view", "style_open", "st_apply", "st_save_ok",
+                 "login_prompt", "account_login", "account_trial", "account_logout", "account_done", "account_fail")   # 회원 — 창이 뜬 곳(advanced·first·header)·로그인 결과
 GA_UI_DETAIL_MAX = 24   # detail = 짧은 분류값(lot·place, ko·en, 폴더·.ai 등)만
 # 관리자 페이지 통계(dev_stats — 이 Mac에서만). 열쇠·쌓은 기록은 저장소 밖 ADMIN_DIR에 둔다(공개 저장소)
 ADMIN_DIR = os.path.join(os.path.expanduser("~"), ".config", "gorani")
@@ -911,6 +912,18 @@ DETAIL_OPTIONS = {   # 키: 기본값
 FEATURES = {
     "detail_advanced": {"options": ["building_parapet", "building_floors", "detail_markings", "detail_trees", "detail_rail", "detail_walls"]},
 }
+# 회원(구글 로그인, docs/account_plan.md) — 회원 API(앱스 스크립트, 웹 저장소 tools/account)와 웹 /login/. 모두 원격 설정이라 판 없이 켜고 끄고 옮긴다
+ACCOUNT_ENABLED = True          # False = 로그인·자물쇠 없이 고급 누구나(회원 API가 오래 멈췄을 때 비상 스위치)
+ACCOUNT_API_URL = ""            # 앱스 스크립트 웹 앱(…/exec) — 배포하면 넣는다. 비어 있으면 회원 기능이 꺼진 것과 같다(고급 누구나)
+ACCOUNT_LOGIN_URL = "https://gorani.site/login/"        # 브라우저 로그인 — ?port&state&h&lang
+ACCOUNT_DONE_URL = "https://gorani.site/login/done/"    # 받는 곳(127.0.0.1)이 로그인을 마치고 브라우저를 넘기는 곳
+GUEST_FEATURES = []             # 로그인 없이 쓰는 기능 키
+GUEST_TRIALS = {"detail_advanced": 3}   # 로그인 없이 써 보는 횟수(설치마다 ~/.gorani/account.json, 만들기 성공만 센다)
+LOGIN_PROMPT_ON_BUILD = "first" # 손님이 [3D 모델 만들기]를 누를 때 로그인 창 — first(설치마다 처음 한 번)·always·off. 매번은 '만들기가 멈춘 줄' 안다
+ACCOUNT_OFFLINE_DAYS = 30       # 마지막 확인 뒤 이 날수까지 받은 권한을 그대로 쓴다(인터넷 없는 곳). 회원 API가 오래 멈추면 늘린다
+ACCOUNT_CHECK_HOURS = 24        # 마지막 확인이 이보다 오래되면 패널을 열 때 뒤에서 다시 확인(me)
+ACCOUNT_LOGIN_MINUTES = 5       # 브라우저에서 돌아오기를 기다리는 시간(교환권 수명과 같다)
+ACCOUNT_TIMEOUT_SECONDS = 10    # 회원 API 요청 하나
 PARAPET = {"height": 1.0, "width": 0.25, "min_area": 30.0}   # 옥상 난간벽 m — 높이 1.0 m(건축물의 피난·방화구조 규칙 옥상 난간 1.2 m보다 낮은 매스 표현값), 이보다 작은 동(㎡)은 뺀다
 FLOOR_LINE_MIN_FLOORS = 2       # 층 구분선은 이 층수 이상인 동만(층고 = 높이 ÷ 지상층수)
 WALL = {"sample": 2.0, "probe": 2.0, "min_rise": 0.8, "max_rise": 15.0, "width": 0.4, "coping": 0.2, "embed": 0.3}   # 옹벽 — 선 양쪽 probe m 지반 고저차가 min_rise 이상인 구간만 세로 벽(높은 쪽 + coping, 낮은 쪽 − embed). 수치지형도 옹벽은 높이 속성이 없다
@@ -993,7 +1006,7 @@ HOST_LABELS = {
                 # 확장 패키지에는 사용 통계가 없다(이 값은 저장소 시험용)
                 "ask_stats": True,
                 # [/blender-cut]
-                "aerial": False, "update_notice": False, "ip_center": False},   # 확장 스토어 약관: 분석 전송·상용 영상(Esri)·제3자 IP 조회 불가, 업데이트는 Blender가 한다
+                "aerial": False, "update_notice": False, "ip_center": False, "account": False},   # 확장 스토어 약관: 분석 전송·상용 영상(Esri)·제3자 IP 조회·외부 서비스 가입 요구 불가, 업데이트는 Blender가 한다
     # [blender-cut] SketchUp도 Extension Warehouse 심사(개인정보 정책 위반 = 반려 사유)라 동의제 — GA_STREAMS에 sketchup 속성을 넣기 전에는 묻지도 않는다
     "rhino": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": True, "ask_stats": False,
               "brep": True, "self_update": True},   # self_update = 패널 [지금 업데이트](yak — data_pack.install_update). yak을 못 찾으면 init이 끈다   # brep = 3D 설정 '형상' Mesh|Brep(options.geometry_type) — RhinoCommon 베이크만(Rhino 7판은 사이드카라 없다)
@@ -1001,7 +1014,7 @@ HOST_LABELS = {
     # Rhino 7판(cmd_rhino7 사이드카 + rhino7_host.cs) — 패널에는 Rhino로 보인다. DWG는 Rhino 8 헤드리스 문서(context_baker.save_dwg)라 없다
     "rhino7": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": False, "ask_stats": False, "self_update": True},
     "archicad": {"id": "archicad", "name": "Archicad", "doc": "Archicad 프로젝트", "model": ARCHICAD_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},   # GA 속성을 만들기 전에는 묻지 않는다
-    "web": {"id": "web", "name": "브라우저", "doc": "3D 모델", "model": WEB_MODEL_FILE_NAME, "dwg": False, "ask_stats": False},   # 통계는 웹사이트 GA(페이지)만
+    "web": {"id": "web", "name": "브라우저", "doc": "3D 모델", "model": WEB_MODEL_FILE_NAME, "dwg": False, "ask_stats": False, "account": False},   # 통계는 웹사이트 GA(페이지)만, 회원 없음
     # [/blender-cut]
 }
 # 메시판(mesh_geometry)

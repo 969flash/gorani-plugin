@@ -104,7 +104,7 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
     처리: 필지 DB 존재 → blocked, context_builder.get_sources/get_source_warnings, review_map 타일·지도, site_prefs 옵션·recent,
           SHEET_CATALOG, 매니페스트 업데이트·공지(data_pack.get_notice_state). 네트워크 접근 없음 — 매니페스트는 _init이 먼저 받아 둔다.
           generator는 항상 ok(서브프로세스 없음 — UI 호환 키).
-    출력: {"type": "init_state", version, blocked, paths, generator, host, stats_consent, links, features, output_langs, sources, warnings, tile, map, options, modes, recent, sheet_catalog,
+    출력: {"type": "init_state", version, blocked, paths, generator, host, stats_consent, links, features, account, output_langs, sources, warnings, tile, map, options, modes, recent, sheet_catalog,
           style_presets, style_defaults, style_ramps, styles, update, notices}.
     """
     constants = loader.load("constants")
@@ -124,6 +124,11 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
     if host.get("self_update"):   # Rhino 8·7 — yak이 있어야 [지금 업데이트], 없으면 수동 안내
         host["self_update"] = bool(loader.load("data_pack").get_yak_path())
     # [/blender-cut]
+    account_state = {"enabled": False}   # Blender판은 회원이 없다(확장 약관 — 고급 누구나)
+    # [blender-cut] 회원 — 로그인 상태·권한·남은 써 보기(docs/account_plan.md)
+    account = loader.load("account")
+    account_state = account.get_panel_state(account.load(), context_builder.get_host())
+    # [/blender-cut]
     return dict({
         "type": "init_state",
         "version": constants.PANEL_VERSION,
@@ -137,6 +142,7 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
         # [/blender-cut]
         "links": dict(constants.PANEL_LINKS),
         "features": constants.FEATURES,   # 수준 '고급'이 켜는 옵션(패널 '고급' 설명 글) — 원격 설정
+        "account": account_state,
         "output_langs": [list(x) for x in constants.OUTPUT_LANGS],   # 메뉴 '결과물 언어' 칸 — [코드, 이름]   # 메뉴가 주소를 그대로 보여 준다. 여는 건 open_url{key}
         "can_download": bool(constants.DATA_MANIFEST_URL),
         "sources": sources,
@@ -537,6 +543,7 @@ class _SiteController:
         self._session_id = str(int(time.time()))   # 사용 통계 세션 = 패널 하나
         # [/blender-cut]
         self._opened = False
+        self._login = None             # 브라우저 로그인 한 번(account.Login) — 패널이 account_poll로 묻는다
         self._keep = {}                # 마지막 결과의 시트 데이터(지형 삼각형 포함) — 도면 스타일 미리보기·적용이 다시 쓴다
         self._map_center = None        # 첫 init에 IP로 짐작한 지도 첫 위치 [lng, lat] — 못 받으면 None(서울시청)
         try:   # 원격 설정(도면 색·범례·구간·번역) — 캐시를 먼저 덮는다(패널 HTML의 번역 사전이 호스트 생성 때 심기므로 init보다 앞서야 한다). 새 것은 _init이 받는다
@@ -576,6 +583,8 @@ class _SiteController:
             "sheet_view": self._sheet_view, "area_packs": self._area_packs,
             # [blender-cut]
             "stats_consent": self._stats_consent, "track": self._track,
+            "account_login": self._account_login, "account_poll": self._account_poll, "account_cancel": self._account_cancel,
+            "account_logout": self._account_logout, "account_flag": self._account_flag,
             # [/blender-cut]
         }
         handler = handlers.get(cmd)
@@ -629,9 +638,12 @@ class _SiteController:
 
     def on_close(self):
         # type: () -> None
-        """창 닫힘 — 생성 중이면 cancel과 같은 경로."""
+        """창 닫힘 — 생성 중이면 cancel과 같은 경로. 기다리던 로그인 받는 곳도 닫는다."""
         if self._running:
             self._cancel_requested = True
+        if self._login is not None:
+            self._login.close()
+            self._login = None
 
     # ── 명령 처리 ──
 
@@ -649,6 +661,10 @@ class _SiteController:
             self._map_center = loader.load("review_map").get_ip_center()
         state = get_init_state(map_center=self._map_center)
         self.push(state)
+        # [blender-cut]
+        if state["account"]["enabled"]:   # 하루 넘게 확인 안 했으면 뒤에서 me — 패널은 캐시로 바로 그린다(결과는 다음 init에)
+            loader.load("account").refresh_later()
+        # [/blender-cut]
         if not self._opened:   # init은 배지 [다시 확인]에도 온다 — 패널 열기는 한 번만
             self._opened = True
             # [blender-cut]
@@ -732,6 +748,12 @@ class _SiteController:
         site_prefs = loader.load("site_prefs")
         lot_db = loader.load("lot_db")
         request = {"target": get_target_from_msg(msg), "options": dict(msg.get("options") or {})}
+        trials = []
+        # [blender-cut] 회원 — 권한(또는 남은 써 보기)에 없는 기능의 옵션을 끈다. 엔진은 등급을 모른다. 저장한 prefs는 그대로
+        account = loader.load("account")
+        request["options"], trials = account.get_allowed_options(request["options"], account.load(), trial=bool(msg.get("trial")),
+                                                                 enabled=account.is_enabled(context_builder.get_host()))
+        # [/blender-cut]
         self._context_builder = context_builder
         self._skipped, self._phase_detail = get_skipped_details(request["options"])
         self._last_phase = "query"
@@ -752,6 +774,11 @@ class _SiteController:
             self.push(get_failed_progress(response, self._last_phase, self._skipped, self._phase_detail))
             return
         self.push(self._context_builder.get_progress_message(self._last_phase, 1.0, "", self._skipped, self._phase_detail, state="done"))
+        # [blender-cut]
+        for key in trials:   # 써 보기는 성공한 만들기만 센다
+            account.add_trial(key)
+        response["trial"] = bool(trials)
+        # [/blender-cut]
         self.push(get_done_message(response))
         lots = lot_db.load(target["pnus"]).lots if target["mode"] == "lots" else []
         # [blender-cut]
@@ -803,6 +830,12 @@ class _SiteController:
             params["options3d"] = loader.load("usage_stats").get_options3d(options)
         except Exception:
             pass
+        try:   # 회원 — 이용권(guest·free…)과 로그인 없이 써 본 것인지. 계정 id·메일은 보내지 않는다
+            account = loader.load("account").load()
+            params["plan"] = ((account.get("entitlement") or {}).get("plan") or "free") if account.get("token") else "guest"
+            params["trial"] = int(bool(response.get("trial")))
+        except Exception:
+            pass
         self._send_stats("build", params)
 
     def _send_2d_stats(self, options, response):
@@ -821,6 +854,53 @@ class _SiteController:
         params = loader.load("usage_stats").get_ui_params(str(msg.get("action") or ""), msg.get("detail"))
         if params:
             self._send_stats("ui", params)
+
+    # 회원 — 로그인은 시스템 브라우저(gorani.site/login/) → 127.0.0.1 받는 곳 → claim(account.Login). 패널은 기다리는 동안
+    # account_poll로 묻는다 — 받는 곳 스레드에서 패널로 바로 보내지 않는다(호스트마다 UI 스레드 규칙이 달라서). 결과는 account_state 하나
+    def _push_account(self, error=""):
+        account = loader.load("account")
+        state = account.get_panel_state(account.load(), loader.load("context_builder").get_host())
+        self.push(dict(state, type="account_state", error=error))
+
+    def _account_login(self, msg):
+        account = loader.load("account")
+        host_id = loader.load("context_builder").get_host()
+        if not account.is_enabled(host_id):
+            raise ValueError(tr("지금은 로그인을 쓸 수 없습니다"))
+        if self._login is not None:   # 다시 누르면 새로 — 옛 탭에서 돌아와도 state가 달라 받지 않는다
+            self._login.close()
+        constants = loader.load("constants")
+        self._login = account.Login(constants.HOST_LABELS[host_id]["id"], constants.PANEL_VERSION, _i18n.get_lang())
+        self._open(self._login.url)
+        self.push({"type": "account_state", "state": "waiting"})
+
+    def _account_poll(self, msg):
+        if self._login is None:
+            self._push_account()
+            return
+        result = self._login.poll()
+        if result is None:
+            return   # 아직 — 패널은 계속 기다린다
+        self._login = None
+        error = "" if result["ok"] else {"timeout": tr("로그인이 끝나지 않았습니다"), "too_fast": tr("잠시 뒤 다시 시도해 주세요")}.get(
+            result.get("error"), tr("로그인하지 못했습니다"))
+        self._push_account(error)
+        params = loader.load("usage_stats").get_ui_params("account_done" if result["ok"] else "account_fail", result.get("error"))
+        if params:
+            self._send_stats("ui", params)
+
+    def _account_cancel(self, msg):
+        if self._login is not None:
+            self._login.close()
+            self._login = None
+        self._push_account()
+
+    def _account_logout(self, msg):
+        loader.load("account").logout()
+        self._push_account()
+
+    def _account_flag(self, msg):
+        loader.load("account").set_flag(str(msg.get("key") or ""))
     # [/blender-cut]
 
     def _area_packs(self, msg):
@@ -1101,6 +1181,7 @@ _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "s
                    "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style", "sheet_view": "view",
                    # [blender-cut]
                    "stats_consent": "init", "track": "init", "install_update": "init",
+                   "account_login": "account", "account_poll": "account", "account_cancel": "account", "account_logout": "account", "account_flag": "account",
                    # [/blender-cut]
                    }
 
