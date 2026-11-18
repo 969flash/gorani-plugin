@@ -134,27 +134,13 @@ html:lang(zh-Hans) body { font-family: -apple-system, "PingFang SC", "Microsoft 
 #acct_modal { position: fixed; inset: 0; z-index: 1100; background: rgba(17, 20, 24, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
 #acct_modal[hidden] { display: none; }
 #acct_modal .dlg { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 16px 12px; width: 100%; max-width: 330px; max-height: 100%; overflow: auto; }
-#acct_modal .dlg.wide-dlg { max-width: 440px; }
+#acct_modal .adv { margin: -6px 28px 12px 0; color: var(--ink-3); font-size: 11.5px; line-height: 17px; }   /* 고급에 드는 것 한 줄 */
 #acct_modal .x { position: absolute; top: 8px; right: 8px; }
 #acct_modal h2 { margin: 0 28px 12px 0; font-size: 13px; line-height: 1.4; font-weight: 700; }
 #acct_modal .wide { width: 100%; justify-content: center; }
 #acct_modal .wide + .wide { margin-top: 6px; }
 #acct_modal .spin { width: 22px; height: 22px; margin: 2px auto 10px; border: 2px solid var(--line); border-top-color: var(--ink); border-radius: 50%; animation: acct-spin 1s linear infinite; }
 @keyframes acct-spin { to { transform: rotate(360deg); } }
-.plans { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 12px; }
-@media (max-width: 400px) { .plans { grid-template-columns: 1fr; } }   /* 좁은 패널 — 위아래로 */
-.plan { border: 1px solid var(--line); border-radius: 10px; padding: 10px 10px 8px; }
-.plan.mem { border-color: var(--accent); }
-.plan h3 { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; margin: 0; font-size: 13px; line-height: 18px; font-weight: 700; color: var(--ink); }
-.plan h3 small { font-size: 11px; font-weight: 500; color: var(--ink-3); }
-.plan .who { margin: 0 0 8px; font-size: 11px; line-height: 16px; color: var(--ink-3); }
-.plan ul { margin: 0; padding: 0; list-style: none; font-size: 11.5px; line-height: 17px; color: var(--ink-2); }
-.plan li { position: relative; padding-left: 15px; }
-.plan li + li { margin-top: 3px; }
-.plan li::before { content: "✓"; position: absolute; left: 0; color: var(--ink-3); }
-.plan.mem li::before { color: var(--accent); }
-.plan li.off { color: var(--ink-3); }
-.plan li .in { display: block; color: var(--ink-3); }
 .seg .lk { width: 11px; height: 11px; margin-right: 2px; vertical-align: -1px; }   /* 손님의 '고급' — 자물쇠 하나 */
 .check-list { display: grid; grid-template-columns: 1.4em 7em 1fr; gap: 4px 8px; margin-bottom: 16px; }
 .check-list .ok { color: var(--ok); } .check-list .bad { color: var(--danger); } .check-list .opt { color: var(--ink-3); }
@@ -2577,21 +2563,13 @@ ACCT = {
     this.kind = kind;
     if (kind === "wait") html = '<div class="spin" aria-hidden="true"></div><h2 id="acct_title" style="margin-right:0;text-align:center">' + tr("브라우저에서 로그인 중") + "</h2>" +
       '<button type="button" class="btn wide" data-act="acct_close">' + tr("취소") + "</button>";
-    else if (kind === "plans") html = x + '<h2 id="acct_title">' + tr("고급 모델은 Member 기능입니다") + "</h2>" + this.cards(left) + google +
+    else if (kind === "plans") html = x + '<h2 id="acct_title">' + tr("고급 기능은 회원가입 후 무료로 이용할 수 있습니다.") + '</h2><p class="adv">' + esc(advancedNames()) + "</p>" + google +   // 손님·회원 비교 없이 한 문장(2026-11-18 사용자)
       (left ? '<button type="button" class="btn ghost wide" data-act="acct_trial">' + tr("로그인 없이 써 보기 ({0}회)", left) + "</button>" : "");
     else html = x + '<h2 id="acct_title">' + tr("로그인") + "</h2>" + google +
       (build ? '<button type="button" class="btn ghost wide" data-act="acct_skip">' + tr("로그인 없이 만들기") + "</button>" : "");
-    m.innerHTML = '<div class="dlg' + (kind === "plans" ? " wide-dlg" : "") + '">' + html + "</div>";
+    m.innerHTML = '<div class="dlg">' + html + "</div>";
     m.hidden = false;
     var f = m.querySelector('[data-act="acct_login"]') || m.querySelector('[data-act="acct_close"]'); if (f) f.focus();
-  },
-  cards: function (left) {
-    var li = function (t, cls) { return "<li" + (cls ? ' class="' + cls + '"' : "") + ">" + t + "</li>"; };
-    return '<div class="plans"><div class="plan"><h3>Guest<small>' + tr("현재") + '</small></h3><p class="who">' + tr("로그인 없이") + "</p><ul>" +
-      li(tr("기본 모델")) + li(tr("범위 전부, 횟수 제한 없음")) + li(tr("2D 자료 전부")) +
-      li(left ? tr("고급 모델 {0}회 써 보기", left) : tr("고급 모델 써 보기 — 다 씀"), left ? "" : "off") + "</ul></div>" +
-      '<div class="plan mem"><h3>Member<small>' + tr("무료") + '</small></h3><p class="who">' + tr("구글 로그인") + "</p><ul>" +
-      li(tr("Guest 기능 전부")) + li(tr("고급 모델") + '<span class="in">' + esc(advancedNames()) + "</span>") + "</ul></div></div>";
   },
   close: function () { $("acct_modal").hidden = true; this.kind = null; },
   dismiss: function () {   // ✕·Esc — 기다리는 중이면 로그인 취소, 아니면 닫기(이번 만들기·고르기는 하지 않는다)
