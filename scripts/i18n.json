@@ -6017,12 +6017,6 @@
   "ja": "ログイン",
   "zh": "登录"
  },
- "로그인 없이 만들기": {
-  "en": "Create without signing in",
-  "es": "Crear sin iniciar sesión",
-  "ja": "ログインせずに作成",
-  "zh": "不登录直接创建"
- },
  "로그인 필요": {
   "en": "sign-in required",
   "es": "requiere iniciar sesión",
@@ -6077,18 +6071,6 @@
   "ja": "Googleでログイン",
   "zh": "使用 Google 登录"
  },
- "로그인 없이 써 보기 · {0}회 남음": {
-  "en": "Try without signing in · {0} left",
-  "es": "Probar sin iniciar sesión · quedan {0}",
-  "ja": "ログインせずに試す · 残り{0}回",
-  "zh": "不登录试用 · 剩余{0}次"
- },
- "로그인 없이는 고급 모델을 {0}회까지 써 볼 수 있습니다.": {
-  "en": "Without signing in, you can try the Advanced model up to {0} times.",
-  "es": "Sin iniciar sesión puedes probar el modelo avanzado hasta {0} veces.",
-  "ja": "ログインしなくても高度モデルを{0}回まで試せます。",
-  "zh": "不登录也可试用高级模型最多{0}次。"
- },
  "로그인 없이 써 볼 수 있는 고급 모델을 다 썼습니다.": {
   "en": "You have used all Advanced model tries without signing in.",
   "es": "Ya usaste todas las pruebas del modelo avanzado sin iniciar sesión.",
@@ -6124,5 +6106,17 @@
   "es": "Gorani se mantiene con patrocinios",
   "ja": "Goraniは支援で運営しています",
   "zh": "Gorani 依靠赞助运营"
+ },
+ "로그인 없이 고급 기능 써 보기 ({0}회 남음)": {
+  "en": "Try Advanced without signing in ({0} left)",
+  "es": "Probar las funciones avanzadas sin iniciar sesión (quedan {0})",
+  "ja": "ログインせずに高度な機能を試す(残り{0}回)",
+  "zh": "不登录试用高级功能(剩余{0}次)"
+ },
+ "로그인 없이 기본으로 만들기": {
+  "en": "Create a Basic model without signing in",
+  "es": "Crear un modelo básico sin iniciar sesión",
+  "ja": "ログインせずに基本で作成",
+  "zh": "不登录,以基础模型创建"
  }
 }

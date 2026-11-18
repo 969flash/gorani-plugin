@@ -142,8 +142,11 @@ html:lang(zh-Hans) body { font-family: -apple-system, "PingFang SC", "Microsoft 
 #acct_modal .gets { list-style: none; margin: 0 0 16px; padding: 10px 12px; border-radius: 10px; background: var(--press); display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; text-align: left; font-size: 12px; line-height: 18px; color: var(--ink); }
 #acct_modal .gets li { display: flex; align-items: center; gap: 6px; min-width: 0; }
 #acct_modal .gets .ico { width: 12px; height: 12px; color: var(--accent); flex: none; }
-#acct_modal .alt { width: 100%; justify-content: center; margin-top: 6px; color: var(--ink-2); }
-#acct_modal .left-note { margin: 8px 0 0; color: var(--ink-3); font-size: 11px; line-height: 16px; }
+#acct_modal .alt { width: 100%; height: 36px; justify-content: center; margin-top: 8px; border-color: transparent; background: var(--press); color: var(--ink-2); font-size: 12.5px; font-weight: 500; }   /* 둘째 — 옅은 회색, 구글 단추보다 낮게 */
+#acct_modal .alt:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
+#acct_modal .link-btn { display: block; margin: 10px auto 0; padding: 2px 4px; border: 0; background: none; color: var(--ink-3); font: inherit; font-size: 11.5px; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }   /* 셋째 — 작은 글씨 */
+#acct_modal .link-btn:hover { color: var(--ink); }
+#acct_modal .left-note { margin: 10px 0 0; color: var(--ink-3); font-size: 11px; line-height: 16px; }
 #acct_modal .spin { width: 28px; height: 28px; margin: 4px auto 14px; border: 2.5px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: acct-spin .9s linear infinite; }
 /* Google 로그인 단추 — Google 브랜드 지침의 밝은·어두운 꼴(흰 바탕·회색 테두리·G 로고) */
 .gbtn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid #747775; background: #fff; color: #1f1f1f; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
@@ -2581,15 +2584,16 @@ ACCT = {
     var sub = function (t) { return '<p class="sub">' + t + "</p>"; };
     var google = '<button type="button" class="gbtn" data-act="acct_login">' + G_LOGO + tr("Google 계정으로 로그인") + "</button>";
     var free = tr("고급 기능은 회원가입 후 무료로 이용할 수 있습니다.");
-    var limit = left ? tr("로그인 없이는 고급 모델을 {0}회까지 써 볼 수 있습니다.", left) : tr("로그인 없이 써 볼 수 있는 고급 모델을 다 썼습니다.");
+    var trial = function (act) { return '<button type="button" class="btn alt" data-act="' + act + '">' + tr("로그인 없이 고급 기능 써 보기 ({0}회 남음)", left) + "</button>"; };
+    var used = '<p class="left-note">' + tr("로그인 없이 써 볼 수 있는 고급 모델을 다 썼습니다.") + "</p>";
     this.kind = kind;
     if (kind === "wait") html = '<div class="spin" aria-hidden="true"></div>' + title(tr("브라우저에서 로그인 중")) + sub(tr("브라우저에서 Google 계정을 고르면 저절로 돌아옵니다.")) +
       '<button type="button" class="btn alt" data-act="acct_close">' + tr("취소") + "</button>";
     else if (kind === "plans") html = x + mark + title(free) +
       '<ul class="gets">' + advancedKeys().map(function (k) { return "<li>" + ico("check") + "<span>" + esc(tr(DETAIL_NAMES[k] || k)) + "</span></li>"; }).join("") + "</ul>" + google +
-      (left ? '<button type="button" class="btn ghost alt" data-act="acct_trial">' + tr("로그인 없이 써 보기 · {0}회 남음", left) + "</button>" : '<p class="left-note">' + limit + "</p>");
-    else if (build) html = x + mark + title(free) + sub(limit) + google +   // 처음 만들 때 — 써 보기 한도를 여기서 알린다(2026-11-18 사용자)
-      '<button type="button" class="btn ghost alt" data-act="acct_skip">' + tr("로그인 없이 만들기") + "</button>";
+      (left ? trial("acct_trial") : used);
+    else if (build) html = x + mark + title(free) + google + (left ? trial("acct_trial_build") : "") +   // 처음 만들 때 — 한도는 단추의 '(n회 남음)'으로(2026-11-18 사용자)
+      '<button type="button" class="link-btn" data-act="acct_skip">' + tr("로그인 없이 기본으로 만들기") + "</button>";
     else html = x + mark + title(tr("Gorani 로그인")) + sub(free) + google;
     m.innerHTML = '<div class="dlg">' + html + "</div>";
     m.hidden = false;
@@ -2646,6 +2650,9 @@ Object.assign(ACTIONS, {
   acct_login: function () { ACCT.login(); },
   acct_close: function () { ACCT.dismiss(); },
   acct_skip: function () { ACCT.pending = null; ACCT.close(); startGenerate(true); },
+  acct_trial_build: function () {   // 처음 만들 때 '고급 기능 써 보기' — 이번 모델을 고급으로, 1회를 쓴다
+    ACCT.trial = true; ACCT.pending = null; ACCT.close(); state.options.detail_level = "advanced"; track("account_trial", "first"); startGenerate(true);
+  },
   acct_trial: function () {
     ACCT.trial = true; ACCT.pending = null; ACCT.close(); state.options.detail_level = "advanced"; renderTray(); track("account_trial", ACCT.left("detail_advanced"));
   },
