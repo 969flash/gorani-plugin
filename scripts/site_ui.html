@@ -2034,7 +2034,11 @@ function renderMenu() {
     "</div>" +
     "<h3>" + tr("도움") + "</h3>" +
     '<div class="mlist">' + row(tr("웹페이지"), '<button type="button" class="link" data-act="open_url" data-key="' + siteKey() + '" title="' + tr("설치와 사용법") + '">' + esc(String((init.links || {})[siteKey()] || (init.links || {}).website || tr("고라니 웹페이지")).replace(/^https?:\/\//, "").replace(/\/$/, "")) + "</button>", "") +
-      row(tr("문의"), '<button type="button" class="link" data-act="open_url" data-key="contact" title="' + tr("메일 보내기") + '">' + esc(String((init.links || {}).contact || "").replace(/^mailto:/, "")) + "</button>", "") + "</div>" +
+      row(tr("문의"), '<button type="button" class="link" data-act="open_url" data-key="contact" title="' + tr("메일 보내기") + '">' + esc(String((init.links || {}).contact || "").replace(/^mailto:/, "")) + "</button>", "") +
+      // [blender-cut] 후원 — 문의 메일 바로 아래(2026-11-18 사용자). 웹사이트 꼬리말과 같은 GitHub 후원 페이지
+      ((init.links || {}).sponsor ? row(tr("후원"), tr("Gorani는 후원으로 운영합니다"), '<button type="button" class="btn sm" data-act="open_url" data-key="sponsor">' + tr("후원하기") + ico("ext") + "</button>") : "") +
+      // [/blender-cut]
+      "</div>" +
     noticeList + '<p class="menu-ver">Gorani ' + esc(init.version || "") + "</p>";
 }
 function openMenu() {

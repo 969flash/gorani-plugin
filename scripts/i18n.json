@@ -6106,5 +6106,23 @@
   "es": "Iniciar sesión en Gorani",
   "ja": "Goraniにログイン",
   "zh": "登录 Gorani"
+ },
+ "후원": {
+  "en": "Support",
+  "es": "Apoyo",
+  "ja": "支援",
+  "zh": "赞助"
+ },
+ "후원하기": {
+  "en": "Sponsor",
+  "es": "Patrocinar",
+  "ja": "支援する",
+  "zh": "赞助"
+ },
+ "Gorani는 후원으로 운영합니다": {
+  "en": "Gorani runs on sponsorships",
+  "es": "Gorani se mantiene con patrocinios",
+  "ja": "Goraniは支援で運営しています",
+  "zh": "Gorani 依靠赞助运营"
  }
 }

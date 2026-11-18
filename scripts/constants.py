@@ -178,6 +178,7 @@ PANEL_LINKS = {
     "website": "https://gorani.site/",   # 고라니 웹페이지 — 설치·사용법
     "website_en": "https://gorani.site/en/",   # 같은 페이지 영어판 — 패널 언어가 한국어가 아니면 이쪽
     "contact": "mailto:gorani.3d@gmail.com",   # 문의 메일 — 더보기 메뉴 '문의'(2026-10-30 사용자)
+    "sponsor": "https://github.com/sponsors/969flash",   # 후원 — 더보기 메뉴 '도움' 문의 아래(2026-11-18 사용자, 웹사이트 꼬리말과 같은 곳). Blender판에는 줄이 없다
 }
 
 # 토지이음(국토교통부) 토지이용계획 열람 상세 — 패널 필지 정보의 [토지이음 ↗](open_eum)과 parcels.csv eum_url.
