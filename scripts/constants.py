@@ -180,6 +180,16 @@ PANEL_LINKS = {
     "contact": "mailto:gorani.3d@gmail.com",   # 문의 메일 — 더보기 메뉴 '문의'(2026-10-30 사용자)
     "sponsor": "https://github.com/sponsors/969flash",   # 후원 — 더보기 메뉴 '도움' 문의 아래(2026-11-18 사용자, 웹사이트 꼬리말과 같은 곳). Blender판에는 줄이 없다
 }
+# 3D 만드는 동안 진행 카드 아래에 도는 한 줄(2026-11-18 사용자) — 원격 설정. 글은 i18n.json 원문(새 줄을 더하면 번역도 같이 올린다)
+# kind: login = 회원 기능이 켜진 손님에게만, sponsor = 후원 링크가 있을 때(Blender판은 없음), contact = 누구나
+LOADING_TIPS = [
+    {"text": "로그인 후 고급 수준을 무제한으로 사용해보세요.", "kind": "login"},
+    {"text": "Gorani는 후원으로 운영합니다.", "kind": "sponsor"},
+    {"text": "후원을 통해 새로운 기능이 도입됩니다.", "kind": "sponsor"},
+    {"text": "Team Gorani에게 많은 후원 부탁드립니다.", "kind": "sponsor"},
+    {"text": "협업·개선 문의는 gorani.3d@gmail.com으로 보내 주세요.", "kind": "contact"},
+]
+LOADING_TIP_SECONDS = 8         # 다음 문구로 바뀌는 간격(첫 문구는 만들 때마다 무작위)
 
 # 토지이음(국토교통부) 토지이용계획 열람 상세 — 패널 필지 정보의 [토지이음 ↗](open_eum)과 parcels.csv eum_url.
 # mode=search·isNoScr=script를 붙인 형태로 pnu가 상세 폼에 실리는 것을 확인했다.

@@ -506,6 +506,8 @@
    "contact": "mailto:gorani.3d@gmail.com",
    "sponsor": "https://github.com/sponsors/969flash"
   },
+  "tips": [{"text": "로그인 후 고급 수준을 무제한으로 사용해보세요.", "kind": "login"}, {"text": "Gorani는 후원으로 운영합니다.", "kind": "sponsor"}, {"text": "후원을 통해 새로운 기능이 도입됩니다.", "kind": "sponsor"}, {"text": "Team Gorani에게 많은 후원 부탁드립니다.", "kind": "sponsor"}, {"text": "협업·개선 문의는 gorani.3d@gmail.com으로 보내 주세요.", "kind": "contact"}],
+  "tip_seconds": 3,
   "output_langs": [
    [
     "ko",
