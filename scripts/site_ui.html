@@ -2303,6 +2303,7 @@ document.addEventListener("click", function (e) {
   if (e.target.id === "toast_act") { var fn = toastAction; hideToast(); if (fn) fn(); return; }
   if (state.menuOpen && !e.target.closest("#menu, #menu_btn")) closeMenu();
   if (ACCT && !$("acct_pop").hidden && !e.target.closest("#acct_pop, #acct_btn")) ACCT.closePop();
+  if (ACCT && e.target.id === "acct_modal" && ACCT.kind && ACCT.kind !== "wait" && !ACCT.building) { ACCT.dismiss(); return; }   // 창 바깥을 누르면 닫기(처음 만들 때·기다림 창은 단추로만)
   var t = e.target.closest("[data-act]");
   if (t) { if (t.disabled) return; var f = ACTIONS[t.dataset.act]; if (f) { f(t); trackAct(t); } return; }
   var li = e.target.closest("#search_list li"); if (li) { chooseList(+li.dataset.i); return; }
@@ -2609,20 +2610,20 @@ ACCT = {
     var free = tr("고급 기능은 회원가입 후\n무료로 이용할 수 있습니다.");
     var trial = function (act) { return '<button type="button" class="btn alt" data-act="' + act + '">' + tr("로그인 없이 고급 기능 써 보기 ({0}회 남음)", left) + "</button>"; };
     var used = '<p class="left-note">' + tr("로그인 없이 써 볼 수 있는 고급 모델을 다 썼습니다.") + "</p>";
-    this.kind = kind;
+    this.kind = kind; this.building = !!build;
     if (kind === "wait") html = '<div class="spin" aria-hidden="true"></div>' + title(tr("브라우저에서 로그인 중")) + sub(tr("브라우저에서 Google 계정을 고르면\n저절로 돌아옵니다.")) +
       '<button type="button" class="btn alt" data-act="acct_close">' + tr("취소") + "</button>";
     else if (kind === "plans") html = x + mark + title(free) +
       '<ul class="gets">' + advancedKeys().map(function (k) { return "<li>" + ico("check") + "<span>" + esc(tr(DETAIL_NAMES[k] || k)) + "</span></li>"; }).join("") + "</ul>" + google +
       (left ? trial("acct_trial") : used);
-    else if (build) html = x + mark + title(tr("간편 회원가입 후\n고급 수준을 무료로 만들어보세요.")) + google +   // 처음 만들 때(기본으로 만들기) — 써 보기는 '고급'을 고를 때 창에만(2026-11-18 사용자)
+    else if (build) html = mark + title(tr("간편 회원가입 후\n고급 수준을 무료로 만들어보세요.")) + google +   // X 없음 — 두 단추 중 하나(Esc는 이번 만들기 취소)   // 처음 만들 때(기본으로 만들기) — 써 보기는 '고급'을 고를 때 창에만(2026-11-18 사용자)
       '<button type="button" class="btn alt" data-act="acct_skip">' + tr("로그인 없이 기본으로 만들기") + "</button>";
     else html = x + mark + title(tr("Gorani 로그인")) + sub(free) + google;
     m.innerHTML = '<div class="dlg">' + html + "</div>";
     m.hidden = false;
     var f = m.querySelector('[data-act="acct_login"]') || m.querySelector('[data-act="acct_close"]'); if (f) f.focus();
   },
-  close: function () { $("acct_modal").hidden = true; this.kind = null; },
+  close: function () { $("acct_modal").hidden = true; this.kind = null; this.building = false; },
   dismiss: function () {   // ✕·Esc — 기다리는 중이면 로그인 취소, 아니면 닫기(이번 만들기·고르기는 하지 않는다)
     if (!$("acct_pop").hidden) { this.closePop(); return; }
     if (this.kind === "wait") { clearInterval(this.poll); this.poll = null; send({ cmd: "account_cancel" }); }
