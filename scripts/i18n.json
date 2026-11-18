@@ -6005,12 +6005,6 @@
   "ja": "アカウント",
   "zh": "账户"
  },
- "구글로 로그인": {
-  "en": "Sign in with Google",
-  "es": "Iniciar sesión con Google",
-  "ja": "Googleでログイン",
-  "zh": "使用Google登录"
- },
  "로그아웃": {
   "en": "Sign out",
   "es": "Cerrar sesión",
@@ -6028,12 +6022,6 @@
   "es": "Crear sin iniciar sesión",
   "ja": "ログインせずに作成",
   "zh": "不登录直接创建"
- },
- "로그인 없이 써 보기 ({0}회)": {
-  "en": "Try without signing in ({0} left)",
-  "es": "Probar sin iniciar sesión (quedan {0})",
-  "ja": "ログインせずに試す(残り{0}回)",
-  "zh": "不登录试用(剩余{0}次)"
  },
  "로그인 필요": {
   "en": "sign-in required",
@@ -6082,5 +6070,41 @@
   "es": "Las funciones avanzadas son gratuitas al registrarte.",
   "ja": "高度な機能は会員登録後、無料で使えます。",
   "zh": "注册会员后即可免费使用高级功能。"
+ },
+ "Google 계정으로 로그인": {
+  "en": "Sign in with Google",
+  "es": "Iniciar sesión con Google",
+  "ja": "Googleでログイン",
+  "zh": "使用 Google 登录"
+ },
+ "로그인 없이 써 보기 · {0}회 남음": {
+  "en": "Try without signing in · {0} left",
+  "es": "Probar sin iniciar sesión · quedan {0}",
+  "ja": "ログインせずに試す · 残り{0}回",
+  "zh": "不登录试用 · 剩余{0}次"
+ },
+ "로그인 없이는 고급 모델을 {0}회까지 써 볼 수 있습니다.": {
+  "en": "Without signing in, you can try the Advanced model up to {0} times.",
+  "es": "Sin iniciar sesión puedes probar el modelo avanzado hasta {0} veces.",
+  "ja": "ログインしなくても高度モデルを{0}回まで試せます。",
+  "zh": "不登录也可试用高级模型最多{0}次。"
+ },
+ "로그인 없이 써 볼 수 있는 고급 모델을 다 썼습니다.": {
+  "en": "You have used all Advanced model tries without signing in.",
+  "es": "Ya usaste todas las pruebas del modelo avanzado sin iniciar sesión.",
+  "ja": "ログインなしで試せる高度モデルをすべて使いました。",
+  "zh": "免登录的高级模型试用次数已用完。"
+ },
+ "브라우저에서 Google 계정을 고르면 저절로 돌아옵니다.": {
+  "en": "Choose your Google account in the browser and you will come back here automatically.",
+  "es": "Elige tu cuenta de Google en el navegador y volverás aquí automáticamente.",
+  "ja": "ブラウザでGoogleアカウントを選ぶと自動で戻ります。",
+  "zh": "在浏览器中选择 Google 账户后会自动返回。"
+ },
+ "Gorani 로그인": {
+  "en": "Sign in to Gorani",
+  "es": "Iniciar sesión en Gorani",
+  "ja": "Goraniにログイン",
+  "zh": "登录 Gorani"
  }
 }
