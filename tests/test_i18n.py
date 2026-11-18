@@ -97,7 +97,8 @@ class I18nTest(unittest.TestCase):
         for path in get_code_files()[1:]:
             constants_ |= {node.value for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
                            if isinstance(node, ast.Constant) and isinstance(node.value, str)}
-        orphans = [key for key in self.texts if key not in constants_ and key not in html]
+        orphans = [key for key in self.texts if key not in constants_ and key not in html
+                   and key.replace("\n", "\\n") not in html]   # 패널 JS 문자열의 줄바꿈은 소스에 \n으로 적힌다
         self.assertEqual(orphans, [], "코드에 없는 원문 — 문구를 고쳤으면 사전 키도 고친다")
 
     def test_default_lang_in_prefs(self):

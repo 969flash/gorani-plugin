@@ -134,20 +134,20 @@ html:lang(zh-Hans) body { font-family: -apple-system, "PingFang SC", "Microsoft 
 #acct_pop .v small { display: block; color: var(--ink-3); font-size: 11px; line-height: 16px; }
 #acct_modal { position: fixed; inset: 0; z-index: 1100; background: rgba(17, 20, 24, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
 #acct_modal[hidden] { display: none; }
-#acct_modal .dlg { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 24px 20px 14px; width: 100%; max-width: 340px; max-height: 100%; overflow: auto; text-align: center; box-shadow: 0 16px 40px rgba(0, 0, 0, .18); }
+#acct_modal .dlg { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 28px 24px 20px; width: 100%; max-width: 320px; max-height: 100%; overflow: auto; text-align: center; box-shadow: 0 16px 40px rgba(0, 0, 0, .18); }
 #acct_modal .x { position: absolute; top: 8px; right: 8px; }
-#acct_modal .mk { display: block; width: 34px; height: 34px; margin: 0 auto 10px; color: var(--ink); }
-#acct_modal h2 { margin: 0 8px 6px; font-size: 15px; line-height: 22px; font-weight: 700; letter-spacing: -.01em; word-break: keep-all; }
-#acct_modal .sub { margin: 0 8px 16px; color: var(--ink-2); font-size: 12px; line-height: 18px; word-break: keep-all; }
-#acct_modal .gets { list-style: none; margin: 0 0 16px; padding: 10px 12px; border-radius: 10px; background: var(--press); display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; text-align: left; font-size: 12px; line-height: 18px; color: var(--ink); }
+#acct_modal .mk { display: block; width: 36px; height: 36px; margin: 0 auto 14px; color: var(--ink); }
+#acct_modal h2 { margin: 0 0 20px; font-size: 16px; line-height: 24px; font-weight: 700; letter-spacing: -.01em; word-break: keep-all; }   /* 두 줄 — 뜻 단위로 끊는다(문구 안 \n) */
+#acct_modal .sub { margin: -12px 0 20px; color: var(--ink-2); font-size: 12.5px; line-height: 19px; word-break: keep-all; }
+#acct_modal .gets { list-style: none; margin: 0 0 20px; padding: 12px 14px; border-radius: 10px; background: var(--press); display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; text-align: left; font-size: 12.5px; line-height: 18px; color: var(--ink); }
 #acct_modal .gets li { display: flex; align-items: center; gap: 6px; min-width: 0; }
 #acct_modal .gets .ico { width: 12px; height: 12px; color: var(--accent); flex: none; }
-#acct_modal .alt { width: 100%; height: 36px; justify-content: center; margin-top: 8px; border-color: transparent; background: var(--press); color: var(--ink-2); font-size: 12.5px; font-weight: 500; }   /* 둘째 — 옅은 회색, 구글 단추보다 낮게 */
+#acct_modal .alt { width: 100%; height: 40px; justify-content: center; margin-top: 10px; border-color: transparent; background: var(--press); color: var(--ink-2); font-size: 13px; font-weight: 500; }   /* 둘째 — 옅은 회색, 구글 단추보다 낮게 */
 #acct_modal .alt:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
-#acct_modal .left-note { margin: 10px 0 0; color: var(--ink-3); font-size: 11px; line-height: 16px; }
-#acct_modal .spin { width: 28px; height: 28px; margin: 4px auto 14px; border: 2.5px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: acct-spin .9s linear infinite; }
+#acct_modal .left-note { margin: 12px 0 0; color: var(--ink-3); font-size: 11.5px; line-height: 17px; word-break: keep-all; }
+#acct_modal .spin { width: 30px; height: 30px; margin: 6px auto 16px; border: 2.5px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: acct-spin .9s linear infinite; }
 /* Google 로그인 단추 — Google 브랜드 지침의 밝은·어두운 꼴(흰 바탕·회색 테두리·G 로고) */
-.gbtn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid #747775; background: #fff; color: #1f1f1f; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.gbtn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 42px; padding: 0 12px; border-radius: 8px; border: 1px solid #747775; background: #fff; color: #1f1f1f; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
 .gbtn:hover { background: #f6f8fa; }
 .gbtn .g { width: 18px; height: 18px; flex: none; }
 @media (prefers-color-scheme: dark) { .gbtn { background: #131314; border-color: #8e918f; color: #e3e3e3; } .gbtn:hover { background: #1e1f20; } }
@@ -2578,19 +2578,20 @@ ACCT = {
     var m = $("acct_modal"), left = this.left("detail_advanced"), html;
     var x = '<button type="button" class="ib x" data-act="acct_close" aria-label="' + tr("닫기") + '" title="' + tr("닫기") + '">' + ico("x") + "</button>";
     var mark = '<svg class="ico mk" aria-hidden="true"><use href="#i-gorani"/></svg>';
-    var title = function (t) { return '<h2 id="acct_title">' + t + "</h2>"; };
-    var sub = function (t) { return '<p class="sub">' + t + "</p>"; };
+    var br = function (t) { return t.split("\n").join("<br>"); };   // 문구 안 \n = 뜻 단위 줄바꿈(한 줄에 몰지 않게, 2026-11-18 사용자)
+    var title = function (t) { return '<h2 id="acct_title">' + br(t) + "</h2>"; };
+    var sub = function (t) { return '<p class="sub">' + br(t) + "</p>"; };
     var google = '<button type="button" class="gbtn" data-act="acct_login">' + G_LOGO + tr("Google 계정으로 로그인") + "</button>";
-    var free = tr("고급 기능은 회원가입 후 무료로 이용할 수 있습니다.");
+    var free = tr("고급 기능은 회원가입 후\n무료로 이용할 수 있습니다.");
     var trial = function (act) { return '<button type="button" class="btn alt" data-act="' + act + '">' + tr("로그인 없이 고급 기능 써 보기 ({0}회 남음)", left) + "</button>"; };
-    var used = '<p class="left-note">' + tr("로그인 없이 써 볼 수 있는 고급 모델을 다 썼습니다.") + "</p>";
+    var used = '<p class="left-note">' + br(tr("로그인 없이 써 볼 수 있는\n고급 모델을 다 썼습니다.")) + "</p>";
     this.kind = kind;
-    if (kind === "wait") html = '<div class="spin" aria-hidden="true"></div>' + title(tr("브라우저에서 로그인 중")) + sub(tr("브라우저에서 Google 계정을 고르면 저절로 돌아옵니다.")) +
+    if (kind === "wait") html = '<div class="spin" aria-hidden="true"></div>' + title(tr("브라우저에서 로그인 중")) + sub(tr("브라우저에서 Google 계정을 고르면\n저절로 돌아옵니다.")) +
       '<button type="button" class="btn alt" data-act="acct_close">' + tr("취소") + "</button>";
     else if (kind === "plans") html = x + mark + title(free) +
       '<ul class="gets">' + advancedKeys().map(function (k) { return "<li>" + ico("check") + "<span>" + esc(tr(DETAIL_NAMES[k] || k)) + "</span></li>"; }).join("") + "</ul>" + google +
       (left ? trial("acct_trial") : used);
-    else if (build) html = x + mark + title(tr("회원가입 후 고급 수준을 무료로 이용할 수 있습니다.")) + google +   // 처음 만들 때(기본으로 만들기) — 써 보기는 '고급'을 고를 때 창에만(2026-11-18 사용자)
+    else if (build) html = x + mark + title(tr("간편 회원가입 후\n고급 수준을 무료로 만들어보세요.")) + google +   // 처음 만들 때(기본으로 만들기) — 써 보기는 '고급'을 고를 때 창에만(2026-11-18 사용자)
       '<button type="button" class="btn alt" data-act="acct_skip">' + tr("로그인 없이 기본으로 만들기") + "</button>";
     else html = x + mark + title(tr("Gorani 로그인")) + sub(free) + google;
     m.innerHTML = '<div class="dlg">' + html + "</div>";

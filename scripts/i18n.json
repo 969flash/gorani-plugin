@@ -6059,29 +6059,11 @@
   "ja": "現在ログインは利用できません",
   "zh": "目前无法使用登录"
  },
- "고급 기능은 회원가입 후 무료로 이용할 수 있습니다.": {
-  "en": "Advanced features are free once you sign up.",
-  "es": "Las funciones avanzadas son gratuitas al registrarte.",
-  "ja": "高度な機能は会員登録後、無料で使えます。",
-  "zh": "注册会员后即可免费使用高级功能。"
- },
  "Google 계정으로 로그인": {
   "en": "Sign in with Google",
   "es": "Iniciar sesión con Google",
   "ja": "Googleでログイン",
   "zh": "使用 Google 登录"
- },
- "로그인 없이 써 볼 수 있는 고급 모델을 다 썼습니다.": {
-  "en": "You have used all Advanced model tries without signing in.",
-  "es": "Ya usaste todas las pruebas del modelo avanzado sin iniciar sesión.",
-  "ja": "ログインなしで試せる高度モデルをすべて使いました。",
-  "zh": "免登录的高级模型试用次数已用完。"
- },
- "브라우저에서 Google 계정을 고르면 저절로 돌아옵니다.": {
-  "en": "Choose your Google account in the browser and you will come back here automatically.",
-  "es": "Elige tu cuenta de Google en el navegador y volverás aquí automáticamente.",
-  "ja": "ブラウザでGoogleアカウントを選ぶと自動で戻ります。",
-  "zh": "在浏览器中选择 Google 账户后会自动返回。"
  },
  "Gorani 로그인": {
   "en": "Sign in to Gorani",
@@ -6119,10 +6101,28 @@
   "ja": "ログインせずに基本で作成",
   "zh": "不登录,以基础模型创建"
  },
- "회원가입 후 고급 수준을 무료로 이용할 수 있습니다.": {
-  "en": "Sign up to use the Advanced level for free.",
-  "es": "Regístrate para usar el nivel avanzado gratis.",
-  "ja": "会員登録すると高度レベルを無料で使えます。",
-  "zh": "注册会员后即可免费使用高级级别。"
+ "고급 기능은 회원가입 후\n무료로 이용할 수 있습니다.": {
+  "en": "Advanced features are free\nonce you sign up.",
+  "es": "Las funciones avanzadas son gratis\nal registrarte.",
+  "ja": "高度な機能は会員登録後\n無料で使えます。",
+  "zh": "注册会员后\n即可免费使用高级功能。"
+ },
+ "간편 회원가입 후\n고급 수준을 무료로 만들어보세요.": {
+  "en": "Sign up in seconds\nand build Advanced for free.",
+  "es": "Regístrate en segundos\ny crea en avanzado gratis.",
+  "ja": "かんたん会員登録で\n高度レベルを無料で作れます。",
+  "zh": "快速注册后\n即可免费创建高级级别模型。"
+ },
+ "로그인 없이 써 볼 수 있는\n고급 모델을 다 썼습니다.": {
+  "en": "You have used all\nAdvanced model tries without signing in.",
+  "es": "Ya usaste todas las pruebas\ndel modelo avanzado sin iniciar sesión.",
+  "ja": "ログインなしで試せる\n高度モデルをすべて使いました。",
+  "zh": "免登录的\n高级模型试用次数已用完。"
+ },
+ "브라우저에서 Google 계정을 고르면\n저절로 돌아옵니다.": {
+  "en": "Choose your Google account in the browser\nand you will come back automatically.",
+  "es": "Elige tu cuenta de Google en el navegador\ny volverás automáticamente.",
+  "ja": "ブラウザでGoogleアカウントを選ぶと\n自動で戻ります。",
+  "zh": "在浏览器中选择 Google 账户后\n会自动返回。"
  }
 }
