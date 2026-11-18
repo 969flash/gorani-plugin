@@ -2,7 +2,7 @@
 
 2026-11-14 작성. 기준: main 4d232c2(배포판 0.3.9). 디테일 옵션(`constants.DETAIL_OPTIONS` 9종 — 2938bfe, 2026-11-13)은 아직 배포되지 않았다.
 목표: 디테일 옵션(화면 '수준 · 고급' = 고급 모델)은 무료 회원(구글 로그인)이 쓰고, 손님은 로그인 없이 3회 써 본다. 나머지 기능은 지금처럼 누구나 쓴다. 인스타그램에서 데려와 가입 수를 늘린다. 돈은 받지 않는다. 서버비 0을 지킨다.
-2026-11-14 수정: 가입 즉시 회원 확정, 손님 무료 3회, 인스타그램 연계, 3D 설정 아래 '디테일' 접는 줄(접힘 = 기본, 펼침 = 고급 — 손님은 자물쇠, 펼치면 로그인 창), 손님이 만들기를 누르면 로그인 창(사용자 요청). 2026-11-15: 만들 때 창은 처음 한 번만, 그림 비교 없이(B1안). 같은 날: 이용권·기능·권한을 나누는 설계 원칙, 인증 흐름 6단계와 '누른 곳으로 돌아가기', 화면은 꾸밈·안내 문구 최소, 손님은 머리줄 오른쪽에 [로그인]·회원은 그 자리에 계정 기호(메일·생성 기록), 로딩 화면은 그대로(사용자). 같은 날 끝으로: 디테일 접는 줄 → **'수준 [기본 | 고급]' 한 줄**(영어 `Level` · `Basic | Advanced`), 항목 체크·묶음 없앰(만든 뒤 레이어로 끔), 담장은 화면에서 뺌, **지형 자체를 바꾸는 연석은 3D 설정 안 선택 사항**(사용자, 와이어프레임 v20). 2026-11-16: 단추 아래 '고급 + …' 설명 줄은 지저분해 없앰 — 무엇이 드는지는 플랜 창과 마우스 올림 글로(사용자, v22). 이어서: 손님이 '고급'을 누르면 **Guest·Member 플랜을 나란히 소개하고 아래에 구글 로그인**하는 창(ChatGPT 요금제 화면 참고 — 사용자), 패널의 '예시 ↗'는 이 창으로 대신한다(v21).
+2026-11-14 수정: 가입 즉시 회원 확정, 손님 무료 3회, 인스타그램 연계, 3D 설정 아래 '디테일' 접는 줄(접힘 = 기본, 펼침 = 고급 — 손님은 자물쇠, 펼치면 로그인 창), 손님이 만들기를 누르면 로그인 창(사용자 요청). 2026-11-15: 만들 때 창은 처음 한 번만, 그림 비교 없이(B1안). 같은 날: 이용권·기능·권한을 나누는 설계 원칙, 인증 흐름 6단계와 '누른 곳으로 돌아가기', 화면은 꾸밈·안내 문구 최소, 손님은 머리줄 오른쪽에 [로그인]·회원은 그 자리에 계정 기호(메일·생성 기록), 로딩 화면은 그대로(사용자). 같은 날 끝으로: 디테일 접는 줄 → **'수준 [기본 | 고급]' 한 줄**(영어 `Level` · `Basic | Advanced`), 항목 체크·묶음 없앰(만든 뒤 레이어로 끔), 담장은 화면에서 뺌, **지형 자체를 바꾸는 연석은 3D 설정 안 선택 사항**(사용자, 와이어프레임 v20). 2026-11-16: 단추 아래 '고급 + …' 설명 줄은 지저분해 없앰 — 무엇이 드는지는 플랜 창과 마우스 올림 글로(사용자, v22). 2026-11-18: 플랜 창의 Guest·Member 비교 칸을 빼고 '고급 기능은 회원가입 후 무료로 이용할 수 있습니다.' 한 문장으로(사용자). 이어서: 손님이 '고급'을 누르면 **Guest·Member 플랜을 나란히 소개하고 아래에 구글 로그인**하는 창(ChatGPT 요금제 화면 참고 — 사용자), 패널의 '예시 ↗'는 이 창으로 대신한다(v21).
 
 ## 먼저 정할 것 — 권장안과 근거
 
@@ -89,7 +89,7 @@
 인증 흐름(2026-11-15 사용자):
 
 1. **Gorani 실행 — 손님으로 시작.** 기본 기능 전부. 로그인 팝업·띠 없음. 머리줄 오른쪽(언어 앞)에 [로그인] 단추가 늘 있다(손님만, 모든 화면).
-2. **로그인하는 곳** — 머리줄 [로그인], 또는 권한이 필요한 자리(수준 '고급', 처음 만들기). 패널 안 창이 뜬다. '고급'에서는 **플랜 창** — Guest·Member를 나란히 소개하고 아래에 [구글로 로그인]과 `로그인 없이 써 보기 (n회)`. 머리줄 [로그인]·처음 만들기에서는 **작은 로그인 창** — 제목 `로그인`, [구글로 로그인], 그 자리에 맞는 두 번째 단추 하나(머리줄에서 열면 없음). 둘 다 패널 안 창이고 큰 화면을 따로 만들지 않는다.
+2. **로그인하는 곳** — 머리줄 [로그인], 또는 권한이 필요한 자리(수준 '고급', 처음 만들기). 패널 안 창이 뜬다. '고급'에서는 **플랜 창** — `고급 기능은 회원가입 후 무료로 이용할 수 있습니다.` 한 문장과 [구글로 로그인], `로그인 없이 써 보기 (n회)`. 머리줄 [로그인]·처음 만들기에서는 **작은 로그인 창** — 제목 `로그인`, [구글로 로그인], 그 자리에 맞는 두 번째 단추 하나(머리줄에서 열면 없음). 둘 다 패널 안 창이고 큰 화면을 따로 만들지 않는다.
 3. **[구글로 로그인]** → 시스템 브라우저에 `gorani.site/login/`.
 4. **계정 인증** — 구글(이메일은 다음 단계). 처음이면 그 자리에서 가입(동의 화면 없음 — 아래 '처음 로그인').
 5. **권한 확인** — 회원 API가 권한을 계산해 교환권과 함께 넘기고, 플러그인이 `claim`으로 토큰과 권한을 받는다. 창은 그동안 `브라우저에서 로그인 중` + [취소].
@@ -132,18 +132,10 @@
 형상     [Mesh | Brep]                                           ← Rhino만
 
 [플랜 창 — 손님이 '고급'을 누르면. 패널 업데이트 창과 같은 틀]
-고급 모델은 Member 기능입니다                                ✕
-┌ Guest              현재 ┐ ┌ Member              무료 ┐   ← Member 칸만 파란 테두리
-│ 로그인 없이             │ │ 구글 로그인             │
-│ ✓ 기본 모델             │ │ ✓ Guest 기능 전부       │
-│   건물 · 도로 · 지형 · 교량│ │ ✓ 고급 모델             │
-│ ✓ 범위 전부, 횟수 제한 없음│ │   옥상 파라펫 · 층 구분선 │
-│ ✓ 2D 자료 전부          │ │   노면표시 · 가로수      │
-│ ✓ 고급 모델 3회 써 보기  │ │   선로 · 옹벽           │
-└─────────────────────────┘ │ ✓ 생성 기록(모든 PC)    │
-                            └─────────────────────────┘
+고급 기능은 회원가입 후 무료로 이용할 수 있습니다.             ✕
+옥상 파라펫 · 층 구분선 · 노면표시 · 가로수 · 선로 · 옹벽      ← 회색 한 줄(FEATURES)
 [ G  구글로 로그인 ]
-      로그인 없이 써 보기 (3회)                               ← 남았을 때만. 다 쓰면 Guest 칸 줄이 흐려지고('— 다 씀') 단추가 없다
+      로그인 없이 써 보기 (3회)                               ← 남았을 때만
 
 [로그인 창 — 머리줄 [로그인]·처음 만들기. 같은 틀]
 로그인                                                      ✕
@@ -159,7 +151,7 @@
 
 - **이름**(2026-11-15 사용자): 줄 이름 `수준`, 단추 `기본 | 고급`. 영어 `Level` · `Basic | Advanced`, es `Nivel` · `Básico | Avanzado`, ja `レベル` · `基本 | 高度`, zh `级别` · `基础 | 高级`. `i18n.json`의 `기본`은 지금 영어 `Base`(다이어그램 고르기 묶음 '기본')라 `Basic`으로 고친다 — 그 묶음에도 맞는다(사전은 한국어 원문 하나에 번역 하나). '라이트 | 어드밴스드'는 '라이트'가 기본을 깎아내리는 말로 읽히고, '기본 | Advanced'는 한 단추 묶음에 한·영이 섞여 쓰지 않는다.
 - **무엇이 더해지나 — 플랜 창과 마우스 올림 글**(2026-11-16 사용자 — 단추 아래 줄은 지저분해 없앰): 트레이에는 `수준 [기본 | 고급]` 단추만 있다. 손님은 '고급'을 누르면 플랜 창에서 차이를 본다. 회원은 '고급'에 마우스를 올리면 `옥상 파라펫 · 층 구분선 · 노면표시 · 가로수 · 선로 · 옹벽`(`title`, 낭독기에는 같은 글을 `aria-description`으로), 고르고 만들면 로딩·결과 카드의 `고급 모델`과 레이어로 확인한다. 순서는 중요도 순(옥상 파라펫 > 층 구분선 > 노면표시 > 가로수·선로·옹벽), 글은 `FEATURES.detail_advanced`의 옵션 이름으로 만든다(패널에 박지 않는다).
-- **플랜 창**(2026-11-15 사용자 — ChatGPT 요금제 화면 참고): 손님이 '고급'을 누르면 뜬다. 제목 `고급 모델은 Member 기능입니다`, 두 칸 `Guest`(현재, 로그인 없이)·`Member`(무료, 구글 로그인 — 파란 테두리), 칸마다 ✓ 줄로 차이, 아래에 [구글로 로그인]과 `로그인 없이 써 보기 (n회)`(남았을 때만), ✕·Esc는 닫기(기본 그대로). 패널의 '예시 ↗'(웹 전후 그림)는 이 창으로 대신한다 — 그림 비교는 웹(`gorani.site/#detail`)과 인스타에만. 칸의 글은 `FEATURES`(기능 이름·옵션 이름)와 원격 설정 `PLAN_CARDS`(이용권 → 줄 목록, 번역은 i18n 키)로 만든다 — 기능을 더하거나 유료 `Pro` 칸을 붙여도 판이 필요 없다. 480 px 패널에서 두 칸이 나란히 들어가고, 좁으면(400 px 아래) 위아래로 쌓는다. 결제·가격 말은 넣지 않는다('무료' 한 낱말). 회원은 이 창을 보지 않는다(이용권 이름은 계정 창에).
+- **플랜 창**(2026-11-18 사용자 — 손님·회원을 견주지 않는다): 손님이 '고급'을 누르면 뜬다. 제목 한 문장 `고급 기능은 회원가입 후 무료로 이용할 수 있습니다.`, 그 아래 고급에 드는 것 회색 한 줄(`FEATURES` 옵션 이름), [구글로 로그인]과 `로그인 없이 써 보기 (n회)`(남았을 때만), ✕·Esc는 닫기(기본 그대로). Guest·Member 두 칸 비교(2026-11-15, ChatGPT 요금제 화면 참고)는 2026-11-18 뺐다 — '가입하면 무료'라는 한 가지 태도만. 패널의 '예시 ↗'(웹 전후 그림)는 이 창으로 대신한다 — 그림 비교는 웹(`gorani.site/#detail`)과 인스타에만. 결제·가격 말은 넣지 않는다. 회원은 이 창을 보지 않는다(이용권 이름은 계정 창에). 와이어프레임 v22의 A2·A6 프레임과 `flow_login.jpg`는 옛 두 칸 그림이다 — 지금 화면은 PR #77 캡처(`docs/brand/preview/ui_acc_plans*.png`).
 - **'고급 모델'이라 부른다**: 로딩 카드 윗줄 끝과 결과 카드 윗줄에 `고급 모델`(영어 `Advanced model`). 기본이면 쓰지 않는다(지금 요약처럼 기본값은 적지 않는다). 생성 기록 줄도 같다. '향상된 모델을 받는다'는 느낌을 이 말 하나로 준다.
 - **항목 체크 없음**: 기본 = 지금 3D(건물·도로·지형·수계·녹지·철도 부지) + 교량·고가. 고급 = 기본 + 6가지. 하나만 빼고 싶으면 만든 뒤 레이어(`CTX::Buildings::parapet`·`floors`, `CTX::Roads::marking_*`, `CTX::Trees`, `CTX::Rail::*`, `CTX::Walls::retaining` — SketchUp 태그·Blender 컬렉션·Archicad 레이어도 같은 이름)를 끈다. 고급 기본값은 `DETAIL_OPTIONS`에서 파라펫·층 구분선을 `True`로 바꾼다. 담장(`detail_fences`)은 화면에서 빼고 늘 끈다(주거지는 객체가 수천 개) — 필요하면 나중에 원격 설정으로. 노면표시·가로수가 커서 오래 걸리면 그때 하나만 3D 설정으로 빼낸다(재 보고 — 확인 필요).
 - **지형을 바꾸는 것은 수준과 따로**(2026-11-15 사용자): 3D 설정 펼침의 지형 줄 아래 체크(바닥까지 채우기·차도 15 cm 내리기(연석)·대상지 땅 평평하게)는 누구나 고른다. 디테일 중 지형 메시 자체를 바꾸는 것은 연석 하나라(차도를 `CURB_HEIGHT` 0.15 m 내리고 옆면을 세운다 — `context_geometry.build_terrain`·`mesh_geometry`의 같은 구간) 연석만 옮긴다. 교량은 따로 된 상판 객체, 옹벽은 지형 위에 세우는 벽이라 지형을 바꾸지 않아 각각 기본·고급에 둔다. 3D 설정 요약은 지금 규칙대로 기본값(연석 켬)은 쓰지 않고, 끄면 `연석 끔`.
@@ -345,11 +337,11 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 | 파일 | 할 일 |
 |---|---|
 | `scripts/account.py`(새 로직 모듈, 표준 라이브러리) | `~/.gorani/account.json`(`token`·`email`·`entitlement`·`checked_at`·`trials_used{기능: 횟수}`) 읽기·쓰기, `start_login(host, on_done)`(받는 곳 열기 + 로그인 주소 — 아래 '받는 곳'), `claim(grant)`, `refresh()`(하루 1회 `me`), `logout()`(토큰만 지우고 `trial_used`는 남긴다), `has_feature(account, key)`, `get_trials_left(account, key)`, `get_allowed_options(options, account, host_label)` — 권한(`features`)에도 남은 무료 횟수에도 없는 기능의 옵션(`FEATURES[키].options`)을 끈 사본, `add_trial(account, key, options)`. prefs.json에 넣지 않는다 |
-| `scripts/constants.py` | `ACCOUNT_ENABLED`, `ACCOUNT_API_URL`, `ACCOUNT_LINK_URL`, `FEATURES`(기능 목록 — `detail_advanced`: 고급 6종 옵션(중요도 순 — 패널 한 줄 순서)·이름·설명, `history_sync`), `GUEST_FEATURES = []`, `GUEST_TRIALS = {"detail_advanced": 3}`, `PLAN_CARDS`(플랜 창의 이용권 칸 — 이름·한 줄 설명·✓ 줄), `LOGIN_PROMPT_ON_BUILD = "first"`, `ACCOUNT_OFFLINE_DAYS = 30`, `ACCOUNT_LOGIN_MINUTES = 5`(브라우저에서 돌아오기를 기다리는 시간). `HOST_LABELS`에 `account`(blender만 False) |
-| `scripts/remote_config.py` | `REMOTE_KEYS`에 `ACCOUNT_ENABLED`·`ACCOUNT_API_URL`·`FEATURES`·`GUEST_FEATURES`·`GUEST_TRIALS`·`PLAN_CARDS`·`LOGIN_PROMPT_ON_BUILD`·`ACCOUNT_OFFLINE_DAYS`(회원 API가 오래 멈추면 늘린다). 새 키 추가라 `COMPAT_MIN`은 그대로 |
+| `scripts/constants.py` | `ACCOUNT_ENABLED`, `ACCOUNT_API_URL`, `ACCOUNT_LINK_URL`, `FEATURES`(기능 목록 — `detail_advanced`: 고급 6종 옵션(중요도 순 — 패널 한 줄 순서)·이름·설명, `history_sync`), `GUEST_FEATURES = []`, `GUEST_TRIALS = {"detail_advanced": 3}`, `LOGIN_PROMPT_ON_BUILD = "first"`, `ACCOUNT_OFFLINE_DAYS = 30`, `ACCOUNT_LOGIN_MINUTES = 5`(브라우저에서 돌아오기를 기다리는 시간). `HOST_LABELS`에 `account`(blender만 False) |
+| `scripts/remote_config.py` | `REMOTE_KEYS`에 `ACCOUNT_ENABLED`·`ACCOUNT_API_URL`·`FEATURES`·`GUEST_FEATURES`·`GUEST_TRIALS`·`LOGIN_PROMPT_ON_BUILD`·`ACCOUNT_OFFLINE_DAYS`(회원 API가 오래 멈추면 늘린다). 새 키 추가라 `COMPAT_MIN`은 그대로 |
 | `scripts/cmd_site.py` | 명령 `account_login`·`account_cancel`·`account_logout`, 푸시 `account_state{state: guest\|waiting\|signed_in\|expired, email, plan_name, features, trials_left}`, `init_state.account`. `generate` 직전에 `account.get_allowed_options`, 성공 뒤 손님이면 `account.add_trial` — 엔진(`context_builder`·`get_detail`)은 등급을 모른다. 저장한 prefs는 그대로 두고 생성 요청만 끈다. `context.json.options`에는 실제로 쓴 값이 남는다 |
 | 받는 곳·확인 | `account.start_login`이 `http.server`를 127.0.0.1의 빈 포트(0번 = OS가 고름)에 데몬 스레드로 연다 — Rhino 8 타일 중계(`review_map`)와 같은 방식이고, 127.0.0.1만 열면 Windows 방화벽 창이 뜨지 않는다. 경로는 `/gorani-login` 하나, state가 틀리면 400. 돌아오거나 5분이 지나면 닫는다. 결과 푸시는 Rhino 8은 `AsyncInvoke`로 UI 스레드에서(`panel_host`와 같다), 사이드카는 기존 푸시 줄. `init`은 캐시로 바로 그리고, 마지막 확인이 하루를 넘었으면 데몬 스레드로 `me` → 바뀌면 `account_state` |
-| `scripts/site_ui.html` | 3D 설정 아래 '수준 [기본 \| 고급]'(`radiogroup`, `options.detail_level`, 고급에 든 것은 마우스 올림 글 — 손님은 고급에 자물쇠 — 고르면 플랜 창 `Guest | Member` + 구글 로그인), `DETAIL_ROWS` 없앰, 3D 설정 지형 줄 아래 '차도 15 cm 내리기(연석)', 범위 두 줄을 한 줄로, 로그인 창 A·B(업데이트 창 꼴 — 기다림·돌아오면 고급 고르기/만들기 이어 가기), 로딩·결과 카드 윗줄 '고급 모델', 자물쇠 아이콘 `lock`, 목 모드 `&account=guest\|trial\|waiting\|member\|expired` |
+| `scripts/site_ui.html` | 3D 설정 아래 '수준 [기본 \| 고급]'(`radiogroup`, `options.detail_level`, 고급에 든 것은 마우스 올림 글 — 손님은 고급에 자물쇠 — 고르면 플랜 창 '회원가입 후 무료' 한 문장 + 구글 로그인), `DETAIL_ROWS` 없앰, 3D 설정 지형 줄 아래 '차도 15 cm 내리기(연석)', 범위 두 줄을 한 줄로, 로그인 창 A·B(업데이트 창 꼴 — 기다림·돌아오면 고급 고르기/만들기 이어 가기), 로딩·결과 카드 윗줄 '고급 모델', 자물쇠 아이콘 `lock`, 목 모드 `&account=guest\|trial\|waiting\|member\|expired` |
 | `scripts/i18n.json` | 새 문구 네 언어(`tests/test_i18n.py`) |
 | `scripts/usage_stats.py` | `panel_open`·`build`에 `plan`(guest·free…)·`trial`(로그인 없이 고급으로 만든 것 0/1)만. `get_options3d`에 `detail_level`·연석. 계정 id·메일은 보내지 않는다. `dev_stats`에 맞춤 측정기준 등록 |
 | 다음 판(0.4.x) | 결과 화면 [인스타용 이미지] — 도면 SVG → 패널 캔버스 4:5 PNG + 작은 `made with Gorani`, 파이썬은 파일 쓰기만(위 '공유 고리') |
@@ -450,7 +442,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 - [ ] PR 스크린샷(데스크톱 ko·en, 휴대폰 `join`)
 
 **④ 플러그인 엔진·컨트롤러 — 이 저장소, 2~3일**
-- [ ] `constants.py`: `FEATURES`·`GUEST_FEATURES`·`GUEST_TRIALS`·`PLAN_CARDS`·`LOGIN_PROMPT_ON_BUILD`·`ACCOUNT_*`·`PANEL_LINKS.privacy`, `HOST_LABELS.account`(blender·web False). `remote_config.REMOTE_KEYS`에 일곱 키
+- [ ] `constants.py`: `FEATURES`·`GUEST_FEATURES`·`GUEST_TRIALS`·`LOGIN_PROMPT_ON_BUILD`·`ACCOUNT_*`·`PANEL_LINKS.privacy`, `HOST_LABELS.account`(blender·web False). `remote_config.REMOTE_KEYS`에 여섯 키
 - [ ] `account.py`(새): account.json, 받는 곳, `claim`·`me`·`logout`, 권한(`has_feature`)·무료 횟수 세기, `get_allowed_options`(권한에 없는 기능의 옵션 끄기) — 이용권 이름으로 분기하지 않는다
 - [ ] 패널 `pending_action`(누른 곳으로 돌아가기 — 고급·첫 만들기·생성 기록), 권한에 없는 기능이면 '지금 이용권에 없습니다'
 - [ ] 생성 기록(회원만): `entry_id`, `history_*` 명령, 회원이면 생성 뒤 저절로 `history_add`·`pending_history`, 폴더 없는 기록은 같은 설정으로 지도에 되살리기
@@ -462,9 +454,9 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 **⑤ 패널 UI(고급 기능 개편 포함) — 이 저장소, 3~4일**
 - [ ] 3D 설정 아래 '수준 [기본 | 고급]'(설명 줄 없음, '고급' 마우스 올림 글은 `FEATURES`에서 만듦), `options.detail_level`(prefs), `DETAIL_ROWS` 없앰, 만들 때 옵션 덮어 보내기(교량 켬·담장 끔·연석은 3D 설정 값)
 - [ ] 3D 설정: 지형 줄 아래 '차도 15 cm 내리기(연석)'(누구나, 요약은 끌 때만 `연석 끔`). 범위·한 변 두 줄을 한 줄로('직접' 입력칸은 줄 아래), 트레이 높이 다시 재기
-- [ ] `constants.DETAIL_OPTIONS`: `building_parapet`·`building_floors` 기본값 `True`. 잠긴 '고급' 글자 회색 #7d8798 → #5f6878(대비 4.5:1 이상). i18n `기본` 영어 `Base` → `Basic`, 새 문구 `수준`·`고급`·`고급 모델`·`차도 15 cm 내리기(연석)`, 플랜 창 글(`PLAN_CARDS`) 네 언어
+- [ ] `constants.DETAIL_OPTIONS`: `building_parapet`·`building_floors` 기본값 `True`. 잠긴 '고급' 글자 회색 #7d8798 → #5f6878(대비 4.5:1 이상). i18n `기본` 영어 `Base` → `Basic`, 새 문구 `수준`·`고급`·`고급 모델`·`차도 15 cm 내리기(연석)`, 플랜 창 문장 네 언어
 - [ ] '고급' 안 자물쇠(손님 — 고르면 기본으로 되돌리고 플랜 창, 초점은 받게), 만료 때 다시 잠그고 기본으로
-- [ ] 플랜 창: Guest·Member 두 칸(`PLAN_CARDS` 원격 설정 + `FEATURES` 이름), [구글로 로그인], `로그인 없이 써 보기 (n회)`(남았을 때만), 좁으면 위아래로, 계정 창에 이용권 이름
+- [ ] 플랜 창: '고급 기능은 회원가입 후 무료로 이용할 수 있습니다.' 한 문장 + 고급에 드는 것 한 줄(`FEATURES`), [구글로 로그인], `로그인 없이 써 보기 (n회)`(남았을 때만), 계정 창에 이용권 이름
 - [ ] 로딩·결과 카드 윗줄 `고급 모델`(기본이면 없음). 만드는 동안 머리줄 [로그인]·계정 기호 잠금
 - [ ] 로그인 기다리는 띠·취소·시간 초과, 돌아온 뒤 토스트
 - [ ] 머리줄 오른쪽: 손님 [로그인](모든 화면), 회원 계정 기호 → 작은 창(메일·[로그아웃], 생성 기록 n ›). 만드는 동안 잠금
