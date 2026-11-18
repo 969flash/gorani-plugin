@@ -164,7 +164,7 @@ Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드�
  "features":{"detail_advanced":{"options":["building_parapet","building_floors","detail_markings","detail_trees","detail_rail","detail_walls"]}},   // constants.FEATURES(원격 설정) — 트레이 '고급' 마우스 올림 글(순서 = 중요도)
  "account":{"enabled":true,"state":"guest|member|expired","email":"","plan_name":"Guest|Member","features":[],"trials_left":{"detail_advanced":3},
            "prompt_on_build":"first|always|off","prompt_seen":false},   // 회원(account.get_panel_state). enabled false = 로그인·자물쇠 없이 고급 누구나(Blender·웹판·회원 API 없음). expired = 30일 넘게 확인 못 함(권한은 손님처럼)
- "tips":[{"text":"Gorani는 후원으로 운영합니다.","kind":"sponsor"},…],"tip_seconds":8,   // 3D 만드는 동안 진행 카드 아래에 도는 한 줄(constants.LOADING_TIPS — 원격 설정, 글은 i18n 원문). kind login = 회원 기능이 켜진 손님만, sponsor = 후원 링크가 있을 때(Blender판 없음), contact = 누구나. 처음은 무작위, 그 뒤 tip_seconds마다
+ "tips":[{"text":"Gorani는 후원으로 운영합니다.","kind":"sponsor"},…],"tip_seconds":8,   // 3D 만드는 동안 진행 카드 아래에 도는 한 줄(constants.LOADING_TIPS — 원격 설정, 글은 i18n 원문). kind tip·contact = 누구나, login = 회원 기능이 켜진 손님만, sponsor = 후원 링크가 있을 때(Blender판 없음). 진행 카드 안내 줄 하나에 번갈아 — 첫 줄은 늘 '화면이 멈출 수 있습니다', 그 뒤 tip_seconds마다 무작위(같은 줄 연달아 없음). 문서에 넣는 중(busy)이면 그 말이 앞선다
  "stats_consent":null,                            // 사용 통계 동의 true|false|null(안 물음) — host.ask_stats(Blender + 측정 ID 있음)면 null일 때 정보 띠로 한 번 묻고([보내기]·[보내지 않음] → stats_consent{on}), 더보기 메뉴 설정에서 바꾼다
  "can_download":true,                             // DATA_MANIFEST_URL이 있으면 블로커에 [DB 받기]·[멈추기]
  "sources":[source, source, source, source],      // id = lot, building, terrain, api 순서 고정(더보기 메뉴 자료 칸·블로커 체크리스트·첫 실행 모드 판정)

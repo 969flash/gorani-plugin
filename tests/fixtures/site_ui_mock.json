@@ -506,7 +506,7 @@
    "contact": "mailto:gorani.3d@gmail.com",
    "sponsor": "https://github.com/sponsors/969flash"
   },
-  "tips": [{"text": "로그인 후 고급 수준을 무제한으로 사용해보세요.", "kind": "login"}, {"text": "Gorani는 후원으로 운영합니다.", "kind": "sponsor"}, {"text": "후원을 통해 새로운 기능이 도입됩니다.", "kind": "sponsor"}, {"text": "Team Gorani에게 많은 후원 부탁드립니다.", "kind": "sponsor"}, {"text": "협업·개선 문의는 gorani.3d@gmail.com으로 보내 주세요.", "kind": "contact"}],
+  "tips": [{"text": "범위가 1 km를 넘으면 만드는 데 1분 넘게 걸릴 수 있습니다.", "kind": "tip"}, {"text": "3D가 끝나면 베이스맵(.ai)·다이어그램·조서도 이어서 만들 수 있습니다.", "kind": "tip"}, {"text": "도면 색과 글꼴을 바꿔 '내 스타일'로 저장해 두면 다음 대상지에도 쓸 수 있습니다.", "kind": "tip"}, {"text": "최근 결과를 누르면 지난 대상지와 설정을 다시 열 수 있습니다.", "kind": "tip"}, {"text": "도면마다 데이터 출처와 기준일이 적혀 있습니다.", "kind": "tip"}, {"text": "로그인 후 고급 수준을 무제한으로 사용해보세요.", "kind": "login"}, {"text": "Gorani는 후원으로 운영합니다.", "kind": "sponsor"}, {"text": "후원을 통해 새로운 기능이 도입됩니다.", "kind": "sponsor"}, {"text": "Team Gorani에게 많은 후원 부탁드립니다.", "kind": "sponsor"}, {"text": "협업·개선 문의는 gorani.3d@gmail.com으로 보내 주세요.", "kind": "contact"}],
   "tip_seconds": 3,
   "output_langs": [
    [

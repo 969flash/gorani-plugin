@@ -6154,5 +6154,35 @@
   "es": "Para colaboraciones o sugerencias, escribe a gorani.3d@gmail.com.",
   "ja": "協業・改善のご相談は gorani.3d@gmail.com までどうぞ。",
   "zh": "合作或改进建议请发送至 gorani.3d@gmail.com。"
+ },
+ "범위가 1 km를 넘으면 만드는 데 1분 넘게 걸릴 수 있습니다.": {
+  "en": "Ranges over 1 km can take more than a minute to build.",
+  "es": "Las extensiones de más de 1 km pueden tardar más de un minuto.",
+  "ja": "範囲が1 kmを超えると作成に1分以上かかることがあります。",
+  "zh": "范围超过1 km时,创建可能需要1分钟以上。"
+ },
+ "3D가 끝나면 베이스맵(.ai)·다이어그램·조서도 이어서 만들 수 있습니다.": {
+  "en": "After the 3D model, you can also make basemaps (.ai), diagrams and tables.",
+  "es": "Tras el modelo 3D también puedes crear mapas base (.ai), diagramas y tablas.",
+  "ja": "3Dのあと、ベースマップ(.ai)・ダイアグラム・調書も続けて作れます。",
+  "zh": "3D完成后,还可以继续制作底图(.ai)、分析图和清单。"
+ },
+ "도면 색과 글꼴을 바꿔 '내 스타일'로 저장해 두면 다음 대상지에도 쓸 수 있습니다.": {
+  "en": "Save your drawing colors and fonts as 'My style' to reuse them on the next site.",
+  "es": "Guarda los colores y fuentes como 'Mi estilo' para usarlos en el próximo sitio.",
+  "ja": "図面の色と書体を「マイスタイル」に保存すると次の対象地でも使えます。",
+  "zh": "把图纸颜色和字体保存为“我的样式”,下一个场地也能用。"
+ },
+ "최근 결과를 누르면 지난 대상지와 설정을 다시 열 수 있습니다.": {
+  "en": "Click a recent result to reopen its site and settings.",
+  "es": "Haz clic en un resultado reciente para reabrir su sitio y ajustes.",
+  "ja": "最近の結果を押すと前回の対象地と設定を開き直せます。",
+  "zh": "点击最近结果,即可重新打开之前的场地和设置。"
+ },
+ "도면마다 데이터 출처와 기준일이 적혀 있습니다.": {
+  "en": "Every drawing lists its data sources and reference dates.",
+  "es": "Cada plano indica sus fuentes de datos y fechas de referencia.",
+  "ja": "図面ごとにデータの出典と基準日が書かれています。",
+  "zh": "每张图纸都注明了数据来源和基准日期。"
  }
 }

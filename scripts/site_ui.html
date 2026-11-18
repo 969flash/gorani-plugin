@@ -392,9 +392,8 @@ details.s3d .trow:has(> label.chk) { min-height: 32px; }   /* 체크박스 줄�
 .card2d .top h3 { margin: 0 0 4px; padding: 0; border: 0; }
 /* 진행 카드(3D·2D 같은 꼴) — 제목 + 오른쪽 위 [취소], 대상지 줄, 막대, 단계, 안내. 로그는 카드 밖 */
 .job .track { margin-top: 12px; }
-.job .job-note { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
-.job .load-tip { margin-top: 10px; color: var(--ink-3); font-size: 11.5px; line-height: 17px; word-break: keep-all; transition: opacity .25s; }   /* 로딩 문구 — 바뀔 때 잠깐 흐려진다 */
-.job .load-tip.out { opacity: 0; }
+.job .job-note { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line); min-height: 18px; transition: opacity .25s; }
+.job .job-note.out { opacity: 0; }   /* 안내 줄이 바뀔 때 잠깐 흐려진다 */
 /* 2D 카드 타일 — 누르면 켜지고, 켠 타일 안에만 칩 */
 .tile2d { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); margin-top: 8px; overflow: hidden; }
 .tile2d.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
@@ -1398,7 +1397,7 @@ function renderResult() {
   var sec = document.querySelector('section[data-screen="result"]');
   if (state.run === "done" && state.result && state.styleOpen) { renderStyle(sec); return; }
   if (state.run === "done" && state.result) { sec.innerHTML = doneHtml(); renderCard2d(); return; }
-  if (state.run === "running") sec.innerHTML = '<div class="card job"><div class="top">' + jobHeadHtml(runTitle(), targetLabel() + ", " + rangeLabel() + (isAdvanced(state.options) ? " · " + tr("고급 모델") : "")) + progressHtml() + jobNoteHtml() + tipHtml() + "</div></div>" + logHtml();
+  if (state.run === "running") sec.innerHTML = '<div class="card job"><div class="top">' + jobHeadHtml(runTitle(), targetLabel() + ", " + rangeLabel() + (isAdvanced(state.options) ? " · " + tr("고급 모델") : "")) + progressHtml() + jobNoteHtml() + "</div></div>" + logHtml();
   else sec.innerHTML = '<h2 tabindex="-1" id="run_title">' + esc(runTitle()) + '</h2><div id="error_card"></div>' + logHtml();
   renderPhaseList(); renderErrorCard(); updateCancelBtn();
 }
@@ -1407,7 +1406,8 @@ function jobHeadHtml(title, sub) {
   return '<div class="done-head"><h2 class="done-line" tabindex="-1" id="run_title">' + esc(title) + '</h2><span class="doc-acts"><button type="button" class="btn sm" data-act="cancel" id="cancel_btn">' + ico("stop") + tr("취소") + "</button></span></div>" +
     (sub ? '<div class="sub ellip">' + esc(sub) + "</div>" : "");
 }
-// 3D 만드는 동안 진행 카드 맨 아래에 도는 한 줄(constants.LOADING_TIPS — 원격 설정, 2026-11-18 사용자). 시작할 때 무작위, 그 뒤 LOADING_TIP_SECONDS마다 다음 것
+// 진행 카드 안내 한 줄 — 3D 만드는 동안은 '화면이 멈출 수 있습니다'로 시작해 LOADING_TIP_SECONDS마다 무작위로 다른 줄(constants.LOADING_TIPS — 원격 설정).
+// 한 번에 한 줄만(2026-11-18 사용자). 문서에 넣는 중(busy)이면 그 말이 앞선다. 2D 진행은 안내 줄 하나 그대로
 function loadingTips() {
   return ((state.init && state.init.tips) || []).filter(function (t) {
     if (t.kind === "login") return !!ACCT && !!ACCT.st().enabled && !ACCT.member();   // 회원 기능이 켜진 손님에게만
@@ -1415,23 +1415,25 @@ function loadingTips() {
     return true;
   });
 }
-function tipHtml() {
-  var list = loadingTips(); if (!list.length) return "";
-  return '<div class="load-tip" id="load_tip" aria-live="off">' + esc(tr(list[state.tipIndex % list.length].text)) + "</div>";
+function jobLines() {
+  var host = HOST.id === "web" ? tr("이 탭 안에서 만듭니다. 탭을 닫으면 멈춥니다.") : tr("{0} 안에서 만들어 {0} 화면이 잠깐씩 멈출 수 있습니다.", hostName());
+  if (state.run !== "running" || state.job2d === "running") return [host];
+  return [host].concat(loadingTips().map(function (t) { return tr(t.text); }));
 }
 function rotateTip() {
-  var el = $("load_tip"), list = loadingTips(), sec = (state.init && state.init.tip_seconds) || 8;
-  if (!el || list.length < 2 || Date.now() - state.tipAt < sec * 1000) return;
-  state.tipIndex = (state.tipIndex + 1) % list.length; state.tipAt = Date.now();
+  var el = $("job_note"), lines = jobLines(), sec = (state.init && state.init.tip_seconds) || 8;
+  if (!el || state.busy || lines.length < 2 || Date.now() - state.tipAt < sec * 1000) return;
+  var next = Math.floor(Math.random() * (lines.length - 1)); if (next >= state.tipIndex % lines.length) next += 1;   // 같은 줄은 연달아 나오지 않게
+  state.tipIndex = next; state.tipAt = Date.now();
   el.classList.add("out");
-  setTimeout(function () { el.textContent = tr(list[state.tipIndex].text); el.classList.remove("out"); }, 250);
+  setTimeout(function () { el.textContent = jobNote(); el.classList.remove("out"); }, 250);
 }
 function jobNoteHtml() {   // 문서에 넣는 중이면 그 말로 바뀐다(busy)
   return '<div class="hint job-note" id="job_note">' + esc(jobNote()) + "</div>";
 }
 function jobNote() {
   if (state.busy) return tr("{0}입니다. 끝날 때까지 취소할 수 없습니다.", tr(String(state.busyLabel || "작업 중")).replace(/[….]+$/, ""));
-  return HOST.id === "web" ? tr("이 탭 안에서 만듭니다. 탭을 닫으면 멈춥니다.") : tr("{0} 안에서 만들어 {0} 화면이 잠깐씩 멈출 수 있습니다.", hostName());
+  var lines = jobLines(); return lines[(state.tipIndex || 0) % lines.length];
 }
 function runTitle() {
   if (state.run === "running") return tr("3D 모델 만드는 중");
@@ -1545,7 +1547,7 @@ function appendLog(text, level) {
 }
 function startTimer() {
   state.startedAt = Date.now(); clearInterval(timers.elapsed);
-  state.tipIndex = Math.floor(Math.random() * 1000); state.tipAt = Date.now();   // 로딩 문구 — 만들 때마다 다른 데서 시작
+  state.tipIndex = 0; state.tipAt = Date.now();   // 안내 줄 — '화면이 멈출 수 있습니다'로 시작, 그 뒤 무작위
   timers.elapsed = setInterval(function () { var el = $("elapsed"); if (el) el.textContent = fmtTime((Date.now() - state.startedAt) / 1000); rotateTip(); }, 1000);
 }
 // 3D 블록 — "무엇이 됐나 · 숫자 · 파일 위치". 생성이 끝나면 Rhino 화면은 이미 대상지로 맞춰져 있어 '대상지 보기' 버튼은 두지 않는다(2026-10-19 사용자 결정).
@@ -2629,13 +2631,18 @@ ACCT = {
   askAdvanced: function () {
     var b = document.querySelector('input[name="detail_level"][value="basic"]'); if (b) b.checked = true;
     this.pending = "advanced"; this.open("plans"); track("login_prompt", "advanced");
+    this.seen();   // 로그인 권유를 봤다 — 닫고 바로 만들어도 '처음 만들 때 창'이 연달아 뜨지 않게
   },
   beforeBuild: function () {
     var s = this.st();
     if (!s.enabled || this.member() || this.trial || s.prompt_on_build === "off" || (s.prompt_on_build !== "always" && s.prompt_seen)) return false;
-    s.prompt_seen = true; send({ cmd: "account_flag", key: "login_prompt_seen" });
+    this.seen();
     this.pending = "build"; this.open("login", true); track("login_prompt", "first");
     return true;
+  },
+  seen: function () {   // 처음 만들 때 창은 설치마다 한 번 — 고급을 눌러 플랜 창을 봤어도 본 것으로
+    var s = this.st(); if (s.prompt_seen) return;
+    s.prompt_seen = true; send({ cmd: "account_flag", key: "login_prompt_seen" });
   },
   afterBuild: function () {
     if (!this.trial) return;

@@ -181,8 +181,13 @@ PANEL_LINKS = {
     "sponsor": "https://github.com/sponsors/969flash",   # 후원 — 더보기 메뉴 '도움' 문의 아래(2026-11-18 사용자, 웹사이트 꼬리말과 같은 곳). Blender판에는 줄이 없다
 }
 # 3D 만드는 동안 진행 카드 아래에 도는 한 줄(2026-11-18 사용자) — 원격 설정. 글은 i18n.json 원문(새 줄을 더하면 번역도 같이 올린다)
-# kind: login = 회원 기능이 켜진 손님에게만, sponsor = 후원 링크가 있을 때(Blender판은 없음), contact = 누구나
+# kind: tip·contact = 누구나, login = 회원 기능이 켜진 손님에게만, sponsor = 후원 링크가 있을 때(Blender판은 없음). 첫 줄은 늘 '화면이 멈출 수 있습니다'(패널 jobLines)
 LOADING_TIPS = [
+    {"text": "범위가 1 km를 넘으면 만드는 데 1분 넘게 걸릴 수 있습니다.", "kind": "tip"},
+    {"text": "3D가 끝나면 베이스맵(.ai)·다이어그램·조서도 이어서 만들 수 있습니다.", "kind": "tip"},
+    {"text": "도면 색과 글꼴을 바꿔 '내 스타일'로 저장해 두면 다음 대상지에도 쓸 수 있습니다.", "kind": "tip"},
+    {"text": "최근 결과를 누르면 지난 대상지와 설정을 다시 열 수 있습니다.", "kind": "tip"},
+    {"text": "도면마다 데이터 출처와 기준일이 적혀 있습니다.", "kind": "tip"},
     {"text": "로그인 후 고급 수준을 무제한으로 사용해보세요.", "kind": "login"},
     {"text": "Gorani는 후원으로 운영합니다.", "kind": "sponsor"},
     {"text": "후원을 통해 새로운 기능이 도입됩니다.", "kind": "sponsor"},
