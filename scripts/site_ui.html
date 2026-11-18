@@ -144,8 +144,6 @@ html:lang(zh-Hans) body { font-family: -apple-system, "PingFang SC", "Microsoft 
 #acct_modal .gets .ico { width: 12px; height: 12px; color: var(--accent); flex: none; }
 #acct_modal .alt { width: 100%; height: 36px; justify-content: center; margin-top: 8px; border-color: transparent; background: var(--press); color: var(--ink-2); font-size: 12.5px; font-weight: 500; }   /* 둘째 — 옅은 회색, 구글 단추보다 낮게 */
 #acct_modal .alt:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
-#acct_modal .link-btn { display: block; margin: 10px auto 0; padding: 2px 4px; border: 0; background: none; color: var(--ink-3); font: inherit; font-size: 11.5px; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }   /* 셋째 — 작은 글씨 */
-#acct_modal .link-btn:hover { color: var(--ink); }
 #acct_modal .left-note { margin: 10px 0 0; color: var(--ink-3); font-size: 11px; line-height: 16px; }
 #acct_modal .spin { width: 28px; height: 28px; margin: 4px auto 14px; border: 2.5px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: acct-spin .9s linear infinite; }
 /* Google 로그인 단추 — Google 브랜드 지침의 밝은·어두운 꼴(흰 바탕·회색 테두리·G 로고) */
@@ -2592,8 +2590,8 @@ ACCT = {
     else if (kind === "plans") html = x + mark + title(free) +
       '<ul class="gets">' + advancedKeys().map(function (k) { return "<li>" + ico("check") + "<span>" + esc(tr(DETAIL_NAMES[k] || k)) + "</span></li>"; }).join("") + "</ul>" + google +
       (left ? trial("acct_trial") : used);
-    else if (build) html = x + mark + title(free) + google + (left ? trial("acct_trial_build") : "") +   // 처음 만들 때 — 한도는 단추의 '(n회 남음)'으로(2026-11-18 사용자)
-      '<button type="button" class="link-btn" data-act="acct_skip">' + tr("로그인 없이 기본으로 만들기") + "</button>";
+    else if (build) html = x + mark + title(tr("회원가입 후 고급 수준을 무료로 이용할 수 있습니다.")) + google +   // 처음 만들 때(기본으로 만들기) — 써 보기는 '고급'을 고를 때 창에만(2026-11-18 사용자)
+      '<button type="button" class="btn alt" data-act="acct_skip">' + tr("로그인 없이 기본으로 만들기") + "</button>";
     else html = x + mark + title(tr("Gorani 로그인")) + sub(free) + google;
     m.innerHTML = '<div class="dlg">' + html + "</div>";
     m.hidden = false;
@@ -2650,9 +2648,6 @@ Object.assign(ACTIONS, {
   acct_login: function () { ACCT.login(); },
   acct_close: function () { ACCT.dismiss(); },
   acct_skip: function () { ACCT.pending = null; ACCT.close(); startGenerate(true); },
-  acct_trial_build: function () {   // 처음 만들 때 '고급 기능 써 보기' — 이번 모델을 고급으로, 1회를 쓴다
-    ACCT.trial = true; ACCT.pending = null; ACCT.close(); state.options.detail_level = "advanced"; track("account_trial", "first"); startGenerate(true);
-  },
   acct_trial: function () {
     ACCT.trial = true; ACCT.pending = null; ACCT.close(); state.options.detail_level = "advanced"; renderTray(); track("account_trial", ACCT.left("detail_advanced"));
   },

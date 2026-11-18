@@ -6118,5 +6118,11 @@
   "es": "Crear un modelo básico sin iniciar sesión",
   "ja": "ログインせずに基本で作成",
   "zh": "不登录,以基础模型创建"
+ },
+ "회원가입 후 고급 수준을 무료로 이용할 수 있습니다.": {
+  "en": "Sign up to use the Advanced level for free.",
+  "es": "Regístrate para usar el nivel avanzado gratis.",
+  "ja": "会員登録すると高度レベルを無料で使えます。",
+  "zh": "注册会员后即可免费使用高级级别。"
  }
 }
