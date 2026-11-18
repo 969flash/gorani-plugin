@@ -165,6 +165,22 @@ class SourceHelperTest(unittest.TestCase):
         self.assertEqual(codes, ["stale_lot", "no_context_db"])   # 키는 선택 — 없어도 경고하지 않는다
 
 
+class DetailLevelTest(unittest.TestCase):
+    def test_level_sets_advanced_options(self):   # 패널 '수준'이 고급 6종을 한꺼번에 — 옛 prefs의 키마다 값보다 앞선다(2026-11-16)
+        keys = constants.FEATURES["detail_advanced"]["options"]
+        stale = dict.fromkeys(keys, True)
+        basic = context_builder.get_request_with_defaults({"options": dict(stale, detail_level="basic")})["options"]
+        self.assertEqual([basic[k] for k in keys], [False] * len(keys))
+        advanced = context_builder.get_request_with_defaults({"options": dict(dict.fromkeys(keys, False), detail_level="advanced")})["options"]
+        self.assertEqual([advanced[k] for k in keys], [True] * len(keys))
+        self.assertTrue(basic["detail_curb"] and basic["detail_bridges"])   # 연석(3D 설정)·교량(늘 켬)은 수준과 따로
+
+    def test_no_level_keeps_keys(self):   # 수준이 없는 요청(시험 드라이버)은 키마다 값 그대로
+        options = context_builder.get_request_with_defaults({"options": {"building_parapet": False, "detail_trees": True}})["options"]
+        self.assertFalse(options["building_parapet"])
+        self.assertTrue(options["detail_trees"])
+
+
 class PrefsTest(unittest.TestCase):
     """site_prefs — test_site_preflight.py에서 옮김."""
 
