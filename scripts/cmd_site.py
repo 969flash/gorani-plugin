@@ -545,6 +545,7 @@ class _SiteController:
         # [/blender-cut]
         self._opened = False
         self._login = None             # 브라우저 로그인 한 번(account.Login) — 패널이 account_poll로 묻는다
+        self._account_fallback = False # 이번 실행은 로그인 고장으로 고급을 열었다(저장하지 않는다 — 다음 실행에 다시 시도)
         self._keep = {}                # 마지막 결과의 시트 데이터(지형 삼각형 포함) — 도면 스타일 미리보기·적용이 다시 쓴다
         self._map_center = None        # 첫 init에 IP로 짐작한 지도 첫 위치 [lng, lat] — 못 받으면 None(서울시청)
         try:   # 원격 설정(도면 색·범례·구간·번역) — 캐시를 먼저 덮는다(패널 HTML의 번역 사전이 호스트 생성 때 심기므로 init보다 앞서야 한다). 새 것은 _init이 받는다
@@ -660,11 +661,12 @@ class _SiteController:
             pass
         if not self._opened:   # 지도는 첫 init_state로만 만든다(JS initMap)
             self._map_center = loader.load("review_map").get_ip_center()
-        state = get_init_state(map_center=self._map_center)
+        state = self._get_init_state(map_center=self._map_center)
         self.push(state)
         # [blender-cut]
-        if state["account"]["enabled"]:   # 하루 넘게 확인 안 했으면 뒤에서 me — 패널은 캐시로 바로 그린다(결과는 다음 init에)
-            loader.load("account").refresh_later()
+        if state["account"]["enabled"]:   # 회원이면 뒤에서 확인(이용권·웹에서 해제·못 보낸 기록) — 패널은 캐시로 바로 그린다(결과는 다음 init에)
+            constants = loader.load("constants")
+            loader.load("account").refresh_later(constants.HOST_LABELS[loader.load("context_builder").get_host()]["id"], constants.PANEL_VERSION)
         # [/blender-cut]
         if not self._opened:   # init은 배지 [다시 확인]에도 온다 — 패널 열기는 한 번만
             self._opened = True
@@ -753,7 +755,7 @@ class _SiteController:
         # [blender-cut] 회원 — 권한(또는 남은 써 보기)에 없는 기능의 옵션을 끈다. 엔진은 등급을 모른다. 저장한 prefs는 그대로
         account = loader.load("account")
         request["options"], trials = account.get_allowed_options(request["options"], account.load(), trial=bool(msg.get("trial")),
-                                                                 enabled=account.is_enabled(context_builder.get_host()))
+                                                                 enabled=account.is_enabled(context_builder.get_host()) and not self._account_fallback)
         # [/blender-cut]
         self._context_builder = context_builder
         self._skipped, self._phase_detail = get_skipped_details(request["options"])
@@ -779,6 +781,7 @@ class _SiteController:
         for key in trials:   # 써 보기는 성공한 만들기만 센다
             account.add_trial(key)
         response["trial"] = bool(trials)
+        self._add_history(response)
         # [/blender-cut]
         self.push(get_done_message(response))
         lots = lot_db.load(target["pnus"]).lots if target["mode"] == "lots" else []
@@ -787,7 +790,18 @@ class _SiteController:
         # [/blender-cut]
         if response["options"].get("zoom_after_import"):
             context_baker.zoom_to_site(doc, response["dir"])
-        self.push(get_init_state())   # 생성 중 받은 지역 데이터로 헤더 배지 갱신 — 최근 결과에도 이번 것이 앞에 든다
+        self.push(self._get_init_state())   # 생성 중 받은 지역 데이터로 헤더 배지 갱신 — 최근 결과에도 이번 것이 앞에 든다
+
+    def _get_init_state(self, **kwargs):
+        # type: (...) -> dict
+        """get_init_state + 이번 실행의 로그인 고장 여부(account.fallback — 다시 그려도 고급이 열린 채로)."""
+        state = get_init_state(**kwargs)
+        # [blender-cut]
+        if self._account_fallback and state["account"].get("enabled"):
+            account = loader.load("account")
+            state["account"] = account.get_panel_state(account.load(), loader.load("context_builder").get_host(), fallback=True)
+        # [/blender-cut]
+        return state
 
     def _make_2d(self, msg):
         """3D 결과 폴더에 2D 자료(베이스맵 .ai·도면·조서 CSV)를 더한다 — context_builder.make_2d를 UI 스레드에서 동기 호출.
@@ -833,7 +847,7 @@ class _SiteController:
             pass
         try:   # 회원 — 이용권(guest·free…)과 로그인 없이 써 본 것인지. 계정 id·메일은 보내지 않는다
             account = loader.load("account").load()
-            params["plan"] = ((account.get("entitlement") or {}).get("plan") or "free") if account.get("token") else "guest"
+            params["plan"] = loader.load("account").get_plan(account) if account.get("refresh_token") else "guest"
             params["trial"] = int(bool(response.get("trial")))
         except Exception:
             pass
@@ -856,11 +870,32 @@ class _SiteController:
         if params:
             self._send_stats("ui", params)
 
-    # 회원 — 로그인은 시스템 브라우저(gorani.site/login/) → 127.0.0.1 받는 곳 → claim(account.Login). 패널은 기다리는 동안
-    # account_poll로 묻는다 — 받는 곳 스레드에서 패널로 바로 보내지 않는다(호스트마다 UI 스레드 규칙이 달라서). 결과는 account_state 하나
+    def _add_history(self, response):
+        # type: (dict) -> None
+        """회원(history_sync 기능)이 3D를 만들면 계정 생성 기록 한 줄 — 보내기는 account가 데몬 스레드로(못 보내면 다음 확인 때)."""
+        account = loader.load("account")
+        context_builder = loader.load("context_builder")
+        constants = loader.load("constants")
+        host_id = context_builder.get_host()
+        data = account.load()
+        if not response.get("dir") or not account.is_enabled(host_id) or "history_sync" not in account.get_features(data):
+            return
+        if account.get_state(data) != "member":
+            return
+        try:
+            entry_id, entry = account.get_history_entry(context_builder.get_result_state(response["dir"]), constants.HOST_LABELS[host_id]["id"],
+                                                        constants.PANEL_VERSION)
+        except (OSError, ValueError, KeyError):
+            return
+        if entry_id:
+            account.add_history_later(entry_id, entry)
+
+    # 회원 — 로그인은 시스템 브라우저(gorani.site/login/) → 127.0.0.1 받는 곳 → Firebase 열쇠(account.Login). 패널은 기다리는 동안
+    # account_poll로 묻는다 — 받는 곳 스레드에서 패널로 바로 보내지 않는다(호스트마다 UI 스레드 규칙이 달라서). 결과는 account_state 하나.
+    # 로그인 쪽이 고장이면 막지 않고 연다(account_state.fallback — docs/account_plan.md '로그인에 기대지 않기')
     def _push_account(self, error=""):
         account = loader.load("account")
-        state = account.get_panel_state(account.load(), loader.load("context_builder").get_host())
+        state = account.get_panel_state(account.load(), loader.load("context_builder").get_host(), fallback=self._account_fallback)
         self.push(dict(state, type="account_state", error=error))
 
     def _account_login(self, msg):
@@ -872,21 +907,28 @@ class _SiteController:
             self._login.close()
         constants = loader.load("constants")
         self._login = account.Login(constants.HOST_LABELS[host_id]["id"], constants.PANEL_VERSION, _i18n.get_lang())
-        self._open(self._login.url)
-        self.push({"type": "account_state", "state": "waiting"})
+        self.push({"type": "account_state", "state": "waiting"})   # 브라우저는 로그인 쪽이 살아 있는지 재 본 뒤 account_poll이 연다
 
     def _account_poll(self, msg):
         if self._login is None:
             self._push_account()
             return
+        url = self._login.take_url()
+        if url:   # 재 보니 살아 있다 — 이제 브라우저를 연다
+            self._open(url)
         result = self._login.poll()
         if result is None:
             return   # 아직 — 패널은 계속 기다린다
         self._login = None
-        error = "" if result["ok"] else {"timeout": tr("로그인이 끝나지 않았습니다"), "too_fast": tr("잠시 뒤 다시 시도해 주세요")}.get(
-            result.get("error"), tr("로그인하지 못했습니다"))
-        self._push_account(error)
-        params = loader.load("usage_stats").get_ui_params("account_done" if result["ok"] else "account_fail", result.get("error"))
+        if result.get("fallback"):   # 로그인 쪽 고장 — 이번 실행은 고급을 연다(패널은 성공처럼 누른 곳으로 이어 간다)
+            self._account_fallback = True
+            self._push_account()
+            action, detail = "account_fallback", result.get("error")
+        else:
+            error = "" if result["ok"] else {"timeout": tr("로그인이 끝나지 않았습니다")}.get(result.get("error"), tr("로그인하지 못했습니다"))
+            self._push_account(error)
+            action, detail = ("account_done" if result["ok"] else "account_fail"), result.get("error")
+        params = loader.load("usage_stats").get_ui_params(action, detail)
         if params:
             self._send_stats("ui", params)
 
@@ -968,7 +1010,7 @@ class _SiteController:
                 self._download_packs(packs)
         finally:
             self._running = False
-        self.push(get_init_state())
+        self.push(self._get_init_state())
 
     def _download_for_generate(self, request):
         # type: (dict) -> None

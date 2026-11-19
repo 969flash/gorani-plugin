@@ -262,7 +262,7 @@ BLENDER_CONSTANT_PATCHES = {
         "VWORLD_API_KEY_ENV": '""', "VWORLD_SEARCH_URL": '""',
         "OSM_USER_AGENT": '"Gorani/0.3 (Blender add-on; https://gorani.site/)"',
         "PDOK_ITEMS_URL": '""', "BDTOPO_FEED_URL": '""', "SWISS_STAC_ITEMS_URL": '""', "PLATEAU_CKAN_URL": '""', "CENSUS_COUNTY_URL": '""', "OVERTURE_S3_URL": '""',
-        "ACCOUNT_ENABLED": "False", "ACCOUNT_API_URL": '""',   # 회원 없음 — 확장 약관: 외부 서비스에 가입을 요구할 수 없다(account.py도 뺀다)
+        "ACCOUNT_ENABLED": "False", "ACCOUNT_TOKEN_URL": '""',   # 회원 없음 — 확장 약관: 외부 서비스에 가입을 요구할 수 없다(account.py도 뺀다)
     },
     "review_map.py": {"VWORLD_TILE_URL_TEMPLATE": '""', "VWORLD_AERIAL_URL_TEMPLATE": '""', "ESRI_AERIAL_URL": '""', "IP_LOCATE_URL": '""'},
 }

@@ -1410,7 +1410,7 @@ function jobHeadHtml(title, sub) {
 // 한 번에 한 줄만(2026-11-18 사용자). 문서에 넣는 중(busy)이면 그 말이 앞선다. 2D 진행은 안내 줄 하나 그대로
 function loadingTips() {
   return ((state.init && state.init.tips) || []).filter(function (t) {
-    if (t.kind === "login") return !!ACCT && !!ACCT.st().enabled && !ACCT.member();   // 회원 기능이 켜진 손님에게만
+    if (t.kind === "login") return !!ACCT && !!ACCT.st().enabled && !ACCT.member() && !ACCT.st().fallback;   // 회원 기능이 켜진 손님에게만(로그인 고장으로 연 실행은 빼고)
     if (t.kind === "sponsor") return !!ACCT && !!((state.init.links || {}).sponsor);   // Blender판(ACCT 없음)에는 후원 말이 없다
     return true;
   });
@@ -2662,8 +2662,10 @@ ACCT = {
     if (state.init && "enabled" in m) state.init.account = acc;   // 오류만 온 경우(error 푸시)는 지금 상태를 둔다
     if (this.kind === "wait") this.close();
     $("acct_pop").hidden = true;
-    var ok = waited && !m.error && acc.state === "member";
+    var fallback = waited && !m.error && !!acc.fallback;   // 로그인 쪽 고장 — 이번 실행은 고급을 연다(성공처럼 누른 곳으로 이어 간다, account_plan.md)
+    var ok = waited && !m.error && (acc.state === "member" || fallback);
     if (m.error) toast(m.error);
+    else if (fallback) toast(tr("로그인 서버가 풀 뜯으러 갔습니다. 이번 고급은 그냥 열어 둡니다."));
     else if (ok) toast(tr("로그인했습니다"));
     if (ok && (pending === "advanced" || pending === "build") && !this.locked("detail_advanced")) {   // 누른 곳으로 — 고급을 골랐거나 고급으로 만들기
       state.options.detail_level = "advanced"; send({ cmd: "save_prefs", options: state.options });
@@ -2695,15 +2697,16 @@ applyStaticText();
 var MOCK = /[?&]mock=1/.test(location.search);
 if (MOCK) {
   var mockAccount = function (kind) {
-    var on = kind !== "off", member = kind === "member";
-    return { enabled: on, state: member ? "member" : "guest", email: member ? "name@gmail.com" : "", plan_name: member ? "Member" : "Guest",
-      features: member || !on ? ["detail_advanced"] : [], trials_left: { detail_advanced: kind === "trial0" ? 0 : 3 }, prompt_on_build: on ? "first" : "off", prompt_seen: false };
+    var on = kind !== "off", member = kind === "member", fallback = kind === "fallback";   // fallback = 로그인 고장으로 연 실행
+    return { enabled: on, state: member ? "member" : "guest", fallback: fallback, email: member ? "name@gmail.com" : "", plan_name: member ? "Member" : "Guest",
+      features: member || !on || fallback ? ["detail_advanced"] : [], trials_left: { detail_advanced: kind === "trial0" ? 0 : 3 },
+      prompt_on_build: on && !fallback ? "first" : "off", prompt_seen: false };
   };
   var mockLoginAt = 0;
   send = function (msg) {
     console.log("[send]", JSON.stringify(msg));
     if (msg.cmd === "account_login") { mockLoginAt = Date.now(); setTimeout(function () { window.app.receive({ type: "account_state", state: "waiting" }); }, 50); }
-    if (msg.cmd === "account_poll" && mockLoginAt && Date.now() - mockLoginAt > 2500) { mockLoginAt = 0; window.app.receive(Object.assign({ type: "account_state", error: "" }, mockAccount("member"))); }
+    if (msg.cmd === "account_poll" && mockLoginAt && Date.now() - mockLoginAt > 2500) { mockLoginAt = 0; window.app.receive(Object.assign({ type: "account_state", error: "" }, mockAccount(/[?&]loginfail=1/.test(location.search) ? "fallback" : "member"))); }   // &loginfail=1 — 로그인 고장
     if (msg.cmd === "account_logout" || msg.cmd === "account_cancel") { mockLoginAt = 0; setTimeout(function () { window.app.receive(Object.assign({ type: "account_state", error: "" }, mockAccount("guest"))); }, 50); }
     if (msg.cmd === "install_update") setTimeout(function () { window.app.receive({ type: "update_state", state: /[?&]updfail=1/.test(location.search) ? "failed" : "done", text: "", next: /[?&]updrestart=1/.test(location.search) ? "restart" : "reopen" }); }, 1500);   // &updfail=1 — 실패 화면
   };
@@ -2715,7 +2718,7 @@ if (MOCK) {
     var ml = (location.search.match(/[?&]lang=(\w+)/) || [])[1]; if (ml) msgs[0].options = Object.assign({}, msgs[0].options, { lang: ml });
     var up = (location.search.match(/[?&]update=(\w+)/) || [])[1];   // &update=soft|hard — 업데이트 모달 보기
     msgs[0].host = Object.assign({}, msgs[0].host, { self_update: !/[?&]selfupd=0/.test(location.search) });
-    msgs[0].account = mockAccount((location.search.match(/[?&]account=(\w+)/) || [])[1] || "guest");   // &account=guest|trial0|member|off — 회원 화면 보기   // [지금 업데이트]. &selfupd=0 — 수동 안내(스토어가 업데이트하는 프로그램·yak 없음)
+    msgs[0].account = mockAccount((location.search.match(/[?&]account=(\w+)/) || [])[1] || "guest");   // &account=guest|trial0|member|fallback|off — 회원 화면 보기   // [지금 업데이트]. &selfupd=0 — 수동 안내(스토어가 업데이트하는 프로그램·yak 없음)
     if (up) msgs[0].update = up === "hard" ? { latest: "0.3.0", min: "0.3.0" }
       : { latest: "0.3.0", body: "새 버전부터 계정으로 로그인합니다. 무료로 계속 쓸 수 있습니다.", deadline: "12월 1일",
           items: ["로그인과 최근 대상지 동기화", "결과 화면 하단 후원 안내", "현황도 3종 추가"] };

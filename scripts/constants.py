@@ -472,7 +472,8 @@ GA_PNU_PARAMS = 4  # 필지 PNU를 나눠 담는 매개변수 수(값 하나에 
 GA_UI_ACTIONS = ("recent", "recent_del", "search_pick", "mode", "force_osm", "output_lang", "pick_curve", "eum", "download_area",
                  "rerange", "to_result", "retry", "open", "open_url", "import", "export", "copylog",
                  "sheet_ai", "sheet_ai_all", "sheet_view", "style_open", "st_apply", "st_save_ok",
-                 "login_prompt", "account_login", "account_trial", "account_logout", "account_done", "account_fail")   # 회원 — 창이 뜬 곳(advanced·first·header)·로그인 결과
+                 "login_prompt", "account_login", "account_trial", "account_logout", "account_done", "account_fail", "account_fallback",
+                 "history_open", "history_restore", "history_star", "history_delete")   # 회원 — 창이 뜬 곳(advanced·first·header)·로그인 결과
 GA_UI_DETAIL_MAX = 24   # detail = 짧은 분류값(lot·place, ko·en, 폴더·.ai 등)만
 # 관리자 페이지 통계(dev_stats — 이 Mac에서만). 열쇠·쌓은 기록은 저장소 밖 ADMIN_DIR에 둔다(공개 저장소)
 ADMIN_DIR = os.path.join(os.path.expanduser("~"), ".config", "gorani")
@@ -928,18 +929,23 @@ DETAIL_OPTIONS = {   # 키: 기본값
 FEATURES = {
     "detail_advanced": {"options": ["building_parapet", "building_floors", "detail_markings", "detail_trees", "detail_rail", "detail_walls"]},
 }
-# 회원(구글 로그인, docs/account_plan.md) — 회원 API(앱스 스크립트, 웹 저장소 tools/account)와 웹 /login/. 모두 원격 설정이라 판 없이 켜고 끄고 옮긴다
-ACCOUNT_ENABLED = True          # False = 로그인·자물쇠 없이 고급 누구나(회원 API가 오래 멈췄을 때 비상 스위치)
-ACCOUNT_API_URL = ""            # 앱스 스크립트 웹 앱(…/exec) — 배포하면 넣는다. 비어 있으면 회원 기능이 꺼진 것과 같다(고급 누구나)
+# 회원(구글 로그인, docs/account_plan.md) — Firebase(Auth + Realtime Database, 우리 서버 없음)와 웹 /login/. 모두 원격 설정이라 판 없이 켜고 끄고 옮긴다
+ACCOUNT_ENABLED = True          # False = 로그인·자물쇠 없이 고급 누구나(로그인 쪽이 오래 고장 났거나 서버가 틀린 거절을 줄 때 비상 스위치)
+ACCOUNT_FIREBASE = {"api_key": "", "project_id": "", "db_url": ""}   # Firebase 웹 설정(공개 값 — 웹 저장소 tools/account/README.md). API 키가 비면 회원 기능이 꺼진 것과 같다(고급 누구나)
 ACCOUNT_LOGIN_URL = "https://gorani.site/login/"        # 브라우저 로그인 — ?port&state&h&lang
-ACCOUNT_DONE_URL = "https://gorani.site/login/done/"    # 받는 곳(127.0.0.1)이 로그인을 마치고 브라우저를 넘기는 곳
+ACCOUNT_DONE_URL = "https://gorani.site/login/done/"    # 받는 곳(127.0.0.1)이 로그인을 마치고 브라우저를 넘기는 곳 — ?ok=1|0 또는 ?fallback=1, &lang&h
+ACCOUNT_TOKEN_URL = "https://securetoken.googleapis.com/v1/token"   # 열쇠(refresh token) → 1시간 토큰(Firebase Auth REST)
+ACCOUNT_DENIED_ERRORS = ("USER_DISABLED", "USER_NOT_FOUND", "TOKEN_EXPIRED", "INVALID_REFRESH_TOKEN")   # 이 넷만 확실한 거절(잠금) — 나머지 오류는 고장으로 보고 연다(초기 설정 실수도 거절처럼 보이므로)
+PLAN_FEATURES = {"free": ["detail_advanced", "history_sync"]}   # 이용권 → 기능(서버 쪽 값 — 원격 설정). 토큰에 plan이 없으면 free(로그인 = 회원)
+PLAN_NAMES = {"free": "Member"}  # 화면의 이용권 이름 — 모든 언어에서 같은 영어 고유명사(손님은 패널이 Guest)
 GUEST_FEATURES = []             # 로그인 없이 쓰는 기능 키
 GUEST_TRIALS = {"detail_advanced": 3}   # 로그인 없이 써 보는 횟수(설치마다 ~/.gorani/account.json, 만들기 성공만 센다)
 LOGIN_PROMPT_ON_BUILD = "first" # 손님이 [3D 모델 만들기]를 누를 때 로그인 창 — first(설치마다 처음 한 번)·always·off. 매번은 '만들기가 멈춘 줄' 안다
-ACCOUNT_OFFLINE_DAYS = 30       # 마지막 확인 뒤 이 날수까지 받은 권한을 그대로 쓴다(인터넷 없는 곳). 회원 API가 오래 멈추면 늘린다
-ACCOUNT_CHECK_HOURS = 24        # 마지막 확인이 이보다 오래되면 패널을 열 때 뒤에서 다시 확인(me)
-ACCOUNT_LOGIN_MINUTES = 5       # 브라우저에서 돌아오기를 기다리는 시간(교환권 수명과 같다)
-ACCOUNT_TIMEOUT_SECONDS = 10    # 회원 API 요청 하나
+ACCOUNT_CHECK_HOURS = 0         # 마지막 확인이 이보다 오래되면 패널을 열 때 뒤에서 다시 확인 — 0 = 열 때마다(웹에서 해제한 PC가 다음에 열 때 로그아웃하게)
+ACCOUNT_LOGIN_MINUTES = 5       # 브라우저에서 돌아오기를 기다리는 시간 — 지나면 로그인 쪽을 다시 재 보고 고장이면 연다
+ACCOUNT_TIMEOUT_SECONDS = 10    # Firebase 요청 하나
+ACCOUNT_PROBE_SECONDS = 4       # 로그인 쪽이 살아 있나 재 보는 요청 하나(로그인을 누를 때·시간이 지났을 때)
+HISTORY_MAX = 300               # 계정 생성 기록 상한 — 넘치면 오래된 것부터(즐겨찾기는 남김). 1 KB × 300 × 3,000명 ≈ RTDB 무료 1 GB
 PARAPET = {"height": 1.0, "width": 0.25, "min_area": 30.0}   # 옥상 난간벽 m — 높이 1.0 m(건축물의 피난·방화구조 규칙 옥상 난간 1.2 m보다 낮은 매스 표현값), 이보다 작은 동(㎡)은 뺀다
 FLOOR_LINE_MIN_FLOORS = 2       # 층 구분선은 이 층수 이상인 동만(층고 = 높이 ÷ 지상층수)
 WALL = {"sample": 2.0, "probe": 2.0, "min_rise": 0.8, "max_rise": 15.0, "width": 0.4, "coping": 0.2, "embed": 0.3}   # 옹벽 — 선 양쪽 probe m 지반 고저차가 min_rise 이상인 구간만 세로 벽(높은 쪽 + coping, 낮은 쪽 − embed). 수치지형도 옹벽은 높이 속성이 없다

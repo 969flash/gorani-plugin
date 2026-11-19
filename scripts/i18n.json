@@ -6047,12 +6047,6 @@
   "ja": "ブラウザでログイン中",
   "zh": "正在浏览器中登录"
  },
- "잠시 뒤 다시 시도해 주세요": {
-  "en": "Please try again shortly",
-  "es": "Inténtalo de nuevo en un momento",
-  "ja": "しばらくしてからもう一度お試しください",
-  "zh": "请稍后再试"
- },
  "지금은 로그인을 쓸 수 없습니다": {
   "en": "Sign-in is not available right now",
   "es": "El inicio de sesión no está disponible ahora",
@@ -6184,5 +6178,11 @@
   "es": "Cada plano indica sus fuentes de datos y fechas de referencia.",
   "ja": "図面ごとにデータの出典と基準日が書かれています。",
   "zh": "每张图纸都注明了数据来源和基准日期。"
+ },
+ "로그인 서버가 풀 뜯으러 갔습니다. 이번 고급은 그냥 열어 둡니다.": {
+  "en": "The sign-in server wandered off to graze. Advanced is open this time.",
+  "es": "El servidor de inicio de sesión se fue a pastar. Esta vez el modo Avanzado queda abierto.",
+  "ja": "ログインサーバーが草を食べに出かけました。今回は高度をそのまま開けておきます。",
+  "zh": "登录服务器去吃草了。这次高级功能先直接开放。"
  }
 }
