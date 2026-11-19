@@ -1229,8 +1229,9 @@ def get_drape_tiles(tris_world, origin):
     원천이 섞이면 촬영 시기·색이 갈린다). VWorld·Esri는 저장할 수 없어 쓰지 않는다.
     출력: {zoom, x0, y0, x1, y1, tiles {(tx, ty): bytes}, corners(로컬 m — 영상 북서·북동·남서 모서리), attribution, year, m_per_px} 또는 None(공개 영상 없음·다 못 받음)."""
     import review_map
-    xs = [p[0] for tri in tris_world for p in tri[:3]]
-    ys = [p[1] for tri in tris_world for p in tri[:3]]
+    inside = [tri for tri in tris_world if tri[3] != "outside"]   # 범위 안 땅만 — 2D 도면을 같이 만들면 용지 범위 바깥 삼각형이 더해져 영상 범위가 두 배·해상도가 절반이 됐다(2026-11-19 루브르 0.2 → 0.39 m/px)
+    xs = [p[0] for tri in inside for p in tri[:3]]
+    ys = [p[1] for tri in inside for p in tri[:3]]
     if not xs:
         return None
     corners = [get_wgs84_from_tm(x, y) for x in (min(xs), max(xs)) for y in (min(ys), max(ys))]

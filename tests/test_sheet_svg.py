@@ -566,6 +566,9 @@ class RegionImageryTest(unittest.TestCase):
         self.assertAlmostEqual((nex - nwx) / ((drape["x1"] - drape["x0"] + 1) * 256), drape["m_per_px"], delta=drape["m_per_px"] * 0.01)
         with patch.object(sheet_svg, "_fetch_tile", lambda url: b"0" * 100):   # 다 빈 칸 — 입히지 않는다
             self.assertIsNone(sheet_svg.get_drape_tiles(tris, (0.0, 0.0)))
+        far = tris + [((-3000.0, -3000.0, 0.0), (-2900.0, -3000.0, 0.0), (-2900.0, -2900.0, 0.0), "outside")]   # 2D 도면 용지 바깥 — 영상 범위에 넣지 않는다
+        with patch.object(sheet_svg, "_fetch_tile", lambda url: b"0" * 5000):
+            self.assertEqual(sheet_svg.get_drape_tiles(far, (0.0, 0.0))["zoom"], drape["zoom"])
 
 
 class AxoSheetTest(unittest.TestCase):
