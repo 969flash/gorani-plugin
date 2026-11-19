@@ -931,7 +931,8 @@ FEATURES = {
 }
 # 회원(구글 로그인, docs/account_plan.md) — Firebase(Auth + Realtime Database, 우리 서버 없음)와 웹 /login/. 모두 원격 설정이라 판 없이 켜고 끄고 옮긴다
 ACCOUNT_ENABLED = True          # False = 로그인·자물쇠 없이 고급 누구나(로그인 쪽이 오래 고장 났거나 서버가 틀린 거절을 줄 때 비상 스위치)
-ACCOUNT_FIREBASE = {"api_key": "", "project_id": "", "db_url": ""}   # Firebase 웹 설정(공개 값 — 웹 저장소 tools/account/README.md). API 키가 비면 회원 기능이 꺼진 것과 같다(고급 누구나)
+ACCOUNT_FIREBASE = {"api_key": "AIzaSyCggyybM6ngv8v0NUJ2n_0wf476R0vZWxs", "project_id": "gorani-da15f",
+                    "db_url": "https://gorani-da15f-default-rtdb.asia-southeast1.firebasedatabase.app"}   # Firebase 웹 설정(공개 값 — 고라니 운영 계정의 Spark 프로젝트, 2026-11-19). API 키가 비면 회원 기능이 꺼진 것과 같다(고급 누구나)
 ACCOUNT_LOGIN_URL = "https://gorani.site/login/"        # 브라우저 로그인 — ?port&state&h&lang
 ACCOUNT_DONE_URL = "https://gorani.site/login/done/"    # 받는 곳(127.0.0.1)이 로그인을 마치고 브라우저를 넘기는 곳 — ?ok=1|0 또는 ?fallback=1, &lang&h
 ACCOUNT_TOKEN_URL = "https://securetoken.googleapis.com/v1/token"   # 열쇠(refresh token) → 1시간 토큰(Firebase Auth REST)
