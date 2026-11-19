@@ -921,7 +921,7 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
                                  tr("필지·용도지역 도면은 Korea 모드에만 있고, 실측 높이·높이 태그가 있는 건물은 {0} %입니다(나머지 {1:.1f} m 또는 층수 추정).",
                                     round(grade_ab * 100), constants.DEFAULT_BUILDING_HEIGHT_M)))
     else:
-        warnings.append(_warning("info", "abroad", tr("Global — OpenStreetMap 건물 {0}동·지형 타일", height["n"]),
+        warnings.append(_warning("info", "abroad", tr("Global — OpenStreetMap 건물 {0}동·{1}", height["n"], tr("Mapterhorn 지형") if "mapterhorn" in source_ids else tr("지형 타일")),
                                  tr("필지·용도지역 도면은 Korea 모드에만 있고, 높이 태그가 있는 건물은 {0} %입니다(나머지 {1:.1f} m 또는 층수 추정).",
                                     round(grade_ab * 100), constants.DEFAULT_BUILDING_HEIGHT_M)))
     if not height["n"]:
