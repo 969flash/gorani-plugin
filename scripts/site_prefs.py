@@ -18,8 +18,11 @@ PREFS_PATH = os.path.join(PREFS_DIR, "prefs.json")
 CLIENT_ID_PATH = os.path.join(PREFS_DIR, "client_id")   # 설치 ID — 사용 통계(Rhino)와 국내 데이터 팩 서버 하루 한도(모든 판)
 SOURCE_NEWS_PATH = os.path.join(PREFS_DIR, "source_news.json")
 HIDDEN_RESULTS_MAX = 200   # 최근 결과에서 뺀 폴더 기록 상한 — 결과 폴더가 지워져도 남는 경로라 끝없이 쌓이지 않게
-PREFS_VERSION = 2   # 2 = 범위 기본값을 사각형 한 변 500 m로 바꿨다(2026-10-19) — 그 전에 저장된 radius·shape는 한 번 버린다
+PREFS_VERSION = 3   # 2 = 범위 기본값을 사각형 한 변 500 m로 바꿨다(2026-10-19) — 그 전에 저장된 radius·shape는 한 번 버린다
 _RESET_BEFORE_V2 = ("radius", "shape")
+# 3 = 도면 25~28(태양·그림자·바람, 2026-11)을 더했다 — 그 전 prefs가 분석도를 다 골라 둔 상태(묶음 칩 [전체]·[분석도])면 새 분석도도 한 번 켠다.
+# 하나씩 고른 사람(분석도 일부만)은 그대로 둔다
+_NEW_SHEET_KEYS_V3 = ("shadow", "sun_hours", "sun_path", "wind")
 
 
 
@@ -65,13 +68,27 @@ def get_options(path=PREFS_PATH):
     options = dict(constants.PANEL_DEFAULT_OPTIONS)
     data = _read_json(path)
     saved = data.get("options") or {}
-    old = int(data.get("version") or 1) < PREFS_VERSION
+    version = int(data.get("version") or 1)
     for key in options:
-        if key in saved and not (old and key in _RESET_BEFORE_V2):
+        if key in saved and not (version < 2 and key in _RESET_BEFORE_V2):
             options[key] = saved[key]
+    if version < 3 and isinstance(saved.get("sheet_ids"), list):
+        options["sheet_ids"] = _get_with_new_sheets(saved["sheet_ids"])
     if saved and "lang" not in saved:   # 언어 고르기 전(0.3.0 전) 설치본 — 한국어 패널을 쓰던 사람이라 영어로 바꾸지 않는다
         options["lang"] = "ko"
     return options
+
+
+def _get_with_new_sheets(sheet_ids):
+    # type: (list) -> list
+    """v3 전 저장된 도면 선택 — 옛 분석도(새 도면 빼고)를 모두 골랐으면 새 분석도(_NEW_SHEET_KEYS_V3)를 더한다. 입력은 바꾸지 않는다."""
+    ids = {key: sheet_id for sheet_id, key, *_ in constants.SHEET_CATALOG}
+    fresh = [ids[key] for key in _NEW_SHEET_KEYS_V3 if key in ids]
+    old_analysis = [sheet_id for sheet_id, key, *_ in constants.SHEET_CATALOG
+                    if constants.SHEET_GROUP.get(key) == "analysis" and sheet_id not in fresh]
+    if fresh and all(sheet_id in sheet_ids for sheet_id in old_analysis):
+        return list(sheet_ids) + [sheet_id for sheet_id in fresh if sheet_id not in sheet_ids]
+    return list(sheet_ids)
 
 
 def save_options(options, path=PREFS_PATH):
