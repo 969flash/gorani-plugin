@@ -546,6 +546,7 @@ class _SiteController:
         self._opened = False
         self._login = None             # 브라우저 로그인 한 번(account.Login) — 패널이 account_poll로 묻는다
         self._account_fallback = False # 이번 실행은 로그인 고장으로 고급을 열었다(저장하지 않는다 — 다음 실행에 다시 시도)
+        self._history = None           # 계정 생성 기록 받기 한 번(account.HistoryFetch) — 패널이 history_poll로 묻는다
         self._keep = {}                # 마지막 결과의 시트 데이터(지형 삼각형 포함) — 도면 스타일 미리보기·적용이 다시 쓴다
         self._map_center = None        # 첫 init에 IP로 짐작한 지도 첫 위치 [lng, lat] — 못 받으면 None(서울시청)
         try:   # 원격 설정(도면 색·범례·구간·번역) — 캐시를 먼저 덮는다(패널 HTML의 번역 사전이 호스트 생성 때 심기므로 init보다 앞서야 한다). 새 것은 _init이 받는다
@@ -587,6 +588,7 @@ class _SiteController:
             "stats_consent": self._stats_consent, "track": self._track,
             "account_login": self._account_login, "account_poll": self._account_poll, "account_cancel": self._account_cancel,
             "account_logout": self._account_logout, "account_flag": self._account_flag,
+            "history_list": self._history_list, "history_poll": self._history_poll, "history_change": self._history_change,
             # [/blender-cut]
         }
         handler = handlers.get(cmd)
@@ -944,6 +946,28 @@ class _SiteController:
 
     def _account_flag(self, msg):
         loader.load("account").set_flag(str(msg.get("key") or ""))
+
+    # 회원 '생성 기록' 화면 — 계정 기록 받기는 스레드(account.HistoryFetch), 패널은 history_poll로 묻는다. 받으면 이 PC 결과 폴더와
+    # entry_id로 짝지어 dir을 붙인다(이 프로그램의 3D가 있는 폴더만 — 없으면 패널이 같은 대상지·설정으로 지도에 되살린다)
+    def _history_list(self, msg):
+        self._history = loader.load("account").HistoryFetch()
+
+    def _history_poll(self, msg):
+        if self._history is None:
+            return
+        result = self._history.poll()
+        if result is None:
+            return   # 아직 — 패널은 계속 묻는다
+        self._history = None
+        context_builder = loader.load("context_builder")
+        local = {r["entry_id"]: r["dir"] for r in context_builder.get_recent_results(limit=100000) if r.get("entry_id")}
+        for item in result["items"]:
+            item["dir"] = local.get(item["id"], "")
+        self.push(dict(result, type="history"))
+
+    def _history_change(self, msg):
+        changes = {k: msg[k] for k in ("label", "star") if k in msg}
+        loader.load("account").change_history_later(str(msg.get("id") or ""), changes, delete=bool(msg.get("delete")))
     # [/blender-cut]
 
     def _area_packs(self, msg):
@@ -1225,6 +1249,7 @@ _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "s
                    # [blender-cut]
                    "stats_consent": "init", "track": "init", "install_update": "init",
                    "account_login": "account", "account_poll": "account", "account_cancel": "account", "account_logout": "account", "account_flag": "account",
+                   "history_list": "account", "history_poll": "account", "history_change": "account",
                    # [/blender-cut]
                    }
 

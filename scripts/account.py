@@ -439,6 +439,28 @@ def change_history(entry_id, changes=None, delete=False, path=ACCOUNT_PATH, now=
     return True
 
 
+class HistoryFetch(object):
+    """get_history를 데몬 스레드로 — 패널은 history_poll로 poll()을 부른다(받는 곳과 같은 까닭 — 스레드에서 패널로 바로 보내지 않는다)."""
+
+    def __init__(self, path=ACCOUNT_PATH):
+        self.result = None
+
+        def run():
+            self.result = get_history(path)
+        threading.Thread(target=run, daemon=True).start()
+
+    def poll(self):
+        # type: () -> dict
+        """받았으면 get_history의 값, 아직이면 None."""
+        return self.result
+
+
+def change_history_later(entry_id, changes=None, delete=False, path=ACCOUNT_PATH):
+    # type: (str, dict, bool, str) -> None
+    """change_history를 데몬 스레드로 — 패널은 바꾼 모습을 먼저 그린다(못 하면 다음에 목록을 열 때 원래대로)."""
+    threading.Thread(target=change_history, args=(entry_id, changes, delete, path), daemon=True).start()
+
+
 class Login(object):
     """브라우저 로그인 한 번 — 먼저 로그인 쪽이 살아 있는지 재 보고(스레드), 살아 있으면 컨트롤러가 take_url()로 브라우저를 연다.
     127.0.0.1의 빈 포트에 받는 곳을 잠깐 열고, 웹이 폼 POST로 넘긴 열쇠로 sign_in한다(웹 쪽 고장이면 error=service).

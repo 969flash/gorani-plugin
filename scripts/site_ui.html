@@ -195,6 +195,35 @@ body[data-screen="map"] section[data-screen="map"] { display: flex; flex-directi
 /* 결과는 넓은 창에서도 내용 폭 880 px까지만(가운데) */
 body[data-screen="result"] section[data-screen="result"] { display: block; overflow: auto; padding: 12px max(16px, calc((100% - 880px) / 2)) 16px; }
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: contents; }
+/* 회원 '생성 기록'(세 번째 화면, docs/account_plan.md) — 결과 화면과 같은 폭. 줄 = 윤곽 그림·이름·시각·범위·고급 모델·별 */
+body[data-screen="history"] section[data-screen="history"] { display: block; overflow: auto; padding: 12px max(16px, calc((100% - 880px) / 2)) 16px; }
+.hist-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; margin-bottom: 12px; }
+.hist-head > .btn { justify-self: start; }
+.hist-head h2 { margin: 0; font-size: 15px; line-height: 22px; font-weight: 700; }
+.hist-group { margin-top: 12px; }
+.hist-group > .tray-h { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 11px; line-height: 16px; font-weight: 600; color: var(--ink-3); }
+.hist-row { display: grid; grid-template-columns: minmax(0, 1fr) 32px; align-items: center; gap: 4px; }
+.hist-open { display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 6px 8px; border: 0; border-radius: 8px; background: none; text-align: left; color: var(--ink); }
+.hist-open:hover:not(:disabled) { background: var(--hover); }
+.hist-open .txt { display: grid; min-width: 0; }
+.hist-open .name, .hist-open .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-open .name { font-weight: 600; line-height: 20px; }
+.hist-open .sub { color: var(--ink-3); font-size: 12px; line-height: 18px; }
+.hist-name { width: 100%; height: 28px; }
+.hist-thumb { width: 40px; height: 40px; padding: 4px; border-radius: 8px; background: var(--press); fill: none; stroke: var(--ink-3); stroke-width: 1; }
+.hist-thumb .rg { stroke-dasharray: 2 2; }
+.hist-thumb .t { fill: var(--accent-wash); stroke: var(--accent-ink); stroke-width: 1.2; }
+.hist-star[aria-pressed="true"] { color: var(--ink); }
+.hist-star[aria-pressed="true"] .ico { fill: currentColor; }
+#hist_menu { position: fixed; z-index: 1150; min-width: 160px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, .14); padding: 4px; }
+#hist_menu[hidden] { display: none; }
+#hist_menu button { display: flex; align-items: center; gap: 8px; width: 100%; height: 32px; padding: 0 10px; border: 0; border-radius: 6px; background: none; color: var(--ink); text-align: left; }
+#hist_menu button:hover, #hist_menu button:focus-visible { background: var(--hover); }
+.tray-h .hist-link { margin-left: auto; height: 20px; padding: 0 2px; border: 0; background: none; color: var(--accent-ink); font: inherit; font-weight: 600; display: inline-flex; align-items: center; gap: 2px; }
+.tray-h .hist-link .ico { width: 12px; height: 12px; }
+#acct_pop .pop-link { display: flex; align-items: center; gap: 8px; width: 100%; height: 40px; padding: 0 12px; border: 0; border-top: 1px solid var(--line); background: none; color: var(--ink); text-align: left; }
+#acct_pop .pop-link:hover { background: var(--hover); }
+#acct_pop .pop-link .ico:last-child { margin-left: auto; color: var(--ink-3); }
 section[data-screen="map"] fieldset { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
 /* ── 버튼 — 아이콘 + 글자. 주 = 잉크, 보조 = 흰 면 + 옅은 테두리, 고스트 = 테두리 없음 ── */
@@ -516,6 +545,7 @@ footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-
 <main>
   <section data-screen="map"></section>
   <section data-screen="result"></section>
+  <section data-screen="history"></section>
   <div id="blocker" hidden></div>
   <div id="menu" role="region" hidden></div>
   <div id="viewer" role="dialog" aria-modal="true" hidden></div>
@@ -523,6 +553,7 @@ footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-
 <div id="update_modal" role="dialog" aria-modal="true" aria-labelledby="update_title" hidden></div>
 <div id="acct_modal" role="dialog" aria-modal="true" aria-labelledby="acct_title" hidden></div>
 <div id="acct_pop" role="dialog" aria-label="Account" hidden></div>
+<div id="hist_menu" role="menu" hidden></div>
 <div id="dl" role="status" hidden></div>
 <footer id="footer"></footer>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -572,6 +603,7 @@ footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-
   <symbol id="i-palette" viewBox="0 0 16 16"><path d="M8 1.5a6.5 6.5 0 0 0 0 13c.9 0 1.5-.6 1.5-1.4 0-.9-.7-1.2-.7-2s.6-1.3 1.4-1.3h1.6a2.7 2.7 0 0 0 2.7-2.7C14.5 4 11.6 1.5 8 1.5z"/><circle cx="5" cy="7" r=".9" fill="currentColor"/><circle cx="8" cy="4.6" r=".9" fill="currentColor"/><circle cx="11" cy="6.6" r=".9" fill="currentColor"/></symbol>
   <symbol id="i-save" viewBox="0 0 16 16"><path d="M3.5 2.5h7l3 3v7a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z"/><path d="M5 2.5v3h5M5 13.5v-4h6v4"/></symbol>
   <symbol id="i-undo" viewBox="0 0 16 16"><path d="M5.5 2.5 2.5 5.5l3 3M2.5 5.5h7a4 4 0 0 1 0 8H6"/></symbol>
+  <symbol id="i-star" viewBox="0 0 16 16"><path d="M8 1.9l1.8 3.8 4.1.5-3 2.9.8 4.1L8 11.2l-3.7 2 .8-4.1-3-2.9 4.1-.5z"/></symbol>
   <symbol id="i-clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5V8l2.5 1.5"/></symbol>
   <symbol id="i-key" viewBox="0 0 16 16"><circle cx="5.5" cy="10.5" r="3"/><path d="M7.6 8.4 13.5 2.5M11.5 4.5l2 2M9.8 6.2l1.5 1.5"/></symbol>
   <symbol id="i-database" viewBox="0 0 16 16"><ellipse cx="8" cy="3.75" rx="5.5" ry="2"/><path d="M2.5 3.75v8.5c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2v-8.5M2.5 8c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2"/></symbol>
@@ -798,14 +830,16 @@ function render() {
   if (ACCT) ACCT.renderHeader();
   $("map_park").appendChild($("map"));   // 섹션 재렌더 전 지도 대피
   renderFooter();
-  if (state.screen === "map") renderMap(); else renderResult();
+  if (state.screen === "map") renderMap(); else if (state.screen === "history") { if (HIST) HIST.render(); } else renderResult();
   placeMap();
   var h = document.querySelector('section[data-screen="' + state.screen + '"] h2'); if (h) h.focus({ preventScroll: true });
 }
 function setRun(run) { state.run = run; document.body.dataset.run = run; renderFooter(); if (ACCT) ACCT.renderHeader(); }   // 만드는 동안 머리줄 로그인·계정도 잠근다
 function renderFooter() {
   var r = state.run, html = "";
-  if (state.screen === "map") {
+  if (state.screen === "history") {
+    html = "";   // 생성 기록 화면은 아래 줄이 없다 — 돌아가기는 화면 머리
+  } else if (state.screen === "map") {
     var can = hasTarget() && !busyTarget(), again = can && madeBefore();
     html = (canReturn() && !draw.on && !stamp.on ? '<button type="button" class="btn ghost" data-act="to_result" title="' + esc(lastLabel()) + '">' + tr("결과로 돌아가기") + ico("next") + "</button>"
         : '<span class="hint">' + (can ? (again ? tr("이 대상지의 이전 3D를 새것으로 바꿉니다") : "") : state.mode === "area" && draw.on ? tr("구역을 닫으면 만들 수 있습니다") : "") + "</span>") +
@@ -931,7 +965,7 @@ function emptyTrayHtml() {
   var results = (state.init && state.init.results) || [];   // 방식·나라와 상관없이 — 결과 폴더(context.json)에서 읽는다
   var curve = state.mode === "area" && curveBtnHtml() ? '<div class="tray-curve">' + curveBtnHtml() + "</div>" : "";   // 구역 — 최근 결과 아래(2026-11-08 사용자)
   if (results.length)
-    return '<div class="tray-empty"><div class="tray-h">' + ico("clock") + tr("최근 결과") + "</div><div class=\"mlist\">" + results.map(function (r, i) { return recentHtml(r, i, false); }).join("") + "</div>" + curve + "</div>";
+    return '<div class="tray-empty"><div class="tray-h">' + ico("clock") + tr("최근 결과") + (HIST && HIST.can() ? '<button type="button" class="hist-link" data-act="hist_open">' + tr("생성 기록") + ico("next") + "</button>" : "") + "</div><div class=\"mlist\">" + results.map(function (r, i) { return recentHtml(r, i, false); }).join("") + "</div>" + curve + "</div>";
   var t = state.mode === "point" ? tr("지도를 누르거나 위에서 주소를 찾아 위치를 찍으세요") : state.mode === "area" ? tr("지도를 눌러 구역 꼭짓점을 찍으세요") : tr("지도에서 필지를 누르거나 위에서 주소나 지번을 찾으세요");
   return '<div class="tray-empty"><div class="hint">' + t + "</div>" + curve + "</div>";
 }
@@ -2145,6 +2179,7 @@ function requestCancel() {
 }
 var track = function () {}, trackAct = function () {};   // 누른 버튼 기록 — Blender판에는 없다(아래 구간을 빌드가 뺀다)
 var ACCT = null;   // 회원(아래 [blender-cut] 구간) — Blender판은 null이라 자물쇠·로그인이 없다(확장 약관)
+var HIST = null;   // 회원 '생성 기록' 화면(아래 [blender-cut] 구간) — Blender판은 null
 // [blender-cut] 사용 통계 — 누른 버튼 이름과 짧은 분류값만(Python이 목록 밖은 버린다). 주소·검색어·경로는 보내지 않는다. 웹판은 site.js가 따로
 var TRACK = { recent: 0, recent_del: 0, mode: function (b) { return b.dataset.mode; }, force_osm: function () { return forceOsm() ? "osm" : "db"; },
   output_lang: function (b) { return b.dataset.v; }, pick_curve: 0, eum: 0, download_area: 0, rerange: 0, to_result: 0, retry: 0,
@@ -2594,7 +2629,7 @@ ACCT = {
     var p = $("acct_pop"), s = this.st();
     if (!p.hidden) { this.closePop(); return; }
     p.innerHTML = '<div class="r"><span class="av" aria-hidden="true">' + esc((s.email || "?").charAt(0)) + '</span><span class="v">' + esc(s.email || "") + "<small>" + esc(s.plan_name || "Member") + '</small></span><button type="button" class="btn sm" data-act="acct_logout">' +
-      tr("로그아웃") + "</button></div>";
+      tr("로그아웃") + "</button></div>" + (HIST && HIST.can() ? '<button type="button" class="pop-link" data-act="hist_open">' + ico("clock") + tr("생성 기록") + ico("next") + "</button>" : "");
     p.hidden = false; this.renderHeader();
     var b = p.querySelector("button"); if (b) b.focus();
   },
@@ -2687,6 +2722,133 @@ Object.assign(ACTIONS, {
   acct_menu: function () { ACCT.togglePop(); },
   acct_logout: function () { ACCT.closePop(); send({ cmd: "account_logout" }); track("account_logout", ""); }
 });
+// 회원 '생성 기록'(지도·결과 다음 세 번째 화면, docs/account_plan.md) — 계정 기록(Firebase)을 받아 이 PC 결과 폴더와 짝짓는다(entry_id → dir).
+// 누르면 이 PC에 폴더가 있으면 결과 화면, 없으면 같은 대상지·설정으로 지도에 되살린다(restoreResultTarget). 단추 묶음 [전체 | ★], 날짜 묶음, 줄마다 별.
+// 이름 바꾸기·기록에서 빼기는 오른쪽 클릭 메뉴(화면에 단추를 늘리지 않는다). 결과 폴더는 지우지 않는다. 받기는 Python 스레드 — history_poll로 묻는다
+HIST = {
+  items: null, ok: true, sync: true, star: false, back: "map", poll: null, editing: "",
+  can: function () { return !!ACCT && ACCT.member() && (ACCT.st().features || []).indexOf("history_sync") >= 0; },
+  open: function () {
+    if (!this.can() || state.run === "running") return;
+    if (!$("acct_pop").hidden) ACCT.closePop();
+    if (state.screen !== "history") this.back = state.screen === "result" && state.result ? "result" : "map";
+    this.items = null; this.editing = ""; this.closeMenu();
+    go("history"); send({ cmd: "history_list" });
+    clearInterval(this.poll); this.poll = setInterval(function () { send({ cmd: "history_poll" }); }, 700);
+  },
+  leave: function () { clearInterval(this.poll); this.poll = null; this.closeMenu(); go(this.back); },
+  onData: function (m) {
+    clearInterval(this.poll); this.poll = null;
+    this.items = m.items || []; this.ok = m.ok !== false; this.sync = m.sync !== false;
+    if (state.screen === "history") this.render();
+  },
+  find: function (id) { return (this.items || []).filter(function (it) { return it.id === id; })[0]; },
+  render: function () {
+    var sec = document.querySelector('section[data-screen="history"]'); if (!sec) return;
+    var self = this, all = this.items || [], items = all.filter(function (it) { return !self.star || it.star; });
+    var html = '<div class="hist-head"><button type="button" class="btn ghost sm" data-act="hist_back">' + ico("back") + tr(this.back === "result" ? "결과로 돌아가기" : "지도로") +
+      '</button><h2 tabindex="-1">' + tr("생성 기록") + '</h2><span></span></div><div class="seg" role="group" aria-label="' + tr("생성 기록") + '">' +
+      segBtn("hist_filter", ' data-v="all"', !this.star, tr("전체")) + segBtn("hist_filter", ' data-v="star" aria-label="' + tr("즐겨찾기") + '" title="' + tr("즐겨찾기") + '"', this.star, ico("star")) + "</div>";
+    if (!this.ok) html += '<p class="hint">' + tr("생성 기록을 받지 못했습니다") + "</p>";
+    if (!this.sync) html += '<p class="hint">' + tr("생성 기록 남기기가 꺼져 있습니다") + "</p>";
+    if (this.items === null) html += '<p class="hint">' + tr("불러오는 중") + "</p>";
+    else if (!items.length) html += this.ok ? '<p class="hint">' + tr("아직 생성 기록이 없습니다") + "</p>" : "";
+    else {
+      var now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(), week = today - 6 * 864e5;
+      var groups = [[tr("오늘"), []], [tr("이번 주"), []], [tr("그 전"), []]];
+      items.forEach(function (it) { var t = +it.built_at || 0; groups[t >= today ? 0 : t >= week ? 1 : 2][1].push(it); });
+      html += groups.filter(function (g) { return g[1].length; }).map(function (g) {
+        return '<div class="hist-group"><div class="tray-h">' + esc(g[0]) + '</div><div class="mlist">' + g[1].map(function (it) { return self.rowHtml(it, today); }).join("") + "</div></div>";
+      }).join("");
+    }
+    sec.innerHTML = html;
+    var edit = $("hist_edit"); if (edit) { edit.focus(); edit.select(); }
+  },
+  rowHtml: function (it, today) {
+    var t = new Date(+it.built_at || 0), two = function (n) { return (n < 10 ? "0" : "") + n; };
+    var when = t.getTime() >= today ? two(t.getHours()) + ":" + two(t.getMinutes()) : two(t.getMonth() + 1) + "-" + two(t.getDate());
+    var sub = [when, +it.radius > 0 ? rangeLabel({ shape: it.shape, radius: +it.radius }) : "", it.detail === "advanced" ? tr("고급 모델") : ""].filter(Boolean).join(" · ");
+    var id = esc(it.id), name = it.label || "–", lock = state.run === "running" ? " disabled" : "";
+    var star = '<button type="button" class="ib sm hist-star" data-act="hist_star" data-id="' + id + '" aria-pressed="' + !!it.star + '" aria-label="' + esc(tr("즐겨찾기") + ": " + name) + '">' + ico("star") + "</button>";
+    if (this.editing === it.id)
+      return '<div class="hist-row" data-id="' + id + '"><div class="hist-open">' + this.thumb(it) + '<input type="text" class="hist-name" id="hist_edit" data-id="' + id + '" value="' + esc(name) + '" maxlength="80" aria-label="' + tr("이름 바꾸기") + '"></div>' + star + "</div>";
+    return '<div class="hist-row" data-id="' + id + '"><button type="button" class="hist-open" data-act="hist_pick" data-id="' + id + '"' + lock + ">" + this.thumb(it) +
+      '<span class="txt"><span class="name">' + esc(name) + '</span><span class="sub num">' + esc(sub) + "</span></span></button>" + star + "</div>";
+  },
+  thumb: function (it) {   // 대상지 윤곽 + 범위(점선) — 경위도로 그리는 작은 그림, 3D 캡처 없음. 구역은 링, 필지·위치는 가운데 표시
+    var t = it.target || {}, c = it.center, ring = t.ring || [], r = +it.radius || 250, half = 12;
+    var range = it.shape === "rect" ? '<rect x="' + (16 - half) + '" y="' + (16 - half) + '" width="' + 2 * half + '" height="' + 2 * half + '" rx="1.5"/>' : '<circle cx="16" cy="16" r="' + half + '"/>';
+    var shape = it.mode === "point" ? '<circle class="t" cx="16" cy="16" r="2.5"/>' : '<rect class="t" x="12" y="12" width="8" height="8" rx="1"/>';
+    if (ring.length >= 3 && c && c.length === 2) {
+      var kx = Math.cos(c[1] * Math.PI / 180) * 111320, ky = 110540, s = half / r;
+      shape = '<polygon class="t" points="' + ring.map(function (p) {
+        var x = 16 + (p[0] - c[0]) * kx * s, y = 16 - (p[1] - c[1]) * ky * s;
+        return Math.max(1, Math.min(31, x)).toFixed(1) + "," + Math.max(1, Math.min(31, y)).toFixed(1);
+      }).join(" ") + '"/>';
+    }
+    return '<svg class="hist-thumb" viewBox="0 0 32 32" aria-hidden="true"><g class="rg">' + range + "</g>" + shape + "</svg>";
+  },
+  pick: function (id) {
+    var it = this.find(id); if (!it || state.run === "running" || state.job2d === "running") return;
+    clearInterval(this.poll); this.poll = null;
+    if (it.dir) { send({ cmd: "open_result", dir: it.dir }); return; }   // 이 PC에 결과 폴더가 있다 — 결과 화면
+    var t = it.target || {};   // 없으면 같은 대상지·설정으로 지도에(지금 데이터 판으로 다시 만든다)
+    var rs = { target: { mode: it.mode, pnus: t.pnus || [] }, target_lnglat: { center: it.center, ring: t.ring || [], rings: t.ring ? [t.ring] : [] }, options: it.options || {} };
+    go("map");
+    if (!restoreResultTarget(rs)) toast(tr("이 기록은 지도에 되살릴 수 없습니다"));
+    track("history_restore", it.mode || "");
+  },
+  toggleStar: function (id) {
+    var it = this.find(id); if (!it) return;
+    it.star = !it.star; this.render();
+    send({ cmd: "history_change", id: id, star: it.star }); track("history_star", it.star ? "on" : "off");
+  },
+  menuFor: function (id, x, y) {
+    var m = $("hist_menu"), it = this.find(id); if (!it) return;
+    m.innerHTML = '<button type="button" role="menuitem" data-act="hist_rename" data-id="' + esc(id) + '">' + ico("pen") + tr("이름 바꾸기") + '</button>' +
+      '<button type="button" role="menuitem" data-act="hist_remove" data-id="' + esc(id) + '">' + ico("trash") + tr("기록에서 빼기") + "</button>";
+    m.hidden = false;
+    m.style.left = Math.max(4, Math.min(x, window.innerWidth - m.offsetWidth - 4)) + "px";
+    m.style.top = Math.max(4, Math.min(y, window.innerHeight - m.offsetHeight - 4)) + "px";
+    m.querySelector("button").focus();
+  },
+  closeMenu: function () { var m = $("hist_menu"); if (m) m.hidden = true; },
+  rename: function (id) { this.closeMenu(); this.editing = id; this.render(); },
+  saveName: function (input, keep) {
+    var id = input.getAttribute("data-id"), it = this.find(id), value = input.value.trim().slice(0, 80);
+    this.editing = "";
+    if (it && keep && value && value !== it.label) { it.label = value; send({ cmd: "history_change", id: id, label: value }); }
+    this.render();
+  },
+  remove: function (id) {
+    this.closeMenu();
+    this.items = (this.items || []).filter(function (it) { return it.id !== id; }); this.render();
+    send({ cmd: "history_change", id: id, delete: true }); track("history_delete", "");
+  }
+};
+handlers.history = function (m) { HIST.onData(m); };
+Object.assign(ACTIONS, {
+  hist_open: function () { var from = state.screen; HIST.open(); track("history_open", from); },
+  hist_back: function () { HIST.leave(); },
+  hist_filter: function (b) { HIST.star = b.dataset.v === "star"; HIST.render(); },
+  hist_pick: function (b) { HIST.pick(b.dataset.id); },
+  hist_star: function (b) { HIST.toggleStar(b.dataset.id); },
+  hist_rename: function (b) { HIST.rename(b.dataset.id); },
+  hist_remove: function (b) { HIST.remove(b.dataset.id); }
+});
+document.addEventListener("contextmenu", function (e) {   // 기록 줄 오른쪽 클릭(키보드 메뉴 키도) — 이름 바꾸기·기록에서 빼기
+  var row = state.screen === "history" && e.target.closest(".hist-row"); if (!row) return;
+  e.preventDefault();
+  var box = row.getBoundingClientRect();
+  HIST.menuFor(row.getAttribute("data-id"), e.clientX || box.left + 48, e.clientY || box.bottom);
+});
+document.addEventListener("keydown", function (e) {
+  var input = e.target && e.target.id === "hist_edit" ? e.target : null;
+  if (input && (e.key === "Enter" || e.key === "Escape")) { e.preventDefault(); HIST.saveName(input, e.key === "Enter"); return; }
+  if (e.key === "Escape" && !$("hist_menu").hidden) { HIST.closeMenu(); }
+}, true);
+document.addEventListener("focusout", function (e) { if (e.target && e.target.id === "hist_edit") HIST.saveName(e.target, true); });
+document.addEventListener("click", function (e) { if (!$("hist_menu").hidden && !e.target.closest("#hist_menu")) HIST.closeMenu(); }, true);
 // [/blender-cut]
 window.app = { receive: function (msg) { var h = handlers[msg && msg.type]; if (h) h(msg); else console.warn("unknown push", msg); } };
 
@@ -2699,15 +2861,26 @@ if (MOCK) {
   var mockAccount = function (kind) {
     var on = kind !== "off", member = kind === "member", fallback = kind === "fallback";   // fallback = 로그인 고장으로 연 실행
     return { enabled: on, state: member ? "member" : "guest", fallback: fallback, email: member ? "name@gmail.com" : "", plan_name: member ? "Member" : "Guest",
-      features: member || !on || fallback ? ["detail_advanced"] : [], trials_left: { detail_advanced: kind === "trial0" ? 0 : 3 },
+      features: member ? ["detail_advanced", "history_sync"] : !on || fallback ? ["detail_advanced"] : [], trials_left: { detail_advanced: kind === "trial0" ? 0 : 3 },
       prompt_on_build: on && !fallback ? "first" : "off", prompt_seen: false };
   };
-  var mockLoginAt = 0;
+  var mockLoginAt = 0, mockHistAt = 0;
+  var mockHistory = function () {
+    var now = Date.now(), h = 36e5, day = 864e5;
+    return { type: "history", ok: true, sync: !/[?&]sync=0/.test(location.search), items: /[?&]hist=0/.test(location.search) ? [] : [
+      { id: "a", label: "성수동2가 277-17 외 1", built_at: now - 2 * h, mode: "lots", shape: "rect", radius: 500, detail: "advanced", star: true, target: { pnus: ["1120011500102770017"] }, center: [127.0565, 37.5445], options: {}, dir: "/mock/result" },
+      { id: "b", label: "을지로3가 구역", built_at: now - 5 * h, mode: "area", shape: "rect", radius: 1000, detail: "basic", star: false, center: [126.992, 37.566], options: {},
+        target: { ring: [[126.9895, 37.5672], [126.9946, 37.5675], [126.9949, 37.5651], [126.9898, 37.5647]] } },
+      { id: "c", label: "연남동 239-5", built_at: now - 2 * day, mode: "lots", shape: "circle", radius: 500, detail: "advanced", star: false, target: { pnus: ["1144012400102390005"] }, center: [126.9236, 37.5627], options: {} },
+      { id: "d", label: "Shibuya, Tokyo", built_at: now - 9 * day, mode: "point", shape: "rect", radius: 500, detail: "basic", star: true, center: [139.7016, 35.658], options: {} }] };
+  };
   send = function (msg) {
     console.log("[send]", JSON.stringify(msg));
     if (msg.cmd === "account_login") { mockLoginAt = Date.now(); setTimeout(function () { window.app.receive({ type: "account_state", state: "waiting" }); }, 50); }
     if (msg.cmd === "account_poll" && mockLoginAt && Date.now() - mockLoginAt > 2500) { mockLoginAt = 0; window.app.receive(Object.assign({ type: "account_state", error: "" }, mockAccount(/[?&]loginfail=1/.test(location.search) ? "fallback" : "member"))); }   // &loginfail=1 — 로그인 고장
     if (msg.cmd === "account_logout" || msg.cmd === "account_cancel") { mockLoginAt = 0; setTimeout(function () { window.app.receive(Object.assign({ type: "account_state", error: "" }, mockAccount("guest"))); }, 50); }
+    if (msg.cmd === "history_list") mockHistAt = Date.now();   // 회원 생성 기록 — &screen=history로 바로 보기
+    if (msg.cmd === "history_poll" && mockHistAt && Date.now() - mockHistAt > 400) { mockHistAt = 0; window.app.receive(mockHistory()); }
     if (msg.cmd === "install_update") setTimeout(function () { window.app.receive({ type: "update_state", state: /[?&]updfail=1/.test(location.search) ? "failed" : "done", text: "", next: /[?&]updrestart=1/.test(location.search) ? "restart" : "reopen" }); }, 1500);   // &updfail=1 — 실패 화면
   };
   var upto = (location.search.match(/[?&]step=(\w+)/) || [])[1] || "3d";
@@ -2731,7 +2904,7 @@ if (MOCK) {
     }
     var i = 0;
     var tick = function () {
-      if (i >= msgs.length) { if (/[?&]menu=1/.test(location.search)) openMenu(); return; }
+      if (i >= msgs.length) { if (/[?&]menu=1/.test(location.search)) openMenu(); if (/[?&]screen=history/.test(location.search) && ACTIONS.hist_open) ACTIONS.hist_open(); return; }
       var m = msgs[i++];
       if (upto === "1" && after3d[m.type]) { i = msgs.length; tick(); return; }
       if (m.type === "_mock_make2d") {

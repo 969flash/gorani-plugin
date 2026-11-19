@@ -6184,5 +6184,71 @@
   "es": "El servidor de inicio de sesión se fue a pastar. Esta vez el modo Avanzado queda abierto.",
   "ja": "ログインサーバーが草を食べに出かけました。今回は高度をそのまま開けておきます。",
   "zh": "登录服务器去吃草了。这次高级功能先直接开放。"
+ },
+ "생성 기록": {
+  "en": "History",
+  "es": "Historial",
+  "ja": "生成履歴",
+  "zh": "生成记录"
+ },
+ "즐겨찾기": {
+  "en": "Starred",
+  "es": "Destacados",
+  "ja": "お気に入り",
+  "zh": "收藏"
+ },
+ "오늘": {
+  "en": "Today",
+  "es": "Hoy",
+  "ja": "今日",
+  "zh": "今天"
+ },
+ "이번 주": {
+  "en": "This week",
+  "es": "Esta semana",
+  "ja": "今週",
+  "zh": "本周"
+ },
+ "그 전": {
+  "en": "Earlier",
+  "es": "Antes",
+  "ja": "それ以前",
+  "zh": "更早"
+ },
+ "이름 바꾸기": {
+  "en": "Rename",
+  "es": "Cambiar nombre",
+  "ja": "名前を変更",
+  "zh": "重命名"
+ },
+ "기록에서 빼기": {
+  "en": "Remove from history",
+  "es": "Quitar del historial",
+  "ja": "履歴から外す",
+  "zh": "从记录中移除"
+ },
+ "아직 생성 기록이 없습니다": {
+  "en": "No history yet",
+  "es": "Aún no hay historial",
+  "ja": "まだ履歴がありません",
+  "zh": "还没有记录"
+ },
+ "생성 기록을 받지 못했습니다": {
+  "en": "Could not load the history",
+  "es": "No se pudo cargar el historial",
+  "ja": "履歴を読み込めませんでした",
+  "zh": "无法加载记录"
+ },
+ "생성 기록 남기기가 꺼져 있습니다": {
+  "en": "Saving history is turned off",
+  "es": "Guardar el historial está desactivado",
+  "ja": "履歴の保存はオフです",
+  "zh": "记录保存已关闭"
+ },
+ "이 기록은 지도에 되살릴 수 없습니다": {
+  "en": "This entry can't be restored on the map",
+  "es": "Esta entrada no se puede restaurar en el mapa",
+  "ja": "この記録は地図に戻せません",
+  "zh": "此记录无法在地图上恢复"
  }
 }
