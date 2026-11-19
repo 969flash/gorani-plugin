@@ -223,7 +223,8 @@ class TileFallbackTest(unittest.TestCase):
         self.assertEqual(len(waits), 2)   # 타일마다 진행 문구
 
     def test_pack_path_falls_back(self):
-        """나라별 팩(일본 PLATEAU 등)이 있는 곳 — 본 질의가 막히면 도로·건물 메우기 모두 타일, 본 질의는 되고 건물 질의만 막히면 건물만 타일."""
+        """나라별 팩(일본 PLATEAU 등)이 있는 곳 — 본 질의가 막히면 도로·건물 메우기 모두 타일. 본 질의는 되고 메우기 건물 질의만 막히면
+        타일을 받지 않고 팩 건물만(첫 미러 하나 실패로 타일 최대 50 MB·'간이 데이터' 경고가 뜨던 것, 2026-11-19 리뷰)."""
         bounds = _tile_bounds()
         far = [list(non_rhino_utils.get_tm_from_wgs84(*non_rhino_utils.get_lnglat_from_tile(TILE_X + x / 4096.0, TILE_Y + y / 4096.0, 14)))
                for x, y in ((3200, 1000), (3300, 1000), (3300, 1100), (3200, 1100), (3200, 1000))]
@@ -248,10 +249,13 @@ class TileFallbackTest(unittest.TestCase):
             self.assertIn(("road", "centerline"), {(f.theme, f.kind) for f in context.features})
             self.assertEqual(len(queries), 1)   # 본 질의가 막히면 건물 질의는 묻지 않고 같은 타일을 쓴다
             self.down = False
+            fetched = len(self.calls)
+            osm_context._CACHE.clear()
             context = osm_context.load(bounds, "2026-11-14")
-            self.assertEqual([s.source_id for s in context.sources], ["osm", "openfreemap", "plateau"])
-            self.assertEqual([b.src_key for b in context.buildings], ["plateau:a", "openfreemap:1"])
+            self.assertEqual([s.source_id for s in context.sources], ["osm", "plateau"])
+            self.assertEqual([b.src_key for b in context.buildings], ["plateau:a"])
             self.assertNotIn(("road", "centerline"), {(f.theme, f.kind) for f in context.features})   # 도로는 Overpass(빈 응답) 그대로
+            self.assertEqual(self.calls[fetched:], [])   # 메우기 건물 질의만 막혔다 — 타일을 받지 않는다
         finally:
             osm_context.get_terrain_spots, osm_context.load_plateau_buildings, osm_context.load_plateau_roads, osm_context.get_overpass_elements = saved
 

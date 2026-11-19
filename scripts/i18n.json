@@ -6023,11 +6023,11 @@
   "ja": "階高 = 高さ ÷ 地上階数",
   "zh": "层高 = 高度 ÷ 地上层数"
  },
- "OSM 서버가 붐벼 가로수·담·횡단보도를 빼고 만들었습니다": {
-  "en": "The OSM server was busy, so street trees, walls and crosswalks were left out",
-  "es": "El servidor OSM estaba ocupado; se omitieron árboles, muros y pasos de peatones",
-  "ja": "OSMサーバーが混雑していたため、街路樹・塀・横断歩道を除いて作りました",
-  "zh": "OSM 服务器繁忙，已省略行道树、围墙和人行横道"
+ "OSM 서버가 붐벼 가로수·옹벽·횡단보도를 빼고 만들었습니다": {
+  "en": "The OSM server was busy, so street trees, retaining walls and crosswalks were left out",
+  "es": "El servidor de OSM estaba saturado; se omitieron árboles de calle, muros de contención y pasos de peatones",
+  "ja": "OSM サーバーが混雑していたため、街路樹・擁壁・横断歩道を除いて作成しました",
+  "zh": "OSM 服务器繁忙，已省略行道树、挡土墙和人行横道"
  },
  "OSM 서버가 붐벼 간이 데이터(OpenFreeMap)로 받는 중 ({0}/{1})": {
   "en": "OSM server busy, downloading simplified data (OpenFreeMap) ({0}/{1})",
@@ -6077,10 +6077,10 @@
   "ja": "OpenFreeMapの高さ",
   "zh": "OpenFreeMap 高度"
  },
- "잠시 뒤 다시 만들면 들어갑니다. 3D 설정에서 끄면 묻지 않습니다.": {
-  "en": "Generate again later to include them. Turn them off in 3D settings to skip the request.",
-  "es": "Vuelva a generar más tarde para incluirlos. Desactívelos en los ajustes 3D para no solicitarlos.",
-  "ja": "しばらくして作り直すと入ります。3D設定でオフにすると問い合わせません。",
-  "zh": "稍后重新生成即可包含。在 3D 设置中关闭则不再请求。"
+ "잠시 뒤 다시 만들면 들어갑니다. 수준을 '기본'으로 하면 묻지 않습니다.": {
+  "en": "Rebuild in a moment to include them. Set the level to Basic to skip them.",
+  "es": "Vuelve a generar en un momento para incluirlos. Con el nivel Básico no se piden.",
+  "ja": "しばらくして作り直すと入ります。レベルを「基本」にすると取得しません。",
+  "zh": "稍后重新生成即可加入。将级别设为“基本”则不再请求。"
  }
 }
