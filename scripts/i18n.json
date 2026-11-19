@@ -1326,8 +1326,8 @@
   "zh": "空白图框"
  },
  "기본": {
-  "en": "Base",
-  "es": "Base",
+  "en": "Basic",
+  "es": "Básico",
   "ja": "基本",
   "zh": "基础"
  },
@@ -6005,18 +6005,6 @@
   "ja": "今日はもう表示しない",
   "zh": "今天不再显示"
  },
- "가로": {
-  "en": "Street",
-  "es": "Calle",
-  "ja": "街路",
-  "zh": "街道"
- },
- "구조물": {
-  "en": "Structures",
-  "es": "Estructuras",
-  "ja": "構造物",
-  "zh": "构筑物"
- },
  "연석": {
   "en": "Curbs",
   "es": "Bordillos",
@@ -6035,12 +6023,6 @@
   "ja": "街路樹",
   "zh": "行道树"
  },
- "교량·고가": {
-  "en": "Bridges",
-  "es": "Puentes",
-  "ja": "橋梁・高架",
-  "zh": "桥梁·高架"
- },
  "선로": {
   "en": "Rail tracks",
   "es": "Vías",
@@ -6052,18 +6034,6 @@
   "es": "Muros de contención",
   "ja": "擁壁",
   "zh": "挡土墙"
- },
- "담장": {
-  "en": "Fences",
-  "es": "Cercas",
-  "ja": "塀",
-  "zh": "围墙"
- },
- "파라펫": {
-  "en": "Parapets",
-  "es": "Pretiles",
-  "ja": "パラペット",
-  "zh": "女儿墙"
  },
  "층 구분선": {
   "en": "Floor lines",
@@ -6082,42 +6052,6 @@
   "es": "Baja la calzada 15 cm respecto a la acera",
   "ja": "車道を15 cm下げて歩道と段差を付けます",
   "zh": "车行道比人行道低15 cm"
- },
- "서울은 2021년 자료라 바뀐 곳이 있을 수 있습니다": {
-  "en": "Seoul data is from 2021 and may be outdated in places",
-  "es": "Los datos de Seúl son de 2021 y pueden estar desactualizados",
-  "ja": "ソウルは2021年のデータのため変わった場所があり得ます",
-  "zh": "首尔数据为2021年版，部分地方可能已变化"
- },
- "서울 가로수 위치정보, 해외는 OSM": {
-  "en": "Seoul street tree data; OSM abroad",
-  "es": "Datos de árboles de Seúl; OSM en el extranjero",
-  "ja": "ソウル街路樹位置情報、海外はOSM",
-  "zh": "首尔行道树位置数据，海外为OSM"
- },
- "교량 위 표고점이 없으면 높이를 추정합니다": {
-  "en": "Deck height is estimated where no surveyed spot height exists",
-  "es": "La altura del tablero se estima donde no hay cota medida",
-  "ja": "橋上の標高点がない場合は高さを推定します",
-  "zh": "桥上无高程点时推算高度"
- },
- "수치지형도 옹벽 — 높이는 양쪽 지형 차로 정합니다": {
-  "en": "Topographic-map retaining walls; height from terrain on both sides",
-  "es": "Muros del mapa topográfico; altura según el terreno a ambos lados",
-  "ja": "数値地形図の擁壁 — 高さは両側の地形差から決めます",
-  "zh": "数字地形图挡土墙——高度取两侧地形差"
- },
- "주거지는 객체가 많아집니다": {
-  "en": "Adds many objects in residential areas",
-  "es": "Añade muchos objetos en zonas residenciales",
-  "ja": "住宅地ではオブジェクトが多くなります",
-  "zh": "住宅区会增加大量对象"
- },
- "층고는 높이 ÷ 지상층수": {
-  "en": "Floor height = building height ÷ floors",
-  "es": "Altura de planta = altura ÷ plantas",
-  "ja": "階高 = 高さ ÷ 地上階数",
-  "zh": "层高 = 高度 ÷ 地上层数"
  },
  "OSM 서버가 붐벼 가로수·담·횡단보도를 빼고 만들었습니다": {
   "en": "The OSM server was busy, so street trees, walls and crosswalks were left out",
@@ -6568,5 +6502,35 @@
   "es": "no aplicado a la vista",
   "ja": "画面に反映できません",
   "zh": "未应用到视图"
+ },
+ "수준": {
+  "en": "Level",
+  "es": "Nivel",
+  "ja": "レベル",
+  "zh": "级别"
+ },
+ "고급": {
+  "en": "Advanced",
+  "es": "Avanzado",
+  "ja": "高度",
+  "zh": "高级"
+ },
+ "고급 모델": {
+  "en": "Advanced model",
+  "es": "Modelo avanzado",
+  "ja": "高度モデル",
+  "zh": "高级模型"
+ },
+ "옥상 파라펫": {
+  "en": "Roof parapets",
+  "es": "Pretiles de azotea",
+  "ja": "屋上パラペット",
+  "zh": "屋顶女儿墙"
+ },
+ "차도 15 cm 내리기(연석)": {
+  "en": "Lower roadways 15 cm (curbs)",
+  "es": "Bajar calzadas 15 cm (bordillos)",
+  "ja": "車道を15 cm下げる(縁石)",
+  "zh": "车行道降低15 cm(路缘石)"
  }
 }

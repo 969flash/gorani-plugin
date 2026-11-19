@@ -108,12 +108,25 @@ class Prepared:
         return self.context.features if self.context is not None else []
 
 
+def get_level_options(level):
+    # type: (str) -> dict
+    """
+    입력: 수준 'basic' | 'advanced'(options.detail_level).
+    처리: FEATURES.detail_advanced가 묶는 옵션을 고급이면 켬, 아니면 끔.
+    출력: {옵션 키: bool}.
+    """
+    return {key: level == "advanced" for key in constants.FEATURES["detail_advanced"]["options"]}
+
+
 def get_request_with_defaults(request):
     # type: (dict) -> dict
     """요청 dict의 options에 constants.PANEL_DEFAULT_OPTIONS 기본값을 채운 사본. 모르는 키는 그대로 둔다."""
     request = dict(request or {})
     options = dict(constants.PANEL_DEFAULT_OPTIONS)
     options.update(request.get("options") or {})
+    level = (request.get("options") or {}).get("detail_level")
+    if level:   # 패널 '수준'이 고급 옵션을 한꺼번에 — 옛 prefs에 남은 키마다 값보다 앞선다. 수준이 없는 요청(시험 드라이버)은 키마다 값 그대로
+        options.update(get_level_options(level))
     request["options"] = options
     request.setdefault("lot_name", None)
     request.setdefault("result_root", None)

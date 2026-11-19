@@ -157,6 +157,7 @@ Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드�
  "host":{"id":"rhino","name":"Rhino","doc":"Rhino 문서","model":"context.3dm","dwg":true,"ask_stats":false,"brep":true,"drape":true,"sun":true},   // constants.HOST_LABELS — 패널 문구(문서 이름·모델 파일)와 DWG 옵션 표시. brep = 3D 설정 '형상' Mesh|Brep 줄(Rhino 8만). sun = 결과 화면 '해와 그림자'(Rhino 8·7·SketchUp·Blender). drape = 3D 설정 '지형에 항공사진 입히기' 줄(Rhino 8만 — context_baker.drape_aerial). wind:false = 28 바람장미 빼기(Blender — 외부 기상 서비스 없음, aerial:false와 같은 방식). Blender = {"id":"blender","name":"Blender","doc":"Blender 장면","model":"context.blend","dwg":false,"ask_stats":true}, SketchUp = {"id":"sketchup",…,"model":"context.skp","dwg":false,"ask_stats":true}, Rhino 7 = Rhino와 같고 `"dwg":false`
  "output_langs":[["ko","한국어"],["en","English"]],   // constants.OUTPUT_LANGS — 메뉴 '결과 언어' 칸
  "links":{"website":"https://969flash.github.io/gorani/","contact":"mailto:gorani.3d@gmail.com"},   // constants.PANEL_LINKS — 메뉴 '웹페이지'·'문의' 줄이 주소를 링크로 보여 주고(문의는 메일 주소), 누르면 open_url{key}
+ "features":{"detail_advanced":{"options":["building_parapet","building_floors","detail_markings","detail_trees","detail_rail","detail_walls"]}},   // constants.FEATURES(원격 설정) — 트레이 '고급' 마우스 올림 글(순서 = 중요도)
  "stats_consent":null,                            // 사용 통계 동의 true|false|null(안 물음) — host.ask_stats(Blender + 측정 ID 있음)면 null일 때 정보 띠로 한 번 묻고([보내기]·[보내지 않음] → stats_consent{on}), 더보기 메뉴 설정에서 바꾼다
  "can_download":true,                             // DATA_MANIFEST_URL이 있으면 블로커에 [DB 받기]·[멈추기]
  "sources":[source, source, source, source],      // id = lot, building, terrain, api 순서 고정(더보기 메뉴 자료 칸·블로커 체크리스트·첫 실행 모드 판정)
@@ -379,8 +380,10 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
  "terrain_aerial":false,                               // 지형에 항공사진 입히기(Rhino 8만 — host.drape, 2026-11-14): 대상지를 덮는 지역 공개 영상(tile.imagery)이 있을 때만 켤 수 있다 — 국내(VWorld 저장 금지)·영상 없는 곳은 비활성 + 사유 한 줄.
                                                        // generate는 그 조건으로 다시 걸러 보낸다(canDrape). 엔진: sheet_svg.get_drape_tiles → context_baker.drape_aerial(결과 폴더 aerial_drape.jpg + 땅 면 AERIAL_DRAPE_LAYERS에 재질·평면 매핑). 켜면 요약에 '항공사진'
  "terrain_block":true,                                 // 지형을 바닥까지 채우기: 지형 옆면·바닥(CTX::Terrain::block, BASE_M). 건물·필지·도로중심선·용도지역은 이 값과 상관없이 늘 범위 링으로 자른다(원·사각형 범위만). 끄면 3D 설정 요약에 '지형 표면만'. 입체 매스도는 style.axo_ground
- "detail_curb":true,"detail_markings":true,"detail_rail":true,"detail_bridges":true,"detail_walls":true,"detail_fences":false,"detail_trees":true,   // 디테일(3D 설정 '가로·구조물·건물' 체크, constants.DETAIL_OPTIONS — 2026-11-13). 기본과 다르면 요약에 이름 또는 '… 끔'
- "building_parapet":false,"building_floors":false,     // 옥상 파라펫·층 구분선
+ "detail_level":"basic",                               // 수준(트레이 '수준' basic|advanced, 2026-11-16). 요청에 있으면 constants.FEATURES.detail_advanced 옵션(building_parapet·building_floors·detail_markings·detail_trees·detail_rail·detail_walls)을
+                                                       //   고급이면 켬·기본이면 끔으로 한꺼번에 정한다(context_builder.get_request_with_defaults — 키마다 값보다 앞선다). 없으면 키마다 값(시험 드라이버)
+ "detail_curb":true,                                   // 차도 15 cm 내리기(3D 설정 지형 옵션). 끄면 요약에 '연석 끔'
+ "detail_bridges":true,"detail_fences":false,          // 화면에 없다 — 늘 이 값(FIXED_3D). 교량은 기본 모형의 정합, 담장은 객체가 많아 뺐다
  "geometry_type":"mesh",                               // 3D 형상(Rhino 8만 — host.brep): mesh = 동별·분류별 Mesh(기본), brep = 건물은 닫힌 폴리서피스(Extrusion.ToBrep), 지형·수면·대상지 바닥·덩어리는 같은 평면인 메시 면을 평면 면 하나로 묶고 나머지는 메시 면 하나 = Brep 면 하나(context_geometry.get_mesh_brep — 모양·면적은 메시와 같다). 변환 실패한 분류는 메시로 남기고 warn brep_failed. Brep이면 3D 설정 요약에 'Brep'
  "make_dwg":false,                                     // 3dm 2D 도면(BM::)만 basemap_<축척>.dwg로도 저장(고급 > 3dm). 결과 경로는 done.context.dwg
  "zoom_after_import":true,
