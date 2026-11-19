@@ -445,16 +445,6 @@ class HistoryTest(AccountTestBase):
         self.assertEqual(self.fb.node("users", "u1", "history", entry_id, "label"), "성수동2가 277-17")
         self.assertEqual(account.load(self.path)["pending_history"], [])
 
-    def test_sync_off_does_not_send(self):
-        account.save(self.member(), self.path)
-        self.fb.db = {"users": {"u1": {"settings": {"history_sync": False}}}}
-        account.refresh(path=self.path, now=NOW)
-        self.assertFalse(account.load(self.path)["history_sync"])
-        entry_id, entry = account.get_history_entry(self.STATE, "rhino", "0.4.0", now=NOW)
-        self.assertFalse(account.add_history(entry_id, entry, self.path))
-        self.assertIsNone(self.fb.node("users", "u1", "history"))
-        self.assertFalse(account.load(self.path).get("pending_history"))
-
     def test_trim_keeps_starred(self):
         constants.HISTORY_MAX = 2
         account.save(self.member(), self.path)

@@ -41,7 +41,7 @@ def load(path=ACCOUNT_PATH):
     """
     입력: account.json 경로.
     처리: 없거나 깨졌으면 빈 손님.
-    출력: {refresh_token, uid, email, entitlement{plan, valid_until}, checked_at(ISO), conn_id, conn_registered, history_sync,
+    출력: {refresh_token, uid, email, entitlement{plan, valid_until}, checked_at(ISO), conn_id, conn_registered,
           pending_history[[entry_id, entry]], trials_used{기능: 횟수}, login_prompt_seen}.
     """
     try:
@@ -203,11 +203,9 @@ def sign_in(refresh_token, host_id, version, path=ACCOUNT_PATH, now=None):
     old = load(path)
     conn_id = old.get("conn_id") if old.get("uid") == uid else None   # 다른 계정으로 바뀌면 연결 id·못 보낸 기록을 버린다
     conn = {"conn_id": conn_id or secrets.token_hex(8), "conn_registered": False}
-    sync = None
     try:
         _register(uid, id_token, conn["conn_id"], host_id, version, now)
         conn["conn_registered"] = True
-        sync = _read_history_sync(uid, id_token)
     except (Denied, Down):
         pass
 
@@ -216,8 +214,6 @@ def sign_in(refresh_token, host_id, version, path=ACCOUNT_PATH, now=None):
             account.pop("pending_history", None)
         account.update(refresh_token=refresh_token, uid=uid, email=str(claims.get("email") or ""), entitlement=_get_entitlement(claims),
                        checked_at=_iso(now), **conn)
-        if sync is not None:
-            account["history_sync"] = sync
     return _update(path, apply)
 
 
@@ -252,17 +248,14 @@ def refresh(host_id="", version="", path=ACCOUNT_PATH, now=None):
             conn_id = account.get("conn_id") or secrets.token_hex(8)
             _register(uid, id_token, conn_id, host_id, version, now)
             changes.update(conn_id=conn_id, conn_registered=True)
-        changes["history_sync"] = _read_history_sync(uid, id_token)
-        if changes["history_sync"]:
-            sent = _send_history(uid, id_token, account.get("pending_history") or [], now)
+        sent = _send_history(uid, id_token, account.get("pending_history") or [], now)
     except (Denied, Down):
         pass
 
     def apply(account):
         if account.get("refresh_token"):   # 그사이 로그아웃했으면 되살리지 않는다
             account.update(changes)
-            keep = changes.get("history_sync") is not False   # 웹에서 기록 저장을 껐으면 못 보낸 것도 버린다
-            account["pending_history"] = [p for p in account.get("pending_history") or [] if keep and p[0] not in sent]
+            account["pending_history"] = [p for p in account.get("pending_history") or [] if p[0] not in sent]
     return _update(path, apply)
 
 
@@ -353,16 +346,16 @@ def add_history(entry_id, entry, path=ACCOUNT_PATH, now=None):
     # type: (str, dict, str, datetime.datetime) -> bool
     """
     입력: get_history_entry의 (entry_id, entry).
-    처리: 회원이고 기록 저장이 켜져 있으면 줄(pending_history)에 세우고 보낸다 — 데몬 스레드에서 부른다.
+    처리: 회원이면 줄(pending_history)에 세우고 보낸다 — 데몬 스레드에서 부른다. 끄는 설정은 없다(2026-11-19 사용자 — 지우기·탈퇴로 지운다).
           못 보내면 줄에 남아 다음 확인(refresh) 때 보낸다. 줄은 HISTORY_MAX개까지.
     출력: 보냈나.
     """
     def queue(account):
-        if account.get("refresh_token") and account.get("history_sync") is not False:
+        if account.get("refresh_token"):
             pending = [p for p in account.get("pending_history") or [] if p[0] != entry_id]
             account["pending_history"] = (pending + [[entry_id, entry]])[-constants.HISTORY_MAX:]
     account = _update(path, queue)
-    if not account.get("pending_history") or account.get("history_sync") is False:
+    if not account.get("pending_history"):
         return False
     try:
         id_token, refresh_token, uid, _claims = get_token(account["refresh_token"])
@@ -388,7 +381,7 @@ def get_history(path=ACCOUNT_PATH):
     # type: (str) -> dict
     """
     처리: 계정 생성 기록 전부를 받는다(패널 '생성 기록' 화면). 아직 못 보낸 이 PC 기록도 앞에 넣는다. JSON 글 칸(target·options)은 푼다.
-    출력: {ok, items[{id, built_at, host, label, mode, center, target{}, shape, radius, detail, options{}, buildings, star, edited}], sync}.
+    출력: {ok, items[{id, built_at, host, label, mode, center, target{}, shape, radius, detail, options{}, buildings, star, edited}]}.
           고장이면 ok False(화면은 이 PC 기록만 보인다).
     """
     account = load(path)
@@ -413,7 +406,7 @@ def get_history(path=ACCOUNT_PATH):
             item[name] = _parse_json_text(item.get(name))
         out.append(item)
     out.sort(key=lambda it: it.get("built_at") or 0, reverse=True)
-    return {"ok": ok, "items": out, "sync": account.get("history_sync") is not False}
+    return {"ok": ok, "items": out}
 
 
 def change_history(entry_id, changes=None, delete=False, path=ACCOUNT_PATH, now=None):
@@ -629,11 +622,6 @@ def _register(uid, id_token, conn_id, host_id, version, now=None):
         {"host": host_id, "version": str(version)[:40], "os": os_name[:20], "created": stamp, "seen": stamp}, "PUT")
 
 
-def _read_history_sync(uid, id_token):
-    # 웹 계정 페이지의 [생성 기록 남기기] — 없으면 켬
-    return _db("users/%s/settings/history_sync" % uid, id_token) is not False
-
-
 def _send_history(uid, id_token, pending, now=None):
     # type: (str, str, list, datetime.datetime) -> list
     """줄의 기록을 보낸다(같은 entry_id는 덮어씀). 보낸 entry_id 목록 — 하나라도 고장이면 거기서 멈추고 나머지는 다음에."""
@@ -700,7 +688,7 @@ def _wants(options, key, feature):
 
 
 def _clear(account):
-    for key in ("refresh_token", "uid", "email", "entitlement", "checked_at", "conn_id", "conn_registered", "history_sync", "pending_history"):
+    for key in ("refresh_token", "uid", "email", "entitlement", "checked_at", "conn_id", "conn_registered", "pending_history"):
         account.pop(key, None)
 
 

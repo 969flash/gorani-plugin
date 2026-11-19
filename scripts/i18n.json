@@ -6239,12 +6239,6 @@
   "ja": "履歴を読み込めませんでした",
   "zh": "无法加载记录"
  },
- "생성 기록 남기기가 꺼져 있습니다": {
-  "en": "Saving history is turned off",
-  "es": "Guardar el historial está desactivado",
-  "ja": "履歴の保存はオフです",
-  "zh": "记录保存已关闭"
- },
  "이 기록은 지도에 되살릴 수 없습니다": {
   "en": "This entry can't be restored on the map",
   "es": "Esta entrada no se puede restaurar en el mapa",

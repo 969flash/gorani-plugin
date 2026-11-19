@@ -2726,7 +2726,7 @@ Object.assign(ACTIONS, {
 // 누르면 이 PC에 폴더가 있으면 결과 화면, 없으면 같은 대상지·설정으로 지도에 되살린다(restoreResultTarget). 단추 묶음 [전체 | ★], 날짜 묶음, 줄마다 별.
 // 이름 바꾸기·기록에서 빼기는 오른쪽 클릭 메뉴(화면에 단추를 늘리지 않는다). 결과 폴더는 지우지 않는다. 받기는 Python 스레드 — history_poll로 묻는다
 HIST = {
-  items: null, ok: true, sync: true, star: false, back: "map", poll: null, editing: "",
+  items: null, ok: true, star: false, back: "map", poll: null, editing: "",
   can: function () { return !!ACCT && ACCT.member() && (ACCT.st().features || []).indexOf("history_sync") >= 0; },
   open: function () {
     if (!this.can() || state.run === "running") return;
@@ -2739,7 +2739,7 @@ HIST = {
   leave: function () { clearInterval(this.poll); this.poll = null; this.closeMenu(); go(this.back); },
   onData: function (m) {
     clearInterval(this.poll); this.poll = null;
-    this.items = m.items || []; this.ok = m.ok !== false; this.sync = m.sync !== false;
+    this.items = m.items || []; this.ok = m.ok !== false;
     if (state.screen === "history") this.render();
   },
   find: function (id) { return (this.items || []).filter(function (it) { return it.id === id; })[0]; },
@@ -2750,7 +2750,6 @@ HIST = {
       '</button><h2 tabindex="-1">' + tr("생성 기록") + '</h2><span></span></div><div class="seg" role="group" aria-label="' + tr("생성 기록") + '">' +
       segBtn("hist_filter", ' data-v="all"', !this.star, tr("전체")) + segBtn("hist_filter", ' data-v="star" aria-label="' + tr("즐겨찾기") + '" title="' + tr("즐겨찾기") + '"', this.star, ico("star")) + "</div>";
     if (!this.ok) html += '<p class="hint">' + tr("생성 기록을 받지 못했습니다") + "</p>";
-    if (!this.sync) html += '<p class="hint">' + tr("생성 기록 남기기가 꺼져 있습니다") + "</p>";
     if (this.items === null) html += '<p class="hint">' + tr("불러오는 중") + "</p>";
     else if (!items.length) html += this.ok ? '<p class="hint">' + tr("아직 생성 기록이 없습니다") + "</p>" : "";
     else {
@@ -2867,7 +2866,7 @@ if (MOCK) {
   var mockLoginAt = 0, mockHistAt = 0;
   var mockHistory = function () {
     var now = Date.now(), h = 36e5, day = 864e5;
-    return { type: "history", ok: true, sync: !/[?&]sync=0/.test(location.search), items: /[?&]hist=0/.test(location.search) ? [] : [
+    return { type: "history", ok: true, items: /[?&]hist=0/.test(location.search) ? [] : [
       { id: "a", label: "성수동2가 277-17 외 1", built_at: now - 2 * h, mode: "lots", shape: "rect", radius: 500, detail: "advanced", star: true, target: { pnus: ["1120011500102770017"] }, center: [127.0565, 37.5445], options: {}, dir: "/mock/result" },
       { id: "b", label: "을지로3가 구역", built_at: now - 5 * h, mode: "area", shape: "rect", radius: 1000, detail: "basic", star: false, center: [126.992, 37.566], options: {},
         target: { ring: [[126.9895, 37.5672], [126.9946, 37.5675], [126.9949, 37.5651], [126.9898, 37.5647]] } },
