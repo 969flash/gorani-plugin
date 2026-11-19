@@ -14,7 +14,7 @@ import context_baker
 import context_builder
 
 DATA_DIR = os.path.join(JOB_DIR, "data")   # noqa: F821 — dev_rhino_run 머리말 전역
-ALL = {"detail_fences": True, "building_parapet": True, "building_floors": True}   # 기본 끔인 디테일까지 켠다
+ALL = {"detail_fences": True, "building_parapet": True, "building_floors": True}   # 담장(기본 끔)까지 켠다 — 수준(detail_level) 없이 키마다
 SITES = [("seongsu_rail", (205500.0, 549250.0), 250, "mesh", {}), ("seongsu", (205670.0, 549190.0), 150, "mesh", ALL),
          ("dongho", (201750.0, 548850.0), 300, "mesh", {}), ("dongho_brep", (201750.0, 548850.0), 200, "brep", ALL),
          ("seongbuk", (200850.0, 555450.0), 200, "mesh", ALL), ("seongsu_off", (205670.0, 549190.0), 150, "mesh", {k: False for k in (

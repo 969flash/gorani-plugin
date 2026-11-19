@@ -107,12 +107,25 @@ class Prepared:
         return self.context.features if self.context is not None else []
 
 
+def get_level_options(level):
+    # type: (str) -> dict
+    """
+    입력: 수준 'basic' | 'advanced'(options.detail_level).
+    처리: FEATURES.detail_advanced가 묶는 옵션을 고급이면 켬, 아니면 끔.
+    출력: {옵션 키: bool}.
+    """
+    return {key: level == "advanced" for key in constants.FEATURES["detail_advanced"]["options"]}
+
+
 def get_request_with_defaults(request):
     # type: (dict) -> dict
     """요청 dict의 options에 constants.PANEL_DEFAULT_OPTIONS 기본값을 채운 사본. 모르는 키는 그대로 둔다."""
     request = dict(request or {})
     options = dict(constants.PANEL_DEFAULT_OPTIONS)
     options.update(request.get("options") or {})
+    level = (request.get("options") or {}).get("detail_level")
+    if level:   # 패널 '수준'이 고급 옵션을 한꺼번에 — 옛 prefs에 남은 키마다 값보다 앞선다. 수준이 없는 요청(시험 드라이버)은 키마다 값 그대로
+        options.update(get_level_options(level))
     request["options"] = options
     request.setdefault("lot_name", None)
     request.setdefault("result_root", None)
@@ -893,9 +906,12 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
     source_ids = {s.source_id for s in context.sources}
     pack_label = "·".join(data_pack.get_pack_label(i) for i in sorted(source_ids & set(data_pack.get_pack_source_ids())))   # PLATEAU 등
     if "osm_detail_missing" in getattr(context, "notes", []):   # 디테일 질의만 실패 — 본 모델은 그대로
-        warnings.append(_warning("info", "osm_detail_missing", tr("OSM 서버가 붐벼 가로수·담·횡단보도를 빼고 만들었습니다"),
-                                 tr("잠시 뒤 다시 만들면 들어갑니다. 3D 설정에서 끄면 묻지 않습니다.")))
-    if "osm" not in source_ids:   # Overpass가 막혔다 — 팩 건물·지형만(osm_context.load)
+        warnings.append(_warning("info", "osm_detail_missing", tr("OSM 서버가 붐벼 가로수·옹벽·횡단보도를 빼고 만들었습니다"),
+                                 tr("잠시 뒤 다시 만들면 들어갑니다. 수준을 '기본'으로 하면 묻지 않습니다.")))
+    if "openfreemap" in source_ids:   # Overpass가 막혀 타일 대체로 만들었다(osm_context.get_elements)
+        warnings.append(_warning("warn", "osm_fallback", tr("OSM 서버가 붐벼 간이 데이터(OpenFreeMap 주간 사본)로 만들었습니다"),
+                                 tr("도로 폭은 등급 기본값이고 층수·건물 용도가 없습니다. 잠시 뒤 다시 만들면 OSM 원본으로 만듭니다.")))
+    if not source_ids & {"osm", "openfreemap"}:   # Overpass·타일 모두 막혔다 — 팩 건물·지형만(osm_context.load)
         warnings.append(_warning("warn", "osm_missing", tr("OpenStreetMap을 받지 못해 도로·수계·녹지 없이 만들었습니다"),
                                  tr("{0} 건물과 지형만 들어 있습니다. 잠시 뒤 다시 만들면 도로·수계·녹지가 들어갑니다.", pack_label)))
     if pack_label or "gsi_dem" in source_ids:   # 나라별 건물 팩(PLATEAU·PDOK …)·지리원 지형
