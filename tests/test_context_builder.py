@@ -284,6 +284,22 @@ class PrefsTest(unittest.TestCase):
             site_prefs.save_options({"radius": 1000, "shape": "circle"}, path)
             self.assertEqual((site_prefs.get_options(path)["radius"], site_prefs.get_options(path)["shape"]), (1000, "circle"))   # 새로 저장한 값은 남는다
 
+    def test_old_prefs_get_new_sheets_once(self):
+        """v3 전 prefs가 옛 분석도를 다 골랐으면(묶음 칩 [전체]·[분석도]) 도면 25~28을 한 번 더한다. 일부만 고른 사람·v3 뒤 선택은 그대로(2026-11-19)."""
+        ids = {key: sheet_id for sheet_id, key, *_ in constants.SHEET_CATALOG}
+        fresh = [ids[key] for key in ("shadow", "sun_hours", "sun_path", "wind")]
+        old_all = [sheet_id for sheet_id, key, *_ in constants.SHEET_CATALOG if constants.SHEET_GROUP.get(key) != "frame" and sheet_id not in fresh]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "prefs.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({"version": 2, "options": {"sheet_ids": old_all}}, f)
+            self.assertEqual(site_prefs.get_options(path)["sheet_ids"], old_all + fresh)
+            site_prefs.save_options({"sheet_ids": old_all}, path)   # 새 판에서 새 도면을 끈 선택은 남는다
+            self.assertEqual(site_prefs.get_options(path)["sheet_ids"], old_all)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({"version": 2, "options": {"sheet_ids": [ids["base"], ids["figure"]]}}, f)   # 하나씩 고른 사람
+            self.assertEqual(site_prefs.get_options(path)["sheet_ids"], [ids["base"], ids["figure"]])
+
     def test_style_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(site_prefs.list_styles(tmp), [])
