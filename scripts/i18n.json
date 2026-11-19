@@ -2735,11 +2735,11 @@
   "ja": "OpenStreetMap・地形タイルをダウンロード中",
   "zh": "正在下载 OpenStreetMap 和地形瓦片"
  },
- "Global — OpenStreetMap 건물 {0}동·지형 타일": {
-  "en": "Global — {0} OpenStreetMap buildings · terrain tiles",
-  "es": "Global — {0} edificios de OpenStreetMap · teselas de terreno",
-  "ja": "Global — OpenStreetMap 建物 {0}棟・地形タイル",
-  "zh": "Global — OpenStreetMap 建筑 {0} 栋 · 地形瓦片"
+ "Global — OpenStreetMap 건물 {0}동·{1}": {
+  "en": "Global — {0} OpenStreetMap buildings · {1}",
+  "es": "Global — {0} edificios de OpenStreetMap · {1}",
+  "ja": "Global — OpenStreetMap 建物 {0}棟・{1}",
+  "zh": "Global — OpenStreetMap 建筑 {0} 栋 · {1}"
  },
  "필지·용도지역 도면은 Korea 모드에만 있고, 높이 태그가 있는 건물은 {0} %입니다(나머지 {1:.1f} m 또는 층수 추정).": {
   "en": "Parcel and zoning maps are only in Korea mode. {0}% of buildings have a height tag (the rest use {1:.1f} m or an estimate from floor counts).",
