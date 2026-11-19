@@ -480,6 +480,8 @@ class Login(object):
         login = self
 
         class Handler(http.server.BaseHTTPRequestHandler):
+            timeout = 10   # 크롬이 미리 열어 두는 빈 연결(2026-11-19 실제 로그인 시험) — 요청 없이 붙어 있으면 끊는다
+
             def do_POST(self):
                 parts = urllib.parse.urlsplit(self.path)
                 length = int(self.headers.get("Content-Length") or 0)
@@ -512,7 +514,10 @@ class Login(object):
             def log_message(self, *args):
                 pass
 
-        self._server = http.server.HTTPServer(("127.0.0.1", 0), Handler)   # 127.0.0.1만 — Windows 방화벽 창이 뜨지 않는다
+        # 연결마다 스레드 — 크롬이 결과를 보낸 뒤 빈 연결을 하나 더 열어 두면 한 줄짜리 서버는 거기서 멈추고 close(shutdown)도 함께 멈췄다
+        # (2026-11-19 실제 로그인 시험: 127.0.0.1:<port>에 ESTABLISHED 둘, 받는 곳은 recv에서 대기). 127.0.0.1만 — Windows 방화벽 창이 뜨지 않는다
+        self._server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self._server.daemon_threads = True
         self.port = self._server.server_address[1]
         self.url = constants.ACCOUNT_LOGIN_URL + "?" + urllib.parse.urlencode({"port": self.port, "state": self.state, "h": host_id, "lang": lang})
         threading.Thread(target=self._server.serve_forever, kwargs={"poll_interval": 0.2}, daemon=True).start()
@@ -554,11 +559,13 @@ class Login(object):
 
     def close(self):
         # type: () -> None
-        """받는 곳을 닫는다(취소·끝·시간 초과). 두 번 불러도 된다."""
+        """받는 곳을 닫는다(취소·끝·시간 초과) — 닫기는 데몬 스레드로(패널의 UI 스레드가 기다리지 않게). 두 번 불러도 된다."""
         server, self._server = self._server, None
         if server is not None:
-            server.shutdown()
-            server.server_close()
+            def stop():
+                server.shutdown()
+                server.server_close()
+            threading.Thread(target=stop, daemon=True).start()
 
 
 # ── 안쪽 ─────────────

@@ -332,6 +332,23 @@ class LoginTest(AccountTestBase):
         finally:
             login.close()
 
+    def test_idle_connection_does_not_block(self):   # 크롬이 미리 열어 두는 빈 연결 — 받는 곳·poll·close가 멈추지 않는다(2026-11-19 실제 시험)
+        import socket
+        login = account.Login("rhino", "0.4.0", "ko", self.path)
+        try:
+            self.wait_url(login)
+            idle = socket.create_connection(("127.0.0.1", login.port), timeout=5)   # 요청을 보내지 않는 연결
+            try:
+                status, _location = self.browser(login, state=login.state, refresh_token="rt-1")
+                self.assertEqual(status, 302)
+                started = time.time()
+                self.assertEqual(login.poll(), {"ok": True})
+                self.assertLess(time.time() - started, 1.0, "poll(close)이 빈 연결을 기다렸다")
+            finally:
+                idle.close()
+        finally:
+            login.close()
+
     def test_bad_token_is_denied(self):
         login = account.Login("sketchup", "0.4.0", "ko", self.path)
         try:
