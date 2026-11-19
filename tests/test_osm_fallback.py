@@ -168,6 +168,23 @@ class TileFallbackTest(unittest.TestCase):
         self.assertEqual(osm_context.get_building_height({"building": "yes", "render_height": 5})[2:], ("default", "D"))   # OpenMapTiles 기본값
         self.assertEqual(osm_context.get_tile_date(TEMPLATE), "2026-11-01")
 
+    def test_outline_keeps_wings_and_drops_parts(self):
+        """부분이 따로 있는 외곽(hide_3d)은 남기고 그 안의 부분만 뺀다 — 안뜰에 따로 선 건물·이웃은 남는다(2026-11-19 루브르 날개가 빠졌다)."""
+        def ring(x0, y0, x1, y1):
+            return [{"lon": x, "lat": y} for x, y in ((x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0))]
+        outline_tags = osm_context.get_tile_tags("building", {"render_height": 25, "hide_3d": True}, 3)
+        self.assertEqual(outline_tags["building"], "yes")
+        elements = [
+            {"id": 1, "type": "relation", "tags": outline_tags, "members": [{"role": "outer", "geometry": ring(0, 0, 10, 10)}, {"role": "inner", "geometry": ring(3, 3, 7, 7)}]},
+            {"id": 2, "type": "way", "tags": {"building": "yes", "render_height": 30}, "geometry": ring(0.5, 0.5, 2.5, 2.5)},   # 외곽 안 부분 — 뺀다
+            {"id": 3, "type": "way", "tags": {"building": "yes", "render_height": 21}, "geometry": ring(4, 4, 6, 6)},           # 안뜰의 피라미드 — 남긴다
+            {"id": 4, "type": "way", "tags": {"building": "yes", "render_height": 12}, "geometry": ring(20, 20, 22, 22)},       # 이웃 — 남긴다
+            {"id": 5, "type": "way", "tags": {"highway": "footway"}, "geometry": ring(1, 1, 2, 2)[:2]},                       # 건물 아님 — 남긴다
+        ]
+        kept = osm_context._get_without_parts(elements)
+        self.assertEqual([e["id"] for e in kept], [1, 3, 4, 5])
+        self.assertNotIn(osm_context._OUTLINE, kept[0]["tags"])   # 내부 표시는 지운다
+
     def test_seams(self):
         """타일 경계에서 잘린 건물은 한 동으로, 도로는 버퍼 겹침 없이, 버퍼 안 점은 한 번만."""
         bounds = _tile_bounds()

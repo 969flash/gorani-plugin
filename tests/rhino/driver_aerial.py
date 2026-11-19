@@ -42,9 +42,10 @@ def write_obj(doc, path):
             mesh = Rhino.Geometry.Mesh()
             for part in meshes:
                 mesh.Append(part)
+        own_uv = mesh.TextureCoordinates.Count == mesh.Vertices.Count   # 메시는 꼭짓점마다 UV를 저장한다(2026-11-15) — Brep만 매핑 채널 1
         mesh = mesh.DuplicateMesh()
         mesh.Faces.ConvertQuadsToTriangles()
-        if draped:
+        if draped and not own_uv:
             mesh.SetTextureCoordinates(rhino_object.GetTextureMapping(1), Rhino.Geometry.Transform.Identity, False)
         lines.append("o %s_%d" % ("ground" if draped else "building", offset))
         lines.append("usemtl %s" % ("aerial" if draped else "white"))
@@ -63,6 +64,7 @@ def write_obj(doc, path):
     return counts
 
 
+os.environ[constants.OSM_FALLBACK_FORCE_ENV] = "1"   # Overpass 대기를 빼고 OpenFreeMap으로(영상·입히기 시험)
 doc = Rhino.RhinoDoc.CreateHeadless(None)
 doc.ModelUnitSystem = Rhino.UnitSystem.Meters
 try:
@@ -89,6 +91,14 @@ try:
     draped = [o for o in context_baker._get_objects(doc) if o.Attributes.MaterialSource == Rhino.DocObjects.ObjectMaterialSource.MaterialFromObject]
     layers = sorted({doc.Layers[o.Attributes.LayerIndex].FullPath for o in draped})
     check("layers", "CTX::Terrain" in layers, ", ".join(layers))
+    uv_meshes = [o.Geometry for o in draped if isinstance(o.Geometry, Rhino.Geometry.Mesh)]
+    uv_ok = all(m.TextureCoordinates.Count == m.Vertices.Count for m in uv_meshes)
+    us = [t.X for m in uv_meshes for t in m.TextureCoordinates]
+    vs = [t.Y for m in uv_meshes for t in m.TextureCoordinates]
+    check("vertex uv", uv_meshes and uv_ok and min(us) >= -0.001 and max(us) <= 1.001 and min(vs) >= -0.001 and max(vs) <= 1.001,
+          "meshes %d · u %.4f~%.4f · v %.4f~%.4f" % (len(uv_meshes), min(us or [0]), max(us or [0]), min(vs or [0]), max(vs or [0])))
+    materials = [m for m in doc.RenderMaterials if (m.Name or "").startswith(constants.AERIAL_DRAPE_MATERIAL)]
+    check("one material", len(materials) == 1, ", ".join(m.Name for m in materials))
     model = os.path.join(response["dir"], constants.CONTEXT_MODEL_FILE_NAME)
     copy = Rhino.FileIO.File3dm.Read(model)
     textured = [m for m in copy.Materials if m.GetBitmapTexture()] if copy else []

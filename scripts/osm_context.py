@@ -1365,9 +1365,12 @@ def get_tile_tags(layer, props, kind):
     kind = MVT 종류(1 점·2 선·3 면). 녹지·시설은 원래 OSM 값(landcover subclass, landuse·park class)을 OSM_GREEN_TAGS·OSM_PUBLIC_USE에서 찾는다."""
     cls, sub = props.get("class") or "", props.get("subclass") or ""
     if layer == "building":
-        if props.get("hide_3d") or (props.get("render_min_height") or 0) > 0:   # 부분(building:part)이 따로 있는 외곽·떠 있는 부분 — 바닥에서 올리면 겹친다
+        if (props.get("render_min_height") or 0) > 0:   # 떠 있는 부분(building:part) — 바닥에서 올리면 겹친다
             return None
-        return {"building": "yes", "render_height": props.get("render_height", constants.OSM_FALLBACK_DEFAULT_HEIGHT)}
+        tags = {"building": "yes", "render_height": props.get("render_height", constants.OSM_FALLBACK_DEFAULT_HEIGHT)}
+        if props.get("hide_3d"):   # 부분이 따로 있는 외곽 — Overpass(building 웨이만 묻는다)처럼 외곽을 쓰고 안의 부분은 get_tile_elements가 뺀다
+            tags[_OUTLINE] = "yes"
+        return tags
     if layer == "transportation":
         brunnel = props.get("brunnel") or ""
         tags = {key: str(props[key]) for key in ("layer", "level") if props.get(key) not in (None, "")}
@@ -1509,7 +1512,39 @@ def get_tile_elements(bounds, on_wait=None):
         for polygon in owned:
             if is_near(polygon[0]):
                 add(dict(items), polygon, 3)
-    return _keep(key, elements)
+    return _keep(key, _get_without_parts(elements))
+
+
+_OUTLINE = "gorani:outline"   # 타일 대체 안에서만 쓰는 표시 — _get_without_parts가 지운다
+
+
+def _get_without_parts(elements):
+    # type: (list) -> list
+    """부분이 따로 있는 외곽(hide_3d) 안에 중심이 든 건물(= 그 외곽의 바닥 부분)을 뺀다 — Overpass 경로와 같이 외곽 하나만 남는다.
+    외곽을 버리면 부분이 외곽을 다 덮지 않는 건물의 날개가 통째로 빠졌다(2026-11-19 루브르 — 외곽 6개가 hide_3d)."""
+    def rings_of(element):   # [바깥, 구멍…] 경위도
+        if element.get("geometry"):
+            return [[(p["lon"], p["lat"]) for p in element["geometry"]]]
+        members = sorted(element.get("members", []), key=lambda m: m.get("role") != "outer")
+        return [[(p["lon"], p["lat"]) for p in m["geometry"]] for m in members]
+
+    def is_inside(x, y, rings):   # 바깥 안이면서 구멍(안뜰) 밖 — 안뜰에 따로 선 건물(루브르 피라미드)은 남긴다
+        return non_rhino_utils.is_point_in_ring(x, y, rings[0]) and not any(non_rhino_utils.is_point_in_ring(x, y, hole) for hole in rings[1:])
+
+    outlines = [(element["id"], rings_of(element)) for element in elements if element["tags"].pop(_OUTLINE, None)]
+    if not outlines:
+        return elements
+    boxes = [non_rhino_utils.get_bbox(rings[0]) for _id, rings in outlines]
+    outline_ids = {element_id for element_id, _rings in outlines}
+    kept = []
+    for element in elements:
+        if "building" in element["tags"] and element["id"] not in outline_ids:
+            ring = rings_of(element)[0]
+            cx, cy = sum(p[0] for p in ring) / len(ring), sum(p[1] for p in ring) / len(ring)
+            if any(b[0] <= cx <= b[2] and b[1] <= cy <= b[3] and is_inside(cx, cy, rings) for b, (_id, rings) in zip(boxes, outlines)):
+                continue
+        kept.append(element)
+    return kept
 
 
 def get_elements(bounds, query=None, endpoints=None, on_wait=None):
