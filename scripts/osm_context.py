@@ -1575,8 +1575,8 @@ def load(bounds, today, on_wait=None, details=()):
             elements, via = [], ""   # 출처에 osm이 빠진 것을 context_builder가 보고 알린다
         building_elements, building_via = elements, via   # 타일 대체면 건물도 들어 있다(Overpass 본 질의는 건물 줄을 뺐다)
         if via == "osm":
-            try:
-                building_elements, building_via = get_elements(bounds, constants.OSM_OVERPASS_BUILDING_QUERY, constants.OSM_OVERPASS_URLS[:1], on_wait)
+            try:   # 타일 대체는 하지 않는다 — 첫 미러 하나만 실패해도 타일(최대 50 MB)을 받고, 도로는 Overpass 원본인데 '간이 데이터' 경고가 떴다(2026-11-19 리뷰)
+                building_elements = get_overpass_elements(bounds, constants.OSM_OVERPASS_BUILDING_QUERY, constants.OSM_OVERPASS_URLS[:1], on_wait)
             except RuntimeError:   # 메우기용이라 못 받아도 넘어간다
                 building_elements = []
     else:
