@@ -104,6 +104,7 @@ description: |-
   What you get
   - 3D: buildings, roads, terrain, rivers, parks and railways on separate layers
   - 2D: Illustrator basemap, urban analysis maps, DWG (Rhino 8), CSV tables
+  - Advanced model (roof parapets, floor lines, road markings, street trees, rail tracks, retaining walls): free with a Google sign-in, 3 tries without
   - Data: Korea nationwide; official building data with heights where available (Japan, Netherlands, France, Switzerland, United States and more — the list grows without plugin updates, see the website); elsewhere OpenStreetMap
 
   한 번에 쉽게 하는 사이트 모델링 및 사이트 분석
@@ -118,6 +119,7 @@ description: |-
   결과물
   - 3D: 건물 매스, 도로, 지형, 하천, 녹지, 철도 (레이어별)
   - 2D: 일러스트레이터 베이스맵, 현황도·분석도, DWG(라이노 8), 조서 CSV
+  - 고급 모델(옥상 파라펫·층 구분선·노면표시·가로수·선로·옹벽): 구글 계정으로 로그인하면 무료, 로그인 없이 3번 써 볼 수 있습니다
   - 데이터: 국내 전국, 공식 건물 데이터(높이 포함)가 있는 나라는 그것(일본·네덜란드·프랑스·스위스·미국 등 — 플러그인 업데이트 없이 늘어납니다, 웹사이트 참고), 그 밖은 OpenStreetMap
 license: MIT
 url: %(url)s
@@ -184,7 +186,7 @@ else:
 
 BLENDER_APP = "/Applications/Blender.app/Contents/MacOS/Blender"
 BLENDER_PACKAGE_ID = "gorani"
-BLENDER_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py", "cmd_sketchup.py", "cmd_rhino7.py", "cmd_archicad.py", "cmd_web.py", "usage_stats.py")    # Rhino 전용(Eto·RhinoCommon·사용 통계), SketchUp·Rhino 7·Archicad 사이드카, 웹판
+BLENDER_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py", "cmd_sketchup.py", "cmd_rhino7.py", "cmd_archicad.py", "cmd_web.py", "usage_stats.py", "account.py")    # Rhino 전용(Eto·RhinoCommon·사용 통계), SketchUp·Rhino 7·Archicad 사이드카, 웹판
 # 확장 심사(2026-10-28): 애드온에는 Blender 코드만 — 다른 프로그램(Rhino·SketchUp) 분기, Blender에 없는 라이브러리 import, 스레드(threading·queue)는 안 된다.
 # 공용 모듈의 그런 구간은 소스에서 `# [blender-cut]` … `# [/blender-cut]` 줄(패널 HTML은 `// [blender-cut]`)로 감싸 두고 패키지에서 뺀다(get_blender_source).
 # 남으면 get_blender_problems가 빌드를 멈춘다. 번역 사전은 다른 프로그램·사용 통계 문구를 뺀다(BLENDER_I18N_DROPPED)
@@ -262,6 +264,7 @@ BLENDER_CONSTANT_PATCHES = {
         "VWORLD_API_KEY_ENV": '""', "VWORLD_SEARCH_URL": '""',
         "OSM_USER_AGENT": '"Gorani/0.3 (Blender add-on; https://gorani.site/)"',
         "PDOK_ITEMS_URL": '""', "BDTOPO_FEED_URL": '""', "SWISS_STAC_ITEMS_URL": '""', "PLATEAU_CKAN_URL": '""', "CENSUS_COUNTY_URL": '""', "OVERTURE_S3_URL": '""',
+        "ACCOUNT_ENABLED": "False", "ACCOUNT_TOKEN_URL": '""', "ACCOUNT_FIREBASE": '{"api_key": "", "project_id": "", "db_url": ""}',   # 회원 없음 — 확장 약관: 외부 서비스에 가입을 요구할 수 없다(account.py도 뺀다)
     },
     "review_map.py": {"VWORLD_TILE_URL_TEMPLATE": '""', "VWORLD_AERIAL_URL_TEMPLATE": '""', "ESRI_AERIAL_URL": '""', "IP_LOCATE_URL": '""'},
 }

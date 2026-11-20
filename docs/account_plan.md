@@ -3,6 +3,7 @@
 2026-11-14 작성. 기준: main 4d232c2(배포판 0.3.9). 디테일 옵션(`constants.DETAIL_OPTIONS` 9종 — 2938bfe, 2026-11-13)은 아직 배포되지 않았다.
 목표: 디테일 옵션(화면 '수준 · 고급' = 고급 모델)은 무료 회원(구글 로그인)이 쓰고, 손님은 로그인 없이 3회 써 본다. 나머지 기능은 지금처럼 누구나 쓴다. 인스타그램에서 데려와 가입 수를 늘린다. 돈은 받지 않는다. 서버비 0을 지킨다.
 2026-11-14 수정: 가입 즉시 회원 확정, 손님 무료 3회, 인스타그램 연계, 3D 설정 아래 '디테일' 접는 줄(접힘 = 기본, 펼침 = 고급 — 손님은 자물쇠, 펼치면 로그인 창), 손님이 만들기를 누르면 로그인 창(사용자 요청). 2026-11-15: 만들 때 창은 처음 한 번만, 그림 비교 없이(B1안). 같은 날: 이용권·기능·권한을 나누는 설계 원칙, 인증 흐름 6단계와 '누른 곳으로 돌아가기', 화면은 꾸밈·안내 문구 최소, 손님은 머리줄 오른쪽에 [로그인]·회원은 그 자리에 계정 기호(메일·생성 기록), 로딩 화면은 그대로(사용자). 같은 날 끝으로: 디테일 접는 줄 → **'수준 [기본 | 고급]' 한 줄**(영어 `Level` · `Basic | Advanced`), 항목 체크·묶음 없앰(만든 뒤 레이어로 끔), 담장은 화면에서 뺌, **지형 자체를 바꾸는 연석은 3D 설정 안 선택 사항**(사용자, 와이어프레임 v20). 2026-11-16: 단추 아래 '고급 + …' 설명 줄은 지저분해 없앰 — 무엇이 드는지는 플랜 창과 마우스 올림 글로(사용자, v22). 이어서: 손님이 '고급'을 누르면 **Guest·Member 플랜을 나란히 소개하고 아래에 구글 로그인**하는 창(ChatGPT 요금제 화면 참고 — 사용자), 패널의 '예시 ↗'는 이 창으로 대신한다(v21).
+2026-11-19(사용자): **우리 서버를 만들지 않는다.** 회원은 Firebase Auth(구글 로그인만, 결제수단을 걸지 않은 무료 Spark 프로젝트)가 저장하고, 생성 기록은 같은 프로젝트의 Realtime Database에 본인만 읽고 쓰게(보안 규칙) 둔다 — 앱스 스크립트 회원 API·시트 '회원함'은 없앤다. 메일은 보내지 않는다(소식 메일·설치 링크 메일 없음). 회원별 가입 경로는 남기지 않는다(GA 집계로). 연결된 PC는 프로그램·판·OS·날짜만 남긴다(웹에서 해제 — 공용 PC용, 사용자). 생성 기록은 플러그인 보내기와 패널 '생성 기록' 화면까지 0.4.0에 넣는다(Cho PR의 0.4.1 미룸을 당김, 사용자). 화면·문구는 Cho PR(11-18)이 원본이고 이 문서의 화면 그림보다 앞선다. 기준: 비용이 나올 길과 우리가 보관하는 정보를 최소로. Firebase 프로젝트는 고라니 운영 계정(gorani.3d@gmail.com)으로 만든다. 화면·흐름은 Cho PR(플러그인 #77, gorani #18·#19·#20)을 그대로 쓰고 데이터 부분만 새 브랜치에서 Firebase로 바꾼다. **로그인에 기대지 않는다** — 로그인 쪽이 고장이면 막지 않고 연다(아래 '로그인에 기대지 않기').
 
 ## 먼저 정할 것 — 권장안과 근거
 
@@ -17,10 +18,10 @@
 | 언제 내나 | 디테일과 로그인을 같은 판(0.4.0)으로 | 디테일만 먼저 내고 나중에 잠그면 써 본 사람에게서 빼앗는 꼴이 된다. 디테일 공개가 2주쯤 늦어지는 것을 감수한다 |
 | 얼마나 단단히 잠그나 | 정직한 사용자용 구분만(서명·난독화 없음) | 설치본에 파이썬 원본이 그대로 있다(Blender판은 GPL 원본). 돈을 받기 전에는 막는 데 시간을 쓰지 않는다. 정말 막아야 할 때는 서버 쪽 자원으로 막는다(아래 '나중') |
 | Blender판 | 로그인 없음, 디테일 전부 열림 | Blender Extensions 약관: 외부 서비스는 로그인·가입 같은 추가 제한 없이 쓰게 해야 한다([terms-of-service](https://extensions.blender.org/terms-of-service)). 심사 답변에도 "free and without login"이라 적었다(`docs/blender_store/README.md`) |
-| 요금제·권한 구조 | **확정(2026-11-15 사용자)** — 이용권(Plan)·기능(Feature)·권한(Entitlement)을 나눈다. 플러그인은 기능 키만 보고, 계정이 쓸 기능은 서버가 정한다. 회원 = 무료 로그인(`free`), `pro`·`enterprise`는 나중에 붙일 자리만 | 요금제를 바꿀 때마다 플러그인 판을 올리지 않으려고. 아래 '설계 원칙' |
-| 로그인 수단 | 구글 먼저, 이메일은 다음 단계 | 사용자 흐름은 '구글 또는 이메일'. 이메일 로그인은 인증 메일을 보내야 하는데 앱스 스크립트 무료 계정은 하루 약 100통이 한도라 인스타 가입이 몰리면 막힌다. 구글로 시작하고, 이메일은 인증 코드 방식으로 더한다. 이메일 가입이 늘면 인증만 Firebase Auth(메일을 대신 보낸다)로 옮긴다 — 플러그인은 우리 회원 API만 알아 영향이 없다 |
-| 회원 정보는 어디에 | 앱스 스크립트 + 구글 시트(문의함과 같은 방식) | 서버비 0. 이미 운영 중인 방식이다(웹 저장소 `tools/contact`). 회원 표를 시트에서 바로 보고 고친다 |
-| 무엇을 저장하나 | 구글 계정 고유번호(`sub`)·이메일·동의 기록·가입 경로(UTM)만. 이름·사진은 받지 않는다 | 최소 수집 — 처리방침과 탈퇴가 단순해진다 |
+| 요금제·권한 구조 | **확정(2026-11-15 사용자)** — 이용권(Plan)·기능(Feature)·권한(Entitlement)을 나눈다. 플러그인은 기능 키만 보고, 계정이 쓸 기능은 서버 쪽 값(토큰의 `plan` + 원격 설정)이 정한다. 회원 = 무료 로그인(`free`), `pro`·`enterprise`는 나중에 붙일 자리만 | 요금제를 바꿀 때마다 플러그인 판을 올리지 않으려고. 아래 '설계 원칙' |
+| 로그인 수단 | **확정(2026-11-19 사용자)** — 구글만. 이메일·비밀번호는 필요해지면 웹에만 더한다 | 비밀번호를 받지 않는다. 로그인은 웹에서만 하므로 수단을 더해도 플러그인 판이 없다. Firebase 무료(Spark)는 인증 메일이 하루 1,000통이라 이메일·비밀번호는 나중에 더할 수 있지만, 비밀번호 없는 메일 링크 로그인은 하루 5통이라 쓰지 않는다([한도](https://firebase.google.com/docs/auth/limits)) |
+| 회원 정보는 어디에 | **확정(2026-11-19 사용자)** — Firebase Auth(계정) + 같은 프로젝트의 Realtime Database(생성 기록). 우리 서버 코드·시트 없음 | 비용: 결제수단이 없는 Spark 프로젝트는 요금이 나올 수 없다(한도를 넘으면 멈춘다). 보관: 인증 코드(교환권·토큰 해시·한도)를 짜지 않고, 이메일이 든 시트를 공유·사본 실수 없이 지킬 일이 없다. 회원 보기·사용 중지·삭제는 Firebase 콘솔, 탈퇴는 본인이 웹에서. 11-14 안(앱스 스크립트 + 시트)은 아래 '다른 길' |
+| 무엇을 저장하나 | Firebase 계정(고유 id·이메일·가입·마지막 로그인 시각 — 구글 버튼이 넘기는 이름·사진도 Firebase가 함께 저장하지만 쓰지 않는다)과 회원의 생성 기록(가벼운 값 — 아래 '생성 기록')만. 연결된 PC는 프로그램·판·OS·날짜만. 동의 판·가입 경로는 남기지 않는다 | 최소 수집 — 처리방침과 탈퇴가 단순해진다. 가입 경로는 GA `sign_up` 집계로 충분하다(2026-11-19 사용자) |
 
 ## 설계 원칙 — 이용권·기능·권한 나누기 (2026-11-15 사용자)
 
@@ -28,23 +29,24 @@
 
 | 말 | 뜻 | 어디에 있나 | 예 |
 |---|---|---|---|
-| 이용권 Plan | 계정이 가진 이용권 | 서버 — 시트 '이용권' 탭(이용권 → 기능)과 회원 줄의 `plan` | `guest`(로그인 안 함), `free`(무료 로그인 = 회원), 나중에 `pro`·`enterprise` |
+| 이용권 Plan | 계정이 가진 이용권 | Firebase 토큰의 맞춤 값(custom claim) `plan` — 없으면 `free`. 운영자·결제 알림만 쓴다(지금은 넣을 일 없음) | `guest`(로그인 안 함), `free`(무료 로그인 = 회원), 나중에 `pro`·`enterprise` |
 | 기능 Feature | 켜고 끄는 기능 하나 | 기능 목록 — 원격 설정 `FEATURES`(키 → 이름·설명·묶는 옵션) | `detail_advanced`(고급 모델 — 디테일 6종), `history_sync`(생성 기록 — 계정 통합), 나중에 `laser_cut`·`stl_export`·`terrain_analysis` |
-| 권한 Entitlement | 이 계정이 지금 쓸 수 있는 기능 | 서버가 계산해 플러그인에 준다 | `{plan: "free", plan_name: "Member", features: ["detail_advanced", "history_sync"], valid_until: …}` |
+| 권한 Entitlement | 이 계정이 지금 쓸 수 있는 기능 | 플러그인이 토큰의 `plan` + 원격 설정 `PLAN_FEATURES`(이용권 → 기능)·`PLAN_NAMES`로 계산한다 — 둘 다 서버 쪽 값이라 판 없이 바뀐다 | `{plan: "free", plan_name: "Member", features: ["detail_advanced", "history_sync"], valid_until: …}` |
 
 규칙:
 - **플러그인은 기능 키만 본다.** `if plan == "pro"` 같은 분기를 코드에 쓰지 않는다. 화면의 이용권 이름도 서버가 준 `plan_name`을 그대로 쓴다. 이용권 이름은 모든 언어에서 같은 영어 고유명사다 — 손님 `Guest`(패널이 정함), 회원 `Member`, 나중 `Pro`·`Enterprise`(ChatGPT의 Free·Plus처럼, 2026-11-15 사용자).
-- **권한은 서버가 정한다.** 권한 = 이용권의 기능 + 계정별 더한 기능(`extra_features`) − 뺀 기능(`removed_features`). 이용권 기한(`plan_until`)이 지나면 `free`로, 막힌 계정(`status = blocked`)은 `guest`와 같게 계산한다.
-- **로그인했다고 다 열리지 않는다.** 회원(`free`)이 쓸 기능은 '이용권' 탭의 `free` 줄이 정한다 — 지금은 `detail_advanced`·`history_sync`. 새 기능을 유료로만 내려면 `pro` 줄에만 적는다.
+- **권한은 서버 쪽 값으로 정한다.** 권한 = `PLAN_FEATURES[plan]`. `plan`은 Firebase 토큰 값이라 운영자(관리 스크립트)·결제 알림만 바꾼다. 이용권 기한(토큰 값 `plan_until`)이 지나면 `free`로. 막힌 계정(Firebase 콘솔 '사용 중지')은 토큰을 새로 받지 못해 `guest`가 된다. 한 사람에게만 더하고 빼는 기능은 쓸 일이 생기면 토큰 값으로 더한다(2026-11-19 — 시트의 `extra_features`·`removed_features` 대신).
+- **로그인했다고 다 열리지 않는다.** 회원(`free`)이 쓸 기능은 `PLAN_FEATURES.free`가 정한다 — 지금은 `detail_advanced`·`history_sync`. 새 기능을 유료로만 내려면 `pro` 줄에만 적는다.
 - **손님도 같은 꼴**: 로그인 없이 쓰는 기능 `GUEST_FEATURES`(지금 빈 목록), 횟수로 허용 `GUEST_TRIALS = {"detail_advanced": 3}` — 원격 설정.
 - **기능 → 옵션**은 기능 목록이 정한다(`FEATURES.detail_advanced.options` = `building_parapet`·`building_floors`·`detail_markings`·`detail_trees`·`detail_rail`·`detail_walls` — 순서가 곧 패널 한 줄의 순서). 엔진(`context_builder`·`get_detail`)은 그대로이고, `account.get_allowed_options`가 권한에 없는 기능의 옵션을 끈다.
-- **바꾸는 곳**: 어느 이용권이 어느 기능을 쓰는지 → 시트 '이용권' 탭(서버, 바로 — 다음 `me` 확인 때 반영). 기능 이름·설명·옵션 묶음 → 원격 설정(`dev_deploy.py notices`, 판 없음). 기능 자체(새 코드) → 코드 판.
-- 권한 응답은 서명하지 않는다(정직한 사용자용 — 원본 공개). 유료를 시작하면 서버 서명 토큰이나 서버 쪽 자원으로 막는다(아래 '나중').
+- **바꾸는 곳**: 어느 이용권이 어느 기능을 쓰는지·기능 이름·설명·옵션 묶음 → 원격 설정 `PLAN_FEATURES`·`FEATURES`(`dev_deploy.py notices`, 판 없음). 한 계정의 이용권 → 토큰 값 `plan`(관리 스크립트). 기능 자체(새 코드) → 코드 판.
+- 플러그인은 토큰을 구글(securetoken)에서 HTTPS로 직접 받아 값만 읽고 서명은 확인하지 않는다(정직한 사용자용 — 원본 공개). 유료를 시작하면 서버 쪽 자원으로 막는다(아래 '나중').
 
 ```
-플러그인 ── claim·me ──▶ 회원 API ── 회원 줄(plan · status · plan_until · extra/removed_features)
-   ▲                         └─ '이용권' 탭(plan → features, plan_name)
-   └── {plan, plan_name, features, valid_until} ◀── 권한 계산
+플러그인 ── 열쇠 → 토큰(로그인 때·하루 1회) ──▶ Firebase Auth ── 토큰 값 email · plan · plan_until(운영자·결제 알림만 씀)
+   │                                              (사용 중지된 계정은 토큰을 못 받는다 → guest)
+   ├── 원격 설정(HF config.json) ── PLAN_FEATURES(plan → features) · PLAN_NAMES · FEATURES
+   └── 권한 = {plan, plan_name, features, valid_until}
    패널: features에 든 기능만 열고, 없는 기능에는 자물쇠 + 여는 길(지금은 '로그인·무료', 나중엔 이용권 안내)
 ```
 
@@ -54,10 +56,10 @@
 |---|---|---|
 | `guest` 손님 | 로그인하지 않음 | 기본 전부 — 범위 전부, 3D 기본(건물·도로·지형·수계·녹지·철도 부지) + 교량·고가, 지형 선택 사항(연석 포함), 2D 전부. `detail_advanced`는 '로그인 없이 써 보기' 3회(`GUEST_TRIALS`) |
 | `free` 회원 | 구글 로그인(이메일은 다음 단계) | 기본 전부 + `detail_advanced` · `history_sync` |
-| (나중) `pro` · `enterprise` | 정하지 않았다 | '이용권' 탭에 줄을 더하고 기능을 적는다. 플러그인 판 없음 |
-| 막힘 `status = blocked` | 운영자가 시트에서 | 손님과 같다 |
+| (나중) `pro` · `enterprise` | 정하지 않았다 | `PLAN_FEATURES`에 줄을 더하고, 그 회원의 토큰 값 `plan`을 결제 알림이 넣는다. 플러그인 판 없음 |
+| 막힘(사용 중지) | 운영자가 Firebase 콘솔에서 | 손님과 같다(다음 토큰 갱신 때, 늦어도 하루) |
 
-`ACCOUNT_ENABLED = False`(원격 설정)이면 회원 구분이 없다 — 로그인 버튼과 자물쇠가 사라지고 고급을 누구나 고른다. 회원 API가 오래 멈췄을 때 쓰는 비상 스위치다.
+`ACCOUNT_ENABLED = False`(원격 설정)이면 회원 구분이 없다 — 로그인 버튼과 자물쇠가 사라지고 고급을 누구나 고른다. Firebase가 오래 멈췄을 때 쓰는 비상 스위치다.
 
 ## 손님에게 여는 것 — 로그인 없이 고급 3회
 
@@ -84,7 +86,7 @@
 ## 사용자 흐름 — 플러그인
 
 로그인은 **늘 시스템 브라우저에서** 한다. 구글은 앱 안 웹뷰(Rhino Eto WebView, SketchUp HtmlDialog, Archicad 팔레트)의 구글 로그인을 막는다(`disallowed_useragent` — [구글 공지](https://developers.googleblog.com/en/upcoming-security-changes-to-googles-oauth-20-authorization-endpoint-in-embedded-webviews/)).
-플러그인은 구글과 직접 말하지 않는다. 로그인은 gorani.site가 하고, 끝나면 브라우저가 내 PC의 플러그인(127.0.0.1)으로 결과를 돌려준다 — 데스크톱 앱 로그인의 흔한 방식이다(GitHub CLI·VS Code와 같다). 사용자는 코드를 보거나 고르지 않는다. 플러그인에 구글 클라이언트 비밀값이 없고, 호스트 넷(Rhino 8·7, SketchUp, Archicad)이 같은 코드를 쓴다. 2026-11-14 — 처음 안의 '연결 코드' 확인 단계를 사용자 요청으로 뺐다.
+플러그인은 구글 로그인을 직접 하지 않는다(받은 열쇠로 토큰만 새로 받는다). 로그인은 gorani.site가 하고, 끝나면 브라우저가 내 PC의 플러그인(127.0.0.1)으로 결과를 돌려준다 — 데스크톱 앱 로그인의 흔한 방식이다(GitHub CLI·VS Code와 같다). 사용자는 코드를 보거나 고르지 않는다. 플러그인에 구글 클라이언트 비밀값이 없고, 호스트 넷(Rhino 8·7, SketchUp, Archicad)이 같은 코드를 쓴다. 2026-11-14 — 처음 안의 '연결 코드' 확인 단계를 사용자 요청으로 뺐다.
 
 인증 흐름(2026-11-15 사용자):
 
@@ -92,7 +94,7 @@
 2. **로그인하는 곳** — 머리줄 [로그인], 또는 권한이 필요한 자리(수준 '고급', 처음 만들기). 패널 안 창이 뜬다. '고급'에서는 **플랜 창** — Guest·Member를 나란히 소개하고 아래에 [구글로 로그인]과 `로그인 없이 써 보기 (n회)`. 머리줄 [로그인]·처음 만들기에서는 **작은 로그인 창** — 제목 `로그인`, [구글로 로그인], 그 자리에 맞는 두 번째 단추 하나(머리줄에서 열면 없음). 둘 다 패널 안 창이고 큰 화면을 따로 만들지 않는다.
 3. **[구글로 로그인]** → 시스템 브라우저에 `gorani.site/login/`.
 4. **계정 인증** — 구글(이메일은 다음 단계). 처음이면 그 자리에서 가입(동의 화면 없음 — 아래 '처음 로그인').
-5. **권한 확인** — 회원 API가 권한을 계산해 교환권과 함께 넘기고, 플러그인이 `claim`으로 토큰과 권한을 받는다. 창은 그동안 `브라우저에서 로그인 중` + [취소].
+5. **열쇠 받기·권한 확인** — 웹이 Firebase 열쇠(refresh token)를 127.0.0.1로 넘기고(POST), 플러그인이 그 열쇠로 구글(securetoken)에서 토큰을 받아 `plan`을 읽고 권한을 계산한다. 창은 그동안 `브라우저에서 로그인 중` + [취소].
 6. **활성화 — 누른 곳으로 돌아간다.** 창이 닫히고 처음 누른 기능을 이어 한다: '고급'이었으면 고급이 눌린 채로, 첫 만들기 창이었으면 고급으로 만들기 시작. 받은 권한에 그 기능이 없으면(나중의 유료 기능) 창 제목이 `지금 이용권에 없는 기능입니다`로 바뀐다.
 
 - **돌아가기 구현**: 브라우저로 나가기 전 패널이 `pending_action = {feature, action, args}`(예 `{detail_advanced, select_advanced}`·`{detail_advanced, build}`)를 들고 있다가, `account_state`(권한 포함)가 오면 그 기능이 권한에 있을 때만 실행한다. 취소·5분 넘김이면 버린다.
@@ -100,10 +102,33 @@
 - **기존 화면은 거의 그대로 둔다.** 지도·3D 설정 윗줄·로딩·결과·더보기 메뉴는 그대로이고, 계정 기능은 머리줄 오른쪽([로그인]/계정 기호)·3D 설정 아래 '수준' 줄·플랜 창·로그인 창에만 둔다. 바뀌는 것은 범위 두 줄을 한 줄로 합치는 것(트레이 줄 수를 지금과 같게)과 디테일 체크가 '수준'으로 바뀌는 것뿐이다.
 - 머리줄 [로그인]은 돌아갈 곳 없이 로그인만 한다 — 돌아오면 지금 화면 그대로, 토스트 `로그인했습니다`. 로그인하면 [로그인] 자리에 **계정 기호**(사람 모양 선 아이콘, 머리줄 ≡와 같은 꼴)가 생기고, 누르면 작은 창에 `name@gmail.com`·그 아래 이용권 이름 `Member`·[로그아웃]과 `생성 기록 n ›`(2026-11-15 사용자). 더보기 메뉴에는 계정 줄을 두지 않는다.
 - 처음 만들기 첫 창(B1안): 같은 로그인 창 — [구글로 로그인] / `로그인 없이 만들기`. 무엇을 고르든 바로 만들고 그 뒤로는 창이 없다. ✕·Esc는 이번 만들기만 취소. 회원은 창 없이 만든다.
-- **오프라인** — 회원 확인 때문에 못 쓰게 되는 기능은 없다. 기본 기능과 무료 횟수 세기는 인터넷 없이 돈다(횟수는 PC에서 센다). 받은 권한은 마지막 확인 뒤 30일(`ACCOUNT_OFFLINE_DAYS`)까지 그대로 쓴다. 그 뒤에는 만들기를 누를 때 창이 `로그인을 다시 확인하지 못했습니다 [다시 확인하고 만들기] [고급 빼고 만들기]`. 오류로 만들지 않는다. 연결 열쇠(`token`)는 지우지 않으니 인터넷이 다시 되면 다음 확인 때 저절로 풀린다 — 다시 로그인하지 않는다.
+- **오프라인** — 회원 확인 때문에 못 쓰게 되는 기능은 없다. 기본 기능과 무료 횟수 세기는 인터넷 없이 돈다(횟수는 PC에서 센다). 받은 권한은 서버가 확실히 거절하기 전까지 기한 없이 그대로 쓴다(2026-11-19 — 30일 만료와 '다시 확인' 창을 없앴다, 아래 '로그인에 기대지 않기').
    인터넷이 원래 필요한 곳은 회원과 상관없이 지금과 같다: 해외·OSM 모드(Overpass), 한국 새 지역의 팩 받기, 처음 보는 지역의 지도 바탕(본 타일은 웹뷰가 7일 캐시). 처음 로그인할 때만 인터넷이 꼭 있어야 한다.
-- **회원 API가 죽었을 때** — 손님으로 계속 쓴다. 사용자를 막지 않는다(공지·매니페스트와 같은 원칙).
-- 5분 안에 돌아오지 않으면 창이 `로그인이 끝나지 않았습니다 [다시 시도] [로그인 없이 만들기]`.
+- **Firebase에 닿지 않을 때** — 회원은 받은 권한 그대로, 손님은 로그인을 시도하면 고급이 열린다. 사용자를 막지 않는다(공지·매니페스트와 같은 원칙, 아래 '로그인에 기대지 않기').
+- 5분 안에 돌아오지 않으면 로그인 쪽을 한 번 더 재 본다. 고장이면 고급을 열고, 살아 있으면 창이 `로그인이 끝나지 않았습니다 [다시 시도] [로그인 없이 만들기]`.
+
+## 로그인에 기대지 않기 — 고장이면 연다 (2026-11-19 사용자)
+
+로그인 쪽(Firebase 설정·웹 페이지·127.0.0.1 넘기기)은 처음이라 고장 나기 쉽다. 기능이 로그인에 기대지 않게 하고, 고장이면 막지 않고 연다.
+
+- **기본 기능은 로그인과 무관하다.** 엔진(`context_builder`)은 계정을 모르고, 컨트롤러가 만들기 직전에 옵션만 거른다(`account.get_allowed_options`). 패널은 저장된 상태로 바로 그리고 확인은 데몬 스레드로 한다. 손님은 로그인을 누르기 전에는 Firebase에 접속하지 않는다.
+- **원칙: 확실한 '아니오'만 잠근다.**
+  - 잠근다: 로그인한 적이 없고 써 보기를 다 썼다 / 서버가 `USER_DISABLED`(사용 중지)·`USER_NOT_FOUND`(탈퇴)·`TOKEN_EXPIRED`·`INVALID_REFRESH_TOKEN`(열쇠 무효)으로 답했다(`ACCOUNT_DENIED_ERRORS`).
+  - 그 밖은 연다: 접속 안 됨·시간 초과·5xx·429(한도)·설정 오류(`API key not valid`·`CONFIGURATION_NOT_FOUND`·`PROJECT_NUMBER_MISMATCH` 등)·웹이 보낸 오류. 초기 설정 실수는 '거절'처럼 보이므로 위 넷이 아닌 오류는 모두 고장으로 본다.
+- **회원**: 받은 권한은 기한 없이 그대로다(30일 만료 없앰). 고장이어도 회원은 회원이다.
+- **손님이 로그인을 시도했는데 고장이면 연다.**
+  1. [Google 계정으로 로그인]을 누르면 플러그인이 먼저 로그인 쪽을 짧게 재 본다 — `gorani.site/login/`이 열리는지, `securetoken`에 가짜 열쇠를 보내 `INVALID_REFRESH_TOKEN`이 오는지(살아 있으면 곧바로 온다). 아니면 브라우저를 열지 않고 고급을 연다.
+  2. 브라우저에서 웹이 고장을 만나면(구글 버튼 스크립트를 못 받음·`signInWithIdp` 접속 실패·5xx) 127.0.0.1로 `error=service`를 넘기고, 플러그인은 고급을 연다.
+  3. 5분 안에 돌아오지 않으면 한 번 더 재 본다. 고장이면 열고, 살아 있으면 `로그인이 끝나지 않았습니다` 창.
+  - 사용자가 취소하거나 끝내지 않은 것은 고장이 아니다 — 열면 누구나 브라우저를 닫아 넘어갈 수 있어 가입할 까닭이 사라진다.
+- **연 것은 이번 실행 동안만**(메모리, 저장하지 않음 — 회원 기능이 꺼진 것과 같게 `enabled=False`). 다음 실행에서 다시 시도한다. 써 보기 횟수는 쓰지 않는다. 토스트 한 번(웹 완료 화면도 같은 글): `로그인 서버가 풀 뜯으러 갔습니다. 이번 고급은 그냥 열어 둡니다.`(영어 `The sign-in server wandered off to graze. Advanced is open this time.` — 2026-11-19 사용자가 고름). 기다림 창을 닫고 누른 곳으로 이어 간다(성공과 같게). 머리줄 [로그인]은 남아 다시 시도할 수 있다.
+- **재기**: GA `ui` 이벤트 `account_fallback`(detail = `probe`·`web`·`timeout`와 오류 종류). 관리자 페이지에 하루 건수 — 늘면 로그인이 고장 난 것이다.
+- **길게 고장 나거나 서버가 틀린 '아니오'를 줄 때**(규칙·키 설정 실수로 회원이 손님이 되는 등): 원격 설정 `ACCOUNT_ENABLED = false`(`dev_deploy.py notices`, 판 없음) — 모두에게 고급이 열린다.
+- **배포와 로그인 준비를 떼어 놓는다**: `ACCOUNT_FIREBASE`가 비면 회원 기능이 꺼진 채(고급 누구나) 동작한다. 실기 여섯 곳이 끝나기 전에 0.4.0을 내야 하면 꺼진 채 내고 원격 설정으로 켠다 — 다만 며칠 열었다 잠그면 '빼앗는' 느낌이 있으니 가능하면 켜고 낸다.
+- 인터넷을 끄거나 구글 주소를 막아 고급을 여는 것은 막지 않는다(정직한 사용자용 구분 — 원본도 공개). 망분리 PC에는 오히려 맞다.
+- **왜 열어도 되나 — 이 관문의 목적으로 보면**(2026-11-19 사용자: 회원 확보·트래킹·남용 방지, 돈은 받지 않고 가입은 구글 한 번). 고장 난 순간에는 어차피 가입이 안 된다 — 잠가도 회원은 늘지 않고 사용자만 잃는다. 열어 두면 그 사람이 남아 다음 실행에서 다시 가입할 수 있다. 트래킹(GA)은 로그인과 무관하게 세고, 고장으로 연 것도 `account_fallback`으로 센다.
+- **남용 방지는 이 관문이 아니라 서버 자원에서 한다.** 고급은 사용자 PC에서 계산하고 우리 자원을 거의 쓰지 않는다(서울 노면표시·가로수는 이미 기본 컨텍스트 팩에 들어 있고, 해외 디테일은 사용자 IP로 공개 Overpass). 고급을 잠가도 남용은 줄지 않는다. 나중에 우리 자원(국내 팩 문지기 — 지금 설치당 하루 60개, 회원 전용 팩)에 계정을 붙이면 그쪽은 고장이면 무제한이 아니라 손님 한도로 떨어지게 한다. 규칙: **공짜 로컬 기능은 고장이면 열고, 우리 자원은 고장이면 손님 한도.**
+- **실패를 줄이는 것이 먼저다.** 배포 전 실기 여섯 곳, 첫 주는 `account_fallback`을 매일 본다. 웹 GA `plugin_login`(웹에서 로그인 성공) 대비 플러그인 `account_done`(PC가 받음)이 낮으면 브라우저 → 127.0.0.1 넘기기가 막힌 것이다(회사 보안 프로그램 등). 이때는 로그인 쪽이 살아 있어 위 규칙으로 열리지 않으므로, 숫자가 보이면 완료 화면 코드 복사 + 패널 [붙여넣기]를 더한다.
 
 ## 패널 개편 — 3D 설정 아래 '수준 [기본 | 고급]', 플랜 창, 로그인 창
 
@@ -174,7 +199,7 @@
 - JS `DETAIL_ROWS`(체크 9개)는 없앤다. 어느 옵션이 고급인지, 자물쇠를 붙일지는 패널에 박지 않는다 — `FEATURES`(기능 → 옵션)와 `init_state.account.features`(권한)로 정한다.
 - 로딩 화면('3D 모델 만드는 중' 카드 + 달리는 고라니 + 단계 목록)은 그대로 둔다. 더하는 것은 카드 윗줄 끝 `고급 모델` 하나(기본이면 없음). 로딩 중 로그인 단추는 두지 않는다(2026-11-15 사용자 — 머리줄 [로그인]이 있고, 만드는 동안 패널은 엔진을 기다린다: Rhino 8은 엔진이 UI 스레드에서 돌아 `generate` 중 다른 명령을 무시하고, 사이드카도 엔진이 끝날 때까지 메인 루프가 막힌다). 그래서 만드는 동안 머리줄 [로그인]·계정 기호도 잠근다(지금 더보기 메뉴 항목을 잠그는 것과 같다).
 - 결과 화면은 윗줄에 `고급 모델`만 더한다.
-- 만료(30일 넘게 확인 못 함): '고급'에 자물쇠가 다시 붙고 기본으로 돌아가며, 누르면 플랜 창(제목 `로그인을 다시 확인해 주세요`).
+- 만료 없음(2026-11-19): 확인을 못 해도 회원은 회원이다. 서버가 확실히 거절했을 때(사용 중지·탈퇴·열쇠 무효)만 손님으로 돌아가고 '고급'에 자물쇠가 다시 붙는다.
 - Blender·`ACCOUNT_ENABLED` 꺼짐: 자물쇠도 창도 없다(고급을 누르면 바로 고급).
 - 머리줄 [로그인]: 다른 단추와 같은 테두리 단추, 언어 앞. 손님에게만, 모든 화면, 만드는 동안은 잠김. 누르면 로그인 창(두 번째 단추 없음). 회원은 그 자리에 계정 기호 → 작은 창(메일·이용권 이름·[로그아웃], 생성 기록).
 - 더보기 메뉴는 지금과 같다(설정·도움). '도움'에 '개인정보 처리방침'(`PANEL_LINKS.privacy`) 한 줄만 더한다.
@@ -183,14 +208,15 @@
 ## 생성 기록 — 회원만, 아이디 하나에 통합 (2026-11-14~15 사용자)
 
 - **회원 기능이다.** 손님에게는 생성 기록 화면이 없다(자물쇠로 보이지도 않는다). 지도 트레이 '최근 결과' 5줄(지금 기능 — `context_builder.get_recent_results`·`open_result`·`hide_result`)은 손님·회원 모두 그대로 둔다.
-- **아이디 하나에 통합한다.** 회원이 어느 PC에서 만들든 기록은 그 계정 하나로 모인다. 화면에는 PC를 나누는 표시·필터가 없다. 관리자는 시트의 `token_id`(만든 연결)로 어느 PC에서 만들었는지 알 수 있다.
-- **켜고 끄는 단추가 패널에 없다.** 회원이 만든 결과는 저절로 계정에 남는다(로그인한 뒤 만든 것부터). 끄기·모두 지우기는 웹 계정 페이지에서(`set_history_sync`). 무엇을 남기는지는 처리방침에 적는다 — 사무소 프로젝트 대상지가 민감할 수 있어 끄는 길은 둔다.
+- **아이디 하나에 통합한다.** 회원이 어느 PC에서 만들든 기록은 그 계정 하나로 모인다. 화면에는 PC를 나누는 표시·필터가 없고, 어느 PC에서 만들었는지는 남기지 않는다.
+- **끄는 설정이 없다(2026-11-19 사용자).** 회원이 만든 결과는 늘 계정에 남는다(로그인한 뒤 만든 것부터). 지우기(하나·모두)는 웹 계정 페이지와 패널 오른쪽 클릭 메뉴에서, 탈퇴하면 모두 지운다. 무엇을 남기는지는 처리방침에 적는다(생성 기록 = 회원 기능 — 계약 이행 근거로 본다, 확인 필요). 사무소 프로젝트 위치가 남는 것이 싫은 회원은 지우거나 탈퇴한다.
 - 기능 키는 그대로 `history_sync`(이용권 `free`에 든다).
 
 **계정에 남기는 것과 남기지 않는 것**
-- 남김: 기록 id, 만든 시각, 프로그램·판, 연결 id(관리자용 — 화면에 안 보임), 대상지 이름(사용자가 바꾼 이름), 방식, 중심 경위도, 대상(필지 PNU 또는 구역 링 경위도), 범위(모양·크기), 3D 설정(디테일 포함), 건물 수, 2D 요약(베이스맵 용지·다이어그램 장수), 고정(★).
-- 남기지 않음: 3D·2D 파일, 결과 폴더 경로(사용자 이름이 들어 있다), 컴퓨터 이름. 파일은 크고, 1:5,000 등고선에서 나온 것은 국외 서버(구글)에 둘 수 없다(공간정보관리법 제16조) — 그래서 파일이 없는 PC에서는 '같은 설정으로 다시 만들기'다.
-- 계정당 최근 300개. 끄면 '계정에 남은 기록도 지울까요?', 탈퇴하면 함께 지운다.
+- 남김(한 줄 약 1 KB): 기록 id, 만든 시각, 프로그램·판, 대상지 이름(사용자가 바꾼 이름), 방식, 중심 경위도, 대상(필지 PNU 또는 구역 링 경위도 — 점 200개 이하로 줄여), 범위(모양·크기), 3D 설정(디테일 포함), 건물 수, 2D 요약(베이스맵 용지·다이어그램 장수), 고정(★).
+- 남기지 않음: 3D·2D 파일, 결과 폴더 경로(사용자 이름이 들어 있다), 컴퓨터 이름·어느 PC인지. 파일은 크고, 1:5,000 등고선에서 나온 것은 국외 서버(구글)에 둘 수 없다(공간정보관리법 제16조) — 그래서 파일이 없는 PC에서는 '같은 설정으로 다시 만들기'다.
+- 계정당 최근 300개(`HISTORY_MAX`, 원격 설정 — 넘치면 오래된 것부터 지운다). 탈퇴하면 함께 지운다.
+- **어디에 — 서버 없이 Firebase Realtime Database**(2026-11-19 사용자 — '저장하되 서버는 만들지 않는다'). 같은 무료 프로젝트(Spark: 저장 1 GB·내려받기 월 10 GB·동시 연결 100 — [요금](https://firebase.google.com/pricing)), 위치 `asia-southeast1`(싱가포르 — 가장 가까움). 플러그인·웹이 토큰을 붙여 REST로 바로 읽고 쓴다(`<db>/users/<uid>/history/<entry_id>.json?auth=<토큰>`, 표준 라이브러리 `urllib`). 보안 규칙이 본인 기록만 읽고 쓰게 한다(아래 '구성'). 1 KB × 300개 × 3,000명 ≈ 1 GB라 그 전에 `HISTORY_MAX`를 줄이거나 옮긴다.
 
 **패널 '생성 기록' 화면**(회원만 — 지도·결과 다음 세 번째 화면)
 - 들어가는 곳: 머리줄 계정 기호 → '생성 기록', 트레이 '최근 결과' 머리 오른쪽 `생성 기록 ›`.
@@ -200,8 +226,8 @@
 - 이름 바꾸기·목록에서 빼기(계정 기록 지우기)는 기록을 길게 누르거나 오른쪽 클릭 메뉴로(화면에 단추를 늘리지 않는다). 결과 폴더는 지우지 않는다(이전 결과는 지우지 않는다는 원칙).
 
 **동기화**
-- 회원이 3D 생성을 끝내면(성공만) 데몬 스레드로 `history_add`. 실패·오프라인이면 `account.json`의 `pending_history`에 두었다가 다음 확인 때 보낸다. 이름·고정·지우기도 같은 줄.
-- 생성 기록 화면을 열 때(그리고 하루 1회 확인 때) `history_list`로 받는다. 이 PC에 폴더가 있는 기록은 생성 때 `context.json`에 적는 무작위 `entry_id`(칸 더하기라 옛 결과도 그대로 읽힌다)로 짝짓는다.
+- 회원이 3D 생성을 끝내면(성공만) 데몬 스레드로 RTDB에 PUT. 실패·오프라인이면 `account.json`의 `pending_history`에 두었다가 다음 확인 때 보낸다. 이름·고정(PATCH)·지우기(DELETE)도 같은 줄.
+- 생성 기록 화면을 열 때 `users/<uid>/history.json`을 한 번에 받는다. 이 PC에 폴더가 있는 기록은 생성 때 `context.json`에 적는 무작위 `entry_id`(칸 더하기라 옛 결과도 그대로 읽힌다)로 짝짓는다.
 
 ## 사용자 흐름 — 웹페이지(gorani.site)
 
@@ -209,15 +235,15 @@
 |---|---|
 | 머리줄 오른쪽 | 작은 `로그인`(로그인하면 메일 첫 글자 동그라미 → 계정 페이지). 주 버튼은 여전히 '받기'다 |
 | `/join/` | 인스타에서 오는 휴대폰용 가입 화면(아래 '가입 늘리기'). ko·en·ja 먼저(릴스 언어) |
-| 처음 로그인(가입) | 따로 화면이 없다 — 구글 버튼 아래 한 줄 `계속하면 이용약관과 개인정보처리방침에 동의합니다. 만 14세 이상만 가입할 수 있습니다.` 회원 확인에 꼭 필요한 정보(구글 고유번호·이메일)는 계약 이행 근거라 체크박스 동의 없이 처리방침 공개로 갈음한다고 본다(확인 필요). 본 판(`terms_v`·`privacy_v`)은 적어 두고, 크게 바뀌면 다음 로그인 때 알린다. 소식 메일(광고성)은 따로 동의가 필요해 가입 화면에 넣지 않고 가입 뒤 토스트·계정 페이지에서 고른다 |
-| `/login/` | 플러그인이 여는 로그인 화면(`?port=&state=&h=rhino`) — 로그인되면 곧바로 플러그인으로 넘긴다 |
+| 처음 로그인(가입) | 따로 화면이 없다 — 구글 버튼 아래 한 줄 `계속하면 이용약관과 개인정보처리방침에 동의합니다. 만 14세 이상만 가입할 수 있습니다.` 회원 확인에 꼭 필요한 정보(구글 고유번호·이메일)는 계약 이행 근거라 체크박스 동의 없이 처리방침 공개로 갈음한다고 본다(확인 필요). 약관·처리방침이 바뀌면 웹·패널 공지로 알린다(사람마다 본 판을 적지 않는다). 메일은 보내지 않으므로 수신 동의를 받지 않는다(2026-11-19 사용자) |
+| `/login/` | 플러그인이 여는 로그인 화면(`?port=&state=&h=rhino`) — 로그인되면 곧바로 열쇠를 127.0.0.1로 넘긴다(폼 POST) |
 | `/login/done/` | `로그인했습니다. Rhino로 돌아가세요 — 이 창은 닫아도 됩니다`. 실패하면 `[다시 시도]` |
-| `/account/` | 탭 셋 — 계정(이용권·가입일, [생성 기록 남기기] 켜고 끄기·모두 지우기, [소식 메일], 로그아웃·탈퇴) / 생성 기록(목록 + 지도 상세, 이름·★·지우기 — 다시 만들기는 PC 패널에서) / 연결된 프로그램(끊기) |
+| `/account/` | 탭 둘 — 계정(이메일·이용권·가입일, 생성 기록 모두 지우기, 로그아웃·탈퇴) / 생성 기록(목록 + 지도 상세, 이름·★·지우기 — 다시 만들기는 PC 패널에서). 연결된 프로그램(프로그램·판·OS·마지막 확인, [해제] — 그 PC가 다음 확인 때 스스로 로그아웃) |
 | `/privacy/`·`/terms/` | 처리방침·약관. 바닥글·가입 화면·패널 메뉴에서 링크한다 |
 | 설치 칸·FAQ | `고급 모델(디테일)은 무료 회원 기능입니다` 한 줄 + FAQ '왜 로그인하나요? 무엇을 저장하나요?' |
 
 다국어: 웹은 다섯 언어지만 계정·처리방침은 한국어·영어를 먼저 쓰고, es·ja·zh는 영어판으로 보낸다(법적 문서를 다섯 벌 관리하지 않는다. 영어판에 '한국어판이 우선한다').
-웹 GA에는 `sign_up`·`login`·`plugin_login` 이벤트만 더한다(메일·id는 보내지 않는다).
+웹 GA에는 `sign_up`·`login`·`plugin_login` 이벤트만 더한다(메일·id는 보내지 않는다). 가입 경로(UTM·`ref`)는 `sign_up` 이벤트에만 붙는다.
 
 ## 가입 늘리기 — 인스타그램 연계
 
@@ -233,17 +259,17 @@
 - `/join/`이 앱 안 브라우저(UA의 `Instagram`·`FBAN`·`FBAV`, 스레드)를 알아본다.
 - 안드로이드: `intent://` 주소로 크롬에서 다시 연다(확인 필요).
 - 아이폰: 앱 밖으로 내보낼 방법이 없다 — 구글 버튼 대신 `오른쪽 위 ⋯ → 외부 브라우저에서 열기` 그림 안내.
-- 앱 안 비율과 이탈은 GA 웹에 `inapp`(0/1)로 남긴다. 이탈이 크면 이메일 코드 가입을 더할지 그때 정한다(앱스 스크립트 메일은 하루 약 100통이 한도라 지금은 넣지 않는다).
+- 앱 안 비율과 이탈은 GA 웹에 `inapp`(0/1)로 남긴다. 이탈이 크면 이메일·비밀번호 가입(Firebase 인증 메일 하루 1,000통 무료 — 웹만 고친다)을 더할지 그때 정한다.
 
 **휴대폰에서 가입하고 PC에서 쓴다.** 인스타로 온 사람은 휴대폰에 있고, 플러그인은 PC에만 깔린다. 그래서 '가입 먼저, 설치 나중'으로 잇는다.
 1. 릴스·캐러셀 끝에 디테일 모형 + `프로필 링크에서 무료 가입`(캡션 링크는 눌리지 않는다).
 2. `gorani.site/join/?utm_source=instagram&utm_medium=reel&utm_campaign=…` — 휴대폰 한 화면: 디테일 전후 몇 초, [구글로 무료 가입], 그 아래 작게 `설치와 기본 기능은 가입 없이도 됩니다`.
-3. 가입 끝 → `PC에서 설치하세요` + [설치 링크를 메일로 받기](누를 때만 한 통) + [링크 복사].
+3. 가입 끝 → `PC에서 설치하세요` + [링크 복사]·[공유](휴대폰 공유하기 `navigator.share` — 카톡·메일로 나에게 보낸다). 우리는 메일을 보내지 않는다(2026-11-19 사용자).
 4. PC에서 플러그인을 깔고 [구글로 로그인]하면 이미 회원이다 — 로그인 창 없이 바로 고급까지.
 
 **디테일을 콘텐츠의 주인공으로.** 가로수·횡단보도·교량·선로가 든 3D가 피드에서 가장 눈에 띄는 그림이다. 데이터가 좋은 곳(서울 노면표시·가로수, OSM 나무가 많은 도쿄·암스테르담)에서 찍고, 마지막 장·자막에 `이 디테일은 무료 회원 기능`. 기존 형식(Before/After 캐러셀)에 'Before = 손님 모형, After = 회원 모형'을 더한다.
 
-**가입 경로를 남긴다.** 첫 방문의 UTM과 `ref`를 localStorage에 두었다가 첫 `login`에 같이 보낸다 → 시트 `가입 경로` 칸(source·medium·campaign·ref). 개인정보가 아닌 값만. 웹 GA `sign_up`에도 같은 값. 어느 릴스·스토리·강의가 회원을 데려왔는지 센다.
+**가입 경로는 집계로만 센다.** 첫 방문의 UTM과 `ref`를 localStorage에 두었다가 웹 GA `sign_up` 이벤트에 붙인다(source·medium·campaign·ref). 회원별로는 남기지 않는다(2026-11-19 사용자). 어느 릴스·스토리·강의가 회원을 데려왔는지 센다.
 
 **공유 고리 — 플러그인에서 인스타로(0.4.0 다음 판).** 결과 화면 다이어그램에 [인스타용 이미지] — 패널이 도면 SVG를 4:5(1080×1350) PNG로 굽고 구석에 작은 `made with Gorani · @gorani.3d`. 캔버스로 굽고 파이썬은 파일만 쓰므로 호스트 다섯 개가 같다(3D 뷰포트 캡처는 호스트마다 달라 뒤로 미룬다). 사용자가 올린 작업은 동의를 받고 리포스트한다.
 
@@ -257,7 +283,7 @@
 |---|---|
 | 릴스 조회 → 프로필 방문 → 링크 클릭 | 인스타 인사이트 |
 | `/join/` 방문(앱 안 비율) → 가입 | GA 웹(UTM·`inapp`·`sign_up`) |
-| 가입 → 플러그인 연결 | 시트 '연결' 탭(가입 경로별) |
+| 가입 → 플러그인 연결 | GA 웹 `plugin_login`(가입 경로별) |
 | 로그인 창 → 가입 | GA 플러그인(`login_prompt`·`trial`·`plan`) |
 | 연결 → 디테일로 만들기 | GA 플러그인(`plan`·켠 디테일) |
 
@@ -270,10 +296,13 @@
 ## 구성
 
 ```
-gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID 토큰 ──┐
-플러그인(Rhino 8·7, SketchUp, Archicad) ── claim·me (로그인 때·하루 1회) ┼─▶ 앱스 스크립트 웹 앱 '회원 API' ──▶ 구글 시트 '회원함'
-관리자 페이지(dev_admin, 이 Mac) ── Sheets API(서비스 계정, 읽기) ─────┘        └ ID 토큰 확인: oauth2.googleapis.com/tokeninfo
+gorani.site (GitHub Pages, 정적) ── 구글 버튼(GIS) → ID 토큰 → signInWithIdp ─┐
+플러그인(Rhino 8·7, SketchUp, Archicad) ── 열쇠 → 토큰(로그인 때·하루 1회) ────┼─▶ Firebase Auth (계정 · 토큰 값 plan)
+플러그인·웹 ── 토큰을 붙인 REST(생성 기록) ────────────────────────────────┼─▶ Firebase Realtime Database (본인 것만 — 보안 규칙)
+관리자 페이지(dev_admin, 이 Mac) ── Firebase Admin(서비스 계정, 읽기 — 숫자만) ┘
 ```
+
+우리 서버·시트는 없다(2026-11-19 사용자). Firebase 프로젝트는 결제수단이 없는 Spark라 요금이 나올 수 없다.
 
 플러그인 로그인 한 번의 순서:
 
@@ -281,91 +310,117 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 패널 [구글로 로그인]
  → account.py가 127.0.0.1의 빈 포트에 잠깐 쓸 받는 곳을 열고, 무작위 state를 만든다
  → 브라우저: gorani.site/login/?port=51234&state=…&h=rhino
- → 구글 로그인(처음이면 그 자리에서 가입) → 웹이 회원 API `grant`로 일회용 교환권을 받는다
- → 브라우저를 http://127.0.0.1:51234/gorani-login?state=…&grant=… 로 보낸다
- → 플러그인: state가 맞는지 보고 `claim`(교환권 → 연결 열쇠) → account.json 저장
- → 브라우저를 gorani.site/login/done/ 으로 넘기고 받는 곳을 닫는다 → 패널 account_state{member}
+ → 구글 로그인(처음이면 그 자리에서 가입) → 웹이 Firebase에서 열쇠(refresh token)를 받는다
+ → 웹이 http://127.0.0.1:51234/gorani-login 으로 폼 POST(최상위 이동) — state + refresh_token, 웹 쪽 고장이면 state + error=service
+ → 플러그인: state가 맞는지 보고 열쇠로 토큰을 받아(securetoken) email·plan을 읽는다 → account.json 저장
+ → 브라우저를 gorani.site/login/done/?ok=1(성공)·ok=0(거절)·fallback=1(고장 — 고급을 열었다)&lang&h 로 넘기고 받는 곳을 닫는다 → 패널 account_state
 ```
 
-- 열쇠가 아니라 일회용 교환권(5분, 한 번 쓰면 끝)이 주소에 실린다 — 브라우저 기록에 남아도 쓸 수 없다.
+- 열쇠는 POST 본문으로 넘겨 주소·방문 기록에 남지 않는다(교환권을 줄 서버가 없어 열쇠를 바로 넘긴다). 열쇠가 새도 그 계정의 고급 모델·생성 기록에만 닿고 구글 계정·돈에는 닿지 않는다 — 탈퇴·콘솔 사용 중지로 끊긴다.
 - 받는 곳은 127.0.0.1에만 열려 그 브라우저가 있는 PC로만 돌아온다. 남의 링크를 눌러도 남의 플러그인이 로그인되지 않는다(코드 확인 단계를 빼도 되는 까닭).
-- 웹은 `port`가 숫자이고 주소가 `http://127.0.0.1:<port>/gorani-login`일 때만 넘긴다(아무 곳으로나 보내는 통로가 되지 않게). 넘기기는 페이지 이동(`location`)으로 한다 — 웹페이지가 로컬 주소로 `fetch`하면 크롬의 로컬 네트워크 접근 허락 창이 뜬다.
+- 웹은 `port`가 숫자이고 주소가 `http://127.0.0.1:<port>/gorani-login`일 때만 넘긴다(아무 곳으로나 보내는 통로가 되지 않게). 넘기기는 최상위 폼 제출로 한다 — 웹페이지의 `fetch`·iframe으로 로컬 주소를 부르면 크롬 142부터 로컬 네트워크 접근 허락 창이 뜬다. 최상위 이동은 아직 묻지 않지만 크롬 설명서가 '남은 위험'으로 적어 두었다([설명서](https://github.com/explainers-by-googlers/local-network-access/blob/main/explainer.md)) — 막히면 완료 페이지에 열쇠 복사 칸 + 패널 [붙여넣기]로 대신한다.
+- **결제수단을 걸지 않은 새 Firebase 프로젝트**(Spark)를 만든다. `gorani-stats`에 결제 계정이 붙어 있으면 거기에 Firebase를 넣는 순간 종량제(Blaze)가 되므로 쓰지 않는다. Firebase가 만든 웹 OAuth 클라이언트에 승인된 출처 `https://gorani.site`. 구글 버튼(GIS)은 이름·이메일·사진을 넘기는 기본 범위라 앱 심사가 필요 없고, 동의 화면에 이름·로고를 보이려면 가벼운 브랜드 인증만 받는다([구글 도움말](https://support.google.com/cloud/answer/10311615)). 브랜드 인증에는 Search Console에서 gorani.site 도메인 인증과 처리방침 주소가 필요하다.
+- 켜지 않는 것: Blaze(종량제)·Identity Platform 업그레이드·전화 인증·Cloud Functions — 결제수단이 필요하거나 요금이 날 수 있다.
+- 웹은 Firebase JS SDK 없이 플러그인과 같은 REST를 `fetch`로 부른다(바닐라 JS — 웹과 플러그인이 같은 꼴).
 
-- 구글 클라우드 프로젝트 하나(기존 `gorani-stats`를 써도 된다)에 OAuth 클라이언트 '웹 애플리케이션' 하나, 승인된 출처 `https://gorani.site`. 범위는 `openid email`만 — 이 범위만 쓰면 앱 심사가 필요 없고, 동의 화면에 이름·로고를 보이려면 가벼운 브랜드 인증만 받는다([구글 도움말](https://support.google.com/cloud/answer/10311615)). 브랜드 인증에는 Search Console에서 gorani.site 도메인 인증과 처리방침 주소가 필요하다.
-- 요청은 문의 폼처럼 `text/plain` POST(JSON 본문) — 미리 보내기(preflight)가 없어 CORS 설정이 필요 없다.
+### Firebase 호출 — 우리 서버 없음
 
-### 회원 API(`action`)
+| 무엇 | 누가 | 부르는 곳(REST) |
+|---|---|---|
+| 로그인·가입 | 웹 | `identitytoolkit.googleapis.com/v1/accounts:signInWithIdp` — 구글 ID 토큰 → 열쇠·토큰. 처음이면 계정이 생긴다(`isNewUser`) |
+| 토큰 새로 받기 | 플러그인·웹 | `securetoken.googleapis.com/v1/token` — 열쇠 → 1시간 토큰(`email`·`user_id`, 있으면 `plan`·`plan_until`). 실패(`USER_DISABLED`·`USER_NOT_FOUND`·`TOKEN_EXPIRED`)면 손님 |
+| 생성 기록 | 플러그인·웹 | RTDB `users/<uid>/history/<entry_id>.json?auth=<토큰>` — PUT 더하기·PATCH 이름·★·DELETE 지우기, `users/<uid>/history.json` GET 목록 |
+| 연결된 PC | 플러그인(로그인 때 PUT, 확인 때 GET·PATCH `seen`)·웹(목록, [해제] = DELETE) | RTDB `users/<uid>/connections/<conn_id>` — 플러그인은 등록된 적 있는 자기 줄이 없어졌을 때(200 + null)만 로그아웃한다 |
+| 가입일 | 웹 | `accounts:lookup`(`createdAt`) |
+| 탈퇴 | 웹 | RTDB `users/<uid>` DELETE → `accounts:delete`(오래된 로그인이면 `CREDENTIAL_TOO_OLD_LOGIN_AGAIN` — 구글로 한 번 더 로그인하고 다시) |
+| 이용권 넣기(나중) | 운영자·결제 알림 | Admin SDK `set_custom_user_claims(uid, {plan, plan_until})` — 서비스 계정 |
 
-| action | 부르는 곳 | 보냄 | 받음 |
-|---|---|---|---|
-| `login` | 웹 | `id_token`, 처음이면 `source{utm_source, utm_medium, utm_campaign, ref}`, `terms_v`·`privacy_v`(본 판), `lang` | `session`(웹용), `user{email, created, new}`, `entitlement` — 처음이면 그 자리에서 회원 줄을 만든다 |
-| `send_install_mail` | 웹(휴대폰 가입 뒤) | `session`, `lang` | `ok` — 사람마다 하루 한 통, 설치 안내 링크만 |
-| `grant` | 웹 `/login/` | `session`, `host` | `grant`(일회용 교환권, 5분) |
-| `claim` | 플러그인 | `grant`, `host`, `version` | `{token, email, entitlement}` / `invalid` |
-| `me` | 플러그인·웹 | `token` 또는 `session` | `{email, entitlement}` / `invalid` |
-| `logout` | 플러그인·웹 | `token`(그 연결만) 또는 `session`+`token_id` | `ok` |
-| `delete` | 웹 | `session` | `ok` — 회원 줄과 연결 전부 지움 |
-| `set_news` | 웹 | `session`, `on` | `ok` |
-| `set_history_sync` | 웹 | `token` 또는 `session`, `on`, `clear`(끌 때 계정 기록도 지울지) | `ok` |
-| `history_add` | 플러그인 | `token`, `entry{…}`(위 '남기는 것') | `ok` — 꺼져 있으면 `off`(플러그인은 보내지 않는다) |
-| `history_list` | 플러그인·웹 | `token` 또는 `session` | `{on, items[최근 300]}` |
-| `history_update` | 플러그인·웹 | `token` 또는 `session`, `id`, `label`·`star` | `ok` |
-| `history_delete` | 플러그인·웹 | `token` 또는 `session`, `id` 또는 `all` | `ok` |
+- 플러그인은 토큰(JWT) 가운데 칸을 base64로 풀어 값만 읽는다(구글에서 HTTPS로 직접 받은 토큰이라 서명은 확인하지 않는다).
+- 웹 API 키·프로젝트 id·RTDB 주소는 공개 값이다 — 원격 설정 `ACCOUNT_FIREBASE{api_key, project_id, db_url}`. 프로젝트를 옮겨도 원격 설정만 바꾼다.
+- 무료 한도(Spark, 2026-11-19 [요금](https://firebase.google.com/pricing)·[인증 한도](https://firebase.google.com/docs/auth/limits)): 인증(월 활성 5만 명·하루 3,000명 등)은 지금 규모(Rhino 30일 생성자 48명)보다 훨씬 크다. RTDB 저장 1 GB·내려받기 월 10 GB·동시 연결 100. 넘으면 요금 대신 멈추고, 멈춰도 기본 기능은 그대로다(위 'Firebase에 닿지 않을 때').
 
-- `entitlement` = `{plan, plan_name, features[], valid_until}` — 위 '설계 원칙'의 계산. `plan_name`은 언어와 상관없이 영어 고유명사(`Member` — 위 '설계 원칙').
-- ID 토큰은 tokeninfo로 확인한다 — `aud` = 우리 클라이언트 ID, `email_verified`, `exp`. 앱스 스크립트에는 RSA 서명 확인이 없어 이 길을 쓴다.
-- 교환권은 CacheService에 5분 두고 `claim` 한 번에 지운다.
-- `token`·`session`은 32바이트 무작위 값이다. 시트에는 SHA-256만 적는다(시트가 새도 토큰은 새지 않는다).
-- 한도는 문의 폼처럼 CacheService로 건다 — 메일당 `login`·`grant` 분당 10회.
+### Firebase에 남는 것
 
-### 시트 '회원함'
-
-| 탭 | 칸 |
+| 곳 | 칸 |
 |---|---|
-| 회원 | `user_id`(무작위), `google_sub`, `email`, `plan`(기본 `free`), `status`(active·blocked), `plan_until`(빈칸 = 기한 없음), `extra_features`·`removed_features`(쉼표, 운영자가), 가입일, `terms_v`·`privacy_v`(가입 때 본 판), 소식 메일(Y/N·고른 날), 가입 경로(source·medium·campaign·ref), 마지막 확인, 메모(사람) |
-| 이용권 | `plan`(free·pro·enterprise…), 이름(ko·en·es·ja·zh), `features`(쉼표), 메모 — 지금은 `free` 한 줄: `detail_advanced, history_sync` |
-| 연결 | `token_hash`, `token_id`, `user_id`, `host`(web·rhino·sketchup·archicad), OS, 판, 만든 날, 마지막 확인 |
-| 생성 기록 | `user_id`, `entry_id`, 만든 시각, `token_id`(만든 PC), 프로그램·판, 이름, 방식, 중심 경위도, 대상 JSON(PNU 또는 링), 범위, 3D 설정 JSON, 건물 수, 2D 요약, 로그인 없이 만든 것, ★, 고친 시각 — 회원 탭에 `기록 저장`(Y/N·켠 날) |
-| 기록 | 날짜, 사건(가입·탈퇴·이용권 변경·연결), `host` — 메일 없이 숫자 세기용 |
+| Auth 사용자(Firebase가 관리) | uid, 이메일, 구글 이름·사진(쓰지 않음), 가입·마지막 로그인·마지막 토큰 갱신 시각, 사용 중지, (나중) 토큰 값 `plan`·`plan_until` |
+| RTDB `users/<uid>/history/<entry_id>` | `built_at`(ms)·`host`·`version`·`label`·`address`(패널 언어 글 하나)·`mode`·`center`[경도, 위도]·`target`(JSON 글 — `{pnus}` 또는 `{ring}`)·`shape`·`radius`·`detail`·`options`(JSON 글)·`buildings`·`made_2d`(JSON 글)·`star`·`edited`(ms) — 한 줄 약 1 KB, 최근 `HISTORY_MAX`개. `entry_id` = `YYYYMMDDHHMMSS-<6자>`(UTC, 정렬하면 시간 순) |
+| RTDB `users/<uid>/connections/<conn_id>` | `host`·`version`·`os`·`created`·`seen`(ms) |
 
-시트 공유는 운영자 둘만(문의함과 같다). 설치 ID(`~/.gorani/client_id`)는 시트에 적지 않는다 — 적으면 GA·문지기 기록이 실명과 이어진다.
+RTDB 보안 규칙(원본은 웹 저장소 `tools/account/database.rules.json`):
+
+```json
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "history": {
+          "$entry": {
+            ".validate": "newData.hasChildren(['built_at', 'host']) && newData.child('built_at').isNumber()",
+            "host": {".validate": "newData.isString() && newData.val().length <= 20"},
+            "version": {".validate": "newData.isString() && newData.val().length <= 40"},
+            "label": {".validate": "newData.isString() && newData.val().length <= 80"},
+            "address": {".validate": "newData.isString() && newData.val().length <= 160"},
+            "target": {".validate": "newData.isString() && newData.val().length <= 20000"},
+            "options": {".validate": "newData.isString() && newData.val().length <= 4000"},
+            "made_2d": {".validate": "newData.isString() && newData.val().length <= 2000"},
+            "star": {".validate": "newData.isBoolean()"}
+          }
+        },
+        "connections": {
+          "$conn": {".validate": "newData.hasChildren(['host', 'created'])"}
+        },
+        "$other": {".validate": false}
+      }
+    }
+  }
+}
+```
+
+- 본인 것만 읽고 쓴다(`users/<uid>` 아래). 대상(`target`)은 JSON 문자열 20 KB 이하. 탈퇴는 `users/<uid>` 하나를 지우면 끝. 한 사람이 기록을 아주 많이 쓰는 것은 규칙으로 막지 못한다 — 1 GB에 닿으면 쓰기만 멈춘다(요금 없음).
+- 콘솔 권한은 운영자 둘만(구글 계정 2단계 인증). 설치 ID(`~/.gorani/client_id`)는 Firebase에 적지 않는다 — 적으면 GA·문지기 기록이 실명과 이어진다.
 
 ### 다른 길을 고르지 않은 까닭
 
 | 후보 | 고르지 않은 까닭 |
 |---|---|
-| Firebase Auth + Firestore | 회원 관리 화면은 좋지만, 플러그인이 구글 데스크톱 OAuth(로컬 포트·PKCE)를 따로 해야 하고 보안 규칙·SDK를 익혀야 한다. 회원이 수천 명을 넘거나 돈을 받으면 옮길 곳으로 남긴다 |
+| 앱스 스크립트 + 구글 시트(11-14 안) | 0원이지만 인증 코드(교환권·토큰 해시·한도·tokeninfo 확인)를 우리가 짜고 지키고, 이메일이 든 시트를 공유·사본 실수 없이 지켜야 한다. 호출마다 1~3초이고 tokeninfo는 구글이 디버깅용이라 한다(2026-11-19 사용자 — Firebase로) |
+| Firestore(같은 Firebase) | 무료지만 REST가 값마다 타입을 감싸(`stringValue`) 표준 라이브러리 코드가 길어지고, 목록 한 번이 기록 수만큼 읽기(하루 5만)로 센다. 서울 리전을 고를 수 있는 것은 장점 — 기록이 커지면 다시 본다 |
 | 춘천 VM(`server_gate` 확장) | 개인정보를 직접 지키는 서버가 된다(접근 통제·암호화 같은 안전성 확보조치). 1 GB VM 하나에 로그인까지 묶인다. 국외 반출 문제가 있는 것은 수치지형도뿐이라 회원 정보를 국내에 둘 까닭이 없다 |
-| Supabase 무료 | 1주 동안 쓰지 않으면 프로젝트가 멈춘다(확인 필요) |
+| Cloudflare Workers + D1 | 무료·빠르지만 인증 서버와 DB를 우리가 짜고 지킨다 |
+| Supabase 무료 | 회원 DB를 우리가 지키고(행 단위 보안), 1주 동안 쓰지 않으면 프로젝트가 멈춘다(확인 필요) |
+| 사용자 구글 드라이브의 앱 폴더 | 우리가 아무것도 보관하지 않지만, 동의 화면에 드라이브 권한이 떠 가입을 막고 플러그인이 구글 열쇠를 따로 다뤄야 한다 |
 
-플러그인은 회원 API 주소 하나(`ACCOUNT_API_URL`, 원격 설정)만 안다. API 모양을 지키면 백엔드를 옮겨도 플러그인 판이 필요 없다.
+플러그인은 Firebase 주소 셋(`ACCOUNT_FIREBASE`, 원격 설정)만 안다. Firebase 프로젝트를 옮기는 것은 판 없이 되고, Firebase를 떠나는 것은 코드 판이 필요하다(토큰 꼴이 바뀐다) — 그때는 회원을 내보내(Firebase CLI `auth:export`) 옮긴다.
 
 ## 플러그인 작업 — 0.4.0
 
 | 파일 | 할 일 |
 |---|---|
-| `scripts/account.py`(새 로직 모듈, 표준 라이브러리) | `~/.gorani/account.json`(`token`·`email`·`entitlement`·`checked_at`·`trials_used{기능: 횟수}`) 읽기·쓰기, `start_login(host, on_done)`(받는 곳 열기 + 로그인 주소 — 아래 '받는 곳'), `claim(grant)`, `refresh()`(하루 1회 `me`), `logout()`(토큰만 지우고 `trial_used`는 남긴다), `has_feature(account, key)`, `get_trials_left(account, key)`, `get_allowed_options(options, account, host_label)` — 권한(`features`)에도 남은 무료 횟수에도 없는 기능의 옵션(`FEATURES[키].options`)을 끈 사본, `add_trial(account, key, options)`. prefs.json에 넣지 않는다 |
-| `scripts/constants.py` | `ACCOUNT_ENABLED`, `ACCOUNT_API_URL`, `ACCOUNT_LINK_URL`, `FEATURES`(기능 목록 — `detail_advanced`: 고급 6종 옵션(중요도 순 — 패널 한 줄 순서)·이름·설명, `history_sync`), `GUEST_FEATURES = []`, `GUEST_TRIALS = {"detail_advanced": 3}`, `PLAN_CARDS`(플랜 창의 이용권 칸 — 이름·한 줄 설명·✓ 줄), `LOGIN_PROMPT_ON_BUILD = "first"`, `ACCOUNT_OFFLINE_DAYS = 30`, `ACCOUNT_LOGIN_MINUTES = 5`(브라우저에서 돌아오기를 기다리는 시간). `HOST_LABELS`에 `account`(blender만 False) |
-| `scripts/remote_config.py` | `REMOTE_KEYS`에 `ACCOUNT_ENABLED`·`ACCOUNT_API_URL`·`FEATURES`·`GUEST_FEATURES`·`GUEST_TRIALS`·`PLAN_CARDS`·`LOGIN_PROMPT_ON_BUILD`·`ACCOUNT_OFFLINE_DAYS`(회원 API가 오래 멈추면 늘린다). 새 키 추가라 `COMPAT_MIN`은 그대로 |
-| `scripts/cmd_site.py` | 명령 `account_login`·`account_cancel`·`account_logout`, 푸시 `account_state{state: guest\|waiting\|signed_in\|expired, email, plan_name, features, trials_left}`, `init_state.account`. `generate` 직전에 `account.get_allowed_options`, 성공 뒤 손님이면 `account.add_trial` — 엔진(`context_builder`·`get_detail`)은 등급을 모른다. 저장한 prefs는 그대로 두고 생성 요청만 끈다. `context.json.options`에는 실제로 쓴 값이 남는다 |
-| 받는 곳·확인 | `account.start_login`이 `http.server`를 127.0.0.1의 빈 포트(0번 = OS가 고름)에 데몬 스레드로 연다 — Rhino 8 타일 중계(`review_map`)와 같은 방식이고, 127.0.0.1만 열면 Windows 방화벽 창이 뜨지 않는다. 경로는 `/gorani-login` 하나, state가 틀리면 400. 돌아오거나 5분이 지나면 닫는다. 결과 푸시는 Rhino 8은 `AsyncInvoke`로 UI 스레드에서(`panel_host`와 같다), 사이드카는 기존 푸시 줄. `init`은 캐시로 바로 그리고, 마지막 확인이 하루를 넘었으면 데몬 스레드로 `me` → 바뀌면 `account_state` |
-| `scripts/site_ui.html` | 3D 설정 아래 '수준 [기본 \| 고급]'(`radiogroup`, `options.detail_level`, 고급에 든 것은 마우스 올림 글 — 손님은 고급에 자물쇠 — 고르면 플랜 창 `Guest | Member` + 구글 로그인), `DETAIL_ROWS` 없앰, 3D 설정 지형 줄 아래 '차도 15 cm 내리기(연석)', 범위 두 줄을 한 줄로, 로그인 창 A·B(업데이트 창 꼴 — 기다림·돌아오면 고급 고르기/만들기 이어 가기), 로딩·결과 카드 윗줄 '고급 모델', 자물쇠 아이콘 `lock`, 목 모드 `&account=guest\|trial\|waiting\|member\|expired` |
+| `scripts/account.py`(새 로직 모듈, 표준 라이브러리) | `~/.gorani/account.json`(`refresh_token`·`email`·`entitlement`·`checked_at`·`trials_used{기능: 횟수}`·`pending_history`) 읽기·쓰기, `start_login(host, on_done)`(받는 곳 열기 + 로그인 주소 — 아래 '받는 곳'), `refresh()`(로그인 때·하루 1회 securetoken → 토큰 값 → 권한 = `PLAN_FEATURES[plan]`), `logout()`(열쇠만 지우고 `trials_used`는 남긴다), `has_feature(account, key)`, `get_trials_left(account, key)`, `get_allowed_options(options, account, host_label)` — 권한(`features`)에도 남은 무료 횟수에도 없는 기능의 옵션(`FEATURES[키].options`)을 끈 사본, `add_trial(account, key, options)`, 생성 기록 RTDB 읽기·쓰기. prefs.json에 넣지 않는다 |
+| `scripts/constants.py` | `ACCOUNT_ENABLED`, `ACCOUNT_FIREBASE = {api_key, project_id, db_url}`(Blender 빌드는 `BLENDER_CONSTANT_PATCHES`로 비운다), `ACCOUNT_LOGIN_URL`, `PLAN_FEATURES = {"free": ["detail_advanced", "history_sync"]}`, `PLAN_NAMES = {"free": "Member"}`, `HISTORY_MAX = 300`, `FEATURES`(기능 목록 — `detail_advanced`: 고급 6종 옵션(중요도 순 — 패널 한 줄 순서)·이름·설명, `history_sync`), `GUEST_FEATURES = []`, `GUEST_TRIALS = {"detail_advanced": 3}`, `PLAN_CARDS`(플랜 창의 이용권 칸 — 이름·한 줄 설명·✓ 줄), `LOGIN_PROMPT_ON_BUILD = "first"`, `ACCOUNT_DENIED_ERRORS = ("USER_DISABLED", "USER_NOT_FOUND", "TOKEN_EXPIRED", "INVALID_REFRESH_TOKEN")`(이 넷만 거절 — 나머지 오류는 고장으로 보고 연다), `ACCOUNT_LOGIN_MINUTES = 5`(브라우저에서 돌아오기를 기다리는 시간). `HOST_LABELS`에 `account`(blender만 False) |
+| `scripts/remote_config.py` | `REMOTE_KEYS`에 `ACCOUNT_ENABLED`·`ACCOUNT_FIREBASE`·`PLAN_FEATURES`·`PLAN_NAMES`·`GUEST_FEATURES`·`GUEST_TRIALS`·`PLAN_CARDS`·`LOGIN_PROMPT_ON_BUILD`·`HISTORY_MAX`(`FEATURES`는 PR #76으로 이미 있다). 새 키 추가라 `COMPAT_MIN`은 그대로 |
+| `scripts/cmd_site.py` | 명령 `account_login`·`account_cancel`·`account_logout`, 푸시 `account_state{state: guest\|waiting\|signed_in\|fallback, email, plan_name, features, trials_left}`, `init_state.account`. `generate` 직전에 `account.get_allowed_options`, 성공 뒤 손님이면 `account.add_trial` — 엔진(`context_builder`·`get_detail`)은 등급을 모른다. 저장한 prefs는 그대로 두고 생성 요청만 끈다. `context.json.options`에는 실제로 쓴 값이 남는다 |
+| 받는 곳·확인 | `account.start_login`이 `http.server`를 127.0.0.1의 빈 포트(0번 = OS가 고름)에 데몬 스레드로 연다 — Rhino 8 타일 중계(`review_map`)와 같은 방식이고, 127.0.0.1만 열면 Windows 방화벽 창이 뜨지 않는다. 경로는 `/gorani-login` 하나(POST — 폼 본문 `state`·`refresh_token`), state가 틀리면 400. 돌아오거나 5분이 지나면 닫는다. 결과 푸시는 Rhino 8은 `AsyncInvoke`로 UI 스레드에서(`panel_host`와 같다), 사이드카는 기존 푸시 줄. `init`은 캐시로 바로 그리고, 마지막 확인이 하루를 넘었으면 데몬 스레드로 `refresh()` → 바뀌면 `account_state` |
+| `scripts/site_ui.html` | 3D 설정 아래 '수준 [기본 \| 고급]'(`radiogroup`, `options.detail_level`, 고급에 든 것은 마우스 올림 글 — 손님은 고급에 자물쇠 — 고르면 플랜 창 `Guest | Member` + 구글 로그인), `DETAIL_ROWS` 없앰, 3D 설정 지형 줄 아래 '차도 15 cm 내리기(연석)', 범위 두 줄을 한 줄로, 로그인 창 A·B(업데이트 창 꼴 — 기다림·돌아오면 고급 고르기/만들기 이어 가기), 로딩·결과 카드 윗줄 '고급 모델', 자물쇠 아이콘 `lock`, 목 모드 `&account=guest\|trial\|waiting\|member\|fallback` |
 | `scripts/i18n.json` | 새 문구 네 언어(`tests/test_i18n.py`) |
 | `scripts/usage_stats.py` | `panel_open`·`build`에 `plan`(guest·free…)·`trial`(로그인 없이 고급으로 만든 것 0/1)만. `get_options3d`에 `detail_level`·연석. 계정 id·메일은 보내지 않는다. `dev_stats`에 맞춤 측정기준 등록 |
 | 다음 판(0.4.x) | 결과 화면 [인스타용 이미지] — 도면 SVG → 패널 캔버스 4:5 PNG + 작은 `made with Gorani`, 파이썬은 파일 쓰기만(위 '공유 고리') |
-| Blender 빌드 | `account` 네트워크 구간을 `# [blender-cut]`으로 감싼다. 회원 API 주소는 `BLENDER_ALLOWED_HOSTS`에 넣지 않는다(남으면 빌드가 멈춰서 실수를 잡는다) |
-| 생성 기록 | `context_builder.get_recent_results`를 전부 읽게(`limit`)·범위·3D 설정·로그인 없이 만든 것인지를 함께 내고, 생성 때 `context.json`에 `entry_id`. `site_prefs`에 `result_labels`·`starred_results`. `account.py`에 `history_add`·`history_list`·`pending_history`. 명령 `history_list`·`history_label`·`history_star`·`history_restore`(이 PC에 폴더가 없는 기록 → `result_opened`와 같은 꼴의 대상·설정)·`history_delete`, 푸시 `history{items, sync}`. 패널 세 번째 화면 '생성 기록'(위 절) |
-| `tests/test_account.py` | 가짜 회원 API(`http.server`)와 가짜 브라우저(받는 곳 주소를 바로 부른다)로 로그인·state 틀림·교환권 재사용·5분 넘김·오프라인 30일·로그아웃·기록 보내기·오프라인 기록 줄 세우기·같은 `entry_id` 합치기·무료 횟수 세기(실패·취소는 안 셈)·횟수를 다 쓴 손님 옵션 끄기·`ACCOUNT_ENABLED` 꺼짐 |
-| `scripts/dev_personas.py` | 지금 18명은 빈 HOME이라 무료 3회가 남은 손님이다(로그인 창은 패널 JS라 명령을 바로 보내는 personas에는 걸리지 않는다). 3회를 다 쓴 손님 1명(`trial_used = 3` — 디테일이 꺼진 결과로 문제 0건)과 회원 1명(가짜 `account.json` + 가짜 API)을 더한다 |
+| Blender 빌드 | `account` 네트워크 구간을 `# [blender-cut]`으로 감싼다. `ACCOUNT_FIREBASE`는 `BLENDER_CONSTANT_PATCHES`로 비우고, Firebase 주소(`googleapis.com`·`firebasedatabase.app`)는 `BLENDER_ALLOWED_HOSTS`에 넣지 않는다(남으면 빌드가 멈춰서 실수를 잡는다). `gorani.site`는 이미 허용 목록에 있어 로그인 주소로는 잡히지 않는다 — 구간 자르기로 뺀다 |
+| 생성 기록 | `context_builder.get_recent_results`를 전부 읽게(`limit`)·범위·3D 설정·로그인 없이 만든 것인지를 함께 내고, 생성 때 `context.json`에 `entry_id`. `site_prefs`에 `result_labels`·`starred_results`. `account.py`에 RTDB 읽기·쓰기·`pending_history`. 명령 `history_list`·`history_label`·`history_star`·`history_restore`(이 PC에 폴더가 없는 기록 → `result_opened`와 같은 꼴의 대상·설정)·`history_delete`, 푸시 `history{items, sync}`. 패널 세 번째 화면 '생성 기록'(위 절) |
+| `tests/test_account.py` | 가짜 securetoken·RTDB(`http.server` — `ACCOUNT_FIREBASE` 주소를 바꿔 끼운다)와 가짜 브라우저(받는 곳에 바로 POST)로 로그인·state 틀림·5분 넘김·사용 중지(갱신 실패 → 손님)·고장이면 열기(접속 안 됨·5xx·설정 오류·웹이 보낸 오류·시간 초과 뒤 재 보기)·거절 넷만 잠금·로그아웃·기록 보내기·오프라인 기록 줄 세우기·같은 `entry_id` 합치기·무료 횟수 세기(실패·취소는 안 셈)·횟수를 다 쓴 손님 옵션 끄기·`ACCOUNT_ENABLED` 꺼짐 |
+| `scripts/dev_personas.py` | 지금 18명은 빈 HOME이라 무료 3회가 남은 손님이다(로그인 창은 패널 JS라 명령을 바로 보내는 personas에는 걸리지 않는다). 3회를 다 쓴 손님 1명(`trial_used = 3` — 디테일이 꺼진 결과로 문제 0건)과 회원 1명(가짜 `account.json` + 가짜 securetoken·RTDB)을 더한다 |
 
-함께 고칠 문서: `docs/panel_ui.md`(명령·푸시·옵션 키·'계정' 절), `docs/code_map.md`, `CLAUDE.md`(Rhino 실행 중 외부 접속 예외 여섯 → 일곱: ⑦ 회원 확인), `docs/install.md`(보내는 것), `docs/food4rhino.md`(지금 "You don't need … an account" → "Detail options need a free Google sign-in"), `docs/sketchup_store.md` Privacy 줄.
+함께 고칠 문서: `docs/panel_ui.md`(명령·푸시·옵션 키·'계정' 절), `docs/code_map.md`, `CLAUDE.md`(Rhino 실행 중 외부 접속 예외 여섯 → 일곱: ⑦ 회원 확인 — Firebase: 로그인·하루 1회 토큰·생성 기록), `docs/install.md`(보내는 것), `docs/food4rhino.md`(지금 "You don't need … an account" → "Detail options need a free Google sign-in"), `docs/sketchup_store.md` Privacy 줄.
 
 ## 웹 저장소 작업(`~/Documents/GitHub/gorani`)
 
-- `tools/account/`(새로): `Code.gs`·`README.md` — 문의함과 같은 꼴(`setup` 실행 → 웹 앱 배포 → 주소를 `assets/site.js`와 `constants.ACCOUNT_API_URL`에). 설정값(클라이언트 ID)은 스크립트 속성에.
-- `assets/site.js`: GIS 로그인 버튼, 세션(localStorage, 30일), 머리줄 계정 표시.
+- `tools/account/`(새로): `README.md`(Firebase 프로젝트 만들기 — 결제수단 없이, 구글 로그인 켜기, 승인된 도메인, RTDB 만들기·규칙 붙여넣기, 키를 `assets/site.js`와 `constants.ACCOUNT_FIREBASE`에 넣기, 운영) + `database.rules.json`(RTDB 규칙 원본). 서버 코드는 없다.
+- `assets/site.js`: GIS 로그인 버튼 → Firebase REST(`signInWithIdp`·`securetoken`), 열쇠(localStorage), 머리줄 계정 표시. Firebase JS SDK는 쓰지 않는다.
 - `login/`·`login/done/`·`account/`·`privacy/`·`terms/` 페이지(ko·en), `sitemap.xml`·`robots.txt`(계정·로그인 페이지는 색인하지 않음), 바닥글 링크, FAQ·설치 칸 한 줄.
-- `join/`(ko·en·ja, 휴대폰 먼저): 앱 안 브라우저 알아보기·밖으로 열기 안내, UTM·`ref` 저장, 가입 뒤 [설치 링크를 메일로 받기]·[링크 복사]. 디테일 전후 짧은 영상은 `gorani-sns` 원본에서 자른다.
+- `join/`(ko·en·ja, 휴대폰 먼저): 앱 안 브라우저 알아보기·밖으로 열기 안내, UTM·`ref` 저장, 가입 뒤 [링크 복사]·[공유]. 디테일 전후 짧은 영상은 `gorani-sns` 원본에서 자른다.
 - 홈 화면 문구: '무료, 가입 없음' → 두 단계 문구(위 '가입 늘리기'), 다섯 언어·`llms.txt`·JSON-LD 함께.
 - 웹은 판 묶음 규칙이 없다 — 플러그인 0.4.0보다 먼저 올려 둔다.
 
@@ -376,21 +431,21 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 | 할 일 | 근거 |
 |---|---|
 | 처리방침 공개 — 웹 `/privacy/`, 패널 메뉴·스토어 설명에서 링크 | 개인정보보호법 제30조. 초안은 개인정보위 개인정보 포털의 '처리방침 만들기' 도구로 쓴다 |
-| 가입 = 로그인 한 번. 회원 확인에 꼭 필요한 정보(구글 계정 고유번호·이메일)는 계약 이행 근거로 처리하고, 처리방침에 항목·목적(회원 확인·디테일 제공)·보유(탈퇴하면 바로 지움)를 적는다. 구글 버튼 아래 한 줄로 약관·처리방침 링크 | 제15조 제1항 제4호(2023 개정 — 계약 이행에 필요한 처리는 동의 없이, 확인 필요) |
-| 소식 메일만 따로 고르게 한다(가입 뒤 토스트·계정 페이지, 고른 날 기록) | 광고성 정보는 별도 수신 동의 |
-| 생성 기록 계정 저장은 선택 동의(기본 꺼짐) — 켤 때 항목(대상지 이름·위치·범위·설정·날짜)·보유(최근 300개, 끄거나 탈퇴하면 지움)를 그 자리에서 보이고 켠 날을 적는다. 파일·폴더 경로·컴퓨터 이름은 받지 않는다 | 회원 확인에 꼭 필요하지 않은 정보(제15조 제1항 제1호 동의). 결과 파일은 국외 반출 제한(공간정보관리법 제16조) |
+| 가입 = 로그인 한 번. 회원 확인에 꼭 필요한 정보(구글 계정 고유번호·이메일)는 계약 이행 근거로 처리하고, 처리방침에 항목(구글이 넘기는 이름·사진 포함)·목적(회원 확인·디테일·생성 기록 제공)·보유(탈퇴하면 바로 지움)를 적는다. 구글 버튼 아래 한 줄로 약관·처리방침 링크 | 제15조 제1항 제4호(2023 개정 — 계약 이행에 필요한 처리는 동의 없이, 확인 필요) |
+| 메일을 보내지 않는다(소식·설치 링크) — 광고성 수신 동의를 받지 않는다(2026-11-19 사용자). 소식은 패널 공지(`notices`)로 | 광고성 정보는 별도 수신 동의가 필요하다 — 보내지 않으면 받을 일이 없다 |
+| 생성 기록은 회원 기능으로 늘 남긴다(끄는 설정 없음 — 2026-11-19 사용자) — 처리방침에 항목(대상지 이름·위치·범위·설정·날짜)·보유(최근 300개, 지우거나 탈퇴하면 지움)를 적고, 계정 페이지에서 지우기. 파일·폴더 경로·컴퓨터 이름은 받지 않는다 | 회원 기능(생성 기록) 제공에 필요한 처리(제15조 제1항 제4호)로 볼지, 선택 동의(제1호 — 기본 꺼짐, 켤 때 동의)로 볼지 확인 필요 — 선택 동의로 봐야 하면 끄는 설정을 되살린다. 결과 파일은 국외 반출 제한(공간정보관리법 제16조) |
 | 만 14세 미만은 가입 불가 — 구글 버튼 아래 한 줄로 알린다 | 법정대리인 동의(제22조의2)가 필요한 경우를 피하려고. 학생 대부분이 대학생이라 확인란 대신 안내로 둔다(확인 필요) |
-| 구글(미국) 서버 보관을 처리방침에 적는다 — 이전받는 자 Google LLC, 국가, 항목, 목적, 보유기간 | 국외 이전(제28조의8, 계약 이행에 필요한 보관은 공개로 갈음 — 확인 필요) |
-| 소식 메일은 선택 동의자에게만, 드물게 | 광고성 정보 전송 규정(정보통신망법 제50조 — 확인 필요). 큰 소식은 패널 공지(`notices`)로 한다. 무료 Gmail 하루 약 100통 한도 |
+| 구글 서버 보관을 처리방침에 적는다 — 이전받는 자 Google LLC(Firebase — 계정 미국, 생성 기록 싱가포르), 국가, 항목, 목적, 보유기간 | 국외 이전(제28조의8, 계약 이행에 필요한 보관은 공개로 갈음 — 확인 필요) |
 | 영어판에 EU 사용자 권리(열람·삭제 = [탈퇴]) | 네덜란드·프랑스·스위스 팩 사용자 — GDPR(확인 필요) |
 | GA·문지기 기록과 계정을 잇지 않는다 | 이으면 지금의 익명 통계가 실명 개인정보가 된다 |
-| 처리방침에 기술 사실을 구체적으로 — 토큰은 해시로만 저장, 로그인 없이 쓴 횟수는 PC에만(서버에 없음), 교환권 5분 만료, 산출물 권리는 사용자(공공데이터 라이선스 고지는 따로), `가입해도 결제는 없습니다` | 믿음을 주는 문장(MassLabs 처리방침에서 따옴, `docs/research/10_masslabs.md`) |
+| 처리방침에 기술 사실을 구체적으로 — 우리 서버·시트가 없다(계정은 Firebase, 생성 기록은 본인만 읽는 Firebase 저장소), 로그인 없이 쓴 횟수는 PC에만(서버에 없음), 3D·2D 파일은 서버에 올리지 않는다, 산출물 권리는 사용자(공공데이터 라이선스 고지는 따로), `가입해도 결제는 없습니다` | 믿음을 주는 문장(MassLabs 처리방침에서 따옴, `docs/research/10_masslabs.md`) |
 
 | 채널 | 로그인 | 디테일 | 할 일 |
 |---|---|---|---|
 | Rhino 8·7(yak·food4Rhino) | 있음 | 회원 | food4Rhino 설명·스크린샷 문구 |
 | SketchUp(Extension Warehouse) | 있음 | 회원 | 다음 제출 때 Privacy 칸에 계정 항목. 개인정보 정책 위반은 반려 사유다 |
 | Archicad(웹 zip) | 있음 | 회원 | 없음 |
+| AutoCAD(`오토캐드용-플러그인-개발` 브랜치, main 밖) | 합칠 때 있음 | 회원 | 같은 사이드카라 그대로 따라온다 — 합칠 때 실기 한 번 |
 | Blender(공식 스토어) | 없음 | 전부 열림 | 약관상 로그인 금지. 손님과 회원 사이 구멍이 되지만 돈을 받지 않는 동안은 받아들인다 |
 | 웹판(Pyodide, 미공개) | 같은 사이트 세션 | 회원 | 공개할 때 |
 
@@ -399,50 +454,48 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 | 일 | 하는 법 |
 |---|---|
 | 평소 | 할 일 없다(가입·연결은 자동). 주 1회 관리자 페이지 '회원' 카드를 본다 |
-| 막기 | 회원 줄 `status`를 `blocked`로 — 다음 `me` 확인 때 반영된다(늦어도 하루) |
-| 탈퇴 요청 메일 | 웹 [탈퇴]를 안내하고, 못 하면 시트에서 그 사람의 회원·연결 줄을 지운다 |
-| 회원 API 장애 | 플러그인은 30일 캐시로 돈다. 길어지면 `ACCOUNT_ENABLED`를 끄고 `dev_deploy.py notices`(디테일 모두 열림, 판 없음) |
-| 누가 어떤 기능을 쓰나 바꾸기 | 시트 '이용권' 탭의 `features`(모두에게) 또는 회원 줄의 `extra_features`·`removed_features`(한 사람) — 서버만 고치면 끝(판·원격 설정 없음) |
+| 막기 | Firebase 콘솔에서 그 계정 '사용 중지' — 다음 토큰 갱신 때 손님이 된다(늦어도 하루) |
+| 탈퇴 요청 메일 | 웹 [탈퇴]를 안내하고, 못 하면 콘솔에서 RTDB `users/<uid>`와 Auth 사용자를 지운다 |
+| Firebase·로그인 고장 | 저절로 연다 — 회원은 그대로, 손님은 로그인을 시도하면 고급이 열린다. GA `account_fallback`이 늘면 고장이다. 서버가 틀린 거절을 하는 고장(규칙·키 설정 실수)이면 `ACCOUNT_ENABLED`를 끄고 `dev_deploy.py notices`(모두 열림, 판 없음) |
+| 누가 어떤 기능을 쓰나 바꾸기 | 원격 설정 `PLAN_FEATURES`(모두에게 — `dev_deploy.py notices`, 판 없음). 한 사람만은 관리 스크립트로 토큰 값 `plan`(쓸 일이 생길 때 만든다) |
 | 기능에 드는 옵션·이름 바꾸기 | `constants.FEATURES`를 고치고 `dev_deploy.py notices` |
-| 처리방침 개정 | `privacy_v`를 올린다 — 다음 로그인 때 다시 동의받는다. 웹에 바뀐 날짜를 남긴다 |
-| 백업 | 시트 판 기록에 맡긴다. 개인정보라 로컬 사본(CSV)을 만들지 않는다 |
-| 관리자 페이지 '회원' 카드 | 시트를 서비스 계정(기존 GA 키)에 '보기'로 공유하고 시트 ID만 `~/.config/gorani/`에. 누적 회원, 이번 주 가입, 프로그램별 연결, 30일 안 확인한 회원, 탈퇴 수 — 숫자만, 메일은 띄우지 않는다 |
+| 처리방침 개정 | 웹에 바뀐 날짜·내용을 남기고 패널 공지(`notices`)로 알린다 |
+| 백업 | 하지 않는다 — 생성 기록은 다시 만들 수 있는 가벼운 값이고, 개인정보라 로컬 사본을 만들지 않는다 |
+| 관리자 페이지 '회원' 카드 | Firebase 프로젝트에 서비스 계정(기존 GA 키) 읽기 권한을 주고 프로젝트 id만 `~/.config/gorani/`에. 누적 회원, 이번 주 가입, 30일 안 토큰을 갱신한 회원, 생성 기록 수, 로그인 고장으로 연 횟수(GA `account_fallback`) — 숫자만, 메일은 띄우지 않는다. 프로그램별 연결은 GA(`plan`)로 |
 | 볼 지표 | 위 '깔때기'. 북극성 = 주간 신규 연결 회원. 그 밖에 로그인 완료율(패널 [구글로 로그인]을 누른 수 대비 돌아온 수 — 낮으면 로그인 흐름이 막힌 것. GA `ui` 이벤트 `account_login`·`account_done`), 로그인 창에서 [구글로 로그인하고 만들기]를 고른 비율 |
 | 무료 횟수·손님 기능·창 조정 | `GUEST_TRIALS`·`GUEST_FEATURES`·`LOGIN_PROMPT_ON_BUILD`를 고치고 `dev_deploy.py notices` — 이벤트 기간에만 늘렸다면 끝나는 날 되돌린다 |
 
 ## 일정
 
-코드 판은 2주에 한 번 이하라 웹·회원 API(판 없음)를 먼저 끝내고, 0.4.0에 디테일과 로그인을 같이 낸다.
+코드 판은 2주에 한 번 이하라 웹·Firebase 설정(판 없음)을 먼저 끝내고, 0.4.0에 디테일과 로그인을 같이 낸다.
 
 | 단계 | 기간(안) | 내용 |
 |---|---|---|
-| 0. 결정 | 11/14~11/16 | 남은 결정(Blender판, 무료 횟수, 백엔드) 확정. Search Console 도메인 인증과 구글 브랜드 인증 신청(며칠 걸려 가장 먼저 한다) |
-| 1. 웹·회원 API | 11/17~11/23 | OAuth 클라이언트·동의 화면, `tools/account` 앱스 스크립트·시트, `/privacy`·`/terms`·`/login`·`/account`(ko·en)·`/join`(ko·en·ja), 머리줄 로그인, 앱 안 브라우저 처리. 인스타 바이오 링크를 `/join/`으로. 이 단계만으로도 휴대폰 가입은 된다 — 플러그인이 나오기 전 가입자는 0.4.0 공지 메일 대상(소식 메일 동의자만) |
-| 2. 플러그인 0.4.0 | 11/24~12/04 | 위 표. 배포 전 점검 셋(check_tiles, 키 없는 실제 설치 화면, personas 문제 0건) + 로그인 실기 — Rhino 8 Mac·Windows, Rhino 7, SketchUp, Archicad에서 한 번씩 써 보기 3회 → 잠긴 고급 → 로그인 창 → 로그인 → 생성 → 로그아웃. Rhino 세 파일을 같은 버전으로. 그사이 `gorani-sns`: 문구 수정, 디테일 전후 릴스·캐러셀 |
-| 3. 배포 뒤 | 12/05~12/31 | 매니페스트 업데이트 안내 문구(`groups` 새 기능에 '고급 모델 — 무료 회원'), 디테일 콘텐츠 게시 시작, 깔때기에서 막힌 곳 고치기(앱 안 브라우저 이탈·로그인 완료율), 관리자 카드, food4Rhino·EW 문구, 웹 es·zh 안내. 다음 묶음 판에 [인스타용 이미지] |
+| 0. 결정 | 11/14~11/19 | 남은 결정(Blender판, 무료 횟수, 백엔드 — 11-19 Firebase) 확정. Search Console 도메인 인증과 구글 브랜드 인증 신청(며칠 걸려 가장 먼저 한다) |
+| 1. 웹·Firebase | 11/20~11/26 | Firebase 프로젝트(결제수단 없음)·동의 화면·RTDB 규칙, `/privacy`·`/terms`·`/login`·`/account`(ko·en)·`/join`(ko·en·ja), 머리줄 로그인, 앱 안 브라우저 처리. 인스타 바이오 링크를 `/join/`으로. 이 단계만으로도 휴대폰 가입은 된다 — 플러그인이 나오기 전 가입자는 0.4.0을 깔고 로그인하면 바로 회원이다(메일은 보내지 않는다) |
+| 2. 플러그인 0.4.0 | 11/27~12/08 | 위 표. 배포 전 점검 셋(check_tiles, 키 없는 실제 설치 화면, personas 문제 0건) + 로그인 실기 — Rhino 8 Mac·Windows, Rhino 7, SketchUp, Archicad에서 한 번씩 써 보기 3회 → 잠긴 고급 → 로그인 창 → 로그인 → 생성 → 로그아웃. Rhino 세 파일을 같은 버전으로. 그사이 `gorani-sns`: 문구 수정, 디테일 전후 릴스·캐러셀 |
+| 3. 배포 뒤 | 12/09~12/31 | 매니페스트 업데이트 안내 문구(`groups` 새 기능에 '고급 모델 — 무료 회원'), 디테일 콘텐츠 게시 시작, 깔때기에서 막힌 곳 고치기(앱 안 브라우저 이탈·로그인 완료율), 관리자 카드, food4Rhino·EW 문구, 웹 es·zh 안내. 다음 묶음 판에 [인스타용 이미지] |
 | 4. 큰 홍보 | 2월 말~3월 | 국내 개강 대지분석 시즌 + 공모전 마감 6주 전. 필요하면 무료 횟수를 원격으로 늘려 이벤트 |
 
 ## 할 일 — 순서대로
 
 확정(2026-11-14): 가입 즉시 회원, 로그인 한 번 = 가입, 손님 고급 로그인 없이 3회, 화면 '수준 [기본 | 고급]'(3D 설정 아래, 영어 Basic | Advanced), 손님이 처음 만들 때 한 번 로그인 창(2026-11-15), 교량은 기본·연석은 지형 선택 사항(누구나), 범위는 누구나 전부, 생성 횟수 제한 없음.
-기간은 1인 작업 기준 대략값. ①은 사용자 손으로만 되는 일(구글 계정·DNS), ②~⑤는 가짜 회원 API로 따로 진행할 수 있다.
+기간은 1인 작업 기준 대략값. ①은 사용자 손으로만 되는 일(구글 계정·DNS), ②~⑤는 가짜 securetoken·RTDB로 따로 진행할 수 있다.
 
 **① 계정·외부 설정 — 사용자, 1~2시간 + 브랜드 인증 대기(며칠)**
 - [ ] Search Console에 gorani.site 도메인 인증(DNS TXT)
-- [ ] 구글 클라우드 OAuth 동의 화면: 외부, 범위 `openid email`, 앱 이름 Gorani, 홈 `https://gorani.site/`, 처리방침 `https://gorani.site/privacy/`, 지원 메일 → 브랜드 인증 신청
-- [ ] OAuth 클라이언트 '웹 애플리케이션' — 승인된 출처 `https://gorani.site`, 시험용 `http://localhost:8000`
-- [ ] 문의함과 같은 운영 계정으로 시트 '회원함' + 앱스 스크립트 프로젝트
+- [ ] 새 Firebase 프로젝트를 고라니 운영 계정(gorani.3d@gmail.com, 2단계 인증)으로 만든다(결제수단 없음 — Spark, `gorani-stats`와 따로). 운영자 두 사람의 개인 계정을 소유자로 더한다(한 계정이 막혀도 멈추지 않게 — 회사 계정은 넣지 않는다). Authentication에서 Google 켜기, 승인된 도메인 `gorani.site`(+ 시험 `localhost`), Realtime Database 만들기(`asia-southeast1`)와 규칙 붙여넣기
+- [ ] OAuth 동의 화면: 외부, 앱 이름 Gorani, 홈 `https://gorani.site/`, 처리방침 `https://gorani.site/privacy/`, 지원 메일 gorani.3d@gmail.com → 브랜드 인증 신청
+- [ ] Firebase가 만든 웹 OAuth 클라이언트 — 승인된 출처 `https://gorani.site`, 시험용 `http://localhost:8000`
 - [ ] 처리방침·약관 초안 확인(개인정보 포털 작성 도구로 초안을 만들어 둔다) — 가능하면 한 번 검토
 
-**② 회원 API — 웹 저장소 `tools/account/`, 1~2일, 판 없음**
-- [ ] `Code.gs`: 권한 계산(이용권 탭 + 회원 줄 `plan`·`status`·`plan_until`·더한·뺀 기능) — `login`·`claim`·`me`가 `entitlement`를 돌려준다. `login`(tokeninfo 확인, 첫 로그인에 회원 줄 `plan = free`)·`grant`·`claim`·`me`·`logout`·`delete`·`set_news`·`send_install_mail`, CacheService 한도, `setup`(탭·칸)
-- [ ] `README.md`: 배포·확인 순서(문의함 README 꼴), 운영(막기·탈퇴·장애 때 `ACCOUNT_ENABLED`)
-- [ ] 생성 기록: `set_history_sync`(웹)·`history_add`(최근 300개만 남김)·`history_list`·`history_update`·`history_delete`, 시트 '생성 기록' 탭
-- [ ] 시험 계정으로 한 바퀴(로그인 → grant → claim → me → history_add·list → logout → delete)
+**② Firebase 규칙·시험 — 웹 저장소 `tools/account/`, 반나절, 판 없음**
+- [ ] `database.rules.json`(본인 것만·칸 크기 — 위 '구성'), `README.md`(만들기·키 넣기·운영: 사용 중지·탈퇴·장애 때 `ACCOUNT_ENABLED`)
+- [ ] 시험 계정으로 한 바퀴(REST: `signInWithIdp` → `securetoken` → RTDB PUT·PATCH·GET·DELETE → `accounts:delete`), 다른 계정 토큰으로 남의 기록을 읽고 쓰지 못하는지
 
 **③ 홈페이지 — 웹 저장소, 3~4일, 판 없음, 플러그인보다 먼저**
-- [ ] `assets/site.js` 계정: GIS 버튼, 세션(localStorage 30일), 머리줄 [로그인]/첫 글자, UTM·`ref` 저장, 앱 안 브라우저 알아보기·밖으로 열기, GA `sign_up`·`login`·`plugin_login`·`inapp`
-- [ ] 새 페이지: `login/`(port·state 검사, 이미 로그인이면 바로 넘김)·`login/done/`·`account/`(탭: 계정·생성 기록(목록 + 윤곽 지도)·연결된 프로그램)·`join/`(ko·en·ja)·`privacy/`·`terms/`(ko·en)
+- [ ] `assets/site.js` 계정: GIS 버튼 → Firebase REST, 열쇠(localStorage), 머리줄 [로그인]/첫 글자, UTM·`ref` 저장, 앱 안 브라우저 알아보기·밖으로 열기, GA `sign_up`·`login`·`plugin_login`·`inapp`
+- [ ] 새 페이지: `login/`(port·state 검사, 이미 로그인이면 바로 넘김)·`login/done/`·`account/`(탭: 계정·생성 기록(목록 + 윤곽 지도))·`join/`(ko·en·ja)·`privacy/`·`terms/`(ko·en)
 - [ ] 홈 다섯 언어: 머리줄, 히어로 두 단계 문구, 새 '디테일' 칸 `#detail`(같은 대지 기본·고급 모델 전후 + 6종 + 가입 — 인스타 링크가 여기로), 설치 칸 한 줄, FAQ 셋(왜 로그인·무엇을 저장·인터넷 없을 때), 바닥글 처리방침·약관
 - [ ] `llms.txt`·JSON-LD·README·sitemap(계정·로그인 제외)·robots
 - [ ] 이미지: 서울 노면표시·가로수가 잘 보이는 대지의 전후 렌더, 앱 안 브라우저 안내 그림
@@ -450,20 +503,20 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 - [ ] PR 스크린샷(데스크톱 ko·en, 휴대폰 `join`)
 
 **④ 플러그인 엔진·컨트롤러 — 이 저장소, 2~3일**
-- [ ] `constants.py`: `FEATURES`·`GUEST_FEATURES`·`GUEST_TRIALS`·`PLAN_CARDS`·`LOGIN_PROMPT_ON_BUILD`·`ACCOUNT_*`·`PANEL_LINKS.privacy`, `HOST_LABELS.account`(blender·web False). `remote_config.REMOTE_KEYS`에 일곱 키
-- [ ] `account.py`(새): account.json, 받는 곳, `claim`·`me`·`logout`, 권한(`has_feature`)·무료 횟수 세기, `get_allowed_options`(권한에 없는 기능의 옵션 끄기) — 이용권 이름으로 분기하지 않는다
+- [ ] `constants.py`: `ACCOUNT_*`(`ACCOUNT_FIREBASE` 포함)·`PLAN_FEATURES`·`PLAN_NAMES`·`HISTORY_MAX`·`GUEST_FEATURES`·`GUEST_TRIALS`·`PLAN_CARDS`·`LOGIN_PROMPT_ON_BUILD`·`PANEL_LINKS.privacy`, `HOST_LABELS.account`(blender·web False). `remote_config.REMOTE_KEYS`에 새 키(`FEATURES`는 이미 있다)
+- [ ] `account.py`(새): account.json, 받는 곳(POST), `refresh`(securetoken → 토큰 값)·`logout`, 권한(`has_feature`)·무료 횟수 세기, `get_allowed_options`(권한에 없는 기능의 옵션 끄기) — 이용권 이름으로 분기하지 않는다
 - [ ] 패널 `pending_action`(누른 곳으로 돌아가기 — 고급·첫 만들기·생성 기록), 권한에 없는 기능이면 '지금 이용권에 없습니다'
-- [ ] 생성 기록(회원만): `entry_id`, `history_*` 명령, 회원이면 생성 뒤 저절로 `history_add`·`pending_history`, 폴더 없는 기록은 같은 설정으로 지도에 되살리기
+- [ ] 생성 기록(회원만): `entry_id`, `history_*` 명령, 회원이면 생성 뒤 저절로 RTDB PUT·`pending_history`, 폴더 없는 기록은 같은 설정으로 지도에 되살리기
 - [ ] `cmd_site.py`: `account_login`·`account_cancel`·`account_logout`, `account_state` 푸시, `init_state.account{state, email, plan_name, features, trials_left}`, `generate` 직전 옵션 거르기·성공 뒤 맛보기 세기, 하루 1회 확인
 - [ ] 사이드카(`cmd_sketchup`·`cmd_rhino7`·`cmd_archicad`): 받는 곳 스레드 → 기존 푸시 줄로 나가는지
-- [ ] `usage_stats`(`plan`·`trial`), `GA_UI_ACTIONS`(`account_login`·`account_done`·`account_logout`·`history_open`·`history_restore`·`history_sync`·`login_prompt`), `ADMIN_GA_DIMENSIONS`(`plan`·`trial`)
+- [ ] `usage_stats`(`plan`·`trial`), `GA_UI_ACTIONS`(`account_login`·`account_done`·`account_logout`·`account_fallback`·`history_open`·`history_restore`·`history_sync`·`login_prompt`), `ADMIN_GA_DIMENSIONS`(`plan`·`trial`)
 - [ ] Blender: `account` 구간 `# [blender-cut]`, `get_blender_problems` 통과, 고급은 누구나
 
 **⑤ 패널 UI(고급 기능 개편 포함) — 이 저장소, 3~4일**
 - [ ] 3D 설정 아래 '수준 [기본 | 고급]'(설명 줄 없음, '고급' 마우스 올림 글은 `FEATURES`에서 만듦), `options.detail_level`(prefs), `DETAIL_ROWS` 없앰, 만들 때 옵션 덮어 보내기(교량 켬·담장 끔·연석은 3D 설정 값)
 - [ ] 3D 설정: 지형 줄 아래 '차도 15 cm 내리기(연석)'(누구나, 요약은 끌 때만 `연석 끔`). 범위·한 변 두 줄을 한 줄로('직접' 입력칸은 줄 아래), 트레이 높이 다시 재기
 - [ ] `constants.DETAIL_OPTIONS`: `building_parapet`·`building_floors` 기본값 `True`. 잠긴 '고급' 글자 회색 #7d8798 → #5f6878(대비 4.5:1 이상). i18n `기본` 영어 `Base` → `Basic`, 새 문구 `수준`·`고급`·`고급 모델`·`차도 15 cm 내리기(연석)`, 플랜 창 글(`PLAN_CARDS`) 네 언어
-- [ ] '고급' 안 자물쇠(손님 — 고르면 기본으로 되돌리고 플랜 창, 초점은 받게), 만료 때 다시 잠그고 기본으로
+- [ ] '고급' 안 자물쇠(손님 — 고르면 기본으로 되돌리고 플랜 창, 초점은 받게), 서버가 확실히 거절하면 다시 잠그고 기본으로
 - [ ] 플랜 창: Guest·Member 두 칸(`PLAN_CARDS` 원격 설정 + `FEATURES` 이름), [구글로 로그인], `로그인 없이 써 보기 (n회)`(남았을 때만), 좁으면 위아래로, 계정 창에 이용권 이름
 - [ ] 로딩·결과 카드 윗줄 `고급 모델`(기본이면 없음). 만드는 동안 머리줄 [로그인]·계정 기호 잠금
 - [ ] 로그인 기다리는 띠·취소·시간 초과, 돌아온 뒤 토스트
@@ -472,7 +525,7 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 - [ ] '생성 기록' 화면(회원만): 단추 묶음 `[전체 | ★]`(찾기 없음), 날짜 묶음, 윤곽 썸네일 SVG, 줄 오른쪽 ☆/★, 이름 바꾸기·빼기(오른쪽 클릭 메뉴), PC 표시 없음, 트레이 '최근 결과' 머리 `생성 기록 ›`(회원만)
 - [ ] 더보기 메뉴 '도움'에 '개인정보 처리방침' 링크(계정 줄은 두지 않음)
 - [ ] 요약 줄 규칙, 트레이 높이 다시 재기(ui_spec §2)
-- [ ] i18n 네 언어, 목 모드 `&account=guest|trial|locked|waiting|member|expired`·`&screen=history&sync=0|1`, 목 데이터(`tests/fixtures/site_ui_mock.json`)
+- [ ] i18n 네 언어, 목 모드 `&account=guest|trial|locked|waiting|member|fallback`·`&screen=history`(`&hist=0` 빈 목록), 목 데이터(`tests/fixtures/site_ui_mock.json`)
 - [ ] 목 패널 캡처 `docs/brand/preview/`(PR 표)
 
 **⑥ 시험 — 2일 + personas 약 40분**
@@ -491,16 +544,19 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 - [ ] 관리자 페이지 '회원' 카드
 - [ ] `gorani-sns`: 문구·바이오 링크·하이라이트·디테일 전후 콘텐츠, food4Rhino·EW 설명 문구
 
-합계 약 3주(① 대기 시간 제외 — 생성 기록이 회원 API 1일·웹 1일·플러그인 2일쯤 더한다). 일정이 빠듯하면 생성 기록은 '이 PC 기록'만 0.4.0에 넣고 계정 저장을 다음 묶음 판으로 미룬다(웹 계정 탭은 판 없이 언제든). ②·③이 끝나야 ④·⑤를 실제 로그인으로 시험할 수 있다 — 그 전에는 `tests/test_account.py`의 가짜 API로 만든다.
+합계 약 2주 반(① 대기 시간 제외 — 회원 API·시트 대신 Firebase 규칙 반나절. 생성 기록이 웹 1일·플러그인 2일쯤 더한다). 일정이 빠듯하면 생성 기록은 '이 PC 기록'만 0.4.0에 넣고 계정 저장을 다음 묶음 판으로 미룬다(웹 계정 탭은 판 없이 언제든). ②·③이 끝나야 ④·⑤를 실제 로그인으로 시험할 수 있다 — 그 전에는 `tests/test_account.py`의 가짜 securetoken·RTDB로 만든다.
 
 ## 하지 않는 것
 
 - 자체 비밀번호 가입·이메일 인증 — 구글 로그인 하나로 끝낸다.
+- 우리 서버·시트(회원 API) — Firebase만 쓴다(2026-11-19 사용자).
+- 메일 보내기(소식·설치 링크) — 소식은 패널 공지, 설치 링크는 복사·공유(2026-11-19 사용자).
+- 회원별 가입 경로 저장 — GA 집계로.
 - 승인제·초대 코드.
 - 토큰 서명·난독화·플러그인 안 검증 — 원본이 공개라 의미가 없다.
 - 앱 안 웹뷰에서 구글 로그인 — 구글이 막는다.
 - 첫 실행 로그인 강요.
-- GA에 계정 id, 시트에 설치 ID.
+- GA에 계정 id, Firebase에 설치 ID.
 - 플러그인 코드에서 이용권 이름(`free`·`pro`)으로 분기하기 — 기능 키만 본다.
 - 인스타그램 계정 로그인(일반 사용자용 API가 없다), 팔로우를 조건으로 거는 잠금·이벤트.
 - 결제(아직).
@@ -508,21 +564,20 @@ gorani.site (GitHub Pages, 정적) ── 구글 로그인 버튼(GIS) → ID �
 ## 나중 — 돈을 받을 때
 
 - **서버 쪽 잠금**: 서울 노면표시·가로수는 지금 컨텍스트 팩에 덧붙여 국내 서버(문지기)로 나간다(41bf893). 회원 전용 팩(`<시군구코드>_detail.db`)으로 떼고 문지기가 회원 토큰을 확인하면 진짜로 막힌다. 교량·선로·옹벽처럼 기본 팩으로 계산하는 디테일과 해외 OSM 디테일(공개 Overpass)은 서버로 막을 수 없다.
-- 인터넷이 아예 없는 PC(공공기관·대형 사무소 망분리)는 처음 로그인을 못 해 고급은 로그인 없이 3회뿐이다. 요청이 오면 계정 페이지에 '오프라인 PC용 회원 파일'(90일)을 두고 패널 [파일로 로그인]으로 읽는다. 그런 PC는 지금도 팩을 손으로 옮겨야 해서 드물다고 보고 먼저 만들지 않는다.
-- 회원이 1만 명을 넘거나 하루 `me`가 앱스 스크립트 한도의 절반을 넘으면 Firebase 등으로 옮긴다(API 모양을 지키면 플러그인은 원격 설정 주소만 바뀐다).
-- 유료 이용권은 '이용권' 탭에 `pro`·`enterprise` 줄을 더하고, 결제 대행의 결제 알림(웹훅)이 회원 줄의 `plan`·`plan_until`을 고친다. 플러그인은 바뀌지 않는다(받는 권한만 달라진다). 이때 권한 응답에 서버 서명을 붙이거나 서버 쪽 자원으로 막는다.
+- 인터넷이 아예 없는 PC(공공기관·대형 사무소 망분리)는 로그인을 누르면 접속이 안 돼 고급이 열린다('로그인에 기대지 않기') — 따로 만들 것이 없다(11-14 안의 '오프라인 PC용 회원 파일'은 없앤다).
+- 생성 기록이 RTDB 무료 1 GB의 절반을 넘으면 `HISTORY_MAX`를 줄이거나 Firestore(서울 리전)로 옮긴다(코드 판).
+- 이메일·비밀번호 로그인 — 인스타 앱 안 브라우저 이탈이 크면. Firebase 인증 메일 하루 1,000통·비밀번호 재설정 150통이 무료, 웹만 고친다.
+- 유료 이용권은 `PLAN_FEATURES`에 `pro`·`enterprise` 줄을 더하고, 결제 알림(웹훅)을 받는 작은 함수가 토큰 값 `plan`·`plan_until`을 넣는다(Firebase Functions는 종량제가 필요하니 Cloudflare Workers 무료 등 — 그때 처음 서버 코드가 생긴다). 결제는 카드·세금을 대행사가 맡는 판매 대행(MoR)으로 해 카드 정보를 우리가 다루지 않는다. 플러그인은 바뀌지 않는다(받는 권한만 달라진다). 이때 서버 쪽 자원으로 막는다.
 - 결제 대행·환불·세금은 그때 따로 계획한다. 스토어 정책도 다시 본다(Blender는 그때도 로그인 불가). 참고: 같은 시기 유료 서비스 MassLabs의 면적 등급·팀 요금·판매 대행(`docs/research/10_masslabs.md`).
 - 회원 기능 후보: 레이저 커팅용 등고 판 배치(학생 콘타 모형 — 계단 지형·1:5,000 등고선이 이미 있다), STL 내보내기(같은 문서).
 
 ## 확인 필요
 
-- 앱스 스크립트 무료 한도(외부 요청 하루 약 2만 회, 동시 실행 30) — 실제 값.
-- 구글 시트 한 파일 1,000만 칸 한도 — 생성 기록 한 줄 약 17칸이면 약 58만 줄. 회원당 300개 상한으로 3만 명 넘게 버틴다. 그 전에 백엔드 이전을 본다(위 '나중').
-- tokeninfo 엔드포인트 — 구글은 디버깅용이라고 한다. 적은 양에서는 괜찮다고 보지만 막히면 GIS의 서명 확인을 웹에서 하고 서버는 다시 확인하는 식으로 바꾼다.
-- 브라우저가 https 페이지에서 `http://127.0.0.1:<port>`로 넘어가는 것 — 크롬·엣지·사파리·파이어폭스에서 막히거나 경고가 뜨지 않는지(크롬 로컬 네트워크 접근 제한은 `fetch` 쪽으로 알고 있다). 회사 PC 보안 프로그램이 로컬 포트를 막는 경우가 있는지.
-- 앱스 스크립트 POST는 302로 googleusercontent에 넘어간다. 브라우저(문의 폼)는 문제가 없었다 — Rhino 8 CPython·번들 파이썬 3.12·Pyodide의 urllib에서 시험한다.
+- Firebase Spark 무료 한도 — 인증(Identity Platform을 켜지 않은 프로젝트의 한도), RTDB 저장 1 GB·내려받기 월 10 GB·동시 연결 100(2026-11-19 요금 페이지 기준). 넘으면 요금 대신 멈추는지 시험 프로젝트에서 본다.
+- `securetoken`·RTDB REST — Rhino 8 CPython·번들 파이썬 3.12·Pyodide의 `urllib`에서 시험한다. 웹 `fetch`로 RTDB REST를 부를 때 CORS.
+- 브라우저가 https 페이지에서 `http://127.0.0.1:<port>`로 폼 POST하는 것 — 크롬·엣지·사파리·파이어폭스에서 '안전하지 않은 양식' 경고나 로컬 네트워크 허락 창이 뜨지 않는지(루프백은 보통 예외). 회사 PC 보안 프로그램이 로컬 포트를 막는 경우가 있는지.
+- 생성 기록 기본 켬 — 계약 이행(제15조 제1항 제4호)으로 되는지, 선택 동의가 필요한지.
 - SketchUp EW·food4Rhino가 외부 계정 연결을 어떻게 보는지 — 다음 제출 때 문의.
 - 처리방침·동의 문구 — 초안을 만든 뒤 가능하면 한 번 검토받는다.
 - 앱 안 브라우저: 인스타·스레드 UA 문자열, 안드로이드 `intent://` 다시 열기가 지금도 되는지 — 실제 휴대폰(iOS·안드로이드)에서 바이오 링크로 시험한다.
-- 앱스 스크립트 메일 하루 한도(무료 계정 약 100통) — 설치 링크 메일이 몰리면 [링크 복사]만 남긴다.
 - 메타 홍보 규정(팔로우 조건)·ManyChat 무료 한도.

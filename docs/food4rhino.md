@@ -46,9 +46,11 @@ Data
 - Korea: nationwide parcels, zoning, buildings and 1:5,000 contours. Each district is downloaded once.
 
 Good to know
-- Rhino 7 and 8 for Windows and Mac. You don't need Grasshopper, an account or an API key.
+- Rhino 7 and 8 for Windows and Mac. You don't need Grasshopper or an API key.
+- The Basic model needs no account. The Advanced model (roof parapets, floor lines, road markings, street trees, rail tracks, retaining walls) is free with a Google sign-in. You can try it 3 times without signing in.
 - The panel is in English, Korean, Spanish, Japanese and Simplified Chinese. Switch with the globe button at the top.
 - Anonymous usage statistics go to Google Analytics: a random ID per install, versions and OS, where you generated, the extent, run time and error types. No names, file paths or drawing contents.
+- If you sign in, your account (Google Firebase) keeps a generation history: site name, location, extent and 3D settings. No file paths or drawings. Privacy policy: https://gorani.site/privacy/
 - Results with Korean contours or elevations must not be posted online (National Geographic Information Institute security rules).
 
 한국어
@@ -73,9 +75,11 @@ Good to know
 - 해외: OpenStreetMap 건물·도로와 공개 지형 데이터. 만들 때 인터넷이 필요합니다.
 
 참고
-- 라이노 7·8(윈도우·맥)에서 씁니다. 그래스호퍼, 회원가입, API 키는 필요 없습니다.
+- 라이노 7·8(윈도우·맥)에서 씁니다. 그래스호퍼와 API 키는 필요 없습니다.
+- 기본 모델은 회원가입 없이 씁니다. 고급 모델(옥상 파라펫·층 구분선·노면표시·가로수·선로·옹벽)은 구글 계정으로 로그인하면 무료입니다. 로그인 없이 3번 써 볼 수 있습니다.
 - 패널은 영어·한국어·스페인어·일본어·중국어로 쓸 수 있습니다. 위쪽 지구본 버튼에서 바꿉니다.
 - 사용 통계를 Google Analytics로 보냅니다. 설치별 무작위 ID, 버전·OS, 만든 위치·범위·걸린 시간·오류 종류이고, 이름·파일 경로·도면 내용은 보내지 않습니다.
+- 로그인하면 계정(Google Firebase)에 생성 기록이 남습니다. 대상지 이름·위치·범위·3D 설정이고, 파일 경로·도면은 남기지 않습니다. 처리방침: https://gorani.site/privacy/
 - 등고선·표고가 들어간 국내 결과물은 인터넷에 올리면 안 됩니다(국토지리정보원 보안관리규정).
 
 **Website**: https://gorani.site/en/ (한국어: https://gorani.site/)
@@ -91,6 +95,10 @@ Good to know
 **Tags**: site context, urban design, city model, OpenStreetMap, GIS, terrain, topography, contours, basemap, site analysis, Korea, 도시설계, 대지분석, 현황도
 
 **Release**: Rhino Package Manager 패키지 `Gorani`로 연결(파일을 따로 올리지 않는다). 새 판은 yak에만 올리면 된다 — Rhino 8판(`rh8_0-any`)과 Rhino 7판(`rh7_0-mac`·`rh7_0-win`)을 같은 버전으로 같이 올린다.
+
+## 0.4.0 (2026-11-20)
+
+공개 페이지 본문(2026-10-23에 이 문서보다 길게 고쳐 둠)에서 'Good to know'·'참고'의 회원가입 줄을 위 문구로 바꾸고, 통계 줄 아래 생성 기록 줄을 더한다. 영어·한국어 둘 다.
 
 ## 심사 반려 대응 (2026-10-21)
 

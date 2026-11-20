@@ -31,7 +31,7 @@ import panel_server  # noqa: E402
 
 ADMIN_HTML_PATH = os.path.join(SCRIPTS_DIR, "dev_admin.html")
 MOCK_PATH = os.path.join(ROOT_DIR, "tests", "fixtures", "site_ui_mock.json")
-NOTICE_HOSTS = ("rhino", "sketchup", "blender", "autocad")   # 업데이트 안내 groups[].hosts에 쓰는 프로그램 이름(패널 HOST.id). Blender 패키지에 안 들어가는 관리자 도구에만 둔다
+NOTICE_HOSTS = ("rhino", "sketchup", "blender", "autocad", "archicad")   # 업데이트 안내 groups[].hosts에 쓰는 프로그램 이름(패널 HOST.id). Blender 패키지에 안 들어가는 관리자 도구에만 둔다
 VERSION_PATTERN = re.compile(r"^\d+(\.\d+)*$")
 UPDATE_TEXT_KEYS = ("title", "body", "deadline")
 

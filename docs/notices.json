@@ -1,62 +1,42 @@
 {
  "update": {
-  "latest": "0.3.9",
-  "date": "2026-11-08",
+  "latest": "0.4.0",
+  "date": "2026-11-20",
   "items": {
    "ko": [
-    "대상지 구역을 여러 개 그릴 수 있고, 선을 합칠 수 있습니다.",
-    "지난 생성 결과를 다시 열어 작업할 수 있습니다.",
-    "Rhino에서 업데이트 안내의 [지금 업데이트]를 눌러 바로 설치할 수 있습니다.",
-    "지형: 계단 지형이 원본 등고선을 따라 더 정확하고 매끈해졌습니다.",
-    "수면: 호수는 평평하게, 강은 물가를 따라 흐르게 만듭니다.",
-    "Rhino 8 Brep으로 만드는 시간이 크게 줄었습니다.",
-    "해외 대상지도 위경도 대신 주소로 볼 수 있습니다.",
-    "공공데이터: 토지이용계획 2026-10-09판, 서울 UPIS 2026-09판으로 갱신했습니다.",
-    "지형 면 분할 실패 등 여러 문제를 고쳤습니다."
+    "고급 모델: 옥상 파라펫·층 구분선·노면표시·가로수·선로·옹벽 디테일을 더했습니다.",
+    "기본 모델에 교량·고가 상판과 연석(차도 15 cm 내리기)을 더했습니다.",
+    "구글 계정으로 회원가입할 수 있습니다. 회원은 고급 모델을 무료로 쓰고, '생성 기록'에서 지난 결과를 관리할 수 있습니다.",
+    "결과 폴더 위치를 더보기 메뉴에서 바꿀 수 있습니다.",
+    "해외 지형이 더 정밀해지고(Mapterhorn) 해외 대상지를 더 빨리 만듭니다. OpenStreetMap 서버가 막혀도 사본으로 만듭니다."
    ],
    "en": [
-    "You can draw several areas for a site and merge their outlines.",
-    "You can reopen a previous result and keep working on it.",
-    "In Rhino, press [Update now] in the update notice to install right away.",
-    "Terrain: stepped terrain now follows the original contours more accurately and smoothly.",
-    "Water: lakes are flat and rivers slope along the shore.",
-    "Rhino 8: building Brep output is much faster.",
-    "Sites outside Korea show an address instead of latitude and longitude.",
-    "Public data: land use plan updated to the 2026-10-09 edition and Seoul UPIS to 2026-09.",
-    "Fixed several issues, including failures when splitting terrain faces."
-   ],
-   "es": [
-    "Puedes dibujar varias áreas para un sitio y unir sus contornos.",
-    "Puedes volver a abrir un resultado anterior y seguir trabajando.",
-    "En Rhino, pulsa [Actualizar ahora] en el aviso de actualización para instalar al instante.",
-    "Terreno: el terreno escalonado sigue las curvas de nivel originales con más precisión y suavidad.",
-    "Agua: los lagos quedan planos y los ríos descienden siguiendo la orilla.",
-    "Rhino 8: generar la salida Brep es mucho más rápido.",
-    "Los sitios fuera de Corea muestran una dirección en lugar de latitud y longitud.",
-    "Datos públicos: plan de uso del suelo actualizado a la edición 2026-10-09 y UPIS de Seúl a 2026-09.",
-    "Se corrigieron varios problemas, como fallos al dividir las caras del terreno."
+    "Advanced model: adds roof parapet, floor line, road marking, street tree, rail track and retaining wall details.",
+    "The basic model now includes bridge and overpass decks and curbs (roadways lowered 15 cm).",
+    "Sign up with your Google account. Members use the Advanced model for free and manage past results in Generation history.",
+    "Change where results are saved from the More menu.",
+    "Terrain outside Korea is more detailed (Mapterhorn) and sites outside Korea build faster. They still build from a mirror when OpenStreetMap servers are blocked."
    ],
    "ja": [
-    "対象地の区域を複数描くことができ、線を結合できます。",
-    "以前の生成結果を開き直して作業を続けられます。",
-    "Rhinoでは、更新のお知らせの［今すぐ更新］を押してそのままインストールできます。",
-    "地形: 階段状の地形が元の等高線に沿って、より正確で滑らかになりました。",
-    "水面: 湖は平らに、川は水辺に沿って流れるように作ります。",
-    "Rhino 8: Brepで出力する時間が大きく短くなりました。",
-    "海外の対象地も、緯度経度の代わりに住所で表示されます。",
-    "公共データ: 土地利用計画を2026-10-09版、ソウルUPISを2026-09版に更新しました。",
-    "地形の面分割に失敗する問題など、いくつかの不具合を直しました。"
+    "高度モデル: 屋上パラペット・階の線・路面標示・街路樹・線路・擁壁のディテールを加えました。",
+    "基本モデルに橋梁・高架の床版と縁石(車道を15 cm下げる)を加えました。",
+    "Googleアカウントで会員登録できます。会員は高度モデルを無料で使え、「生成履歴」で過去の結果を管理できます。",
+    "結果フォルダの場所をその他メニューで変更できます。",
+    "海外の地形がより精密になり(Mapterhorn)、海外の対象地を速く作れます。OpenStreetMapのサーバーが混んでも写しから作ります。"
    ],
    "zh": [
-    "可以为场地绘制多个区域，并合并它们的轮廓线。",
-    "可以重新打开以前生成的结果继续工作。",
-    "在 Rhino 中，点击更新提示里的[立即更新]即可直接安装。",
-    "地形：阶梯地形更精确、更平滑地贴合原始等高线。",
-    "水面：湖泊保持水平，河流沿岸边向下游倾斜。",
-    "Rhino 8：生成 Brep 的时间大幅缩短。",
-    "海外场地也显示地址，而不是经纬度。",
-    "公共数据：土地利用规划更新为2026-10-09版，首尔 UPIS 更新为2026-09版。",
-    "修复了地形面分割失败等多个问题。"
+    "高级模型：新增屋顶女儿墙、楼层线、路面标线、行道树、轨道和挡土墙细节。",
+    "基础模型新增桥梁·高架桥面和路缘石(车行道降低15 cm)。",
+    "可以使用 Google 账户注册会员。会员可免费使用高级模型，并在“生成记录”中管理以往的结果。",
+    "可以在“更多”菜单中更改结果文件夹位置。",
+    "海外地形更精确(Mapterhorn)，海外场地生成更快。即使 OpenStreetMap 服务器受阻，也能用副本生成。"
+   ],
+   "es": [
+    "Modelo avanzado: añade detalles de pretiles de azotea, líneas de planta, marcas viales, árboles, vías y muros de contención.",
+    "El modelo básico incluye ahora tableros de puentes y pasos elevados y bordillos (calzada 15 cm más baja).",
+    "Regístrate con tu cuenta de Google. Los miembros usan el modelo avanzado gratis y gestionan sus resultados anteriores en el Historial.",
+    "Cambia dónde se guardan los resultados desde el menú Más.",
+    "El terreno fuera de Corea es más detallado (Mapterhorn) y esos sitios se generan más rápido. Siguen generándose desde una copia si los servidores de OpenStreetMap están bloqueados."
    ]
   },
   "groups": [
@@ -64,105 +44,64 @@
     "type": "new",
     "items": {
      "ko": [
-      "대상지 구역을 여러 개 그릴 수 있고, 선을 합칠 수 있습니다.",
-      "지난 생성 결과를 다시 열어 작업할 수 있습니다.",
-      "Rhino에서 업데이트 안내의 [지금 업데이트]를 눌러 바로 설치할 수 있습니다."
+      "고급 모델: 옥상 파라펫·층 구분선·노면표시·가로수·선로·옹벽 디테일을 더했습니다.",
+      "기본 모델에 교량·고가 상판과 연석(차도 15 cm 내리기)을 더했습니다.",
+      "구글 계정으로 회원가입할 수 있습니다. 회원은 고급 모델을 무료로 쓰고, '생성 기록'에서 지난 결과를 관리할 수 있습니다.",
+      "결과 폴더 위치를 더보기 메뉴에서 바꿀 수 있습니다."
      ],
      "en": [
-      "You can draw several areas for a site and merge their outlines.",
-      "You can reopen a previous result and keep working on it.",
-      "In Rhino, press [Update now] in the update notice to install right away."
+      "Advanced model: adds roof parapet, floor line, road marking, street tree, rail track and retaining wall details.",
+      "The basic model now includes bridge and overpass decks and curbs (roadways lowered 15 cm).",
+      "Sign up with your Google account. Members use the Advanced model for free and manage past results in Generation history.",
+      "Change where results are saved from the More menu."
      ],
      "ja": [
-      "対象地の区域を複数描くことができ、線を結合できます。",
-      "以前の生成結果を開き直して作業を続けられます。",
-      "Rhinoでは、更新のお知らせの［今すぐ更新］を押してそのままインストールできます。"
+      "高度モデル: 屋上パラペット・階の線・路面標示・街路樹・線路・擁壁のディテールを加えました。",
+      "基本モデルに橋梁・高架の床版と縁石(車道を15 cm下げる)を加えました。",
+      "Googleアカウントで会員登録できます。会員は高度モデルを無料で使え、「生成履歴」で過去の結果を管理できます。",
+      "結果フォルダの場所をその他メニューで変更できます。"
      ],
      "zh": [
-      "可以为场地绘制多个区域，并合并它们的轮廓线。",
-      "可以重新打开以前生成的结果继续工作。",
-      "在 Rhino 中，点击更新提示里的[立即更新]即可直接安装。"
+      "高级模型：新增屋顶女儿墙、楼层线、路面标线、行道树、轨道和挡土墙细节。",
+      "基础模型新增桥梁·高架桥面和路缘石(车行道降低15 cm)。",
+      "可以使用 Google 账户注册会员。会员可免费使用高级模型，并在“生成记录”中管理以往的结果。",
+      "可以在“更多”菜单中更改结果文件夹位置。"
      ],
      "es": [
-      "Puedes dibujar varias áreas para un sitio y unir sus contornos.",
-      "Puedes volver a abrir un resultado anterior y seguir trabajando.",
-      "En Rhino, pulsa [Actualizar ahora] en el aviso de actualización para instalar al instante."
+      "Modelo avanzado: añade detalles de pretiles de azotea, líneas de planta, marcas viales, árboles, vías y muros de contención.",
+      "El modelo básico incluye ahora tableros de puentes y pasos elevados y bordillos (calzada 15 cm más baja).",
+      "Regístrate con tu cuenta de Google. Los miembros usan el modelo avanzado gratis y gestionan sus resultados anteriores en el Historial.",
+      "Cambia dónde se guardan los resultados desde el menú Más."
      ]
     },
     "hosts": [
      null,
      null,
      [
-      "rhino"
-     ]
+      "rhino",
+      "sketchup",
+      "archicad"
+     ],
+     null
     ]
    },
    {
     "type": "improved",
     "items": {
      "ko": [
-      "지형: 계단 지형이 원본 등고선을 따라 더 정확하고 매끈해졌습니다.",
-      "수면: 호수는 평평하게, 강은 물가를 따라 흐르게 만듭니다.",
-      "Rhino 8 Brep으로 만드는 시간이 크게 줄었습니다.",
-      "해외 대상지도 위경도 대신 주소로 볼 수 있습니다.",
-      "공공데이터: 토지이용계획 2026-10-09판, 서울 UPIS 2026-09판으로 갱신했습니다."
+      "해외 지형이 더 정밀해지고(Mapterhorn) 해외 대상지를 더 빨리 만듭니다. OpenStreetMap 서버가 막혀도 사본으로 만듭니다."
      ],
      "en": [
-      "Terrain: stepped terrain now follows the original contours more accurately and smoothly.",
-      "Water: lakes are flat and rivers slope along the shore.",
-      "Rhino 8: building Brep output is much faster.",
-      "Sites outside Korea show an address instead of latitude and longitude.",
-      "Public data: land use plan updated to the 2026-10-09 edition and Seoul UPIS to 2026-09."
+      "Terrain outside Korea is more detailed (Mapterhorn) and sites outside Korea build faster. They still build from a mirror when OpenStreetMap servers are blocked."
      ],
      "ja": [
-      "地形: 階段状の地形が元の等高線に沿って、より正確で滑らかになりました。",
-      "水面: 湖は平らに、川は水辺に沿って流れるように作ります。",
-      "Rhino 8: Brepで出力する時間が大きく短くなりました。",
-      "海外の対象地も、緯度経度の代わりに住所で表示されます。",
-      "公共データ: 土地利用計画を2026-10-09版、ソウルUPISを2026-09版に更新しました。"
+      "海外の地形がより精密になり(Mapterhorn)、海外の対象地を速く作れます。OpenStreetMapのサーバーが混んでも写しから作ります。"
      ],
      "zh": [
-      "地形：阶梯地形更精确、更平滑地贴合原始等高线。",
-      "水面：湖泊保持水平，河流沿岸边向下游倾斜。",
-      "Rhino 8：生成 Brep 的时间大幅缩短。",
-      "海外场地也显示地址，而不是经纬度。",
-      "公共数据：土地利用规划更新为2026-10-09版，首尔 UPIS 更新为2026-09版。"
+      "海外地形更精确(Mapterhorn)，海外场地生成更快。即使 OpenStreetMap 服务器受阻，也能用副本生成。"
      ],
      "es": [
-      "Terreno: el terreno escalonado sigue las curvas de nivel originales con más precisión y suavidad.",
-      "Agua: los lagos quedan planos y los ríos descienden siguiendo la orilla.",
-      "Rhino 8: generar la salida Brep es mucho más rápido.",
-      "Los sitios fuera de Corea muestran una dirección en lugar de latitud y longitud.",
-      "Datos públicos: plan de uso del suelo actualizado a la edición 2026-10-09 y UPIS de Seúl a 2026-09."
-     ]
-    },
-    "hosts": [
-     null,
-     null,
-     [
-      "rhino"
-     ],
-     null,
-     null
-    ]
-   },
-   {
-    "type": "stable",
-    "items": {
-     "ko": [
-      "지형 면 분할 실패 등 여러 문제를 고쳤습니다."
-     ],
-     "en": [
-      "Fixed several issues, including failures when splitting terrain faces."
-     ],
-     "ja": [
-      "地形の面分割に失敗する問題など、いくつかの不具合を直しました。"
-     ],
-     "zh": [
-      "修复了地形面分割失败等多个问题。"
-     ],
-     "es": [
-      "Se corrigieron varios problemas, como fallos al dividir las caras del terreno."
+      "El terreno fuera de Corea es más detallado (Mapterhorn) y esos sitios se generan más rápido. Siguen generándose desde una copia si los servidores de OpenStreetMap están bloqueados."
      ]
     },
     "hosts": [
