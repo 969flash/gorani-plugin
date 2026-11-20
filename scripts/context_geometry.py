@@ -853,14 +853,20 @@ def _get_union_rings(rings, tol, counts):
     return out or rings
 
 
-def _get_region_meshes(ext_ring, cut_rings, edge, counts, sub_rings=()):
-    # type: (list, list, float, dict, list) -> list
+def _get_region_meshes(ext_ring, cut_rings, edge, counts, sub_rings=(), cdt=False):
+    # type: (list, list, float, dict, list, bool) -> list
     """범위 평면 Brep 하나를 경계 커브(분류 폴리곤·대상지)로 면 분할 → Rhino 메싱(평면도 격자 — 안쪽 쿼드, 경계만 삼각형).
     sub_rings(인도 — 도로면 안)는 두 번째로, 첫 꼭짓점을 품은 면만 그 링들로 다시 나눈다 — 한 번에 넣으면 성수 R=1000 분할 12 → 33 s(2026-11-08).
     면끼리 모서리를 공유하므로 이웃 영역 경계 정점이 같다(용접하면 이음매 없음). 입력은 로컬 m. 출력은 Brep 면 순서의 Mesh 목록(Z=0).
-    2026-10-10: 격자를 경계로 자르면 계단(분류) 또는 243 s(SplitWithProjectedPolylines 643 링) — 이 방법은 반경 500 m 2.6 s."""
+    2026-10-10: 격자를 경계로 자르면 계단(분류) 또는 243 s(SplitWithProjectedPolylines 643 링) — 이 방법은 반경 500 m 2.6 s.
+    cdt=True면 면 분할 없이 바로 제약 삼각분할(_get_cdt_region_meshes) — 해외(OSM) 도로·보행로 버퍼는 서로 겹쳐 큰 범위에서 Split이 오래 돌다 실패한다
+    (2026-11-19 인스브루크 R=1000 사각형: Split 240 s 뒤 실패 → CDT, 결과 같음. 처음부터 CDT면 10 s. 파리 R=300: Split 5.1 s·CDT 1.7 s, 분류별 면적 1~3 % 안)."""
     tol = constants.GEOMETRY_TOLERANCE
     t = time.time()
+    if cdt and cut_rings:
+        regions = _get_cdt_region_meshes(ext_ring, list(cut_rings) + list(sub_rings), edge, counts)
+        counts["split_s"] = round(time.time() - t, 3)
+        return regions
     breps = rg.Brep.CreatePlanarBreps(_get_closed_crv(ext_ring), tol)
     if not breps:
         raise RuntimeError(tr("범위 평면을 만들지 못했습니다"))
@@ -1194,7 +1200,8 @@ def build_terrain(prepared):
     t = time.time()
     edge = max(constants.TERRAIN_GRID, math.sqrt((wx1 - wx0) * (wy1 - wy0) / float(constants.TERRAIN_GRID_MAX_FACES)))
     counts["mesh_edge"] = round(edge, 2)
-    regions = _get_region_meshes([(x - ox, y - oy) for x, y in ext_ring], cut_rings, edge, counts, sub_rings)
+    osm = any(getattr(s, "source_id", "") in constants.GLOBAL_SOURCE_IDS for s in getattr(prepared, "sources", None) or [])   # 해외·OSM 모드 — 겹친 버퍼라 바로 CDT
+    regions = _get_region_meshes([(x - ox, y - oy) for x, y in ext_ring], cut_rings, edge, counts, sub_rings, cdt=osm)
     counts["mesh_s"] = round(time.time() - t - counts["split_s"], 3)
 
     # 영역 분류 — 영역 안쪽 한 점(첫 면 중심)

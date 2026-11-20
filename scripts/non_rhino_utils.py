@@ -636,7 +636,7 @@ class PolygonIndex(object):
 
     def __init__(self, polygons, band=5.0):
         # type: (list, float) -> None
-        self.band, self.bands, self.edges, self._near = float(band), {}, [], None
+        self.band, self.bands, self.edges, self._near = float(band), {}, [], {}
         for pid, rings in enumerate(polygons):
             for ring in rings:
                 for k in range(len(ring)):
@@ -649,15 +649,18 @@ class PolygonIndex(object):
 
     def is_near(self, x, y, dist):
         # type: (float, float, float) -> bool
-        """(x, y)에서 dist 안에 폴리곤 변이 있는지(안팎 무관)."""
-        if self._near is None or self._near[0] != dist:
-            grid = {}
+        """(x, y)에서 dist 안에 폴리곤 변이 있는지(안팎 무관). 변 색인은 dist마다 한 번 만들어 둔다.
+        칸 = max(dist, band) — 칸이 dist만큼 작으면 긴 변 하나가 칸 수만 개를 채우고, 교량이 dist를 번갈아 물어 색인을 매번 다시 만들었다
+        (2026-11-15 파리 R=300: 교량 상판 80 s 중 is_near 1,893번이 setdefault 1억 2천만 번)."""
+        cell = max(dist, self.band)
+        grid = self._near.get(dist)
+        if grid is None:
+            grid = self._near[dist] = {}
             for x1, y1, x2, y2 in self.edges:
-                for i in range(int(math.floor((min(x1, x2) - dist) / dist)), int(math.floor((max(x1, x2) + dist) / dist)) + 1):
-                    for j in range(int(math.floor((min(y1, y2) - dist) / dist)), int(math.floor((max(y1, y2) + dist) / dist)) + 1):
+                for i in range(int(math.floor((min(x1, x2) - dist) / cell)), int(math.floor((max(x1, x2) + dist) / cell)) + 1):
+                    for j in range(int(math.floor((min(y1, y2) - dist) / cell)), int(math.floor((max(y1, y2) + dist) / cell)) + 1):
                         grid.setdefault((i, j), []).append((x1, y1, x2 - x1, y2 - y1))
-            self._near = (dist, grid)
-        for ax, ay, dx, dy in self._near[1].get((int(math.floor(x / dist)), int(math.floor(y / dist))), ()):
+        for ax, ay, dx, dy in grid.get((int(math.floor(x / cell)), int(math.floor(y / cell))), ()):
             t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / ((dx * dx + dy * dy) or 1.0)))
             if math.hypot(x - ax - dx * t, y - ay - dy * t) <= dist:
                 return True
