@@ -79,6 +79,7 @@ window.__flush = function () { var m = JSON.stringify(window.__outbox); window._
 | `save_prefs` | `options` | — | `prefs.json`에 `options`만 덮어쓴다(`recent`는 `generate` 성공 시 Python이 갱신) |
 | `open_result` | `dir` | `result_opened` | 최근 결과 줄을 누르면 — `context_builder.get_result_state`가 결과 폴더의 `context.json`으로 결과 화면을 다시 채운다(3D 카드에는 [폴더 열기]만 — [Rhino에 불러오기] 버튼은 없다, 2026-11-07). `result_opened{dir, lot_name, lot_key, label, built_at, context{path, buildings, imported}, options, target, korea, target_lnglat{center, ring}, made2d_list[{dir, made2d|null, made_at}]}` — `imported`는 Rhino 8이면 그 대상지(UDT_LOT_KEY) 객체가 지금 문서에 있는지(`context_baker.has_lot`), 아니면 false. `made2d_list`는 2D 폴더마다 `made_2d.json`(make_2d가 패널에 보낸 결과 — 도면 목록·썸네일·.ai·조서)이 있으면 그것을 실어 패널이 마지막 2D를 만든 직후와 같은 카드로 그린다(2D를 여러 번 만들었으면 카드 제목 옆 선택 `#pick2d`로 바꿔 본다 — `made_at`·스타일 이름이 선택 글. 카드가 없는 옛 2D만 있으면 폴더 한 줄). `made_2d.json`의 절대 경로(2D 폴더·도면·.ai·조서)는 읽을 때 지금 위치로 바꾼다(`context_builder._rebase_paths`) — 결과 폴더·2D 폴더 이름을 바꾸거나 옮겨도 카드의 링크가 산다. 2D 폴더는 `2D_*`뿐 아니라 `made_2d.json`이 든 폴더도 찾고, 순서는 이름이 아니라 폴더 수정 시각이다 — `target_lnglat`은 결과의 `crs`(EPSG:5186 또는 지역 TM, 원점 0.01°)로 되돌린 경위도라 [← 지도로]가 필지·구역·위치를 지도에 되살린다(2026-11-07) |
 | `hide_result` | `dir` | 없음 (`error{context:"init"}`) | 최근 결과 줄의 x — `prefs.json` `hidden_results`에 넣어 목록에서만 뺀다(결과 폴더는 그대로). JS가 `init.results`에서 먼저 빼고 트레이를 다시 그린다 |
+| `set_result_root` | `pick:true` 또는 `path`(빈 값 = 기본) | `init_state` (`error{context:"open"}`) | 더보기 메뉴 '결과 폴더'의 [바꾸기]·[기본값](2026-11-20). `pick`이면 폴더 고르기 창(Rhino 8 = Eto `SelectFolderDialog`, 그 밖의 호스트 = OS 창 `cmd_site.get_folder_from_os` — 맥 osascript, 윈도 PowerShell)을 띄우고 취소면 응답 없음. 고른 폴더를 `site_prefs.save_result_root`가 `prefs.json` `result_root`에 남긴다(쓸 수 없는 폴더면 ValueError). `generate`는 이 폴더 아래에 결과 폴더를 만들고, `init_state.paths.result`·최근 결과도 이 폴더를 본다. 그 폴더가 사라지면(빼 둔 외장 디스크) 기본 `HOME_DIR/result`로 돌아간다. 웹판은 메뉴 줄이 없다 |
 | `style_preview` | `dir`, `sheet_id`(0~15), `style`(스타일 dict), `seq` | `style_preview`(같은 `seq`) / `error{context:"style"}` | ③ 2D 카드 다이어그램 타일 [편집]의 스타일 화면(만들기 전). `context_builder.preview_sheet` — 한 장을 스타일로 다시 그린 SVG 문자열(파일 안 씀). 시트 데이터는 컨트롤러 `_keep`(이번 세션 생성 결과, 지형 삼각형 포함). 2D를 아직 안 만들었으면 3D를 만든 Prepared를 그대로 써서 다시 조회하지 않는다(`get_sheet_data(quick=True)` — 자료는 3D 범위까지. 다시 prepare하면 Global은 OSM·지형 타일을 또 받아 55 s 걸렸다, 2026-10-19). `_keep`이 다른 결과면 `context.json`으로 한 번 prepare(지형 시트는 비어 나온다). SVG id·`url(#…)`은 `pv_` 접두어(패널 `#map`과 겹치지 않게). JS 250 ms 디바운스, 늦은 `seq`는 버린다 |
 | `apply_style` | `dir`, `style` | `busy{on}` → `style_applied` → `busy{off}` | `context_builder.apply_style` — 결과 폴더의 시트 전부 + 이미 쓴 `basemap_<축척>.ai`를 다시 쓰고 `context.json.options.style`을 바꾼다. 지형 삼각형이 없으면 지형 시트 파일은 그대로(`kept`). JS는 성공하면 `options.style`을 `save_prefs`. **2026-10-19부터 패널은 보내지 않는다** — 스타일은 만들기 전에 정하고 [적용]은 `options.style`만 바꾼다 |
 | `save_style` | `name`, `style` | `styles` / `error{context:"style"}` | `site_prefs.save_style` → `HOME_DIR/styles/<이름>.json`(경로 문자 제거, 같은 이름 덮어씀). 사무소 표준을 파일로 나눠 쓴다 |
@@ -149,7 +150,8 @@ Rhino 7 호스트 호출 — 같은 `method`·`args`를 패널 대신 사이드�
 {"type":"init_state",
  "version":"0.2.0",                               // constants.PANEL_VERSION = 패키지 버전(dev_deploy.PACKAGE_VERSION)
  "blocked":false,                                 // true = 필지 DB 없음 → 블로커(차단은 이것뿐. 컨텍스트 DB 없음은 경고)
- "paths":{"root":"<HOME_DIR>","lot_db":"data/seoul_site.db","context_db":"data/seoul_context.db","env":".env","install_doc":"docs/install.md"},
+ "paths":{"root":"<HOME_DIR>","lot_db":"data/seoul_site.db","context_db":"data/seoul_context.db","env":".env","install_doc":"docs/install.md",
+          "result":"<결과 폴더>","result_default":"<HOME_DIR>/result"},   // 메뉴 '결과 폴더' — result = 지금 쓰는 곳(site_prefs.get_result_root), 기본과 다르면 [기본값]
  "generator":{"ok":true,"python":"Rhino Python","text":"Rhino 내장"},   // 항상 ok. UI 호환용(블로커 3행째는 ✓ 고정). Blender면 "Blender …"
  "host":{"id":"rhino","name":"Rhino","doc":"Rhino 문서","model":"context.3dm","dwg":true,"ask_stats":false,"brep":true},   // constants.HOST_LABELS — 패널 문구(문서 이름·모델 파일)와 DWG 옵션 표시. brep = 3D 설정 '형상' Mesh|Brep 줄(Rhino 8만). Blender = {"id":"blender","name":"Blender","doc":"Blender 장면","model":"context.blend","dwg":false,"ask_stats":true}, SketchUp = {"id":"sketchup",…,"model":"context.skp","dwg":false,"ask_stats":true}, Rhino 7 = Rhino와 같고 `"dwg":false`
  "output_langs":[["ko","한국어"],["en","English"]],   // constants.OUTPUT_LANGS — 메뉴 '결과 언어' 칸
@@ -435,12 +437,12 @@ Python 쪽 상태는 `running`과 `cancel_requested`(bool) 둘. `generate`는 `r
 
 | 파일 | 내용 | 쓰는 쪽 | 읽는 쪽 |
 |---|---|---|---|
-| `~/.gorani/prefs.json` | `{"options":{…20키…(lang 포함)}, "hidden_results":["<결과 폴더>", …]}` | `save_prefs`(options), `hide_result`(x, HIDDEN_RESULTS_MAX 200) | `init` |
+| `~/.gorani/prefs.json` | `{"options":{…20키…(lang 포함)}, "hidden_results":["<결과 폴더>", …], "result_root":"<결과 폴더 위치 — 빈 값 = HOME_DIR/result>"}` | `save_prefs`(options), `hide_result`(x, HIDDEN_RESULTS_MAX 200), `set_result_root` | `init`·`generate` |
 | `~/.gorani/source_news.json` | `{"checked_at":"2026-10-07","building":{"newer_date":"2026-09-09"},"lot":{…},"upis":{…}}` | `dev_check_sources.py`(P1. 없으면 `newer_date:null`) | `preflight`·`init`(배지)·생성기(`done.warnings`) |
 | `~/.gorani/client_id` | 무작위 UUID 한 줄(사용 통계 설치 식별) | `usage_stats.get_client_id`(없으면 생성) | `usage_stats` |
 | `.env`(`HOME_DIR`) | `VWORLD_API_KEY=…`(지도·위성 배경, 항공사진, 주소 보조 검색 — 없으면 OSM·Esri·지명 검색). `= ` 뒤 공백 금지 | 사용자(OS 편집기). 없으면 `open_path`가 한 줄 템플릿 생성 | `pnu_loader._read_local_env_value`(strip)·생성기 |
 | `HOME_DIR/data/*.db`·`packs.json` | 필지·컨텍스트·등고선 DB. `packs.json` = 받은 팩의 sha256 | `download_data` | `init`·전 명령 |
-| `HOME_DIR/result/<lot_name>_<YYYYMMDD>/` | deliverables §E. 2026-10-19부터 그 폴더에 이전 결과(`context.json`·3dm·blend·skp)가 있으면 첫 베이크 직전에 `<lot_name>_<YYYYMMDD>_<HHMM>/`(같은 분이면 `_2`…) 새 폴더를 쓴다(`context_builder.get_free_result_dir`) — 이전 결과를 지우지 않는다. 문서의 이전 3D는 그대로 바꾼다(`clear_previous`). 패널은 이 패널에서 이미 만든 대상지면 [3D 모델 다시 만들기]와 '이전 3D를 새것으로 바꿉니다'를 보인다. 2D는 `2D/` 아래 | 생성기·베이커(.ai) | `done`·`open_path` |
+| `HOME_DIR/result/<lot_name>_<YYYYMMDD>/`(메뉴 '결과 폴더'에서 고른 곳이면 그 아래) | deliverables §E. 2026-10-19부터 그 폴더에 이전 결과(`context.json`·3dm·blend·skp)가 있으면 첫 베이크 직전에 `<lot_name>_<YYYYMMDD>_<HHMM>/`(같은 분이면 `_2`…) 새 폴더를 쓴다(`context_builder.get_free_result_dir`) — 이전 결과를 지우지 않는다. 문서의 이전 3D는 그대로 바꾼다(`clear_previous`). 패널은 이 패널에서 이미 만든 대상지면 [3D 모델 다시 만들기]와 '이전 3D를 새것으로 바꿉니다'를 보인다. 2D는 `2D/` 아래 | 생성기·베이커(.ai) | `done`·`open_path` |
 
 `localStorage`·쿠키는 쓰지 않는다(file:// 임시 파일 출처).
 

@@ -97,7 +97,7 @@ class InitStateTest(unittest.TestCase):
         for source in state["sources"]:
             self.assertTrue(SOURCE_KEYS <= set(source), source)
         self.assertIn("keys", state["sources"][3])
-        self.assertEqual(set(state["paths"]), {"root", "lot_db", "context_db", "env", "install_doc"})
+        self.assertEqual(set(state["paths"]), {"root", "lot_db", "context_db", "env", "install_doc", "result", "result_default"})
         self.assertEqual(set(state["options"]), set(constants.PANEL_DEFAULT_OPTIONS))
         self.assertEqual([c["id"] for c in state["sheet_catalog"]], list(range(len(constants.SHEET_CATALOG))))
         self.assertEqual(state["sheet_catalog"][constants.SHEET_IDS["elev"]]["needs"], "terrain")

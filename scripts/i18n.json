@@ -1973,6 +1973,18 @@
   "ja": "結果フォルダ",
   "zh": "结果文件夹"
  },
+ "바꾸기": {
+  "en": "Change",
+  "es": "Cambiar",
+  "ja": "変更",
+  "zh": "更改"
+ },
+ "이 폴더에는 결과를 쓸 수 없습니다: {0}": {
+  "en": "Cannot save results to this folder: {0}",
+  "es": "No se pueden guardar resultados en esta carpeta: {0}",
+  "ja": "このフォルダには結果を保存できません: {0}",
+  "zh": "无法将结果保存到此文件夹: {0}"
+ },
  "Gorani {0}이 나왔습니다": {
   "en": "Gorani {0} is available",
   "es": "Ya está disponible Gorani {0}",

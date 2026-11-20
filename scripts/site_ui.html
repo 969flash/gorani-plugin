@@ -143,6 +143,7 @@ html:lang(zh-Hans) body { font-family: -apple-system, "PingFang SC", "Microsoft 
 .mrow:hover { background: var(--hover); }
 .mrow .k { color: var(--ink-2); }
 .mrow .v { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mrow .v .link { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; text-align: left; }   /* 긴 결과 폴더 경로 */
 .prev2d { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 0 0 8px; color: var(--ink); }
 .prev2d > .ico { color: var(--ink-3); flex: none; }
 .prev2d > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1928,7 +1929,7 @@ function renderUpdate() {
     ? '<p class="ver">' + tr("지금 버전 {0}", v) + '</p><h2 id="update_title" tabindex="-1">' + tr("업데이트해야 쓸 수 있습니다") + "</h2>" +
       "<p>" + tr("Gorani {0}은 지원이 끝났습니다. {1} 이상으로 업데이트하세요.", v, esc(u.min)) + "</p>" + steps +
       '<div class="acts">' + (canSelfUpdate() ? updateBtn("primary") : '<button type="button" class="btn primary" data-act="init">' + ico("refresh") + tr("다시 확인") + "</button>") +
-      '<button type="button" class="btn" data-act="open" data-path="result">' + ico("folder") + tr("결과 폴더") + "</button>" + web + "</div>"
+      '<button type="button" class="btn" data-act="open" data-path="' + esc((init.paths || {}).result || "result") + '">' + ico("folder") + tr("결과 폴더") + "</button>" + web + "</div>"
     : '<p class="ver">' + tr("지금 버전 {0}", v) + '</p><h2 id="update_title" tabindex="-1">' + esc(pickLang(u.title) || tr("Gorani {0}이 나왔습니다", u.latest)) + "</h2>" +
       (u.body ? "<p>" + esc(pickLang(u.body)) + "</p>" : "") + body +
       (u.deadline ? '<p class="due">' + tr("{0}부터 이 버전({1})은 쓸 수 없습니다.", esc(pickLang(u.deadline)), v) + "</p>" : "") + steps +
@@ -1983,6 +1984,9 @@ function renderMenu() {
   el.innerHTML = "<h3>" + tr("설정") + "</h3>" +   // 최근 대상지는 트레이에만(2026-10-30 — 메뉴·트레이·검색 ↓ 세 군데였다)
     '<div class="mlist">' +
       row(tr("폴더 경로"), '<span class="mono">' + esc(p.root || "") + "</span>", '<button type="button" class="btn sm" data-act="open" data-path="' + esc(p.root || "data") + '">' + ico("folder") + tr("열기") + "</button>", tr("{0} (결과 result, 지역 데이터 data)", p.root || "")) +
+      (HOST.id === "web" ? "" : row(tr("결과 폴더"), '<button type="button" class="link mono" data-act="open" data-path="' + esc(p.result || "") + '" title="' + esc(p.result || "") + '">' + esc(p.result || "") + "</button>",
+        '<span style="display:flex;gap:4px">' + (p.result && p.result !== p.result_default ? '<button type="button" class="btn sm ghost" data-act="result_root" data-reset="1"' + (lock ? " disabled" : "") + ">" + tr("기본값") + "</button>" : "") +
+        '<button type="button" class="btn sm" data-act="result_root"' + (lock ? " disabled" : "") + ">" + ico("folder") + tr("바꾸기") + "</button></span>")) +
       row(tr("한국 자료"), '<div class="seg" role="group" aria-label="' + tr("한국 자료") + '">' +
           segBtn("force_osm", ' data-v="0" title="' + tr("필지, 건축물대장, 용도지역") + '"' + (lock ? " disabled" : ""), !forceOsm(), tr("국가 DB")) +
           segBtn("force_osm", ' data-v="1" title="' + tr("한국 안에서도 OpenStreetMap으로 만듭니다(필지, 용도지역 없음)") + '"' + (lock ? " disabled" : ""), forceOsm(), "OSM") + "</div>", "") +
@@ -2094,6 +2098,7 @@ trackAct = function (b) {
 var ACTIONS = {
   init: function () { send({ cmd: "init" }); },
   abroad: function () { setForceOsm(true); },
+  result_root: function (b) { state.rootChanged = true; send(b.dataset.reset ? { cmd: "set_result_root", path: "" } : { cmd: "set_result_root", pick: true }); },
   output_lang: function (b) { state.options.output_lang = b.dataset.v; send({ cmd: "save_prefs", options: state.options }); renderMenu(); toast(tr("결과 폴더와 파일 이름: {0}", b.textContent)); },
   force_osm: function (b) { var on = b.dataset.v ? b.dataset.v === "1" : !forceOsm(); if (on !== forceOsm()) setForceOsm(on); },
   menu: function () { if (state.menuOpen) closeMenu(true); else openMenu(); },
@@ -2334,6 +2339,7 @@ var handlers = {
     } else {
       updateTileSource();   // 키를 넣거나 뺐으면 배경 주소가 바뀐다
       if (state.downloading) { state.downloading = false; state.areaPacks = null; requestLots(); requestAreaPacks(); }
+      if (state.rootChanged) { state.rootChanged = false; if (state.screen === "map") renderTray(); }   // 결과 폴더를 바꿨다 — 최근 결과가 그 폴더 것으로
     }
     renderMenu(); renderBlocker(); renderStatsBand(); renderNoticeBands(); renderUpdate();
   },

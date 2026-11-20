@@ -55,7 +55,7 @@
 - **여러 필지를 고르면 합필이다.** 합친 외곽(`context_builder.get_target_rings` → `non_rhino_utils.get_merged_rings`)이 대상지 필지로 3D·2D 전부에 쓰이고, 합필 전 필지는 꺼 둔 레이어(`CTX::Site::lots`·BM `10b_site_lots`·도면 SVG `site_lots`)에만 둔다. 공공 지적은 이웃 경계가 정점 단위로 맞지 않으므로(T자 정점·수 cm 틈·겹침) 합치기는 허용오차(`UNION_TOLERANCE`) 안 정점 붙이기 + 공유 변 지우기로 한다.
 - 좌표계: +Y = 정북 가정(EPSG:5186 격자북. 진북과의 자오선수차는 서울에서 0.1° 이내라 무시). 해외 대상지는 대상지 중심 지역 횡메르카토르(`non_rhino_utils.set_projection`, 투영 원점은 환경변수로 loader 재적재에도 유지).
 - Rhino 8 CPython 기준. rhinoscriptsyntax보다 RhinoCommon 우선.
-- 쓰기 자리(`data/`·`result/`·`.env`)는 `constants.HOME_DIR` — 저장소처럼 루트에 `data/`가 있으면 루트, Yak 설치본은 `~/Gorani`. 산출물은 `HOME_DIR/result/<대상지>_<날짜>/`에 쌓는다(같은 날 다시 만들면 `_<HHMM>`을 붙인 새 폴더, 이전 결과는 지우지 않는다). 3dm·베이스맵·현황도·로그를 한 폴더에 둔다.
+- 쓰기 자리(`data/`·`result/`·`.env`)는 `constants.HOME_DIR` — 저장소처럼 루트에 `data/`가 있으면 루트, Yak 설치본은 `~/Gorani`. 산출물은 `HOME_DIR/result/<대상지>_<날짜>/`에 쌓는다(같은 날 다시 만들면 `_<HHMM>`을 붙인 새 폴더, 이전 결과는 지우지 않는다). 3dm·베이스맵·현황도·로그를 한 폴더에 둔다. `result/` 자리는 사용자가 패널 더보기 메뉴 '결과 폴더'에서 바꾼다(`prefs.json` `result_root` → `site_prefs.get_result_root`, 컨트롤러가 `generate` 요청에 넣는다).
 - 상세 스펙: `docs/deliverables.md`(산출물 정의), `docs/data_sources.md`(데이터·DB), `docs/panel_ui.md`(패널 메시지 계약), `docs/code_map.md`(확정 아키텍처·실행 흐름·엔진 API·읽는 순서), `docs/implementation_plan.md`(마일스톤·위험), `docs/research/`(조사 근거)
 
 ## 네이밍 컨벤션 (변수·메시지 키 공통)
