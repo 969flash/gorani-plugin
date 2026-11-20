@@ -1090,7 +1090,9 @@ class _SiteController:
             dialog = forms.SelectFolderDialog()
             dialog.Title = tr("결과 폴더")
             dialog.Directory = start
-            return dialog.Directory if dialog.ShowDialog(Rhino.UI.RhinoEtoApp.MainWindow) == forms.DialogResult.Ok else None
+            parent = getattr(scriptcontext.sticky.get(PANEL_STICKY_KEY), "form", None)   # 패널 창 위에 — Mac Rhino 8은 RhinoEtoApp.MainWindow가 None(2026-11-20 실측)
+            ok = dialog.ShowDialog.Overloads[forms.Control](parent) == forms.DialogResult.Ok   # ShowDialog(Control)·(Window) 두 겹 — None이면 어느 겹인지 모호해 직접 고른다
+            return dialog.Directory if ok else None
         # [/blender-cut]
         return get_folder_from_os(start, tr("결과 폴더"))
 
