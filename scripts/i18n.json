@@ -6334,5 +6334,17 @@
   "es": "Esta entrada no se puede restaurar en el mapa",
   "ja": "この記録は地図に戻せません",
   "zh": "此记录无法在地图上恢复"
+ },
+ "개인정보": {
+  "en": "Privacy",
+  "es": "Privacidad",
+  "ja": "個人情報",
+  "zh": "隐私"
+ },
+ "개인정보 처리방침": {
+  "en": "Privacy Policy",
+  "es": "Política de privacidad",
+  "ja": "プライバシーポリシー",
+  "zh": "隐私政策"
  }
 }

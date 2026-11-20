@@ -21,6 +21,11 @@ import urllib.request
 import webbrowser
 
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+try:   # 번들 파이썬의 기본 인증서 묶음 대신 certifi — cmd_sketchup과 같은 까닭(맥 /etc/ssl/cert.pem이 낡아 일부 HTTPS 검증 실패)
+    import certifi
+    os.environ.setdefault("SSL_CERT_FILE", certifi.where())
+except ImportError:
+    pass
 os.environ["GORANI_HOST"] = "archicad"   # constants.HOST_ENV — context_builder.get_host가 본다(constants보다 먼저)
 _spec = importlib.util.spec_from_file_location("gorani_cmd_site", os.path.join(SCRIPTS_DIR, "cmd_site.py"))
 cmd_site = importlib.util.module_from_spec(_spec)

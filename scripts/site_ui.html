@@ -943,6 +943,7 @@ function restoreResultTarget(rs) {   // 지난 결과의 대상지를 지도에 
   else if (t.mode === "point" && g.center) { resetLots("point"); send({ cmd: "set_point", center: g.center }); if (map) map.flyTo(ll(g.center), 16); }
   else return false;
   Object.assign(state.options, resultOptions(rs.options));   // 방식 기본값(applyMode)이 범위를 덮은 뒤 그 결과의 설정으로
+  if (ACCT) ACCT.sync();   // 고급으로 만든 지난 결과도 손님이면 기본으로(자물쇠 '고급'이 골라진 채 남지 않게)
   send({ cmd: "save_prefs", options: state.options }); renderTray();
   return true;
 }
@@ -2101,6 +2102,8 @@ function renderMenu() {
       row(tr("문의"), '<button type="button" class="link" data-act="open_url" data-key="contact" title="' + tr("메일 보내기") + '">' + esc(String((init.links || {}).contact || "").replace(/^mailto:/, "")) + "</button>", "") +
       // [blender-cut] 후원 — 문의 메일 바로 아래(2026-11-18 사용자). 웹사이트 꼬리말과 같은 GitHub 후원 페이지
       ((init.links || {}).sponsor ? row(tr("후원"), tr("Gorani는 후원으로 운영합니다"), '<button type="button" class="btn sm" data-act="open_url" data-key="sponsor">' + tr("후원하기") + ico("ext") + "</button>") : "") +
+      // 개인정보 처리방침 — 회원 기능이 켜진 호스트만(로그인하면 계정·생성 기록을 남기므로, docs/account_plan.md '개인정보·약관')
+      (ACCT && ACCT.st().enabled && (init.links || {}).privacy ? row(tr("개인정보"), '<button type="button" class="link" data-act="open_url" data-key="' + (LANG === "ko" ? "privacy" : "privacy_en") + '">' + tr("개인정보 처리방침") + "</button>", "") : "") +
       // [/blender-cut]
       "</div>" +
     noticeList + '<p class="menu-ver">Gorani ' + esc(init.version || "") + "</p>";
@@ -2175,7 +2178,7 @@ function switchMode(next) {
 }
 function restoreTarget(s) {
   resetLots(s.mode); cancelDraw();
-  state.options = s.options; send({ cmd: "save_prefs", options: state.options });
+  state.options = s.options; if (ACCT) ACCT.sync(); send({ cmd: "save_prefs", options: state.options });
   if (s.mode === "lots") send({ cmd: "select_lots", pnus: s.lots });
   else if (s.mode === "area") send({ cmd: "set_area", rings_lnglat: s.area.rings_lnglat });
   else send({ cmd: "set_point", center: s.point.center });
@@ -2399,7 +2402,11 @@ document.addEventListener("input", function (e) {
 });
 document.addEventListener("keydown", function (e) {
   var tag = (e.target.tagName || "").toLowerCase(), typing = tag === "input" || tag === "select" || tag === "textarea";
-  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); primaryAction(); return; }
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+    e.preventDefault();
+    if (["acct_modal", "confirm_modal"].some(function (id) { var m = $(id); return m && !m.hidden; })) return;   // 로그인·확인 창이 떠 있으면 만들기를 시작하지 않는다
+    primaryAction(); return;
+  }
   if (e.target.id === "search_input") {
     if (e.key === "ArrowDown") { e.preventDefault(); if ($("search_list").hidden && !e.target.value.trim()) showList((state.init && state.init.results) || [], "recent"); moveList(1); }
     else if (e.key === "ArrowUp") { e.preventDefault(); moveList(-1); }
@@ -2565,6 +2572,7 @@ var handlers = {
   result_opened: function (m) {   // 최근 결과 하나 — 결과 화면을 context.json으로 다시 채운다(3D는 문서에 없을 수 있어 [불러오기])
     clearInterval(timers.elapsed); hideList(); if (state.menuOpen) closeMenu(false);
     Object.assign(state.options, resultOptions(m.options));
+    if (ACCT) ACCT.sync();
     state.result = { dir: m.dir, lot_name: m.lot_name, elapsed_s: null, context: m.context, options: m.options, sheets: [], restored: m };
     state.made2d = null; state.job2d = "idle"; state.form2d = true; state.dl = null; state.err2d = ""; state.err2dObj = null; state.last = null; state.resultKey = null;
     state.appliedStyle = fullStyle(state.options.style); state.styleEdit = clone(state.appliedStyle); state.styleOpen = false;
@@ -2616,7 +2624,9 @@ var handlers = {
       case "search": slotError("search_msg", text); break;
       case "select": slotError("tray_err", text); break;
       case "preflight": break;
-      case "account": if (ACCT) ACCT.onState({ state: (ACCT.st().state || "guest"), error: text }); else showErrorBand(text); break;   // 로그인 실패(받는 곳·브라우저 열기) — 기다림을 닫고 토스트
+      case "account":
+        if (HIST && HIST.poll) { HIST.onData({ ok: false }); break; }   // 생성 기록 받기 실패 — '불러오는 중'에 멈추지 않게(이 PC 기록도 없음)
+        if (ACCT) ACCT.onState({ state: (ACCT.st().state || "guest"), error: text }); else showErrorBand(text); break;   // 로그인 실패(받는 곳·브라우저 열기) — 기다림을 닫고 토스트
       case "view": var vb = document.querySelector("#viewer .vw-body"); if (vb) vb.innerHTML = '<span class="danger-text">' + esc(text) + "</span>"; else showErrorBand(text); break;
       default: showErrorBand(text);
     }
@@ -2754,7 +2764,7 @@ HIST = {
     if (!this.can() || state.run === "running") return;
     if (!$("acct_pop").hidden) ACCT.closePop();
     if (state.screen !== "history") this.back = state.screen === "result" && state.result ? "result" : "map";
-    this.items = null; this.editing = ""; this.closeMenu();
+    this.items = null; this.ok = true; this.editing = ""; this.closeMenu();
     go("history"); send({ cmd: "history_list" });
     clearInterval(this.poll); this.poll = setInterval(function () { send({ cmd: "history_poll" }); }, 700);
   },
@@ -2837,6 +2847,7 @@ HIST = {
   rename: function (id) { this.closeMenu(); this.editing = id; this.render(); },
   saveName: function (input, keep) {
     var id = input.getAttribute("data-id"), it = this.find(id), value = input.value.trim().slice(0, 80);
+    if (this.editing !== id) return;   // Esc로 끝낸 뒤 render가 입력칸을 지우며 쏘는 focusout — 취소한 이름을 저장하지 않는다
     this.editing = "";
     if (it && keep && value && value !== it.label) { it.label = value; send({ cmd: "history_change", id: id, label: value }); }
     this.render();

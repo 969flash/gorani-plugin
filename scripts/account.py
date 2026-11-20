@@ -9,6 +9,7 @@
 
 import base64
 import datetime
+import http.client
 import http.server
 import json
 import os
@@ -439,7 +440,10 @@ class HistoryFetch(object):
         self.result = None
 
         def run():
-            self.result = get_history(path)
+            try:
+                self.result = get_history(path)
+            except Exception:   # 스레드가 죽으면 패널이 '불러오는 중'에 멈춘다 — 받지 못한 것으로
+                self.result = {"ok": False, "items": []}
         threading.Thread(target=run, daemon=True).start()
 
     def poll(self):
@@ -496,6 +500,8 @@ class Login(object):
                         result = {"ok": False, "error": str(error) or "invalid"}
                     except Down as error:
                         result = {"ok": False, "fallback": True, "error": str(error)[:80] or "down"}
+                    except Exception as error:   # account.json 쓰기 실패 등 — 브라우저가 응답 없이 멈추고 패널이 5분 기다리지 않게
+                        result = {"ok": False, "error": type(error).__name__[:40]}
                 with login._lock:
                     login.result = result
                 params = {"fallback": 1} if result.get("fallback") else {"ok": 1 if result["ok"] else 0}
@@ -517,7 +523,10 @@ class Login(object):
         threading.Thread(target=self._probe, args=("_up",), daemon=True).start()
 
     def _probe(self, name):
-        up = is_service_up()
+        try:
+            up = is_service_up()
+        except Exception:   # 재다 죽으면 _up이 None으로 남아 5분을 기다린다 — 죽은 것으로
+            up = False
         with self._lock:
             setattr(self, name, up)
 
@@ -594,7 +603,7 @@ def _send(url, data=None, method=None, form=False, timeout=None):
         if message.replace(":", " ").split(" ")[0] in constants.ACCOUNT_DENIED_ERRORS:
             raise Denied(message)
         raise Down(message or "http_%d" % error.code)
-    except (OSError, ValueError) as error:   # URLError·시간 초과·JSON 아님
+    except (OSError, ValueError, http.client.HTTPException) as error:   # URLError·시간 초과·JSON 아님·끊긴 응답(IncompleteRead 등 — OSError가 아니다)
         raise Down(str(error)[:80] or type(error).__name__)
 
 

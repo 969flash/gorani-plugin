@@ -179,6 +179,8 @@ PANEL_LINKS = {
     "website_en": "https://gorani.site/en/",   # 같은 페이지 영어판 — 패널 언어가 한국어가 아니면 이쪽
     "contact": "mailto:gorani.3d@gmail.com",   # 문의 메일 — 더보기 메뉴 '문의'(2026-10-30 사용자)
     "sponsor": "https://github.com/sponsors/969flash",   # 후원 — 더보기 메뉴 '도움' 문의 아래(2026-11-18 사용자, 웹사이트 꼬리말과 같은 곳). Blender판에는 줄이 없다
+    "privacy": "https://gorani.site/privacy/",   # 개인정보 처리방침 — 더보기 메뉴 '도움'(회원 기능이 켜진 호스트만, docs/account_plan.md '개인정보·약관')
+    "privacy_en": "https://gorani.site/en/privacy/",   # 같은 처리방침 영어판 — 패널 언어가 한국어가 아니면 이쪽
 }
 # 3D 만드는 동안 진행 카드 아래에 도는 한 줄(2026-11-18 사용자) — 원격 설정. 글은 i18n.json 원문(새 줄을 더하면 번역도 같이 올린다)
 # kind: tip·contact = 누구나, login = 회원 기능이 켜진 손님에게만, sponsor = 후원 링크가 있을 때(Blender판은 없음). 첫 줄은 늘 '화면이 멈출 수 있습니다'(패널 jobLines)
@@ -533,7 +535,7 @@ ADMIN_GA_WEB_ID = "G-ZVM7EZPRPQ"   # 웹사이트 속성 "Gorani 웹"(969flash/g
 ADMIN_GA_DIMENSIONS = {
     "app": ("version", "host", "rhino", "mode", "result", "korea", "error", "context", "packs", "placement", "shape", "radius",
             "lng", "lat", "pnus", "pnus_2", "pnus_3", "pnus_4", "dev",
-            "options3d", "outputs2d", "style", "output_lang", "action", "detail"),   # 2026-11-02 — 3D 설정·2D 산출물·패널 버튼
+            "options3d", "outputs2d", "style", "output_lang", "action", "detail", "plan", "trial"),   # 2026-11-02 — 3D 설정·2D 산출물·패널 버튼, 2026-11-20 회원(이용권·써 보기 — usage_stats build)
     "web": ("host", "command", "chapter", "dev"),   # dev = 개발자 PC·브라우저 표시(usage_stats·site.js) — [내 테스트 제외]
 }
 ADMIN_GA_METRICS = {"app": (("elapsed_s", "SECONDS"), ("buildings", "STANDARD"), ("area", "STANDARD"), ("sheets", "STANDARD")), "web": ()}

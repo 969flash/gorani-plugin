@@ -994,7 +994,10 @@ class _SiteController:
         self._history = None
         context_builder = loader.load("context_builder")
         result_root = loader.load("site_prefs").get_result_root()   # 사용자가 고른 결과 폴더(메뉴 '결과 폴더') — 거기서 짝을 찾는다
-        local = {r["entry_id"]: r["dir"] for r in context_builder.get_recent_results(result_root, limit=100000) if r.get("entry_id")}
+        try:
+            local = {r["entry_id"]: r["dir"] for r in context_builder.get_recent_results(result_root, limit=100000) if r.get("entry_id")}
+        except OSError:   # 결과 폴더를 못 읽어도 계정 기록은 보인다(짝 없음 = 지도에 되살리기)
+            local = {}
         for item in result["items"]:
             item["dir"] = local.get(item["id"], "")
         self.push(dict(result, type="history"))
@@ -1228,7 +1231,7 @@ class _SiteController:
             if not folder:
                 return
         site_prefs.save_result_root(folder)
-        self.push(get_init_state(map_center=self._map_center))
+        self.push(self._get_init_state(map_center=self._map_center))
 
     def _select_folder(self, start):
         # type: (str) -> str
