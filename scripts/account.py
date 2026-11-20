@@ -711,7 +711,7 @@ def _iso(now=None):
 
 def _parse_time(text):
     try:
-        value = datetime.datetime.fromisoformat(str(text))
+        value = datetime.datetime.fromisoformat(str(text).replace("Z", "+00:00"))   # 3.9(Rhino 8)는 끝의 Z를 못 읽는다 — 3.12 사이드카와 같게
     except (TypeError, ValueError):
         return None
     return value if value.tzinfo else value.replace(tzinfo=datetime.timezone.utc)
