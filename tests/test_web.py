@@ -22,7 +22,7 @@ try:
     HAS_BACKEND = hasattr(shapely, "constrained_delaunay_triangles") and importlib.util.find_spec("mathutils") is None
 except ImportError:
     HAS_BACKEND = False
-READY = HAS_BACKEND and os.path.exists(SITE_DB)
+READY = HAS_BACKEND and os.path.exists(SITE_DB) and os.path.exists(CONTEXT_DB)   # 컨텍스트 픽스처까지 있어야 엔진이 돈다(필지 DB만 있는 PC는 건너뜀)
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 
