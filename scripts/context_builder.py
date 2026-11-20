@@ -1016,7 +1016,7 @@ def get_recent_results(result_root=None, hidden=(), model_name=None, limit=None)
     입력: 결과 루트(기본 HOME_DIR/result), 목록에서 뺀 폴더(site_prefs.get_hidden_results), 이 프로그램의 3D 파일 이름(HOST_LABELS model).
     처리: context.json이 있는 결과 폴더를 context.json 시각 순(새것 먼저)으로 — 예전 판 폴더(context.json 없음)·다른 프로그램 결과(그 3D 파일 없음)는 뺀다.
           패널 '최근 결과'(2026-11-07 — 대상지를 바꾸거나 패널을 닫으면 결과 화면으로 돌아갈 길이 없었다. 파일은 다 남아 있었다).
-    출력: [{dir, label, mode, built_at, buildings, has_2d}] RECENT_RESULTS_MAX개까지.
+    출력: [{dir, entry_id, label, mode, built_at, buildings, has_2d}] RECENT_RESULTS_MAX개까지(limit이면 그만큼).
     """
     root = result_root or os.path.join(constants.HOME_DIR, constants.RESULT_DIRNAME)
     model_name = model_name or constants.HOST_LABELS[get_host()]["model"]
@@ -1034,7 +1034,7 @@ def get_recent_results(result_root=None, hidden=(), model_name=None, limit=None)
             meta = _read_meta(folder)
         except (OSError, ValueError):   # 쓰다 만 context.json — 목록에서만 뺀다
             continue
-        results.append({"dir": folder, "label": str(meta.get("lot_name") or os.path.basename(folder)).replace("_", " "),
+        results.append({"dir": folder, "entry_id": meta.get("entry_id") or "", "label": str(meta.get("lot_name") or os.path.basename(folder)).replace("_", " "),
                         "mode": meta.get("mode") or "lots", "built_at": meta.get("built_at") or "",
                         "buildings": (meta.get("counts") or {}).get("buildings"), "has_2d": bool(_get_2d_dirs(folder))})
     return results
@@ -1047,7 +1047,7 @@ def get_result_state(result_dir, model_name=None):
     처리: context.json으로 결과 화면에 필요한 것 — 3D 파일·건물 수·옵션·만든 2D 폴더, 그리고 지도에 대상지를 되살릴 경위도
           (구역 링·위치·필지 중심 — crs로 바꾼다, non_rhino_utils.get_lnglat_in_crs).
           만든 2D는 폴더마다 made_2d.json(2D를 만들 때 패널이 받은 결과)이 있으면 그것도 — 패널이 2D 카드를 그대로 다시 그린다.
-    출력: {type: result_opened, dir, lot_name, label, built_at, context{path, buildings, imported}, options, target, target_lnglat{center, ring},
+    출력: {type: result_opened, dir, entry_id, lot_name, label, built_at, context{path, buildings, imported}, options, target, target_lnglat{center, ring},
           made2d_list: [{dir, made2d|null, made_at}](만든 순서 — 마지막이 최신, made_at = 폴더 수정 시각)}.
     """
     meta = _read_meta(result_dir)
@@ -1057,7 +1057,7 @@ def get_result_state(result_dir, model_name=None):
     center = non_rhino_utils.get_lnglat_in_crs([meta["center"]], crs) if len(meta.get("center") or []) == 2 else []
     rings = [non_rhino_utils.get_lnglat_in_crs(ring, crs) for ring in get_spec_rings(target)] if target.get("mode") == "area" else []
     point = non_rhino_utils.get_lnglat_in_crs([target["center"]], crs) if target.get("mode") == "point" and target.get("center") else []
-    return {"type": "result_opened", "dir": result_dir, "lot_name": meta.get("lot_name") or "", "lot_key": meta.get("lot_key") or "",
+    return {"type": "result_opened", "dir": result_dir, "entry_id": meta.get("entry_id") or "", "lot_name": meta.get("lot_name") or "", "lot_key": meta.get("lot_key") or "",
             "label": str(meta.get("lot_name") or os.path.basename(result_dir)).replace("_", " "), "built_at": meta.get("built_at") or "",
             "context": {"path": os.path.join(result_dir, model_name), "buildings": (meta.get("counts") or {}).get("buildings"), "imported": False},
             "options": meta.get("options") or {}, "target": target, "korea": crs == "EPSG:5186",

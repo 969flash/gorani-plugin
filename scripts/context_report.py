@@ -356,6 +356,13 @@ def write_tables(prepared, out_dir, today=None):
 
 # ── context.json · log.txt ────────────────────────────────
 
+def get_entry_id(now=None):
+    # type: (datetime.datetime) -> str
+    """결과 id — YYYYMMDDHHMMSS-6자(UTC, 정렬하면 시간 순). Firebase 키에 쓸 수 없는 글자(. $ # [ ] /)가 없다."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    return now.strftime("%Y%m%d%H%M%S") + "-" + os.urandom(3).hex()
+
+
 def write_context_json(prepared, response_partial, out_dir):
     # type: (object, dict, str) -> str
     """context.json — 원점·범위·원천별 기준일/라이선스·정합·경고·counts·meta 5줄. response_partial(context·basemap·sheets·tables…)은 그대로 합친다.
@@ -368,6 +375,7 @@ def write_context_json(prepared, response_partial, out_dir):
     frame_bounds = _get(prepared, "frame_bounds") or {}
     data = {
         "tool": constants.TOOL_NAME, "version": constants.PANEL_VERSION, "built_at": _built_at(prepared),
+        "entry_id": get_entry_id(),   # 결과 하나의 id — 이 PC 결과 폴더와 계정 생성 기록(docs/account_plan.md)을 짝짓는다
         "lot_name": _get(prepared, "lot_name", ""), "pnus": list((_get(prepared, "request") or {}).get("pnus") or []),
         "mode": _get(prepared, "mode", "lots"), "target": (_get(prepared, "request") or {}).get("target"),
         "lot_key": _get(prepared, "target_key", ""), "center": list(_get(prepared, "center") or []),
