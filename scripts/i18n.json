@@ -2057,23 +2057,11 @@
   "ja": "設定",
   "zh": "设置"
  },
- "폴더 경로": {
-  "en": "Folder",
-  "es": "Carpeta",
-  "ja": "フォルダ",
-  "zh": "文件夹"
- },
  "열기": {
   "en": "Open",
   "es": "Abrir",
   "ja": "開く",
   "zh": "打开"
- },
- "{0} (결과 result, 지역 데이터 data)": {
-  "en": "{0} (results in result, regional data in data)",
-  "es": "{0} (resultados en result, datos regionales en data)",
-  "ja": "{0}（結果はresult、地域データはdata）",
-  "zh": "{0}（结果在 result，区域数据在 data）"
  },
  "한국 자료": {
   "en": "Korea data",

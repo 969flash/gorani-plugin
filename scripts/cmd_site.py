@@ -471,7 +471,7 @@ def resolve_open_path(path, root=None):
     full = path if os.path.isabs(path) else os.path.join(root, path)
     if not os.path.exists(full) and not os.path.isabs(path) and path != ".env" and os.path.exists(os.path.join(ROOT_DIR, path)):
         full = os.path.join(ROOT_DIR, path)
-    if os.path.basename(full) == "data":
+    if os.path.basename(full) in ("data", "result"):   # 아직 안 만든 data·기본 결과 폴더도 [열기]가 연다
         os.makedirs(full, exist_ok=True)
     if os.path.basename(full) == ".env" and not os.path.exists(full):
         os.makedirs(os.path.dirname(full), exist_ok=True)
