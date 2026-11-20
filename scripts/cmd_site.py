@@ -7,7 +7,7 @@ panel_host.PanelHost(Eto WebView)와 로직 모듈을 잇는다. JS 명령(dict)
 상태를 보낸다. 메시지 계약은 docs/panel_ui.md('아키텍처 정합' 절 우선). 생성은 context_builder.run을 UI 스레드에서
 동기 호출하고, 진행률은 콜백 안에서 push + _pump(Rhino.RhinoApp.Wait)로 펌핑한다(서브프로세스 없음).
 
-명령 → 로직 (22개)
+명령 → 로직 (25개)
     init            → get_init_state (DB 존재·원천 상태·타일·지도·prefs·recent·시트 카탈로그). 첫 init만 review_map.get_ip_center(지도 첫 위치). preflight 메모이즈 비움
     search          → get_search_result (pnu_loader.resolve_addresses + review_map.get_parcel_centers)
     map_lots        → review_map.get_parcels_in_bbox (seq 에코)
@@ -26,6 +26,7 @@ panel_host.PanelHost(Eto WebView)와 로직 모듈을 잇는다. JS 명령(dict)
     save_prefs      → site_prefs.save_options
     open_result     → context_builder.get_result_state (최근 결과 하나 → result_opened, 결과 화면을 context.json으로)
     hide_result     → site_prefs.hide_result (최근 결과 x — 목록에서만 뺀다. JS가 먼저 지운다)
+    set_result_root → site_prefs.save_result_root (메뉴 '결과 폴더' — pick이면 폴더 고르기 창, 빈 path = 기본) → init_state
     style_preview   → context_builder.preview_sheet (스타일 바꾼 한 장 SVG 문자열 — 파일 안 씀, seq 에코)
     apply_style     → context_builder.apply_style (시트 전부 + 쓴 .ai 다시 쓰기, busy·style_applied)
     save_style      → site_prefs.save_style (HOME_DIR/styles/<이름>.json → styles)
@@ -114,6 +115,7 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
     has_lot_db = os.path.exists(site_db) if site_db else bool(loader.load("data_pack").get_local_paths("site"))
     sources = context_builder.mark_downloadable(context_builder.get_sources(site_db, context_db, today), not site_db)
     host = dict(constants.HOST_LABELS[context_builder.get_host()])
+    result_root = site_prefs.get_result_root()
     # [blender-cut] 사용 통계 — Blender 확장 패키지에는 없다(usage_stats·ask_stats·동의 명령을 뺀다)
     host["ask_stats"] = host["ask_stats"] and loader.load("usage_stats").is_configured()   # 보낼 곳이 없으면 묻지 않는다
     # [/blender-cut]
@@ -129,7 +131,8 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
         "version": constants.PANEL_VERSION,
         "blocked": not has_lot_db,
         "paths": {"root": constants.HOME_DIR, "lot_db": constants.DATABASE_PATH, "context_db": constants.CONTEXT_DATABASE_PATH,
-                  "env": ".env", "install_doc": constants.INSTALL_DOC},
+                  "env": ".env", "install_doc": constants.INSTALL_DOC,
+                  "result": result_root, "result_default": os.path.join(constants.HOME_DIR, constants.RESULT_DIRNAME)},   # 메뉴 '결과 폴더'
         "generator": {"ok": True, "python": host["name"] + " Python", "text": tr("{0} 내장", host["name"])},
         "host": host,
         # [blender-cut]
@@ -145,7 +148,7 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
         "map": review_map.get_map_init(map_center),
         "options": site_prefs.get_options(),
         "modes": {"defaults": constants.MODE_DEFAULTS, "shapes": {k: list(v) for k, v in constants.SHAPES_BY_MODE.items()}},
-        "results": context_builder.get_recent_results(hidden=site_prefs.get_hidden_results(), model_name=host["model"]),   # 최근 결과(지도 트레이)
+        "results": context_builder.get_recent_results(result_root, hidden=site_prefs.get_hidden_results(), model_name=host["model"]),   # 최근 결과(지도 트레이)
         "sheet_catalog": [{"id": sheet_id, "key": key, "name": name, "needs": needs, "korea_only": key in constants.SHEET_KOREA_ONLY,
                            "group": constants.SHEET_GROUP.get(key, "base")}
                           for sheet_id, key, name, needs in constants.SHEET_CATALOG if key != "aerial" or host.get("aerial", True)],
@@ -468,7 +471,7 @@ def resolve_open_path(path, root=None):
     full = path if os.path.isabs(path) else os.path.join(root, path)
     if not os.path.exists(full) and not os.path.isabs(path) and path != ".env" and os.path.exists(os.path.join(ROOT_DIR, path)):
         full = os.path.join(ROOT_DIR, path)
-    if os.path.basename(full) == "data":
+    if os.path.basename(full) in ("data", "result"):   # 아직 안 만든 data·기본 결과 폴더도 [열기]가 연다
         os.makedirs(full, exist_ok=True)
     if os.path.basename(full) == ".env" and not os.path.exists(full):
         os.makedirs(os.path.dirname(full), exist_ok=True)
@@ -505,6 +508,36 @@ def get_curve_shape(ring, problem, doc_origin):
             "ring_tm": [list(p) for p in world] if world else [],
             "offsets": [[round(x - cx, 3), round(y - cy, 3)] for x, y in ring],
             "area": round(non_rhino_utils.get_ring_area(ring), 1), "vertices": len(ring)}
+
+
+# 윈도 폴더 고르기 창 — 시작 폴더·제목은 환경 변수로(따옴표·한글 경로를 명령 줄에 넣지 않는다). 숨은 TopMost 창을 주인으로 둬야 호스트 창 뒤에 숨지 않는다
+_WIN_FOLDER_SCRIPT = ("Add-Type -AssemblyName System.Windows.Forms; [Console]::OutputEncoding = [Text.Encoding]::UTF8; "
+                      "$d = New-Object System.Windows.Forms.FolderBrowserDialog; $d.SelectedPath = $env:GORANI_START; $d.Description = $env:GORANI_TITLE; "
+                      "$o = New-Object System.Windows.Forms.Form -Property @{TopMost = $true}; "
+                      "if ($d.ShowDialog($o) -eq 'OK') { [Console]::Out.Write($d.SelectedPath) }")
+
+
+def get_folder_from_os(start, title):
+    # type: (str, str) -> str
+    """OS 폴더 고르기 창(맥 osascript, 윈도 PowerShell) — Eto가 없는 호스트(SketchUp·Rhino 7·Archicad 사이드카, Blender)용.
+    고를 때까지 기다린다. 취소·못 띄우면 None."""
+    start = start if os.path.isdir(start) else os.path.expanduser("~")
+    env, flags = None, 0
+    if sys.platform == "darwin":
+        args = ["osascript", "-e", "on run argv", "-e", "activate", "-e",
+                "return POSIX path of (choose folder with prompt (item 2 of argv) default location (POSIX file (item 1 of argv)))",
+                "-e", "end run", start, title]
+    elif sys.platform.startswith("win"):
+        args = ["powershell", "-NoProfile", "-STA", "-Command", _WIN_FOLDER_SCRIPT]
+        env, flags = dict(os.environ, GORANI_START=start, GORANI_TITLE=title), 0x08000000   # CREATE_NO_WINDOW — 콘솔 창 없이
+    else:
+        return None
+    try:
+        result = subprocess.run(args, capture_output=True, env=env, creationflags=flags)
+    except OSError:
+        return None
+    path = result.stdout.decode("utf-8", "replace").strip()
+    return os.path.normpath(path) if result.returncode == 0 and path else None
 
 
 def _open_with_os(path):
@@ -568,7 +601,7 @@ class _SiteController:
             "set_area": self._set_area, "set_point": self._set_point, "pick_curve": self._pick_curve,
             "preflight": self._preflight, "generate": self._generate, "make_2d": self._make_2d, "cancel": self._cancel,
             "import_context": self._import_context, "export_basemap": self._export_basemap, "zoom_view": self._zoom_view,
-            "open_path": self._open_path, "open_eum": self._open_eum, "open_url": self._open_url, "save_prefs": self._save_prefs, "open_result": self._open_result, "hide_result": self._hide_result, "download_data": self._download_data,
+            "open_path": self._open_path, "open_eum": self._open_eum, "open_url": self._open_url, "save_prefs": self._save_prefs, "open_result": self._open_result, "hide_result": self._hide_result, "set_result_root": self._set_result_root, "download_data": self._download_data,
             # [blender-cut]
             "install_update": self._install_update,
             # [/blender-cut]
@@ -731,7 +764,7 @@ class _SiteController:
         context_baker = context_builder.get_host_modules()[1]
         site_prefs = loader.load("site_prefs")
         lot_db = loader.load("lot_db")
-        request = {"target": get_target_from_msg(msg), "options": dict(msg.get("options") or {})}
+        request = {"target": get_target_from_msg(msg), "options": dict(msg.get("options") or {}), "result_root": site_prefs.get_result_root()}
         self._context_builder = context_builder
         self._skipped, self._phase_detail = get_skipped_details(request["options"])
         self._last_phase = "query"
@@ -1037,6 +1070,30 @@ class _SiteController:
     def _hide_result(self, msg):
         loader.load("site_prefs").hide_result(str(msg.get("dir") or ""))
 
+    def _set_result_root(self, msg):
+        """메뉴 '결과 폴더' — pick이면 폴더 고르기 창(취소면 그대로), 아니면 path(빈 값 = 기본 HOME_DIR/result).
+        바꾸면 init_state(paths.result와 최근 결과가 그 폴더로)."""
+        site_prefs = loader.load("site_prefs")
+        folder = str(msg.get("path") or "")
+        if msg.get("pick"):
+            folder = self._select_folder(site_prefs.get_result_root())
+            if not folder:
+                return
+        site_prefs.save_result_root(folder)
+        self.push(get_init_state(map_center=self._map_center))
+
+    def _select_folder(self, start):
+        # type: (str) -> str
+        """폴더 고르기 창. 취소 = None. Rhino 8은 Eto 창, 나머지 호스트는 OS 창(get_folder_from_os)."""
+        # [blender-cut]
+        if forms is not None:
+            dialog = forms.SelectFolderDialog()
+            dialog.Title = tr("결과 폴더")
+            dialog.Directory = start
+            return dialog.Directory if dialog.ShowDialog(Rhino.UI.RhinoEtoApp.MainWindow) == forms.DialogResult.Ok else None
+        # [/blender-cut]
+        return get_folder_from_os(start, tr("결과 폴더"))
+
     def _get_result_dir(self, msg):
         result_dir = str(msg.get("dir") or "")
         if not os.path.isdir(result_dir):
@@ -1097,7 +1154,7 @@ class _SiteController:
 # error.context — JS가 표시 자리를 고른다(panel_ui.md 오류 규약)
 _ERROR_CONTEXTS = {"select_lots": "select", "map_lots": "select", "set_area": "select", "set_point": "select", "pick_curve": "select",
                    "import_context": "import", "export_basemap": "export",
-                   "zoom_view": "open", "open_path": "open", "open_eum": "open", "open_url": "open", "save_prefs": "init", "open_result": "init", "hide_result": "init", "cancel": "generate", "make_2d": "generate", "download_data": "init",
+                   "zoom_view": "open", "open_path": "open", "open_eum": "open", "open_url": "open", "save_prefs": "init", "open_result": "init", "hide_result": "init", "set_result_root": "open", "cancel": "generate", "make_2d": "generate", "download_data": "init",
                    "style_preview": "style", "apply_style": "style", "save_style": "style", "sheet_ai": "style", "sheet_view": "view",
                    # [blender-cut]
                    "stats_consent": "init", "track": "init", "install_update": "init",

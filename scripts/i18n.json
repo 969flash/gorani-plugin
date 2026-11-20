@@ -1973,6 +1973,30 @@
   "ja": "結果フォルダ",
   "zh": "结果文件夹"
  },
+ "바꾸기": {
+  "en": "Change",
+  "es": "Cambiar",
+  "ja": "変更",
+  "zh": "更改"
+ },
+ "결과 폴더를 기본값으로 바꾸겠습니까?": {
+  "en": "Change the result folder back to the default?",
+  "es": "¿Volver a la carpeta de resultados predeterminada?",
+  "ja": "結果フォルダを既定に戻しますか?",
+  "zh": "要将结果文件夹改回默认吗?"
+ },
+ "새 결과는 {0}에 만듭니다. 지금 폴더의 결과는 지우지 않습니다.": {
+  "en": "New results will be saved in {0}. Results in the current folder are not deleted.",
+  "es": "Los nuevos resultados se guardarán en {0}. Los resultados de la carpeta actual no se borran.",
+  "ja": "新しい結果は{0}に保存します。今のフォルダの結果は削除しません。",
+  "zh": "新结果将保存到 {0}。当前文件夹中的结果不会删除。"
+ },
+ "이 폴더에는 결과를 쓸 수 없습니다: {0}": {
+  "en": "Cannot save results to this folder: {0}",
+  "es": "No se pueden guardar resultados en esta carpeta: {0}",
+  "ja": "このフォルダには結果を保存できません: {0}",
+  "zh": "无法将结果保存到此文件夹: {0}"
+ },
  "Gorani {0}이 나왔습니다": {
   "en": "Gorani {0} is available",
   "es": "Ya está disponible Gorani {0}",
@@ -2045,23 +2069,11 @@
   "ja": "設定",
   "zh": "设置"
  },
- "폴더 경로": {
-  "en": "Folder",
-  "es": "Carpeta",
-  "ja": "フォルダ",
-  "zh": "文件夹"
- },
  "열기": {
   "en": "Open",
   "es": "Abrir",
   "ja": "開く",
   "zh": "打开"
- },
- "{0} (결과 result, 지역 데이터 data)": {
-  "en": "{0} (results in result, regional data in data)",
-  "es": "{0} (resultados en result, datos regionales en data)",
-  "ja": "{0}（結果はresult、地域データはdata）",
-  "zh": "{0}（结果在 result，区域数据在 data）"
  },
  "한국 자료": {
   "en": "Korea data",

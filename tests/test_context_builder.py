@@ -197,6 +197,25 @@ class PrefsTest(unittest.TestCase):
             self.assertEqual(site_prefs.hide_result("/r/a", path), ["/r/b", "/r/a"])   # 같은 폴더는 하나만, 뒤로
             self.assertEqual(site_prefs.get_options(path)["radius"], 300)   # 뺀 목록이 옵션을 지우지 않는다
 
+    def test_result_root(self):
+        """메뉴 '결과 폴더' — 고른 폴더, 빈 값이면 기본, 쓸 수 없거나 사라진 폴더면 기본."""
+        default = os.path.join(constants.HOME_DIR, constants.RESULT_DIRNAME)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "prefs.json")
+            self.assertEqual(site_prefs.get_result_root(path), default)
+            folder = os.path.join(tmp, "내 결과")
+            os.makedirs(folder)
+            self.assertEqual(site_prefs.save_result_root(folder + os.sep, path), folder)
+            site_prefs.save_options({"radius": 300}, path)   # 옵션 저장이 결과 폴더를 지우지 않는다
+            self.assertEqual(site_prefs.get_result_root(path), folder)
+            for bad in ("상대/경로", os.path.join(tmp, "없는 폴더")):
+                with self.assertRaises(ValueError):
+                    site_prefs.save_result_root(bad, path)
+            self.assertEqual(site_prefs.get_result_root(path), folder)
+            os.rmdir(folder)   # 빼 둔 외장 디스크 — 기본으로
+            self.assertEqual(site_prefs.get_result_root(path), default)
+            self.assertEqual(site_prefs.save_result_root("", path), default)
+
     def test_recent_results_from_folders(self):
         """최근 결과 = context.json이 있고 이 프로그램의 3D 파일이 있는 결과 폴더(새것 먼저). 예전 판 폴더·뺀 폴더·다른 프로그램 결과는 뺀다."""
         import time

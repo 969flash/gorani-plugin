@@ -88,6 +88,25 @@ def save_options(options, path=PREFS_PATH):
     return merged
 
 
+def get_result_root(path=PREFS_PATH):
+    # type: (str) -> str
+    """결과 폴더 — 메뉴 '결과 폴더'에서 고른 곳. 안 골랐거나 그 폴더가 지금 없으면(빼 둔 외장 디스크) 기본 HOME_DIR/result."""
+    value = _read_json(path).get("result_root")
+    return value if isinstance(value, str) and os.path.isdir(value) else os.path.join(constants.HOME_DIR, constants.RESULT_DIRNAME)
+
+
+def save_result_root(folder, path=PREFS_PATH):
+    # type: (str, str) -> str
+    """빈 값 = 기본(HOME_DIR/result)으로. 아니면 쓸 수 있는 폴더여야 한다(ValueError). 돌려주는 값은 get_result_root."""
+    folder = os.path.normpath(folder) if folder else ""
+    if folder and not (os.path.isabs(folder) and os.path.isdir(folder) and os.access(folder, os.W_OK)):
+        raise ValueError(tr("이 폴더에는 결과를 쓸 수 없습니다: {0}", folder))
+    data = _read_json(path)
+    data["result_root"] = folder
+    _write_json(path, data)
+    return get_result_root(path)
+
+
 def get_hidden_results(path=PREFS_PATH):
     # type: (str) -> list
     """최근 결과 목록에서 x로 뺀 결과 폴더 경로들(폴더는 그대로 둔다)."""
