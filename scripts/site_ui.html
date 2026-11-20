@@ -107,13 +107,13 @@ html:lang(zh-Hans) body { font-family: -apple-system, "PingFang SC", "Microsoft 
 #blocker { position: absolute; inset: 0; background: var(--paper); padding: 24px 16px; z-index: 1000; overflow: auto; }
 #blocker h2 { margin-bottom: 16px; }
 /* 업데이트 모달 — 권장(닫기 있음)·강제(닫기 없음). 매니페스트 update 값으로 뜬다 */
-#update_modal { position: fixed; inset: 0; z-index: 1100; background: rgba(17, 20, 24, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
-#update_modal[hidden] { display: none; }
-#update_modal .dlg { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px 12px; width: 100%; max-width: 330px; max-height: 100%; overflow: auto; font-size: 12px; line-height: 1.55; }
+#update_modal, #confirm_modal { position: fixed; inset: 0; z-index: 1100; background: rgba(17, 20, 24, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+#update_modal[hidden], #confirm_modal[hidden] { display: none; }
+#update_modal .dlg, #confirm_modal .dlg { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px 12px; width: 100%; max-width: 330px; max-height: 100%; overflow: auto; font-size: 12px; line-height: 1.55; }
 #update_modal .x { position: absolute; top: 8px; right: 8px; }   /* [나중에] 대신 오른쪽 위 X */
-#update_modal h2 { margin: 0 28px 10px 0; font-size: 13px; line-height: 1.4; font-weight: 700; }
+#update_modal h2, #confirm_modal h2 { margin: 0 28px 10px 0; font-size: 13px; line-height: 1.4; font-weight: 700; }
 #update_modal .ver { font-size: 11px; color: var(--ink-3); margin: 0 28px 2px 0; }
-#update_modal p { color: var(--ink-2); margin: 0 0 10px; }
+#update_modal p, #confirm_modal p { color: var(--ink-2); margin: 0 0 10px; word-break: keep-all; overflow-wrap: anywhere; }
 #update_modal ul { margin: 0 0 12px; padding-left: 16px; color: var(--ink-2); }
 #update_modal li + li { margin-top: 2px; }
 #update_modal h3 { margin: 10px 0 4px; font-size: 11px; line-height: 1.4; font-weight: 600; color: var(--ink-3); letter-spacing: .02em; }
@@ -122,6 +122,7 @@ html:lang(zh-Hans) body { font-family: -apple-system, "PingFang SC", "Microsoft 
 #update_modal ol { margin: 0 0 14px; padding: 8px 10px 8px 26px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink-2); font-size: 11.5px; line-height: 1.8; }
 #update_modal .due { color: var(--warn); font-size: 11px; }
 #update_modal .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+#confirm_modal .acts { display: flex; gap: 8px; justify-content: flex-end; }
 #update_modal .foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 4px; }   /* 아래 한 줄: 왼쪽 [ ] 오늘 그만 보기, 오른쪽 [지금 업데이트] */
 #update_modal label.chk { min-height: 28px; font-size: 11.5px; color: var(--ink-3); }
 .check-list { display: grid; grid-template-columns: 1.4em 7em 1fr; gap: 4px 8px; margin-bottom: 16px; }
@@ -490,6 +491,7 @@ footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-
   <div id="viewer" role="dialog" aria-modal="true" hidden></div>
 </main>
 <div id="update_modal" role="dialog" aria-modal="true" aria-labelledby="update_title" hidden></div>
+<div id="confirm_modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm_title" hidden></div>
 <div id="dl" role="status" hidden></div>
 <footer id="footer"></footer>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -1983,7 +1985,7 @@ function renderMenu() {
   el.innerHTML = "<h3>" + tr("설정") + "</h3>" +   // 최근 대상지는 트레이에만(2026-10-30 — 메뉴·트레이·검색 ↓ 세 군데였다)
     '<div class="mlist">' +
       row(tr("결과 폴더"), '<span class="mono">' + esc(p.result || "") + "</span>", '<span style="display:flex;gap:4px">' +   // 결과 폴더 한 줄 — 열기·바꾸기(2026-11-20)
-        (HOST.id !== "web" && p.result && p.result !== p.result_default ? '<button type="button" class="btn sm ghost" data-act="result_root" data-reset="1"' + (lock ? " disabled" : "") + ">" + tr("기본값") + "</button>" : "") +
+        (HOST.id !== "web" && p.result && p.result !== p.result_default ? '<button type="button" class="link" style="padding:0 6px" data-act="result_root" data-reset="1"' + (lock ? " disabled" : "") + ">" + tr("기본값") + "</button>" : "") +   // 파란 글자 — 누를 수 있다는 티(2026-11-20)
         '<button type="button" class="btn sm" data-act="open" data-path="' + esc(p.result || "") + '">' + ico("folder") + tr("열기") + "</button>" +
         (HOST.id === "web" ? "" : '<button type="button" class="btn sm" data-act="result_root"' + (lock ? " disabled" : "") + ">" + tr("바꾸기") + "</button>") + "</span>", p.result || "") +
       row(tr("한국 자료"), '<div class="seg" role="group" aria-label="' + tr("한국 자료") + '">' +
@@ -2000,6 +2002,14 @@ function renderMenu() {
     '<div class="mlist">' + row(tr("웹페이지"), '<button type="button" class="link" data-act="open_url" data-key="' + siteKey() + '" title="' + tr("설치와 사용법") + '">' + esc(String((init.links || {})[siteKey()] || (init.links || {}).website || tr("고라니 웹페이지")).replace(/^https?:\/\//, "").replace(/\/$/, "")) + "</button>", "") +
       row(tr("문의"), '<button type="button" class="link" data-act="open_url" data-key="contact" title="' + tr("메일 보내기") + '">' + esc(String((init.links || {}).contact || "").replace(/^mailto:/, "")) + "</button>", "") + "</div>" +
     noticeList + '<p class="menu-ver">Gorani ' + esc(init.version || "") + "</p>";
+}
+// 확인 창 — 실수로 누른 버튼이 바로 바꾸지 않게(결과 폴더 [기본값], 2026-11-20). WebView confirm()은 호스트마다 달라 패널 안에 그린다
+var confirmOk = null;
+function askConfirm(title, text, okLabel, onOk) {
+  var el = $("confirm_modal"); confirmOk = onOk;
+  el.innerHTML = '<div class="dlg"><h2 id="confirm_title">' + esc(title) + "</h2>" + (text ? "<p>" + esc(text) + "</p>" : "") +
+    '<div class="acts"><button type="button" class="btn" data-act="confirm_cancel">' + tr("취소") + '</button><button type="button" class="btn primary" data-act="confirm_ok">' + esc(okLabel) + "</button></div></div>";
+  el.hidden = false; el.querySelector('[data-act="confirm_cancel"]').focus();   // Enter가 바로 바꾸지 않게 [취소]에
 }
 function openMenu() {
   state.menuOpen = true; renderMenu(); $("menu").hidden = false;
@@ -2097,7 +2107,13 @@ trackAct = function (b) {
 var ACTIONS = {
   init: function () { send({ cmd: "init" }); },
   abroad: function () { setForceOsm(true); },
-  result_root: function (b) { state.rootChanged = true; send(b.dataset.reset ? { cmd: "set_result_root", path: "" } : { cmd: "set_result_root", pick: true }); },
+  result_root: function (b) {
+    if (!b.dataset.reset) { state.rootChanged = true; send({ cmd: "set_result_root", pick: true }); return; }
+    askConfirm(tr("결과 폴더를 기본값으로 바꾸겠습니까?"), tr("새 결과는 {0}에 만듭니다. 지금 폴더의 결과는 지우지 않습니다.", (state.init.paths || {}).result_default || ""), tr("바꾸기"),
+      function () { state.rootChanged = true; send({ cmd: "set_result_root", path: "" }); });
+  },
+  confirm_ok: function () { var fn = confirmOk; ACTIONS.confirm_cancel(); if (fn) fn(); },
+  confirm_cancel: function () { confirmOk = null; $("confirm_modal").hidden = true; },
   output_lang: function (b) { state.options.output_lang = b.dataset.v; send({ cmd: "save_prefs", options: state.options }); renderMenu(); toast(tr("결과 폴더와 파일 이름: {0}", b.textContent)); },
   force_osm: function (b) { var on = b.dataset.v ? b.dataset.v === "1" : !forceOsm(); if (on !== forceOsm()) setForceOsm(on); },
   menu: function () { if (state.menuOpen) closeMenu(true); else openMenu(); },
@@ -2236,7 +2252,7 @@ var ACTIONS = {
 var OPTION_AREAS = 'section[data-screen="map"], #card2d';   // 옵션 입력이 있는 곳 — 지도 트레이(범위·3D 설정)·2D 카드
 document.addEventListener("click", function (e) {
   if (e.target.id === "toast_act") { var fn = toastAction; hideToast(); if (fn) fn(); return; }
-  if (state.menuOpen && !e.target.closest("#menu, #menu_btn")) closeMenu();
+  if (state.menuOpen && !e.target.closest("#menu, #menu_btn, #confirm_modal")) closeMenu();
   var t = e.target.closest("[data-act]");
   if (t) { if (t.disabled) return; var f = ACTIONS[t.dataset.act]; if (f) { f(t); trackAct(t); } return; }
   var li = e.target.closest("#search_list li"); if (li) { chooseList(+li.dataset.i); return; }
@@ -2296,6 +2312,7 @@ document.addEventListener("keydown", function (e) {
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); stepViewer(e.key === "ArrowLeft" ? -1 : 1); return; }
   }
   if (e.target.id === "st_save_name" && e.key === "Enter") { e.preventDefault(); ACTIONS.st_save_ok(); return; }
+  if (e.key === "Escape" && !$("confirm_modal").hidden) { ACTIONS.confirm_cancel(); return; }
   if (e.key === "Escape" && !$("update_modal").hidden && updateLevel() === "soft") { ACTIONS.update_close(); return; }
   if (e.key === "Escape" && state.menuOpen) { closeMenu(true); return; }
   if (e.key === "Escape") {

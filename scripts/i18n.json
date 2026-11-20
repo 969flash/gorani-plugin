@@ -1979,6 +1979,18 @@
   "ja": "変更",
   "zh": "更改"
  },
+ "결과 폴더를 기본값으로 바꾸겠습니까?": {
+  "en": "Change the result folder back to the default?",
+  "es": "¿Volver a la carpeta de resultados predeterminada?",
+  "ja": "結果フォルダを既定に戻しますか?",
+  "zh": "要将结果文件夹改回默认吗?"
+ },
+ "새 결과는 {0}에 만듭니다. 지금 폴더의 결과는 지우지 않습니다.": {
+  "en": "New results will be saved in {0}. Results in the current folder are not deleted.",
+  "es": "Los nuevos resultados se guardarán en {0}. Los resultados de la carpeta actual no se borran.",
+  "ja": "新しい結果は{0}に保存します。今のフォルダの結果は削除しません。",
+  "zh": "新结果将保存到 {0}。当前文件夹中的结果不会删除。"
+ },
  "이 폴더에는 결과를 쓸 수 없습니다: {0}": {
   "en": "Cannot save results to this folder: {0}",
   "es": "No se pueden guardar resultados en esta carpeta: {0}",
