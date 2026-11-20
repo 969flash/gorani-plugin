@@ -178,7 +178,23 @@ PANEL_LINKS = {
     "website": "https://gorani.site/",   # 고라니 웹페이지 — 설치·사용법
     "website_en": "https://gorani.site/en/",   # 같은 페이지 영어판 — 패널 언어가 한국어가 아니면 이쪽
     "contact": "mailto:gorani.3d@gmail.com",   # 문의 메일 — 더보기 메뉴 '문의'(2026-10-30 사용자)
+    "sponsor": "https://github.com/sponsors/969flash",   # 후원 — 더보기 메뉴 '도움' 문의 아래(2026-11-18 사용자, 웹사이트 꼬리말과 같은 곳). Blender판에는 줄이 없다
 }
+# 3D 만드는 동안 진행 카드 아래에 도는 한 줄(2026-11-18 사용자) — 원격 설정. 글은 i18n.json 원문(새 줄을 더하면 번역도 같이 올린다)
+# kind: tip·contact = 누구나, login = 회원 기능이 켜진 손님에게만, sponsor = 후원 링크가 있을 때(Blender판은 없음). 첫 줄은 늘 '화면이 멈출 수 있습니다'(패널 jobLines)
+LOADING_TIPS = [
+    {"text": "범위가 1 km를 넘으면 만드는 데 1분 넘게 걸릴 수 있습니다.", "kind": "tip"},
+    {"text": "3D가 끝나면 베이스맵(.ai)·다이어그램·조서도 이어서 만들 수 있습니다.", "kind": "tip"},
+    {"text": "도면 색과 글꼴을 바꿔 '내 스타일'로 저장해 두면 다음 대상지에도 쓸 수 있습니다.", "kind": "tip"},
+    {"text": "최근 결과를 누르면 지난 대상지와 설정을 다시 열 수 있습니다.", "kind": "tip"},
+    {"text": "도면마다 데이터 출처와 기준일이 적혀 있습니다.", "kind": "tip"},
+    {"text": "로그인 후 고급 수준을 무제한으로 사용해보세요.", "kind": "login"},
+    {"text": "Gorani는 후원으로 운영합니다.", "kind": "sponsor"},
+    {"text": "후원을 통해 새로운 기능이 도입됩니다.", "kind": "sponsor"},
+    {"text": "Team Gorani에게 많은 후원 부탁드립니다.", "kind": "sponsor"},
+    {"text": "협업·개선 문의는 gorani.3d@gmail.com으로 보내 주세요.", "kind": "contact"},
+]
+LOADING_TIP_SECONDS = 8         # 다음 문구로 바뀌는 간격(첫 문구는 만들 때마다 무작위)
 
 # 토지이음(국토교통부) 토지이용계획 열람 상세 — 패널 필지 정보의 [토지이음 ↗](open_eum)과 parcels.csv eum_url.
 # mode=search·isNoScr=script를 붙인 형태로 pnu가 상세 폼에 실리는 것을 확인했다.
@@ -490,7 +506,9 @@ GA_PNU_PARAMS = 4  # 필지 PNU를 나눠 담는 매개변수 수(값 하나에 
 # 패널 버튼 → ui 이벤트(action·detail, 2026-11-02). 목록 밖 action은 버린다 — 패널이 임의 값을 GA로 보내지 못하게. 검색어·주소·경로는 보내지 않는다
 GA_UI_ACTIONS = ("recent", "recent_del", "search_pick", "mode", "force_osm", "output_lang", "pick_curve", "eum", "download_area",
                  "rerange", "to_result", "retry", "open", "open_url", "import", "export", "copylog",
-                 "sheet_ai", "sheet_ai_all", "sheet_view", "style_open", "st_apply", "st_save_ok")
+                 "sheet_ai", "sheet_ai_all", "sheet_view", "style_open", "st_apply", "st_save_ok",
+                 "login_prompt", "account_login", "account_trial", "account_logout", "account_done", "account_fail", "account_fallback",
+                 "history_open", "history_restore", "history_star", "history_delete")   # 회원 — 창이 뜬 곳(advanced·first·header)·로그인 결과
 GA_UI_DETAIL_MAX = 24   # detail = 짧은 분류값(lot·place, ko·en, 폴더·.ai 등)만
 # 관리자 페이지 통계(dev_stats — 이 Mac에서만). 열쇠·쌓은 기록은 저장소 밖 ADMIN_DIR에 둔다(공개 저장소)
 ADMIN_DIR = os.path.join(os.path.expanduser("~"), ".config", "gorani")
@@ -946,6 +964,24 @@ DETAIL_OPTIONS = {   # 키: 기본값
 FEATURES = {
     "detail_advanced": {"options": ["building_parapet", "building_floors", "detail_markings", "detail_trees", "detail_rail", "detail_walls"]},
 }
+# 회원(구글 로그인, docs/account_plan.md) — Firebase(Auth + Realtime Database, 우리 서버 없음)와 웹 /login/. 모두 원격 설정이라 판 없이 켜고 끄고 옮긴다
+ACCOUNT_ENABLED = True          # False = 로그인·자물쇠 없이 고급 누구나(로그인 쪽이 오래 고장 났거나 서버가 틀린 거절을 줄 때 비상 스위치)
+ACCOUNT_FIREBASE = {"api_key": "AIzaSyCggyybM6ngv8v0NUJ2n_0wf476R0vZWxs", "project_id": "gorani-da15f",
+                    "db_url": "https://gorani-da15f-default-rtdb.asia-southeast1.firebasedatabase.app"}   # Firebase 웹 설정(공개 값 — 고라니 운영 계정의 Spark 프로젝트, 2026-11-19). API 키가 비면 회원 기능이 꺼진 것과 같다(고급 누구나)
+ACCOUNT_LOGIN_URL = "https://gorani.site/login/"        # 브라우저 로그인 — ?port&state&h&lang
+ACCOUNT_DONE_URL = "https://gorani.site/login/done/"    # 받는 곳(127.0.0.1)이 로그인을 마치고 브라우저를 넘기는 곳 — ?ok=1|0 또는 ?fallback=1, &lang&h
+ACCOUNT_TOKEN_URL = "https://securetoken.googleapis.com/v1/token"   # 열쇠(refresh token) → 1시간 토큰(Firebase Auth REST)
+ACCOUNT_DENIED_ERRORS = ("USER_DISABLED", "USER_NOT_FOUND", "TOKEN_EXPIRED", "INVALID_REFRESH_TOKEN")   # 이 넷만 확실한 거절(잠금) — 나머지 오류는 고장으로 보고 연다(초기 설정 실수도 거절처럼 보이므로)
+PLAN_FEATURES = {"free": ["detail_advanced", "history_sync"]}   # 이용권 → 기능(서버 쪽 값 — 원격 설정). 토큰에 plan이 없으면 free(로그인 = 회원)
+PLAN_NAMES = {"free": "Member"}  # 화면의 이용권 이름 — 모든 언어에서 같은 영어 고유명사(손님은 패널이 Guest)
+GUEST_FEATURES = []             # 로그인 없이 쓰는 기능 키
+GUEST_TRIALS = {"detail_advanced": 3}   # 로그인 없이 써 보는 횟수(설치마다 ~/.gorani/account.json, 만들기 성공만 센다)
+LOGIN_PROMPT_ON_BUILD = "first" # 손님이 [3D 모델 만들기]를 누를 때 로그인 창 — first(설치마다 처음 한 번)·always·off. 매번은 '만들기가 멈춘 줄' 안다
+ACCOUNT_CHECK_HOURS = 0         # 마지막 확인이 이보다 오래되면 패널을 열 때 뒤에서 다시 확인 — 0 = 열 때마다(웹에서 해제한 PC가 다음에 열 때 로그아웃하게)
+ACCOUNT_LOGIN_MINUTES = 5       # 브라우저에서 돌아오기를 기다리는 시간 — 지나면 로그인 쪽을 다시 재 보고 고장이면 연다
+ACCOUNT_TIMEOUT_SECONDS = 10    # Firebase 요청 하나
+ACCOUNT_PROBE_SECONDS = 4       # 로그인 쪽이 살아 있나 재 보는 요청 하나(로그인을 누를 때·시간이 지났을 때)
+HISTORY_MAX = 300               # 계정 생성 기록 상한 — 넘치면 오래된 것부터(즐겨찾기는 남김). 1 KB × 300 × 3,000명 ≈ RTDB 무료 1 GB
 PARAPET = {"height": 1.0, "width": 0.25, "min_area": 30.0}   # 옥상 난간벽 m — 높이 1.0 m(건축물의 피난·방화구조 규칙 옥상 난간 1.2 m보다 낮은 매스 표현값), 이보다 작은 동(㎡)은 뺀다
 FLOOR_LINE_MIN_FLOORS = 2       # 층 구분선은 이 층수 이상인 동만(층고 = 높이 ÷ 지상층수)
 WALL = {"sample": 2.0, "probe": 2.0, "min_rise": 0.8, "max_rise": 15.0, "width": 0.4, "coping": 0.2, "embed": 0.3}   # 옹벽 — 선 양쪽 probe m 지반 고저차가 min_rise 이상인 구간만 세로 벽(높은 쪽 + coping, 낮은 쪽 − embed). 수치지형도 옹벽은 높이 속성이 없다
@@ -1029,7 +1065,7 @@ HOST_LABELS = {
                 # 확장 패키지에는 사용 통계가 없다(이 값은 저장소 시험용)
                 "ask_stats": True,
                 # [/blender-cut]
-                "aerial": False, "update_notice": False, "ip_center": False},   # 확장 스토어 약관: 분석 전송·상용 영상(Esri)·제3자 IP 조회 불가, 업데이트는 Blender가 한다
+                "aerial": False, "update_notice": False, "ip_center": False, "account": False},   # 확장 스토어 약관: 분석 전송·상용 영상(Esri)·제3자 IP 조회·외부 서비스 가입 요구 불가, 업데이트는 Blender가 한다
     # [blender-cut] SketchUp도 Extension Warehouse 심사(개인정보 정책 위반 = 반려 사유)라 동의제 — GA_STREAMS에 sketchup 속성을 넣기 전에는 묻지도 않는다
     "rhino": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": True, "ask_stats": False,
               "brep": True, "self_update": True},   # self_update = 패널 [지금 업데이트](yak — data_pack.install_update). yak을 못 찾으면 init이 끈다   # brep = 3D 설정 '형상' Mesh|Brep(options.geometry_type) — RhinoCommon 베이크만(Rhino 7판은 사이드카라 없다)
@@ -1037,7 +1073,7 @@ HOST_LABELS = {
     # Rhino 7판(cmd_rhino7 사이드카 + rhino7_host.cs) — 패널에는 Rhino로 보인다. DWG는 Rhino 8 헤드리스 문서(context_baker.save_dwg)라 없다
     "rhino7": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": False, "ask_stats": False, "self_update": True},
     "archicad": {"id": "archicad", "name": "Archicad", "doc": "Archicad 프로젝트", "model": ARCHICAD_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},   # GA 속성을 만들기 전에는 묻지 않는다
-    "web": {"id": "web", "name": "브라우저", "doc": "3D 모델", "model": WEB_MODEL_FILE_NAME, "dwg": False, "ask_stats": False},   # 통계는 웹사이트 GA(페이지)만
+    "web": {"id": "web", "name": "브라우저", "doc": "3D 모델", "model": WEB_MODEL_FILE_NAME, "dwg": False, "ask_stats": False, "account": False},   # 통계는 웹사이트 GA(페이지)만, 회원 없음
     # [/blender-cut]
 }
 # 메시판(mesh_geometry)

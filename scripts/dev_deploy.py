@@ -184,7 +184,7 @@ else:
 
 BLENDER_APP = "/Applications/Blender.app/Contents/MacOS/Blender"
 BLENDER_PACKAGE_ID = "gorani"
-BLENDER_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py", "cmd_sketchup.py", "cmd_rhino7.py", "cmd_archicad.py", "cmd_web.py", "usage_stats.py")    # Rhino 전용(Eto·RhinoCommon·사용 통계), SketchUp·Rhino 7·Archicad 사이드카, 웹판
+BLENDER_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py", "cmd_sketchup.py", "cmd_rhino7.py", "cmd_archicad.py", "cmd_web.py", "usage_stats.py", "account.py")    # Rhino 전용(Eto·RhinoCommon·사용 통계), SketchUp·Rhino 7·Archicad 사이드카, 웹판
 # 확장 심사(2026-10-28): 애드온에는 Blender 코드만 — 다른 프로그램(Rhino·SketchUp) 분기, Blender에 없는 라이브러리 import, 스레드(threading·queue)는 안 된다.
 # 공용 모듈의 그런 구간은 소스에서 `# [blender-cut]` … `# [/blender-cut]` 줄(패널 HTML은 `// [blender-cut]`)로 감싸 두고 패키지에서 뺀다(get_blender_source).
 # 남으면 get_blender_problems가 빌드를 멈춘다. 번역 사전은 다른 프로그램·사용 통계 문구를 뺀다(BLENDER_I18N_DROPPED)
@@ -262,6 +262,7 @@ BLENDER_CONSTANT_PATCHES = {
         "VWORLD_API_KEY_ENV": '""', "VWORLD_SEARCH_URL": '""',
         "OSM_USER_AGENT": '"Gorani/0.3 (Blender add-on; https://gorani.site/)"',
         "PDOK_ITEMS_URL": '""', "BDTOPO_FEED_URL": '""', "SWISS_STAC_ITEMS_URL": '""', "PLATEAU_CKAN_URL": '""', "CENSUS_COUNTY_URL": '""', "OVERTURE_S3_URL": '""',
+        "ACCOUNT_ENABLED": "False", "ACCOUNT_TOKEN_URL": '""', "ACCOUNT_FIREBASE": '{"api_key": "", "project_id": "", "db_url": ""}',   # 회원 없음 — 확장 약관: 외부 서비스에 가입을 요구할 수 없다(account.py도 뺀다)
     },
     "review_map.py": {"VWORLD_TILE_URL_TEMPLATE": '""', "VWORLD_AERIAL_URL_TEMPLATE": '""', "ESRI_AERIAL_URL": '""', "IP_LOCATE_URL": '""'},
 }

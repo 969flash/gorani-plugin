@@ -6088,5 +6088,251 @@
   "es": "Bajar calzadas 15 cm (bordillos)",
   "ja": "車道を15 cm下げる(縁石)",
   "zh": "车行道降低15 cm(路缘石)"
+ },
+ "계정": {
+  "en": "Account",
+  "es": "Cuenta",
+  "ja": "アカウント",
+  "zh": "账户"
+ },
+ "로그아웃": {
+  "en": "Sign out",
+  "es": "Cerrar sesión",
+  "ja": "ログアウト",
+  "zh": "退出登录"
+ },
+ "로그인": {
+  "en": "Sign in",
+  "es": "Iniciar sesión",
+  "ja": "ログイン",
+  "zh": "登录"
+ },
+ "로그인 필요": {
+  "en": "sign-in required",
+  "es": "requiere iniciar sesión",
+  "ja": "ログインが必要",
+  "zh": "需要登录"
+ },
+ "로그인이 끝나지 않았습니다": {
+  "en": "Sign-in did not finish",
+  "es": "El inicio de sesión no terminó",
+  "ja": "ログインが完了しませんでした",
+  "zh": "登录未完成"
+ },
+ "로그인하지 못했습니다": {
+  "en": "Could not sign in",
+  "es": "No se pudo iniciar sesión",
+  "ja": "ログインできませんでした",
+  "zh": "无法登录"
+ },
+ "로그인했습니다": {
+  "en": "Signed in",
+  "es": "Sesión iniciada",
+  "ja": "ログインしました",
+  "zh": "已登录"
+ },
+ "브라우저에서 로그인 중": {
+  "en": "Signing in in your browser",
+  "es": "Iniciando sesión en el navegador",
+  "ja": "ブラウザでログイン中",
+  "zh": "正在浏览器中登录"
+ },
+ "지금은 로그인을 쓸 수 없습니다": {
+  "en": "Sign-in is not available right now",
+  "es": "El inicio de sesión no está disponible ahora",
+  "ja": "現在ログインは利用できません",
+  "zh": "目前无法使用登录"
+ },
+ "Google 계정으로 로그인": {
+  "en": "Sign in with Google",
+  "es": "Iniciar sesión con Google",
+  "ja": "Googleでログイン",
+  "zh": "使用 Google 登录"
+ },
+ "Gorani 로그인": {
+  "en": "Sign in to Gorani",
+  "es": "Iniciar sesión en Gorani",
+  "ja": "Goraniにログイン",
+  "zh": "登录 Gorani"
+ },
+ "후원": {
+  "en": "Support",
+  "es": "Apoyo",
+  "ja": "支援",
+  "zh": "赞助"
+ },
+ "후원하기": {
+  "en": "Sponsor",
+  "es": "Patrocinar",
+  "ja": "支援する",
+  "zh": "赞助"
+ },
+ "Gorani는 후원으로 운영합니다": {
+  "en": "Gorani runs on sponsorships",
+  "es": "Gorani se mantiene con patrocinios",
+  "ja": "Goraniは支援で運営しています",
+  "zh": "Gorani 依靠赞助运营"
+ },
+ "로그인 없이 고급 기능 써 보기 ({0}회 남음)": {
+  "en": "Try Advanced without signing in ({0} left)",
+  "es": "Probar las funciones avanzadas sin iniciar sesión (quedan {0})",
+  "ja": "ログインせずに高度な機能を試す(残り{0}回)",
+  "zh": "不登录试用高级功能(剩余{0}次)"
+ },
+ "로그인 없이 기본으로 만들기": {
+  "en": "Create a Basic model without signing in",
+  "es": "Crear un modelo básico sin iniciar sesión",
+  "ja": "ログインせずに基本で作成",
+  "zh": "不登录,以基础模型创建"
+ },
+ "고급 기능은 회원가입 후\n무료로 이용할 수 있습니다.": {
+  "en": "Advanced features are free\nonce you sign up.",
+  "es": "Las funciones avanzadas son gratis\nal registrarte.",
+  "ja": "高度な機能は会員登録後\n無料で使えます。",
+  "zh": "注册会员后\n即可免费使用高级功能。"
+ },
+ "간편 회원가입 후\n고급 수준을 무료로 만들어보세요.": {
+  "en": "Sign up in seconds\nand build Advanced for free.",
+  "es": "Regístrate en segundos\ny crea en avanzado gratis.",
+  "ja": "かんたん会員登録で\n高度レベルを無料で作れます。",
+  "zh": "快速注册后\n即可免费创建高级级别模型。"
+ },
+ "브라우저에서 Google 계정을 고르면\n저절로 돌아옵니다.": {
+  "en": "Choose your Google account in the browser\nand you will come back automatically.",
+  "es": "Elige tu cuenta de Google en el navegador\ny volverás automáticamente.",
+  "ja": "ブラウザでGoogleアカウントを選ぶと\n自動で戻ります。",
+  "zh": "在浏览器中选择 Google 账户后\n会自动返回。"
+ },
+ "로그인 없이 써 볼 수 있는 고급 모델을 다 썼습니다.": {
+  "en": "You have used all Advanced tries without signing in.",
+  "es": "Ya usaste todas las pruebas avanzadas sin iniciar sesión.",
+  "ja": "ログインなしの高度モデルのお試しを使い切りました。",
+  "zh": "免登录的高级模型试用次数已用完。"
+ },
+ "로그인 후 고급 수준을 무제한으로 사용해보세요.": {
+  "en": "Sign in to use the Advanced level without limits.",
+  "es": "Inicia sesión para usar el nivel avanzado sin límites.",
+  "ja": "ログインすると高度レベルを無制限で使えます。",
+  "zh": "登录后即可无限使用高级级别。"
+ },
+ "Gorani는 후원으로 운영합니다.": {
+  "en": "Gorani runs on sponsorships.",
+  "es": "Gorani se mantiene con patrocinios.",
+  "ja": "Goraniは支援で運営しています。",
+  "zh": "Gorani 依靠赞助运营。"
+ },
+ "후원을 통해 새로운 기능이 도입됩니다.": {
+  "en": "Sponsorships bring new features.",
+  "es": "Los patrocinios traen nuevas funciones.",
+  "ja": "支援が新しい機能につながります。",
+  "zh": "赞助让新功能得以推出。"
+ },
+ "Team Gorani에게 많은 후원 부탁드립니다.": {
+  "en": "Please consider sponsoring Team Gorani.",
+  "es": "Considera patrocinar al equipo de Gorani.",
+  "ja": "Team Goraniへのご支援をお願いします。",
+  "zh": "欢迎赞助 Team Gorani。"
+ },
+ "협업·개선 문의는 gorani.3d@gmail.com으로 보내 주세요.": {
+  "en": "For collaboration or feedback, write to gorani.3d@gmail.com.",
+  "es": "Para colaboraciones o sugerencias, escribe a gorani.3d@gmail.com.",
+  "ja": "協業・改善のご相談は gorani.3d@gmail.com までどうぞ。",
+  "zh": "合作或改进建议请发送至 gorani.3d@gmail.com。"
+ },
+ "범위가 1 km를 넘으면 만드는 데 1분 넘게 걸릴 수 있습니다.": {
+  "en": "Ranges over 1 km can take more than a minute to build.",
+  "es": "Las extensiones de más de 1 km pueden tardar más de un minuto.",
+  "ja": "範囲が1 kmを超えると作成に1分以上かかることがあります。",
+  "zh": "范围超过1 km时,创建可能需要1分钟以上。"
+ },
+ "3D가 끝나면 베이스맵(.ai)·다이어그램·조서도 이어서 만들 수 있습니다.": {
+  "en": "After the 3D model, you can also make basemaps (.ai), diagrams and tables.",
+  "es": "Tras el modelo 3D también puedes crear mapas base (.ai), diagramas y tablas.",
+  "ja": "3Dのあと、ベースマップ(.ai)・ダイアグラム・調書も続けて作れます。",
+  "zh": "3D完成后,还可以继续制作底图(.ai)、分析图和清单。"
+ },
+ "도면 색과 글꼴을 바꿔 '내 스타일'로 저장해 두면 다음 대상지에도 쓸 수 있습니다.": {
+  "en": "Save your drawing colors and fonts as 'My style' to reuse them on the next site.",
+  "es": "Guarda los colores y fuentes como 'Mi estilo' para usarlos en el próximo sitio.",
+  "ja": "図面の色と書体を「マイスタイル」に保存すると次の対象地でも使えます。",
+  "zh": "把图纸颜色和字体保存为“我的样式”,下一个场地也能用。"
+ },
+ "최근 결과를 누르면 지난 대상지와 설정을 다시 열 수 있습니다.": {
+  "en": "Click a recent result to reopen its site and settings.",
+  "es": "Haz clic en un resultado reciente para reabrir su sitio y ajustes.",
+  "ja": "最近の結果を押すと前回の対象地と設定を開き直せます。",
+  "zh": "点击最近结果,即可重新打开之前的场地和设置。"
+ },
+ "도면마다 데이터 출처와 기준일이 적혀 있습니다.": {
+  "en": "Every drawing lists its data sources and reference dates.",
+  "es": "Cada plano indica sus fuentes de datos y fechas de referencia.",
+  "ja": "図面ごとにデータの出典と基準日が書かれています。",
+  "zh": "每张图纸都注明了数据来源和基准日期。"
+ },
+ "로그인 서버가 풀 뜯으러 갔습니다. 이번 고급은 그냥 열어 둡니다.": {
+  "en": "The sign-in server wandered off to graze. Advanced is open this time.",
+  "es": "El servidor de inicio de sesión se fue a pastar. Esta vez el modo Avanzado queda abierto.",
+  "ja": "ログインサーバーが草を食べに出かけました。今回は高度をそのまま開けておきます。",
+  "zh": "登录服务器去吃草了。这次高级功能先直接开放。"
+ },
+ "생성 기록": {
+  "en": "History",
+  "es": "Historial",
+  "ja": "生成履歴",
+  "zh": "生成记录"
+ },
+ "즐겨찾기": {
+  "en": "Starred",
+  "es": "Destacados",
+  "ja": "お気に入り",
+  "zh": "收藏"
+ },
+ "오늘": {
+  "en": "Today",
+  "es": "Hoy",
+  "ja": "今日",
+  "zh": "今天"
+ },
+ "이번 주": {
+  "en": "This week",
+  "es": "Esta semana",
+  "ja": "今週",
+  "zh": "本周"
+ },
+ "그 전": {
+  "en": "Earlier",
+  "es": "Antes",
+  "ja": "それ以前",
+  "zh": "更早"
+ },
+ "이름 바꾸기": {
+  "en": "Rename",
+  "es": "Cambiar nombre",
+  "ja": "名前を変更",
+  "zh": "重命名"
+ },
+ "기록에서 빼기": {
+  "en": "Remove from history",
+  "es": "Quitar del historial",
+  "ja": "履歴から外す",
+  "zh": "从记录中移除"
+ },
+ "아직 생성 기록이 없습니다": {
+  "en": "No history yet",
+  "es": "Aún no hay historial",
+  "ja": "まだ履歴がありません",
+  "zh": "还没有记录"
+ },
+ "생성 기록을 받지 못했습니다": {
+  "en": "Could not load the history",
+  "es": "No se pudo cargar el historial",
+  "ja": "履歴を読み込めませんでした",
+  "zh": "无法加载记录"
+ },
+ "이 기록은 지도에 되살릴 수 없습니다": {
+  "en": "This entry can't be restored on the map",
+  "es": "Esta entrada no se puede restaurar en el mapa",
+  "ja": "この記録は地図に戻せません",
+  "zh": "此记录无法在地图上恢复"
  }
 }
