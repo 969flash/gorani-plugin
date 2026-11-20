@@ -104,6 +104,7 @@ description: |-
   What you get
   - 3D: buildings, roads, terrain, rivers, parks and railways on separate layers
   - 2D: Illustrator basemap, urban analysis maps, DWG (Rhino 8), CSV tables
+  - Advanced model (roof parapets, floor lines, road markings, street trees, rail tracks, retaining walls): free with a Google sign-in, 3 tries without
   - Data: Korea nationwide; official building data with heights where available (Japan, Netherlands, France, Switzerland, United States and more — the list grows without plugin updates, see the website); elsewhere OpenStreetMap
 
   한 번에 쉽게 하는 사이트 모델링 및 사이트 분석
@@ -118,6 +119,7 @@ description: |-
   결과물
   - 3D: 건물 매스, 도로, 지형, 하천, 녹지, 철도 (레이어별)
   - 2D: 일러스트레이터 베이스맵, 현황도·분석도, DWG(라이노 8), 조서 CSV
+  - 고급 모델(옥상 파라펫·층 구분선·노면표시·가로수·선로·옹벽): 구글 계정으로 로그인하면 무료, 로그인 없이 3번 써 볼 수 있습니다
   - 데이터: 국내 전국, 공식 건물 데이터(높이 포함)가 있는 나라는 그것(일본·네덜란드·프랑스·스위스·미국 등 — 플러그인 업데이트 없이 늘어납니다, 웹사이트 참고), 그 밖은 OpenStreetMap
 license: MIT
 url: %(url)s
