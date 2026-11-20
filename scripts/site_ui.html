@@ -124,6 +124,35 @@ html:lang(zh-Hans) body { font-family: -apple-system, "PingFang SC", "Microsoft 
 #update_modal .acts { display: flex; gap: 8px; flex-wrap: wrap; }
 #update_modal .foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 4px; }   /* 아래 한 줄: 왼쪽 [ ] 오늘 그만 보기, 오른쪽 [지금 업데이트] */
 #update_modal label.chk { min-height: 28px; font-size: 11.5px; color: var(--ink-3); }
+/* 회원 — 머리줄 [로그인]·계정 기호, 계정 창, 로그인·플랜 창(업데이트 창과 같은 틀). 꾸밈·안내 문구 없이(docs/account_plan.md 화면 원칙) */
+.hdr-login { height: 28px; padding: 0 10px; font-size: 12px; }
+#acct_pop { position: absolute; top: 44px; right: 8px; z-index: 1100; width: 248px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, .14); padding: 4px 0; }
+#acct_pop[hidden] { display: none; }
+#acct_pop .r { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 8px 0 12px; }
+#acct_pop .av { width: 30px; height: 30px; border-radius: 50%; background: var(--accent-wash); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; text-transform: uppercase; }
+#acct_pop .v { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#acct_pop .v small { display: block; color: var(--ink-3); font-size: 11px; line-height: 16px; }
+#acct_modal { position: fixed; inset: 0; z-index: 1100; background: rgba(17, 20, 24, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+#acct_modal[hidden] { display: none; }
+#acct_modal .dlg { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 28px 24px 20px; width: 100%; max-width: 320px; max-height: 100%; overflow: auto; text-align: center; box-shadow: 0 16px 40px rgba(0, 0, 0, .18); }
+#acct_modal .x { position: absolute; top: 8px; right: 8px; }
+#acct_modal .mk { display: block; width: 36px; height: 36px; margin: 0 auto 14px; color: var(--ink); }
+#acct_modal h2 { margin: 0 0 20px; font-size: 16px; line-height: 24px; font-weight: 700; letter-spacing: -.01em; word-break: keep-all; }   /* 두 줄 — 뜻 단위로 끊는다(문구 안 \n) */
+#acct_modal .sub { margin: -12px 0 20px; color: var(--ink-2); font-size: 12.5px; line-height: 19px; word-break: keep-all; }
+#acct_modal .gets { list-style: none; margin: 0 0 20px; padding: 12px 14px; border-radius: 10px; background: var(--press); display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; text-align: left; font-size: 12.5px; line-height: 18px; color: var(--ink); }
+#acct_modal .gets li { display: flex; align-items: center; gap: 6px; min-width: 0; }
+#acct_modal .gets .ico { width: 12px; height: 12px; color: var(--accent); flex: none; }
+#acct_modal .alt { width: 100%; height: 40px; justify-content: center; margin-top: 10px; border-color: transparent; background: var(--press); color: var(--ink-2); font-size: 13px; font-weight: 500; }   /* 둘째 — 옅은 회색, 구글 단추보다 낮게 */
+#acct_modal .alt:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
+#acct_modal .left-note { margin: 12px 0 0; color: var(--ink-3); font-size: 11.5px; line-height: 17px; word-break: keep-all; }
+#acct_modal .spin { width: 30px; height: 30px; margin: 6px auto 16px; border: 2.5px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: acct-spin .9s linear infinite; }
+/* Google 로그인 단추 — Google 브랜드 지침의 밝은·어두운 꼴(흰 바탕·회색 테두리·G 로고) */
+.gbtn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 42px; padding: 0 12px; border-radius: 8px; border: 1px solid #747775; background: #fff; color: #1f1f1f; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.gbtn:hover { background: #f6f8fa; }
+.gbtn .g { width: 18px; height: 18px; flex: none; }
+@media (prefers-color-scheme: dark) { .gbtn { background: #131314; border-color: #8e918f; color: #e3e3e3; } .gbtn:hover { background: #1e1f20; } }
+@keyframes acct-spin { to { transform: rotate(360deg); } }
+.seg .lk { width: 11px; height: 11px; margin-right: 2px; vertical-align: -1px; }   /* 손님의 '고급' — 자물쇠 하나 */
 .check-list { display: grid; grid-template-columns: 1.4em 7em 1fr; gap: 4px 8px; margin-bottom: 16px; }
 .check-list .ok { color: var(--ok); } .check-list .bad { color: var(--danger); } .check-list .opt { color: var(--ink-3); }
 /* 더보기 메뉴 — 헤더 아래로 떠오르는 둥근 면(최근 대상지·설정·도움) */
@@ -166,6 +195,35 @@ body[data-screen="map"] section[data-screen="map"] { display: flex; flex-directi
 /* 결과는 넓은 창에서도 내용 폭 880 px까지만(가운데) */
 body[data-screen="result"] section[data-screen="result"] { display: block; overflow: auto; padding: 12px max(16px, calc((100% - 880px) / 2)) 16px; }
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: contents; }
+/* 회원 '생성 기록'(세 번째 화면, docs/account_plan.md) — 결과 화면과 같은 폭. 줄 = 윤곽 그림·이름·시각·범위·고급 모델·별 */
+body[data-screen="history"] section[data-screen="history"] { display: block; overflow: auto; padding: 12px max(16px, calc((100% - 880px) / 2)) 16px; }
+.hist-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; margin-bottom: 12px; }
+.hist-head > .btn { justify-self: start; }
+.hist-head h2 { margin: 0; font-size: 15px; line-height: 22px; font-weight: 700; }
+.hist-group { margin-top: 12px; }
+.hist-group > .tray-h { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 11px; line-height: 16px; font-weight: 600; color: var(--ink-3); }
+.hist-row { display: grid; grid-template-columns: minmax(0, 1fr) 32px; align-items: center; gap: 4px; }
+.hist-open { display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 6px 8px; border: 0; border-radius: 8px; background: none; text-align: left; color: var(--ink); }
+.hist-open:hover:not(:disabled) { background: var(--hover); }
+.hist-open .txt { display: grid; min-width: 0; }
+.hist-open .name, .hist-open .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-open .name { font-weight: 600; line-height: 20px; }
+.hist-open .sub { color: var(--ink-3); font-size: 12px; line-height: 18px; }
+.hist-name { width: 100%; height: 28px; }
+.hist-thumb { width: 40px; height: 40px; padding: 4px; border-radius: 8px; background: var(--press); fill: none; stroke: var(--ink-3); stroke-width: 1; }
+.hist-thumb .rg { stroke-dasharray: 2 2; }
+.hist-thumb .t { fill: var(--accent-wash); stroke: var(--accent-ink); stroke-width: 1.2; }
+.hist-star[aria-pressed="true"] { color: var(--ink); }
+.hist-star[aria-pressed="true"] .ico { fill: currentColor; }
+#hist_menu { position: fixed; z-index: 1150; min-width: 160px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, .14); padding: 4px; }
+#hist_menu[hidden] { display: none; }
+#hist_menu button { display: flex; align-items: center; gap: 8px; width: 100%; height: 32px; padding: 0 10px; border: 0; border-radius: 6px; background: none; color: var(--ink); text-align: left; }
+#hist_menu button:hover, #hist_menu button:focus-visible { background: var(--hover); }
+.tray-h .hist-link { margin-left: auto; height: 20px; padding: 0 2px; border: 0; background: none; color: var(--accent-ink); font: inherit; font-weight: 600; display: inline-flex; align-items: center; gap: 2px; }
+.tray-h .hist-link .ico { width: 12px; height: 12px; }
+#acct_pop .pop-link { display: flex; align-items: center; gap: 8px; width: 100%; height: 40px; padding: 0 12px; border: 0; border-top: 1px solid var(--line); background: none; color: var(--ink); text-align: left; }
+#acct_pop .pop-link:hover { background: var(--hover); }
+#acct_pop .pop-link .ico:last-child { margin-left: auto; color: var(--ink-3); }
 section[data-screen="map"] fieldset { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
 /* ── 버튼 — 아이콘 + 글자. 주 = 잉크, 보조 = 흰 면 + 옅은 테두리, 고스트 = 테두리 없음 ── */
@@ -373,7 +431,8 @@ details.s3d .trow:has(> label.chk) { min-height: 32px; }   /* 체크박스 줄�
 #sun_read { margin-top: 2px; }
 /* 진행 카드(3D·2D 같은 꼴) — 제목 + 오른쪽 위 [취소], 대상지 줄, 막대, 단계, 안내. 로그는 카드 밖 */
 .job .track { margin-top: 12px; }
-.job .job-note { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.job .job-note { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line); min-height: 18px; transition: opacity .25s; }
+.job .job-note.out { opacity: 0; }   /* 안내 줄이 바뀔 때 잠깐 흐려진다 */
 /* 2D 카드 타일 — 누르면 켜지고, 켠 타일 안에만 칩 */
 .tile2d { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); margin-top: 8px; overflow: hidden; }
 .tile2d.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
@@ -486,6 +545,7 @@ footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-
   <div class="titlebar">
     <h1 class="brand"><button type="button" class="brand-btn" data-act="home" id="home_btn"><svg class="ico mark" aria-hidden="true"><use href="#i-gorani"/></svg>Gorani</button></h1>
     <div class="hdr-acts">
+      <span id="acct_slot"></span>
       <label class="lang-pick" title="Language · 언어 · Idioma · 言語 · 语言"><svg class="ico" aria-hidden="true"><use href="#i-globe"/></svg><span id="lang_name">English</span><select id="lang_pick" aria-label="Language"></select></label>
       <button id="menu_btn" class="ib" type="button" data-act="menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu"><svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg><span class="sr-only" id="menu_sr"></span></button>
     </div>
@@ -495,11 +555,15 @@ footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-
 <main>
   <section data-screen="map"></section>
   <section data-screen="result"></section>
+  <section data-screen="history"></section>
   <div id="blocker" hidden></div>
   <div id="menu" role="region" hidden></div>
   <div id="viewer" role="dialog" aria-modal="true" hidden></div>
 </main>
 <div id="update_modal" role="dialog" aria-modal="true" aria-labelledby="update_title" hidden></div>
+<div id="acct_modal" role="dialog" aria-modal="true" aria-labelledby="acct_title" hidden></div>
+<div id="acct_pop" role="dialog" aria-label="Account" hidden></div>
+<div id="hist_menu" role="menu" hidden></div>
 <div id="dl" role="status" hidden></div>
 <footer id="footer"></footer>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -549,6 +613,7 @@ footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-
   <symbol id="i-palette" viewBox="0 0 16 16"><path d="M8 1.5a6.5 6.5 0 0 0 0 13c.9 0 1.5-.6 1.5-1.4 0-.9-.7-1.2-.7-2s.6-1.3 1.4-1.3h1.6a2.7 2.7 0 0 0 2.7-2.7C14.5 4 11.6 1.5 8 1.5z"/><circle cx="5" cy="7" r=".9" fill="currentColor"/><circle cx="8" cy="4.6" r=".9" fill="currentColor"/><circle cx="11" cy="6.6" r=".9" fill="currentColor"/></symbol>
   <symbol id="i-save" viewBox="0 0 16 16"><path d="M3.5 2.5h7l3 3v7a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z"/><path d="M5 2.5v3h5M5 13.5v-4h6v4"/></symbol>
   <symbol id="i-undo" viewBox="0 0 16 16"><path d="M5.5 2.5 2.5 5.5l3 3M2.5 5.5h7a4 4 0 0 1 0 8H6"/></symbol>
+  <symbol id="i-star" viewBox="0 0 16 16"><path d="M8 1.9l1.8 3.8 4.1.5-3 2.9.8 4.1L8 11.2l-3.7 2 .8-4.1-3-2.9 4.1-.5z"/></symbol>
   <symbol id="i-clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5V8l2.5 1.5"/></symbol>
   <symbol id="i-sun" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/></symbol>
   <symbol id="i-key" viewBox="0 0 16 16"><circle cx="5.5" cy="10.5" r="3"/><path d="M7.6 8.4 13.5 2.5M11.5 4.5l2 2M9.8 6.2l1.5 1.5"/></symbol>
@@ -774,16 +839,19 @@ function go(screen) {
 }
 function render() {
   document.body.dataset.screen = state.screen; document.body.dataset.run = state.run;
+  if (ACCT) ACCT.renderHeader();
   $("map_park").appendChild($("map"));   // 섹션 재렌더 전 지도 대피
   renderFooter();
-  if (state.screen === "map") renderMap(); else renderResult();
+  if (state.screen === "map") renderMap(); else if (state.screen === "history") { if (HIST) HIST.render(); } else renderResult();
   placeMap();
   var h = document.querySelector('section[data-screen="' + state.screen + '"] h2'); if (h) h.focus({ preventScroll: true });
 }
-function setRun(run) { state.run = run; document.body.dataset.run = run; renderFooter(); }
+function setRun(run) { state.run = run; document.body.dataset.run = run; renderFooter(); if (ACCT) ACCT.renderHeader(); }   // 만드는 동안 머리줄 로그인·계정도 잠근다
 function renderFooter() {
   var r = state.run, html = "";
-  if (state.screen === "map") {
+  if (state.screen === "history") {
+    html = "";   // 생성 기록 화면은 아래 줄이 없다 — 돌아가기는 화면 머리
+  } else if (state.screen === "map") {
     var can = hasTarget() && !busyTarget(), again = can && madeBefore();
     html = (canReturn() && !draw.on && !stamp.on ? '<button type="button" class="btn ghost" data-act="to_result" title="' + esc(lastLabel()) + '">' + tr("결과로 돌아가기") + ico("next") + "</button>"
         : '<span class="hint">' + (can ? (again ? tr("이 대상지의 이전 3D를 새것으로 바꿉니다") : "") : state.mode === "area" && draw.on ? tr("구역을 닫으면 만들 수 있습니다") : "") + "</span>") +
@@ -909,7 +977,7 @@ function emptyTrayHtml() {
   var results = (state.init && state.init.results) || [];   // 방식·나라와 상관없이 — 결과 폴더(context.json)에서 읽는다
   var curve = state.mode === "area" && curveBtnHtml() ? '<div class="tray-curve">' + curveBtnHtml() + "</div>" : "";   // 구역 — 최근 결과 아래(2026-11-08 사용자)
   if (results.length)
-    return '<div class="tray-empty"><div class="tray-h">' + ico("clock") + tr("최근 결과") + "</div><div class=\"mlist\">" + results.map(function (r, i) { return recentHtml(r, i, false); }).join("") + "</div>" + curve + "</div>";
+    return '<div class="tray-empty"><div class="tray-h">' + ico("clock") + tr("최근 결과") + (HIST && HIST.can() ? '<button type="button" class="hist-link" data-act="hist_open">' + tr("생성 기록") + ico("next") + "</button>" : "") + "</div><div class=\"mlist\">" + results.map(function (r, i) { return recentHtml(r, i, false); }).join("") + "</div>" + curve + "</div>";
   var t = state.mode === "point" ? tr("지도를 누르거나 위에서 주소를 찾아 위치를 찍으세요") : state.mode === "area" ? tr("지도를 눌러 구역 꼭짓점을 찍으세요") : tr("지도에서 필지를 누르거나 위에서 주소나 지번을 찾으세요");
   return '<div class="tray-empty"><div class="hint">' + t + "</div>" + curve + "</div>";
 }
@@ -953,16 +1021,19 @@ function rangeHtml() {
     '<div id="radius_hint" class="hint" hidden>' + tr("범위가 크면 만드는 데 1분 넘게 걸릴 수 있습니다") + "</div>";
 }
 // 수준 [기본 | 고급] — 3D 설정 아래 한 줄. 설명 줄은 두지 않고 '고급'에 든 것은 마우스 올림 글로(2026-11-16 사용자 — 단추 아래 줄은 지저분하다)
-function advancedNames() {
+function advancedKeys() {
   var f = state.init && state.init.features && state.init.features.detail_advanced;
-  return ((f && f.options) || Object.keys(DETAIL_NAMES)).map(function (k) { return tr(DETAIL_NAMES[k] || k); }).join(" · ");
+  return (f && f.options) || Object.keys(DETAIL_NAMES);
 }
+function advancedNames() { return advancedKeys().map(function (k) { return tr(DETAIL_NAMES[k] || k); }).join(" · "); }
 function isAdvanced(o) { return !!o && o.detail_level === "advanced"; }
 function levelHtml() {
-  var adv = isAdvanced(state.options);
+  var adv = isAdvanced(state.options), lock = !!ACCT && ACCT.locked("detail_advanced");   // 손님 — 자물쇠, 고르면 플랜 창(ACCT)
+  var desc = advancedNames() + (lock ? " — " + tr("로그인 필요") : "");
   return '<div class="trow"><span class="lbl">' + tr("수준") + '</span><div class="seg" role="radiogroup" aria-label="' + tr("수준") + '">' +
     SEG("detail_level", "basic", tr("기본"), adv ? "" : " checked") +
-    '<label title="' + esc(advancedNames()) + '"><input type="radio" name="detail_level" value="advanced"' + (adv ? " checked" : "") + ' aria-description="' + esc(advancedNames()) + '">' + tr("고급") + "</label></div></div>";
+    '<label title="' + esc(desc) + '"><input type="radio" name="detail_level" value="advanced"' + (adv ? " checked" : "") + ' aria-description="' + esc(desc) + '">' +
+    (lock ? '<svg class="ico lk" aria-hidden="true"><use href="#i-lock"/></svg>' : "") + tr("고급") + "</label></div></div>";
 }
 function settingsHtml(open) {
   var o = state.options, glob = isGlobal(), canSite = state.mode === "lots" || state.mode === "area";
@@ -1033,6 +1104,9 @@ function readOption(el) {
       o.style = sv[0] === "s" ? Object.assign({}, savedStyle(sv.slice(1).join(":")), { name: sv.slice(1).join(":") }) : { preset: sv[1] };
       if (pj) o.style.project = pj; break;
     case "terrain_step": o.terrain_step = +el.value; break;
+    case "detail_level":
+      if (el.value === "advanced" && ACCT && ACCT.locked("detail_advanced")) { ACCT.askAdvanced(); return false; }   // 손님 — 고르지 않고 플랜 창
+      o.detail_level = el.value; break;
     case "floor_breaks": o.floor_breaks = [+$("fb0").value || 12, +$("fb1").value || 20]; break;
     default: o[n] = el.type === "checkbox" ? el.checked : el.value;
   }
@@ -1436,12 +1510,34 @@ function jobHeadHtml(title, sub) {
   return '<div class="done-head"><h2 class="done-line" tabindex="-1" id="run_title">' + esc(title) + '</h2><span class="doc-acts"><button type="button" class="btn sm" data-act="cancel" id="cancel_btn">' + ico("stop") + tr("취소") + "</button></span></div>" +
     (sub ? '<div class="sub ellip">' + esc(sub) + "</div>" : "");
 }
+// 진행 카드 안내 한 줄 — 3D 만드는 동안은 '화면이 멈출 수 있습니다'로 시작해 LOADING_TIP_SECONDS마다 무작위로 다른 줄(constants.LOADING_TIPS — 원격 설정).
+// 한 번에 한 줄만(2026-11-18 사용자). 문서에 넣는 중(busy)이면 그 말이 앞선다. 2D 진행은 안내 줄 하나 그대로
+function loadingTips() {
+  return ((state.init && state.init.tips) || []).filter(function (t) {
+    if (t.kind === "login") return !!ACCT && !!ACCT.st().enabled && !ACCT.member() && !ACCT.st().fallback;   // 회원 기능이 켜진 손님에게만(로그인 고장으로 연 실행은 빼고)
+    if (t.kind === "sponsor") return !!ACCT && !!((state.init.links || {}).sponsor);   // Blender판(ACCT 없음)에는 후원 말이 없다
+    return true;
+  });
+}
+function jobLines() {
+  var host = HOST.id === "web" ? tr("이 탭 안에서 만듭니다. 탭을 닫으면 멈춥니다.") : tr("{0} 안에서 만들어 {0} 화면이 잠깐씩 멈출 수 있습니다.", hostName());
+  if (state.run !== "running" || state.job2d === "running") return [host];
+  return [host].concat(loadingTips().map(function (t) { return tr(t.text); }));
+}
+function rotateTip() {
+  var el = $("job_note"), lines = jobLines(), sec = (state.init && state.init.tip_seconds) || 8;
+  if (!el || state.busy || lines.length < 2 || Date.now() - state.tipAt < sec * 1000) return;
+  var next = Math.floor(Math.random() * (lines.length - 1)); if (next >= state.tipIndex % lines.length) next += 1;   // 같은 줄은 연달아 나오지 않게
+  state.tipIndex = next; state.tipAt = Date.now();
+  el.classList.add("out");
+  setTimeout(function () { el.textContent = jobNote(); el.classList.remove("out"); }, 250);
+}
 function jobNoteHtml() {   // 문서에 넣는 중이면 그 말로 바뀐다(busy)
   return '<div class="hint job-note" id="job_note">' + esc(jobNote()) + "</div>";
 }
 function jobNote() {
   if (state.busy) return tr("{0}입니다. 끝날 때까지 취소할 수 없습니다.", tr(String(state.busyLabel || "작업 중")).replace(/[….]+$/, ""));
-  return HOST.id === "web" ? tr("이 탭 안에서 만듭니다. 탭을 닫으면 멈춥니다.") : tr("{0} 안에서 만들어 {0} 화면이 잠깐씩 멈출 수 있습니다.", hostName());
+  var lines = jobLines(); return lines[(state.tipIndex || 0) % lines.length];
 }
 function runTitle() {
   if (state.run === "running") return tr("3D 모델 만드는 중");
@@ -1555,7 +1651,8 @@ function appendLog(text, level) {
 }
 function startTimer() {
   state.startedAt = Date.now(); clearInterval(timers.elapsed);
-  timers.elapsed = setInterval(function () { var el = $("elapsed"); if (el) el.textContent = fmtTime((Date.now() - state.startedAt) / 1000); }, 1000);
+  state.tipIndex = 0; state.tipAt = Date.now();   // 안내 줄 — '화면이 멈출 수 있습니다'로 시작, 그 뒤 무작위
+  timers.elapsed = setInterval(function () { var el = $("elapsed"); if (el) el.textContent = fmtTime((Date.now() - state.startedAt) / 1000); rotateTip(); }, 1000);
 }
 // 3D 블록 — "무엇이 됐나 · 숫자 · 파일 위치". 생성이 끝나면 Rhino 화면은 이미 대상지로 맞춰져 있어 '대상지 보기' 버튼은 두지 않는다(2026-10-19 사용자 결정).
 // 드물게 쓰는 '다시 불러오기'는 버튼이 아니라 아래 안내 줄(⋯ 메뉴는 항목 하나라 숨긴 이유가 보이지 않았다)
@@ -1801,9 +1898,10 @@ function madeBefore() { return hasTarget() && !!state.madeTargets[JSON.stringify
 // 결과 화면은 지도와 상관없이 그 결과만 보여 준다. 돌아가는 곳은 바로 떠난 결과 하나 — 그 전 것은 '최근 결과'
 function canReturn() { return !!(state.last && !busyTarget()); }
 function lastLabel() { var l = state.last, r = l && l.result; return r ? (r.restored ? r.restored.label : String(r.lot_name || "").replace(/_/g, " ")) : ""; }
-function startGenerate() {
+function startGenerate(skipPrompt) {
   if (!hasTarget() || busyTarget() || state.run === "running") return;
-  send({ cmd: "generate", target: targetMsg(), options: generateOptions() });
+  if (skipPrompt !== true && ACCT && ACCT.beforeBuild()) return;   // 손님이 처음 만들 때 로그인 창 한 번(LOGIN_PROMPT_ON_BUILD)
+  send({ cmd: "generate", target: targetMsg(), options: generateOptions(), trial: !!(ACCT && ACCT.trial && isAdvanced(state.options)) });
   state.runKey = generateKey(); state.runTarget = JSON.stringify(targetMsg()); state.last = null;   // 다시 만들면 같은 대상지의 이전 3D는 문서에서 바뀐다 — 돌아갈 결과도 없앤다
   state.progress = null; state.result = null; state.made2d = null; state.job2d = "idle"; state.form2d = true; state.err2d = ""; state.dl = null; state.logLines = []; state.busy = false;
   state.run = "running"; startTimer(); go("result");
@@ -2109,7 +2207,11 @@ function renderMenu() {
     "</div>" +
     "<h3>" + tr("도움") + "</h3>" +
     '<div class="mlist">' + row(tr("웹페이지"), '<button type="button" class="link" data-act="open_url" data-key="' + siteKey() + '" title="' + tr("설치와 사용법") + '">' + esc(String((init.links || {})[siteKey()] || (init.links || {}).website || tr("고라니 웹페이지")).replace(/^https?:\/\//, "").replace(/\/$/, "")) + "</button>", "") +
-      row(tr("문의"), '<button type="button" class="link" data-act="open_url" data-key="contact" title="' + tr("메일 보내기") + '">' + esc(String((init.links || {}).contact || "").replace(/^mailto:/, "")) + "</button>", "") + "</div>" +
+      row(tr("문의"), '<button type="button" class="link" data-act="open_url" data-key="contact" title="' + tr("메일 보내기") + '">' + esc(String((init.links || {}).contact || "").replace(/^mailto:/, "")) + "</button>", "") +
+      // [blender-cut] 후원 — 문의 메일 바로 아래(2026-11-18 사용자). 웹사이트 꼬리말과 같은 GitHub 후원 페이지
+      ((init.links || {}).sponsor ? row(tr("후원"), tr("Gorani는 후원으로 운영합니다"), '<button type="button" class="btn sm" data-act="open_url" data-key="sponsor">' + tr("후원하기") + ico("ext") + "</button>") : "") +
+      // [/blender-cut]
+      "</div>" +
     noticeList + '<p class="menu-ver">Gorani ' + esc(init.version || "") + "</p>";
 }
 function openMenu() {
@@ -2190,6 +2292,8 @@ function requestCancel() {
   var b = $("cancel_btn"); if (state.run === "running" && b && !b.disabled) send({ cmd: "cancel" });
 }
 var track = function () {}, trackAct = function () {};   // 누른 버튼 기록 — Blender판에는 없다(아래 구간을 빌드가 뺀다)
+var ACCT = null;   // 회원(아래 [blender-cut] 구간) — Blender판은 null이라 자물쇠·로그인이 없다(확장 약관)
+var HIST = null;   // 회원 '생성 기록' 화면(아래 [blender-cut] 구간) — Blender판은 null
 // [blender-cut] 사용 통계 — 누른 버튼 이름과 짧은 분류값만(Python이 목록 밖은 버린다). 주소·검색어·경로는 보내지 않는다. 웹판은 site.js가 따로
 var TRACK = { recent: 0, recent_del: 0, mode: function (b) { return b.dataset.mode; }, force_osm: function () { return forceOsm() ? "osm" : "db"; },
   output_lang: function (b) { return b.dataset.v; }, pick_curve: 0, eum: 0, download_area: 0, rerange: 0, to_result: 0, retry: 0,
@@ -2230,14 +2334,14 @@ var ACTIONS = {
   stamp_place: placeStamp,
   stamp_cancel: function () { stopStamp(); renderTray(); drawLocalExtent(false); },
   point_clear: function () { send({ cmd: "set_point" }); },
-  generate: startGenerate,
+  generate: function () { startGenerate(); },
   home: function () {   // 로고 = 기본 화면(지도). 만드는 중에는 그대로, 결과는 [← 지도로]처럼 맡겨 둔다
     if (state.menuOpen) closeMenu(false);
     if (state.run === "running" || state.job2d === "running") { toast(tr("만드는 중에는 지도로 갈 수 없습니다")); return; }
     if (state.screen === "map") return;
     if (state.run === "done") ACTIONS.rerange(); else ACTIONS.back();
   },
-  retry: startGenerate,
+  retry: function () { startGenerate(); },
   back: function () { state.run = "idle"; state.progress = null; go("map"); },
   rerange: function () {   // 결과는 state.last에 맡겨 두고 지도로 — 대상지·범위·3D 설정을 그대로 두면 [결과로 돌아가기]
     var rs = state.result && state.result.restored;   // 지난 결과(최근 결과에서 열었다) — 그 대상지를 지도에 되살린다
@@ -2353,6 +2457,8 @@ var OPTION_AREAS = 'section[data-screen="map"], #card2d';   // 옵션 입력이 
 document.addEventListener("click", function (e) {
   if (e.target.id === "toast_act") { var fn = toastAction; hideToast(); if (fn) fn(); return; }
   if (state.menuOpen && !e.target.closest("#menu, #menu_btn")) closeMenu();
+  if (ACCT && !$("acct_pop").hidden && !e.target.closest("#acct_pop, #acct_btn")) ACCT.closePop();
+  if (ACCT && e.target.id === "acct_modal" && ACCT.kind && ACCT.kind !== "wait" && !ACCT.building) { ACCT.dismiss(); return; }   // 창 바깥을 누르면 닫기(처음 만들 때·기다림 창은 단추로만)
   var t = e.target.closest("[data-act]");
   if (t) { if (t.disabled) return; var f = ACTIONS[t.dataset.act]; if (f) { f(t); trackAct(t); } return; }
   var li = e.target.closest("#search_list li"); if (li) { chooseList(+li.dataset.i); return; }
@@ -2410,6 +2516,7 @@ document.addEventListener("keydown", function (e) {
     if (e.key === "Backspace") { e.preventDefault(); draw.pts.pop(); redrawDraw(null); renderTray(); return; }
   }
   if (stamp.on && e.key === "Escape") { ACTIONS.stamp_cancel(); return; }
+  if (ACCT && e.key === "Escape" && (!$("acct_modal").hidden || !$("acct_pop").hidden)) { ACCT.dismiss(); return; }
   if (!$("viewer").hidden) {
     if (e.key === "Escape") { closeViewer(); return; }
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); stepViewer(e.key === "ArrowLeft" ? -1 : 1); return; }
@@ -2452,6 +2559,7 @@ var handlers = {
       state.lastRegion = region();
     }
     state.blocked = computeBlocked();
+    if (ACCT) ACCT.sync();   // 권한·남은 써 보기 — 옛 prefs의 고급을 손님이면 기본으로
     if (first) {
       render();
     } else {
@@ -2549,6 +2657,7 @@ var handlers = {
   },
   done: function (m) {
     clearInterval(timers.elapsed);
+    if (ACCT) ACCT.afterBuild();   // 써 보기는 한 번만 — 다음은 기본
     state.result = m; state.result.sheets = []; state.made2d = null; state.job2d = "idle"; state.form2d = true; state.dl = null; state.resultKey = state.runKey; if (state.runTarget) state.madeTargets[state.runTarget] = true;
     state.appliedStyle = fullStyle(state.options.style); state.styleEdit = clone(state.appliedStyle); state.styleOpen = false;
     state.run = "done"; state.screen = "result"; render(); sunResultChanged();
@@ -2616,11 +2725,261 @@ var handlers = {
       case "search": slotError("search_msg", text); break;
       case "select": slotError("tray_err", text); break;
       case "preflight": break;
+      case "account": if (ACCT) ACCT.onState({ state: (ACCT.st().state || "guest"), error: text }); else showErrorBand(text); break;   // 로그인 실패(받는 곳·브라우저 열기) — 기다림을 닫고 토스트
       case "view": var vb = document.querySelector("#viewer .vw-body"); if (vb) vb.innerHTML = '<span class="danger-text">' + esc(text) + "</span>"; else showErrorBand(text); break;
       default: showErrorBand(text);
     }
   }
 };
+// [blender-cut] 회원 — 로그인은 시스템 브라우저(gorani.site/login/)에서, 패널은 계정 상태와 권한만 본다(docs/account_plan.md).
+// 손님이 '고급'을 고르면 플랜 창(Guest · Member), 머리줄 [로그인]·처음 만들기는 작은 로그인 창. 기다리는 동안 account_poll로 묻는다
+var G_LOGO = '<svg class="g" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';   // Google G(브랜드 지침 — 로그인 단추에만)
+var ACCT_ICON = '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="8" cy="8" r="6.6"/><circle cx="8" cy="6.5" r="2.2"/><path d="M4.4 12.4c.9-1.5 2.1-2.3 3.6-2.3s2.7.8 3.6 2.3" stroke-linecap="round"/></svg>';
+ACCT = {
+  trial: false, pending: null, poll: null, kind: null,
+  st: function () { return (state.init && state.init.account) || { enabled: false }; },
+  member: function () { return this.st().state === "member"; },
+  locked: function (key) {   // 권한(서버)에도 없고 이번 써 보기도 아니면 잠김. 회원 기능이 꺼졌으면(enabled false) 누구나
+    var s = this.st(); return !!s.enabled && (s.features || []).indexOf(key) < 0 && !(key === "detail_advanced" && this.trial);
+  },
+  left: function (key) { return +((this.st().trials_left || {})[key] || 0); },
+  sync: function () {
+    if (this.locked("detail_advanced") && state.options.detail_level === "advanced") state.options.detail_level = "basic";   // 만들 때도 Python이 끈다
+    this.renderHeader();
+  },
+  renderHeader: function () {
+    var slot = $("acct_slot"); if (!slot) return;
+    var s = this.st(), busy = state.run === "running" ? " disabled" : "";
+    if (!s.enabled) { slot.innerHTML = ""; return; }
+    slot.innerHTML = this.member()
+      ? '<button type="button" class="ib" id="acct_btn" data-act="acct_menu" aria-haspopup="true" aria-expanded="' + !$("acct_pop").hidden + '" aria-label="' + tr("계정") +
+        '" title="' + esc(s.email || "") + '"' + busy + ">" + ACCT_ICON + "</button>"
+      : '<button type="button" class="btn sm hdr-login" data-act="acct_open"' + busy + ">" + tr("로그인") + "</button>";
+  },
+  togglePop: function () {
+    var p = $("acct_pop"), s = this.st();
+    if (!p.hidden) { this.closePop(); return; }
+    p.innerHTML = '<div class="r"><span class="av" aria-hidden="true">' + esc((s.email || "?").charAt(0)) + '</span><span class="v">' + esc(s.email || "") + "<small>" + esc(s.plan_name || "Member") + '</small></span><button type="button" class="btn sm" data-act="acct_logout">' +
+      tr("로그아웃") + "</button></div>" + (HIST && HIST.can() ? '<button type="button" class="pop-link" data-act="hist_open">' + ico("clock") + tr("생성 기록") + ico("next") + "</button>" : "");
+    p.hidden = false; this.renderHeader();
+    var b = p.querySelector("button"); if (b) b.focus();
+  },
+  closePop: function () { $("acct_pop").hidden = true; this.renderHeader(); },
+  open: function (kind, build) {   // plans(손님이 고급) | login(머리줄, 처음 만들기면 build) | wait
+    var m = $("acct_modal"), left = this.left("detail_advanced"), html;
+    var x = '<button type="button" class="ib x" data-act="acct_close" aria-label="' + tr("닫기") + '" title="' + tr("닫기") + '">' + ico("x") + "</button>";
+    var mark = '<svg class="ico mk" aria-hidden="true"><use href="#i-gorani"/></svg>';
+    var br = function (t) { return t.split("\n").join("<br>"); };   // 문구 안 \n = 뜻 단위 줄바꿈(한 줄에 몰지 않게, 2026-11-18 사용자)
+    var title = function (t) { return '<h2 id="acct_title">' + br(t) + "</h2>"; };
+    var sub = function (t) { return '<p class="sub">' + br(t) + "</p>"; };
+    var google = '<button type="button" class="gbtn" data-act="acct_login">' + G_LOGO + tr("Google 계정으로 로그인") + "</button>";
+    var free = tr("고급 기능은 회원가입 후\n무료로 이용할 수 있습니다.");
+    var trial = function (act) { return '<button type="button" class="btn alt" data-act="' + act + '">' + tr("로그인 없이 고급 기능 써 보기 ({0}회 남음)", left) + "</button>"; };
+    var used = '<p class="left-note">' + tr("로그인 없이 써 볼 수 있는 고급 모델을 다 썼습니다.") + "</p>";
+    this.kind = kind; this.building = !!build;
+    if (kind === "wait") html = '<div class="spin" aria-hidden="true"></div>' + title(tr("브라우저에서 로그인 중")) + sub(tr("브라우저에서 Google 계정을 고르면\n저절로 돌아옵니다.")) +
+      '<button type="button" class="btn alt" data-act="acct_close">' + tr("취소") + "</button>";
+    else if (kind === "plans") html = x + mark + title(free) +
+      '<ul class="gets">' + advancedKeys().map(function (k) { return "<li>" + ico("check") + "<span>" + esc(tr(DETAIL_NAMES[k] || k)) + "</span></li>"; }).join("") + "</ul>" + google +
+      (left ? trial("acct_trial") : used);
+    else if (build) html = mark + title(tr("간편 회원가입 후\n고급 수준을 무료로 만들어보세요.")) + google +   // X 없음 — 두 단추 중 하나(Esc는 이번 만들기 취소)   // 처음 만들 때(기본으로 만들기) — 써 보기는 '고급'을 고를 때 창에만(2026-11-18 사용자)
+      '<button type="button" class="btn alt" data-act="acct_skip">' + tr("로그인 없이 기본으로 만들기") + "</button>";
+    else html = x + mark + title(tr("Gorani 로그인")) + sub(free) + google;
+    m.innerHTML = '<div class="dlg">' + html + "</div>";
+    m.hidden = false;
+    var f = m.querySelector('[data-act="acct_login"]') || m.querySelector('[data-act="acct_close"]'); if (f) f.focus();
+  },
+  close: function () { $("acct_modal").hidden = true; this.kind = null; this.building = false; },
+  dismiss: function () {   // ✕·Esc — 기다리는 중이면 로그인 취소, 아니면 닫기(이번 만들기·고르기는 하지 않는다)
+    if (!$("acct_pop").hidden) { this.closePop(); return; }
+    if (this.kind === "wait") { clearInterval(this.poll); this.poll = null; send({ cmd: "account_cancel" }); }
+    this.pending = null; this.close();
+  },
+  askAdvanced: function () {
+    var b = document.querySelector('input[name="detail_level"][value="basic"]'); if (b) b.checked = true;
+    this.pending = "advanced"; this.open("plans"); track("login_prompt", "advanced");
+    this.seen();   // 로그인 권유를 봤다 — 닫고 바로 만들어도 '처음 만들 때 창'이 연달아 뜨지 않게
+  },
+  beforeBuild: function () {
+    var s = this.st();
+    if (!s.enabled || this.member() || this.trial || s.prompt_on_build === "off" || (s.prompt_on_build !== "always" && s.prompt_seen)) return false;
+    this.seen();
+    this.pending = "build"; this.open("login", true); track("login_prompt", "first");
+    return true;
+  },
+  seen: function () {   // 처음 만들 때 창은 설치마다 한 번 — 고급을 눌러 플랜 창을 봤어도 본 것으로
+    var s = this.st(); if (s.prompt_seen) return;
+    s.prompt_seen = true; send({ cmd: "account_flag", key: "login_prompt_seen" });
+  },
+  afterBuild: function () {
+    if (!this.trial) return;
+    this.trial = false; state.options.detail_level = "basic"; send({ cmd: "save_prefs", options: state.options });
+  },
+  login: function () {
+    track("account_login", this.kind || "");
+    send({ cmd: "account_login" }); this.open("wait");
+    clearInterval(this.poll); this.poll = setInterval(function () { send({ cmd: "account_poll" }); }, 1500);
+  },
+  onState: function (m) {
+    if (m.state === "waiting") return;
+    var waited = !!this.poll, pending = this.pending, acc = {};
+    clearInterval(this.poll); this.poll = null; this.pending = null;
+    Object.keys(m).forEach(function (k) { if (k !== "type" && k !== "error") acc[k] = m[k]; });
+    if (state.init && "enabled" in m) state.init.account = acc;   // 오류만 온 경우(error 푸시)는 지금 상태를 둔다
+    if (this.kind === "wait") this.close();
+    $("acct_pop").hidden = true;
+    var fallback = waited && !m.error && !!acc.fallback;   // 로그인 쪽 고장 — 이번 실행은 고급을 연다(성공처럼 누른 곳으로 이어 간다, account_plan.md)
+    var ok = waited && !m.error && (acc.state === "member" || fallback);
+    if (m.error) toast(m.error);
+    else if (fallback) toast(tr("로그인 서버가 풀 뜯으러 갔습니다. 이번 고급은 그냥 열어 둡니다."));
+    else if (ok) toast(tr("로그인했습니다"));
+    if (ok && (pending === "advanced" || pending === "build") && !this.locked("detail_advanced")) {   // 누른 곳으로 — 고급을 골랐거나 고급으로 만들기
+      state.options.detail_level = "advanced"; send({ cmd: "save_prefs", options: state.options });
+    }
+    this.sync();
+    if (state.screen === "map") renderTray();
+    if (ok && pending === "build") startGenerate(true);
+  }
+};
+handlers.account_state = function (m) { ACCT.onState(m); };
+Object.assign(ACTIONS, {
+  acct_open: function () { ACCT.pending = null; ACCT.open("login"); track("login_prompt", "header"); },
+  acct_login: function () { ACCT.login(); },
+  acct_close: function () { ACCT.dismiss(); },
+  acct_skip: function () { ACCT.pending = null; ACCT.close(); startGenerate(true); },
+  acct_trial: function () {
+    ACCT.trial = true; ACCT.pending = null; ACCT.close(); state.options.detail_level = "advanced"; renderTray(); track("account_trial", ACCT.left("detail_advanced"));
+  },
+  acct_menu: function () { ACCT.togglePop(); },
+  acct_logout: function () { ACCT.closePop(); send({ cmd: "account_logout" }); track("account_logout", ""); }
+});
+// 회원 '생성 기록'(지도·결과 다음 세 번째 화면, docs/account_plan.md) — 계정 기록(Firebase)을 받아 이 PC 결과 폴더와 짝짓는다(entry_id → dir).
+// 누르면 이 PC에 폴더가 있으면 결과 화면, 없으면 같은 대상지·설정으로 지도에 되살린다(restoreResultTarget). 단추 묶음 [전체 | ★], 날짜 묶음, 줄마다 별.
+// 이름 바꾸기·기록에서 빼기는 오른쪽 클릭 메뉴(화면에 단추를 늘리지 않는다). 결과 폴더는 지우지 않는다. 받기는 Python 스레드 — history_poll로 묻는다
+HIST = {
+  items: null, ok: true, star: false, back: "map", poll: null, editing: "",
+  can: function () { return !!ACCT && ACCT.member() && (ACCT.st().features || []).indexOf("history_sync") >= 0; },
+  open: function () {
+    if (!this.can() || state.run === "running") return;
+    if (!$("acct_pop").hidden) ACCT.closePop();
+    if (state.screen !== "history") this.back = state.screen === "result" && state.result ? "result" : "map";
+    this.items = null; this.editing = ""; this.closeMenu();
+    go("history"); send({ cmd: "history_list" });
+    clearInterval(this.poll); this.poll = setInterval(function () { send({ cmd: "history_poll" }); }, 700);
+  },
+  leave: function () { clearInterval(this.poll); this.poll = null; this.closeMenu(); go(this.back); },
+  onData: function (m) {
+    clearInterval(this.poll); this.poll = null;
+    this.items = m.items || []; this.ok = m.ok !== false;
+    if (state.screen === "history") this.render();
+  },
+  find: function (id) { return (this.items || []).filter(function (it) { return it.id === id; })[0]; },
+  render: function () {
+    var sec = document.querySelector('section[data-screen="history"]'); if (!sec) return;
+    var self = this, all = this.items || [], items = all.filter(function (it) { return !self.star || it.star; });
+    var html = '<div class="hist-head"><button type="button" class="btn ghost sm" data-act="hist_back">' + ico("back") + tr(this.back === "result" ? "결과로 돌아가기" : "지도로") +
+      '</button><h2 tabindex="-1">' + tr("생성 기록") + '</h2><span></span></div><div class="seg" role="group" aria-label="' + tr("생성 기록") + '">' +
+      segBtn("hist_filter", ' data-v="all"', !this.star, tr("전체")) + segBtn("hist_filter", ' data-v="star" aria-label="' + tr("즐겨찾기") + '" title="' + tr("즐겨찾기") + '"', this.star, ico("star")) + "</div>";
+    if (!this.ok) html += '<p class="hint">' + tr("생성 기록을 받지 못했습니다") + "</p>";
+    if (this.items === null) html += '<p class="hint">' + tr("불러오는 중") + "</p>";
+    else if (!items.length) html += this.ok ? '<p class="hint">' + tr("아직 생성 기록이 없습니다") + "</p>" : "";
+    else {
+      var now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(), week = today - 6 * 864e5;
+      var groups = [[tr("오늘"), []], [tr("이번 주"), []], [tr("그 전"), []]];
+      items.forEach(function (it) { var t = +it.built_at || 0; groups[t >= today ? 0 : t >= week ? 1 : 2][1].push(it); });
+      html += groups.filter(function (g) { return g[1].length; }).map(function (g) {
+        return '<div class="hist-group"><div class="tray-h">' + esc(g[0]) + '</div><div class="mlist">' + g[1].map(function (it) { return self.rowHtml(it, today); }).join("") + "</div></div>";
+      }).join("");
+    }
+    sec.innerHTML = html;
+    var edit = $("hist_edit"); if (edit) { edit.focus(); edit.select(); }
+  },
+  rowHtml: function (it, today) {
+    var t = new Date(+it.built_at || 0), two = function (n) { return (n < 10 ? "0" : "") + n; };
+    var when = t.getTime() >= today ? two(t.getHours()) + ":" + two(t.getMinutes()) : two(t.getMonth() + 1) + "-" + two(t.getDate());
+    var sub = [when, +it.radius > 0 ? rangeLabel({ shape: it.shape, radius: +it.radius }) : "", it.detail === "advanced" ? tr("고급 모델") : ""].filter(Boolean).join(" · ");
+    var id = esc(it.id), name = it.label || "–", lock = state.run === "running" ? " disabled" : "";
+    var star = '<button type="button" class="ib sm hist-star" data-act="hist_star" data-id="' + id + '" aria-pressed="' + !!it.star + '" aria-label="' + esc(tr("즐겨찾기") + ": " + name) + '">' + ico("star") + "</button>";
+    if (this.editing === it.id)
+      return '<div class="hist-row" data-id="' + id + '"><div class="hist-open">' + this.thumb(it) + '<input type="text" class="hist-name" id="hist_edit" data-id="' + id + '" value="' + esc(name) + '" maxlength="80" aria-label="' + tr("이름 바꾸기") + '"></div>' + star + "</div>";
+    return '<div class="hist-row" data-id="' + id + '"><button type="button" class="hist-open" data-act="hist_pick" data-id="' + id + '"' + lock + ">" + this.thumb(it) +
+      '<span class="txt"><span class="name">' + esc(name) + '</span><span class="sub num">' + esc(sub) + "</span></span></button>" + star + "</div>";
+  },
+  thumb: function (it) {   // 대상지 윤곽 + 범위(점선) — 경위도로 그리는 작은 그림, 3D 캡처 없음. 구역은 링, 필지·위치는 가운데 표시
+    var t = it.target || {}, c = it.center, ring = t.ring || [], r = +it.radius || 250, half = 12;
+    var range = it.shape === "rect" ? '<rect x="' + (16 - half) + '" y="' + (16 - half) + '" width="' + 2 * half + '" height="' + 2 * half + '" rx="1.5"/>' : '<circle cx="16" cy="16" r="' + half + '"/>';
+    var shape = it.mode === "point" ? '<circle class="t" cx="16" cy="16" r="2.5"/>' : '<rect class="t" x="12" y="12" width="8" height="8" rx="1"/>';
+    if (ring.length >= 3 && c && c.length === 2) {
+      var kx = Math.cos(c[1] * Math.PI / 180) * 111320, ky = 110540, s = half / r;
+      shape = '<polygon class="t" points="' + ring.map(function (p) {
+        var x = 16 + (p[0] - c[0]) * kx * s, y = 16 - (p[1] - c[1]) * ky * s;
+        return Math.max(1, Math.min(31, x)).toFixed(1) + "," + Math.max(1, Math.min(31, y)).toFixed(1);
+      }).join(" ") + '"/>';
+    }
+    return '<svg class="hist-thumb" viewBox="0 0 32 32" aria-hidden="true"><g class="rg">' + range + "</g>" + shape + "</svg>";
+  },
+  pick: function (id) {
+    var it = this.find(id); if (!it || state.run === "running" || state.job2d === "running") return;
+    clearInterval(this.poll); this.poll = null;
+    if (it.dir) { send({ cmd: "open_result", dir: it.dir }); return; }   // 이 PC에 결과 폴더가 있다 — 결과 화면
+    var t = it.target || {};   // 없으면 같은 대상지·설정으로 지도에(지금 데이터 판으로 다시 만든다)
+    var rs = { target: { mode: it.mode, pnus: t.pnus || [] }, target_lnglat: { center: it.center, ring: t.ring || [], rings: t.ring ? [t.ring] : [] }, options: it.options || {} };
+    go("map");
+    if (!restoreResultTarget(rs)) toast(tr("이 기록은 지도에 되살릴 수 없습니다"));
+    track("history_restore", it.mode || "");
+  },
+  toggleStar: function (id) {
+    var it = this.find(id); if (!it) return;
+    it.star = !it.star; this.render();
+    send({ cmd: "history_change", id: id, star: it.star }); track("history_star", it.star ? "on" : "off");
+  },
+  menuFor: function (id, x, y) {
+    var m = $("hist_menu"), it = this.find(id); if (!it) return;
+    m.innerHTML = '<button type="button" role="menuitem" data-act="hist_rename" data-id="' + esc(id) + '">' + ico("pen") + tr("이름 바꾸기") + '</button>' +
+      '<button type="button" role="menuitem" data-act="hist_remove" data-id="' + esc(id) + '">' + ico("trash") + tr("기록에서 빼기") + "</button>";
+    m.hidden = false;
+    m.style.left = Math.max(4, Math.min(x, window.innerWidth - m.offsetWidth - 4)) + "px";
+    m.style.top = Math.max(4, Math.min(y, window.innerHeight - m.offsetHeight - 4)) + "px";
+    m.querySelector("button").focus();
+  },
+  closeMenu: function () { var m = $("hist_menu"); if (m) m.hidden = true; },
+  rename: function (id) { this.closeMenu(); this.editing = id; this.render(); },
+  saveName: function (input, keep) {
+    var id = input.getAttribute("data-id"), it = this.find(id), value = input.value.trim().slice(0, 80);
+    this.editing = "";
+    if (it && keep && value && value !== it.label) { it.label = value; send({ cmd: "history_change", id: id, label: value }); }
+    this.render();
+  },
+  remove: function (id) {
+    this.closeMenu();
+    this.items = (this.items || []).filter(function (it) { return it.id !== id; }); this.render();
+    send({ cmd: "history_change", id: id, delete: true }); track("history_delete", "");
+  }
+};
+handlers.history = function (m) { HIST.onData(m); };
+Object.assign(ACTIONS, {
+  hist_open: function () { var from = state.screen; HIST.open(); track("history_open", from); },
+  hist_back: function () { HIST.leave(); },
+  hist_filter: function (b) { HIST.star = b.dataset.v === "star"; HIST.render(); },
+  hist_pick: function (b) { HIST.pick(b.dataset.id); },
+  hist_star: function (b) { HIST.toggleStar(b.dataset.id); },
+  hist_rename: function (b) { HIST.rename(b.dataset.id); },
+  hist_remove: function (b) { HIST.remove(b.dataset.id); }
+});
+document.addEventListener("contextmenu", function (e) {   // 기록 줄 오른쪽 클릭(키보드 메뉴 키도) — 이름 바꾸기·기록에서 빼기
+  var row = state.screen === "history" && e.target.closest(".hist-row"); if (!row) return;
+  e.preventDefault();
+  var box = row.getBoundingClientRect();
+  HIST.menuFor(row.getAttribute("data-id"), e.clientX || box.left + 48, e.clientY || box.bottom);
+});
+document.addEventListener("keydown", function (e) {
+  var input = e.target && e.target.id === "hist_edit" ? e.target : null;
+  if (input && (e.key === "Enter" || e.key === "Escape")) { e.preventDefault(); HIST.saveName(input, e.key === "Enter"); return; }
+  if (e.key === "Escape" && !$("hist_menu").hidden) { HIST.closeMenu(); }
+}, true);
+document.addEventListener("focusout", function (e) { if (e.target && e.target.id === "hist_edit") HIST.saveName(e.target, true); });
+document.addEventListener("click", function (e) { if (!$("hist_menu").hidden && !e.target.closest("#hist_menu")) HIST.closeMenu(); }, true);
+// [/blender-cut]
 window.app = { receive: function (msg) { var h = handlers[msg && msg.type]; if (h) h(msg); else console.warn("unknown push", msg); } };
 
 $("lang_pick").innerHTML = Object.keys(LANG_NAMES).map(function (k) { return '<option value="' + k + '">' + LANG_NAMES[k] + "</option>"; }).join("");
@@ -2629,6 +2988,22 @@ applyStaticText();
 // ── 목 모드 (?mock=1) — Rhino 없이 브라우저에서. &step=1 지도까지 · (기본) 3D 완료 · &step=2d 2D까지 · &menu=1 메뉴 · &lang=ko 언어 ──
 var MOCK = /[?&]mock=1/.test(location.search);
 if (MOCK) {
+  var mockAccount = function (kind) {
+    var on = kind !== "off", member = kind === "member", fallback = kind === "fallback";   // fallback = 로그인 고장으로 연 실행
+    return { enabled: on, state: member ? "member" : "guest", fallback: fallback, email: member ? "name@gmail.com" : "", plan_name: member ? "Member" : "Guest",
+      features: member ? ["detail_advanced", "history_sync"] : !on || fallback ? ["detail_advanced"] : [], trials_left: { detail_advanced: kind === "trial0" ? 0 : 3 },
+      prompt_on_build: on && !fallback ? "first" : "off", prompt_seen: false };
+  };
+  var mockLoginAt = 0, mockHistAt = 0;
+  var mockHistory = function () {
+    var now = Date.now(), h = 36e5, day = 864e5;
+    return { type: "history", ok: true, items: /[?&]hist=0/.test(location.search) ? [] : [
+      { id: "a", label: "성수동2가 277-17 외 1", built_at: now - 2 * h, mode: "lots", shape: "rect", radius: 500, detail: "advanced", star: true, target: { pnus: ["1120011500102770017"] }, center: [127.0565, 37.5445], options: {}, dir: "/mock/result" },
+      { id: "b", label: "을지로3가 구역", built_at: now - 5 * h, mode: "area", shape: "rect", radius: 1000, detail: "basic", star: false, center: [126.992, 37.566], options: {},
+        target: { ring: [[126.9895, 37.5672], [126.9946, 37.5675], [126.9949, 37.5651], [126.9898, 37.5647]] } },
+      { id: "c", label: "연남동 239-5", built_at: now - 2 * day, mode: "lots", shape: "circle", radius: 500, detail: "advanced", star: false, target: { pnus: ["1144012400102390005"] }, center: [126.9236, 37.5627], options: {} },
+      { id: "d", label: "Shibuya, Tokyo", built_at: now - 9 * day, mode: "point", shape: "rect", radius: 500, detail: "basic", star: true, center: [139.7016, 35.658], options: {} }] };
+  };
   send = function (msg) {
     console.log("[send]", JSON.stringify(msg));
     if (msg.cmd === "set_sun") setTimeout(function () {   // 해와 그림자 — 서울 위도로 대강(적위는 계절 표 값)
@@ -2637,6 +3012,11 @@ if (MOCK) {
       window.app.receive({ type: "sun_state", dir: state.result.dir, seq: msg.seq, on: msg.on, applied: true, altitude: alt / r, korea: true, clock: msg.minutes + 30.5,
         azimuth: (Math.atan2(Math.sin(h), Math.cos(h) * Math.sin(lat) - Math.tan(d) * Math.cos(lat)) / r + 180) % 360, daylight: [720 - half, 720 + half] });
     }, 50);
+    if (msg.cmd === "account_login") { mockLoginAt = Date.now(); setTimeout(function () { window.app.receive({ type: "account_state", state: "waiting" }); }, 50); }
+    if (msg.cmd === "account_poll" && mockLoginAt && Date.now() - mockLoginAt > 2500) { mockLoginAt = 0; window.app.receive(Object.assign({ type: "account_state", error: "" }, mockAccount(/[?&]loginfail=1/.test(location.search) ? "fallback" : "member"))); }   // &loginfail=1 — 로그인 고장
+    if (msg.cmd === "account_logout" || msg.cmd === "account_cancel") { mockLoginAt = 0; setTimeout(function () { window.app.receive(Object.assign({ type: "account_state", error: "" }, mockAccount("guest"))); }, 50); }
+    if (msg.cmd === "history_list") mockHistAt = Date.now();   // 회원 생성 기록 — &screen=history로 바로 보기
+    if (msg.cmd === "history_poll" && mockHistAt && Date.now() - mockHistAt > 400) { mockHistAt = 0; window.app.receive(mockHistory()); }
     if (msg.cmd === "install_update") setTimeout(function () { window.app.receive({ type: "update_state", state: /[?&]updfail=1/.test(location.search) ? "failed" : "done", text: "", next: /[?&]updrestart=1/.test(location.search) ? "restart" : "reopen" }); }, 1500);   // &updfail=1 — 실패 화면
   };
   var upto = (location.search.match(/[?&]step=(\w+)/) || [])[1] || "3d";
@@ -2647,6 +3027,7 @@ if (MOCK) {
     var ml = (location.search.match(/[?&]lang=(\w+)/) || [])[1]; if (ml) msgs[0].options = Object.assign({}, msgs[0].options, { lang: ml });
     var up = (location.search.match(/[?&]update=(\w+)/) || [])[1];   // &update=soft|hard — 업데이트 모달 보기
     msgs[0].host = Object.assign({}, msgs[0].host, { self_update: !/[?&]selfupd=0/.test(location.search) });   // [지금 업데이트]. &selfupd=0 — 수동 안내(스토어가 업데이트하는 프로그램·yak 없음)
+    msgs[0].account = mockAccount((location.search.match(/[?&]account=(\w+)/) || [])[1] || "guest");   // &account=guest|trial0|member|fallback|off — 회원 화면 보기
     if (up) msgs[0].update = up === "hard" ? { latest: "0.3.0", min: "0.3.0" }
       : { latest: "0.3.0", body: "새 버전부터 계정으로 로그인합니다. 무료로 계속 쓸 수 있습니다.", deadline: "12월 1일",
           items: ["로그인과 최근 대상지 동기화", "결과 화면 하단 후원 안내", "현황도 3종 추가"] };
@@ -2676,6 +3057,7 @@ if (MOCK) {
         if (/[?&]s3d=1/.test(location.search)) { var d = $("s3d"); if (d) d.open = true; }
         var sm = (location.search.match(/[?&]sun=(\w+)/) || [])[1];   // &sun=winter|summer|equinox — 해와 그림자 카드를 켠 화면(&min=분)
         if (sm && state.result) { state.sun.season = sm; state.sun.minutes = +((location.search.match(/[?&]min=(\d+)/) || [])[1] || 720); ACTIONS.sun_toggle(); }
+        if (/[?&]screen=history/.test(location.search) && ACTIONS.hist_open) ACTIONS.hist_open();   // 회원 생성 기록
         return;
       }
       var m = msgs[i++];
