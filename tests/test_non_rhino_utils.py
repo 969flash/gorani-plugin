@@ -248,6 +248,24 @@ class CleanEdgeTest(unittest.TestCase):
         idx = u.PolygonIndex([[[(0, 0), (10, 0), (10, 10), (0, 10)], [(4, 4), (6, 4), (6, 6), (4, 6)]]])   # 구멍 있는 네모
         self.assertEqual([idx.contains(2, 2), idx.contains(5, 5), idx.contains(11, 5)], [True, False, False])
         self.assertEqual([idx.is_near(12, 5, 3.0), idx.is_near(15, 5, 3.0), idx.is_near(5, 5, 1.0)], [True, False, True])
+        # 작은 dist(난간 0.05 m)와 큰 dist를 번갈아 물어도 맞고(칸 = max(dist, band)), 색인은 dist마다 한 번만 만든다 — 2026-11-15 교량 80 s
+        import random
+        rng = random.Random(7)
+        ring = [(math.cos(a) * 300, math.sin(a) * 300) for a in (k * math.pi / 64 for k in range(128))]
+        idx = u.PolygonIndex([[ring]])
+
+        def brute(x, y, dist):
+            for (x1, y1), (x2, y2) in zip(ring, ring[1:] + ring[:1]):
+                dx, dy = x2 - x1, y2 - y1
+                t = max(0.0, min(1.0, ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy)))
+                if math.hypot(x - x1 - dx * t, y - y1 - dy * t) <= dist:
+                    return True
+            return False
+        for _ in range(400):
+            a, r, dist = rng.uniform(0, 2 * math.pi), rng.uniform(290, 310), rng.choice((0.05, 0.4, 3.0, 12.0))
+            x, y = math.cos(a) * r, math.sin(a) * r
+            self.assertEqual(idx.is_near(x, y, dist), brute(x, y, dist), (x, y, dist))
+        self.assertEqual(sorted(idx._near), [0.05, 0.4, 3.0, 12.0])
 
     def test_shore_fitted(self):
         water = ([(0, 0, 1.0), (10, 0, 2.0), (10, 4, 2.0), (0, 4, 1.0)], [(0, 1, 2, 3)])

@@ -607,7 +607,7 @@ def _get_align_stats(samples):
 def get_abroad_sources(today=None, country=""):
     # type: (datetime.date, str) -> list
     """해외 대상지의 원천 상태 4건(lot·building·terrain·api) — 필지 없음, 건물·지형은 생성 때 OSM·지형 타일에서 받는다.
-    country(data_pack.get_country_packs 키)가 있으면 건물은 그 나라 팩(있는 지역만)·OSM, 일본은 지형도 지리원 5 m 타일."""
+    country(data_pack.get_country_packs 키)가 있으면 건물은 그 나라 팩(있는 지역만)·OSM. 지형은 어디서나 Mapterhorn(osm_context.get_terrain_spots)."""
     label = data_pack.get_country_packs()[country]["label"] if country else ""
     today = (today or datetime.date.today()).isoformat()
     def row(source_id, name, level, text):
@@ -615,7 +615,7 @@ def get_abroad_sources(today=None, country=""):
                 "age_months": 0.0 if level == "ok" else None, "level": level, "newer_date": None, "text": text}
     return [row("lot", tr("해외 — 필지 자료 없음"), "missing", tr("해외")),
             row("building", label + "·OpenStreetMap" if label else "OpenStreetMap", "ok", tr("생성 때 받음")),
-            row("terrain", tr("국토지리원 5 m DEM") if country == "jp" else tr("Terrain Tiles (약 30 m DEM)"), "ok", tr("생성 때 받음")), row("api", tr("필요 없음"), "ok", "")]
+            row("terrain", tr("Mapterhorn(나라별 라이다 지형, 없는 곳 약 30 m)"), "ok", tr("생성 때 받음")), row("api", tr("필요 없음"), "ok", "")]
 
 
 def get_sources(lot_database_path=None, context_database_path=None, today=None):
@@ -906,18 +906,21 @@ def _prepare_abroad(request, options, today, target, lot_name, warnings, origin,
     source_ids = {s.source_id for s in context.sources}
     pack_label = "·".join(data_pack.get_pack_label(i) for i in sorted(source_ids & set(data_pack.get_pack_source_ids())))   # PLATEAU 등
     if "osm_detail_missing" in getattr(context, "notes", []):   # 디테일 질의만 실패 — 본 모델은 그대로
-        warnings.append(_warning("info", "osm_detail_missing", tr("OSM 서버가 붐벼 가로수·담·횡단보도를 빼고 만들었습니다"),
-                                 tr("잠시 뒤 다시 만들면 들어갑니다. 3D 설정에서 끄면 묻지 않습니다.")))
-    if "osm" not in source_ids:   # Overpass가 막혔다 — 팩 건물·지형만(osm_context.load)
+        warnings.append(_warning("info", "osm_detail_missing", tr("OSM 서버가 붐벼 가로수·옹벽·횡단보도를 빼고 만들었습니다"),
+                                 tr("잠시 뒤 다시 만들면 들어갑니다. 수준을 '기본'으로 하면 묻지 않습니다.")))
+    if "openfreemap" in source_ids:   # Overpass가 막혀 타일 대체로 만들었다(osm_context.get_elements)
+        warnings.append(_warning("warn", "osm_fallback", tr("OSM 서버가 붐벼 간이 데이터(OpenFreeMap 주간 사본)로 만들었습니다"),
+                                 tr("도로 폭은 등급 기본값이고 층수·건물 용도가 없습니다. 잠시 뒤 다시 만들면 OSM 원본으로 만듭니다.")))
+    if not source_ids & {"osm", "openfreemap"}:   # Overpass·타일 모두 막혔다 — 팩 건물·지형만(osm_context.load)
         warnings.append(_warning("warn", "osm_missing", tr("OpenStreetMap을 받지 못해 도로·수계·녹지 없이 만들었습니다"),
                                  tr("{0} 건물과 지형만 들어 있습니다. 잠시 뒤 다시 만들면 도로·수계·녹지가 들어갑니다.", pack_label)))
     if pack_label or "gsi_dem" in source_ids:   # 나라별 건물 팩(PLATEAU·PDOK …)·지리원 지형
         warnings.append(_warning("info", "abroad", tr("Global — {0} 건물 {1}동·{2}", pack_label + "·OpenStreetMap" if pack_label else "OpenStreetMap",
-                                                     height["n"], tr("지리원 5 m 지형") if "gsi_dem" in source_ids else tr("지형 타일")),
+                                                     height["n"], tr("지리원 5 m 지형") if "gsi_dem" in source_ids else tr("Mapterhorn 지형") if "mapterhorn" in source_ids else tr("지형 타일")),
                                  tr("필지·용도지역 도면은 Korea 모드에만 있고, 실측 높이·높이 태그가 있는 건물은 {0} %입니다(나머지 {1:.1f} m 또는 층수 추정).",
                                     round(grade_ab * 100), constants.DEFAULT_BUILDING_HEIGHT_M)))
     else:
-        warnings.append(_warning("info", "abroad", tr("Global — OpenStreetMap 건물 {0}동·지형 타일", height["n"]),
+        warnings.append(_warning("info", "abroad", tr("Global — OpenStreetMap 건물 {0}동·{1}", height["n"], tr("Mapterhorn 지형") if "mapterhorn" in source_ids else tr("지형 타일")),
                                  tr("필지·용도지역 도면은 Korea 모드에만 있고, 높이 태그가 있는 건물은 {0} %입니다(나머지 {1:.1f} m 또는 층수 추정).",
                                     round(grade_ab * 100), constants.DEFAULT_BUILDING_HEIGHT_M)))
     if not height["n"]:
@@ -1012,7 +1015,7 @@ def get_recent_results(result_root=None, hidden=(), model_name=None, limit=None)
     입력: 결과 루트(기본 HOME_DIR/result), 목록에서 뺀 폴더(site_prefs.get_hidden_results), 이 프로그램의 3D 파일 이름(HOST_LABELS model).
     처리: context.json이 있는 결과 폴더를 context.json 시각 순(새것 먼저)으로 — 예전 판 폴더(context.json 없음)·다른 프로그램 결과(그 3D 파일 없음)는 뺀다.
           패널 '최근 결과'(2026-11-07 — 대상지를 바꾸거나 패널을 닫으면 결과 화면으로 돌아갈 길이 없었다. 파일은 다 남아 있었다).
-    출력: [{dir, label, mode, built_at, buildings, has_2d}] RECENT_RESULTS_MAX개까지.
+    출력: [{dir, entry_id, label, mode, built_at, buildings, has_2d}] RECENT_RESULTS_MAX개까지(limit이면 그만큼).
     """
     root = result_root or os.path.join(constants.HOME_DIR, constants.RESULT_DIRNAME)
     model_name = model_name or constants.HOST_LABELS[get_host()]["model"]
@@ -1030,7 +1033,7 @@ def get_recent_results(result_root=None, hidden=(), model_name=None, limit=None)
             meta = _read_meta(folder)
         except (OSError, ValueError):   # 쓰다 만 context.json — 목록에서만 뺀다
             continue
-        results.append({"dir": folder, "label": str(meta.get("lot_name") or os.path.basename(folder)).replace("_", " "),
+        results.append({"dir": folder, "entry_id": meta.get("entry_id") or "", "label": str(meta.get("lot_name") or os.path.basename(folder)).replace("_", " "),
                         "mode": meta.get("mode") or "lots", "built_at": meta.get("built_at") or "",
                         "buildings": (meta.get("counts") or {}).get("buildings"), "has_2d": bool(_get_2d_dirs(folder))})
     return results
@@ -1043,7 +1046,7 @@ def get_result_state(result_dir, model_name=None):
     처리: context.json으로 결과 화면에 필요한 것 — 3D 파일·건물 수·옵션·만든 2D 폴더, 그리고 지도에 대상지를 되살릴 경위도
           (구역 링·위치·필지 중심 — crs로 바꾼다, non_rhino_utils.get_lnglat_in_crs).
           만든 2D는 폴더마다 made_2d.json(2D를 만들 때 패널이 받은 결과)이 있으면 그것도 — 패널이 2D 카드를 그대로 다시 그린다.
-    출력: {type: result_opened, dir, lot_name, label, built_at, context{path, buildings, imported}, options, target, target_lnglat{center, ring},
+    출력: {type: result_opened, dir, entry_id, lot_name, label, built_at, context{path, buildings, imported}, options, target, target_lnglat{center, ring},
           made2d_list: [{dir, made2d|null, made_at}](만든 순서 — 마지막이 최신, made_at = 폴더 수정 시각)}.
     """
     meta = _read_meta(result_dir)
@@ -1053,7 +1056,7 @@ def get_result_state(result_dir, model_name=None):
     center = non_rhino_utils.get_lnglat_in_crs([meta["center"]], crs) if len(meta.get("center") or []) == 2 else []
     rings = [non_rhino_utils.get_lnglat_in_crs(ring, crs) for ring in get_spec_rings(target)] if target.get("mode") == "area" else []
     point = non_rhino_utils.get_lnglat_in_crs([target["center"]], crs) if target.get("mode") == "point" and target.get("center") else []
-    return {"type": "result_opened", "dir": result_dir, "lot_name": meta.get("lot_name") or "", "lot_key": meta.get("lot_key") or "",
+    return {"type": "result_opened", "dir": result_dir, "entry_id": meta.get("entry_id") or "", "lot_name": meta.get("lot_name") or "", "lot_key": meta.get("lot_key") or "",
             "label": str(meta.get("lot_name") or os.path.basename(result_dir)).replace("_", " "), "built_at": meta.get("built_at") or "",
             "context": {"path": os.path.join(result_dir, model_name), "buildings": (meta.get("counts") or {}).get("buildings"), "imported": False},
             "options": meta.get("options") or {}, "target": target, "korea": crs == "EPSG:5186",

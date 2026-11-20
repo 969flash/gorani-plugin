@@ -184,7 +184,7 @@ else:
 
 BLENDER_APP = "/Applications/Blender.app/Contents/MacOS/Blender"
 BLENDER_PACKAGE_ID = "gorani"
-BLENDER_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py", "cmd_sketchup.py", "cmd_rhino7.py", "cmd_archicad.py", "cmd_web.py", "usage_stats.py")    # Rhino 전용(Eto·RhinoCommon·사용 통계), SketchUp·Rhino 7·Archicad 사이드카, 웹판
+BLENDER_EXCLUDED_NAMES = ("panel_host.py", "cmd_install.py", "cmd_sketchup.py", "cmd_rhino7.py", "cmd_archicad.py", "cmd_web.py", "usage_stats.py", "account.py")    # Rhino 전용(Eto·RhinoCommon·사용 통계), SketchUp·Rhino 7·Archicad 사이드카, 웹판
 # 확장 심사(2026-10-28): 애드온에는 Blender 코드만 — 다른 프로그램(Rhino·SketchUp) 분기, Blender에 없는 라이브러리 import, 스레드(threading·queue)는 안 된다.
 # 공용 모듈의 그런 구간은 소스에서 `# [blender-cut]` … `# [/blender-cut]` 줄(패널 HTML은 `// [blender-cut]`)로 감싸 두고 패키지에서 뺀다(get_blender_source).
 # 남으면 get_blender_problems가 빌드를 멈춘다. 번역 사전은 다른 프로그램·사용 통계 문구를 뺀다(BLENDER_I18N_DROPPED)
@@ -262,6 +262,7 @@ BLENDER_CONSTANT_PATCHES = {
         "VWORLD_API_KEY_ENV": '""', "VWORLD_SEARCH_URL": '""',
         "OSM_USER_AGENT": '"Gorani/0.3 (Blender add-on; https://gorani.site/)"',
         "PDOK_ITEMS_URL": '""', "BDTOPO_FEED_URL": '""', "SWISS_STAC_ITEMS_URL": '""', "PLATEAU_CKAN_URL": '""', "CENSUS_COUNTY_URL": '""', "OVERTURE_S3_URL": '""',
+        "ACCOUNT_ENABLED": "False", "ACCOUNT_TOKEN_URL": '""', "ACCOUNT_FIREBASE": '{"api_key": "", "project_id": "", "db_url": ""}',   # 회원 없음 — 확장 약관: 외부 서비스에 가입을 요구할 수 없다(account.py도 뺀다)
     },
     "review_map.py": {"VWORLD_TILE_URL_TEMPLATE": '""', "VWORLD_AERIAL_URL_TEMPLATE": '""', "ESRI_AERIAL_URL": '""', "IP_LOCATE_URL": '""'},
 }
@@ -270,11 +271,13 @@ BLENDER_CONSTANT_PATCHES = {
 BLENDER_ALLOWED_HOSTS = (
     "127.0.0.1",                                                       # 패널 서버(이 컴퓨터)
     "tile.openstreetmap.org", "nominatim.openstreetmap.org", "overpass-api.de", "overpass.openstreetmap.fr",   # OpenStreetMap — 지도·지명 검색·건물·도로
-    "s3.amazonaws.com", "cyberjapandata.gsi.go.jp",                    # 지형 타일 — AWS Open Data Terrain Tiles, 일본 국토지리원
+    "tiles.openfreemap.org",                                           # Overpass가 다 막힐 때 같은 범위의 OSM 주간 사본 벡터 타일(무료·무가입, constants.OSM_FALLBACK_TILEJSON_URL)
+    "tiles.mapterhorn.com", "single-archive-tiles.mapterhorn.com", "download.mapterhorn.com",   # 정밀 지형 — Mapterhorn 타일·원천 구역·원천 목록(출처 표기)
+    "s3.amazonaws.com", "cyberjapandata.gsi.go.jp",                    # 지형 타일 — Mapterhorn을 못 받을 때 AWS Open Data Terrain Tiles, 일본 국토지리원
     "raw.githubusercontent.com", "github.com",                         # 데이터 팩 매니페스트·팩(GitHub 사본 constants.DATA_GITHUB_REPO)
     "150.230.249.1",                                                   # 한국 건물·도로·등고선 팩(국내 서버 — 공간정보관리법 제16조, constants.DATA_DOMESTIC_BASE_URL)
     "gorani.site", "extensions.blender.org", "www.eum.go.kr", "www.openstreetmap.org", "wiki.openstreetmap.org", "registry.opendata.aws",
-    "maps.gsi.go.jp", "www.mlit.go.jp", "overturemaps.org", "creativecommons.org", "www.w3.org", "leafletjs.com", "bugs.chromium.org",
+    "maps.gsi.go.jp", "www.mlit.go.jp", "mapterhorn.com", "overturemaps.org", "openfreemap.org", "creativecommons.org", "www.w3.org", "leafletjs.com", "bugs.chromium.org",
     "bugzilla.mozilla.org", "fsf.org", "www.gnu.org",
 )
 # `if __package__:` … `else:` 진입 분기(cmd_site·cmd_blender) — 패키지에서는 앞쪽만 남긴다(뒤쪽은 Rhino·저장소 시험용 sys.modules 넣기)

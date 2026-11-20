@@ -178,7 +178,23 @@ PANEL_LINKS = {
     "website": "https://gorani.site/",   # 고라니 웹페이지 — 설치·사용법
     "website_en": "https://gorani.site/en/",   # 같은 페이지 영어판 — 패널 언어가 한국어가 아니면 이쪽
     "contact": "mailto:gorani.3d@gmail.com",   # 문의 메일 — 더보기 메뉴 '문의'(2026-10-30 사용자)
+    "sponsor": "https://github.com/sponsors/969flash",   # 후원 — 더보기 메뉴 '도움' 문의 아래(2026-11-18 사용자, 웹사이트 꼬리말과 같은 곳). Blender판에는 줄이 없다
 }
+# 3D 만드는 동안 진행 카드 아래에 도는 한 줄(2026-11-18 사용자) — 원격 설정. 글은 i18n.json 원문(새 줄을 더하면 번역도 같이 올린다)
+# kind: tip·contact = 누구나, login = 회원 기능이 켜진 손님에게만, sponsor = 후원 링크가 있을 때(Blender판은 없음). 첫 줄은 늘 '화면이 멈출 수 있습니다'(패널 jobLines)
+LOADING_TIPS = [
+    {"text": "범위가 1 km를 넘으면 만드는 데 1분 넘게 걸릴 수 있습니다.", "kind": "tip"},
+    {"text": "3D가 끝나면 베이스맵(.ai)·다이어그램·조서도 이어서 만들 수 있습니다.", "kind": "tip"},
+    {"text": "도면 색과 글꼴을 바꿔 '내 스타일'로 저장해 두면 다음 대상지에도 쓸 수 있습니다.", "kind": "tip"},
+    {"text": "최근 결과를 누르면 지난 대상지와 설정을 다시 열 수 있습니다.", "kind": "tip"},
+    {"text": "도면마다 데이터 출처와 기준일이 적혀 있습니다.", "kind": "tip"},
+    {"text": "로그인 후 고급 수준을 무제한으로 사용해보세요.", "kind": "login"},
+    {"text": "Gorani는 후원으로 운영합니다.", "kind": "sponsor"},
+    {"text": "후원을 통해 새로운 기능이 도입됩니다.", "kind": "sponsor"},
+    {"text": "Team Gorani에게 많은 후원 부탁드립니다.", "kind": "sponsor"},
+    {"text": "협업·개선 문의는 gorani.3d@gmail.com으로 보내 주세요.", "kind": "contact"},
+]
+LOADING_TIP_SECONDS = 8         # 다음 문구로 바뀌는 간격(첫 문구는 만들 때마다 무작위)
 
 # 토지이음(국토교통부) 토지이용계획 열람 상세 — 패널 필지 정보의 [토지이음 ↗](open_eum)과 parcels.csv eum_url.
 # mode=search·isNoScr=script를 붙인 형태로 pnu가 상세 폼에 실리는 것을 확인했다.
@@ -323,6 +339,41 @@ OSM_SEARCH_TIMEOUT_SECONDS = 10   # 지명 검색은 UI 스레드에서 기다�
 OSM_TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 OSM_TERRAIN_ZOOM = 13           # 픽셀 약 19 m(적도)·15 m(위도 37°). 원천 DEM이 약 30 m라 더 키워도 정밀해지지 않는다
 OSM_TERRAIN_STEP = 2            # 픽셀 건너뛰기 — 표고점 간격 약 30 m
+# OSM 받기 보험 — Overpass(모든 미러·다시 묻기)가 다 실패하면 같은 범위를 OpenFreeMap 벡터 타일(OSM 주간 사본, OpenMapTiles 스키마)로 받는다(osm_context.get_tile_elements).
+# 이용 조건(https://openfreemap.org/tos/ 2026-10-14판, 2026-11-14 확인): 키·가입 없음, 상업 이용 가능, 출처 표기 필수(인쇄물 포함).
+# 앱의 지역 받기는 한 번에 3,000타일·50 MB 이하, 동시 요청 4개 이하, 앱을 밝힌 User-Agent(OSM_USER_AGENT) — 타일을 하나씩 차례로 받는다.
+# 타일 주소는 주간 판 폴더라(2026-11-14: planet/20261101_080013_pt/{z}/{x}/{y}.pbf) TileJSON에서 읽는다. 매니페스트 services.osm_fallback이 덮을 수 있다
+OSM_FALLBACK_TILEJSON_URL = "https://tiles.openfreemap.org/planet"
+OSM_FALLBACK_CREDIT = "OpenFreeMap © OpenMapTiles · Data from OpenStreetMap (© OpenStreetMap contributors, ODbL 1.0)"   # TileJSON attribution 그대로
+OSM_FALLBACK_ZOOM = 14          # 최대 줌(건물은 z13~14만). 위도 47°에서 타일 약 1.7 km — 반경 1 km면 4~9장, 파리 도심 타일 약 1.2 MB
+OSM_FALLBACK_MAX_BYTES = 50 * 1024 * 1024   # 이용 조건의 한 번 받기 상한 — 넘으면 대체를 멈춘다(반경 2 km 상한이면 16장 안팎이라 닿지 않는다)
+OSM_FALLBACK_TIMEOUT_SECONDS = 30
+OSM_FALLBACK_LAYERS = ("building", "transportation", "water", "waterway", "landcover", "landuse", "park", "poi")   # 나머지 레이어는 해독하지 않는다
+# 타일 경계에서 잘린 면 조각의 정점을 이 거리 안이면 한 점으로 본다(non_rhino_utils.get_merged_rings). 단위 = 1/4096 타일(z14 위도 47°에서 약 0.4 m).
+# 타일은 경계 밖 64 단위까지 겹쳐 담고 정점은 정수 격자라, 양쪽 타일이 경계에서 자른 점이 1 단위 안팎으로 어긋난다(2026-11-14 파리 타일 실측)
+OSM_FALLBACK_SEAM_TOLERANCE = 2.0
+OSM_FALLBACK_DEFAULT_HEIGHT = 5   # OpenMapTiles render_height 기본값 — height·층수 태그가 없으면 5 m(정수 올림). 이 값이면 우리 기본 높이(D)로
+# OpenMapTiles transportation class → OSM highway(폭은 OSM_ROAD_WIDTHS). minor = residential·unclassified·living_street, path는 subclass(footway 등) 그대로.
+# rail·transit은 subclass가 railway 값. 공사 중(*_construction)·ferry·aerialway는 뺀다
+OSM_FALLBACK_ROAD_CLASSES = {"motorway": "motorway", "trunk": "trunk", "primary": "primary", "secondary": "secondary", "tertiary": "tertiary",
+                             "minor": "residential", "service": "service", "track": "track"}
+OSM_FALLBACK_STATIONS = ("station", "subway")   # poi class railway의 subclass 중 역(railway=station, 지하철역은 subway) — 정류장(halt·tram_stop)은 Overpass 질의처럼 뺀다
+OSM_FALLBACK_FORCE_ENV = "GORANI_FORCE_OSM_FALLBACK"   # "1"이면 Overpass를 부르지 않고 실패로 본다 — 대체 경로 재현(dev_rhino_run 드라이버·시험)
+# 해외 정밀 지형 — Mapterhorn(나라별 라이다 지형 합본: 독일·오스트리아·스위스·북유럽·영국·프랑스·스페인·일본·미국 일부 0.25~5 m, 그 밖 Copernicus GLO-30 30 m).
+# Terrarium 인코딩 512 px 무손실 WebP → osm_context.decode_webp(순수 파이썬, 한 장 약 0.3 s). 받기·해독이 실패하면(404 아닌 오류) 위 Terrain Tiles·아래 지리원 길.
+# 이용: 공개 타일(코드 BSD-3, 지형은 원천별 공개 라이선스 — 출처 표기 "© Mapterhorn" + 원천 기관), 요청 한도 공지 없음(2026-11-14 mapterhorn.com 확인). docs/data_sources.md
+MAPTERHORN_URL = "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp"
+MAPTERHORN_COVERAGE_URL = "https://single-archive-tiles.mapterhorn.com/coverage/{z}/{x}/{y}.mvt"   # 원천 구역 벡터 타일(coverage 층 source = 원천 id)
+MAPTERHORN_ATTRIBUTION_URL = "https://download.mapterhorn.com/attribution.json"   # 원천 id → 제작 기관·이름·라이선스·해상도
+MAPTERHORN_TILE_SIZE = 512
+MAPTERHORN_MIN_ZOOM, MAPTERHORN_MAX_ZOOM = 12, 17   # z12까지 전 세계, z13~17은 고해상 원천이 있는 곳만(없으면 404 → 부모 타일). 2026-11-14 확인
+MAPTERHORN_COVERAGE_ZOOM = 12   # 원천 이름은 이 줌 타일 하나(수 km)에서 — 대상지 범위(최대 4 km)가 1~4장
+WEB_MERCATOR_EQUATOR = 40075016.686   # m — 웹 메르카토르 적도 둘레(줌 0 타일 한 변)
+TERRAIN_SPOT_SPACING = 3.0      # m — 해외 표고점 간격 하한 = 출력 지형 격자 칸(TERRAIN_GRID). 원천이 1 m여도 메시는 3 m 격자라 더 촘촘하면 시간만 든다
+TERRAIN_MAX_SPOTS = 100000      # 표고점 수 상한(범위 bbox ÷ 간격²) — 넘으면 간격을 넓힌다. TIN·시트 삼각형이 파이썬으로 도는 시간(국내 등고선 TIN과 비슷한 수준)
+TERRAIN_SPOT_SLACK = 1.15       # 한 단계 거친 줌의 화소가 간격의 이 배 안이면 그 줌 — 타일 수가 4분의 1(인스브루크 500 m: z15 1.6 m 대신 z14 3.2 m)
+TERRAIN_TILE_CACHE_MAX = 36     # 해독한 Mapterhorn 타일 보관 장수(한 장 1 MB) — 같은 대상지 다시 만들기(최대 범위 4 km ≈ 16장)
+TERRAIN_TIMEOUT_SECONDS = 20    # 지형 타일 한 장 — 막히면 빨리 Terrain Tiles로 넘어간다
 
 # 데이터 팩 받기(data_pack.py) — Yak 설치본은 DB 없이 깔리고 패널에서 받는다
 DATA_REPO_ID = "hooooooooon/urbandesigntool-data"   # Hugging Face 공개 데이터셋(필지 시군구 팩 + 매니페스트) — dev_deploy upload
@@ -455,7 +506,9 @@ GA_PNU_PARAMS = 4  # 필지 PNU를 나눠 담는 매개변수 수(값 하나에 
 # 패널 버튼 → ui 이벤트(action·detail, 2026-11-02). 목록 밖 action은 버린다 — 패널이 임의 값을 GA로 보내지 못하게. 검색어·주소·경로는 보내지 않는다
 GA_UI_ACTIONS = ("recent", "recent_del", "search_pick", "mode", "force_osm", "output_lang", "pick_curve", "eum", "download_area",
                  "rerange", "to_result", "retry", "open", "open_url", "import", "export", "copylog",
-                 "sheet_ai", "sheet_ai_all", "sheet_view", "style_open", "st_apply", "st_save_ok")
+                 "sheet_ai", "sheet_ai_all", "sheet_view", "style_open", "st_apply", "st_save_ok",
+                 "login_prompt", "account_login", "account_trial", "account_logout", "account_done", "account_fail", "account_fallback",
+                 "history_open", "history_restore", "history_star", "history_delete")   # 회원 — 창이 뜬 곳(advanced·first·header)·로그인 결과
 GA_UI_DETAIL_MAX = 24   # detail = 짧은 분류값(lot·place, ko·en, 폴더·.ai 등)만
 # 관리자 페이지 통계(dev_stats — 이 Mac에서만). 열쇠·쌓은 기록은 저장소 밖 ADMIN_DIR에 둔다(공개 저장소)
 ADMIN_DIR = os.path.join(os.path.expanduser("~"), ".config", "gorani")
@@ -911,6 +964,24 @@ DETAIL_OPTIONS = {   # 키: 기본값
 FEATURES = {
     "detail_advanced": {"options": ["building_parapet", "building_floors", "detail_markings", "detail_trees", "detail_rail", "detail_walls"]},
 }
+# 회원(구글 로그인, docs/account_plan.md) — Firebase(Auth + Realtime Database, 우리 서버 없음)와 웹 /login/. 모두 원격 설정이라 판 없이 켜고 끄고 옮긴다
+ACCOUNT_ENABLED = True          # False = 로그인·자물쇠 없이 고급 누구나(로그인 쪽이 오래 고장 났거나 서버가 틀린 거절을 줄 때 비상 스위치)
+ACCOUNT_FIREBASE = {"api_key": "AIzaSyCggyybM6ngv8v0NUJ2n_0wf476R0vZWxs", "project_id": "gorani-da15f",
+                    "db_url": "https://gorani-da15f-default-rtdb.asia-southeast1.firebasedatabase.app"}   # Firebase 웹 설정(공개 값 — 고라니 운영 계정의 Spark 프로젝트, 2026-11-19). API 키가 비면 회원 기능이 꺼진 것과 같다(고급 누구나)
+ACCOUNT_LOGIN_URL = "https://gorani.site/login/"        # 브라우저 로그인 — ?port&state&h&lang
+ACCOUNT_DONE_URL = "https://gorani.site/login/done/"    # 받는 곳(127.0.0.1)이 로그인을 마치고 브라우저를 넘기는 곳 — ?ok=1|0 또는 ?fallback=1, &lang&h
+ACCOUNT_TOKEN_URL = "https://securetoken.googleapis.com/v1/token"   # 열쇠(refresh token) → 1시간 토큰(Firebase Auth REST)
+ACCOUNT_DENIED_ERRORS = ("USER_DISABLED", "USER_NOT_FOUND", "TOKEN_EXPIRED", "INVALID_REFRESH_TOKEN")   # 이 넷만 확실한 거절(잠금) — 나머지 오류는 고장으로 보고 연다(초기 설정 실수도 거절처럼 보이므로)
+PLAN_FEATURES = {"free": ["detail_advanced", "history_sync"]}   # 이용권 → 기능(서버 쪽 값 — 원격 설정). 토큰에 plan이 없으면 free(로그인 = 회원)
+PLAN_NAMES = {"free": "Member"}  # 화면의 이용권 이름 — 모든 언어에서 같은 영어 고유명사(손님은 패널이 Guest)
+GUEST_FEATURES = []             # 로그인 없이 쓰는 기능 키
+GUEST_TRIALS = {"detail_advanced": 3}   # 로그인 없이 써 보는 횟수(설치마다 ~/.gorani/account.json, 만들기 성공만 센다)
+LOGIN_PROMPT_ON_BUILD = "first" # 손님이 [3D 모델 만들기]를 누를 때 로그인 창 — first(설치마다 처음 한 번)·always·off. 매번은 '만들기가 멈춘 줄' 안다
+ACCOUNT_CHECK_HOURS = 0         # 마지막 확인이 이보다 오래되면 패널을 열 때 뒤에서 다시 확인 — 0 = 열 때마다(웹에서 해제한 PC가 다음에 열 때 로그아웃하게)
+ACCOUNT_LOGIN_MINUTES = 5       # 브라우저에서 돌아오기를 기다리는 시간 — 지나면 로그인 쪽을 다시 재 보고 고장이면 연다
+ACCOUNT_TIMEOUT_SECONDS = 10    # Firebase 요청 하나
+ACCOUNT_PROBE_SECONDS = 4       # 로그인 쪽이 살아 있나 재 보는 요청 하나(로그인을 누를 때·시간이 지났을 때)
+HISTORY_MAX = 300               # 계정 생성 기록 상한 — 넘치면 오래된 것부터(즐겨찾기는 남김). 1 KB × 300 × 3,000명 ≈ RTDB 무료 1 GB
 PARAPET = {"height": 1.0, "width": 0.25, "min_area": 30.0}   # 옥상 난간벽 m — 높이 1.0 m(건축물의 피난·방화구조 규칙 옥상 난간 1.2 m보다 낮은 매스 표현값), 이보다 작은 동(㎡)은 뺀다
 FLOOR_LINE_MIN_FLOORS = 2       # 층 구분선은 이 층수 이상인 동만(층고 = 높이 ÷ 지상층수)
 WALL = {"sample": 2.0, "probe": 2.0, "min_rise": 0.8, "max_rise": 15.0, "width": 0.4, "coping": 0.2, "embed": 0.3}   # 옹벽 — 선 양쪽 probe m 지반 고저차가 min_rise 이상인 구간만 세로 벽(높은 쪽 + coping, 낮은 쪽 − embed). 수치지형도 옹벽은 높이 속성이 없다
@@ -958,7 +1029,8 @@ WATER_STILL_KINDS = ("lake",)   # 고인 물 = 평평한 수면 하나(물가 �
 WATER_SHORE_FALLOFF = 15.0      # m — 물가선에서 이 거리 안 지형을 수면 쪽으로 부드럽게 내린다(non_rhino_utils.get_shore_fitted). 물가선 정점만 내리면 한 면 폭에 둑 높이(수 m)가 떨어져 톱니로 보였다(2026-11-08 죽림리)
 WATER_SHORE_WINDOW = 50.0       # m — 흐르는 물 수위 = 이 거리 안 물가 높이의 최저. 물가 정점이 둑 꼭대기 등고선(성수 한강 15 m)을 받은 튀는 값을 걸러 낸다
 WATER_MAX_GRADE = 0.02          # 흐르는 물 수면의 최대 기울기(2 %) — 등고선 5 m 간격 때문에 계단진 물가 높이를 250 m 경사로로 편다. 수면(면)이 있는 하천은 폭이 넓어 대개 1 % 미만(5 %는 청계천·홍제천 수면이 급류처럼 보였다)
-WATER_BLEND_SOURCE = "aws_terrain"   # 수면 둘레 칸이 호수·강 바닥 수심과 섞인 격자 지형 원천(osm_context.get_terrain_spots) — 일본 지리원 5 m는 수면이 값 없음이라 해당 없음
+WATER_BLEND_SOURCE = "aws_terrain"   # 수면 둘레 칸이 호수·강 바닥 수심과 섞인 격자 지형 원천(osm_context.get_terrain_spots) — 일본 지리원 5 m는 수면이 값 없음이라 해당 없음.
+# Mapterhorn(라이다 DTM)은 수면이 수위 평면이라 해당 없음 — 취리히 호수 단면(2026-11-14): Mapterhorn 405.6 m 평면·물가에서 바로 땅, AWS 400.0 m(수심과 섞임)
 WATER_BLEND_BUFFER = 30.0       # m — 그 원천 표고점을 수면 경계에서 이 거리 안이면 뺀다(원천 DEM 약 30 m 한 칸)
 WATER_SURFACE_CELL = 10.0       # m — 흐르는 물 안쪽 수위를 채우는 격자 칸(물가 수위를 가장 가까운 칸에서 가져와 쌍선형 보간)
 WATER_SURFACE_KINDS = ("river", "stream", "lake")   # features theme water 중 수면(면)으로 다루는 kind — 3dm CTX::Water 분류·시트 바탕 수계가 같이 쓴다. shore(습지)는 TOPO_LAYERS 주석 참고
@@ -993,7 +1065,7 @@ HOST_LABELS = {
                 # 확장 패키지에는 사용 통계가 없다(이 값은 저장소 시험용)
                 "ask_stats": True,
                 # [/blender-cut]
-                "aerial": False, "update_notice": False, "ip_center": False},   # 확장 스토어 약관: 분석 전송·상용 영상(Esri)·제3자 IP 조회 불가, 업데이트는 Blender가 한다
+                "aerial": False, "update_notice": False, "ip_center": False, "account": False},   # 확장 스토어 약관: 분석 전송·상용 영상(Esri)·제3자 IP 조회·외부 서비스 가입 요구 불가, 업데이트는 Blender가 한다
     # [blender-cut] SketchUp도 Extension Warehouse 심사(개인정보 정책 위반 = 반려 사유)라 동의제 — GA_STREAMS에 sketchup 속성을 넣기 전에는 묻지도 않는다
     "rhino": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": True, "ask_stats": False,
               "brep": True, "self_update": True},   # self_update = 패널 [지금 업데이트](yak — data_pack.install_update). yak을 못 찾으면 init이 끈다   # brep = 3D 설정 '형상' Mesh|Brep(options.geometry_type) — RhinoCommon 베이크만(Rhino 7판은 사이드카라 없다)
@@ -1001,7 +1073,7 @@ HOST_LABELS = {
     # Rhino 7판(cmd_rhino7 사이드카 + rhino7_host.cs) — 패널에는 Rhino로 보인다. DWG는 Rhino 8 헤드리스 문서(context_baker.save_dwg)라 없다
     "rhino7": {"id": "rhino", "name": "Rhino", "doc": "Rhino 문서", "model": CONTEXT_MODEL_FILE_NAME, "dwg": False, "ask_stats": False, "self_update": True},
     "archicad": {"id": "archicad", "name": "Archicad", "doc": "Archicad 프로젝트", "model": ARCHICAD_MODEL_FILE_NAME, "dwg": False, "ask_stats": True},   # GA 속성을 만들기 전에는 묻지 않는다
-    "web": {"id": "web", "name": "브라우저", "doc": "3D 모델", "model": WEB_MODEL_FILE_NAME, "dwg": False, "ask_stats": False},   # 통계는 웹사이트 GA(페이지)만
+    "web": {"id": "web", "name": "브라우저", "doc": "3D 모델", "model": WEB_MODEL_FILE_NAME, "dwg": False, "ask_stats": False, "account": False},   # 통계는 웹사이트 GA(페이지)만, 회원 없음
     # [/blender-cut]
 }
 # 메시판(mesh_geometry)
@@ -1068,9 +1140,9 @@ RESULT_TABLES_DIRNAME = "tables"
 RESULT_SHEETS_DIRNAME = "sheets"
 # data_sources.source_id → 메타 역할(lot·building·terrain·upis). prepare가 DataSource 객체를 그대로 넘겨도 역할을 찾는다
 SOURCE_ID_ROLES = {"vworld_land_char": "lot", "vworld_building": "building", "ngii_topo_5000": "terrain", "seoul_zoning": "upis",
-                   "osm": "building", "aws_terrain": "terrain",   # osm·aws_terrain = 해외 대상지(osm_context)
+                   "osm": "building", "openfreemap": "building", "aws_terrain": "terrain", "mapterhorn": "terrain",   # osm·openfreemap(Overpass 대체)·aws_terrain·mapterhorn = 해외 대상지(osm_context)
                    "plateau": "building", "gsi_dem": "terrain"}   # 일본 — PLATEAU 건물 팩·지리원 표고 타일(뒤에 둔 것이 역할을 차지한다)
-GLOBAL_SOURCE_IDS = ("osm", "aws_terrain", "plateau", "gsi_dem")   # 이 출처가 하나라도 있으면 Global 산출물(메타 줄·도면 문구) — 일본은 OSM 없이도 만든다
+GLOBAL_SOURCE_IDS = ("osm", "openfreemap", "aws_terrain", "mapterhorn", "plateau", "gsi_dem")   # 이 출처가 하나라도 있으면 Global 산출물(메타 줄·도면 문구) — 일본은 OSM 없이도 만든다
 META_SOURCE_NAMES = {"lot": "필지 토지특성정보", "building": "건물 GIS건물통합정보", "upis": "도시계획 서울시 UPIS", "terrain": "지형 수치지형도 1:5,000"}
 # ② 출처·라이선스 — 토지특성·토지이용계획은 '이용허락범위 제한 없음'(공공누리 1유형/CC BY로 적지 않는다, data_sources §3)
 META_SOURCE_LINE = ("출처: 국토교통부(GIS건물통합정보 — CC BY/공공누리 1유형; 토지특성정보·토지이용계획정보 — 이용허락범위 제한 없음), "
@@ -1096,7 +1168,7 @@ SHEET_MIN_VERTEX_MM = 0.05       # 종이에서 이보다 가까운 연속 정�
 SHEET_PARCEL_MAX_SCALE = 3000    # 이 축척보다 작은 도면(1:5000)은 지적선을 그리지 않는다 — deliverables B.2 '1:5000 지적선 off'
 SHEET_FADE_TO_PAPER = 0.45       # 주제도의 바탕(가구·건물·녹지·수계)을 종이색 쪽으로 이만큼 흐린다 — 주제 색이 먼저 읽히게
 SHEET_HEIGHT_SRC_LABELS = {"height": "대장 높이", "grnd_flr": "대장 층수", "topo_flr": "지형도 층수", "hub": "건축HUB", "default": "기본값",
-                           "osm_height": "OSM 높이", "osm_levels": "OSM 층수",
+                           "osm_height": "OSM 높이", "osm_levels": "OSM 층수", "openfreemap_height": "OpenFreeMap 높이",
                            "plateau_height": "PLATEAU 실측 높이", "plateau_levels": "PLATEAU 층수"}  # 층수 카드, A.4 HEIGHT_SRC. 여기 없는 키는 data_pack.get_height_src_label이 팩 라벨로 만든다
 HEIGHT_SRC_KIND_LABELS = {"height": "{0} 높이", "height_rel": "{0} 높이", "levels": "{0} 층수", "roof": "{0} 지붕 높이"}   # '<source_id>_<종류>' 꼴 height_src의 종류 — 새 나라 팩은 코드 수정 없이
 SHEET_HATCH = {"landlocked": {"stroke": "#D83A3A", "stroke-width": 0.25, "spacing_mm": 1.5}}   # <pattern id="hatch_<키>"> 45° 사선

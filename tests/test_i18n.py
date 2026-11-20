@@ -97,8 +97,16 @@ class I18nTest(unittest.TestCase):
         for path in get_code_files()[1:]:
             constants_ |= {node.value for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
                            if isinstance(node, ast.Constant) and isinstance(node.value, str)}
-        orphans = [key for key in self.texts if key not in constants_ and key not in html]
+        orphans = [key for key in self.texts if key not in constants_ and key not in html
+                   and key.replace("\n", "\\n") not in html]   # 패널 JS 문자열의 줄바꿈은 소스에 \n으로 적힌다
         self.assertEqual(orphans, [], "코드에 없는 원문 — 문구를 고쳤으면 사전 키도 고친다")
+
+    def test_loading_tips_translated(self):
+        # 로딩 문구는 패널이 tr(변수)로 바꾼다 — 상수에 더하면 번역도 있어야 한다
+        import constants
+        missing = ["%s %s" % (tip["text"], [lang for lang in TARGET_LANGS if not (self.texts.get(tip["text"]) or {}).get(lang)])
+                   for tip in constants.LOADING_TIPS if not all((self.texts.get(tip["text"]) or {}).get(lang) for lang in TARGET_LANGS)]
+        self.assertEqual(missing, [], "로딩 문구 번역 없음")
 
     def test_default_lang_in_prefs(self):
         # 처음 설치는 영어, 0.3.0 전에 쓰던 설치본(options는 있고 lang이 없다)은 한국어, 고른 언어는 그대로
