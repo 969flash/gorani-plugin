@@ -453,8 +453,9 @@ class JapanTest(unittest.TestCase):
             if query and "natural" in query and "tree" in query:
                 raise RuntimeError("busy")
             return []
-        saved = osm_context.get_overpass_elements, osm_context.get_terrain_spots
+        saved = osm_context.get_overpass_elements, osm_context.get_terrain_spots, osm_context.load_plateau_buildings
         osm_context.get_overpass_elements, osm_context.get_terrain_spots = fetch, lambda bounds, today: ([], set())
+        osm_context.load_plateau_buildings = lambda lnglat_bounds, data_dir=None: ([], [])   # 이 PC에 받아 둔 PLATEAU 팩과 상관없이 'OSM만' 길(팩이 있으면 질의가 둘로 나뉜다)
         try:
             context = osm_context.load((0, 0, 100, 100), "2026-11-13", details=["detail_trees", "detail_markings"])
             self.assertEqual(context.notes, ["osm_detail_missing"])
@@ -465,7 +466,7 @@ class JapanTest(unittest.TestCase):
             self.assertEqual(osm_context.load((0, 0, 100, 100), "2026-11-13").notes, [])
             self.assertEqual(queries, [None])   # 디테일을 다 끄면 묻지 않는다
         finally:
-            osm_context.get_overpass_elements, osm_context.get_terrain_spots = saved
+            osm_context.get_overpass_elements, osm_context.get_terrain_spots, osm_context.load_plateau_buildings = saved
 
     def test_osm_fills_gaps(self):
         def building(ring, key):
