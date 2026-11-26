@@ -371,7 +371,7 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
 ```jsonc
 {"mode":"lots","placement":"origin",                 // mode = 마지막 방식(첫 화면 방식 칸 초깃값). placement origin|world
  "radius":500,"shape":"circle",                       // circle|rect|frame|site(+예전 buffer). radius 100~2000
- "flatten_site":false,"flatten_level":"mean",          // 대상지 땅 평평하게(lots·area) — 높이 = 대상지 경계 자연 지반 mean|min|max
+ "flatten_site":false,"flatten_level":"mean",          // 평탄화(lots·area, 트레이 범위 아래 [지형 유지|평탄화]) — 높이 = 대상지 경계 자연 지반 mean|min|max
  "site_output":"mesh",                                 // 화면에 없다 — 늘 mesh(FIXED_3D, 2026-11-08 [Line]·[Surface] 선택을 없앴다). lots·area: 대상지 경계 커브 + 바닥 메시(CTX::Site::ground). curve = 경계 커브만(엔진은 아직 받는다)
  "import_after":true,                                  // context.3dm은 항상 쓴다(산출물의 뼈대, 수 초). 끌 수 있는 건 Import뿐
  "make_basemap":true,"paper":"A3","paper_mm":[420,297],"scales":[5000],"basemap_layers_on":[],"basemap_preset":"a3",   // basemap_preset: 패널 2D 카드 칩 a3|a1(축척을 범위에 맞춰 자동 — 범위 2 × radius가 용지에 들어가는 가장 상세한 축척)|custom. 엔진은 보지 않는다   // A3 가로 = 분석도 템플릿 기준(2026-10-13)   // "02b_landuse"|"05_road_center"|"11_zoning" — Global은 05만 보인다
@@ -384,7 +384,7 @@ food4Rhino 심사(McNeel, 2026-10-21 '영어가 없으면 올릴 수 없다')로
  "terrain_step":0,                                     // 지형 표현(③ 지형): 0 = 매끈, 1|2|5 = 계단형(등고 모형) 단 간격 m. 지반·수면 메시를 단마다 수평면 + 수직 벽으로, 건물 바닥도 계단 지반 기준
  "terrain_block":true,                                 // 지형을 바닥까지 채우기: 지형 옆면·바닥(CTX::Terrain::block, BASE_M). 건물·필지·도로중심선·용도지역은 이 값과 상관없이 늘 범위 링으로 자른다(원·사각형 범위만). 끄면 3D 설정 요약에 '지형 표면만'. 입체 매스도는 style.axo_ground
  "detail_level":"basic",                               // 수준(트레이 '수준' basic|advanced, 2026-11-16). 요청에 있으면 constants.FEATURES.detail_advanced 옵션(building_parapet·building_floors·detail_markings·detail_trees·detail_rail·detail_walls)을
-                                                       //   고급이면 켬·기본이면 끔으로 한꺼번에 정한다(context_builder.get_request_with_defaults — 키마다 값보다 앞선다). 없으면 키마다 값(시험 드라이버)
+                                                       //   기본이면 끈다, 고급이면 키마다 값 그대로(수준 아래 체크박스, 2026-11-27 — context_builder.get_level_options). 없으면 키마다 값(시험 드라이버)
  "detail_curb":true,                                   // 차도 15 cm 내리기(3D 설정 지형 옵션). 끄면 요약에 '연석 끔'
  "detail_bridges":true,"detail_fences":false,          // 화면에 없다 — 늘 이 값(FIXED_3D). 교량은 기본 모형의 정합, 담장은 객체가 많아 뺐다
  "geometry_type":"mesh",                               // 3D 형상(Rhino 8만 — host.brep): mesh = 동별·분류별 Mesh(기본), brep = 건물은 닫힌 폴리서피스(Extrusion.ToBrep), 지형·수면·대상지 바닥·덩어리는 같은 평면인 메시 면을 평면 면 하나로 묶고 나머지는 메시 면 하나 = Brep 면 하나(context_geometry.get_mesh_brep — 모양·면적은 메시와 같다). 변환 실패한 분류는 메시로 남기고 warn brep_failed. Brep이면 3D 설정 요약에 'Brep'
