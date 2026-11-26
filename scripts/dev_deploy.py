@@ -1657,10 +1657,12 @@ def upload(site_only=False):
     return constants.DATA_MANIFEST_URL
 
 
-def get_update_items(update):
-    # type: (dict) -> dict
-    """업데이트 안내의 한 줄 목록(items, 언어별) — `groups`(새 기능·개선·안정성)가 있으면 그것을 이어 붙인 값이 원본이다.
-    플러그인 패널은 items만 읽고, 웹페이지 버전 기록은 groups를 읽는다. 같은 문장이 두 곳에 뜨게 한 곳에서만 쓴다."""
+def get_update_items(update, host="rhino"):
+    # type: (dict, str) -> dict
+    """업데이트 안내의 한 줄 목록(items, 언어별) — `groups`(새 기능·개선·안정성)가 있으면 그것에서 만든다.
+    items는 groups·hosts를 모르는 옛 패널(0.3.9 이하 Rhino·SketchUp, AutoCAD 0.3.6)이 그대로 다 보이는 목록이라,
+    옛 사용자 대부분인 Rhino에 보이는 줄만(hosts가 없거나 host가 든 줄) 묶음 순서대로 잇는다(2026-11-27 사용자 — Archicad 줄이 Rhino 창에 뜨지 않게).
+    0.4.0부터 패널은 groups를 읽고, 웹페이지 버전 기록도 groups를 읽는다."""
     groups = (update or {}).get("groups")
     if not groups:
         return (update or {}).get("items")
@@ -1669,7 +1671,12 @@ def get_update_items(update):
         for lang in group.get("items") or {}:
             if lang not in langs:
                 langs.append(lang)
-    return {lang: [text for group in groups for text in (group.get("items") or {}).get(lang, [])] for lang in langs}
+
+    def is_shown(group, index):
+        hosts = group.get("hosts") or []
+        return index >= len(hosts) or not hosts[index] or host in hosts[index]
+    return {lang: [text for group in groups for index, text in enumerate((group.get("items") or {}).get(lang, [])) if is_shown(group, index)]
+            for lang in langs}
 
 
 def _read_notices():
