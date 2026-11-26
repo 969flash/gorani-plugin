@@ -4,6 +4,7 @@
 
 ## 배포
 
+- [ ] Windows Rhino 9 실기 — 0.4.0부터 yak에 Rhino 9(CPython 3.13)용 .pyc를 같이 넣는다(Mac Rhino 9.1·8.35만 실측, 2026-11-27). 패널(WebView2)·생성·DWG를 본다.
 - [ ] 다른 컴퓨터(Windows일 수 있음)에서 Rhino판 실기 시험 — Mac에서 빌드한 .rhp·.pyc가 Windows Rhino 8에서 처음 도는 것일 수 있다.
 - [ ] Rhino 7판 첫 배포(PR #39, 2026-10-30 main) — 다음 묶음 판에 `dev_deploy.py yak`·`rhino7` 세 파일(`rh8_0-any`·`rh7_0-mac`·`rh7_0-win`)을 같은 버전으로 `yak push`(허락 뒤). 그 전에 Windows Rhino 7 실기(Edge 창 패널·생성·다시 불러오기) — Mac Rhino 7.37만 실측했다. 올린 뒤: food4Rhino 앱 페이지 Rhino 버전 칸에 7 추가(사용자 계정, 문구는 `docs/food4rhino.md`), 웹사이트 설치 안내(다른 세션), 관리자 대시보드 [Rhino] yak 표의 배포판 칸에 Rhino 7이 보이는지(빠지면 개요에 경고가 뜬다). Rhino 6 이하는 대상이 아니다(RhinoCommon 7.0·net48로 빌드 — 확인 안 함).
 - [ ] Blender 공식 스토어 — 0.3.1 제출(2026-10-22) 뒤 0.3.2·0.3.3을 Upload New Version으로 올려 둠(심사는 최신 판). 0.3.4(스위스)는 올리지 않았다(2026-10-23 — 판 사이 2시간 제한에 걸렸고, 나라 추가만으로는 판을 올리지 않기로 함. Rhino yak 0.3.4는 이미 나감). 다음 묶음 판에 같이. Approval Status = Awaiting Review. 심사 댓글은 Blender ID 메일 — 답변 문안 `docs/blender_store/README.md`.
