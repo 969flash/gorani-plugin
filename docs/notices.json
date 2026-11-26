@@ -4,61 +4,56 @@
   "date": "2026-11-20",
   "items": {
    "ko": [
-    "고급 모델: 옥상 파라펫·층 구분선·노면표시·가로수·선로·옹벽 디테일을 더했습니다. 3D 설정의 [기본 | 고급]에서 고릅니다.",
+    "고급 모델: 파라펫·층 구분선·노면 표시·가로수·철도·선로·옹벽까지 디테일하게 만듭니다. 3D 설정에서 [고급]을 고르세요.",
     "기본 모델에 교량·고가 상판과 연석(차도를 15 cm 내림)을 더했습니다.",
-    "구글 계정으로 회원가입하면 고급 모델을 무료로 쓸 수 있습니다(로그인 없이 3번 써 보기). '생성 기록'에서 다른 PC에서 만든 대상지도 같은 설정으로 다시 열 수 있습니다.",
+    "구글 계정으로 로그인하면 고급 모델을 무료로 쓰고 생성 기록을 관리할 수 있습니다. 로그인 없이도 고급 모델을 3번 써 볼 수 있습니다.",
     "결과 폴더 위치를 더보기 메뉴에서 바꿀 수 있습니다.",
     "해외 지형이 더 정밀해지고(Mapterhorn) 해외 대상지를 더 빨리 만듭니다.",
     "OpenStreetMap 서버가 모두 막혀도 OpenFreeMap 지도 데이터로 만듭니다.",
-    "3D 설정이 간단해졌습니다. 디테일 체크 9개를 [기본 | 고급] 하나로 바꾸고, 범위 모양과 크기를 한 줄에 놓았습니다.",
     "Archicad: 지형이 도로 위로 솟던 문제, 다시 만들면 2D 요소가 쌓이던 문제, 평면도에 건물·지형이 안 보이던 문제를 고쳤습니다.",
     "Archicad: 색이 회색으로 나오고 맨땅이 잔디로 칠해지던 문제, 3D 창에서 만들면 실패하던 문제를 고쳤습니다.",
     "Rhino 7·SketchUp: 다 넣었는데도 '넣지 못한 객체' 경고가 뜨던 문제를 고쳤습니다."
    ],
    "en": [
-    "Advanced model: adds roof parapet, floor line, road marking, street tree, rail track and retaining wall details. Choose [Basic | Advanced] in 3D settings.",
+    "Advanced model: builds detail down to parapets, floor lines, road markings, street trees, railways, tracks and retaining walls. Choose [Advanced] in 3D settings.",
     "The basic model now includes bridge and overpass decks and curbs (roadways lowered 15 cm).",
-    "Sign up with your Google account to use the Advanced model for free (try it 3 times without signing in). History reopens sites made on other PCs with the same settings.",
+    "Sign in with your Google account to use the Advanced model for free and manage your history. You can try the Advanced model 3 times without signing in.",
     "Change where results are saved from the More menu.",
     "Terrain outside Korea is more detailed (Mapterhorn) and sites outside Korea build faster.",
     "Sites still build from OpenFreeMap map data when all OpenStreetMap servers are blocked.",
-    "3D settings are simpler: nine detail checkboxes become one [Basic | Advanced] choice, and extent shape and size sit on one row.",
     "Archicad: fixed terrain rising above roads, 2D elements piling up on rebuild, and buildings and terrain missing from the floor plan.",
     "Archicad: fixed everything coming out gray, bare ground painted as grass, and builds failing from the 3D window.",
     "Rhino 7 and SketchUp: fixed a false 'objects not added' warning after a complete build."
    ],
    "ja": [
-    "高度モデル: 屋上パラペット・階の線・路面標示・街路樹・線路・擁壁のディテールを加えました。3D設定の[基本 | 高度]で選びます。",
+    "高度モデル: パラペット・階の線・路面標示・街路樹・鉄道・線路・擁壁まで細かく作ります。3D設定で[高度]を選んでください。",
     "基本モデルに橋梁・高架の床版と縁石(車道を15 cm下げる)を加えました。",
-    "Googleアカウントで会員登録すると高度モデルを無料で使えます(ログインなしで3回お試し)。「生成履歴」から他のPCで作った対象地も同じ設定で開き直せます。",
+    "Googleアカウントでログインすると、高度モデルを無料で使い、生成履歴を管理できます。ログインしなくても高度モデルを3回試せます。",
     "結果フォルダの場所をその他メニューで変更できます。",
     "海外の地形がより精密になり(Mapterhorn)、海外の対象地を速く作れます。",
     "OpenStreetMapのサーバーがすべて混んでも、OpenFreeMapの地図データで作ります。",
-    "3D設定がシンプルになりました。ディテールのチェック9個を[基本 | 高度]ひとつにまとめ、範囲の形と大きさを1行に並べました。",
     "Archicad: 地形が道路の上に盛り上がる問題、作り直すと2D要素が重なる問題、平面図に建物・地形が表示されない問題を直しました。",
     "Archicad: 色が灰色になり地面が芝生で塗られる問題、3Dウィンドウから作ると失敗する問題を直しました。",
     "Rhino 7・SketchUp: すべて入れたのに「入れられなかったオブジェクト」の警告が出る問題を直しました。"
    ],
    "zh": [
-    "高级模型：新增屋顶女儿墙、楼层线、路面标线、行道树、轨道和挡土墙细节。在 3D 设置中选择 [基础 | 高级]。",
+    "高级模型：细致生成女儿墙、楼层线、路面标线、行道树、铁路、轨道和挡土墙。请在 3D 设置中选择 [高级]。",
     "基础模型新增桥梁·高架桥面和路缘石(车行道降低15 cm)。",
-    "使用 Google 账户注册会员即可免费使用高级模型(未登录可试用3次)。在“生成记录”中，在其他电脑上生成的场地也能以相同设置重新打开。",
+    "使用 Google 账户登录即可免费使用高级模型并管理生成记录。未登录也可试用高级模型3次。",
     "可以在“更多”菜单中更改结果文件夹位置。",
     "海外地形更精确(Mapterhorn)，海外场地生成更快。",
     "即使所有 OpenStreetMap 服务器都受阻，也能用 OpenFreeMap 地图数据生成。",
-    "3D 设置更简洁：9 个细节复选框合并为一个 [基础 | 高级]，范围形状和大小放在同一行。",
     "Archicad：修复了地形高出道路、重新生成时 2D 元素堆积、平面图中不显示建筑和地形的问题。",
     "Archicad：修复了颜色全部变灰、裸地被涂成草地、在 3D 窗口中生成失败的问题。",
     "Rhino 7·SketchUp：修复了全部导入后仍提示“未能导入的对象”的误报。"
    ],
    "es": [
-    "Modelo avanzado: añade detalles de pretiles de azotea, líneas de planta, marcas viales, árboles, vías y muros de contención. Elige [Básico | Avanzado] en Ajustes 3D.",
+    "Modelo avanzado: genera con detalle pretiles, líneas de planta, marcas viales, árboles, ferrocarriles, vías y muros de contención. Elige [Avanzado] en Ajustes 3D.",
     "El modelo básico incluye ahora tableros de puentes y pasos elevados y bordillos (calzada 15 cm más baja).",
-    "Regístrate con tu cuenta de Google para usar el modelo avanzado gratis (pruébalo 3 veces sin iniciar sesión). El Historial vuelve a abrir sitios creados en otros PC con los mismos ajustes.",
+    "Inicia sesión con tu cuenta de Google para usar el modelo avanzado gratis y gestionar tu historial. Puedes probar el modelo avanzado 3 veces sin iniciar sesión.",
     "Cambia dónde se guardan los resultados desde el menú Más.",
     "El terreno fuera de Corea es más detallado (Mapterhorn) y esos sitios se generan más rápido.",
     "Los sitios se siguen generando con datos de OpenFreeMap cuando todos los servidores de OpenStreetMap están bloqueados.",
-    "Los ajustes 3D son más simples: nueve casillas de detalle pasan a una sola opción [Básico | Avanzado], y la forma y el tamaño del área van en una fila.",
     "Archicad: corregido el terreno que sobresalía sobre las calles, los elementos 2D que se acumulaban al regenerar y los edificios y el terreno que no aparecían en la planta.",
     "Archicad: corregidos los colores que salían grises, el suelo pintado como césped y los fallos al generar desde la ventana 3D.",
     "Rhino 7 y SketchUp: corregido el falso aviso de 'objetos no añadidos' tras una generación completa."
@@ -69,33 +64,33 @@
     "type": "new",
     "items": {
      "ko": [
-      "고급 모델: 옥상 파라펫·층 구분선·노면표시·가로수·선로·옹벽 디테일을 더했습니다. 3D 설정의 [기본 | 고급]에서 고릅니다.",
+      "고급 모델: 파라펫·층 구분선·노면 표시·가로수·철도·선로·옹벽까지 디테일하게 만듭니다. 3D 설정에서 [고급]을 고르세요.",
       "기본 모델에 교량·고가 상판과 연석(차도를 15 cm 내림)을 더했습니다.",
-      "구글 계정으로 회원가입하면 고급 모델을 무료로 쓸 수 있습니다(로그인 없이 3번 써 보기). '생성 기록'에서 다른 PC에서 만든 대상지도 같은 설정으로 다시 열 수 있습니다.",
+      "구글 계정으로 로그인하면 고급 모델을 무료로 쓰고 생성 기록을 관리할 수 있습니다. 로그인 없이도 고급 모델을 3번 써 볼 수 있습니다.",
       "결과 폴더 위치를 더보기 메뉴에서 바꿀 수 있습니다."
      ],
      "en": [
-      "Advanced model: adds roof parapet, floor line, road marking, street tree, rail track and retaining wall details. Choose [Basic | Advanced] in 3D settings.",
+      "Advanced model: builds detail down to parapets, floor lines, road markings, street trees, railways, tracks and retaining walls. Choose [Advanced] in 3D settings.",
       "The basic model now includes bridge and overpass decks and curbs (roadways lowered 15 cm).",
-      "Sign up with your Google account to use the Advanced model for free (try it 3 times without signing in). History reopens sites made on other PCs with the same settings.",
+      "Sign in with your Google account to use the Advanced model for free and manage your history. You can try the Advanced model 3 times without signing in.",
       "Change where results are saved from the More menu."
      ],
      "ja": [
-      "高度モデル: 屋上パラペット・階の線・路面標示・街路樹・線路・擁壁のディテールを加えました。3D設定の[基本 | 高度]で選びます。",
+      "高度モデル: パラペット・階の線・路面標示・街路樹・鉄道・線路・擁壁まで細かく作ります。3D設定で[高度]を選んでください。",
       "基本モデルに橋梁・高架の床版と縁石(車道を15 cm下げる)を加えました。",
-      "Googleアカウントで会員登録すると高度モデルを無料で使えます(ログインなしで3回お試し)。「生成履歴」から他のPCで作った対象地も同じ設定で開き直せます。",
+      "Googleアカウントでログインすると、高度モデルを無料で使い、生成履歴を管理できます。ログインしなくても高度モデルを3回試せます。",
       "結果フォルダの場所をその他メニューで変更できます。"
      ],
      "zh": [
-      "高级模型：新增屋顶女儿墙、楼层线、路面标线、行道树、轨道和挡土墙细节。在 3D 设置中选择 [基础 | 高级]。",
+      "高级模型：细致生成女儿墙、楼层线、路面标线、行道树、铁路、轨道和挡土墙。请在 3D 设置中选择 [高级]。",
       "基础模型新增桥梁·高架桥面和路缘石(车行道降低15 cm)。",
-      "使用 Google 账户注册会员即可免费使用高级模型(未登录可试用3次)。在“生成记录”中，在其他电脑上生成的场地也能以相同设置重新打开。",
+      "使用 Google 账户登录即可免费使用高级模型并管理生成记录。未登录也可试用高级模型3次。",
       "可以在“更多”菜单中更改结果文件夹位置。"
      ],
      "es": [
-      "Modelo avanzado: añade detalles de pretiles de azotea, líneas de planta, marcas viales, árboles, vías y muros de contención. Elige [Básico | Avanzado] en Ajustes 3D.",
+      "Modelo avanzado: genera con detalle pretiles, líneas de planta, marcas viales, árboles, ferrocarriles, vías y muros de contención. Elige [Avanzado] en Ajustes 3D.",
       "El modelo básico incluye ahora tableros de puentes y pasos elevados y bordillos (calzada 15 cm más baja).",
-      "Regístrate con tu cuenta de Google para usar el modelo avanzado gratis (pruébalo 3 veces sin iniciar sesión). El Historial vuelve a abrir sitios creados en otros PC con los mismos ajustes.",
+      "Inicia sesión con tu cuenta de Google para usar el modelo avanzado gratis y gestionar tu historial. Puedes probar el modelo avanzado 3 veces sin iniciar sesión.",
       "Cambia dónde se guardan los resultados desde el menú Más."
      ]
     },
@@ -115,32 +110,26 @@
     "items": {
      "ko": [
       "해외 지형이 더 정밀해지고(Mapterhorn) 해외 대상지를 더 빨리 만듭니다.",
-      "OpenStreetMap 서버가 모두 막혀도 OpenFreeMap 지도 데이터로 만듭니다.",
-      "3D 설정이 간단해졌습니다. 디테일 체크 9개를 [기본 | 고급] 하나로 바꾸고, 범위 모양과 크기를 한 줄에 놓았습니다."
+      "OpenStreetMap 서버가 모두 막혀도 OpenFreeMap 지도 데이터로 만듭니다."
      ],
      "en": [
       "Terrain outside Korea is more detailed (Mapterhorn) and sites outside Korea build faster.",
-      "Sites still build from OpenFreeMap map data when all OpenStreetMap servers are blocked.",
-      "3D settings are simpler: nine detail checkboxes become one [Basic | Advanced] choice, and extent shape and size sit on one row."
+      "Sites still build from OpenFreeMap map data when all OpenStreetMap servers are blocked."
      ],
      "ja": [
       "海外の地形がより精密になり(Mapterhorn)、海外の対象地を速く作れます。",
-      "OpenStreetMapのサーバーがすべて混んでも、OpenFreeMapの地図データで作ります。",
-      "3D設定がシンプルになりました。ディテールのチェック9個を[基本 | 高度]ひとつにまとめ、範囲の形と大きさを1行に並べました。"
+      "OpenStreetMapのサーバーがすべて混んでも、OpenFreeMapの地図データで作ります。"
      ],
      "zh": [
       "海外地形更精确(Mapterhorn)，海外场地生成更快。",
-      "即使所有 OpenStreetMap 服务器都受阻，也能用 OpenFreeMap 地图数据生成。",
-      "3D 设置更简洁：9 个细节复选框合并为一个 [基础 | 高级]，范围形状和大小放在同一行。"
+      "即使所有 OpenStreetMap 服务器都受阻，也能用 OpenFreeMap 地图数据生成。"
      ],
      "es": [
       "El terreno fuera de Corea es más detallado (Mapterhorn) y esos sitios se generan más rápido.",
-      "Los sitios se siguen generando con datos de OpenFreeMap cuando todos los servidores de OpenStreetMap están bloqueados.",
-      "Los ajustes 3D son más simples: nueve casillas de detalle pasan a una sola opción [Básico | Avanzado], y la forma y el tamaño del área van en una fila."
+      "Los sitios se siguen generando con datos de OpenFreeMap cuando todos los servidores de OpenStreetMap están bloqueados."
      ]
     },
     "hosts": [
-     null,
      null,
      null
     ]
