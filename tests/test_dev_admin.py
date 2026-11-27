@@ -37,6 +37,11 @@ class NoticeErrorsTest(unittest.TestCase):
         self.assertEqual(len(errors([None, ["photoshop"]])), 1)   # 모르는 프로그램
         self.assertEqual(len(errors([None, []])), 1)          # 빈 목록 = 아무에게도 안 보임
 
+    def test_items_are_rhino_rows(self):   # 옛 패널이 읽는 items = Rhino에 보이는 줄만(Archicad 전용 줄은 빠진다)
+        groups = [{"type": "new", "items": {"ko": ["공통", "아키캐드"]}, "hosts": [None, ["archicad"]]},
+                  {"type": "stable", "items": {"ko": ["라이노", "스케치업"]}, "hosts": [["rhino", "sketchup"], ["sketchup"]]}]
+        self.assertEqual(dev_admin.dev_deploy.get_update_items({"groups": groups}), {"ko": ["공통", "라이노"]})
+
     def test_repo_notices_consistent(self):
         import json
         data = json.loads((Path(__file__).resolve().parents[1] / "docs" / "notices.json").read_text(encoding="utf-8"))
