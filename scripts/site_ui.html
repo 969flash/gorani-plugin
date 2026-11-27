@@ -203,7 +203,11 @@ body[data-screen="history"] section[data-screen="history"] { display: block; ove
 .hist-head h2 { margin: 0; font-size: 15px; line-height: 22px; font-weight: 700; }
 .hist-group { margin-top: 12px; }
 .hist-group > .tray-h { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 11px; line-height: 16px; font-weight: 600; color: var(--ink-3); }
-.hist-row { display: grid; grid-template-columns: minmax(0, 1fr) 32px; align-items: center; gap: 4px; }
+.hist-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px; }
+.hist-acts { display: flex; align-items: center; gap: 2px; }
+.hist-acts .hov { visibility: hidden; }   /* 이름 바꾸기·지우기 — 마우스를 올렸거나 포커스일 때만(gorani.site/account와 같게) */
+.hist-row:hover .hov, .hist-row:focus-within .hov { visibility: visible; }
+.hist-acts .gap { width: 28px; height: 28px; }   /* 폴더 없는 줄 — 별이 같은 자리에 오게 */
 .hist-open { display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 6px 8px; border: 0; border-radius: 8px; background: none; text-align: left; color: var(--ink); }
 .hist-open:hover:not(:disabled) { background: var(--hover); }
 .hist-open .txt { display: grid; min-width: 0; }
@@ -581,7 +585,7 @@ footer { flex: none; min-height: 56px; padding: 12px 16px; display: flex; align-
   <symbol id="i-lots" viewBox="0 0 16 16"><path d="M2.5 5 10 2.5l3.5 7.5-9 3.5z" fill="currentColor" fill-opacity=".18"/></symbol>
   <symbol id="i-area" viewBox="0 0 16 16"><path d="M2.5 4 9.5 2.5l4 4.5-2 6.5-8.5-1z" stroke-dasharray="2.2 2"/></symbol>
   <symbol id="i-point" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/></symbol>
-  <symbol id="i-pen" viewBox="0 0 16 16"><path d="M11 2.6a1.6 1.6 0 0 1 2.4 2.4L5 13.4l-3 .6.6-3z"/><path d="M9.5 4l2.5 2.5"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 16 16"><path d="M10.6 2.6l2.8 2.8-7.9 7.9-3.4.6.6-3.4z M9.2 4l2.8 2.8" stroke-linejoin="round"/></symbol>
   <symbol id="i-curve" viewBox="0 0 16 16"><path d="M4.5 11.5C5.5 7.5 8.5 5 11.5 4.5"/><circle cx="3.5" cy="12.5" r="1.5"/><circle cx="12.5" cy="3.5" r="1.5"/></symbol>
   <symbol id="i-move" viewBox="0 0 16 16"><path d="M8 1.5v13M1.5 8h13M6 3.5l2-2 2 2M6 12.5l2 2 2-2M3.5 6l-2 2 2 2M12.5 6l2 2-2 2"/></symbol>
   <symbol id="i-trash" viewBox="0 0 16 16"><path d="M2.5 4h11M6.5 4V2.5h3V4M3.8 4l.6 8.6a1 1 0 0 0 1 .9h5.2a1 1 0 0 0 1-.9l.6-8.6M6.5 7v4M9.5 7v4"/></symbol>
@@ -967,8 +971,10 @@ function emptyTrayHtml() {
   if (stamp.on || (draw.on && draw.pts.length)) return "";   // 그리기 첫 점 전(다시 그리기)에는 최근 결과를 그대로 둔다
   var results = (state.init && state.init.results) || [];   // 방식·나라와 상관없이 — 결과 폴더(context.json)에서 읽는다
   var curve = state.mode === "area" && curveBtnHtml() ? '<div class="tray-curve">' + curveBtnHtml() + "</div>" : "";   // 구역 — 최근 결과 아래(2026-11-08 사용자)
+  var hist = HIST && HIST.can() ? HIST.trayHtml() : null;   // 회원 — 최근 결과 자리를 생성 기록 위 3개로(2026-11-27 사용자). 못 받았으면 이 PC 최근 결과
+  if (hist) return '<div class="tray-empty">' + hist + curve + "</div>";
   if (results.length)
-    return '<div class="tray-empty"><div class="tray-h">' + ico("clock") + tr("최근 결과") + (HIST && HIST.can() ? '<button type="button" class="hist-link" data-act="hist_open">' + tr("생성 기록") + ico("next") + "</button>" : "") + "</div><div class=\"mlist\">" + results.map(function (r, i) { return recentHtml(r, i, false); }).join("") + "</div>" + curve + "</div>";
+    return '<div class="tray-empty"><div class="tray-h">' + ico("clock") + tr("최근 결과") + "</div><div class=\"mlist\">" + results.map(function (r, i) { return recentHtml(r, i, false); }).join("") + "</div>" + curve + "</div>";
   var t = state.mode === "point" ? tr("지도를 누르거나 위에서 주소를 찾아 위치를 찍으세요") : state.mode === "area" ? tr("지도를 눌러 구역 꼭짓점을 찍으세요") : tr("지도에서 필지를 누르거나 위에서 주소나 지번을 찾으세요");
   return '<div class="tray-empty"><div class="hint">' + t + "</div>" + curve + "</div>";
 }
@@ -2562,6 +2568,7 @@ var handlers = {
     if (state.styleOpen) { renderStyle(resultSection()); renderFooter(); var msg = $("st_msg"); if (msg) msg.innerHTML = tr("저장됨.") + ' <button type="button" class="link" data-act="open" data-path="' + esc(m.dir || "") + '">' + tr("styles 폴더") + "</button>"; }
   },
   done: function (m) {
+    if (HIST) HIST.at = 0;   // 기록이 하나 늘었다 — 지도 트레이 위 3개를 다시 받는다
     clearInterval(timers.elapsed);
     if (ACCT) ACCT.afterBuild();   // 써 보기는 한 번만 — 다음은 기본
     state.result = m; state.result.sheets = []; state.made2d = null; state.job2d = "idle"; state.form2d = true; state.dl = null; state.resultKey = state.runKey; if (state.runTarget) state.madeTargets[state.runTarget] = true;
@@ -2674,8 +2681,8 @@ ACCT = {
     var title = function (t) { return '<h2 id="acct_title">' + br(t) + "</h2>"; };
     var sub = function (t) { return '<p class="sub">' + br(t) + "</p>"; };
     var google = '<button type="button" class="gbtn" data-act="acct_login">' + G_LOGO + tr("Google 계정으로 로그인") + "</button>";
-    var free = tr("고급 기능은 회원가입 후\n무료로 이용할 수 있습니다.");
-    var trial = function (act) { return '<button type="button" class="btn alt" data-act="' + act + '">' + tr("로그인 없이 고급 기능 써 보기 ({0}회 남음)", left) + "</button>"; };
+    var free = tr("고급 모델은 회원가입 후\n무료로 이용할 수 있습니다.");
+    var trial = function (act) { return '<button type="button" class="btn alt" data-act="' + act + '">' + tr("로그인 없이 고급 모델 써 보기 ({0}회 남음)", left) + "</button>"; };
     var used = '<p class="left-note">' + tr("로그인 없이 써 볼 수 있는 고급 모델을 다 썼습니다.") + "</p>";
     this.kind = kind; this.building = !!build;
     if (kind === "wait") html = '<div class="spin" aria-hidden="true"></div>' + title(tr("브라우저에서 로그인 중")) + sub(tr("브라우저에서 Google 계정을 고르면\n저절로 돌아옵니다.")) +
@@ -2683,9 +2690,9 @@ ACCT = {
     else if (kind === "plans") html = x + mark + title(free) +
       '<ul class="gets">' + advancedKeys().map(function (k) { return "<li>" + ico("check") + "<span>" + esc(tr(DETAIL_NAMES[k] || k)) + "</span></li>"; }).join("") + "</ul>" + google +
       (left ? trial("acct_trial") : used);
-    else if (build) html = mark + title(tr("간편 회원가입 후\n고급 수준을 무료로 만들어보세요.")) + google +   // X 없음 — 두 단추 중 하나(Esc는 이번 만들기 취소)   // 처음 만들 때(기본으로 만들기) — 써 보기는 '고급'을 고를 때 창에만(2026-11-18 사용자)
+    else if (build) html = mark + title(tr("간편 회원가입 후\n고급 모델을 무료로 만들어 보세요.")) + google +   // X 없음 — 두 단추 중 하나(Esc는 이번 만들기 취소)   // 처음 만들 때(기본으로 만들기) — 써 보기는 '고급'을 고를 때 창에만(2026-11-18 사용자)
       '<button type="button" class="btn alt" data-act="acct_skip">' + tr("로그인 없이 기본으로 만들기") + "</button>";
-    else html = x + mark + title(tr("Gorani 로그인")) + sub(free) + google;
+    else html = x + mark + title(tr("Gorani 로그인")) + sub(tr("고급 모델과 생성 기록을\n회원가입 후 무료로 쓸 수 있습니다.")) + google;
     m.innerHTML = '<div class="dlg">' + html + "</div>";
     m.hidden = false;
     var f = m.querySelector('[data-act="acct_login"]') || m.querySelector('[data-act="acct_close"]'); if (f) f.focus();
@@ -2758,7 +2765,7 @@ Object.assign(ACTIONS, {
 // 누르면 이 PC에 폴더가 있으면 결과 화면, 없으면 같은 대상지·설정으로 지도에 되살린다(restoreResultTarget). 단추 묶음 [전체 | ★], 날짜 묶음, 줄마다 별.
 // 이름 바꾸기·기록에서 빼기는 오른쪽 클릭 메뉴(화면에 단추를 늘리지 않는다). 결과 폴더는 지우지 않는다. 받기는 Python 스레드 — history_poll로 묻는다
 HIST = {
-  items: null, ok: true, star: false, back: "map", poll: null, editing: "",
+  items: null, ok: true, star: false, back: "map", poll: null, editing: "", at: 0,   // at = 받은 시각(트레이 위 3개가 30초 안이면 다시 묻지 않는다)
   can: function () { return !!ACCT && ACCT.member() && (ACCT.st().features || []).indexOf("history_sync") >= 0; },
   open: function () {
     if (!this.can() || state.run === "running") return;
@@ -2771,8 +2778,25 @@ HIST = {
   leave: function () { clearInterval(this.poll); this.poll = null; this.closeMenu(); go(this.back); },
   onData: function (m) {
     clearInterval(this.poll); this.poll = null;
-    this.items = m.items || []; this.ok = m.ok !== false;
+    this.items = m.items || []; this.ok = m.ok !== false; this.at = Date.now();
+    this.refresh();
+  },
+  refresh: function () {   // 기록 화면과 지도 트레이(위 3개)를 같이 다시 그린다
     if (state.screen === "history") this.render();
+    else if (state.screen === "map" && !hasTarget()) { renderTray(); var edit = $("hist_edit"); if (edit) { edit.focus(); edit.select(); } }
+  },
+  prefetch: function () {   // 지도 트레이용 — 회원이고, 받는 중이 아니고, 30초가 지났으면 묻는다
+    if (!this.can() || this.poll || (this.at && Date.now() - this.at < 30000)) return;
+    send({ cmd: "history_list" });
+    this.poll = setInterval(function () { send({ cmd: "history_poll" }); }, 700);
+  },
+  trayHtml: function () {   // 회원 지도 트레이 — '생성 기록' 위 3개 + '전체 기록 ›'. 못 받았으면 null(이 PC 최근 결과로)
+    this.prefetch();
+    if (this.at && !this.ok) return null;
+    var items = (this.items || []).slice(0, 3), now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(), self = this;
+    if (this.items && !items.length) return null;
+    var head = '<div class="tray-h">' + ico("clock") + tr("생성 기록") + '<button type="button" class="hist-link" data-act="hist_open">' + tr("전체 기록") + ico("next") + "</button></div>";
+    return head + (this.items === null ? '<div class="hint">' + tr("불러오는 중") + "</div>" : '<div class="mlist">' + items.map(function (it) { return self.rowHtml(it, today); }).join("") + "</div>");
   },
   find: function (id) { return (this.items || []).filter(function (it) { return it.id === id; })[0]; },
   render: function () {
@@ -2786,7 +2810,7 @@ HIST = {
     else if (!items.length) html += this.ok ? '<p class="hint">' + tr("아직 생성 기록이 없습니다") + "</p>" : "";
     else {
       var now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(), week = today - 6 * 864e5;
-      var groups = [[tr("오늘"), []], [tr("이번 주"), []], [tr("그 전"), []]];
+      var groups = [[tr("오늘"), []], [tr("지난 7일"), []], [tr("그 전"), []]];
       items.forEach(function (it) { var t = +it.built_at || 0; groups[t >= today ? 0 : t >= week ? 1 : 2][1].push(it); });
       html += groups.filter(function (g) { return g[1].length; }).map(function (g) {
         return '<div class="hist-group"><div class="tray-h">' + esc(g[0]) + '</div><div class="mlist">' + g[1].map(function (it) { return self.rowHtml(it, today); }).join("") + "</div></div>";
@@ -2801,10 +2825,14 @@ HIST = {
     var sub = [when, +it.radius > 0 ? rangeLabel({ shape: it.shape, radius: +it.radius }) : "", it.detail === "advanced" ? tr("고급 모델") : ""].filter(Boolean).join(" · ");
     var id = esc(it.id), name = it.label || "–", lock = state.run === "running" ? " disabled" : "";
     var star = '<button type="button" class="ib sm hist-star" data-act="hist_star" data-id="' + id + '" aria-pressed="' + !!it.star + '" aria-label="' + esc(tr("즐겨찾기") + ": " + name) + '">' + ico("star") + "</button>";
+    var btn = function (act, icon, label, cls) { return '<button type="button" class="ib sm ' + (cls || "") + '" data-act="' + act + '" data-id="' + id + '" aria-label="' + esc(label + ": " + name) + '" title="' + esc(label) + '"' + lock + ">" + ico(icon) + "</button>"; };
+    // 오른쪽 단추(gorani.site/account와 같게 — 연필은 마우스 올림, 별은 늘): 연필·휴지통(마우스 올림) · 폴더(이 PC에 결과가 있을 때만 — 누르면 결과 화면) · 별
+    var acts = '<div class="hist-acts">' + btn("hist_rename", "pen", tr("이름 바꾸기"), "hov") + btn("hist_remove", "trash", tr("기록에서 빼기"), "hov") +
+      (it.dir ? btn("hist_result", "folder", tr("결과 보기")) : '<span class="gap"></span>') + star + "</div>";
     if (this.editing === it.id)
       return '<div class="hist-row" data-id="' + id + '"><div class="hist-open">' + this.thumb(it) + '<input type="text" class="hist-name" id="hist_edit" data-id="' + id + '" value="' + esc(name) + '" maxlength="80" aria-label="' + tr("이름 바꾸기") + '"></div>' + star + "</div>";
-    return '<div class="hist-row" data-id="' + id + '"><button type="button" class="hist-open" data-act="hist_pick" data-id="' + id + '"' + lock + ">" + this.thumb(it) +
-      '<span class="txt"><span class="name">' + esc(name) + '</span><span class="sub num">' + esc(sub) + "</span></span></button>" + star + "</div>";
+    return '<div class="hist-row" data-id="' + id + '"><button type="button" class="hist-open" data-act="hist_pick" data-id="' + id + '"' + lock + ' title="' + esc(tr("지도에서 같은 설정으로 다시 고릅니다")) + '">' + this.thumb(it) +
+      '<span class="txt"><span class="name">' + esc(name) + '</span><span class="sub num">' + esc(sub) + "</span></span></button>" + acts + "</div>";
   },
   thumb: function (it) {   // 대상지 윤곽 + 범위(점선) — 경위도로 그리는 작은 그림, 3D 캡처 없음. 구역은 링, 필지·위치는 가운데 표시
     var t = it.target || {}, c = it.center, ring = t.ring || [], r = +it.radius || 250, half = 12;
@@ -2822,16 +2850,19 @@ HIST = {
   pick: function (id) {
     var it = this.find(id); if (!it || state.run === "running" || state.job2d === "running") return;
     clearInterval(this.poll); this.poll = null;
-    if (it.dir) { send({ cmd: "open_result", dir: it.dir }); return; }   // 이 PC에 결과 폴더가 있다 — 결과 화면
-    var t = it.target || {};   // 없으면 같은 대상지·설정으로 지도에(지금 데이터 판으로 다시 만든다)
+    var t = it.target || {};   // 누르면 늘 같은 대상지·설정으로 지도에(2026-11-27 사용자 — 결과 화면은 폴더 아이콘으로). 지금 데이터 판으로 다시 만든다
     var rs = { target: { mode: it.mode, pnus: t.pnus || [] }, target_lnglat: { center: it.center, ring: t.ring || [], rings: t.ring ? [t.ring] : [] }, options: it.options || {} };
     go("map");
     if (!restoreResultTarget(rs)) toast(tr("이 기록은 지도에 되살릴 수 없습니다"));
     track("history_restore", it.mode || "");
   },
+  openResult: function (id) {   // 폴더 아이콘 — 이 PC의 결과 폴더를 결과 화면으로
+    var it = this.find(id); if (!it || !it.dir || state.run === "running" || state.job2d === "running") return;
+    clearInterval(this.poll); this.poll = null; send({ cmd: "open_result", dir: it.dir });
+  },
   toggleStar: function (id) {
     var it = this.find(id); if (!it) return;
-    it.star = !it.star; this.render();
+    it.star = !it.star; this.refresh();
     send({ cmd: "history_change", id: id, star: it.star }); track("history_star", it.star ? "on" : "off");
   },
   menuFor: function (id, x, y) {
@@ -2844,18 +2875,20 @@ HIST = {
     m.querySelector("button").focus();
   },
   closeMenu: function () { var m = $("hist_menu"); if (m) m.hidden = true; },
-  rename: function (id) { this.closeMenu(); this.editing = id; this.render(); },
+  rename: function (id) { this.closeMenu(); this.editing = id; this.refresh(); },
   saveName: function (input, keep) {
     var id = input.getAttribute("data-id"), it = this.find(id), value = input.value.trim().slice(0, 80);
     if (this.editing !== id) return;   // Esc로 끝낸 뒤 render가 입력칸을 지우며 쏘는 focusout — 취소한 이름을 저장하지 않는다
     this.editing = "";
     if (it && keep && value && value !== it.label) { it.label = value; send({ cmd: "history_change", id: id, label: value }); }
-    this.render();
+    this.refresh();
   },
-  remove: function (id) {
-    this.closeMenu();
-    this.items = (this.items || []).filter(function (it) { return it.id !== id; }); this.render();
-    send({ cmd: "history_change", id: id, delete: true }); track("history_delete", "");
+  remove: function (id) {   // 휴지통(마우스 올림)·오른쪽 클릭 — 계정 기록에서 지운다(되돌릴 수 없어 확인). 결과 폴더는 그대로
+    var self = this, it = this.find(id); this.closeMenu(); if (!it) return;
+    askConfirm(tr("이 기록을 지울까요?"), tr("결과 폴더는 지우지 않습니다."), tr("지우기"), function () {
+      self.items = (self.items || []).filter(function (x) { return x.id !== id; }); self.refresh();
+      send({ cmd: "history_change", id: id, delete: true }); track("history_delete", "");
+    });
   }
 };
 handlers.history = function (m) { HIST.onData(m); };
@@ -2866,7 +2899,8 @@ Object.assign(ACTIONS, {
   hist_pick: function (b) { HIST.pick(b.dataset.id); },
   hist_star: function (b) { HIST.toggleStar(b.dataset.id); },
   hist_rename: function (b) { HIST.rename(b.dataset.id); },
-  hist_remove: function (b) { HIST.remove(b.dataset.id); }
+  hist_remove: function (b) { HIST.remove(b.dataset.id); },
+  hist_result: function (b) { HIST.openResult(b.dataset.id); }
 });
 document.addEventListener("contextmenu", function (e) {   // 기록 줄 오른쪽 클릭(키보드 메뉴 키도) — 이름 바꾸기·기록에서 빼기
   var row = state.screen === "history" && e.target.closest(".hist-row"); if (!row) return;

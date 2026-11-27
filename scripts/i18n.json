@@ -6173,29 +6173,11 @@
   "ja": "Goraniは支援で運営しています",
   "zh": "Gorani 依靠赞助运营"
  },
- "로그인 없이 고급 기능 써 보기 ({0}회 남음)": {
-  "en": "Try Advanced without signing in ({0} left)",
-  "es": "Probar las funciones avanzadas sin iniciar sesión (quedan {0})",
-  "ja": "ログインせずに高度な機能を試す(残り{0}回)",
-  "zh": "不登录试用高级功能(剩余{0}次)"
- },
  "로그인 없이 기본으로 만들기": {
   "en": "Create a Basic model without signing in",
   "es": "Crear un modelo básico sin iniciar sesión",
   "ja": "ログインせずに基本で作成",
   "zh": "不登录,以基础模型创建"
- },
- "고급 기능은 회원가입 후\n무료로 이용할 수 있습니다.": {
-  "en": "Advanced features are free\nonce you sign up.",
-  "es": "Las funciones avanzadas son gratis\nal registrarte.",
-  "ja": "高度な機能は会員登録後\n無料で使えます。",
-  "zh": "注册会员后\n即可免费使用高级功能。"
- },
- "간편 회원가입 후\n고급 수준을 무료로 만들어보세요.": {
-  "en": "Sign up in seconds\nand build Advanced for free.",
-  "es": "Regístrate en segundos\ny crea en avanzado gratis.",
-  "ja": "かんたん会員登録で\n高度レベルを無料で作れます。",
-  "zh": "快速注册后\n即可免费创建高级级别模型。"
  },
  "브라우저에서 Google 계정을 고르면\n저절로 돌아옵니다.": {
   "en": "Choose your Google account in the browser\nand you will come back automatically.",
@@ -6208,12 +6190,6 @@
   "es": "Ya usaste todas las pruebas avanzadas sin iniciar sesión.",
   "ja": "ログインなしの高度モデルのお試しを使い切りました。",
   "zh": "免登录的高级模型试用次数已用完。"
- },
- "로그인 후 고급 수준을 무제한으로 사용해보세요.": {
-  "en": "Sign in to use the Advanced level without limits.",
-  "es": "Inicia sesión para usar el nivel avanzado sin límites.",
-  "ja": "ログインすると高度レベルを無制限で使えます。",
-  "zh": "登录后即可无限使用高级级别。"
  },
  "Gorani는 후원으로 운영합니다.": {
   "en": "Gorani runs on sponsorships.",
@@ -6293,12 +6269,6 @@
   "ja": "今日",
   "zh": "今天"
  },
- "이번 주": {
-  "en": "This week",
-  "es": "Esta semana",
-  "ja": "今週",
-  "zh": "本周"
- },
  "그 전": {
   "en": "Earlier",
   "es": "Antes",
@@ -6346,5 +6316,77 @@
   "es": "Política de privacidad",
   "ja": "プライバシーポリシー",
   "zh": "隐私政策"
+ },
+ "로그인 없이 고급 모델 써 보기 ({0}회 남음)": {
+  "en": "Try the Advanced model without signing in ({0} left)",
+  "es": "Probar el modelo avanzado sin iniciar sesión (quedan {0})",
+  "ja": "ログインせずに高度モデルを試す(残り{0}回)",
+  "zh": "不登录试用高级模型(剩余{0}次)"
+ },
+ "고급 모델은 회원가입 후\n무료로 이용할 수 있습니다.": {
+  "en": "The Advanced model is free\nonce you sign up.",
+  "es": "El modelo avanzado es gratis\nal registrarte.",
+  "ja": "高度モデルは会員登録後\n無料で使えます。",
+  "zh": "注册会员后\n即可免费使用高级模型。"
+ },
+ "간편 회원가입 후\n고급 모델을 무료로 만들어 보세요.": {
+  "en": "Sign up in seconds\nand build the Advanced model for free.",
+  "es": "Regístrate en segundos\ny crea el modelo avanzado gratis.",
+  "ja": "かんたん会員登録で\n高度モデルを無料で作れます。",
+  "zh": "快速注册后\n即可免费创建高级模型。"
+ },
+ "고급 모델과 생성 기록을\n회원가입 후 무료로 쓸 수 있습니다.": {
+  "en": "The Advanced model and History\nare free once you sign up.",
+  "es": "El modelo avanzado y el Historial\nson gratis al registrarte.",
+  "ja": "高度モデルと生成履歴は\n会員登録後に無料で使えます。",
+  "zh": "注册会员后\n即可免费使用高级模型和生成记录。"
+ },
+ "로그인하면 고급 모델을 무제한으로 쓸 수 있습니다.": {
+  "en": "Sign in to use the Advanced model without limits.",
+  "es": "Inicia sesión para usar el modelo avanzado sin límites.",
+  "ja": "ログインすると高度モデルを無制限で使えます。",
+  "zh": "登录后即可无限使用高级模型。"
+ },
+ "지난 7일": {
+  "en": "Last 7 days",
+  "es": "Últimos 7 días",
+  "ja": "過去7日間",
+  "zh": "最近7天"
+ },
+ "전체 기록": {
+  "en": "All history",
+  "es": "Todo el historial",
+  "ja": "すべての履歴",
+  "zh": "全部记录"
+ },
+ "결과 보기": {
+  "en": "Open result",
+  "es": "Abrir resultado",
+  "ja": "結果を開く",
+  "zh": "打开结果"
+ },
+ "지도에서 같은 설정으로 다시 고릅니다": {
+  "en": "Picks this site again on the map with the same settings",
+  "es": "Vuelve a elegir este sitio en el mapa con los mismos ajustes",
+  "ja": "同じ設定で地図上に選び直します",
+  "zh": "在地图上以相同设置重新选择"
+ },
+ "이 기록을 지울까요?": {
+  "en": "Delete this record?",
+  "es": "¿Eliminar este registro?",
+  "ja": "この履歴を削除しますか?",
+  "zh": "删除这条记录吗?"
+ },
+ "결과 폴더는 지우지 않습니다.": {
+  "en": "The result folder is not deleted.",
+  "es": "La carpeta de resultados no se elimina.",
+  "ja": "結果フォルダは削除されません。",
+  "zh": "不会删除结果文件夹。"
+ },
+ "지우기": {
+  "en": "Delete",
+  "es": "Eliminar",
+  "ja": "削除",
+  "zh": "删除"
  }
 }
