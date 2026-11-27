@@ -165,7 +165,7 @@ keywords:
 PLAIN_SCRIPT_NAMES = ("loader.py", "cmd_site.py")         # 입출력 연결뿐이라 감출 로직이 없다
 UI_FILE_NAMES = ("site_ui.html", "i18n.json")   # i18n.json = 다국어 사전(패널 tr()·로직 모듈 i18n.tr 공용)
 UI_DIR_NAMES = ("vendor",)
-DOC_FILE_NAMES = ("docs/install.md", "LICENSE", "THIRD_PARTY_NOTICES.md")   # 패키지에 함께 넣는 문서 — 설치 안내 + 약관 사본(GPL 4조: 받는 사람에게 약관 사본)
+DOC_FILE_NAMES = ("docs/install.md", "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md")   # 패키지에 함께 넣는 문서 — 설치 안내 + 약관 사본(GPL 4조: 받는 사람에게 약관 사본)
 EXCLUDED_MODULE_PREFIXES = ("dev_", "cmd_", "probe_", "server_", "blender_", "sketchup_", "archicad_", "web_")     # 개발·실측 전용, 진입 스크립트, 국내 서버(VM) 전용, Blender·SketchUp·웹판
 YAK_EXCLUDED_NAMES = ("mesh_geometry", "panel_server")      # Blender·SketchUp 공용(mathutils·shapely, 브라우저 패널) — Rhino는 안 쓴다
 
