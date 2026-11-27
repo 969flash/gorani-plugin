@@ -410,9 +410,44 @@ def get_history(path=ACCOUNT_PATH):
     return {"ok": ok, "items": out}
 
 
+def get_made_2d_summary(made2d_list):
+    # type: (list) -> dict
+    """
+    입력: context_builder.get_result_state의 made2d_list(그 결과 폴더의 2D 묶음들, 만든 순서).
+    처리: 계정 기록 칸 made_2d — 웹 계정 페이지 out2dText와 같은 꼴. 베이스맵 = 마지막으로 만든 것의 용지, 다이어그램 = 가장 많이 만든 장수, 조서 = 하나라도.
+    출력: {basemap: 용지 글('A3')|'', sheets: n, tables: bool} — 만든 2D가 없으면 None.
+    """
+    basemap, sheets, tables = "", 0, False
+    for item in made2d_list or []:
+        made = item.get("made2d") or {}
+        bm = made.get("basemap") or {}
+        if bm.get("ready") or bm.get("exported"):
+            basemap = str(bm.get("paper") or (made.get("options") or {}).get("paper") or "")[:20] or "A3"
+        sheets = max(sheets, len(made.get("sheets") or []))
+        tables = tables or bool(made.get("tables"))
+    return {"basemap": basemap, "sheets": sheets, "tables": tables} if basemap or sheets or tables else None
+
+
+def set_made_2d(entry_id, summary, path=ACCOUNT_PATH):
+    # type: (str, dict, str) -> None
+    """2D를 만들면 그 생성 기록에 2D 요약(made_2d)을 붙인다. 3D 기록이 아직 줄(pending_history)에 있으면 줄의 것을 고치고(먼저 PATCH하면
+    이름 없는 줄이 생긴다), 아니면 데몬 스레드로 PATCH."""
+    text = json.dumps(summary, ensure_ascii=False)
+    queued = []
+
+    def fix(account):
+        for item in account.get("pending_history") or []:
+            if item[0] == entry_id:
+                item[1]["made_2d"] = text
+                queued.append(entry_id)
+    _update(path, fix)
+    if not queued:
+        change_history_later(entry_id, {"made_2d": text})
+
+
 def change_history(entry_id, changes=None, delete=False, path=ACCOUNT_PATH, now=None):
     # type: (str, dict, bool, str, datetime.datetime) -> bool
-    """생성 기록 한 줄의 이름(label)·즐겨찾기(star)를 고치거나 지운다(데몬 스레드에서 부른다). 못 하면 False(다음에 목록을 열면 원래대로)."""
+    """생성 기록 한 줄의 이름(label)·즐겨찾기(star)·2D 요약(made_2d, JSON 글)을 고치거나 지운다(데몬 스레드에서 부른다). 못 하면 False(다음에 목록을 열면 원래대로)."""
     account = load(path)
     if not account.get("refresh_token") or not entry_id:
         return False
@@ -422,9 +457,11 @@ def change_history(entry_id, changes=None, delete=False, path=ACCOUNT_PATH, now=
         if delete:
             _db(node, id_token, method="DELETE")
         else:
-            body = {k: v for k, v in (changes or {}).items() if k in ("label", "star")}
+            body = {k: v for k, v in (changes or {}).items() if k in ("label", "star", "made_2d")}
             if "label" in body:
                 body["label"] = str(body["label"])[:80]
+            if "made_2d" in body:
+                body["made_2d"] = str(body["made_2d"])[:2000]   # 보안 규칙 길이 상한(docs/account_plan.md)
             _db(node, id_token, dict(body, edited=_ms(now)), "PATCH")
     except (Denied, Down):
         return False

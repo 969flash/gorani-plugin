@@ -463,10 +463,23 @@ class HistoryTest(AccountTestBase):
         self.assertTrue(account.change_history(entry_id, {"star": True, "label": "우리 대지", "dir": "/x"}, path=self.path, now=NOW))
         row = self.fb.node("users", "u1", "history", entry_id)
         self.assertEqual((row["star"], row["label"], "dir" in row), (True, "우리 대지", False))
+        self.assertTrue(account.change_history(entry_id, {"made_2d": '{"basemap": "A3", "sheets": 9, "tables": true}'}, path=self.path, now=NOW))
+        self.assertEqual(account.get_history(self.path)["items"][0]["made_2d"], {"basemap": "A3", "sheets": 9, "tables": True})   # JSON 글을 푼다
         self.assertTrue(account.change_history(entry_id, delete=True, path=self.path))
         self.assertIsNone(self.fb.node("users", "u1", "history", entry_id))
         self.fb.fail = 500
         self.assertFalse(account.get_history(self.path)["ok"])   # 고장 — 화면은 이 PC 기록만
+
+
+class Made2dSummaryTest(unittest.TestCase):
+    def test_summary(self):   # 웹 계정 페이지 out2dText 꼴 — 베이스맵 = 마지막 용지, 다이어그램 = 가장 많이, 조서 = 하나라도
+        runs = [{"made2d": {"basemap": {"ready": True, "paper": "A3"}, "sheets": [1, 2], "tables": []}},
+                {"made2d": None},
+                {"made2d": {"basemap": {"ready": False}, "sheets": [1, 2, 3], "tables": [{"name": "parcels"}]}},
+                {"made2d": {"basemap": {"ready": True, "paper": "A1"}, "sheets": [], "tables": []}}]
+        self.assertEqual(account.get_made_2d_summary(runs), {"basemap": "A1", "sheets": 3, "tables": True})
+        self.assertIsNone(account.get_made_2d_summary([{"made2d": None}]))
+        self.assertIsNone(account.get_made_2d_summary([]))
 
 
 if __name__ == "__main__":

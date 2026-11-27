@@ -860,6 +860,8 @@ class _SiteController:
             self.push({"type": "log", "level": "error", "text": get_error_log_text(response["error"])})
         # [blender-cut]
         self._send_2d_stats(options, response)
+        if response.get("ok"):
+            self._add_2d_history(result_dir)
         # [/blender-cut]
         self.push(dict(response, type="made_2d"))
 
@@ -1001,6 +1003,22 @@ class _SiteController:
         for item in result["items"]:
             item["dir"] = local.get(item["id"], "")
         self.push(dict(result, type="history"))
+
+    def _add_2d_history(self, result_dir):
+        # type: (str) -> None
+        """회원이 2D를 만들면 그 결과의 생성 기록에 2D 요약(베이스맵 용지·다이어그램 장수·조서)을 붙인다 — 웹 계정 페이지 '2D 자료' 칸."""
+        account = loader.load("account")
+        context_builder = loader.load("context_builder")
+        data = account.load()
+        if not account.is_enabled(context_builder.get_host()) or "history_sync" not in account.get_features(data) or account.get_state(data) != "member":
+            return
+        try:
+            state = context_builder.get_result_state(result_dir)
+        except (OSError, ValueError, KeyError):
+            return
+        summary = account.get_made_2d_summary(state.get("made2d_list"))
+        if state.get("entry_id") and summary:
+            account.set_made_2d(state["entry_id"], summary)
 
     def _history_change(self, msg):
         changes = {k: msg[k] for k in ("label", "star") if k in msg}

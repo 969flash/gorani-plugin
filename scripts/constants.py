@@ -190,7 +190,7 @@ LOADING_TIPS = [
     {"text": "도면 색과 글꼴을 바꿔 '내 스타일'로 저장해 두면 다음 대상지에도 쓸 수 있습니다.", "kind": "tip"},
     {"text": "최근 결과를 누르면 지난 대상지와 설정을 다시 열 수 있습니다.", "kind": "tip"},
     {"text": "도면마다 데이터 출처와 기준일이 적혀 있습니다.", "kind": "tip"},
-    {"text": "로그인 후 고급 수준을 무제한으로 사용해보세요.", "kind": "login"},
+    {"text": "로그인하면 고급 모델을 무제한으로 쓸 수 있습니다.", "kind": "login"},
     {"text": "Gorani는 후원으로 운영합니다.", "kind": "sponsor"},
     {"text": "후원을 통해 새로운 기능이 도입됩니다.", "kind": "sponsor"},
     {"text": "Team Gorani에게 많은 후원 부탁드립니다.", "kind": "sponsor"},
