@@ -6353,12 +6353,6 @@
   "ja": "過去7日間",
   "zh": "最近7天"
  },
- "전체 기록": {
-  "en": "All history",
-  "es": "Todo el historial",
-  "ja": "すべての履歴",
-  "zh": "全部记录"
- },
  "결과 보기": {
   "en": "Open result",
   "es": "Abrir resultado",
@@ -6418,5 +6412,11 @@
   "es": "No hay registros creados en este PC",
   "ja": "このPCで作った履歴はありません",
   "zh": "没有在本机生成的记录"
+ },
+ "최근 기록": {
+  "en": "Recent history",
+  "es": "Historial reciente",
+  "ja": "最近の履歴",
+  "zh": "最近记录"
  }
 }
