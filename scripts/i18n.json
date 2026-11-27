@@ -6353,12 +6353,6 @@
   "ja": "過去7日間",
   "zh": "最近7天"
  },
- "결과 보기": {
-  "en": "Open result",
-  "es": "Abrir resultado",
-  "ja": "結果を開く",
-  "zh": "打开结果"
- },
  "지도에서 같은 설정으로 다시 고릅니다": {
   "en": "Picks this site again on the map with the same settings",
   "es": "Vuelve a elegir este sitio en el mapa con los mismos ajustes",
@@ -6418,5 +6412,11 @@
   "es": "Historial reciente",
   "ja": "最近の履歴",
   "zh": "最近记录"
+ },
+ "생성 기록으로": {
+  "en": "To history",
+  "es": "Al historial",
+  "ja": "生成履歴へ",
+  "zh": "前往生成记录"
  }
 }

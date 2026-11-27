@@ -849,7 +849,7 @@ function setRun(run) { state.run = run; document.body.dataset.run = run; renderF
 function renderFooter() {
   var r = state.run, html = "";
   if (state.screen === "history") {
-    html = "";   // 생성 기록 화면은 아래 줄이 없다 — 돌아가기는 화면 머리
+    html = '<button type="button" class="btn ghost" data-act="hist_back">' + ico("back") + tr(HIST && HIST.back === "result" ? "결과로 돌아가기" : "지도로") + "</button><span></span>";   // 화면 사이 이동은 아래 줄(2026-11-27 사용자) — 온 곳으로
   } else if (state.screen === "map") {
     var can = hasTarget() && !busyTarget(), again = can && madeBefore();
     html = (canReturn() && !draw.on && !stamp.on ? '<button type="button" class="btn ghost" data-act="to_result" title="' + esc(lastLabel()) + '">' + tr("결과로 돌아가기") + ico("next") + "</button>"
@@ -865,7 +865,8 @@ function renderFooter() {
         '<button type="button" class="btn" data-act="st_save" title="' + tr("이 스타일을 이름 붙여 두고 다른 대상지에서도 씁니다") + '">' + ico("save") + tr("내 스타일로 저장") + '</button><button type="button" class="btn primary" data-act="st_apply" title="' + tr("이번에 만들 다이어그램에 씁니다") + '">' + ico("check") + tr("적용") + "</button>";
   } else if (r === "done") {
     var lock = state.job2d === "running" ? " disabled" : "";
-    html = '<button type="button" class="btn ghost" data-act="rerange"' + lock + ' title="' + tr("대상지는 그대로 두고 지도로 돌아갑니다. 새 대상지는 지도에서 지우고 고르세요") + '">' + ico("back") + tr("지도로") + "</button><span></span>";   // 예전 [범위 바꾸기]·[새 대상지]는 둘 다 지도로 가서 차이가 대상지 유지뿐이었다(2026-10-19 QA)
+    html = '<button type="button" class="btn ghost" data-act="rerange"' + lock + ' title="' + tr("대상지는 그대로 두고 지도로 돌아갑니다. 새 대상지는 지도에서 지우고 고르세요") + '">' + ico("back") + tr("지도로") + "</button>" +
+      (HIST && HIST.can() ? '<button type="button" class="btn ghost" data-act="hist_open"' + lock + ">" + tr("생성 기록으로") + ico("next") + "</button>" : "<span></span>");   // 회원 — 오른쪽은 생성 기록(2026-11-27 사용자)   // 예전 [범위 바꾸기]·[새 대상지]는 둘 다 지도로 가서 차이가 대상지 유지뿐이었다(2026-10-19 QA)
   } else {
     html = '<button type="button" class="btn ghost" data-act="back">' + ico("back") + tr("지도로") + '</button><button type="button" class="btn primary" data-act="retry">' + ico("refresh") + tr("다시 시도") + "</button>";
   }
@@ -2816,8 +2817,7 @@ HIST = {
   render: function () {
     var sec = document.querySelector('section[data-screen="history"]'); if (!sec) return;
     var self = this, all = this.items || [], items = all.filter(function (it) { return (self.scope !== "pc" || it.dir) && (!self.star || it.star); });
-    var html = '<div class="hist-head"><button type="button" class="btn ghost sm" data-act="hist_back">' + ico("back") + tr(this.back === "result" ? "결과로 돌아가기" : "지도로") +
-      '</button><h2 tabindex="-1">' + tr("생성 기록") + '</h2><span></span></div><div class="hist-filters"><div class="seg" role="group" aria-label="' + tr("생성 기록") + '">' +
+    var html = '<div class="hist-head"><span></span><h2 tabindex="-1">' + tr("생성 기록") + '</h2><span></span></div><div class="hist-filters"><div class="seg" role="group" aria-label="' + tr("생성 기록") + '">' +
       segBtn("hist_scope", ' data-v="all"', this.scope !== "pc", tr("전체")) + segBtn("hist_scope", ' data-v="pc" title="' + tr("이 PC에 결과 폴더가 있는 기록") + '"', this.scope === "pc", tr("내 PC")) + "</div>" +
       '<button type="button" class="ib sm hist-star-filter" data-act="hist_star_filter" aria-pressed="' + this.star + '" aria-label="' + tr("즐겨찾기만") + '" title="' + tr("즐겨찾기만") + '">' + ico("star") + "</button></div>";
     if (!this.ok) html += '<p class="hint">' + tr("생성 기록을 받지 못했습니다") + "</p>";
@@ -2843,7 +2843,7 @@ HIST = {
     var id = esc(it.id), name = it.label || "–", lock = state.run === "running" ? " disabled" : "";
     var btn = function (act, icon, label, extra) { return '<button type="button" class="ib sm" data-act="' + act + '" data-id="' + id + '" aria-label="' + esc(label + ": " + name) + '" title="' + esc(label) + '"' + lock + (extra || "") + ">" + ico(icon) + "</button>"; };
     // 왼쪽 = 폴더(이 PC에 결과가 있는 기록만 — 누르면 결과 화면), 오른쪽 = 연필(이름 바꾸기, 마우스 올림 — gorani.site/account와 같게) · X(기록에서 빼기) · 별(맨 오른쪽 — 위 ★ 필터와 한 줄) — 2026-11-27 사용자
-    var folder = it.dir ? btn("hist_result", "folder", tr("결과 보기")) : '<span class="gap"></span>';
+    var folder = it.dir ? btn("hist_folder", "folder", tr("폴더 열기")) : '<span class="gap"></span>';
     var acts = '<div class="hist-acts">' + btn("hist_rename", "pen", tr("이름 바꾸기")).replace('class="ib sm"', 'class="ib sm hov"') + btn("hist_remove", "x", tr("기록에서 빼기")) +
       btn("hist_star", "star", tr("즐겨찾기"), ' aria-pressed="' + !!it.star + '"').replace('class="ib sm"', 'class="ib sm hist-star"') + "</div>";
     if (this.editing === it.id)
@@ -2859,10 +2859,6 @@ HIST = {
     go("map");
     if (!restoreResultTarget(rs)) toast(tr("이 기록은 지도에 되살릴 수 없습니다"));
     track("history_restore", it.mode || "");
-  },
-  openResult: function (id) {   // 폴더 아이콘 — 이 PC의 결과 폴더를 결과 화면으로
-    var it = this.find(id); if (!it || !it.dir || state.run === "running" || state.job2d === "running") return;
-    clearInterval(this.poll); this.poll = null; send({ cmd: "open_result", dir: it.dir });
   },
   toggleStar: function (id) {
     var it = this.find(id); if (!it) return;
@@ -2905,7 +2901,7 @@ Object.assign(ACTIONS, {
   hist_star: function (b) { HIST.toggleStar(b.dataset.id); },
   hist_rename: function (b) { HIST.rename(b.dataset.id); },
   hist_remove: function (b) { HIST.remove(b.dataset.id); },
-  hist_result: function (b) { HIST.openResult(b.dataset.id); }
+  hist_folder: function (b) { var it = HIST.find(b.dataset.id); if (it && it.dir) openPath(it.dir); }
 });
 document.addEventListener("contextmenu", function (e) {   // 기록 줄 오른쪽 클릭(키보드 메뉴 키도) — 이름 바꾸기·기록에서 빼기
   var row = state.screen === "history" && e.target.closest(".hist-row"); if (!row) return;
