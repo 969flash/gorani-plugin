@@ -101,6 +101,8 @@ Tests run without Rhino:
 python3 -m unittest discover tests
 ```
 
+See [CONTRIBUTING.md](CONTRIBUTING.md). Report security problems privately: [SECURITY.md](SECURITY.md). Changes per release: [CHANGELOG.md](CHANGELOG.md).
+
 ## Support
 
 Gorani runs on sponsorships. Sponsorships bring new features. [Sponsor Gorani on GitHub](https://github.com/sponsors/969flash).

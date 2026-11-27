@@ -215,7 +215,7 @@ components:
 - 마크: 정면 고라니 얼굴 실루엣 — 큰 귀, 아래로 내려온 엄니 둘, 뿔 없음(2026-10-19 확정, 시트 `docs/brand/logo.html`). 원본은 `docs/brand/gorani_mark.svg`(32 px 이상)와 `gorani_mark_small.svg`(24 px 이하 — 눈·주둥이·엄니·귀 안 흰 면을 굵게). path 하나(evenodd), 색은 `currentColor` 한 색.
 - 색: 라이트 잉크 #111418, 다크 잉크 #E8ECF2. 블루·그라데이션·바탕 원·테두리를 더하지 않는다. 마크는 곡선 실루엣이고 기능 아이콘(선)과 섞지 않는다.
 - 크기별 PNG: `docs/brand/png/gorani_<16·24·32·48·64·128·256>.png`(투명 바탕, 라이트 잉크. 24 이하는 작은 판).
-- 쓰는 자리: Rhino 도구 막대(`dev_deploy`가 빌드한 .rui의 아이콘을 작은 판 SVG로 갈아 끼운다), Yak 목록(`icon.png` = 128 px), SketchUp 도구 막대(Windows SVG, macOS PNG 48 px), Blender 스토어 아이콘·대표 이미지(`docs/blender_store/`), 패널 헤더(마크 + 워드마크).
+- 쓰는 자리: Rhino 도구 막대(`dev_deploy`가 빌드한 .rui의 아이콘을 작은 판 SVG로 갈아 끼운다), Yak 목록(`icon.png` = 128 px), SketchUp 도구 막대(Windows SVG, macOS PNG 48 px), Blender 스토어 아이콘·대표 이미지(`gorani-ops/docs/blender_store/`), 패널 헤더(마크 + 워드마크).
 - 워드마크: `Gorani`(G만 대문자), Pretendard 800. 마크 오른쪽에 둔다.
 - 고라니는 브랜드 자리(진입 버튼·헤더·스토어·로딩)에만 쓴다. 기능 버튼 아이콘은 위 Icons 규칙을 따르고, 산출물(3dm·베이스맵·현황도)에는 로고를 넣지 않는다.
 - 뿔을 달지 않는다 — 고라니는 암수 모두 뿔이 없어 뿔을 그리면 노루·사슴으로 읽힌다. 강조할 특징은 엄니와 큰 귀다.

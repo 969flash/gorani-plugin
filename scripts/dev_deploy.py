@@ -222,7 +222,7 @@ def register():
 def unregister():
     cmd_blender.unregister()
 '''
-# Blender 패키지에만 들어가는 판 — 확장 심사(2026-10-21 조사: docs/blender_store/README.md)가 sys.path·sys.modules 조작, 모듈 다시 읽기,
+# Blender 패키지에만 들어가는 판 — 확장 심사(2026-10-21 조사: gorani-ops/docs/blender_store/README.md)가 sys.path·sys.modules 조작, 모듈 다시 읽기,
 # Blender 안 스레드, 분석 전송을 막는다. Rhino판 loader(공유 인터프리터 이름 충돌·편집 반영)와 GA 통계는 패키지에 넣지 않는다.
 BLENDER_LOADER_SOURCE = '''"""로직 모듈 로더 — Blender 확장판(dev_deploy.py blender가 scripts/loader.py 대신 넣는다).
 패키지 상대 import만 쓰고 sys.path·sys.modules는 건드리지 않는다. 모듈은 한 번 읽고, 다시 읽기는 Blender가 확장을 껐다 켤 때 한다.
@@ -280,7 +280,7 @@ BLENDER_CONSTANT_PATCHES = {
     "review_map.py": {"VWORLD_TILE_URL_TEMPLATE": '""', "VWORLD_AERIAL_URL_TEMPLATE": '""', "ESRI_AERIAL_URL": '""', "IP_LOCATE_URL": '""'},
 }
 # Blender 패키지에 남아도 되는 주소 — 위는 실제로 접속하는 곳(모두 무료·무가입), 아래는 링크·출처 표기·주석·라이선스 글(접속하지 않는다).
-# 새 외부 서비스를 넣으면 빌드가 멈춘다 — 심사 답변(docs/blender_store/README.md 'Network')과 함께 여기에 넣는다
+# 새 외부 서비스를 넣으면 빌드가 멈춘다 — 심사 답변(gorani-ops/docs/blender_store/README.md 'Network')과 함께 여기에 넣는다
 BLENDER_ALLOWED_HOSTS = (
     "127.0.0.1",                                                       # 패널 서버(이 컴퓨터)
     "tile.openstreetmap.org", "nominatim.openstreetmap.org", "overpass-api.de", "overpass.openstreetmap.fr",   # OpenStreetMap — 지도·지명 검색·건물·도로
@@ -1976,7 +1976,7 @@ def main():
     if args.what == "sketchup":
         rbz = build_sketchup()
         print("sketchup: %s (%.0f MB)" % (rbz, os.path.getsize(rbz) / 1e6))
-        print("  설치: SketchUp 2022+ 확장 > Extension Manager > Install Extension, 올리기: docs/sketchup_store.md")
+        print("  설치: SketchUp 2022+ 확장 > Extension Manager > Install Extension, 올리기: gorani-ops/docs/sketchup_store.md")
         return
     if args.what == "rhino7":
         for path in build_rhino7():

@@ -179,7 +179,7 @@ PANEL_LINKS = {
     "website_en": "https://gorani.site/en/",   # 같은 페이지 영어판 — 패널 언어가 한국어가 아니면 이쪽
     "contact": "mailto:gorani.3d@gmail.com",   # 문의 메일 — 더보기 메뉴 '문의'(2026-10-30 사용자)
     "sponsor": "https://github.com/sponsors/969flash",   # 후원 — 더보기 메뉴 '도움' 문의 아래(2026-11-18 사용자, 웹사이트 꼬리말과 같은 곳). Blender판에는 줄이 없다
-    "privacy": "https://gorani.site/privacy/",   # 개인정보 처리방침 — 더보기 메뉴 '도움'(회원 기능이 켜진 호스트만, docs/account_plan.md '개인정보·약관')
+    "privacy": "https://gorani.site/privacy/",   # 개인정보 처리방침 — 더보기 메뉴 '도움'(회원 기능이 켜진 호스트만, gorani-ops/docs/account_plan.md '개인정보·약관')
     "privacy_en": "https://gorani.site/en/privacy/",   # 같은 처리방침 영어판 — 패널 언어가 한국어가 아니면 이쪽
 }
 # 3D 만드는 동안 진행 카드 아래에 도는 한 줄(2026-11-18 사용자) — 원격 설정. 글은 i18n.json 원문(새 줄을 더하면 번역도 같이 올린다)
@@ -390,7 +390,7 @@ DATA_MANIFEST_URL = "https://huggingface.co/datasets/%s/resolve/main/manifest.js
 # (공간정보관리법 제16조). Oracle Cloud 춘천 리전 Always Free 버킷(공개 읽기·목록 금지). 계정을 유료로 올리지 말 것 —
 # Always Free 전용 계정은 과금 수단이 없어 한도(저장 20 GB·전송 월 10 TB)를 넘으면 멈출 뿐 청구되지 않는다.
 DATA_DOMESTIC_BUCKET_URL = "https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/axmhzznfqthg/b/urbandesigntool-data/o/"   # 올리는 곳
-# 매니페스트에 적는 받기 주소. 문지기 서버(scripts/server_gate.py, 같은 리전 VM)를 세우면 "http://<VM 공인 IP>/"로 바꾸고
+# 매니페스트에 적는 받기 주소. 문지기 서버(gorani-ops/scripts/server_gate.py, 같은 리전 VM)를 세우면 "http://<VM 공인 IP>/"로 바꾸고
 # 버킷을 Private로 돌린다. 되돌리기 = 버킷 주소로 바꿔 dev_deploy upload + 버킷 Public — 플러그인은 매니페스트만 보므로 사용자는 할 일이 없다.
 DATA_DOMESTIC_BASE_URL = "http://150.230.249.1/"   # 문지기 VM udt-gate(2026-10-14, VM.Standard.E2.1.Micro)
 DATA_STATE_FILE_NAME = "packs.json"    # data/ 안. 받은 팩의 sha256 — 바뀐 팩만 다시 받는다
@@ -404,7 +404,7 @@ DATA_MAX_OPEN_FILES = 11               # 한 연결에 여는 지역 DB 수 상�
 PACK_BOUNDS_CORE_QUANTILE = 0.005
 PACK_BOUNDS_EXTEND_MIN = 5000.0        # m
 PACK_BOUNDS_MARGIN = 200.0             # m — 시군구 분할 격자 한 칸(경계 객체는 양쪽 팩에 있다)
-# 일본 건물 팩 — 국토교통성 3D 도시모델(PLATEAU) 건물을 시구정촌마다 한 팩으로(dev_plateau.py). 근거 docs/research/japan.md, 계획 docs/japan_plan.md.
+# 일본 건물 팩 — 국토교통성 3D 도시모델(PLATEAU) 건물을 시구정촌마다 한 팩으로(dev_plateau.py). 근거 gorani-ops/docs/research/japan.md, 계획 gorani-ops/docs/japan_plan.md.
 # 국외 반출 제한이 없고 CC BY 4.0 호환이라 필지 팩과 같은 Hugging Face 데이터셋의 jp/ 폴더에 둔다. 매니페스트도 따로 둔다 —
 # 한국 팩 올리기(dev_deploy upload)가 일본 항목을 덮지 않고, 한국 대상지는 일본 목록을 받지 않는다.
 JP_PACK_DIR = "jp"                     # 데이터셋 안 폴더·로컬 build/packs/jp
@@ -437,7 +437,7 @@ SWISS_STAC_ITEMS_URL = "https://data.geo.admin.ch/api/stac/v0.9/collections/ch.s
 SWISS_LICENSE = "swisstopo OGD 이용약관(2022-08-26, Version 1.3.2021) — 자유 이용·가공·배포, 출처 표기 \"©swisstopo\""
 SWISS_HEIGHT_RANGE = (1.0, 400.0)      # 솔리드 최고 z − 최저 z 사용 범위 m
 # 미국 — Overture Maps buildings(ODbL. Microsoft ML Buildings·OpenStreetMap·Esri Community Maps 합본 — 미국 높이는 대부분 Microsoft ML 추정, 로스앤젤레스 98.8 %·오스틴 89.3 %
-# 2026-10-23 실측 docs/research/country_buildings.md). 공식 출처(FEMA USA Structures)는 높이가 1/4뿐이고 약관이 갈려 쓰지 않는다. 카운티(Census FIPS 5자리)마다 팩 하나 — dev_us.py
+# 2026-10-23 실측 gorani-ops/docs/research/country_buildings.md). 공식 출처(FEMA USA Structures)는 높이가 1/4뿐이고 약관이 갈려 쓰지 않는다. 카운티(Census FIPS 5자리)마다 팩 하나 — dev_us.py
 US_PACK_DIR = "us"
 US_PACK_PREFIX = "us"                  # 팩 이름 us<카운티 FIPS 5자리>_context.db — us06037 로스앤젤레스
 US_BOUNDS = ((-125.0, 24.3, -66.9, 49.5), (-170.0, 51.0, -129.0, 72.0), (-161.0, 18.5, -154.0, 22.5), (-68.0, 17.5, -64.4, 18.6))   # 본토·알래스카·하와이·푸에르토리코/버진아일랜드(서, 남, 동, 북)
@@ -517,14 +517,14 @@ ADMIN_DIR = os.path.join(os.path.expanduser("~"), ".config", "gorani")
 ADMIN_GA_KEY_PATH = os.path.join(ADMIN_DIR, "ga_service_account.json")   # GA4 Data API 서비스 계정 키(GCP gorani-stats) — GA 계정 단위 '편집자'(맞춤 측정기준 등록에 필요)
 ADMIN_DEV_CLIENTS_PATH = os.path.join(ADMIN_DIR, "dev_clients.json")   # 국내 서버 기록에서 '내 시험'으로 표시한 설치 ID 목록(이 Mac 설치 ID는 자동)
 ADMIN_GATE_LOG_PATH = os.path.join(ADMIN_DIR, "udt.log")   # 국내 서버 nginx 기록을 이어 붙인 사본 — 서버는 logrotate로 2주만 남긴다
-ADMIN_GATE_SSH = ("ubuntu", os.path.join(os.path.expanduser("~"), ".ssh", "udt-gate.key"))   # docs/domestic_gate.md
+ADMIN_GATE_SSH = ("ubuntu", os.path.join(os.path.expanduser("~"), ".ssh", "udt-gate.key"))   # gorani-ops/docs/domestic_gate.md
 ADMIN_YAK_VERSIONS_URL = "https://yak.rhino3d.com/versions/%s" % TOOL_NAME   # 버전별 download_count(공개 API)
 ADMIN_HF_API_URL = "https://huggingface.co/api/datasets/%s?expand%%5B%%5D=downloads&expand%%5B%%5D=downloadsAllTime&expand%%5B%%5D=usedStorage" % DATA_REPO_ID   # 데이터셋 전체 합계만(파일별 없음)
 ADMIN_ORACLE_FREE_STORAGE = 20 * 1024 ** 3   # Always Free 오브젝트 스토리지 20 GB(넘으면 유료 — 전환 금지)
 ADMIN_ORACLE_FREE_EGRESS = 10 * 1000 ** 4    # Always Free 아웃바운드 월 10 TB
 ADMIN_STORE_URLS = {   # 프로그램별 배포 자리 — 빈 값 = 아직 공개 전(심사 중). Blender는 이 주소가 200이면 공개된 것으로 본다
     "rhino": "https://yak.rhino3d.com/packages/Gorani",
-    "sketchup": "",   # Extension Warehouse 심사 중(docs/sketchup_store.md) — 공개되면 페이지 주소를 넣는다
+    "sketchup": "",   # Extension Warehouse 심사 중(gorani-ops/docs/sketchup_store.md) — 공개되면 페이지 주소를 넣는다
     "blender": "https://extensions.blender.org/add-ons/gorani/",
 }
 ADMIN_TEST_AGENTS = ("curl/", "HeadlessChrome", "python-requests")   # 국내 서버 기록에서 늘 시험으로 보는 User-Agent
@@ -906,7 +906,7 @@ CLASSIFY_GRID = 50.0            # m — 면 분류용 격자 버킷
 WATER_LIFT = 0.02               # m — 수면 메시를 지형 위로 띄우는 높이
 MESH_WELD = 0.005              # m — 분류 메시(수면·차도·철도부지…) 조각 이음매에서 이 거리 안 정점을 하나로(non_rhino_utils.get_welded_mesh).
                                # 원천 폴리곤 좌표가 미세하게 달라 이음매 정점이 0.1~5 mm 어긋나 SketchUp이 선으로 그렸다(성수 구거 166쌍·중랑천 260쌍·차도 62쌍)
-# 가로 디테일(2026-11-08, docs/research/09_street_rail_detail.md) — 차도만 연석 높이만큼 내려 블록·인도가 올라와 보이게 한다.
+# 가로 디테일(2026-11-08, gorani-ops/docs/research/09_street_rail_detail.md) — 차도만 연석 높이만큼 내려 블록·인도가 올라와 보이게 한다.
 # 인도를 올리지 않는 까닭: 대지는 인도 높이에 맞춰져 있어 인도를 올리면 인도와 대지 사이에 없는 단차가 생긴다.
 CURB_HEIGHT = 0.15              # m — 연석 높이. 법정 상한 25 cm(도로의 구조·시설 기준에 관한 규칙 제16조), 정밀도로지도 성수 실측 중앙값 0.175 m, PLATEAU LOD3.2 단차 기준 15 cm. 0이면 예전처럼 평평
 SIDEWALK_KINDS = ("sidewalk", "median")   # features theme road 중 차도에서 내리지 않는 면 — 인도(A0033320)·도로분리대(C0520000)
@@ -962,11 +962,11 @@ DETAIL_OPTIONS = {   # 키: 기본값
     "building_parapet": True,   # 건물 옥상 파라펫 — 고급 모델이 앞세우는 것(중요도 1위)
     "building_floors": True,    # 건물 층 구분선(중요도 2위)
 }
-# 기능 → 그 기능이 켜는 옵션. 수준 '고급' = detail_advanced(순서 = 중요도 순, 패널 '고급' 설명 글 순서). 회원 권한도 이 키로 거른다(docs/account_plan.md)
+# 기능 → 그 기능이 켜는 옵션. 수준 '고급' = detail_advanced(순서 = 중요도 순, 패널 '고급' 설명 글 순서). 회원 권한도 이 키로 거른다(gorani-ops/docs/account_plan.md)
 FEATURES = {
     "detail_advanced": {"options": ["building_parapet", "building_floors", "detail_markings", "detail_trees", "detail_rail", "detail_walls"]},
 }
-# 회원(구글 로그인, docs/account_plan.md) — Firebase(Auth + Realtime Database, 우리 서버 없음)와 웹 /login/. 모두 원격 설정이라 판 없이 켜고 끄고 옮긴다
+# 회원(구글 로그인, gorani-ops/docs/account_plan.md) — Firebase(Auth + Realtime Database, 우리 서버 없음)와 웹 /login/. 모두 원격 설정이라 판 없이 켜고 끄고 옮긴다
 ACCOUNT_ENABLED = True          # False = 로그인·자물쇠 없이 고급 누구나(로그인 쪽이 오래 고장 났거나 서버가 틀린 거절을 줄 때 비상 스위치)
 ACCOUNT_FIREBASE = {"api_key": "AIzaSyCggyybM6ngv8v0NUJ2n_0wf476R0vZWxs", "project_id": "gorani-da15f",
                     "db_url": "https://gorani-da15f-default-rtdb.asia-southeast1.firebasedatabase.app"}   # Firebase 웹 설정(공개 값 — 고라니 운영 계정의 Spark 프로젝트, 2026-11-19). API 키가 비면 회원 기능이 꺼진 것과 같다(고급 누구나)

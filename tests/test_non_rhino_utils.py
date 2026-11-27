@@ -1,4 +1,4 @@
-"""non_rhino_utils 순수 기하 6함수 — docs/implementation_plan.md M1 표 그대로."""
+"""non_rhino_utils 순수 기하 6함수 — gorani-ops/docs/implementation_plan.md M1 표 그대로."""
 
 import json
 import math

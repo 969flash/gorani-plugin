@@ -16,7 +16,7 @@ import context_builder
 PNUS = [constants.TEST_CONTEXT_PNU]
 RADIUS = 500
 SCALES = [3000]
-RESULT_ROOT = "/Users/sanghoon/Documents/GitHub/UrbanDesignTool/result"
+RESULT_ROOT = os.path.join(constants.HOME_DIR, "result")
 
 # 항상 헤드리스 문서(mm)에서 돈다 — 사용자가 열어 둔 문서를 건드리지 않는다(2026-10-10: 사용자 문서가 '실제 좌표' 방식이라 섞일 뻔했다)
 doc = Rhino.RhinoDoc.CreateHeadless(None)

@@ -375,7 +375,7 @@ def write_context_json(prepared, response_partial, out_dir):
     frame_bounds = _get(prepared, "frame_bounds") or {}
     data = {
         "tool": constants.TOOL_NAME, "version": constants.PANEL_VERSION, "built_at": _built_at(prepared),
-        "entry_id": get_entry_id(),   # 결과 하나의 id — 이 PC 결과 폴더와 계정 생성 기록(docs/account_plan.md)을 짝짓는다
+        "entry_id": get_entry_id(),   # 결과 하나의 id — 이 PC 결과 폴더와 계정 생성 기록(gorani-ops/docs/account_plan.md)을 짝짓는다
         "lot_name": _get(prepared, "lot_name", ""), "pnus": list((_get(prepared, "request") or {}).get("pnus") or []),
         "mode": _get(prepared, "mode", "lots"), "target": (_get(prepared, "request") or {}).get("target"),
         "lot_key": _get(prepared, "target_key", ""), "center": list(_get(prepared, "center") or []),

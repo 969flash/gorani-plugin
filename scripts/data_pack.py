@@ -420,7 +420,7 @@ def _open_pack(pack, client_id, manifest_url):
     문지기 서버의 하루 한도(429)는 사용자에게 보일 문장으로 바꾼다. 출력: (응답, 실제로 받는 팩 dict)."""
     headers = {"User-Agent": "%s/%s" % (constants.TOOL_NAME, constants.PANEL_VERSION)}
     if client_id and pack["name"][:5].isdigit() and not pack["name"].endswith("_site.db"):   # 한국 시군구 컨텍스트·등고선 팩(국내 문지기 서버)에만
-        headers["X-UDT-Client"] = client_id   # 설치마다 하루 한도를 센다(docs/domestic_gate.md). 서버 주소가 바뀌어도 보내게 주소가 아니라 이름으로 가른다.
+        headers["X-UDT-Client"] = client_id   # 설치마다 하루 한도를 센다(gorani-ops/docs/domestic_gate.md). 서버 주소가 바뀌어도 보내게 주소가 아니라 이름으로 가른다.
         # 필지·나라별 팩(Hugging Face·GitHub)에는 보내지 않는다 — 2026-10-25까지 네덜란드·프랑스·스위스·미국 팩에도 붙고 있었다
 
     def open_url(url):

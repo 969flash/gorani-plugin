@@ -1,6 +1,6 @@
 """회원 — 구글 로그인(gorani.site)으로 받은 Firebase 열쇠를 ~/.gorani/account.json에 두고, 기능 키로 생성 옵션을 거른다.
 
-설계는 docs/account_plan.md: 회원 저장·인증은 Firebase(Auth + Realtime Database) — 우리 서버는 없다.
+설계는 gorani-ops/docs/account_plan.md: 회원 저장·인증은 Firebase(Auth + Realtime Database) — 우리 서버는 없다.
 이용권(plan)은 Firebase 토큰의 맞춤 값, 이용권 → 기능은 원격 설정 PLAN_FEATURES. 플러그인은 기능(feature) 키만 본다.
 로그인은 늘 시스템 브라우저에서 한다(구글이 앱 안 웹뷰 로그인을 막는다). 웹이 127.0.0.1의 받는 곳으로 열쇠(refresh token)를 폼 POST로 넘긴다.
 로그인에 기대지 않는다 — 서버의 확실한 거절(ACCOUNT_DENIED_ERRORS)만 잠그고, 그 밖의 고장은 연다('로그인에 기대지 않기').
@@ -310,7 +310,7 @@ def get_history_entry(result_state, host_id, version, now=None):
     # type: (dict, str, str, datetime.datetime) -> tuple
     """
     입력: context_builder.get_result_state(결과 폴더)의 값, 호스트 id, 판.
-    처리: 계정 생성 기록 한 줄(docs/account_plan.md 'Firebase에 남는 것') — 파일·폴더 경로·PC 이름은 넣지 않는다.
+    처리: 계정 생성 기록 한 줄(gorani-ops/docs/account_plan.md 'Firebase에 남는 것') — 파일·폴더 경로·PC 이름은 넣지 않는다.
           대상은 필지 PNU(50개까지) 또는 구역 링 경위도(점 200개 이하로 솎음), 3D 설정은 JSON 글.
     출력: (entry_id, entry). entry_id가 없는 옛 결과면 (None, None).
     """
@@ -461,7 +461,7 @@ def change_history(entry_id, changes=None, delete=False, path=ACCOUNT_PATH, now=
             if "label" in body:
                 body["label"] = str(body["label"])[:80]
             if "made_2d" in body:
-                body["made_2d"] = str(body["made_2d"])[:2000]   # 보안 규칙 길이 상한(docs/account_plan.md)
+                body["made_2d"] = str(body["made_2d"])[:2000]   # 보안 규칙 길이 상한(gorani-ops/docs/account_plan.md)
             _db(node, id_token, dict(body, edited=_ms(now)), "PATCH")
     except (Denied, Down):
         return False

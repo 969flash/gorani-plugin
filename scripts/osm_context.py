@@ -3,7 +3,7 @@
 국내는 로컬 DB(context_db)를 쓰고, 대상지가 한국 밖이면(non_rhino_utils.is_local_projection) context_builder가 이 모듈을 부른다.
 좌표는 non_rhino_utils의 지금 투영(대상지 중심 지역 횡메르카토르) m. 표준 라이브러리만 쓴다(urllib·json·zlib·sqlite3).
 일본은 받아 둔 PLATEAU 건물 팩(jp<시구정촌코드>_context.db — cmd_site가 생성 직전에 받는다)을 먼저 쓰고 OSM 건물은 그와 겹치지 않는
-것만 보탠다. 지형은 Mapterhorn(지리원 DEM을 담았다), 못 받으면 국토지리원(GSI) 5 m 표고 타일. 근거 docs/research/japan.md·data_sources.md §6.
+것만 보탠다. 지형은 Mapterhorn(지리원 DEM을 담았다), 못 받으면 국토지리원(GSI) 5 m 표고 타일. 근거 gorani-ops/docs/research/japan.md·data_sources.md §6.
 Overpass가 다 막히면 같은 범위를 OpenFreeMap 벡터 타일(OSM 주간 사본, get_elements → get_tile_elements)로 받는다 — 근거 docs/data_sources.md 'OSM 받기 보험'.
 
 출처 표기: 건물·도로 등 "© OpenStreetMap contributors"(ODbL — 산출물은 출처 표기만, DB로 재배포하지 않는다),

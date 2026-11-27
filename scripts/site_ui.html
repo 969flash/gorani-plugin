@@ -125,7 +125,7 @@ html:lang(zh-Hans) body { font-family: -apple-system, "PingFang SC", "Microsoft 
 #confirm_modal .acts { display: flex; gap: 8px; justify-content: flex-end; }
 #update_modal .foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 4px; }   /* 아래 한 줄: 왼쪽 [ ] 오늘 그만 보기, 오른쪽 [지금 업데이트] */
 #update_modal label.chk { min-height: 28px; font-size: 11.5px; color: var(--ink-3); }
-/* 회원 — 머리줄 [로그인]·계정 기호, 계정 창, 로그인·플랜 창(업데이트 창과 같은 틀). 꾸밈·안내 문구 없이(docs/account_plan.md 화면 원칙) */
+/* 회원 — 머리줄 [로그인]·계정 기호, 계정 창, 로그인·플랜 창(업데이트 창과 같은 틀). 꾸밈·안내 문구 없이(gorani-ops/docs/account_plan.md 화면 원칙) */
 .hdr-login { height: 28px; padding: 0 10px; font-size: 12px; }
 #acct_pop { position: absolute; top: 44px; right: 8px; z-index: 1100; width: 248px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, .14); padding: 4px 0; }
 #acct_pop[hidden] { display: none; }
@@ -196,7 +196,7 @@ body[data-screen="map"] section[data-screen="map"] { display: flex; flex-directi
 /* 결과는 넓은 창에서도 내용 폭 880 px까지만(가운데) */
 body[data-screen="result"] section[data-screen="result"] { display: block; overflow: auto; padding: 12px max(16px, calc((100% - 880px) / 2)) 16px; }
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: contents; }
-/* 회원 '생성 기록'(세 번째 화면, docs/account_plan.md) — 결과 화면과 같은 폭. 줄 = 윤곽 그림·이름·시각·범위·고급 모델·별 */
+/* 회원 '생성 기록'(세 번째 화면, gorani-ops/docs/account_plan.md) — 결과 화면과 같은 폭. 줄 = 윤곽 그림·이름·시각·범위·고급 모델·별 */
 body[data-screen="history"] section[data-screen="history"] { display: block; overflow: auto; padding: 12px max(16px, calc((100% - 880px) / 2)) 16px; }
 .hist-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; margin-bottom: 12px; }
 .hist-head > .btn { justify-self: start; }
@@ -2148,7 +2148,7 @@ function renderMenu() {
       row(tr("문의"), '<button type="button" class="link" data-act="open_url" data-key="contact" title="' + tr("메일 보내기") + '">' + esc(String((init.links || {}).contact || "").replace(/^mailto:/, "")) + "</button>", "") +
       // [blender-cut] 후원 — 문의 메일 바로 아래(2026-11-18 사용자). 웹사이트 꼬리말과 같은 GitHub 후원 페이지
       ((init.links || {}).sponsor ? row(tr("후원"), tr("Gorani는 후원으로 운영합니다"), '<button type="button" class="btn sm" data-act="open_url" data-key="sponsor">' + tr("후원하기") + ico("ext") + "</button>") : "") +
-      // 개인정보 처리방침 — 회원 기능이 켜진 호스트만(로그인하면 계정·생성 기록을 남기므로, docs/account_plan.md '개인정보·약관')
+      // 개인정보 처리방침 — 회원 기능이 켜진 호스트만(로그인하면 계정·생성 기록을 남기므로, gorani-ops/docs/account_plan.md '개인정보·약관')
       (ACCT && ACCT.st().enabled && (init.links || {}).privacy ? row(tr("개인정보"), '<button type="button" class="link" data-act="open_url" data-key="' + (LANG === "ko" ? "privacy" : "privacy_en") + '">' + tr("개인정보 처리방침") + "</button>", "") : "") +
       // [/blender-cut]
       "</div>" +
@@ -2680,7 +2680,7 @@ var handlers = {
     }
   }
 };
-// [blender-cut] 회원 — 로그인은 시스템 브라우저(gorani.site/login/)에서, 패널은 계정 상태와 권한만 본다(docs/account_plan.md).
+// [blender-cut] 회원 — 로그인은 시스템 브라우저(gorani.site/login/)에서, 패널은 계정 상태와 권한만 본다(gorani-ops/docs/account_plan.md).
 // 손님이 '고급'을 고르면 플랜 창(Guest · Member), 머리줄 [로그인]·처음 만들기는 작은 로그인 창. 기다리는 동안 account_poll로 묻는다
 var G_LOGO = '<svg class="g" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';   // Google G(브랜드 지침 — 로그인 단추에만)
 ACCT = {
@@ -2803,7 +2803,7 @@ Object.assign(ACTIONS, {
   acct_menu: function () { ACCT.togglePop(); },
   acct_logout: function () { ACCT.closePop(); send({ cmd: "account_logout" }); track("account_logout", ""); }
 });
-// 회원 '생성 기록'(지도·결과 다음 세 번째 화면, docs/account_plan.md) — 계정 기록(Firebase)을 받아 이 PC 결과 폴더와 짝짓는다(entry_id → dir).
+// 회원 '생성 기록'(지도·결과 다음 세 번째 화면, gorani-ops/docs/account_plan.md) — 계정 기록(Firebase)을 받아 이 PC 결과 폴더와 짝짓는다(entry_id → dir).
 // 누르면 이 PC에 폴더가 있으면 결과 화면, 없으면 같은 대상지·설정으로 지도에 되살린다(restoreResultTarget). 단추 묶음 [전체 | ★], 날짜 묶음, 줄마다 별.
 // 이름 바꾸기·기록에서 빼기는 오른쪽 클릭 메뉴(화면에 단추를 늘리지 않는다). 결과 폴더는 지우지 않는다. 받기는 Python 스레드 — history_poll로 묻는다
 HIST = {
