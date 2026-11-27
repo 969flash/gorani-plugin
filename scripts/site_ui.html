@@ -1100,6 +1100,7 @@ function updateSummaries() {
     // 요약 = 줄 이름 + 고른 칸("지형 매끈하게") — 펼친 화면과 같은 말. 기본값(면 생성·바닥 채움)은 쓰지 않는다
     var p = [o.placement === "world" && !isAbroad(targetCenter()) ? tr("GIS 좌표") : tr("원점(0,0)"), tr("지형") + " " + (+o.terrain_step ? tr("계단 {0} m", o.terrain_step) : tr("매끈하게"))];
     if (o.terrain_block === false) p.push(tr("지형 표면만"));   // 기본(채움)은 요약에 쓰지 않는다
+    if (isAdvanced(o)) p.push(tr("고급 모델"));   // 수준 고급 — 지형 뒤에(기본은 쓰지 않는다, 2026-11-27 사용자)
     if (HOST.brep && o.geometry_type === "brep") p.push("Brep");   // 기본(Mesh)은 요약에 쓰지 않는다
     s.textContent = p.join(", ");
   }
