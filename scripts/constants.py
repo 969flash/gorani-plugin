@@ -949,8 +949,8 @@ BRIDGE_PIER = {"size": 1.6, "spacing": 30.0, "min_height": 4.0, "inset": 2.0}   
 BRIDGE_LIFT = 0.05              # m — 끝점 상판 윗면을 지반(차도)보다 띄운다(같은 높이 면 깜빡임)
 BRIDGE_MIN_RISE = 0.5           # m — 세 꼭짓점이 다 지반에서 이보다 낮은 상판 삼각형은 뺀다(땅에 닿은 끝·요금소 광장은 도로면이 이미 있다 — 광안대교)
 OSM_BRIDGE_RAIL_WIDTH = 5.0     # m — OSM 선로 교량 면 = 선로 한 줄 버퍼 폭
-# 디테일 모델링 켜고 끄기(options.<키>) — 엔진 기본값. 패널은 키마다 고르지 않는다(2026-11-16 사용자 — 고르는 것이 많으면 피로하다, 빼고 싶으면 만든 뒤 레이어로):
-# 지형 메시를 바꾸는 연석만 3D 설정 체크, 고급 6종은 '수준 [기본 | 고급]'이 한꺼번에(FEATURES), 교량은 늘 켬·담장은 늘 끔(site_ui FIXED_3D)
+# 디테일 모델링 켜고 끄기(options.<키>) — 엔진 기본값. 패널 '수준' 아래 체크박스(2026-11-27 사용자): 기본 = 연석 하나, 고급 = 연석 + 고급 6종(FEATURES)을 키마다.
+# 수준이 기본이면 고급 6종은 끈다(context_builder.get_level_options). 교량은 늘 켬·담장은 늘 끔(site_ui FIXED_3D)
 DETAIL_OPTIONS = {   # 키: 기본값
     "detail_curb": True,        # 연석(차도 0.15 m 내림)
     "detail_markings": True,    # 노면표시(서울 교통안전시설물·OSM 횡단보도)
@@ -1000,7 +1000,7 @@ TREE_TRUNK = {"radius": 0.15, "ratio": 0.35, "sides": 6}   # 줄기 반지름 m�
 OSM_TREE_ROW_SPACING = 8.0      # m — OSM natural=tree_row 선을 이 간격 나무로
 TREE_RAW_DIRNAME = "data/raw/seoul_street_trees"   # 서울 가로수 위치정보(OA-23040) xlsx를 둔다
 PANEL_DEFAULT_OPTIONS.update(DETAIL_OPTIONS)   # 생성 요청 기본값에도(시험 드라이버는 키마다 켠다)
-PANEL_DEFAULT_OPTIONS["detail_level"] = "basic"   # 패널 '수준' — basic | advanced. 요청에 있으면 FEATURES.detail_advanced 옵션을 한꺼번에 정한다(context_builder.get_request_with_defaults)
+PANEL_DEFAULT_OPTIONS["detail_level"] = "basic"   # 패널 '수준' — basic | advanced. 기본이면 FEATURES.detail_advanced 옵션을 끈다, 고급이면 키마다 체크 그대로(context_builder.get_request_with_defaults)
 # 노면표시 — features theme 'marking'. kind line = 차선(attrs type·color·pattern), crosswalk = 횡단보도 면. 차도 위 얇은 면으로 깐다
 MARKING_RAW_DIRNAME = "data/raw/seoul_traffic_safety"   # 서울 교통안전시설물 SHP(OA-15537 차선 zip, OA-15554 zip 안의 A004_A.zip을 풀어 둔다)
 MARKING_SEOUL_LINES = {   # 서울 차선 A058_L (대분류, 중분류) → (type, color, pattern). 정의서 '교통안전시설물 테이블 정의서(차선)'. 여기 없는 것(주행유도선·자전거·가변주차 등)은 넣지 않는다
