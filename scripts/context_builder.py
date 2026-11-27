@@ -111,10 +111,10 @@ def get_level_options(level):
     # type: (str) -> dict
     """
     입력: 수준 'basic' | 'advanced'(options.detail_level).
-    처리: FEATURES.detail_advanced가 묶는 옵션을 고급이면 켬, 아니면 끔.
-    출력: {옵션 키: bool}.
+    처리: 기본이면 FEATURES.detail_advanced가 묶는 옵션을 모두 끈다. 고급이면 손대지 않는다 — 패널 체크박스로 키마다 고른다(2026-11-27 사용자).
+    출력: {옵션 키: bool} — 고급이면 빈 dict.
     """
-    return {key: level == "advanced" for key in constants.FEATURES["detail_advanced"]["options"]}
+    return {} if level == "advanced" else dict.fromkeys(constants.FEATURES["detail_advanced"]["options"], False)
 
 
 def get_request_with_defaults(request):
@@ -124,7 +124,7 @@ def get_request_with_defaults(request):
     options = dict(constants.PANEL_DEFAULT_OPTIONS)
     options.update(request.get("options") or {})
     level = (request.get("options") or {}).get("detail_level")
-    if level:   # 패널 '수준'이 고급 옵션을 한꺼번에 — 옛 prefs에 남은 키마다 값보다 앞선다. 수준이 없는 요청(시험 드라이버)은 키마다 값 그대로
+    if level:   # 패널 '수준' 기본이면 고급 옵션을 끈다(고급이면 키마다 체크 그대로). 수준이 없는 요청(시험 드라이버)도 키마다 값 그대로
         options.update(get_level_options(level))
     request["options"] = options
     request.setdefault("lot_name", None)

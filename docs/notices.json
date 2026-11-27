@@ -5,7 +5,7 @@
   "items": {
    "ko": [
     "Rhino 9를 지원합니다.",
-    "고급 모델: 파라펫·층 구분선·노면 표시·가로수·철도·옹벽까지 디테일하게 만듭니다. 3D 설정에서 [고급]을 고르세요.",
+    "고급 모델: 파라펫·층 구분선·노면 표시·가로수·철도·옹벽까지 디테일하게 만듭니다. [수준]에서 [고급]을 고르세요.",
     "기본 모델에 교량·고가 상판과 연석(차도를 15 cm 내림)을 더했습니다.",
     "구글 계정으로 로그인하면 고급 모델을 무료로 쓰고 생성 기록을 관리할 수 있습니다. 로그인 없이도 고급 모델을 3번 써 볼 수 있습니다.",
     "결과 폴더 위치를 더보기 메뉴에서 바꿀 수 있습니다.",
@@ -15,7 +15,7 @@
    ],
    "en": [
     "Supports Rhino 9.",
-    "Advanced model: adds roof parapets, floor lines, road markings, street trees, rail tracks and retaining walls. Choose [Advanced] in 3D settings.",
+    "Advanced model: adds roof parapets, floor lines, road markings, street trees, rail tracks and retaining walls. Choose [Advanced] under Level.",
     "The basic model now includes bridge and overpass decks and curbs (roadways lowered 15 cm).",
     "Sign in with your Google account to use the Advanced model for free and manage your History. You can try the Advanced model 3 times without signing in.",
     "Change where results are saved from the More menu.",
@@ -25,7 +25,7 @@
    ],
    "ja": [
     "Rhino 9に対応しました。",
-    "高度モデル: パラペット・階の線・路面標示・街路樹・線路・擁壁まで細かく作ります。3D設定で［高度］を選んでください。",
+    "高度モデル: パラペット・階の線・路面標示・街路樹・線路・擁壁まで細かく作ります。[レベル]で[高度]を選んでください。",
     "基本モデルに橋梁・高架の床版と縁石(車道を15 cm下げる)を加えました。",
     "Googleアカウントでログインすると高度モデルを無料で使え、生成履歴を管理できます。ログインしなくても高度モデルを3回試せます。",
     "結果フォルダの場所をその他メニューで変更できます。",
@@ -35,7 +35,7 @@
    ],
    "zh": [
     "支持 Rhino 9。",
-    "高级模型：可细致生成女儿墙、楼层线、路面标线、行道树、铁路和挡土墙。请在 3D 设置中选择[高级]。",
+    "高级模型：可细致生成女儿墙、楼层线、路面标线、行道树、铁路和挡土墙。请在 [级别] 中选择 [高级]。",
     "基础模型新增桥梁·高架桥面和路缘石(车行道降低15 cm)。",
     "使用 Google 账户登录即可免费使用高级模型并管理生成记录。无需登录也可试用高级模型 3 次。",
     "可以在“更多”菜单中更改结果文件夹位置。",
@@ -45,7 +45,7 @@
    ],
    "es": [
     "Compatible con Rhino 9.",
-    "Modelo avanzado: genera con detalle pretiles, líneas de planta, marcas viales, árboles, vías y muros de contención. Elige [Avanzado] en Ajustes 3D.",
+    "Modelo avanzado: genera con detalle pretiles, líneas de planta, marcas viales, árboles, vías y muros de contención. Elige [Avanzado] en Nivel.",
     "El modelo básico incluye ahora tableros de puentes y pasos elevados y bordillos (calzada 15 cm más baja).",
     "Inicia sesión con tu cuenta de Google para usar el modelo avanzado gratis y gestionar tu historial. Sin iniciar sesión puedes probar el modelo avanzado 3 veces.",
     "Cambia dónde se guardan los resultados desde el menú Más.",
@@ -60,35 +60,35 @@
     "items": {
      "ko": [
       "Rhino 9를 지원합니다.",
-      "고급 모델: 파라펫·층 구분선·노면 표시·가로수·철도·옹벽까지 디테일하게 만듭니다. 3D 설정에서 [고급]을 고르세요.",
+      "고급 모델: 파라펫·층 구분선·노면 표시·가로수·철도·옹벽까지 디테일하게 만듭니다. [수준]에서 [고급]을 고르세요.",
       "기본 모델에 교량·고가 상판과 연석(차도를 15 cm 내림)을 더했습니다.",
       "구글 계정으로 로그인하면 고급 모델을 무료로 쓰고 생성 기록을 관리할 수 있습니다. 로그인 없이도 고급 모델을 3번 써 볼 수 있습니다.",
       "결과 폴더 위치를 더보기 메뉴에서 바꿀 수 있습니다."
      ],
      "en": [
       "Supports Rhino 9.",
-      "Advanced model: adds roof parapets, floor lines, road markings, street trees, rail tracks and retaining walls. Choose [Advanced] in 3D settings.",
+      "Advanced model: adds roof parapets, floor lines, road markings, street trees, rail tracks and retaining walls. Choose [Advanced] under Level.",
       "The basic model now includes bridge and overpass decks and curbs (roadways lowered 15 cm).",
       "Sign in with your Google account to use the Advanced model for free and manage your History. You can try the Advanced model 3 times without signing in.",
       "Change where results are saved from the More menu."
      ],
      "ja": [
       "Rhino 9に対応しました。",
-      "高度モデル: パラペット・階の線・路面標示・街路樹・線路・擁壁まで細かく作ります。3D設定で［高度］を選んでください。",
+      "高度モデル: パラペット・階の線・路面標示・街路樹・線路・擁壁まで細かく作ります。[レベル]で[高度]を選んでください。",
       "基本モデルに橋梁・高架の床版と縁石(車道を15 cm下げる)を加えました。",
       "Googleアカウントでログインすると高度モデルを無料で使え、生成履歴を管理できます。ログインしなくても高度モデルを3回試せます。",
       "結果フォルダの場所をその他メニューで変更できます。"
      ],
      "zh": [
       "支持 Rhino 9。",
-      "高级模型：可细致生成女儿墙、楼层线、路面标线、行道树、铁路和挡土墙。请在 3D 设置中选择[高级]。",
+      "高级模型：可细致生成女儿墙、楼层线、路面标线、行道树、铁路和挡土墙。请在 [级别] 中选择 [高级]。",
       "基础模型新增桥梁·高架桥面和路缘石(车行道降低15 cm)。",
       "使用 Google 账户登录即可免费使用高级模型并管理生成记录。无需登录也可试用高级模型 3 次。",
       "可以在“更多”菜单中更改结果文件夹位置。"
      ],
      "es": [
       "Compatible con Rhino 9.",
-      "Modelo avanzado: genera con detalle pretiles, líneas de planta, marcas viales, árboles, vías y muros de contención. Elige [Avanzado] en Ajustes 3D.",
+      "Modelo avanzado: genera con detalle pretiles, líneas de planta, marcas viales, árboles, vías y muros de contención. Elige [Avanzado] en Nivel.",
       "El modelo básico incluye ahora tableros de puentes y pasos elevados y bordillos (calzada 15 cm más baja).",
       "Inicia sesión con tu cuenta de Google para usar el modelo avanzado gratis y gestionar tu historial. Sin iniciar sesión puedes probar el modelo avanzado 3 veces.",
       "Cambia dónde se guardan los resultados desde el menú Más."

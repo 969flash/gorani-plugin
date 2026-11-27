@@ -29,25 +29,30 @@ The city around your site, modeled in Rhino. Free 3D buildings, roads and terrai
 
 The city around your site, modeled in Rhino.
 Pick a site on the map and the buildings, roads and terrain around it come into your open document. It's free.
+Works in Rhino 7, 8 and 9 on Windows and Mac.
 
 How to use
 1. Type PackageManager, search for Gorani and install it.
 2. Restart Rhino and type Gorani.
 3. Pick a site on the map: click parcels, draw an area or drop a point.
-4. Choose the extent and press the 3D button.
+4. Choose the extent and the Level (Basic or Advanced), then press Create 3D model.
 
 What you get
 - 3D: building masses, roads, terrain, rivers, parks and railways on separate layers.
+- Basic model: also bridge and overpass decks and curbs (roadways 15 cm below sidewalks).
+- Advanced model: adds roof parapets, floor lines, road markings, street trees, railway tracks and retaining walls. Free with a Google sign-in. You can try it 3 times without signing in.
 - Heights: floor counts in Korea, OpenStreetMap height tags elsewhere.
-- 2D (optional): layered Illustrator basemap (1:1,000 to 1:5,000), urban analysis maps (SVG, AI), DWG (Rhino 8) and CSV tables.
+- 2D (optional): layered Illustrator basemap (1:1,000 to 1:5,000), urban analysis maps (SVG, AI), DWG (Rhino 8 and 9) and CSV tables.
+- Generation history: sign in to manage your past sites and reopen them with the same settings.
 
 Data
-- Worldwide: OpenStreetMap buildings and roads with public terrain data. Needs an internet connection.
+- Worldwide: OpenStreetMap buildings and roads with detailed terrain (Mapterhorn). If OpenStreetMap servers are blocked, Gorani builds from OpenFreeMap map data. Needs an internet connection.
 - Korea: nationwide parcels, zoning, buildings and 1:5,000 contours. Each district is downloaded once.
 
 Good to know
-- Rhino 7 and 8 for Windows and Mac. You don't need Grasshopper or an API key.
-- The Basic model needs no account. The Advanced model (roof parapets, floor lines, road markings, street trees, rail tracks, retaining walls) is free with a Google sign-in. You can try it 3 times without signing in.
+- You don't need Grasshopper or an API key.
+- The Basic model needs no account.
+- Results are saved in ~/Gorani/result by default. Change the folder from the More menu.
 - The panel is in English, Korean, Spanish, Japanese and Simplified Chinese. Switch with the globe button at the top.
 - Anonymous usage statistics go to Google Analytics: a random ID per install, versions and OS, where you generated, the extent, run time and error types. No names, file paths or drawing contents.
 - If you sign in, your account (Google Firebase) keeps a generation history: site name, location, extent and 3D settings. No file paths or drawings. Privacy policy: https://gorani.site/privacy/
@@ -57,26 +62,31 @@ Good to know
 
 필지를 고르면 주변 건물·도로·지형이 라이노에 3D로 들어옵니다.
 대지 주변 현황 모델을 직접 그릴 필요가 없습니다. 무료입니다.
+라이노 7·8·9(윈도우·맥)에서 씁니다.
 
 사용 방법
 1. 명령창에 PackageManager를 입력하고 Gorani를 검색해 설치합니다.
 2. 라이노를 다시 켜고 명령창에 Gorani를 입력합니다.
 3. 지도에서 대상지를 고릅니다. 필지 클릭, 구역 그리기, 위치 찍기 중 하나입니다.
-4. 범위를 정하고 [3D 모델 만들기]를 누릅니다.
+4. 범위와 수준([기본 | 고급])을 정하고 [3D 모델 만들기]를 누릅니다.
 
 결과물
 - 3D: 건물 매스, 도로, 지형, 하천, 녹지, 철도가 레이어별로 들어옵니다.
+- 기본 모델: 교량·고가 상판과 연석(차도를 인도보다 15 cm 낮춤)도 들어옵니다.
+- 고급 모델: 옥상 파라펫·층 구분선·노면 표시·가로수·철도·옹벽을 더합니다. 구글 계정으로 로그인하면 무료이고, 로그인 없이 3번 써 볼 수 있습니다.
 - 높이: 국내는 층수, 해외는 OpenStreetMap 높이 태그로 정합니다.
 - 속성: 건물과 필지에 PNU·층수·용도가 User Text로 붙습니다.
-- 2D(필요할 때만): 일러스트레이터 베이스맵(1:1,000~1:5,000), 현황도·분석도(SVG·AI), DWG(라이노 8), 조서 CSV를 만듭니다.
+- 2D(필요할 때만): 일러스트레이터 베이스맵(1:1,000~1:5,000), 현황도·분석도(SVG·AI), DWG(라이노 8·9), 조서 CSV를 만듭니다.
+- 생성 기록: 로그인하여 지난 대상지를 관리하고, 같은 설정으로 다시 열 수 있습니다.
 
 데이터
 - 국내: 전국 필지 경계·용도지역·건물·1:5,000 등고선. 지역 데이터는 처음 한 번 받습니다(구 하나에 수십 MB).
-- 해외: OpenStreetMap 건물·도로와 공개 지형 데이터. 만들 때 인터넷이 필요합니다.
+- 해외: OpenStreetMap 건물·도로와 정밀 지형(Mapterhorn). OpenStreetMap 서버가 막혀도 OpenFreeMap 지도 데이터로 만듭니다. 만들 때 인터넷이 필요합니다.
 
 참고
-- 라이노 7·8(윈도우·맥)에서 씁니다. 그래스호퍼와 API 키는 필요 없습니다.
-- 기본 모델은 회원가입 없이 씁니다. 고급 모델(옥상 파라펫·층 구분선·노면표시·가로수·선로·옹벽)은 구글 계정으로 로그인하면 무료입니다. 로그인 없이 3번 써 볼 수 있습니다.
+- 그래스호퍼와 API 키는 필요 없습니다.
+- 기본 모델은 회원가입 없이 씁니다.
+- 결과는 기본으로 ~/Gorani/result에 저장합니다. 더보기 메뉴에서 폴더를 바꿀 수 있습니다.
 - 패널은 영어·한국어·스페인어·일본어·중국어로 쓸 수 있습니다. 위쪽 지구본 버튼에서 바꿉니다.
 - 사용 통계를 Google Analytics로 보냅니다. 설치별 무작위 ID, 버전·OS, 만든 위치·범위·걸린 시간·오류 종류이고, 이름·파일 경로·도면 내용은 보내지 않습니다.
 - 로그인하면 계정(Google Firebase)에 생성 기록이 남습니다. 대상지 이름·위치·범위·3D 설정이고, 파일 경로·도면은 남기지 않습니다. 처리방침: https://gorani.site/privacy/
@@ -88,7 +98,7 @@ Good to know
 
 **Price / Licence**: Free
 
-**Rhino version / OS**: Rhino 7, Rhino 8 / Windows, Mac (Rhino 7은 2026-10-30 추가 — 앱 페이지의 이 칸은 사용자 계정으로 고친다)
+**Rhino version / OS**: Rhino 7, Rhino 8, Rhino 9 / Windows, Mac (Rhino 7은 2026-10-30, Rhino 9는 0.4.0 추가 — 앱 페이지의 이 칸은 사용자 계정으로 고친다)
 
 **Category**(있는 것 중에서): Architecture, Urban Design / Planning, GIS / Mapping, Landscape
 
@@ -96,9 +106,9 @@ Good to know
 
 **Release**: Rhino Package Manager 패키지 `Gorani`로 연결(파일을 따로 올리지 않는다). 새 판은 yak에만 올리면 된다 — Rhino 8판(`rh8_0-any`)과 Rhino 7판(`rh7_0-mac`·`rh7_0-win`)을 같은 버전으로 같이 올린다.
 
-## 0.4.0 (2026-11-20)
+## 0.4.0
 
-공개 페이지 본문(2026-10-23에 이 문서보다 길게 고쳐 둠)에서 'Good to know'·'참고'의 회원가입 줄을 위 문구로 바꾸고, 통계 줄 아래 생성 기록 줄을 더한다. 영어·한국어 둘 다.
+위 Short description·Description·Rhino version을 공개 페이지에 그대로 옮긴다(영어·한국어 둘 다 — 공개 본문을 이 문서로 맞춘다). 바뀐 것: Rhino 9, 수준 [기본 | 고급]과 고급 6종, 기본 모델 교량·연석, 생성 기록, 결과 폴더, Mapterhorn 지형·OpenFreeMap 대체. Windows Rhino 9는 올리기 전에 한 번 돌려 본다(#84는 Mac Rhino 9.1만 시험).
 
 ## 심사 반려 대응 (2026-10-21)
 

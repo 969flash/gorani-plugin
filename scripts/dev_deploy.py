@@ -19,7 +19,7 @@
     python3 scripts/dev_deploy.py mirror     # Hugging Face 데이터셋 → GitHub 사본(constants.DATA_GITHUB_REPO, 팩은 Releases — Blender판이 읽는다). upload·notices 뒤에 돌린다
 
 yak: 진입 명령 Gorani 하나짜리 .rhp를 rhinocode로 빌드하고(떠 있는 Rhino 8 필요), 그 옆에 scripts/(평문 진입 스크립트 +
-     로직 .pyc + 패널 HTML·vendor)를 두고 yak CLI로 묶는다. rhinocode의 Shared 리소스는 폴더 구조를 펴 버려서 쓰지 않는다
+     로직 모듈 + 패널 HTML·vendor)를 두고 yak CLI로 묶는다. 로직 모듈은 안내 .py + Rhino 8(3.9)·9(3.13)용 __pycache__ .pyc(_stage_scripts). rhinocode의 Shared 리소스는 폴더 구조를 펴 버려서 쓰지 않는다
      (2026-10-12 실측: scripts/vendor/b.txt → shared/b.txt). Gorani는 .rhp 옆 scripts/cmd_site.py를 그대로 실행한다.
 blender: Blender 확장(4.2+) — gorani/__init__.py(scripts/cmd_blender.py로 넘김) + blender_manifest.toml + scripts/ 원본 .py·UI 에셋을
      Blender CLI(extension build)로 zip, 그 폴더에 server-generate로 index.json·index.html. 로직은 .pyc가 아니라 원본이다 — Blender 4.2~4.5는
@@ -39,7 +39,7 @@ web: 브라우저판 정적 파일 — index.html(scripts/web_app.html) + panel.
 packs: data/의 시도별 `<시도>_site.db`·`<시도>_context.db`마다 필지(rtree 제거)·컨텍스트(등고선 제외)·등고선 팩을
        xz로 압축하고 sha256·범위를 매니페스트에 적는다. 컨텍스트·등고선 팩은 국내 서버에 올린다(constants.DATA_DOMESTIC_BASE_URL 주석).
 
-`.pyc`는 Python 마이너 버전에 묶이므로 Rhino 8의 CPython과 같은 3.9로 실행해야 한다. macOS 기본 /usr/bin/python3가 3.9다.
+yak의 `.pyc`는 Python 마이너 버전에 묶이므로 Rhino 판마다(8 = 3.9, 9 = 3.13) YAK_PYTHONS의 파이썬으로 따로 컴파일한다.
 """
 
 import argparse
@@ -50,7 +50,6 @@ import hashlib
 import json
 import os
 import pkgutil
-import py_compile
 import re
 import shutil
 import sqlite3
@@ -78,6 +77,17 @@ TOOLBAR_ICON_COLORS = {"light": "#111418", "dark": "#E8ECF2"}   # Rhino 도구 �
 PACKAGE_NAME = constants.TOOL_NAME
 PACKAGE_VERSION = constants.PANEL_VERSION                  # 올릴 때마다 constants.PANEL_VERSION을 올린다 — yak은 같은 버전을 다시 받지 않는다
 PLUGIN_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a10"         # 바꾸지 말 것 — Gorani가 이 id로 자기 폴더를 찾는다
+# yak 로직 .pyc를 만들 파이썬 — Rhino 판의 CPython과 마이너 판이 같아야 한다(cache_tag로 확인). Rhino 8 = 3.9(macOS 기본 /usr/bin/python3),
+# Rhino 9 = 3.13(2026-11-27 Rhino 9.1 실측 3.13.13 — brew install python@3.13). 새 Rhino가 파이썬을 올리면 여기에 한 줄 더한다
+YAK_PYTHONS = {"cpython-39": "/usr/bin/python3", "cpython-313": "/opt/homebrew/bin/python3.13"}
+YAK_COMPILE_SOURCE = ("import py_compile, sys\nsource, target, tag = sys.argv[1:4]\n"
+                      "if sys.implementation.cache_tag != tag:\n    sys.exit('%s 파이썬이 아니다: %s' % (tag, sys.version))\n"
+                      "for name in sys.argv[4:]:\n"
+                      "    py_compile.compile(source + '/' + name + '.py', cfile=target + '/__pycache__/' + name + '.' + tag + '.pyc', dfile=name + '.py',\n"
+                      "                       doraise=True, optimize=2, invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH)\n")
+# 로직 모듈 자리의 .py — 맞는 판 .pyc가 있으면 실행되지 않는다. 없으면(YAK_PYTHONS에 없는 새 파이썬) 이 안내로 멈춘다
+MODULE_STUB = ('import sys\nraise ImportError("Gorani %s does not support Python %d.%d yet. Please update Gorani."'
+               ' % (__name__, sys.version_info[0], sys.version_info[1]))\n')
 COMMAND_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a11"
 COMMAND_NAME = "Gorani"
 PUBLISHER = {"name": "Gorani", "email": "bsh969flash@gmail.com"}   # 패키지 관리자 '작성자'·Rhino 플러그인 정보·Blender 관리자·SketchUp 제작자 칸 — 개인 이름 대신 제품 이름(2026-11-15 사용자 지시)
@@ -93,7 +103,7 @@ authors:
 - %(author)s
 description: |-
   The city around your site, modeled in Rhino.
-  It's free. Works in Rhino 7 and 8.
+  It's free. Works in Rhino 7, 8 and 9.
   The panel is in English, Korean, Spanish, Japanese and Chinese.
 
   How to use
@@ -103,12 +113,12 @@ description: |-
 
   What you get
   - 3D: buildings, roads, terrain, rivers, parks and railways on separate layers
-  - 2D: Illustrator basemap, urban analysis maps, DWG (Rhino 8), CSV tables
+  - 2D: Illustrator basemap, urban analysis maps, DWG (Rhino 8 and 9), CSV tables
   - Advanced model (roof parapets, floor lines, road markings, street trees, rail tracks, retaining walls): free with a Google sign-in, 3 tries without
   - Data: Korea nationwide; official building data with heights where available (Japan, Netherlands, France, Switzerland, United States and more — the list grows without plugin updates, see the website); elsewhere OpenStreetMap
 
   한 번에 쉽게 하는 사이트 모델링 및 사이트 분석
-  라이노 7과 8에서 씁니다.
+  라이노 7, 8, 9에서 씁니다.
   패널 언어는 위쪽 언어 버튼에서 한국어로 바꿀 수 있습니다.
 
   사용 방법
@@ -118,8 +128,8 @@ description: |-
 
   결과물
   - 3D: 건물 매스, 도로, 지형, 하천, 녹지, 철도 (레이어별)
-  - 2D: 일러스트레이터 베이스맵, 현황도·분석도, DWG(라이노 8), 조서 CSV
-  - 고급 모델(옥상 파라펫·층 구분선·노면표시·가로수·선로·옹벽): 구글 계정으로 로그인하면 무료, 로그인 없이 3번 써 볼 수 있습니다
+  - 2D: 일러스트레이터 베이스맵, 현황도·분석도, DWG(라이노 8, 9), 조서 CSV
+  - 고급 모델(파라펫·층 구분선·노면 표시·가로수·철도·옹벽): 구글 계정으로 로그인하면 무료, 로그인 없이 3번 써 볼 수 있습니다
   - 데이터: 국내 전국, 공식 건물 데이터(높이 포함)가 있는 나라는 그것(일본·네덜란드·프랑스·스위스·미국 등 — 플러그인 업데이트 없이 늘어납니다, 웹사이트 참고), 그 밖은 OpenStreetMap
 license: MIT
 url: %(url)s
@@ -142,6 +152,7 @@ keywords:
 - netherlands
 - france
 - switzerland
+- united-states
 - gis
 - basemap
 - site-analysis
@@ -383,7 +394,13 @@ def strip_spatial_index(database_path):
 
 def _stage_scripts(package_dir):
     # type: (str) -> int
-    """package_dir/scripts/ — 평문 진입 스크립트 + UI 에셋 + 로직 .pyc(optimize=2, 개발 PC 경로 제거)."""
+    """package_dir/scripts/ — 평문 진입 스크립트 + UI 에셋 + 로직 모듈(안내 한 줄짜리 .py + 파이썬 판마다 __pycache__ .pyc).
+
+    .pyc는 파이썬 마이너 판에 묶인다 — Rhino 8 = CPython 3.9, Rhino 9 = 3.13(2026-11-27: 3.9 .pyc만 넣은 0.3.9가 Rhino 9에서
+    'bad magic number in i18n'). 그래서 이름마다 __pycache__/<이름>.cpython-39.pyc·cpython-313.pyc를 넣는다. 둘 다 unchecked-hash라
+    파이썬은 옆 .py(안내 한 줄)를 대조하지 않고 자기 판 .pyc를 읽는다 — __file__은 scripts/<이름>.py 그대로라 경로 계산이 같다.
+    맞는 .pyc가 없는 판(새 Rhino)만 안내 .py를 실행해 판 문제라고 알린다. optimize=2(docstring 제거), 개발 PC 경로 제거.
+    """
     target = os.path.join(package_dir, "scripts")
     os.makedirs(target)
     for file_name in PLAIN_SCRIPT_NAMES + UI_FILE_NAMES:
@@ -392,8 +409,10 @@ def _stage_scripts(package_dir):
         shutil.copytree(os.path.join(SCRIPTS_DIR, dir_name), os.path.join(target, dir_name))
     names = get_deploy_module_names()
     for name in names:
-        py_compile.compile(os.path.join(SCRIPTS_DIR, name + ".py"), cfile=os.path.join(target, name + ".pyc"),
-                           dfile=name + ".py", doraise=True, optimize=2)
+        with open(os.path.join(target, name + ".py"), "w", encoding="utf-8") as f:
+            f.write(MODULE_STUB)
+    for tag, python in YAK_PYTHONS.items():
+        subprocess.run([python, "-I", "-c", YAK_COMPILE_SOURCE, SCRIPTS_DIR, target, tag] + names, check=True)
     for path in DOC_FILE_NAMES:
         os.makedirs(os.path.join(package_dir, os.path.dirname(path)), exist_ok=True)
         shutil.copyfile(os.path.join(ROOT_DIR, path), os.path.join(package_dir, path))
@@ -1943,8 +1962,9 @@ def main():
     parser.add_argument("--dirs", help="mirror: 쉼표로 구분한 데이터셋 폴더만(맨 위 = 빈 이름, 예: ',jp') — 기본 전부")
     parser.add_argument("--dev", action="store_true", help="archicad: 개발용 애드온 ID(1·1)로도 만든다 — 데모 모드 시험용")
     args = parser.parse_args()
-    if args.what in ("all", "yak") and sys.version_info[:2] != (3, 9):
-        sys.exit("Rhino 8의 CPython(3.9)과 같은 Python 3.9로 실행해야 .pyc가 호환됩니다. 현재: %d.%d" % sys.version_info[:2])
+    missing = [python for python in YAK_PYTHONS.values() if not os.path.exists(python)]
+    if args.what in ("all", "yak") and missing:
+        sys.exit("yak .pyc를 만들 파이썬이 없습니다(YAK_PYTHONS): %s" % ", ".join(missing))
     if args.what in ("all", "smoke", "yak", "blender", "sketchup", "rhino7", "archicad"):   # 배포 전 점검 — 건너뛰는 옵션 없음
         check_tiles()
         if args.what == "smoke":
