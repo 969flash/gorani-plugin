@@ -832,6 +832,7 @@ function checkRegionChange() {
 // ── 렌더 (섹션 innerHTML 재렌더는 화면 전환·render 때만, 푸시는 슬롯만) ──
 function go(screen) {
   closeViewer();
+  state.fromHist = false;   // 생성 기록에서 지도로 온 표시 — 화면을 옮기면 끝(HIST.pick이 go 뒤에 다시 켠다)
   if (screen !== "map") { cancelDraw(); stopStamp(); }
   state.screen = screen; render();
 }
@@ -851,7 +852,8 @@ function renderFooter() {
     html = '<button type="button" class="btn ghost" data-act="hist_back">' + ico("back") + tr(HIST && HIST.back === "result" ? "결과로 돌아가기" : "지도로") + "</button><span></span>";   // 화면 사이 이동은 아래 줄(2026-11-27 사용자) — 온 곳으로
   } else if (state.screen === "map") {
     var can = hasTarget() && !busyTarget(), again = can && madeBefore();
-    html = (canReturn() && !draw.on && !stamp.on ? '<button type="button" class="btn ghost" data-act="to_result" title="' + esc(lastLabel()) + '">' + tr("결과로 돌아가기") + ico("next") + "</button>"
+    html = (state.fromHist && HIST && HIST.can() && !draw.on && !stamp.on ? '<button type="button" class="btn ghost" data-act="hist_open">' + tr("생성 기록으로") + ico("next") + "</button>"   // 생성 기록에서 골라 왔으면 그리로(2026-11-27 사용자)
+      : canReturn() && !draw.on && !stamp.on ? '<button type="button" class="btn ghost" data-act="to_result" title="' + esc(lastLabel()) + '">' + tr("결과로 돌아가기") + ico("next") + "</button>"
         : '<span class="hint">' + (can ? (again ? tr("이 대상지의 이전 3D를 새것으로 바꿉니다") : "") : state.mode === "area" && draw.on ? tr("구역을 닫으면 만들 수 있습니다") : "") + "</span>") +
       '<button type="button" class="btn primary" data-act="generate"' + (can ? "" : " disabled") +
         (again ? ' title="' + tr("{0} 파일의 이 대상지 3D를 지우고 새로 넣습니다. 이전 결과 폴더는 그대로 남습니다", esc(hostName())) + '"' : "") + ">" + ico("cube") + (again ? tr("3D 모델 다시 만들기") : tr("3D 모델 만들기")) + "</button>";
@@ -2856,6 +2858,7 @@ HIST = {
     var rs = { target: { mode: it.mode, pnus: t.pnus || [] }, target_lnglat: { center: it.center, ring: t.ring || [], rings: t.ring ? [t.ring] : [] }, options: it.options || {} };
     go("map");
     if (!restoreResultTarget(rs)) toast(tr("이 기록은 지도에 되살릴 수 없습니다"));
+    state.fromHist = true; renderFooter();   // 아래 줄 왼쪽 '생성 기록으로 ›' — resetLots가 go("map")으로 끄므로 되살린 뒤에 켠다
     track("history_restore", it.mode || "");
   },
   toggleStar: function (id) {
