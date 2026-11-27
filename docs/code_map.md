@@ -1,8 +1,8 @@
 # 코드 흐름 지도 (code_map) — 확정 아키텍처
 
-어떤 파일부터 읽으면 되는지, 엔진 API가 무엇인지, 무엇에 의존하는지를 적는다. 산출물 정의는 `docs/deliverables.md`, 데이터·DB는 `docs/data_sources.md`, 패널 메시지는 `docs/panel_ui.md`, 마일스톤은 `docs/implementation_plan.md`.
+어떤 파일부터 읽으면 되는지, 엔진 API가 무엇인지, 무엇에 의존하는지를 적는다. 산출물 정의는 `docs/deliverables.md`, 데이터·DB는 `docs/data_sources.md`, 패널 메시지는 `docs/panel_ui.md`, 마일스톤은 `gorani-ops/docs/implementation_plan.md`.
 
-- 확정일 2026-10-07. 세 설계서(`docs/arch_proposals/inrhino.md`·`onepath.md`·`hybrid.md`)를 세 관점(배포·단순성·데이터)으로 심사한 결과 **in-Rhino 안이 뼈대**(배포 38·단순 38·데이터 37 — 합계 1위), 여기에 심사가 지목한 접목 13건(아래 §0.2)을 넣었다. 근거 표기: **[실측 job]** = `result/rhino_jobs/<job>/out/`, **[로컬]** = 이 Mac에서 직접 확인, **[00~08 §x]** = `docs/research/`, **확인 필요** = 아직 못 봤음.
+- 확정일 2026-10-07. 세 설계서(`docs/arch_proposals/inrhino.md`·`onepath.md`·`hybrid.md`)를 세 관점(배포·단순성·데이터)으로 심사한 결과 **in-Rhino 안이 뼈대**(배포 38·단순 38·데이터 37 — 합계 1위), 여기에 심사가 지목한 접목 13건(아래 §0.2)을 넣었다. 근거 표기: **[실측 job]** = `result/rhino_jobs/<job>/out/`, **[로컬]** = 이 Mac에서 직접 확인, **[00~08 §x]** = `gorani-ops/docs/research/`, **확인 필요** = 아직 못 봤음.
 
 ---
 
@@ -55,7 +55,7 @@
   dev_deploy.py            Yak 패키지(.rhp + scripts .pyc) · 데이터 팩(필지·컨텍스트·등고선 xz + manifest.json)
 
 [국내 서버 VM, python3 — 문지기]
-  server_gate.py           nginx auth_request로 팩 요청을 하루 한도로 거르고 비공개 버킷(PAR)에서 내준다 — docs/domestic_gate.md
+  server_gate.py           nginx auth_request로 팩 요청을 하루 한도로 거르고 비공개 버킷(PAR)에서 내준다 — gorani-ops/docs/domestic_gate.md
 
 [사용자 Rhino 8, 버튼 한 번]
   cmd_site.py ─► panel_host.py(Eto WebView) ◄─► site_ui.html
@@ -314,7 +314,7 @@ SketchUp(Ruby, sketchup_ext.rb = bsh_gorani/main.rb)            사이드카(번
 - 모델 모양: 대상지마다 최상위 그룹 `Gorani <대상지명>`(속성 사전 `Gorani`의 `GORANI_LOT_KEY`) 안에 태그 `CTX::…`(태그 폴더 CTX)마다 그룹, 색 = 태그 색 + 같은 이름 재질. 지형은 `PolygonMesh` → `fill_from_mesh`(자동 부드럽게), 커브는 `add_edges`. 원점은 모델 속성, 실제 좌표 방식은 대상지 그룹을 옮긴다. 한 번의 생성 = Undo 한 번(clear가 작업을 열고 뒤 호출은 투명 작업).
 - 사본: 대상지 그룹 정의 `save_copy` → `context.skp`(로컬 좌표, 원점 = context.json `origin`). 다시 넣기는 `definitions.load` + 원점 차이만큼 옮긴 인스턴스.
 - 사이드카는 `-B`(확장 폴더에 `__pycache__`를 쓰면 서명 파일 목록이 바뀐다), stdout 첫 줄만 주소·그 뒤는 stderr = `~/Gorani/sketchup_sidecar.log`, stdin 한 줄은 Ruby 알림(패널 닫힘 `panel_closed` → Rhino 창 닫기처럼 생성 취소, 기다리던 host_call은 바로 실패), stdin EOF(SketchUp 종료)에 끝난다. 응답 없는 host_call은 `SKETCHUP_HOST_TIMEOUT` 뒤 실패.
-- 배포: `dev_deploy.py sketchup` → `build/bsh_gorani-<버전>.rbz`(약 90 MB — 런타임 셋, numpy OpenBLAS가 절반). 올리기는 `docs/sketchup_store.md`.
+- 배포: `dev_deploy.py sketchup` → `build/bsh_gorani-<버전>.rbz`(약 90 MB — 런타임 셋, numpy OpenBLAS가 절반). 올리기는 `gorani-ops/docs/sketchup_store.md`.
 
 ### 5.w Rhino 7판 (`cmd_rhino7`·`rhino7_host.cs` + SketchUp판 사이드카, 2026-10-30)
 
@@ -407,7 +407,7 @@ Rhino 7에는 CPython 3이 없다(IronPython 2.7). 엔진은 SketchUp판 사이�
 
 | 층 | 명령 | 대상 | 데이터 |
 |---|---|---|---|
-| 순수 로직 | `python3 -m unittest discover tests` | `test_context_builder.py`(있음: 높이 규칙 9케이스·도엽 경계·context_db 질의) → fixture 경로로 전환, `prepare()` 응답 스키마·원점 100 m 내림·`doc_origin` 재사용(+20 km 초과 ValueError)·범위 3종·`bounds[0] < bounds[2]`·`bounds[1] < bounds[3]`·중심 333-139 ±10 m·**R=1000 `near_lots` > 5000**(limit=None 확인)·콜백 순서·취소(2번째 False → 폴더 비움·`cancelled`), `get_progress_message` percent / `test_non_rhino_utils.py`(PIP 구멍·GridIndex·리샘플·방향) / `test_sheet_svg.py`(A1 1:1000 = 841×594 mm ↔ 0.841×0.594 km, `xml.etree` 파싱, `<g id>` 수, 메타 5줄 포함) / `test_context_report.py`(CSV 헤더·BOM, context.json 키) / `test_3dm_readback.py`(드라이버가 남긴 `result/rhino_jobs/<최근>/out/context.3dm`을 `rhino3dm.File3dm.Read` — 레이어 FullPath 12·건물 수 = counts·UserString 14키·`doc.Strings` 원점; 파일 없으면 skip) | **`tests/fixtures/seongsu_context.db` + `seongsu_site.db`**(커밋, 합 ≈10 MB) — `python3 scripts/dev_make_fixture.py --extent 203700,548000,205800,550100`(전체 DB 2개 ATTACH → SQL 추출; 실측 그 extent 안 features 7,148행·buildings 10,440행·페이로드 4.4 MB). 요청 dict `site_db`·`context_db`에 둘 다 꽂아 `prepare`가 어느 PC에서나 돈다 — `data/seoul_site.db` 없어 skipTest 하는 층이 없다 |
+| 순수 로직 | `python3 -m unittest discover tests` | `test_context_builder.py`(있음: 높이 규칙 9케이스·도엽 경계·context_db 질의) → fixture 경로로 전환, `prepare()` 응답 스키마·원점 100 m 내림·`doc_origin` 재사용(+20 km 초과 ValueError)·범위 3종·`bounds[0] < bounds[2]`·`bounds[1] < bounds[3]`·중심 333-139 ±10 m·**R=1000 `near_lots` > 5000**(limit=None 확인)·콜백 순서·취소(2번째 False → 폴더 비움·`cancelled`), `get_progress_message` percent / `test_non_rhino_utils.py`(PIP 구멍·GridIndex·리샘플·방향) / `test_sheet_svg.py`(A1 1:1000 = 841×594 mm ↔ 0.841×0.594 km, `xml.etree` 파싱, `<g id>` 수, 메타 5줄 포함) / `test_context_report.py`(CSV 헤더·BOM, context.json 키) / `test_3dm_readback.py`(드라이버가 남긴 `result/rhino_jobs/<최근>/out/context.3dm`을 `rhino3dm.File3dm.Read` — 레이어 FullPath 12·건물 수 = counts·UserString 14키·`doc.Strings` 원점; 파일 없으면 skip) | **`tests/fixtures/seongsu_context.db` + `seongsu_site.db`**(커밋, 합 ≈10 MB) — `python3 gorani-ops/scripts/dev_make_fixture.py --extent 203700,548000,205800,550100`(전체 DB 2개 ATTACH → SQL 추출; 실측 그 extent 안 features 7,148행·buildings 10,440행·페이로드 4.4 MB). 요청 dict `site_db`·`context_db`에 둘 다 꽂아 `prepare`가 어느 PC에서나 돈다 — `data/seoul_site.db` 없어 skipTest 하는 층이 없다 |
 | Rhino 지오메트리 | `python3 scripts/dev_rhino_run.py tests/rhino/driver_*.py` | `driver_terrain.py`(TIN·분류 격자 시간·수면 Z·`IsValid`·Z 범위·압출 방향 단언 — `/tmp/udt_bench/driver_bench.py` 이식) · `driver_buildings.py`(투영·압출 수·실패 목록·**`ProjectPointsToMeshesEx` 단언: `len(indices) == len(out)` 그리고 폴백①②로 처리된 동 수 로그**) · `driver_full_run.py`(`context_builder.run` 전체 → response JSON·파일 존재·크기·`context.3dm`을 OUT_DIR로 복사) · `driver_real_site.py`(전체 서울 DB로 성수 333-139 생성 → 저장소 `result/`). `.ai`는 python3 `tests/test_basemap_ai.py` | `constants.TEST_CONTEXT_PNU = "1120011500103330139"` + fixture DB 2개(심링크) |
 | Windows | 같은 드라이버 2개를 사용자 노트북 Rhino에서 1회 | `CreateFromTessellation`·`_-Export` 토큰·sqlite rtree 부재·한국어 UI 해치 패턴 | M2.5 |
 | 사람 1회 | Illustrator | 레이어 분리·100 mm 검산 사각형(`00_frame`)·한글 라벨·K-only | M5 |

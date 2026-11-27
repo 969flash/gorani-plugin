@@ -1,4 +1,4 @@
-"""context_builder — prepare·run(취소·오류 경로·응답 스키마)·preflight·get_progress_message + 높이 규칙·도엽 경계·context_db 질의·정합 샘플. fixture DB 2개로 Rhino 없이 돈다."""
+"""context_builder — prepare·run(취소·오류 경로·응답 스키마)·preflight·get_progress_message + 도엽 경계·context_db 질의. fixture DB 2개로 Rhino 없이 돈다."""
 
 import datetime
 import json
@@ -15,7 +15,6 @@ if str(SCRIPTS_DIR) not in sys.path:
 import constants
 import context_builder
 import context_db
-import dev_context_builder as builder
 import non_rhino_utils
 import site_prefs
 
@@ -28,7 +27,6 @@ HAS_FIXTURES = os.path.exists(SITE_DB) and os.path.exists(CONTEXT_DB)
 TODAY = datetime.date(2026, 10, 7)
 CENTER = (204764.0, 549052.0)          # 성수동2가 333-139 중심 (implementation_plan §0)
 HOLE_PNU = "1120011400100130219"       # 성수동1가 13-219 — fixture 안 구멍 3개 필지(multipart 경고용)
-ALIGN_TEST_DB = "/tmp/udt_ctx_test.db"  # dev_context_builder.py --sheets 37705072,37705073,37705082,37705083 --out 결과 (정합 샘플 포함)
 
 
 def _request(**overrides):
@@ -42,68 +40,6 @@ def _request(**overrides):
     return request
 
 
-def _row(**overrides):
-    row = {"usability": "01000", "grnd_flr": 0, "height_raw": 0.0, "arch_area_sqm": 0.0,
-           "footprint_area_sqm": 100.0, "ngii_kind": "", "ngii_use": "", "ngii_floors": 0}
-    row.update(overrides)
-    return row
-
-
-class HeightRuleTest(unittest.TestCase):
-    """docs/deliverables.md §A.4 — 규칙 번호 순서대로 하나씩."""
-
-    def test_rule1_registered_height_wins(self):
-        decided = builder.decide_height(_row(grnd_flr=3, height_raw=9.1))
-        self.assertEqual((decided["height_m"], decided["height_src"], decided["height_grade"]), (9.1, "height", "A"))
-        self.assertEqual((decided["grnd_flr"], decided["flr_src"]), (3, "grnd_flr"))
-
-    def test_rule1_rejects_implausible_height_per_floor(self):
-        # 3층에 60 m → 층당 20 m라 대장 높이를 버리고 층수 모델로
-        decided = builder.decide_height(_row(grnd_flr=3, height_raw=60.0))
-        self.assertEqual(decided["height_src"], "grnd_flr")
-        self.assertEqual(decided["height_m"], round(2.4 + 2.4 * 3, 2))
-
-    def test_rule3_topo_apartment_floors_override(self):
-        # 대장 2층·수치지형도 아파트 15층 → 수치지형도 층수, 공동주택 모델
-        decided = builder.decide_height(_row(usability="02000", grnd_flr=2, ngii_kind="아파트", ngii_floors=15))
-        self.assertEqual((decided["grnd_flr"], decided["flr_src"], decided["height_src"], decided["height_grade"]),
-                         (15, "topo", "topo_flr", "B"))
-        self.assertEqual(decided["height_m"], round(1.1 + 2.8 * 15, 2))
-
-    def test_rule4_floor_model_by_use(self):
-        decided = builder.decide_height(_row(usability="14000", grnd_flr=10))
-        self.assertEqual(decided["height_m"], round(1.0 + 3.4 * 10, 2))
-        self.assertEqual(decided["height_grade"], "B")
-
-    def test_rule5_topo_floors_when_no_registry(self):
-        decided = builder.decide_height(_row(usability="", grnd_flr=0, ngii_use="근린생활시설", ngii_floors=4))
-        self.assertEqual((decided["grnd_flr"], decided["flr_src"], decided["height_src"], decided["height_grade"]),
-                         (4, "topo", "topo_flr", "C"))
-        self.assertEqual(decided["height_m"], round(0.7 + 3.1 * 4, 2))
-
-    def test_rule6_default(self):
-        decided = builder.decide_height(_row(usability="", grnd_flr=0))
-        self.assertEqual((decided["height_m"], decided["height_src"], decided["height_grade"]),
-                         (constants.DEFAULT_BUILDING_HEIGHT_M, "default", "D"))
-
-    def test_rule0_distrust_registry_when_arch_area_too_small(self):
-        # 건축면적 30 < 발자국 100 × 0.5 → 대장 높이·층수 불신, 수치지형도 층수로, '!' 표시
-        decided = builder.decide_height(_row(grnd_flr=20, height_raw=60.0, arch_area_sqm=30.0, ngii_floors=5))
-        self.assertEqual(decided["attr_flag"], "!")
-        self.assertTrue(decided["height_src"].endswith("!"))
-        self.assertEqual((decided["grnd_flr"], decided["flr_src"]), (5, "topo"))
-
-    def test_rule0b_suspect_downgrades_grade(self):
-        # 건축면적 300 > 발자국 100 × 2 → 값은 쓰되 등급 한 단계 강등
-        decided = builder.decide_height(_row(grnd_flr=3, height_raw=9.0, arch_area_sqm=300.0))
-        self.assertEqual((decided["height_src"], decided["height_grade"], decided["attr_flag"]), ("height?", "B", "?"))
-
-    def test_clamp(self):
-        # 종교(0 + 4.2n)·1층 → 4.2 는 층당 2.5~8 안. 극단 모델은 없지만 함수 자체를 확인
-        self.assertEqual(builder._model_height("06", 1), 4.2)
-        self.assertEqual(builder._model_height("zz", 2), 1.5 + 2.8 * 2)
-
-
 class SheetCodeTest(unittest.TestCase):
     def test_seongsu_sheet_bounds(self):
         # Seoungsu/make_basemap_L.py 프레임(127.025–127.075, 37.525–37.575)과 일치해야 한다
@@ -114,7 +50,7 @@ class SheetCodeTest(unittest.TestCase):
         self.assertAlmostEqual(non_rhino_utils.get_topo_sheet_bounds("37705083")[1], 37.525, 6)
 
 
-@unittest.skipUnless(HAS_FIXTURES, "tests/fixtures/seongsu_*.db가 없다 (python3 scripts/dev_make_fixture.py)")
+@unittest.skipUnless(HAS_FIXTURES, "tests/fixtures/seongsu_*.db가 없다")
 class ContextDbTest(unittest.TestCase):
     def test_load_around_seongsu_station(self):
         x, y = non_rhino_utils.get_tm_from_wgs84(127.0558, 37.5445)
@@ -318,7 +254,7 @@ class PrefsTest(unittest.TestCase):
                 site_prefs.save_style("  ", {}, tmp)
 
 
-@unittest.skipUnless(HAS_FIXTURES, "tests/fixtures/seongsu_*.db가 없다 (python3 scripts/dev_make_fixture.py)")
+@unittest.skipUnless(HAS_FIXTURES, "tests/fixtures/seongsu_*.db가 없다")
 class PrepareTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -472,7 +408,7 @@ class PrepareTest(unittest.TestCase):
         self.assertAlmostEqual(stats["p90"], 9.9, 1)
 
 
-@unittest.skipUnless(HAS_FIXTURES, "tests/fixtures/seongsu_*.db가 없다 (python3 scripts/dev_make_fixture.py)")
+@unittest.skipUnless(HAS_FIXTURES, "tests/fixtures/seongsu_*.db가 없다")
 class PreflightTest(unittest.TestCase):
     def test_keys_and_roles(self):
         result = context_builder.preflight(_request(options={"radius": 500, "scales": [3000]}), today=TODAY)
@@ -524,7 +460,7 @@ class PreflightTest(unittest.TestCase):
         self.assertTrue(context_builder.is_global(request) and not non_rhino_utils.is_local_projection())   # 좌표계는 위치대로 EPSG:5186
 
 
-@unittest.skipUnless(HAS_FIXTURES, "tests/fixtures/seongsu_*.db가 없다 (python3 scripts/dev_make_fixture.py)")
+@unittest.skipUnless(HAS_FIXTURES, "tests/fixtures/seongsu_*.db가 없다")
 class CancelTest(unittest.TestCase):
     """run — 2번째 콜백 False → prepare 안에서 Cancelled → ok=false·cancelled=true·error.code=cancelled. Rhino 없이 돈다(베이크 전 취소)."""
 
@@ -548,7 +484,7 @@ class CancelTest(unittest.TestCase):
             self.assertIsInstance(response["elapsed_s"], float)
 
 
-@unittest.skipUnless(HAS_FIXTURES, "tests/fixtures/seongsu_*.db가 없다 (python3 scripts/dev_make_fixture.py)")
+@unittest.skipUnless(HAS_FIXTURES, "tests/fixtures/seongsu_*.db가 없다")
 class ResponseSchemaTest(unittest.TestCase):
     """run 응답 dict 키 집합(code_map §4.3) — ok=false 경로도 키 전부. Rhino 없이는 prepare 뒤 RhinoCommon 지형 단계에서 exception으로 끝난다."""
 
@@ -624,37 +560,6 @@ class FreeResultDirTest(unittest.TestCase):
             second = context_builder.get_free_result_dir(base)
             self.assertNotEqual(second, first)
             self.assertTrue(os.listdir(base))   # 이전 결과는 지우지 않는다
-
-
-class AlignTest(unittest.TestCase):
-    """정합 샘플 — dev_context_builder.get_align_samples(합성) + 4도엽 부분 빌드 DB(/tmp/udt_ctx_test.db)의 통계."""
-
-    def test_synthetic_offset_squares(self):
-        import shapely
-        cad, topo = [shapely.box(0, 0, 100, 100)], [shapely.box(1, 0, 101, 100)]   # topo가 동쪽으로 1 m
-        samples = builder.get_align_samples(cad, topo)
-        self.assertEqual(len(samples), 41)                                  # 둘레 400 m / 10 m + 1(닫힘)
-        self.assertEqual(sorted({s[2] for s in samples}), [0.0, 1.0])        # 남북 변 위 점은 0, 동서 변 점은 1 m
-        west = [s for s in samples if s[0] == 0.0 and 0 < s[1] < 100]
-        self.assertTrue(west and all(s[3] == 1.0 and s[4] == 0.0 for s in west))   # dx·dy = cad → topo 벡터
-        self.assertEqual(builder.get_align_samples(cad, topo, seam=shapely.box(-1, -1, 101, 101)), [])   # seam 안 점 제외
-        self.assertEqual(builder.get_align_samples(cad, topo, max_dist=0.5), [s for s in samples if s[2] == 0.0])
-        self.assertEqual(builder.get_align_samples([], topo), [])
-
-    @unittest.skipUnless(HAS_FIXTURES and os.path.exists(ALIGN_TEST_DB), "%s 없음 (dev_context_builder.py --sheets … --out)" % ALIGN_TEST_DB)
-    def test_seongsu_four_sheets_stats(self):
-        import sqlite3
-        with sqlite3.connect(ALIGN_TEST_DB) as con:
-            rows = con.execute("SELECT sheet, COUNT(*), MIN(value), MAX(value) FROM features WHERE theme='qa' AND kind='align_sample' GROUP BY sheet").fetchall()
-        self.assertEqual([r[0] for r in rows], ["37705072", "37705073", "37705082", "37705083"])
-        self.assertTrue(all(r[1] > 1000 and 0.0 <= r[2] and r[3] <= constants.ALIGN_MAX_DIST for r in rows), rows)
-        p = context_builder.prepare(_request(context_db=ALIGN_TEST_DB, options={"radius": 500, "scales": [3000]}), today=TODAY)
-        align = p.stats["align"]
-        self.assertGreater(align["n"], constants.ALIGN_LOW_SAMPLE)
-        self.assertFalse(align["low_sample"])
-        self.assertTrue(0.5 <= align["median"] <= 2.5, align)                 # 08정합 실측 중앙값 1.2 m
-        self.assertTrue(align["median"] < align["p90"] <= 8.0, align)         # p90 3.9 m
-        self.assertIn("정합 오차 중앙값", p.meta["meta_lines"][3])
 
 
 class StyleRedrawTest(unittest.TestCase):

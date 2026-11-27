@@ -2,6 +2,7 @@
 일본(지리원 표고 화소, PLATEAU 팩 읽기·중복 거르기, OSM 메우기, 일본 판정)."""
 
 import json
+import math
 import os
 import sqlite3
 import struct
@@ -12,7 +13,6 @@ import zlib
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
 import constants  # noqa: E402
-import dev_plateau  # noqa: E402
 import non_rhino_utils  # noqa: E402
 import osm_context  # noqa: E402
 
@@ -290,18 +290,57 @@ class ParseTest(unittest.TestCase):
             non_rhino_utils.set_projection()
 
 
+# 일본 팩 표 — 데이터 구축 스크립트(gorani-ops gorani-ops/scripts/dev_plateau.py)의 SCHEMA_SQL·FEATURES_SQL 중 런타임이 읽는 칸. 팩 칸을 더하면 여기도 맞춘다
+JP_SCHEMA_SQL = """
+CREATE TABLE data_sources (
+    source_id TEXT PRIMARY KEY, name TEXT NOT NULL, page_url TEXT NOT NULL, reference_date TEXT,
+    acquired_at TEXT NOT NULL, crs TEXT, license TEXT, note TEXT
+);
+CREATE TABLE buildings (
+    building_id INTEGER PRIMARY KEY, src_key TEXT NOT NULL, pnu TEXT, usability TEXT, strct_cd TEXT,
+    grnd_flr INTEGER NOT NULL DEFAULT 0, ugrnd_flr INTEGER NOT NULL DEFAULT 0, flr_src TEXT,
+    height_m REAL NOT NULL, height_src TEXT NOT NULL, height_grade TEXT NOT NULL, attr_flag TEXT, use_apr_day TEXT,
+    status TEXT NOT NULL DEFAULT 'active', bld_nm TEXT, ngii_kind TEXT, ngii_use TEXT,
+    footprint_area_sqm REAL NOT NULL, total_area_sqm REAL, geometry_json TEXT NOT NULL, geometry_crs INTEGER NOT NULL,
+    source_id TEXT NOT NULL, reference_date TEXT, min_x REAL NOT NULL, max_x REAL NOT NULL, min_y REAL NOT NULL, max_y REAL NOT NULL
+);
+"""
+JP_FEATURES_SQL = """
+CREATE TABLE IF NOT EXISTS features (
+    feature_id INTEGER PRIMARY KEY, source_id TEXT NOT NULL, theme TEXT NOT NULL, kind TEXT NOT NULL, code TEXT, name TEXT, value REAL,
+    attrs_json TEXT, sheet TEXT, geometry_json TEXT NOT NULL, geometry_crs INTEGER NOT NULL, reference_date TEXT,
+    min_x REAL NOT NULL, max_x REAL NOT NULL, min_y REAL NOT NULL, max_y REAL NOT NULL
+);
+"""
+JP_LICENSE = "CC BY 4.0(公共データ利用規約 第1.0版 호환). 저작권은 각 지방공공단체"
+
+
+def _get_jp_ring(points):
+    """[(경도, 위도)] → 소수 PLATEAU_DIGITS 자리 닫힌 링(팩에 들어가는 꼴)."""
+    ring = [[round(x, constants.PLATEAU_DIGITS), round(y, constants.PLATEAU_DIGITS)] for x, y in points]
+    return ring if ring[0] == ring[-1] else ring + [ring[0]]
+
+
+def _get_bounds(ring):
+    xs, ys = [p[0] for p in ring], [p[1] for p in ring]
+    return min(xs), max(xs), min(ys), max(ys)
+
+
 def _write_jp_pack(data_dir, code, buildings, year):
-    """dev_plateau 행 함수로 일본 건물 팩 하나를 만들고 packs.json에 경위도 범위를 적는다. buildings = [(gml:id, [(경도, 위도)…], 용도)]."""
+    """일본 건물 팩 하나(높이 10 m, 등급 B)를 만들고 packs.json에 경위도 범위를 적는다. buildings = [(gml:id, [(경도, 위도)…], 용도)]."""
     name = "jp%s_context.db" % code
     connection = sqlite3.connect(os.path.join(data_dir, name))
-    connection.executescript(dev_plateau.SCHEMA_SQL)
+    connection.executescript(JP_SCHEMA_SQL)
     for n, (gml_id, ring, usage) in enumerate(buildings, start=1):
-        row = dev_plateau.get_row({"id": gml_id, "polygons": [[dev_plateau.get_clean_ring(ring)]], "measuredHeight": "10", "usage": usage},
-                                  int(code) * 10 ** 7 + n)
+        ring = _get_jp_ring(ring)
+        meters = math.radians(1.0) * 6378137.0   # 경위도 면적 → ㎡, 위도 가운데 등장방형 근사
+        area = abs(sum(ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1] for i in range(len(ring) - 1))) * 0.5 * meters * meters * math.cos(math.radians(ring[0][1]))
+        row = (int(code) * 10 ** 7 + n, "plateau:" + gml_id, None, "", None, 0, 0, "", 10.0, "plateau_height", "B", None, None, "active", None,
+               usage, None, round(area, 2), None, json.dumps({"type": "Polygon", "coordinates": [ring]}), 4326, "plateau", None) + _get_bounds(ring)
         connection.execute("INSERT INTO buildings VALUES (%s)" % ",".join("?" * len(row)), row)
     connection.execute("INSERT INTO data_sources VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                        ("plateau", "3D都市モデル（Project PLATEAU）市%s（%d年度）" % (code, year), "https://www.geospatial.jp/ckan/dataset/plateau-%s-x-%d" % (code, year),
-                        "%d-03-31" % (year + 1), "2026-10-21T00:00:00", "", dev_plateau.LICENSE, ""))
+                        "%d-03-31" % (year + 1), "2026-10-21T00:00:00", "", JP_LICENSE, ""))
     connection.commit()
     connection.close()
     state_path = os.path.join(data_dir, "packs.json")
@@ -315,12 +354,14 @@ def _write_jp_pack(data_dir, code, buildings, year):
 
 
 def _write_jp_roads(data_dir, code, roads, reference_date="2026-03-31"):
-    """있는 일본 팩에 도로면 features 표를 넣는다(dev_plateau roads 단계와 같은 행). roads = [(gml:id, [(경도, 위도)…], function)]."""
+    """있는 일본 팩에 도로면 features 표를 넣는다(gorani-ops dev_plateau roads 단계와 같은 칸). roads = [(gml:id, [(경도, 위도)…], function)]."""
     connection = sqlite3.connect(os.path.join(data_dir, "jp%s_context.db" % code))
-    connection.executescript(dev_plateau.FEATURES_SQL)
+    connection.executescript(JP_FEATURES_SQL)
     for n, (gml_id, ring, function) in enumerate(roads, start=1):
-        row = dev_plateau.get_road_row({"id": gml_id, "polygons": [[dev_plateau.get_clean_ring(ring)]], "function": function, "cls": "1020", "name": ""},
-                                       int(code) * 10 ** 6 + n, reference_date)
+        ring = _get_jp_ring(ring)
+        attrs = json.dumps({"plateau": gml_id, "function": function, "class": "1020"})
+        row = (int(code) * 10 ** 6 + n, "plateau", "road", "surface", function, None, None, attrs, "",
+               json.dumps({"type": "Polygon", "coordinates": [ring]}), 4326, reference_date) + _get_bounds(ring)
         connection.execute("INSERT INTO features VALUES (%s)" % ",".join("?" * len(row)), row)
     connection.commit()
     connection.close()
@@ -397,8 +438,8 @@ class JapanTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as data_dir:
             name = "nl25gn1_context.db"
             connection = sqlite3.connect(os.path.join(data_dir, name))
-            connection.executescript(dev_plateau.SCHEMA_SQL)
-            ring = dev_plateau.get_clean_ring(_square(4.8950, 52.3700))
+            connection.executescript(JP_SCHEMA_SQL)
+            ring = _get_jp_ring(_square(4.8950, 52.3700))
             connection.execute("INSERT INTO buildings VALUES (%s)" % ",".join("?" * 27),
                                (10 ** 7 + 1, "pdok:0363100012", None, "", None, 0, 0, "", 15.5, "pdok_height", "B", None, "1966-01-01", "active", None, "slanted", None,
                                 300.0, None, json.dumps({"type": "Polygon", "coordinates": [ring]}), 4326, "pdok", None, 4.8950, 4.8952, 52.3700, 52.3702))

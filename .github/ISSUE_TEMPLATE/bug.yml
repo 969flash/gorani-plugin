@@ -1,0 +1,33 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: dropdown
+    id: host
+    attributes:
+      label: Host
+      options: [Rhino 8, Rhino 9, Rhino 7, SketchUp, Blender, Archicad, Other]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Gorani version and OS
+      placeholder: 0.4.0, Windows 11
+    validations:
+      required: true
+  - type: input
+    id: site
+    attributes:
+      label: Site (address or coordinates)
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Attach or paste log.txt from the result folder. Screenshots help too.

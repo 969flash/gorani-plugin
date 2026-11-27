@@ -3,7 +3,7 @@
 > **2026-10-07 아키텍처 확정(docs/code_map.md)**: 생성은 Rhino CPython 안에서 RhinoCommon 베이크로 한다 — 'rhino3dm writer → _-Import', 'scipy Delaunay', 'shapely 클리핑' 문구는 `Mesh.CreateFromTessellation`·'클리핑 없음(bbox + TIN 면 제거)'·`doc.WriteFile` 사본으로 읽는다. 정합 오차는 빌드 때 샘플(features theme `qa`) → 런타임 통계. `File3dm.Strings` 대신 RhinoCommon `doc.Strings.SetString`을 쓴다.
 
 
-- 작성일: 2026-10-07, 같은 날 08 보강 조사 반영 갱신. `docs/deliverables.md`의 산출물에서 역산한 데이터 목록. 근거는 `docs/research/00~08`(번호 인용; 08은 [08높이]·[08기준일]·[08정합]·[08전국]으로 구분).
+- 작성일: 2026-10-07, 같은 날 08 보강 조사 반영 갱신. `docs/deliverables.md`의 산출물에서 역산한 데이터 목록. 근거는 `gorani-ops/docs/research/00~08`(번호 인용; 08은 [08높이]·[08기준일]·[08정합]·[08전국]으로 구분).
 - **08로 바뀐 것(요지)**: ① GIS건물통합정보 벌크에 높이 컬럼(A16) 있음 → 벌크가 건물 1순위, `LT_C_BLDGINFO` API 응답은 **세션 캐시만**(VWorld 약관 제19조, 배포 DB 미적재) ② 건물 `pnu`는 공간조인이 아니라 벌크 `A2` 원천값 우선 ③ 변동분(일간) 미채택, 월간 전체본 교체 + `source_files` 표 ④ 철거는 건축HUB 폐쇄말소·철거멸실(벌크 월간 + 대상지 API) ⑤ 토지특성·토지이용계획 라이선스 표기는 '이용허락범위 제한 없음'(공공누리 1유형 아님), 연속지적도형정보는 포털 4유형 → 번들 금지 ⑥ 등고선 전국 zip 19개 중 5개 ≤500 MB(04a '전량 >500 MB' 정정) ⑦ 좌표 변환은 pyproj 기본 경로(EPSG:5189)만.
 - 접근 등급: **자동** = 스크립트(무로그인 파일 또는 API 키) / **키** = 인증키 발급 후 자동 / **수동** = 로그인·신청·브라우저 필요.
 - 모든 URL 접근일 2026-10-07. "확인 필요" = 1차 출처에서 직접 확인 못 한 항목.
@@ -14,7 +14,7 @@
 
 | ✓ | 할 일 | 어디서 | 왜 지금 | 결과 보관 | 근거 |
 |---|---|---|---|---|---|
-| ☐ | **수치지형도 1:5000 Ver2.0(SHP) 서울 139도엽** 다운로드. 도엽 목록 `docs/reference/서울_수치지형도_5000_도엽목록.txt`, 크롬 Claude용 절차 `docs/reference/크롬_브이월드_다운로드_프롬프트.md`. **받을 때 플랫폼 목록의 제작(수정)년도를 `data/raw/수치지형도_5000/sheets.csv`(열 `sheet, year, downloaded_at, zip_sha256`)에 적는다** — SHP 속성·폴더 어디에도 날짜가 없음(로컬 42레이어 전수 확인) | 국토정보플랫폼 https://map.ngii.go.kr/ms/map/NlipMap.do (로그인) 또는 브이월드 지도 메뉴 | 지형·도로면·수계·건물 층수·철도·교량의 **유일한 고정밀 공개 원천**. 등고선 5 m 간격, 절대정확도 95 % 1.5 m·최대 3.0 m. 현재 성수 4도엽만 보유. 연도가 없으면 산출물 기준일 표기·정합 오차의 시간차 분리가 안 됨 | `data/raw/수치지형도_5000/<도엽번호>.zip` + `sheets.csv` | 00 §4, 04a §0.1, 05 §3, 08기준일 §1.4, 08정합 §1 |
+| ☐ | **수치지형도 1:5000 Ver2.0(SHP) 서울 139도엽** 다운로드. 도엽 목록 `docs/reference/서울_수치지형도_5000_도엽목록.txt`, 크롬 Claude용 절차 `gorani-ops/docs/reference/크롬_브이월드_다운로드_프롬프트.md`. **받을 때 플랫폼 목록의 제작(수정)년도를 `data/raw/수치지형도_5000/sheets.csv`(열 `sheet, year, downloaded_at, zip_sha256`)에 적는다** — SHP 속성·폴더 어디에도 날짜가 없음(로컬 42레이어 전수 확인) | 국토정보플랫폼 https://map.ngii.go.kr/ms/map/NlipMap.do (로그인) 또는 브이월드 지도 메뉴 | 지형·도로면·수계·건물 층수·철도·교량의 **유일한 고정밀 공개 원천**. 등고선 5 m 간격, 절대정확도 95 % 1.5 m·최대 3.0 m. 현재 성수 4도엽만 보유. 연도가 없으면 산출물 기준일 표기·정합 오차의 시간차 분리가 안 됨 | `data/raw/수치지형도_5000/<도엽번호>.zip` + `sheets.csv` | 00 §4, 04a §0.1, 05 §3, 08기준일 §1.4, 08정합 §1 |
 | ☐ | **GIS건물통합정보 서울특별시 SHP**(dsId=18, 월간 전체본 **129 MB**, 기준일 매월 9일경·게시 0~15일 뒤) 다운로드. 서울 전체본 이력은 `…dsId=18&fileGbnCd=AL&sidoCd=11`로 1년치가 보임 | https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?svcCde=NA&dsId=18 (로그인; 서울 단위는 500 MB 미만이라 라온K 없이 iframe 다운로드) | API `LT_C_BLDGINFO` 전수 호출(1,162페이지)은 차단 위험이고 **약관 제19조상 저장 금지** → 배포 DB의 건물은 벌크. 컬럼 정의서(로그인 없이 받아짐)로 **A16 높이(m)·A26/A27 층수·A8 용도코드·A2 PNU·A22 데이터기준일자·A28 데이터생성변경일자** 확정. 좌표계 EPSG:5186(2023-08-08~; 페이지 메타 블록의 'Bessel' 표기는 상충이니 `.prj`로 검증) | `data/raw/vworld_GIS건물통합정보/AL_D010_11_<기준일>.zip` + 컬럼 정의서 `국가중점데이터_컬럼정의서(26.08.19)_배포용.xlsx` | 01 §2.3, 05 §1.2·§2, 08높이 §3.1, 08기준일 §1.2 |
 | ☐ | **VWorld 인증키 서비스 범위 확인** — 2D 데이터 API `LT_C_BLDGINFO`·`LT_L_N3A0020000`·`LT_C_WKMSTRM` 호출 OK(00 실측, 08 재확인: 군 단위까지 전국 응답). `.env`에 키·도메인 유지. **주의: `.env` 2행 `VWORLD_API_KEY= …`의 '= ' 뒤 공백** — `grep/cut`·셸 `source`로 읽으면 키에 공백이 붙어 `INVALID_KEY`가 난다 → python-dotenv `dotenv_values`로 읽거나 공백 제거. 발급일·유효기간을 마이페이지에서 확인해 기록 | https://www.vworld.kr (마이페이지) | 대상지 단위 건물 갱신·주소 보조검색. 개발키는 FAQ상 "QGIS 등 외부 SW·연구/개인용"이라 배포 사용자도 각자 개발키 | `.env` `VWORLD_API_KEY`·`VWORLD_API_DOMAIN` | 00 §6, 05 §1.7, 08전국 §1·§3.1·§5.1 |
 | ☐ | **공공데이터포털 키 1개 발급** → 건축HUB **건축물대장정보(15134735)·건축인허가정보(15136267)·폐쇄말소대장정보(15137093)**·소진공 상가(15012005) 활용신청(자동승인, 개발계정 10,000건/일, **1회 100건**) | https://www.data.go.kr/data/15134735/openapi.do , …/15136267/openapi.do , …/15137093/openapi.do | 건물 높이(`heit`) 보정(P1·조건부), **철거·폐쇄말소 상태**(`getApDemolExtngMgmRgstInfo`·`getSrTitleInfo`, 대상지 생성 시), 상권(P1) | `.env` `DATA_GO_KR_KEY` | 05 §1.6, 04b §2, 08높이 §2.2, 08기준일 §2.1 |
@@ -174,7 +174,7 @@ CREATE TABLE IF NOT EXISTS source_files (
 | `dev_analysis_builder.py` | 서울 열린데이터광장·data.go.kr 파일/API | `features`(theme 9~) | 열린데이터광장 `서비스 지연(103)` 재시도·백오프 기본 [04b §0] |
 | `dev_database_builder.py`(보유) | 토지특성·UPIS | `seoul_site.db` | `reference_date` 상수(`"2026-02"`)·해시 미사용 → 같은 `source_files` 규칙으로 맞춤(소폭) [08기준일 §4.3] |
 | `dev_check_updates.py`(신규, ~10줄) | 브이월드 목록 `GET …dsId={18,13,14,23}&fileGbnCd=AL&sidoCd=11` | 콘솔 "새 판 YYYY-MM-DD 있음" | 첫 행 기준일 > `source_files.listed_date`면 안내. 결과는 §2.4 경고의 두 번째 조건 |
-| `scripts/dev_probe_building_height.py`·`probe_alignment.py`·`probe_alignment_followup.py`(보유) | 캐시·성수 4도엽·필지 DB | `result/probe_alignment/*.json` | 08 실측 재현용. 강남·구도심 타일 추가 수집 후 재실행해 A.4 상수·정합 기본값 재확인 |
+| `gorani-ops/scripts/dev_probe_building_height.py`·`probe_alignment.py`·`probe_alignment_followup.py`(보유) | 캐시·성수 4도엽·필지 DB | `result/probe_alignment/*.json` | 08 실측 재현용. 강남·구도심 타일 추가 수집 후 재실행해 A.4 상수·정합 기본값 재확인 |
 
 좌표계 변환표(적재 시 전부 5186으로): 수치지형도·토지특성·GIS건물·침수예상도 = 5186 그대로 / 연속수치지형도·도로명주소·SGIS = 5179 / 서울 UPIS·생태현황도·생활권 = **5174(Bessel, datum 변환)** / 포인트 CSV·API 기본 = 4326. VWorld 페이지 '메타데이터' 블록의 Bessel 표기는 믿지 말고 `.prj`·좌표값으로 판정 [04a §3]. **변환 경로는 `pyproj.Transformer.from_crs(src, 5186, always_xy=True)` 기본 경로만**(5174→5186 = EPSG:5189 "Korean 1985 to KGD2002 (1)" Molodensky-Badekas, 격자 없음, 공칭 1.0 m; 서울 UPIS는 지적선과 중앙값 0.000 m로 왕복 일치, 구형 `+towgs84` 수동 입력은 +3~4 cm, 5174를 2097로 오인하면 255 m) — `+towgs84`·사용자 파이프라인 금지. 판별 요령: 서울 Y가 540~565 k면 5186, 436~467 k면 5174; `.prj` `Central_Meridian` 127.00289면 5174. 변환 후 용도지역 경계 ↔ 지적선 중앙값 0.5 m 초과면 중단 [08정합 §2.3·§4.1].
 
@@ -214,7 +214,7 @@ CREATE TABLE IF NOT EXISTS source_files (
 - 토지이용계획 08-26판의 zip이 다른 달보다 35 % 작은 것은 압축 차이다 — 서울 08-26판 1,040만 행·89.9만 필지, 10-09판 1,037만 행·89.9만 필지(§4-20 해소).
 - 토지이용계획 월간 갱신(필지 팩만 — 컨텍스트·등고선 팩과 국내 버킷은 그대로):
   1. 브이월드 로그인 → 시도별 '토지이용계획정보' 전체데이터 zip을 `data/raw/전국_토지이용계획정보/`에 그대로 둔다(풀지 않는다 — 빌더가 zip 안 CSV를 읽고, 시도마다 파일 이름 기준일이 가장 늦은 판만 쓴다). 서울 UPIS는 `SEOUL_SOURCES`의 `seq`·`file_name`·`reference_date`를 열린데이터광장 파일 목록 맨 위 판으로.
-  2. 시도마다 `python3 scripts/dev_database_builder.py --sido <코드>` → `python3 scripts/dev_deploy.py packs --sido <코드> --drop --site-only`(시도 DB는 압축 뒤 지운다, 서울만 남긴다).
+  2. 시도마다 `python3 gorani-ops/scripts/dev_database_builder.py --sido <코드>` → `python3 scripts/dev_deploy.py packs --sido <코드> --drop --site-only`(시도 DB는 압축 뒤 지운다, 서울만 남긴다).
   3. `python3 scripts/dev_deploy.py upload --site-only`(필지 팩 + 매니페스트만. 매니페스트의 업데이트 안내·공지·나라 목록과 `config.json`은 올라가 있는 것 그대로 — 그것들은 `notices`가 올린다) → `python3 scripts/dev_deploy.py mirror --dirs ""`(Blender판 GitHub 사본).
   4. 옛 판 원천(`AL_D155_<시도>_<옛 기준일>.*`, `seoul_*/<옛 판>/`)을 지운다.
 - 디스크: `data/raw/수치지형도_5000/`의 도엽 zip은 시군구 묶음(`수치지형도_5000_시군구/`, 26 GB)에서 풀린 사본이라 컨텍스트를 다 만든 뒤 지워도 된다 — 다음 컨텍스트 빌드가 `get_sheet_sido`로 다시 푼다(2026-11-08 17,517장·21.7 GB 지움). 서울 원본 139장(`sheets.csv`에 sha256)과 `sheets.csv`는 남긴다.
@@ -270,7 +270,7 @@ CREATE TABLE IF NOT EXISTS source_files (
 
 ## 5. 일본 (Global 모드 안, 2026-10-21)
 
-근거 `docs/research/japan.md`, 계획·결정 `docs/japan_plan.md`. 일본 대상지는 Global 모드 그대로이고 건물·지형만 일본 공공데이터로 바꾼다. 도로·수계·녹지·철도는 OSM.
+근거 `gorani-ops/docs/research/japan.md`, 계획·결정 `gorani-ops/docs/japan_plan.md`. 일본 대상지는 Global 모드 그대로이고 건물·지형만 일본 공공데이터로 바꾼다. 도로·수계·녹지·철도는 OSM.
 
 | 요소 | 원천 | 받는 방식 | 형식·기준 |
 |---|---|---|---|
@@ -309,7 +309,7 @@ Overpass(모든 미러·다시 묻기)가 다 실패할 때만 같은 범위를 
 
 - 라이선스: **CC BY 4.0**(OGC API collections의 license 링크 `https://creativecommons.org/licenses/by/4.0/deed.nl`). 출처 고지는 팩 `data_sources.note` 그대로 도면 출처 줄에 적는다: "Bron: Kadaster, 3D Basisvoorziening (CC BY 4.0), bewerkt door Gorani". 국외 반출 제한 없음.
 - 런타임: 나라 목록 `docs/countries.json`의 `nl`(한국 매니페스트 `countries[]` → `data_pack.get_country_packs`, 내장 기본값 `constants.COUNTRY_PACKS`) — 대상지 중심이 그 상자 안이면 생성 직전에 범위에 걸치는 도엽 팩을 받고(`cmd_site._download_for_generate`), `osm_context.load_plateau_buildings`가 팩 건물을 먼저, OSM 건물은 겹치지 않는 것만. 도로면은 OSM 버퍼(팩에 features 표 없음), 지형은 Mapterhorn(§6, 못 받으면 Terrain Tiles).
-- 조사 근거·다른 나라 후보(프랑스 BD TOPO·스위스 swissBUILDINGS3D·독일): `docs/research/country_buildings.md`.
+- 조사 근거·다른 나라 후보(프랑스 BD TOPO·스위스 swissBUILDINGS3D·독일): `gorani-ops/docs/research/country_buildings.md`.
 - **새 나라 추가 절차(2026-10-23)**: ① `dev_<나라>.py catalog → build → upload`(팩 + `<나라>/manifest.json`, HF 올리기는 사용자 확인 뒤) ② `docs/countries.json`에 한 줄(코드·상자·라벨·source_id·고지) ③ `python3 scripts/dev_deploy.py notices`. 플러그인 판은 올리지 않는다 — 깔린 플러그인이 켤 때 목록을 받는다. 내리기는 `disabled: true`.
 - **GitHub 사본(Blender판, 2026-10-25)**: Blender 확장 심사가 'Hugging Face는 빼라'고 해서 Blender판은 같은 데이터셋의 GitHub 사본 `969flash/gorani-data`를 읽는다.
   매니페스트·`config.json`은 저장소 파일(HF와 같은 경로 — `raw.githubusercontent.com/…/main/manifest.json`, 상대경로 `jp/manifest.json`이 그대로 풀린다),
@@ -342,7 +342,7 @@ Overpass(모든 미러·다시 묻기)가 다 실패할 때만 같은 범위를 
 | 건물 | **Overture Maps Foundation buildings** 테마(판 `constants.OVERTURE_RELEASE`, 달마다) — Microsoft ML Buildings(GERS로 합본)·OpenStreetMap·Esri Community Maps. S3 GeoParquet(`overturemaps-us-west-2`, 익명) | `dev_us.py catalog → fetch <주> → build [FIPS] → upload` → HF `us/us<카운티 FIPS 5자리>_context.db.xz` + `us/manifest.json`. 카운티 경계는 Census `cb_2024_us_county_500k`(GEOID, 3,235개 — 준주 포함), 건물 중심점이 든 카운티에(경계 300 m 넓힘, 겹침은 런타임 `src_key` 중복 제거). 높이 `height`(B — **Microsoft ML 추정이라 실측 아님**) → `num_floors` × 층고(C) → 기본값(D). `subtype`·`class` → `ngii_kind`·`ngii_use`와 대분류(`OVERTURE_USE_*`), `names.primary` → `bld_nm`, 출처 데이터셋 → `attr_flag`(msft·osm·esri) | 전체 빌드(2026-10-23, 판 2026-10-21.0): 56개 주·준주 **3,234팩 1억 6,161만 동, xz 14.82 GB**(원본 72 GB), 실패 0. 빠진 카운티는 로즈섬(AS, 건물 없음) 하나. 로스앤젤레스 311만 동·B 97.3 %·325 MB, 맨해튼 B 98.2 %(평균 21.4 m), 해리스 91.7 %, 앵커리지 66.2 %, 괌·사모아·북마리아나·버진아일랜드는 높이 거의 없음. 지하(`is_underground`)는 뺀다. 용도는 약 10 %만 있다. 주 parquet 받기는 프로세스당 S3 메타데이터 약 15분 + 주마다 1~25분(연결 하나로 캐시), 빌드는 카운티 3,234개에 약 2시간(작업 4~5) |
 
 - 라이선스: **ODbL 1.0**(Overture buildings 테마 전체 — docs.overturemaps.org/attribution. Microsoft ML Buildings도 ODbL로 제공). 우리 OSM 사용과 같은 라이선스이고 share-alike라 팩도 ODbL이다(데이터셋 카드에 적는다). 고지(팩 `data_sources.note`, 도면 출처 줄): "Source: Overture Maps Foundation (buildings, release <판>, ODbL 1.0) — © OpenStreetMap contributors, Microsoft; processed by Gorani. Heights mostly ML estimates".
-- 공식 출처를 안 쓴 이유: FEMA·ORNL USA Structures는 HEIGHT가 약 32M/125M동뿐이고 약관이 CC BY 4.0(ArcGIS Hub)과 미국 정부 저작물(data.gov)로 갈린다. 용도(OCC_CLS)는 더 좋아 나중에 보강 후보. 근거 `docs/research/country_buildings.md`.
+- 공식 출처를 안 쓴 이유: FEMA·ORNL USA Structures는 HEIGHT가 약 32M/125M동뿐이고 약관이 CC BY 4.0(ArcGIS Hub)과 미국 정부 저작물(data.gov)로 갈린다. 용도(OCC_CLS)는 더 좋아 나중에 보강 후보. 근거 `gorani-ops/docs/research/country_buildings.md`.
 - 런타임: `countries.json`의 `us` — 상자 넷(`constants.US_BOUNDS` 본토·알래스카·하와이·푸에르토리코). 도로면은 OSM 버퍼, 지형은 Mapterhorn(§6, 못 받으면 Terrain Tiles).
 - 갱신: Overture 새 판 → `constants.OVERTURE_RELEASE` 바꾸고 `fetch`(주 parquet 다시) → `build`(판이 다르면 다시 만든다) → `upload`.
 

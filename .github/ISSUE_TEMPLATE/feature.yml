@@ -1,0 +1,20 @@
+name: Feature request
+description: Suggest a new feature or an improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What do you want to do?
+      description: The task you are trying to finish and where Gorani gets in the way.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+  - type: input
+    id: host
+    attributes:
+      label: Host and version
+      placeholder: Rhino 8, Gorani 0.4.0

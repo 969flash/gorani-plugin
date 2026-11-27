@@ -127,7 +127,7 @@ def get_init_state(site_db=None, context_db=None, today=None, manifest=None, map
         host["self_update"] = bool(loader.load("data_pack").get_yak_path())
     # [/blender-cut]
     account_state = {"enabled": False}   # Blender판은 회원이 없다(확장 약관 — 고급 누구나)
-    # [blender-cut] 회원 — 로그인 상태·권한·남은 써 보기(docs/account_plan.md)
+    # [blender-cut] 회원 — 로그인 상태·권한·남은 써 보기(gorani-ops/docs/account_plan.md)
     account = loader.load("account")
     account_state = account.get_panel_state(account.load(), context_builder.get_host())
     # [/blender-cut]
@@ -929,7 +929,7 @@ class _SiteController:
 
     # 회원 — 로그인은 시스템 브라우저(gorani.site/login/) → 127.0.0.1 받는 곳 → Firebase 열쇠(account.Login). 패널은 기다리는 동안
     # account_poll로 묻는다 — 받는 곳 스레드에서 패널로 바로 보내지 않는다(호스트마다 UI 스레드 규칙이 달라서). 결과는 account_state 하나.
-    # 로그인 쪽이 고장이면 막지 않고 연다(account_state.fallback — docs/account_plan.md '로그인에 기대지 않기')
+    # 로그인 쪽이 고장이면 막지 않고 연다(account_state.fallback — gorani-ops/docs/account_plan.md '로그인에 기대지 않기')
     def _push_account(self, error=""):
         account = loader.load("account")
         state = account.get_panel_state(account.load(), loader.load("context_builder").get_host(), fallback=self._account_fallback)
