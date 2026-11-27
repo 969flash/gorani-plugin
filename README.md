@@ -14,6 +14,7 @@
   <a href="https://www.food4rhino.com/en/app/gorani"><img src="https://img.shields.io/badge/food4Rhino-Gorani-555" alt="food4Rhino"></a>
   <a href="https://extensions.blender.org/add-ons/gorani/"><img src="https://img.shields.io/badge/Blender-extension-555" alt="Blender extension"></a>
   <a href="https://gorani.site/en/"><img src="https://img.shields.io/badge/web-gorani.site-555" alt="Website"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-555" alt="License: GPL-3.0-or-later"></a>
   <a href="https://github.com/sponsors/969flash"><img src="https://img.shields.io/badge/sponsor-%E2%99%A5-db61a2" alt="Sponsor"></a>
 </p>
 
@@ -106,6 +107,8 @@ Gorani runs on sponsorships. Sponsorships bring new features. [Sponsor Gorani on
 
 ## License
 
-This repository has no LICENSE file yet. The packages declare their own licenses: the Rhino package (Yak) is MIT, and the Blender extension is GPL-3.0-or-later (with Leaflet under BSD-2-Clause). Bundled third-party code keeps its own license (Leaflet BSD-2-Clause, Pretendard OFL, Tapir MIT in the Archicad add-on).
+Gorani is free software under the [GNU General Public License v3.0 or later](LICENSE) (GPL-3.0-or-later). You may use, share and change it; if you share a changed version, share its source under the same license.
+
+Third-party code keeps its own license: Leaflet (BSD-2-Clause) and Pretendard (OFL-1.1) in `scripts/vendor/`, and Tapir (MIT) in `archicad/`. The SketchUp, Rhino 7 and Archicad packages also bundle Python, NumPy and Shapely under their own licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Data has separate licenses: see [Data sources and licenses](#data-sources-and-licenses).
 
 Published by **Gorani** · [gorani.site](https://gorani.site/en/)

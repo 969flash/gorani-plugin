@@ -17,6 +17,10 @@
   <a href="README.md">English</a>
 </p>
 
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-555" alt="라이선스: GPL-3.0-or-later"></a>
+</p>
+
 ![Gorani 0.4.0 고급 모델](docs/brand/readme/hero.png)
 
 필지를 고르거나, 구역을 그리거나, 위치만 찍은 뒤 범위를 정하고 버튼 하나를 누릅니다. 건물·도로·지형·수계·녹지·철도가 레이어별로 열린 문서에 들어오고, 쓴 데이터의 출처와 기준일이 결과에 함께 적힙니다.
@@ -46,4 +50,6 @@ Gorani는 후원으로 운영합니다. 후원을 통해 새로운 기능이 도
 
 ## 라이선스
 
-이 저장소에는 아직 LICENSE 파일이 없습니다. 패키지마다 라이선스를 따로 적습니다: Rhino 패키지(Yak)는 MIT, Blender 확장은 GPL-3.0-or-later입니다. 자세한 내용은 [README.md](README.md#license)를 보세요.
+Gorani는 [GNU 일반 공중 사용 허가서 3판 이상](LICENSE)(GPL-3.0-or-later)을 따르는 자유 소프트웨어입니다. 누구나 쓰고, 나누고, 고칠 수 있습니다. 고친 판을 나눌 때는 그 소스도 같은 라이선스로 공개합니다.
+
+다른 사람이 만든 코드는 원래 라이선스를 따릅니다: `scripts/vendor/`의 Leaflet(BSD-2-Clause)·Pretendard(OFL-1.1), `archicad/`의 Tapir(MIT). SketchUp·Rhino 7·Archicad 패키지에 함께 든 Python·NumPy·Shapely도 각자의 라이선스를 따릅니다. 목록은 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)에 있습니다. 데이터 라이선스는 따로입니다: [docs/data_sources.md](docs/data_sources.md)를 보세요.
