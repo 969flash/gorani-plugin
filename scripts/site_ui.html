@@ -203,21 +203,19 @@ body[data-screen="history"] section[data-screen="history"] { display: block; ove
 .hist-head h2 { margin: 0; font-size: 15px; line-height: 22px; font-weight: 700; }
 .hist-group { margin-top: 12px; }
 .hist-group > .tray-h { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 11px; line-height: 16px; font-weight: 600; color: var(--ink-3); }
-.hist-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px; }
+.hist-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 4px; }   /* 폴더 · 이름 · 별·X·연필 */
+.hist-row .gap { width: 28px; height: 28px; }   /* 폴더 없는 줄 — 이름이 같은 줄에 서게 */
 .hist-acts { display: flex; align-items: center; gap: 2px; }
-.hist-acts .hov { visibility: hidden; }   /* 이름 바꾸기·지우기 — 마우스를 올렸거나 포커스일 때만(gorani.site/account와 같게) */
-.hist-row:hover .hov, .hist-row:focus-within .hov { visibility: visible; }
-.hist-acts .gap { width: 28px; height: 28px; }   /* 폴더 없는 줄 — 별이 같은 자리에 오게 */
-.hist-open { display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 6px 8px; border: 0; border-radius: 8px; background: none; text-align: left; color: var(--ink); }
+.hist-filters { display: flex; justify-content: flex-end; align-items: center; gap: 4px; }   /* [전체 | 내 PC] + ★ — 오른쪽 */
+.hist-star-filter[aria-pressed="true"] { color: var(--ink); background: var(--press); }
+.hist-star-filter[aria-pressed="true"] .ico { fill: currentColor; }
+.hist-open { display: block; width: 100%; min-height: 52px; padding: 6px 8px; border: 0; border-radius: 8px; background: none; text-align: left; color: var(--ink); }
 .hist-open:hover:not(:disabled) { background: var(--hover); }
 .hist-open .txt { display: grid; min-width: 0; }
 .hist-open .name, .hist-open .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hist-open .name { font-weight: 600; line-height: 20px; }
 .hist-open .sub { color: var(--ink-3); font-size: 12px; line-height: 18px; }
 .hist-name { width: 100%; height: 28px; }
-.hist-thumb { width: 40px; height: 40px; padding: 4px; border-radius: 8px; background: var(--press); fill: none; stroke: var(--ink-3); stroke-width: 1; }
-.hist-thumb .rg { stroke-dasharray: 2 2; }
-.hist-thumb .t { fill: var(--accent-wash); stroke: var(--accent-ink); stroke-width: 1.2; }
 .hist-star[aria-pressed="true"] { color: var(--ink); }
 .hist-star[aria-pressed="true"] .ico { fill: currentColor; }
 #hist_menu { position: fixed; z-index: 1150; min-width: 160px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, .14); padding: 4px; }
@@ -2765,7 +2763,7 @@ Object.assign(ACTIONS, {
 // 누르면 이 PC에 폴더가 있으면 결과 화면, 없으면 같은 대상지·설정으로 지도에 되살린다(restoreResultTarget). 단추 묶음 [전체 | ★], 날짜 묶음, 줄마다 별.
 // 이름 바꾸기·기록에서 빼기는 오른쪽 클릭 메뉴(화면에 단추를 늘리지 않는다). 결과 폴더는 지우지 않는다. 받기는 Python 스레드 — history_poll로 묻는다
 HIST = {
-  items: null, ok: true, star: false, back: "map", poll: null, editing: "", at: 0,   // at = 받은 시각(트레이 위 3개가 30초 안이면 다시 묻지 않는다)
+  items: null, ok: true, star: false, scope: "all", back: "map",   // scope = all | pc(이 PC에 결과 폴더가 있는 기록), star = 즐겨찾기만(범위와 따로) poll: null, editing: "", at: 0,   // at = 받은 시각(트레이 위 3개가 30초 안이면 다시 묻지 않는다)
   can: function () { return !!ACCT && ACCT.member() && (ACCT.st().features || []).indexOf("history_sync") >= 0; },
   open: function () {
     if (!this.can() || state.run === "running") return;
@@ -2796,18 +2794,26 @@ HIST = {
     var items = (this.items || []).slice(0, 3), now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(), self = this;
     if (this.items && !items.length) return null;
     var head = '<div class="tray-h">' + ico("clock") + tr("생성 기록") + '<button type="button" class="hist-link" data-act="hist_open">' + tr("전체 기록") + ico("next") + "</button></div>";
-    return head + (this.items === null ? '<div class="hint">' + tr("불러오는 중") + "</div>" : '<div class="mlist">' + items.map(function (it) { return self.rowHtml(it, today); }).join("") + "</div>");
+    return head + (this.items === null ? '<div class="hint">' + tr("불러오는 중") + "</div>" : '<div class="mlist">' + items.map(function (it) { return self.trayRowHtml(it); }).join("") + "</div>");
+  },
+  trayRowHtml: function (it) {   // 지도 트레이 한 줄 — 최근 결과 줄(recentHtml)과 같은 꼴: 방식 아이콘·이름·만든 시각, 오른쪽 X만. 누르면 지도에 다시 고른다
+    var t = new Date(+it.built_at || 0), two = function (n) { return (n < 10 ? "0" : "") + n; }, id = esc(it.id), name = it.label || "–";
+    var when = two(t.getMonth() + 1) + "-" + two(t.getDate()) + " " + two(t.getHours()) + ":" + two(t.getMinutes()), dis = state.run === "running" ? " disabled" : "";
+    return '<div class="recent-row"><button type="button" class="recent" data-act="hist_pick" data-id="' + id + '"' + dis + ">" + ico(MODE_SHORT[it.mode] ? it.mode : "lots") + "<span>" + esc(name) + '</span><span class="sub num">' + esc(when) + "</span></button>" +
+      '<button type="button" class="ib sm" data-act="hist_remove" data-id="' + id + '"' + dis + ' aria-label="' + esc(tr("기록에서 빼기") + ": " + name) + '" title="' + esc(tr("기록에서 빼기")) + '">' + ico("x") + "</button></div>";
   },
   find: function (id) { return (this.items || []).filter(function (it) { return it.id === id; })[0]; },
   render: function () {
     var sec = document.querySelector('section[data-screen="history"]'); if (!sec) return;
-    var self = this, all = this.items || [], items = all.filter(function (it) { return !self.star || it.star; });
+    var self = this, all = this.items || [], items = all.filter(function (it) { return (self.scope !== "pc" || it.dir) && (!self.star || it.star); });
     var html = '<div class="hist-head"><button type="button" class="btn ghost sm" data-act="hist_back">' + ico("back") + tr(this.back === "result" ? "결과로 돌아가기" : "지도로") +
-      '</button><h2 tabindex="-1">' + tr("생성 기록") + '</h2><span></span></div><div class="seg" role="group" aria-label="' + tr("생성 기록") + '">' +
-      segBtn("hist_filter", ' data-v="all"', !this.star, tr("전체")) + segBtn("hist_filter", ' data-v="star" aria-label="' + tr("즐겨찾기") + '" title="' + tr("즐겨찾기") + '"', this.star, ico("star")) + "</div>";
+      '</button><h2 tabindex="-1">' + tr("생성 기록") + '</h2><span></span></div><div class="hist-filters"><div class="seg" role="group" aria-label="' + tr("생성 기록") + '">' +
+      segBtn("hist_scope", ' data-v="all"', this.scope !== "pc", tr("전체")) + segBtn("hist_scope", ' data-v="pc" title="' + tr("이 PC에 결과 폴더가 있는 기록") + '"', this.scope === "pc", tr("내 PC")) + "</div>" +
+      '<button type="button" class="ib hist-star-filter" data-act="hist_star_filter" aria-pressed="' + this.star + '" aria-label="' + tr("즐겨찾기만") + '" title="' + tr("즐겨찾기만") + '">' + ico("star") + "</button></div>";
     if (!this.ok) html += '<p class="hint">' + tr("생성 기록을 받지 못했습니다") + "</p>";
     if (this.items === null) html += '<p class="hint">' + tr("불러오는 중") + "</p>";
-    else if (!items.length) html += this.ok ? '<p class="hint">' + tr("아직 생성 기록이 없습니다") + "</p>" : "";
+    else if (!items.length) html += !this.ok ? "" : !all.length ? '<p class="hint">' + tr("아직 생성 기록이 없습니다") + "</p>"
+      : '<p class="hint">' + tr(this.star ? "즐겨찾기한 기록이 없습니다" : "이 PC에서 만든 기록이 없습니다") + "</p>";
     else {
       var now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(), week = today - 6 * 864e5;
       var groups = [[tr("오늘"), []], [tr("지난 7일"), []], [tr("그 전"), []]];
@@ -2824,28 +2830,15 @@ HIST = {
     var when = t.getTime() >= today ? two(t.getHours()) + ":" + two(t.getMinutes()) : two(t.getMonth() + 1) + "-" + two(t.getDate());
     var sub = [when, +it.radius > 0 ? rangeLabel({ shape: it.shape, radius: +it.radius }) : "", it.detail === "advanced" ? tr("고급 모델") : ""].filter(Boolean).join(" · ");
     var id = esc(it.id), name = it.label || "–", lock = state.run === "running" ? " disabled" : "";
-    var star = '<button type="button" class="ib sm hist-star" data-act="hist_star" data-id="' + id + '" aria-pressed="' + !!it.star + '" aria-label="' + esc(tr("즐겨찾기") + ": " + name) + '">' + ico("star") + "</button>";
-    var btn = function (act, icon, label, cls) { return '<button type="button" class="ib sm ' + (cls || "") + '" data-act="' + act + '" data-id="' + id + '" aria-label="' + esc(label + ": " + name) + '" title="' + esc(label) + '"' + lock + ">" + ico(icon) + "</button>"; };
-    // 오른쪽 단추(gorani.site/account와 같게 — 연필은 마우스 올림, 별은 늘): 연필·휴지통(마우스 올림) · 폴더(이 PC에 결과가 있을 때만 — 누르면 결과 화면) · 별
-    var acts = '<div class="hist-acts">' + btn("hist_rename", "pen", tr("이름 바꾸기"), "hov") + btn("hist_remove", "trash", tr("기록에서 빼기"), "hov") +
-      (it.dir ? btn("hist_result", "folder", tr("결과 보기")) : '<span class="gap"></span>') + star + "</div>";
+    var btn = function (act, icon, label, extra) { return '<button type="button" class="ib sm" data-act="' + act + '" data-id="' + id + '" aria-label="' + esc(label + ": " + name) + '" title="' + esc(label) + '"' + lock + (extra || "") + ">" + ico(icon) + "</button>"; };
+    // 왼쪽 = 폴더(이 PC에 결과가 있는 기록만 — 누르면 결과 화면), 오른쪽 = 별 · X(기록에서 빼기) · 연필(이름 바꾸기) — 2026-11-27 사용자
+    var folder = it.dir ? btn("hist_result", "folder", tr("결과 보기")) : '<span class="gap"></span>';
+    var acts = '<div class="hist-acts">' + btn("hist_star", "star", tr("즐겨찾기"), ' aria-pressed="' + !!it.star + '"').replace('class="ib sm"', 'class="ib sm hist-star"') +
+      btn("hist_remove", "x", tr("기록에서 빼기")) + btn("hist_rename", "pen", tr("이름 바꾸기")) + "</div>";
     if (this.editing === it.id)
-      return '<div class="hist-row" data-id="' + id + '"><div class="hist-open">' + this.thumb(it) + '<input type="text" class="hist-name" id="hist_edit" data-id="' + id + '" value="' + esc(name) + '" maxlength="80" aria-label="' + tr("이름 바꾸기") + '"></div>' + star + "</div>";
-    return '<div class="hist-row" data-id="' + id + '"><button type="button" class="hist-open" data-act="hist_pick" data-id="' + id + '"' + lock + ' title="' + esc(tr("지도에서 같은 설정으로 다시 고릅니다")) + '">' + this.thumb(it) +
+      return '<div class="hist-row" data-id="' + id + '">' + folder + '<div class="hist-open"><input type="text" class="hist-name" id="hist_edit" data-id="' + id + '" value="' + esc(name) + '" maxlength="80" aria-label="' + tr("이름 바꾸기") + '"></div>' + acts + "</div>";
+    return '<div class="hist-row" data-id="' + id + '">' + folder + '<button type="button" class="hist-open" data-act="hist_pick" data-id="' + id + '"' + lock + ' title="' + esc(tr("지도에서 같은 설정으로 다시 고릅니다")) + '">' +
       '<span class="txt"><span class="name">' + esc(name) + '</span><span class="sub num">' + esc(sub) + "</span></span></button>" + acts + "</div>";
-  },
-  thumb: function (it) {   // 대상지 윤곽 + 범위(점선) — 경위도로 그리는 작은 그림, 3D 캡처 없음. 구역은 링, 필지·위치는 가운데 표시
-    var t = it.target || {}, c = it.center, ring = t.ring || [], r = +it.radius || 250, half = 12;
-    var range = it.shape === "rect" ? '<rect x="' + (16 - half) + '" y="' + (16 - half) + '" width="' + 2 * half + '" height="' + 2 * half + '" rx="1.5"/>' : '<circle cx="16" cy="16" r="' + half + '"/>';
-    var shape = it.mode === "point" ? '<circle class="t" cx="16" cy="16" r="2.5"/>' : '<rect class="t" x="12" y="12" width="8" height="8" rx="1"/>';
-    if (ring.length >= 3 && c && c.length === 2) {
-      var kx = Math.cos(c[1] * Math.PI / 180) * 111320, ky = 110540, s = half / r;
-      shape = '<polygon class="t" points="' + ring.map(function (p) {
-        var x = 16 + (p[0] - c[0]) * kx * s, y = 16 - (p[1] - c[1]) * ky * s;
-        return Math.max(1, Math.min(31, x)).toFixed(1) + "," + Math.max(1, Math.min(31, y)).toFixed(1);
-      }).join(" ") + '"/>';
-    }
-    return '<svg class="hist-thumb" viewBox="0 0 32 32" aria-hidden="true"><g class="rg">' + range + "</g>" + shape + "</svg>";
   },
   pick: function (id) {
     var it = this.find(id); if (!it || state.run === "running" || state.job2d === "running") return;
@@ -2895,7 +2888,8 @@ handlers.history = function (m) { HIST.onData(m); };
 Object.assign(ACTIONS, {
   hist_open: function () { var from = state.screen; HIST.open(); track("history_open", from); },
   hist_back: function () { HIST.leave(); },
-  hist_filter: function (b) { HIST.star = b.dataset.v === "star"; HIST.render(); },
+  hist_scope: function (b) { HIST.scope = b.dataset.v === "pc" ? "pc" : "all"; HIST.render(); },
+  hist_star_filter: function () { HIST.star = !HIST.star; HIST.render(); },
   hist_pick: function (b) { HIST.pick(b.dataset.id); },
   hist_star: function (b) { HIST.toggleStar(b.dataset.id); },
   hist_rename: function (b) { HIST.rename(b.dataset.id); },

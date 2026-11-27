@@ -6388,5 +6388,35 @@
   "es": "Eliminar",
   "ja": "削除",
   "zh": "删除"
+ },
+ "내 PC": {
+  "en": "This PC",
+  "es": "Este PC",
+  "ja": "このPC",
+  "zh": "本机"
+ },
+ "이 PC에 결과 폴더가 있는 기록": {
+  "en": "Records with a result folder on this PC",
+  "es": "Registros con carpeta de resultados en este PC",
+  "ja": "このPCに結果フォルダがある履歴",
+  "zh": "本机有结果文件夹的记录"
+ },
+ "즐겨찾기만": {
+  "en": "Starred only",
+  "es": "Solo favoritos",
+  "ja": "お気に入りのみ",
+  "zh": "仅收藏"
+ },
+ "즐겨찾기한 기록이 없습니다": {
+  "en": "No starred records",
+  "es": "No hay registros favoritos",
+  "ja": "お気に入りの履歴はありません",
+  "zh": "没有收藏的记录"
+ },
+ "이 PC에서 만든 기록이 없습니다": {
+  "en": "No records made on this PC",
+  "es": "No hay registros creados en este PC",
+  "ja": "このPCで作った履歴はありません",
+  "zh": "没有在本机生成的记录"
  }
 }
