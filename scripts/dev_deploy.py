@@ -90,7 +90,7 @@ MODULE_STUB = ('import sys\nraise ImportError("Gorani %s does not support Python
                ' % (__name__, sys.version_info[0], sys.version_info[1]))\n')
 COMMAND_ID = "8b0c1f5e-3d0a-4f53-9a6e-2c7e1d4b9a11"
 COMMAND_NAME = "Gorani"
-PUBLISHER = {"name": "Gorani", "email": "gorani.3d@gmail.com"}   # 패키지 관리자 '작성자'·Rhino 플러그인 정보·Blender 관리자·SketchUp 제작자 칸 — 개인 이름 대신 제품 이름(2026-11-15 사용자 지시)
+PUBLISHER = {"name": "Gorani", "email": "bsh969flash@gmail.com"}   # 패키지 관리자 '작성자'·Rhino 플러그인 정보·Blender 관리자·SketchUp 제작자 칸 — 개인 이름 대신 제품 이름(2026-11-15 사용자 지시)
 WEBSITE_URL = "https://gorani.site/en/"   # PackageManager 링크 — 영어 페이지(한국어 페이지는 거기서 링크, food4Rhino 심사 2026-10-21)
 # yak manifest — rhinocode가 쓰는 manifest.yml은 url·검색어가 비고 버전에 +빌드번호가 붙는다. PackageManager 목록·검색에 보일 내용으로 갈아 쓴다.
 # 설명은 영어를 먼저 쓴다(food4Rhino 심사 2026-10-21 — 영어가 없으면 올릴 수 없다).

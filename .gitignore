@@ -246,8 +246,7 @@ tests/fixtures/seongsu_context.db
 .vscode/
 .idea/
 
-# AI 작업 지침 — 원본은 비공개 저장소(gorani-ops). 로컬 사본만 둔다
-CLAUDE.md
+# 디자인 맥락(PRODUCT.md) 원본은 비공개 저장소(gorani-ops). 로컬 사본만 둔다
 PRODUCT.md
 .claude/
 
