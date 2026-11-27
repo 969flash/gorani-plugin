@@ -129,8 +129,7 @@ html:lang(zh-Hans) body { font-family: -apple-system, "PingFang SC", "Microsoft 
 .hdr-login { height: 28px; padding: 0 10px; font-size: 12px; }
 #acct_pop { position: absolute; top: 44px; right: 8px; z-index: 1100; width: 248px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, .14); padding: 4px 0; }
 #acct_pop[hidden] { display: none; }
-#acct_btn { color: var(--ink); }   /* 로그인한 사람 — 웹 머리줄 .account-link.signed-in과 같게 */
-#acct_btn .ico { width: 17px; height: 17px; }   /* 꽉 찬 사람이 지구본·메뉴 선 아이콘보다 작아 보여 웹처럼 17 px */
+#acct_btn .avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--ink); color: var(--on-ink); display: grid; place-items: center; font-size: 12px; line-height: 1; font-weight: 700; text-transform: uppercase; }   /* 로그인 표시 — 메일 머리글자(주 버튼과 같은 잉크, 다크에서는 밝게) */
 #acct_pop .who { display: grid; padding: 10px 12px 10px; min-width: 0; }
 #acct_pop .who .mail { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #acct_pop .who small { color: var(--ink-3); font-size: 11px; line-height: 16px; }
@@ -2649,7 +2648,6 @@ var handlers = {
 // [blender-cut] 회원 — 로그인은 시스템 브라우저(gorani.site/login/)에서, 패널은 계정 상태와 권한만 본다(docs/account_plan.md).
 // 손님이 '고급'을 고르면 플랜 창(Guest · Member), 머리줄 [로그인]·처음 만들기는 작은 로그인 창. 기다리는 동안 account_poll로 묻는다
 var G_LOGO = '<svg class="g" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';   // Google G(브랜드 지침 — 로그인 단추에만)
-var ACCT_ICON = '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="5.5" r="3" fill="currentColor" stroke="none"/><path d="M2.5 13.75c.6-2.85 2.85-4.75 5.5-4.75s4.9 1.9 5.5 4.75z" fill="currentColor" stroke="none"/></svg>';   // 로그인한 사람 — gorani.site 머리줄 i-user-on(꽉 찬 사람)과 같게(2026-11-27 사용자)
 ACCT = {
   trial: false, pending: null, poll: null, kind: null,
   st: function () { return (state.init && state.init.account) || { enabled: false }; },
@@ -2668,7 +2666,7 @@ ACCT = {
     if (!s.enabled) { slot.innerHTML = ""; return; }
     slot.innerHTML = this.member()
       ? '<button type="button" class="ib" id="acct_btn" data-act="acct_menu" aria-haspopup="true" aria-expanded="' + !$("acct_pop").hidden + '" aria-label="' + tr("계정") +
-        '" title="' + esc(s.email || "") + '"' + busy + ">" + ACCT_ICON + "</button>"
+        '" title="' + esc(s.email || "") + '"' + busy + '><span class="avatar" aria-hidden="true">' + esc((s.email || "?").charAt(0)) + "</span></button>"   // 로그인 — 메일 머리글자 동그라미(검정, 2026-11-27 사용자)
       : '<button type="button" class="btn sm hdr-login" data-act="acct_open"' + busy + ">" + tr("로그인") + "</button>";
   },
   togglePop: function () {
