@@ -2590,6 +2590,7 @@ var handlers = {
     announce(tr("지난 결과를 열었습니다"));
   },
   made_2d: function (m) {
+    if (HIST && m.ok) HIST.at = 0;   // 기록에 2D 요약이 붙었다 — 다음에 다시 받는다
     clearInterval(timers.elapsed);
     if (!state.result || m.dir !== state.result.dir) return;
     if (m.ok) {
@@ -2831,7 +2832,8 @@ HIST = {
   rowHtml: function (it, today) {
     var t = new Date(+it.built_at || 0), two = function (n) { return (n < 10 ? "0" : "") + n; };
     var when = t.getTime() >= today ? two(t.getHours()) + ":" + two(t.getMinutes()) : two(t.getMonth() + 1) + "-" + two(t.getDate());
-    var sub = [when, +it.radius > 0 ? rangeLabel({ shape: it.shape, radius: +it.radius }) : "", it.detail === "advanced" ? tr("고급 모델") : ""].filter(Boolean).join(", ");   // 쉼표 — 최근 결과 줄·3D 설정 요약과 같게(2026-11-27 사용자, 가운뎃점 뺌)
+    var m2 = it.made_2d || {}, has2d = !!(m2.basemap || +m2.sheets > 0 || m2.tables);   // 2D를 만든 기록 — 끝에 '2D'(웹 계정 페이지 '2D 자료' 칸과 같은 값)
+    var sub = [when, +it.radius > 0 ? rangeLabel({ shape: it.shape, radius: +it.radius }) : "", it.detail === "advanced" ? tr("고급 모델") : "", has2d ? "2D" : ""].filter(Boolean).join(", ");   // 쉼표 — 최근 결과 줄·3D 설정 요약과 같게(2026-11-27 사용자, 가운뎃점 뺌)
     var id = esc(it.id), name = it.label || "–", lock = state.run === "running" ? " disabled" : "";
     var btn = function (act, icon, label, extra) { return '<button type="button" class="ib sm" data-act="' + act + '" data-id="' + id + '" aria-label="' + esc(label + ": " + name) + '" title="' + esc(label) + '"' + lock + (extra || "") + ">" + ico(icon) + "</button>"; };
     // 왼쪽 = 폴더(이 PC에 결과가 있는 기록만 — 누르면 결과 화면), 오른쪽 = 연필(이름 바꾸기, 마우스 올림 — gorani.site/account와 같게) · X(기록에서 빼기) · 별(맨 오른쪽 — 위 ★ 필터와 한 줄) — 2026-11-27 사용자
@@ -2931,7 +2933,7 @@ if (MOCK) {
   var mockHistory = function () {
     var now = Date.now(), h = 36e5, day = 864e5;
     return { type: "history", ok: true, items: /[?&]hist=0/.test(location.search) ? [] : [
-      { id: "a", label: "성수동2가 277-17 외 1", built_at: now - 2 * h, mode: "lots", shape: "rect", radius: 500, detail: "advanced", star: true, target: { pnus: ["1120011500102770017"] }, center: [127.0565, 37.5445], options: {}, dir: "/mock/result" },
+      { id: "a", label: "성수동2가 277-17 외 1", built_at: now - 2 * h, mode: "lots", shape: "rect", radius: 500, detail: "advanced", star: true, target: { pnus: ["1120011500102770017"] }, center: [127.0565, 37.5445], options: {}, dir: "/mock/result", made_2d: { basemap: "A3", sheets: 9, tables: true } },
       { id: "b", label: "을지로3가 구역", built_at: now - 5 * h, mode: "area", shape: "rect", radius: 1000, detail: "basic", star: false, center: [126.992, 37.566], options: {},
         target: { ring: [[126.9895, 37.5672], [126.9946, 37.5675], [126.9949, 37.5651], [126.9898, 37.5647]] } },
       { id: "c", label: "연남동 239-5", built_at: now - 2 * day, mode: "lots", shape: "circle", radius: 500, detail: "advanced", star: false, target: { pnus: ["1144012400102390005"] }, center: [126.9236, 37.5627], options: {} },

@@ -226,7 +226,7 @@
 - 이름 바꾸기·기록에서 빼기(계정 기록 지우기)는 줄의 연필·X와 오른쪽 클릭 메뉴. 지우기는 확인 창(되돌릴 수 없다). 결과 폴더는 지우지 않는다(이전 결과는 지우지 않는다는 원칙).
 
 **동기화**
-- 회원이 3D 생성을 끝내면(성공만) 데몬 스레드로 RTDB에 PUT. 실패·오프라인이면 `account.json`의 `pending_history`에 두었다가 다음 확인 때 보낸다. 이름·고정(PATCH)·지우기(DELETE)도 같은 줄.
+- 회원이 3D 생성을 끝내면(성공만) 데몬 스레드로 RTDB에 PUT. 그 결과에 2D를 만들면(성공만) 같은 줄에 `made_2d`(JSON 글 `{basemap: 용지, sheets: 장수, tables}` — 웹 계정 페이지 '2D 자료' 칸, 패널 줄 끝 `2D`)를 PATCH — 3D 줄이 아직 보내지 못한 줄에 있으면 그것을 고친다(`account.set_made_2d`, 2026-11-27 사용자). 실패·오프라인이면 `account.json`의 `pending_history`에 두었다가 다음 확인 때 보낸다. 이름·고정(PATCH)·지우기(DELETE)도 같은 줄.
 - 생성 기록 화면을 열 때 `users/<uid>/history.json`을 한 번에 받는다. 이 PC에 폴더가 있는 기록은 생성 때 `context.json`에 적는 무작위 `entry_id`(칸 더하기라 옛 결과도 그대로 읽힌다)로 짝짓는다.
 
 ## 사용자 흐름 — 웹페이지(gorani.site)
