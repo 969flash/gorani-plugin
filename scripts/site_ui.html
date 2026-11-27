@@ -206,7 +206,9 @@ body[data-screen="history"] section[data-screen="history"] { display: block; ove
 .hist-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 4px; }   /* 폴더 · 이름 · 별·X·연필 */
 .hist-row .gap { width: 28px; height: 28px; }   /* 폴더 없는 줄 — 이름이 같은 줄에 서게 */
 .hist-acts { display: flex; align-items: center; gap: 2px; }
-.hist-filters { display: flex; justify-content: flex-end; align-items: center; gap: 4px; }   /* [전체 | 내 PC] + ★ — 오른쪽 */
+.hist-acts .hov { visibility: hidden; }   /* 연필 — 줄에 마우스를 올렸거나 포커스일 때만(자리는 남겨 별이 움직이지 않게) */
+.hist-row:hover .hov, .hist-row:focus-within .hov { visibility: visible; }
+.hist-filters { display: flex; justify-content: space-between; align-items: center; gap: 4px; }   /* [전체 | 내 PC] 왼쪽, ★ 오른쪽 — 줄의 별과 한 세로줄 */
 .hist-star-filter[aria-pressed="true"] { color: var(--ink); background: var(--press); }
 .hist-star-filter[aria-pressed="true"] .ico { fill: currentColor; }
 .hist-open { display: block; width: 100%; min-height: 52px; padding: 6px 8px; border: 0; border-radius: 8px; background: none; text-align: left; color: var(--ink); }
@@ -2809,7 +2811,7 @@ HIST = {
     var html = '<div class="hist-head"><button type="button" class="btn ghost sm" data-act="hist_back">' + ico("back") + tr(this.back === "result" ? "결과로 돌아가기" : "지도로") +
       '</button><h2 tabindex="-1">' + tr("생성 기록") + '</h2><span></span></div><div class="hist-filters"><div class="seg" role="group" aria-label="' + tr("생성 기록") + '">' +
       segBtn("hist_scope", ' data-v="all"', this.scope !== "pc", tr("전체")) + segBtn("hist_scope", ' data-v="pc" title="' + tr("이 PC에 결과 폴더가 있는 기록") + '"', this.scope === "pc", tr("내 PC")) + "</div>" +
-      '<button type="button" class="ib hist-star-filter" data-act="hist_star_filter" aria-pressed="' + this.star + '" aria-label="' + tr("즐겨찾기만") + '" title="' + tr("즐겨찾기만") + '">' + ico("star") + "</button></div>";
+      '<button type="button" class="ib sm hist-star-filter" data-act="hist_star_filter" aria-pressed="' + this.star + '" aria-label="' + tr("즐겨찾기만") + '" title="' + tr("즐겨찾기만") + '">' + ico("star") + "</button></div>";
     if (!this.ok) html += '<p class="hint">' + tr("생성 기록을 받지 못했습니다") + "</p>";
     if (this.items === null) html += '<p class="hint">' + tr("불러오는 중") + "</p>";
     else if (!items.length) html += !this.ok ? "" : !all.length ? '<p class="hint">' + tr("아직 생성 기록이 없습니다") + "</p>"
@@ -2831,10 +2833,10 @@ HIST = {
     var sub = [when, +it.radius > 0 ? rangeLabel({ shape: it.shape, radius: +it.radius }) : "", it.detail === "advanced" ? tr("고급 모델") : ""].filter(Boolean).join(" · ");
     var id = esc(it.id), name = it.label || "–", lock = state.run === "running" ? " disabled" : "";
     var btn = function (act, icon, label, extra) { return '<button type="button" class="ib sm" data-act="' + act + '" data-id="' + id + '" aria-label="' + esc(label + ": " + name) + '" title="' + esc(label) + '"' + lock + (extra || "") + ">" + ico(icon) + "</button>"; };
-    // 왼쪽 = 폴더(이 PC에 결과가 있는 기록만 — 누르면 결과 화면), 오른쪽 = 별 · X(기록에서 빼기) · 연필(이름 바꾸기) — 2026-11-27 사용자
+    // 왼쪽 = 폴더(이 PC에 결과가 있는 기록만 — 누르면 결과 화면), 오른쪽 = X(기록에서 빼기) · 연필(이름 바꾸기, 마우스 올림 — gorani.site/account와 같게) · 별(맨 오른쪽 — 위 ★ 필터와 한 줄) — 2026-11-27 사용자
     var folder = it.dir ? btn("hist_result", "folder", tr("결과 보기")) : '<span class="gap"></span>';
-    var acts = '<div class="hist-acts">' + btn("hist_star", "star", tr("즐겨찾기"), ' aria-pressed="' + !!it.star + '"').replace('class="ib sm"', 'class="ib sm hist-star"') +
-      btn("hist_remove", "x", tr("기록에서 빼기")) + btn("hist_rename", "pen", tr("이름 바꾸기")) + "</div>";
+    var acts = '<div class="hist-acts">' + btn("hist_remove", "x", tr("기록에서 빼기")) + btn("hist_rename", "pen", tr("이름 바꾸기")).replace('class="ib sm"', 'class="ib sm hov"') +
+      btn("hist_star", "star", tr("즐겨찾기"), ' aria-pressed="' + !!it.star + '"').replace('class="ib sm"', 'class="ib sm hist-star"') + "</div>";
     if (this.editing === it.id)
       return '<div class="hist-row" data-id="' + id + '">' + folder + '<div class="hist-open"><input type="text" class="hist-name" id="hist_edit" data-id="' + id + '" value="' + esc(name) + '" maxlength="80" aria-label="' + tr("이름 바꾸기") + '"></div>' + acts + "</div>";
     return '<div class="hist-row" data-id="' + id + '">' + folder + '<button type="button" class="hist-open" data-act="hist_pick" data-id="' + id + '"' + lock + ' title="' + esc(tr("지도에서 같은 설정으로 다시 고릅니다")) + '">' +
