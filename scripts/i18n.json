@@ -6418,5 +6418,17 @@
   "es": "Al historial",
   "ja": "生成履歴へ",
   "zh": "前往生成记录"
+ },
+ "이 PC에 결과가 있습니다": {
+  "en": "This PC has the result",
+  "es": "Este PC tiene el resultado",
+  "ja": "このPCに結果があります",
+  "zh": "本机有该结果"
+ },
+ "결과 열기": {
+  "en": "Open result",
+  "es": "Abrir resultado",
+  "ja": "結果を開く",
+  "zh": "打开结果"
  }
 }
