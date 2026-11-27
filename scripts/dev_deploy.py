@@ -131,7 +131,7 @@ description: |-
   - 2D: 일러스트레이터 베이스맵, 현황도·분석도, DWG(라이노 8, 9), 조서 CSV
   - 고급 모델(파라펫·층 구분선·노면 표시·가로수·철도·옹벽): 구글 계정으로 로그인하면 무료, 로그인 없이 3번 써 볼 수 있습니다
   - 데이터: 국내 전국, 공식 건물 데이터(높이 포함)가 있는 나라는 그것(일본·네덜란드·프랑스·스위스·미국 등 — 플러그인 업데이트 없이 늘어납니다, 웹사이트 참고), 그 밖은 OpenStreetMap
-license: MIT
+license: GPL-3.0-or-later
 url: %(url)s
 icon: icon.png
 keywords:
@@ -165,7 +165,7 @@ keywords:
 PLAIN_SCRIPT_NAMES = ("loader.py", "cmd_site.py")         # 입출력 연결뿐이라 감출 로직이 없다
 UI_FILE_NAMES = ("site_ui.html", "i18n.json")   # i18n.json = 다국어 사전(패널 tr()·로직 모듈 i18n.tr 공용)
 UI_DIR_NAMES = ("vendor",)
-DOC_FILE_NAMES = ("docs/install.md",)
+DOC_FILE_NAMES = ("docs/install.md", "LICENSE", "THIRD_PARTY_NOTICES.md")   # 패키지에 함께 넣는 문서 — 설치 안내 + 약관 사본(GPL 4조: 받는 사람에게 약관 사본)
 EXCLUDED_MODULE_PREFIXES = ("dev_", "cmd_", "probe_", "server_", "blender_", "sketchup_", "archicad_", "web_")     # 개발·실측 전용, 진입 스크립트, 국내 서버(VM) 전용, Blender·SketchUp·웹판
 YAK_EXCLUDED_NAMES = ("mesh_geometry", "panel_server")      # Blender·SketchUp 공용(mathutils·shapely, 브라우저 패널) — Rhino는 안 쓴다
 
@@ -430,7 +430,7 @@ def _build_plugin(project_dir):
         "host": {"name": "Rhino3D", "version": "8.35", "os": "macOS", "arch": "arm64"},
         "id": PLUGIN_ID,
         "identity": {
-            "name": PACKAGE_NAME, "version": PACKAGE_VERSION, "publisher": PUBLISHER, "license": "MIT",
+            "name": PACKAGE_NAME, "version": PACKAGE_VERSION, "publisher": PUBLISHER, "license": "GPL-3.0-or-later",
             "description": "Site context models for urban design: 3D buildings, roads, terrain and water, basemap and analysis maps. Command: Gorani",
         },
         "settings": {
