@@ -2833,9 +2833,9 @@ HIST = {
     var sub = [when, +it.radius > 0 ? rangeLabel({ shape: it.shape, radius: +it.radius }) : "", it.detail === "advanced" ? tr("고급 모델") : ""].filter(Boolean).join(" · ");
     var id = esc(it.id), name = it.label || "–", lock = state.run === "running" ? " disabled" : "";
     var btn = function (act, icon, label, extra) { return '<button type="button" class="ib sm" data-act="' + act + '" data-id="' + id + '" aria-label="' + esc(label + ": " + name) + '" title="' + esc(label) + '"' + lock + (extra || "") + ">" + ico(icon) + "</button>"; };
-    // 왼쪽 = 폴더(이 PC에 결과가 있는 기록만 — 누르면 결과 화면), 오른쪽 = X(기록에서 빼기) · 연필(이름 바꾸기, 마우스 올림 — gorani.site/account와 같게) · 별(맨 오른쪽 — 위 ★ 필터와 한 줄) — 2026-11-27 사용자
+    // 왼쪽 = 폴더(이 PC에 결과가 있는 기록만 — 누르면 결과 화면), 오른쪽 = 연필(이름 바꾸기, 마우스 올림 — gorani.site/account와 같게) · X(기록에서 빼기) · 별(맨 오른쪽 — 위 ★ 필터와 한 줄) — 2026-11-27 사용자
     var folder = it.dir ? btn("hist_result", "folder", tr("결과 보기")) : '<span class="gap"></span>';
-    var acts = '<div class="hist-acts">' + btn("hist_remove", "x", tr("기록에서 빼기")) + btn("hist_rename", "pen", tr("이름 바꾸기")).replace('class="ib sm"', 'class="ib sm hov"') +
+    var acts = '<div class="hist-acts">' + btn("hist_rename", "pen", tr("이름 바꾸기")).replace('class="ib sm"', 'class="ib sm hov"') + btn("hist_remove", "x", tr("기록에서 빼기")) +
       btn("hist_star", "star", tr("즐겨찾기"), ' aria-pressed="' + !!it.star + '"').replace('class="ib sm"', 'class="ib sm hist-star"') + "</div>";
     if (this.editing === it.id)
       return '<div class="hist-row" data-id="' + id + '">' + folder + '<div class="hist-open"><input type="text" class="hist-name" id="hist_edit" data-id="' + id + '" value="' + esc(name) + '" maxlength="80" aria-label="' + tr("이름 바꾸기") + '"></div>' + acts + "</div>";
