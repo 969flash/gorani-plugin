@@ -923,15 +923,20 @@ function applyMode(m) {
   send({ cmd: "save_prefs", options: state.options });
 }
 var SEG = function (name, val, label, extra) { return '<label><input type="radio" name="' + name + '" value="' + val + '"' + (extra || "") + ">" + label + "</label>"; };
+// 트레이 높이 애니메이션 멈추기 — 창이 가려진 문서(document.hidden)에서는 애니메이션 시계가 멈춰 트레이가 시작 높이(8 px까지)에 남는다
+// (2026-11-27 Rhino 8 실측: 패널이 뒤에 있을 때 대상지를 고르면 8 px). 지우면 바로 내용 높이가 된다
+function stopTrayAnimation(slot) { if (slot && slot.getAnimations) slot.getAnimations().forEach(function (a) { a.cancel(); }); }
+document.addEventListener("visibilitychange", function () { if (document.hidden) stopTrayAnimation($("tray")); });   // 도는 중에 가려져도 남지 않게
 function renderTray() {
   var slot = $("tray"); if (!slot) return;
+  stopTrayAnimation(slot);   // 앞 애니메이션이 남아 있으면 지금 높이를 잘못 잰다
   var open = { s3d: !!($("s3d") && $("s3d").open), more: !!($("lot_more") && $("lot_more").open) };
   if (!slot.dataset.scrollWatch) { slot.dataset.scrollWatch = "1"; slot.addEventListener("scroll", function () { slot.classList.toggle("scrolled", slot.scrollTop > 0); }); }
   var full = hasTarget() && !busyTarget(), before = slot.offsetHeight;
   slot.innerHTML = targetHtml(open.more) + (full ? rangeHtml() + flattenHtml() + settingsHtml(open.s3d) + levelHtml() : emptyTrayHtml()) + '<div id="tray_err"></div>';
   slot.classList.toggle("full", full);   // 대상지를 고르면 트레이가 올라온다(전에는 내용만큼 — 지도가 크게)
   var after = slot.offsetHeight;   // 높이가 바뀌면(올라오기·수준 바꾸기) 부드럽게 — 지도는 ResizeObserver가 따라간다
-  if (before && after !== before && slot.animate && !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+  if (before && after !== before && slot.animate && !document.hidden && !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) {
     slot.animate([{ height: before + "px" }, { height: after + "px" }], { duration: 220, easing: "ease-out" });
   }
   slot.classList.toggle("scrolled", slot.scrollTop > 0);

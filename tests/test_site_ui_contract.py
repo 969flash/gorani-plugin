@@ -350,5 +350,15 @@ class OpenPathTest(unittest.TestCase):
                 cmd_site.resolve_open_path("없는폴더/파일.txt", root=tmp)
 
 
+class TrayAnimationTest(unittest.TestCase):
+    def test_no_tray_animation_while_hidden(self):   # 창이 가려진 문서에서는 애니메이션 시계가 멈춰 트레이가 8 px에 남았다(2026-11-27 Rhino 8)
+        html = (Path(__file__).resolve().parents[1] / "scripts" / "site_ui.html").read_text(encoding="utf-8")
+        body = html[html.index("function renderTray()"):]
+        body = body[:body.index("\n}\n")]
+        self.assertIn("stopTrayAnimation(slot)", body)   # 앞 애니메이션을 지우고 높이를 잰다
+        self.assertIn("!document.hidden", body)          # 가려졌으면 애니메이션 없이 바로 내용 높이
+        self.assertIn('addEventListener("visibilitychange"', html)   # 도는 중에 가려지면 지운다
+
+
 if __name__ == "__main__":
     unittest.main()
