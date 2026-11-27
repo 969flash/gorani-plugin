@@ -587,12 +587,6 @@
   "ja": "等高線模型のように段ごとに平らな地形",
   "zh": "像等高线模型一样逐级平整的地形"
  },
- "평평하게 할 높이": {
-  "en": "Flatten to height",
-  "es": "Altura de aplanado",
-  "ja": "平坦化する高さ",
-  "zh": "平整高度"
- },
  "경계 평균 높이": {
   "en": "Mean boundary height",
   "es": "Altura media del límite",
@@ -5891,12 +5885,6 @@
   "ja": "作った2D {0}件",
   "zh": "已生成 {0} 套 2D"
  },
- "대상지 땅 평평하게": {
-  "en": "Flatten site ground",
-  "es": "Aplanar el terreno del sitio",
-  "ja": "対象地の地面を平らに",
-  "zh": "将场地地面整平"
- },
  "주소": {
   "en": "Address",
   "es": "Dirección",
@@ -5957,12 +5945,6 @@
   "ja": "縁石",
   "zh": "路缘石"
  },
- "노면표시": {
-  "en": "Road markings",
-  "es": "Marcas viales",
-  "ja": "路面標示",
-  "zh": "路面标线"
- },
  "가로수": {
   "en": "Street trees",
   "es": "Árboles",
@@ -5986,12 +5968,6 @@
   "es": "Líneas de planta",
   "ja": "階の線",
   "zh": "楼层线"
- },
- "{0} 끔": {
-  "en": "{0} off",
-  "es": "{0} desactivado",
-  "ja": "{0} オフ",
-  "zh": "{0} 关闭"
  },
  "차도를 15 cm 내려 인도와 단차를 둡니다": {
   "en": "Lowers roadways 15 cm below sidewalks",
@@ -6430,5 +6406,53 @@
   "es": "Abre el resultado anterior de este PC sin regenerarlo (para crear 2D)",
   "ja": "作り直さずにこのPCの前の結果を開きます(2D作成)",
   "zh": "不重新生成,打开本机之前的结果(用于生成2D)"
+ },
+ "노면 표시": {
+  "en": "Road markings",
+  "es": "Marcas viales",
+  "ja": "路面標示",
+  "zh": "路面标线"
+ },
+ "평탄화": {
+  "en": "Flatten",
+  "es": "Aplanar",
+  "ja": "平坦化",
+  "zh": "整平"
+ },
+ "평균": {
+  "en": "Mean",
+  "es": "Media",
+  "ja": "平均",
+  "zh": "平均"
+ },
+ "최저": {
+  "en": "Lowest",
+  "es": "Mínima",
+  "ja": "最低",
+  "zh": "最低"
+ },
+ "최고": {
+  "en": "Highest",
+  "es": "Máxima",
+  "ja": "最高",
+  "zh": "最高"
+ },
+ "지형 유지": {
+  "en": "Keep terrain",
+  "es": "Mantener terreno",
+  "ja": "地形のまま",
+  "zh": "保留地形"
+ },
+ "경계 높이": {
+  "en": "Boundary height",
+  "es": "Altura del límite",
+  "ja": "境界の高さ",
+  "zh": "边界高度"
+ },
+ "대상지 경계 안의 땅을 한 높이로 고릅니다": {
+  "en": "Levels the ground inside the site boundary to one height",
+  "es": "Nivela el terreno dentro del límite del sitio a una sola altura",
+  "ja": "対象地の境界内の地面を一つの高さにならします",
+  "zh": "将场地边界内的地面整平到同一高度"
  }
 }

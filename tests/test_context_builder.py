@@ -166,13 +166,15 @@ class SourceHelperTest(unittest.TestCase):
 
 
 class DetailLevelTest(unittest.TestCase):
-    def test_level_sets_advanced_options(self):   # 패널 '수준'이 고급 6종을 한꺼번에 — 옛 prefs의 키마다 값보다 앞선다(2026-11-16)
+    def test_level_sets_advanced_options(self):   # 기본이면 고급 6종을 끈다, 고급이면 체크박스 값 그대로(2026-11-27)
         keys = constants.FEATURES["detail_advanced"]["options"]
         stale = dict.fromkeys(keys, True)
         basic = context_builder.get_request_with_defaults({"options": dict(stale, detail_level="basic")})["options"]
         self.assertEqual([basic[k] for k in keys], [False] * len(keys))
-        advanced = context_builder.get_request_with_defaults({"options": dict(dict.fromkeys(keys, False), detail_level="advanced")})["options"]
-        self.assertEqual([advanced[k] for k in keys], [True] * len(keys))
+        picked = dict(dict.fromkeys(keys, True), detail_trees=False)
+        advanced = context_builder.get_request_with_defaults({"options": dict(picked, detail_level="advanced")})["options"]
+        self.assertEqual([advanced[k] for k in keys], [picked[k] for k in keys])
+        self.assertTrue(context_builder.get_request_with_defaults({"options": {"detail_level": "advanced"}})["options"]["building_parapet"])   # 키가 없으면 엔진 기본(켬)
         self.assertTrue(basic["detail_curb"] and basic["detail_bridges"])   # 연석(3D 설정)·교량(늘 켬)은 수준과 따로
 
     def test_no_level_keeps_keys(self):   # 수준이 없는 요청(시험 드라이버)은 키마다 값 그대로
